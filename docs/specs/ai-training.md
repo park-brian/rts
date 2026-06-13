@@ -136,9 +136,12 @@ AlphaStar league structure at small scale:
 
 - Periodically **distill** the league's specialists into one robust **main agent**
   (Kickstarting): fewer steps, higher final performance, and a single cheap network to ship.
-- The shipped agent must run **WASM-side at interaction speed on a phone** (or via a thin
-  inference service). Quantize / shrink as needed; the autoregressive action decoding must
-  fit a real-time budget. Enforce **APM caps + reaction delay** for fair human matches.
+- The shipped agent must run **100% client-side, at interaction speed on a phone** — the game is
+  a static GitHub Pages bundle with **no inference server** (see
+  [architecture: static deployment](./architecture.md#static-deployment-github-pages)). Target
+  in-browser inference via **ONNX Runtime Web / WASM** (single-threaded — no SharedArrayBuffer on
+  Pages) or a small hand-written inference path. Quantize / shrink so the autoregressive action
+  decoding fits a real-time budget. Enforce **APM caps + reaction delay** for fair human matches.
 
 ## 9. Throughput plan (the real lever)
 

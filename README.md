@@ -6,6 +6,10 @@ AlphaStar). Fully playable in the browser against a computer opponent — with o
 teammates and a variety of maps — and architected so the AI can be swapped for human players
 over a network without touching the simulation.
 
+It ships as a **static, 100% client-side bundle deployable to GitHub Pages** (no server): the
+whole single-player game — simulation, scripted AI, rendering, and eventual neural-net inference
+— runs entirely in the browser. Network multiplayer is additive and never required.
+
 > **Status: design phase.** This commit establishes the vision, full game specification, engine
 > architecture, mobile-UI design, AI/training plan, and a researched reference library. Code
 > implementation begins next, starting with a Terran-only vertical slice.
@@ -126,7 +130,8 @@ python3 docs/scripts/fetch_papers.py
 
 1. **Foundations (this commit):** vision, specs, architecture, UI design, AI plan, research. ✅
 2. **Terran vertical slice:** TypeScript sim core (economy, a few buildings/units, combat, fog,
-   one map, win condition) + mobile UI in the browser + a scripted opponent.
+   one map, win condition) + mobile UI in the browser + a scripted opponent — **deployed to
+   GitHub Pages** so the static, standalone path is validated from the first playable build.
 3. **AI loop:** Gym-like env interface + Worker-pool parallelism, scripted bot ladder,
    behavior-cloning warmstart, PPO fine-tune.
 4. **Superhuman:** self-play + PFSP league + PBT; distill; APM/reaction constraints; human eval.

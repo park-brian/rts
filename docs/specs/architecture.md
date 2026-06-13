@@ -14,8 +14,10 @@
 
 These goals are in tension; the architecture exists to resolve them:
 
-1. **Browser-playable** vs. a computer opponent, with optional computer teammates, on a variety
-   of maps. Mobile-first (small vertical screens).
+1. **Browser-playable, fully standalone.** Plays vs. a computer opponent, with optional computer
+   teammates, on a variety of maps. Mobile-first (small vertical screens). Ships as a **static,
+   100% client-side bundle deployable to GitHub Pages — no server.** The whole single-player
+   game (sim + scripted AI + rendering + eventual NN inference) runs in the browser.
 2. **High simulation throughput** so we can iterate over many games for training. Headless must
    run far faster than real time and scale to many parallel instances.
 3. **Deterministic & reproducible.** The same inputs always produce the same game. Required for:
@@ -163,6 +165,26 @@ Controller:  observe(Observation) -> PlayerCommands
   touch controls, selection, command palette, minimap, all designed for a tall narrow screen,
   verified with Playwright screenshots throughout development.
 - The browser drives the sim on a fixed-timestep loop (accumulator) decoupled from render.
+
+### Static deployment (GitHub Pages)
+
+The published artifact is a **static, fully client-side bundle** (HTML + JS + assets) — no
+server. Constraints this imposes, baked in from the start:
+
+- **No backend.** Single-player vs. computer runs entirely in-browser (sim + scripted AI +
+  render + later NN inference). esbuild outputs a static bundle that drops straight onto Pages.
+- **Subpath-safe.** Pages serves from `/<repo>/`, so the build uses **relative / configurable
+  base paths** for all asset and module references.
+- **No cross-origin isolation.** Pages can't set the COOP/COEP headers that `SharedArrayBuffer`
+  requires, so we **never depend on SAB** — any future in-browser WASM stays single-threaded or
+  uses plain message-passing Web Workers. (This is also why heavy parallel training stays in
+  Node/native, not the browser.)
+- **Client-side AI inference.** The shipped agent runs in the browser (e.g. ONNX Runtime
+  Web / WASM, or a small hand-written inference path) — see [`ai-training.md`](./ai-training.md).
+- **Network play is additive, never required.** Multiplayer would add a separate
+  signaling/relay service; the standalone static game must always work on its own.
+- Deployment is a single static-publish step (e.g. a GitHub Actions build → Pages); the headless
+  Node training side is dev-only and never deployed.
 
 ## 7. Training & headless (Node)
 
