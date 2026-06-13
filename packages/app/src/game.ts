@@ -4,8 +4,9 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Kind, Units, Role,
-  slotOf, eid, isEnemy, isAlive, NEUTRAL,
+  slotOf, eid, isEnemy, isAlive, NEUTRAL, toReplay, mapFromSpec,
   type MapDef, type Command, type PlayerCommands, type Controller,
+  type Replay, type MapSpec,
 } from './sim.ts';
 import { ui, type Mode } from './store.ts';
 
@@ -27,6 +28,12 @@ export class Game {
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
+  // replay viewer state (mode === 'replay')
+  replay: Replay | null = null;
+  replayTick = 0;
+  replaySpeed = 1;
+  paused = false;
+
   visible!: Uint8Array; // per-tile, human vision this frame
   explored!: Uint8Array;
   private acc = 0;
@@ -38,12 +45,14 @@ export class Game {
   }
 
   restart(mode: Mode, seed = (Math.random() * 1e9) | 0, perTeam = this.perTeam): void {
+    if (mode === 'replay') { this.startReplay(); return; } // toggle into watching the last game
     this.mode = mode;
     this.seed = seed;
     this.perTeam = perTeam;
+    this.replay = null;
     const players = perTeam * 2;
     this.map = generateMap(perTeam, seed);
-    this.sim = new Sim({ map: this.map, players, seed });
+    this.sim = new Sim({ map: this.map, players, seed, record: true }); // record so the game is replayable
     const bots = createBotControllers(players);
     this.human = mode === 'play' ? 0 : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === 0 ? null : bots[p]!));
@@ -55,8 +64,72 @@ export class Game {
     ui.perTeam.value = perTeam;
     ui.placement.value = 0;
     ui.amove.value = false;
+    ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
+  }
+
+  private mapSpec(): MapSpec {
+    return { kind: 'procedural', perTeam: this.perTeam, seed: this.seed };
+  }
+
+  /** Switch into replay playback. With no argument, watch the game just played. */
+  startReplay(replay?: Replay): void {
+    const r = replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
+    if (!r || r.frames.length === 0) return;
+    this.replay = r;
+    this.mode = 'replay';
+    this.perTeam = r.map.kind === 'procedural' ? r.map.perTeam : this.perTeam;
+    this.seed = r.map.kind === 'procedural' ? r.map.seed : this.seed;
+    this.map = mapFromSpec(r.map);
+    this.human = -1; // god view for analysis
+    this.controllers = [];
+    this.selection.clear();
+    this.queued = [];
+    this.visible = new Uint8Array(this.map.w * this.map.h);
+    this.explored = new Uint8Array(this.map.w * this.map.h);
+    this.replaySpeed = 1;
+    this.paused = false;
+    this.seekReplay(0);
+    ui.mode.value = 'replay';
+    ui.replayTotal.value = r.frames.length;
+    ui.replaySpeed.value = 1;
+    ui.paused.value = false;
+    ui.over.value = false;
+    this.framed = false;
+    if (this.viewW > 1) this.frame();
+  }
+
+  /** Rebuild the replay sim and fast-forward to `tick` (scrubbing). */
+  seekReplay(tick: number): void {
+    if (!this.replay) return;
+    const r = this.replay;
+    const target = Math.max(0, Math.min(tick, r.frames.length));
+    this.sim = new Sim({ map: this.map, players: r.players, seed: r.seed });
+    for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
+    this.replayTick = target;
+    this.paused = target >= r.frames.length;
+    this.selection.clear();
+    ui.replayTick.value = target;
+    ui.paused.value = this.paused;
+    this.computeFog();
+    this.publish();
+  }
+
+  setReplaySpeed(x: number): void { this.replaySpeed = x; ui.replaySpeed.value = x; }
+  togglePause(): void {
+    if (this.replayTick >= (this.replay?.frames.length ?? 0)) this.seekReplay(0); // restart at the end
+    else { this.paused = !this.paused; ui.paused.value = this.paused; }
+  }
+
+  /** The replay JSON for the current/just-played game (download payload). */
+  exportReplay(): string | null {
+    const r = this.replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
+    return r ? JSON.stringify(r) : null;
+  }
+
+  loadReplay(json: string): void {
+    this.startReplay(JSON.parse(json) as Replay);
   }
 
   resize(w: number, h: number): void {
@@ -93,14 +166,35 @@ export class Game {
     this.lastSel = now;
     if (dt > 250) dt = 250; // avoid spiral after a stall
     this.acc += dt;
-    let steps = 0;
-    while (this.acc >= TICK_MS && steps < 8) {
-      this.tick();
-      this.acc -= TICK_MS;
-      steps++;
+    if (this.mode === 'replay') {
+      const interval = TICK_MS / Math.max(0.01, this.replaySpeed); // honor playback speed
+      let steps = 0;
+      while (!this.paused && this.acc >= interval && steps < 480) {
+        this.replayStep();
+        this.acc -= interval;
+        steps++;
+      }
+      if (this.paused) this.acc = 0;
+    } else {
+      let steps = 0;
+      while (this.acc >= TICK_MS && steps < 8) {
+        this.tick();
+        this.acc -= TICK_MS;
+        steps++;
+      }
     }
     this.computeFog();
     this.publish();
+  }
+
+  private replayStep(): void {
+    const r = this.replay;
+    if (!r || this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; return; }
+    this.sim.step(r.frames[this.replayTick] ?? []);
+    this.replayTick++;
+    ui.replayTick.value = this.replayTick;
+    this.pruneSelection();
+    if (this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; }
   }
 
   /** Advance the sim by n ticks immediately (demos / screenshot automation). */
@@ -276,6 +370,7 @@ export class Game {
     ui.seconds.value = Math.floor(s.tick / FPS);
     ui.over.value = s.result.over;
     ui.winner.value = s.result.winner;
+    ui.hasReplay.value = this.mode !== 'replay' && s.result.over && this.sim.frames !== null;
 
     // selection summary
     const e = s.e;
