@@ -38,3 +38,4 @@ checkpoints/
 
 # app build artifacts
 packages/app/shots/
+packages/app/.coi-wt-*/
