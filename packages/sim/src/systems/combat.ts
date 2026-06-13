@@ -5,25 +5,13 @@
 // Units on Move/Harvest/Build do not fire (they're busy).
 
 import type { State } from '../world.ts';
-import { slotOf, eid, kill, isAlive, isEnemy, nearest, NONE } from '../world.ts';
+import { slotOf, eid, kill, isAlive, NONE } from '../world.ts';
 import { Order, Units, computeDamage, tiles } from '../data.ts';
 import { within } from './move.ts';
 import { navigate } from '../pathing.ts';
+import { type Grid, nearestEnemy } from '../grid.ts';
 
-const acquire = (s: State, i: number, aggro: number): number => {
-  const e = s.e;
-  const ox = e.x[i]!;
-  const oy = e.y[i]!;
-  const owner = e.owner[i]!;
-  return nearest(s, ox, oy, (sl) => {
-    if (sl === i || !isEnemy(s, owner, e.owner[sl]!)) return false;
-    const dx = e.x[sl]! - ox;
-    const dy = e.y[sl]! - oy;
-    return dx * dx + dy * dy <= aggro * aggro;
-  });
-};
-
-export const combat = (s: State): void => {
+export const combat = (s: State, grid: Grid): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
@@ -40,7 +28,7 @@ export const combat = (s: State): void => {
     if (order === Order.Attack && isAlive(e, e.target[i]!)) {
       tgt = slotOf(e.target[i]!);
     } else {
-      tgt = acquire(s, i, tiles(def.sight));
+      tgt = nearestEnemy(s, grid, i, tiles(def.sight));
     }
 
     if (tgt === NONE) {

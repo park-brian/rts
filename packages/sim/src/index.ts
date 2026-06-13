@@ -14,3 +14,5 @@ export * from './systems/census.ts';
 export * from './tick.ts';
 export * from './setup.ts';
 export * from './sim.ts';
+export * from './serialize.ts';
+export * from './replay.ts';

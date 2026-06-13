@@ -3,24 +3,36 @@
 
 import type { MapDef } from './map.ts';
 import type { State } from './world.ts';
-import type { PlayerCommands } from './commands.ts';
+import type { Command, PlayerCommands } from './commands.ts';
 import { cloneState, hashState } from './world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
+import { serializeState, deserializeState } from './serialize.ts';
 
-export type SimOptions = { map: MapDef; players: number; seed: number };
-export type Snapshot = State; // an opaque deep-cloned state (byte serialization layered on later)
+export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean };
+export type Snapshot = State; // an in-memory deep-cloned state (see serialize() for bytes)
+
+/** Deep-copy one tick's command batch so a recorded replay is immune to caller reuse. */
+const cloneBatch = (batch: PlayerCommands[]): PlayerCommands[] =>
+  batch.map((pc) => ({ player: pc.player, cmds: pc.cmds.map((c) => ({ ...c }) as Command) }));
 
 export class Sim {
   state: State;
+  seed = 0;
+  /** Per-tick recorded command batches (frames[t] applied at tick t), or null when not recording. */
+  frames: PlayerCommands[][] | null = null;
 
   constructor(opts: SimOptions) {
     this.state = setupMatch(opts.map, opts.players, opts.seed);
+    this.seed = opts.seed;
+    if (opts.record) this.frames = [];
   }
 
   static fromState(state: State): Sim {
     const sim = Object.create(Sim.prototype) as Sim;
     sim.state = state;
+    sim.seed = 0;
+    sim.frames = null;
     return sim;
   }
 
@@ -30,6 +42,7 @@ export class Sim {
 
   /** Advance one logical tick with this tick's commands (one bundle per player). */
   step(batch: PlayerCommands[] = []): void {
+    if (this.frames) this.frames.push(cloneBatch(batch));
     stepWorld(this.state, batch);
   }
 
@@ -49,6 +62,15 @@ export class Sim {
 
   static restore(snap: Snapshot): Sim {
     return Sim.fromState(cloneState(snap));
+  }
+
+  /** Flat byte buffer of the full state (persist to disk / transfer to a Worker). */
+  serialize(): ArrayBuffer {
+    return serializeState(this.state);
+  }
+
+  static deserialize(buf: ArrayBuffer): Sim {
+    return Sim.fromState(deserializeState(buf));
   }
 
   /** Deterministic state fingerprint (replay/desync checks). */

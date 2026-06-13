@@ -10,7 +10,9 @@ import { production } from './systems/production.ts';
 import { harvest } from './systems/harvest.ts';
 import { combat } from './systems/combat.ts';
 import { movement } from './systems/movement.ts';
+import { separation } from './systems/separation.ts';
 import { victory } from './systems/victory.ts';
+import { buildGrid } from './grid.ts';
 
 export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   if (s.result.over) return; // frozen once decided
@@ -19,8 +21,10 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   construction(s);
   production(s);
   harvest(s);
-  combat(s);
+  const grid = buildGrid(s); // spatial index for target acquisition + separation
+  combat(s, grid);
   movement(s);
+  separation(s, grid);
   victory(s);
   s.tick++;
 };
