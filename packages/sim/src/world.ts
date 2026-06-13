@@ -22,12 +22,14 @@ export type Entities = {
   x: Int32Array; // fixed-point position
   y: Int32Array;
   hp: Int32Array; // integer hit points
+  flags: Uint16Array; // Role bitflags (copied from the unit def at spawn)
   order: Uint8Array;
   target: Int32Array; // EntityId or NONE
   tx: Int32Array; // fixed-point target point
   ty: Int32Array;
   timer: Int32Array; // generic countdown (mining)
-  cargo: Int32Array; // carried resources (workers) / remaining amount (patches)
+  cargo: Int32Array; // carried resources (workers) / remaining amount (resource nodes)
+  cargoType: Uint8Array; // ResourceType currently carried by a worker
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
   prodQueued: Int32Array; // additional queued units of prodKind
@@ -73,12 +75,14 @@ const makeEntities = (): Entities => {
     x: new Int32Array(CAP),
     y: new Int32Array(CAP),
     hp: new Int32Array(CAP),
+    flags: new Uint16Array(CAP),
     order: new Uint8Array(CAP),
     target: new Int32Array(CAP),
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
     timer: new Int32Array(CAP),
     cargo: new Int32Array(CAP),
+    cargoType: new Uint8Array(CAP),
     prodKind: new Uint16Array(CAP),
     prodTimer: new Int32Array(CAP),
     prodQueued: new Int32Array(CAP),
@@ -105,7 +109,8 @@ export const spawn = (
   owner: number,
   x: number,
   y: number,
-  hp: number,
+  hp = 0,
+  flags = 0,
 ): number => {
   const e = s.e;
   if (e.freeTop === 0) throw new Error('entity capacity exceeded');
@@ -117,12 +122,14 @@ export const spawn = (
   e.x[slot] = x;
   e.y[slot] = y;
   e.hp[slot] = hp;
+  e.flags[slot] = flags;
   e.order[slot] = 0;
   e.target[slot] = NONE;
   e.tx[slot] = 0;
   e.ty[slot] = 0;
   e.timer[slot] = 0;
   e.cargo[slot] = 0;
+  e.cargoType[slot] = 0;
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
@@ -183,12 +190,14 @@ const cloneEntities = (e: Entities): Entities => ({
   x: e.x.slice(),
   y: e.y.slice(),
   hp: e.hp.slice(),
+  flags: e.flags.slice(),
   order: e.order.slice(),
   target: e.target.slice(),
   tx: e.tx.slice(),
   ty: e.ty.slice(),
   timer: e.timer.slice(),
   cargo: e.cargo.slice(),
+  cargoType: e.cargoType.slice(),
   prodKind: e.prodKind.slice(),
   prodTimer: e.prodTimer.slice(),
   prodQueued: e.prodQueued.slice(),
@@ -233,6 +242,7 @@ export const hashState = (s: State): number => {
     h = fold(h, e.ty[i]!);
     h = fold(h, e.timer[i]!);
     h = fold(h, e.cargo[i]!);
+    h = fold(h, e.cargoType[i]!);
     h = fold(h, e.prodKind[i]!);
     h = fold(h, e.prodTimer[i]!);
     h = fold(h, e.prodQueued[i]!);

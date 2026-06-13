@@ -138,11 +138,14 @@ python3 docs/scripts/fetch_papers.py
 ### Current status
 
 The deterministic **sim core** (`packages/sim`) is in: fixed-point math, seeded PRNG,
-SoA entity store, the tick pipeline (commands → production → harvest → movement), the
-vertical-slice map, the `Sim` API, and a scripted macro bot (`packages/ai`). Verified by
-`node --test` — including **replay-hash and snapshot/restore determinism** — and a headless
-demo (`packages/headless`) that runs a symmetric 2-player economy game at **~700k ticks/s
-single-threaded**. Next: the browser renderer + mobile UI (Pages deploy), then combat/fog.
+SoA entity store, the tick pipeline (census → commands → production → harvest → movement),
+the vertical-slice map, the `Sim` API, and a faction-driven macro bot (`packages/ai`).
+Systems are **role/capability-driven, not race-specific** — they reason about `Worker` /
+`ResourceDepot` / `Resource` / `Producer` flags declared in data, so adding a unit or a whole
+race is data, not new system code. Verified by `node --test` — including **replay-hash and
+snapshot/restore determinism** — and a headless demo (`packages/headless`) that runs a
+symmetric 2-player economy game at **hundreds of thousands of ticks/s single-threaded**.
+Next: the browser renderer + mobile UI (Pages deploy), then combat/fog.
 
 ## Roadmap
 

@@ -1,16 +1,17 @@
 // Headless demo: run a 2-player economy game with the scripted macro bot, print a
 // summary, then a quick throughput benchmark. Run with: `npm run demo`.
 
-import { Sim, sliceMap, count, Kind, type PlayerCommands } from '@rts/sim';
-import { macroBot } from '@rts/ai';
+import { Sim, sliceMap, count, Kind, Terran, type PlayerCommands } from '@rts/sim';
+import { createMacroBot } from '@rts/ai';
 
 const PLAYERS = 2;
 const SEED = 12345;
+const bot = createMacroBot(Terran);
 
 const playTo = (sim: Sim, untilTick: number): void => {
   while (sim.tick < untilTick) {
     const batch: PlayerCommands[] = [];
-    for (let p = 0; p < PLAYERS; p++) batch.push({ player: p, cmds: macroBot(sim.fullState(), p) });
+    for (let p = 0; p < PLAYERS; p++) batch.push({ player: p, cmds: bot(sim.fullState(), p) });
     sim.step(batch);
   }
 };
@@ -41,7 +42,7 @@ const TICKS = 200_000;
 const t0 = performance.now();
 for (let i = 0; i < TICKS; i++) {
   const batch: PlayerCommands[] = [];
-  for (let p = 0; p < PLAYERS; p++) batch.push({ player: p, cmds: macroBot(bench.fullState(), p) });
+  for (let p = 0; p < PLAYERS; p++) batch.push({ player: p, cmds: bot(bench.fullState(), p) });
   bench.step(batch);
 }
 const ms = performance.now() - t0;
