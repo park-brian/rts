@@ -6,6 +6,7 @@ import { cpSync, mkdirSync } from 'node:fs';
 const serve = process.argv.includes('serve');
 mkdirSync('dist', { recursive: true });
 cpSync('index.html', 'dist/index.html');
+cpSync('coi-serviceworker.js', 'dist/coi-serviceworker.js');
 
 /** @type {import('esbuild').BuildOptions} */
 const opts = {
