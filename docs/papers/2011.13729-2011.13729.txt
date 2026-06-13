@@ -1,0 +1,2413 @@
+TStarBot-X: An Open-Sourced and Comprehensive Study for
+Eﬃcient League Training in StarCraft II Full Game
+Lei Hana,∗, Jiechao Xionga,∗, Peng Suna,∗, Xinghai Suna, Meng Fanga, Qingwei Guob, Qiaobo
+Chenb, Tengfei Shib, Hongsheng Yub, Xipeng Wub, Zhengyou Zhanga
+aTencent Robtics X, Shenzhen, China
+bDepartment of AI Platform, Tencent, Shenzhen, China
+Abstract
+StarCraft, one of the most diﬃcult esport games with long-standing history of professional
+tournaments, has attracted generations of players and fans, and also, intense attentions in
+artiﬁcial intelligence research. Recently, Google’s DeepMind announced AlphaStar [1], a
+grandmaster level AI in StarCraft II that can play with humans using comparable action
+space and operations. In this paper, we introduce a new AI agent, named TStarBot-X, that
+is trained under orders of less computations and can play competitively with expert human
+players 1. TStarBot-X takes advantage of important techniques introduced in AlphaStar,
+and also beneﬁts from substantial innovations including new league training methods, novel
+multi-agent roles, rule-guided policy search, stabilized policy improvement, lightweight neural
+network architecture, and importance sampling in imitation learning, etc. We show that with
+orders of less computation scale, a faithful reimplementation of AlphaStar’s methods can
+not succeed and the proposed techniques are necessary to ensure TStarBot-X’s competitive
+performance. We reveal all technical details that are complementary to those mentioned in
+AlphaStar, showing the most sensitive parts in league training, reinforcement learning and
+imitation learning that aﬀect the performance of the agents. Most importantly, this is an
+open-sourced study that all codes and resources (including the trained model parameters)
+are publicly accessible via https://github.com/tencent-ailab/tleague_projpage. We
+expect this study could be beneﬁcial for both academic and industrial future research in
+solving complex problems like StarCraft, and also, might provide a sparring partner for all
+StarCraft II players and other AI agents.
+Keywords:
+Game, StarCraft, Reinforcement Learning, Multi-Agent, League Training
+∗Equal contribution. Correspondence to the ﬁrst three authors.
+Email addresses: leihan.cs@gmail.com (Lei Han), jchxiong@gmail.com (Jiechao Xiong),
+pengsun000@gmail.com (Peng Sun)
+1We focus on playing Zerg, one of the three StarCraft races. We need to clarify that we are not able to
+precisely place the agent at an oﬃcial level such as Grandmaster, Master or Diamond, etc., since we can not
+access Battle.net League system through public APIs without Blizzard Entertainment’s permission. Instead,
+we let the agent play against oﬃcially ranked Grandmaster and Master level human players, and receive
+evaluations from humans. Please refer to 5 for the results.
+1
+arXiv:2011.13729v2  [cs.AI]  30 Apr 2021
+
+1. Introduction
+Game, a naturally closed environment with well designed logic, has been considered as
+the most straightforward and ideal scenarios for testing artiﬁcial intelligence (AI). Recent
+advances in large-scale deep reinforcement learning (RL) have demonstrated that current
+learning systems are able to solve complex games even with super-human performance. There
+have been a series of breakthroughs, including solving games of Atari [2], GO [3, 4], Quake III
+Arena Capture the Flag [5] and DOTA2 [6], etc. Real-time strategy (RTS) games, a sub-genre
+of video games that requires consistent timely decisions on a large amount of choices like
+resource-gathering, construction and units control, were considered as the most challenging
+benchmark for AI research.
+Recently, Google’s DeepMind announced AlphaStar [1], a
+grandmaster level performance AI that can play in a way comparable to humans in StarCraft
+II (SC2), an iconic representative of RTS game developed by Blizzard Entertainment. The
+AlphaStar’s system turns to be an enormous infrastructure with its scopes covering advanced
+deep neural networks, imitation learning (IL), RL, multi-agent population-based training,
+huge-scale distributed actor-learner architecture, environmental engineering, etc. Even a
+faithful reimplementation of this system is nontrivial without the same scale of computations
+and codes.
+With full respect on the work of AlphaStar, we are curious about every detail how well the
+AI understands the complex logics in SC2, how each part in the learning system contributes
+to generating strong AIs, and how general these techniques can be applied especially when
+the computation resources are limited. In this paper, we try to answer these questions by
+introducing and analyzing a new AI agent, TStarBot-X, a successor of our previous work
+TStarBot1 and TStarBot2 [7]. TStarBot-X diﬀers much from its early versions (TStarBot1
+and TStarBot2) which are based either on macro hierarchical actions or hand-craft rules [7].
+It uses similar action space as AlphaStar and is comparable to human operations. The
+average APM/EPM of TStarBot-X is 232/196 and the peak value is 609/519 (calculated
+from the matches in human evaluation), which is less than many expert human players and
+AlphaStar’s APM/EPM. TStarBot-X uses only 20 million parameters in its neural network,
+including both the policy net (with 17.25 million parameters) and the value net (with shared
+parts from policy and 2.75 million additional parameters), while the number of parameters
+used by AlphaStar is 139 million in total, with 55 million for policy net and 84 million for
+value net, respectively. As we can clearly see that our model is much smaller than that
+of AlphaStar, especially for the value net. Nevertheless, the network seems to work well
+in performance and gains considerable eﬃciency. As has been demonstrated in AlphaStar,
+imitation/supervised learning is very important to provide the agent a good initial policy.
+TStarBot-X also starts learning by imitating human replays. We used a dataset containing
+309,571 Zerg vs. Zerg replays across SC2 versions 4.8.2, 4.8.4, 4.8.6 and 4.9.0-4.9.3, where at
+least one player’s MMR ≥3500. The supervised agent can defeat the built-in Elite-bot (level
+7) with a win-rate of 90% with either the zero z-stat or sampling from a subset of 174 z-stats
+collected from human replays. The z-stat is a high-level feature including strategic statistics
+2
+
+introduced in [1]. It is worth mentioning that in IL, importance sampling over trajectories
+is very important to the agent performance. Without importance sampling, i.e., using the
+original data from human replays, the win-rate against the Elite-bot only reaches 68%.
+After obtaining the supervised agent, we indeed immediately tried to follow AlphaStar’s
+conﬁguration to implement multi-agent reinforcement learning by populating the league [1, 5]
+under our computational scale whose total consuming and generating speeds are only 1/30
+and 1/73 of those in AlphaStar. That is, we construct the league with one main agent (MA),
+two main exploiters (ME) and two league exploiters (LE). 2 We refer to this conﬁguration as
+‘AlphaStar Surrogate’ that will be referenced as a baseline method. Unfortunately, although
+the league training can consistently improve the agent’s performance, the strategic diversity
+and strength in the entire league is signiﬁcantly limited. In several repetitions, the main
+agent converges to either Zergingling Rush or Roach Push (two early Zerg strategies) in a
+few days, and the unit/upgrade types produced in the entire league are also very limited. We
+conjecture that insuﬃcient explorations prevent the agents from improving as expected.
+In order to enhance the agent diversity and strength in the league, we propose three new
+techniques: Diversiﬁed League Training (DLT), Rule-Guided Policy Search (RGPS), and
+stabilized policy improvement with Divergence-Augmented Policy Optimization (DAPO) [? ].
+We need to ﬁrst clarify that when we refer to diversity of the league, we are talking about the
+the diversity of the exploiters and diversity of the MA separately. The former indicates the
+diverse strategies generated in the entire league, while the latter indicates the diversity of the
+counter-strategies and robustness when the MA plays against any exploiter using arbitrary
+strategies. The strength of the agents indicates that for a speciﬁc strategy how strong and
+well the agent can perform.
+DLT thus aims to eﬃciently generate diverse and strong exploiters under our case. To
+do so, we ﬁrst ﬁne-tune the supervised agent on K separate sub-datasets, in each of which
+some speciﬁc units or strategies take place in human replays, to obtain K speciﬁc and diverse
+supervised agents. The K sub-datasets can be simply divided by unit types or summarized
+strategies by human experts. We then introduce several new agent roles in the league,
+including speciﬁc exploiter (SE), evolutionary exploiter (EE) and adaptive evolutionary
+exploiter (AEE). SE works in the same way as ME except that it starts with one of the
+above K ﬁne-tuned supervised models. EE and AEE focus on continuing training historical
+exploiter agents that are still exploitable. EE tends to evolve as strong as possible probably
+with some distinct strategies, while AEE tends to balance the diversity and strength of the
+agents. The league training is then launched by consisting of a mixture of MA, ME, LE,
+SE, EE and AEE. It turns out that DLT can eﬃciently generate various units and strategies
+among the agents in the league (Figure 7(a)).
+DLT pushes much burden on MA’s improvement. That is, MA needs to ﬁnd all counter-
+2In AlphaStar’s league, there are three main agents each of which is for one StarCraft race. Each main
+agent is equipped with one main exploiter and two league exploiters. To align with such a setting and make
+full use of our computational resources, we use one main agent, two main exploiters and two league exploiters
+for AlphaStar Surrogate. Detailed conﬁgurations can be found in Section 5.
+3
+
+strategies against diverse exploiters and to be as robust as possible. To speedup this progress,
+RGPS is introduced to help MA to skip tedious explorations on inherent game logics and let
+MA focus on explorations at a strategic level. We use the following example to illustrate the
+aforementioned inherent game logics. For SC2 human players, they understand ‘Hydralisk’
+is strong against ‘Mutalisk’ and its training relies on ‘Hydraliskden’ which further relies
+on ‘Lair’, by just reading the oﬃcial player’s instructions and quickly verifying it in a few
+practical matches.
+3 However, it is extremely diﬃcult for AI agents to understand these
+logics from a semantic level, and agents need to explore with extremely large amount of data
+to ﬁt such game logics into a parameterized policy. Speciﬁcally, RGPS uses a distillation
+term to induce the policy to follow some inherent game logics conditioning on a few critical
+states, on which the teacher policy outputs an one-hot or multi-hot distribution that is a
+distributional encoding of ‘if-else’ logics. We show that with RGPS, MA can easily learn
+these game logics and focus on explorations on long-term strategies (Figure 7(b)).
+With suﬃcient league diversity, we also consider to speedup the policy improvement using
+DAPO. DAPO is originally derived for stabilized policy optimization from the scope of mirror
+descent algorithms [? ]. In league training, we apply DAPO at the agent level that the agent
+at learning period t + 1 has to stay close to its historical model at learning period t via a KL
+term. In our case, each agent stores a copy of itself into the league every ∼12 hours which
+is referred to as a learning period. In the formal experiment that lasts for 57 days, we use
+DLT+RGPS in the ﬁrst 42 days and activate DAPO in the last 15 days where we observe
+signiﬁcant policy improvement speedup after activating DAPO (Figure 5(b)).
+After 57 days of training, the ﬁnal TStarBot-X agents are evaluated by four invited
+expert human players with tens of games (Table 5). TStarBot-X wins two Master players
+with 11:0 and 13:0, and wins two Grandmaster players with 7:0 and 4:1, respectively. Other
+comprehensive league evaluations are provided in the experimental section. We end up the
+introduction with an overall comparison between AlphaStar’s learning systems and ours in
+Table 1.
+2. Related Work
+Solving challenging games has been considered as a straightforward way to validate the
+advance of artiﬁcial intelligence. Our work thus belongs to this series that using general
+deep reinforcement learning to play games. As mentioned previously, the games of GO [3, 4],
+VizDoom [8], Quake III Arena Capture the Flag [5], and Dota 2 [6] has already been mastered
+using deep RL, evaluated by expert human players. These games are all competitive games
+that at least two opposite camps of players should join the game to compete. This naturally
+motivates the development of multi-agent learning and game-theoretic algorithms. Population-
+based training, with ﬁctitious self-play as a speciﬁc case, thus becomes one of the most eﬀective
+way to generate strong AIs. Known as its game complexities on both strategic and operational
+domains, StarCraft has been pushed on the top of AI challenges. Prior to AlphaStar, there
+3Please refer to 3.1 for explanations of these SC2 terms.
+4
+
+Table 1: A comparison between AlphaStar and TStarBot-X’s learning systems. All numbers for AlphaStar
+are calculated from the reported numbers in [1] and converted to the same criterion for comparison. ‘fps’
+indicates ‘frame/step per second’.
+AlphaStar
+TStarBot-X
+Race
+All three SC2 races
+Zerg
+Map
+Cyber Forest, Kairos Junction,
+Kairos Junction
+King’s Cove, and New Repugnancy
+Action Space
+Similar to human operations
+Similar to human operations
+Use Camera View
+False for demonstration; True for ﬁnal version
+False
+Average APM/EPM
+259/211 for Zerg
+232/196
+Max APM/EPM
+1192/823 for Zerg
+609/519
+Model Size
+139 million parameters
+20 million parameters
+Human Replay Usage
+971,000
+309,571
+Roles in League
+MA, ME, LE
+MA, ME, LE, SE, EE, AEE
+Consuming Speed
+390 fps/TPU core
+210 fps/GPU
+Generating Speed
+195 fps received by each TPU core
+43 fps received by each GPU
+TPU/GPU Usage
+3,072 third-generation TPU cores in total with
+half for training and another half for inference
+144 Nvidia Tesla V100 GPUs (without RDMA)
+(each of the 12 agents uses 128 TPU cores for
+with 96 for training and 48 for inference
+training and 128 TPU cores for inference)
+CPU Usage
+50,400 preemptible CPU cores
+13,440 standard CPU cores
+Concurrent Matches
+192,000
+6,720
+Total Training Time
+44 days
+57 days
+have been a number of attempts focusing on decomposing SC2 into various mini-games, such
+as scenarios of micro-management [9, 10, 11, 12], build order optimization [13], resources
+gathering [10], etc. Our previous work [7] focused on SC2 full game and started to use RL
+to train agents based on some high-level actions. Then, AlphaStar [1] is released, using
+human-comparable operations and general RL with a population of training agents to reach
+grandmaster level performance. After that, the domain is still active, with eﬀorts paid on
+many aspects of the game, such as build order optimization and sub-goal selection [14, 13, 15].
+Also, a Terran AI shows in an exhibition to win some matches against professional human
+players [? ], using similar methods as AlphaStar except that it does some optimization over
+AlphaStar’s neural network architecture and uses three main agents in the league, while a
+thorough assessment of these diﬀerences are missing, and the implementation details and
+many experimental conﬁgurations remain unclear.
+Our work is most related to AlphaStar. We attempt to understand every detail using
+deep RL and league training to play SC2, with orders of less computations compared to
+AlphaStar. We demonstrate the advantages of the proposed techniques of DLT, RGPS
+and DAPO with comprehensive studies and comparisons with AlphaStar Surrogate. We
+aim to provide an open-sourced system that might directly contributes to both academic
+and industrial communities. Generally, using nowadays’ learning methods, the resources
+required by mastering a game are often proportional to the complexity of that game. We
+could reference some accurate numbers to name a few. A distributed version of AlphaGo
+used 176 GPUs and 1,202 CPU cores for inference with MCTS [3], OpenAI Five for solving
+DOTA2 used 1,536 GPUs and 172,800 CPU cores for training [6], and AlphaStar used 3,072
+third-generation TPU cores and 50,400 preemptible CPU cores for training [1]. In our work,
+5
+
+we used 144 GPUs and 13,440 CPU cores on the Tencent Cloud.
+3. Preliminaries
+3.1. The Game of StarCraft II
+We understand that not all readers are familiar with SC2, so we start with a brief
+introduction of its basic game concepts. SC2 players can feel free to skip this section. In SC2,
+each player needs to make a series of timely decisions to play against the opponent, including
+resource gathering and allocation, building construction, training units, deploying the army,
+researching technologies, and controlling units, etc. The total number of units needed to be
+controlled at a single step might be up to hundreds, and the maximum of this number is set
+to 600 in our implementation. The units of the opponent are hidden to the player, unless
+they appear in the view of the units controlled by the player. In SC2, there are three races:
+Zerg, Terran and Protoss, that humans can choose any one of them to play the game. For
+Zerg, we illustrate a few units frequently appeared in human replays. An important building
+is the Hatchery, which is the base for resource gathering and it can morph to Lair which can
+further morph to Hive. With Hatchery, units related to Queen, Zergling, Baneling, Roach
+and Ravager can be produced. With Lair, units related to Hydralisk, Lurker, Infestor, Swarm
+Host, Mutalisk, Corruptor and Overseer can be produced. With Hive, Viper, Brood Lord and
+Ultralisk can be produced. Among those, Mutalisk, Corruptor, Overseer, Viper and Brood
+Lord are air units, and all other units are ground units. Some of these names might be used
+in the rest of this paper. Detailed descriptions of all the Zerg units can be found in the SC2’s
+oﬃcial website or [17].
+3.2. Reinforcement Learning
+The problem considered by RL can be formulated by a tuple < A, S, O, P, r, γ, π >. At
+each time step t, st ∈S is the global state in the state space S; for partially observed
+environment, like SC2, we can not access st and instead we observe ot ∈O; A is the
+action space and at ∈A is the action executed by the agent at time step t; the probability
+P(st+1|st, at) is the state transition function; r(st, at) is the reward function; γ ∈[0, 1] is a
+discount factor. Let π(at|ot) denote a stochastic policy conditioning on partial observation ot,
+and let η(π) = Es0,a0,··· [R0] with Rt = P∞
+l=0 γlrt+l denoting the expected discounted reward,
+where at ∼π(at|ot) and st+1 ∼P(st+1|st, at). At time step t, the value function is deﬁned as
+Vπ(st) = Eat,st+1,··· [Rt]. For competitive multi-agent RL, centralized value function is often
+utilized during the training phase to provide more accurate policy evaluation. That is, for
+learning the value function, the global state is assumed known. Solving the RL problem
+requires to ﬁnd the optimal policy π∗that achieves the maximum expected reward η(π∗).
+Actor-critic (AC) algorithm is one of the most commonly adopted RL methods. It uses
+a parameterized policy πθ and update its parameters by directly maximizing the expected
+reward J(θ) = Es,a [R] using the policy gradient
+∇θJ(θ) = Es,a [∇θ log πθ(a|s)Aπ(s, a)] ,
+6
+
+where A(s, a) is the critic. There exists several ways to estimate A(s, a), resulting in a variant
+of AC algorithms, including some state-of-the-art representatives like TRPO [18], PPO [19],
+V-trace [20] and UPGO [1]. In this paper, we will use a combination of the PPO, V-trace
+and UPGO algorithms.
+3.3. Self-Play, Population-based Training and Populating the League
+Self-play is a training scheme and it arises in the context of multi-agent learning, where a
+learning agent is trained to play against itself and/or its historical checkpoints during training.
+This method is game-theoretically justiﬁed, as it turns out to be a Monte Carlo implementation
+(i.e., sampling the opponents) of the so-called ﬁctitious self-play to approximate the Nash
+Equilibrium [21, 22, 23]. Once an opponent is sampled, it can be considered as part of the
+environment’s dynamics from the perspective of the learning agent, so that single agent RL
+algorithms mentioned in Section 3.2 can be utilized, serving as a proxy algorithm to learn
+the best response to its opponent [21]. For example, AlphaGo [3] is trained by self-play with
+MCTS tree search. Based on the concept of self-play, population-based training (PBT) has
+been proposed. In PBT, agents are trained independently with diﬀerent objectives that are
+learned or shaped dynamically. PBT is shown to be successful in the ﬁrst-person video game,
+Quake III Arena Capture the Flag [5]. Similar to PBT, AlphaStar introduced populating the
+league [1], an approach to maintain a league of growing number of diverse training agents
+that can play against each other.
+3.4. Distributed Learner-Actor Architecture
+There have been continuous attempts to scale up RL by distributed systems. For example,
+A3C [24] proposes a framework with distributed independent actors. Each actor has its own
+copy of the policy and the gradients are asynchronously aggregated on a single parameter
+server. GA3C [25] extends A3C by using a GPU for both inference and policy learning in an
+asynchronous mode. IMPALA [20] proposes a learner-actor architecture, in which distributed
+actors are responsible for data generation and the learner receives the data for gradient
+computation. SEED RL [26] improves upon the IMPALA architecture and achieves higher
+throughput in both single-machine and multi-node scenarios by using TPUs for inference
+on the learner. In this paper, we will use a distributed learner-actor architecture named
+TLeague [33] that is similar to SEED RL, while our architecture is speciﬁcally designed to
+solve multi-agent learning problems.
+4. Technical Details and Methods
+4.1. Environmental Engineering
+To push the frontier of AI research, Google’s DeepMind and Blizzard Entertainment
+jointly created SC2LE [10], providing APIs to allow outer control of the game. DeepMind
+further wraps the core library in Python as PySC2. Our work is based on an early version of
+PySC2, with extensions to expose more interfaces to fetch information like unit attributes,
+game status, technology tree, and version control, etc. The exposed information is necessary
+to let the AI agent better understand the game status, and the information can also be
+7
+
+acquired by human players in the game. These interfaces are implemented in a convenient
+way through the general environmental framework Arena [27].
+4.2. Observation, Action and Reward
+Similar to AlphaStar, the spaces within which the agent can observe and act are comparable
+to humans. That is, at each step, the observation of the agent consists of the attributes
+of the visible units, a spatial 2D feature, a vector of global statistics, the last action the
+agent executed, and some masks encoding the game logic (e.g., after choosing a Zergling,
+‘Build’ abilities are not available), without any information hidden in fog. Similar to humans,
+the agent acts by choosing an ability, selecting executors and targets, and suﬀering from
+delays. Nevertheless, we have to admit that we indeed remove the camera constraint like the
+demonstration version of AlphaStar to facilitate the learning. The APM/EPM reported in
+Table 1 shows that the agent does not beneﬁt much from its action space, and TStarBot-X
+tends to operate 10%/7% slower than AlphaStar in average APM/EPM and 49%/37% slower
+in terms of max APM/EPM. Figures 2 and 3 show the detailed observation and action spaces.
+Table 2: Observation space in TStarBot-X. In the following table, UC is short for ‘Unit Count’; stat. indicates
+statistics; B & R prog. is short for ‘Building and Researching progress’. BO is abbreviation for ‘Build Order’;
+Cmd indicates ‘Command’; NOOP means ‘No-Operation’.
+Obs: frames
+Unit attributes
+Unit coordinate
+Unit buﬀ
+Unit order
+Unit type
+Images
+Player stat.
+Space
+(600, 369)
+(600, 2)
+(600,)
+(600,)
+(600,)
+(128, 128, 15)
+(10,)
+Obs: frames
+Upgrade
+Game length
+Self UC
+Enemy UC
+Anti-air UC
+B & R prog.
+Space
+(28,)
+(64,)
+(57,)
+(57,)
+(4,)
+(92,)
+Obs: z-stat
+BO
+BO coordinate
+Unit stat.
+Space
+(20, 62)
+(20, 18)
+(80,)
+Obs: last action
+Ability
+NOOP
+Queued
+Selection
+Cmd unit
+Cmd position
+Space
+(117,)
+(128,)
+(2,)
+(64, 601)
+(600,)
+(128, 128)
+Obs: mask
+Ability
+Selection
+Cmd unit
+Cmd position
+Space
+(117,)
+(117, 600)
+(117, 600)
+(117, 128, 128)
+Table 3: Action space in TStarBot-X. NOOP indicates ‘No-Operation’ and it is the same as the ‘Delay’ head
+used in AlphaStar. For the selection head, we need one additional label to indicate the selection termination,
+which is similar to the end of sequence (EOS) in natural language processing.
+Action heads
+Ability
+NOOP
+Queued
+Selection
+Cmd unit
+Cmd position
+Space
+(117,)
+(128,)
+(2,)
+(64, 601)
+(600,)
+(128, 128)
+In Table 2, z-stat is a high-level feature introduced and highlighted in AlphaStar. By
+sampling a human replay, a z-stat is ﬁxed that it includes a build order sequence of length
+20, the coordinate of each unit in that order and a vector indicating the unit appearance in
+the sampled replay. It has been emphasized in [1] that the strategic diversity of the policy
+can be controlled by varying the z-stat. In Table 3, the no-operation (NOOP) head allows a
+maximum delay of 128 game frames, around 5.7 seconds in real-time game. The selection
+head can select a maximum number of 64 units at a step. The maximum number of observed
+units is set to 600, a number determined by parsing all human replays that only less than
+8
+
+concatenate 
+along channels 
+residual block
+sum
+pointer network
+residual 
+block
+sequential prediction
+GLU with output 
+size 117
+residual 
+block
+residual block
+tansformer
+block
+unit attributes
+(?, 600, 369)
+unit buff ID
+(?, 600)
+unit order ID
+(?, 600)
+unit type ID
+(?, 600)
+fc: 256
+embedded buff
+(?, 600, 256)
+embedded order
+(?, 600, 256)
+embedded type
+(?, 600, 256)
+fc: 256
+fc: 256
+unit mask: (?, 600)
+2-headed self-attention with keys, quieries and values of size 128 for each head
+ff: 256
+3 ×
+fc: 32
+image-like tensor
+(?, 128, 128, 15)
+c1x1@32
+c3x3@32
+c3x3@128
+concatenate along the last dimension
+conv and downsample
+c1x1@32
+c4x4@32, with stride of 2
+c3x3@64, with stride of 2
+c3x3@128, with stride of 2
+concatenate 
+along channels 
+skip
+connection
+× 3
+flatten
+fc: 256
+List of units (with a maximum number of 600 units)
+Images 
+Vectors 
+ability mask: (?, 117)
+fc: 64
+ability
+(?,)
+fc: 256
+noop
+(?,)
+queued
+(?,)
+(?,)
+embedded ability
+(?, 256)
+embedded noop
+(?, 128)
+c3x3@4 and p2x2 
+repeated for 4 times
+flatten
+cmd pos
+build order
+(?, 20, 62)
+coordinates
+(?, 20, 18)
+unit stat.
+(?, 80)
+fc: 32
+fc: 32
+fc: 256
+fc: 32
+A single LSTM layer with size 32
+fc: 256
+fc: 32
+mean pooling over units
+integrate all by concatenation
+concatenate
+concatenate
+concatenate
+Last action 
+z-stat
+A single LSTM layer with size 384
+fc: 256
+fc: 256
+skip connection
+× 3
+scalar context 
+used in GLU
+concatenate
+ability head
+(?, 117)
+noop head
+(?, 128)
+residual 
+block
+fc: 256
+fc: 256
+skip connection
+queued head
+(?, 2)
+attention
+LSTM layer 
+with size 32
+selection head
+(?, 64, 601)
+fc: 256
+fc: 256
+skip connection
+cmd unit head
+(?, 600)
+cmd pos head
+(?, 128, 128)
+embedded ability
+(?, 256)
+GLU with output 
+size 1024
+GLU with output 
+size 1024
+sum
+fc: 256
+fc: 256
+fc: 128
+embedded noop
+(?, 256)
+fc: 1024
+sum
+embedded queued
+(?, 1024)
+fc: 2
+sum
+embedded selection
+(?, 1024)
+8-headed
+attention
+query
+fc: 32
+sum
+one selection
+keys
+keys
+query
+(?, 16, 16, 4)
+reshape
+c3x3@128
+c3x3@128
+c3x3@128
+c3x3@128
+c1x1@1
+selection mask: (?, 600)
+ability mask: (?, 117)
+cmd unit mask: (?, 600)
+position mask: (?, 600)
+Figure 1: The detailed policy architecture. ‘?’ indicates the batch dimension. All green rectangles are inputs.
+Dark red rectangles are output multi-head actions. Black rectangles denote masks relying on the game logic.
+2% frames of human replays contain more than 600 units. A detailed list of used features
+and abilities can be found via the open-sourced repository. For reward function, we follow
+AlphaStar’s conﬁguration by using the win-loss outcome, the Edit distance between the
+build order in z-stat and the immediate build order, and the Manhattan distances between
+the build units, eﬀects, upgrades in z-stat and the according immediate values. Except the
+win-loss reward, each of the other rewards is activated with a probability of 0.25 for the main
+agent. Exploiters initialized from the standard supervised agent only use the win-loss reward.
+Exploiters initialized from diversely ﬁne-tuned supervised agents use all the above rewards
+with 25% activation probability on the build order reward and 100% activation for others.
+The discount factor γ is set to 1.0, i.e., without discounts.
+4.3. Neural Network Architechture
+Figures 1 and 2 show the detailed policy and value net architectures used by TStarBot-X,
+respectively. Most of the functional modules, such as a central LSTM for memorization, a
+transformer for encoding list of unit features, sequential prediction for the selection head,
+and pointer network for choosing a target unit, etc., follow what are used in AlphaStar. The
+main diﬀerences are:
+9
+
+Embeddings from policy net
+Identical structure with shared parameters
+target z-stat
+immediate z-stat
+opponent immediate z-stat
+sequential output
+dot-product attention
+LSTM embedding
+integrated embedding
+opponent vector features
+fc: 512
+fc: 512
+win-loss value
+build order value
+build unit  value
+effect value
+upgrade value
+concatenate
+target build unit stat.
+(?, 34)
+immediate  build unit stat.
+(?, 34)
+target effect stat.
+(?, 18)
+immediate  effect stat.
+(?, 18)
+target upgrade stat.
+(?, 28)
+immediate upgrade stat.
+(?, 28)
+fc: 32
+fc: 32
+fc: 32
+fc: 32
+fc: 32
+fc: 32
+embedded upgrade
+embedded effect
+embedded build unit
+embedded upgrade
+embedded effect
+embedded build unit
+residual 
+block
+fc: 64
+fc: 64
+skip connection
+× 8
+fc: 1
+fc: 1
+fc: 1
+fc: 1
+fc: 1
+residual 
+block
+fc: 64
+fc: 64
+skip connection
+× 8
+residual 
+block
+fc: 64
+fc: 64
+skip connection
+× 8
+residual 
+block
+fc: 64
+fc: 64
+skip connection
+× 8
+residual 
+block
+fc: 64
+fc: 64
+skip connection
+× 8
+concatenate
+concatenate
+concatenate
+concatenate
+concatenate
+concatenate
+concatenate
+concatenate
+Figure 2: The detailed value architecture. ‘?’ indicates the batch dimension. All green rectangles are inputs.
+Dark red rectangles are output multi-head values. The light red rectangles, i.e., LSTM embedding and
+integrated embedding are the embeddings just after and before the central LSTM layer in the policy net.
+• we signiﬁcantly reduce the size of the network by removing some functional modules
+and reducing the number of dense layers and layer size. For example, we remove the
+FiLM [1] connections; we only use GLU for the ability head; we use a single layer for
+the central LSTM; for residual blocks, which are adopted multiple times, we never stack
+the blocks more than 3 times in the policy net. By doing so, both the training and
+inference speed becomes endurable under our computation scale;
+• we replace the transformer connections for build order embedding with a single LSTM
+layer, since compared to the units embedding, build order is sequentially mattered. We
+indeed experiment with ablations and the results show that a single LSTM layer here
+is slightly superior than using transformers during imitation learning;
+• for value net, diﬀering from AlphaStar which creates a symmetric representation using
+the entire network for both self and opponent’s observations, we only fetch some general
+statistics from the enemy side into a single short vector. As shown in Figure 2, it
+includes the player statistics, upgraded technologies, unit counts, etc. This, together
+with the opponent’s immediate z-stat embedding, are the only inputs from the opponent
+side. The value still acts in a centralized way while it evaluates by only conditioning
+10
+
+on the enemy’s strategic statistics and self information. By doing so, the value net is
+around 30 times smaller than that used in AlphaStar.
+It is also worth mentioning a number of attempts before choosing a condensed version of
+AlphaStar’s network. Prior to the release of AlphaStar’s technical details, we indeed tried
+multiple versions of neural network compositions:
+• for the selection head, we ﬁrst tried multi-binary output that each unit is independently
+determined to be selected or not at the last layer, while they share some common units
+representation at lower layers. Multi-binary head generally works well and is much
+more eﬃcient compared to sequential predictions. However, it unavoidably suﬀers from
+the unit independency that a few units intended to be selected are often missed from
+the prediction with probability;
+• we parallelly investigated the ‘scatter connection’ which was then demonstrated to be
+eﬀective in [1]. This operation scatters the unit embeddings to the corresponding spatial
+positions in the 2D feature representation by concatenation along the channels and
+appending zeros for other locations without any units ﬁlled. It is similar to the feature
+representation used in GridNet [11]. Moreover, we tried ‘gather connection’, an aﬃne
+and inverse operator of scatter connection that fetches the output of the convolution
+layers according to the unit positions and append the fetched dense representations to
+the unit embeddings. By using scatter connection and gather connection together, we
+initially abandoned transformers and the units’ interaction was completely captured
+by convolution layers. This is still for eﬃciency consideration to remove the O(n2)
+complexity in transformers (with n being the number of units). It turns out that the
+trained agent prefers to control a group of units that are spatially close to each other
+and barely controls one or a few units for speciﬁc micro-management;
+• absorbing the selection operation into abilities is a fairer way to make an AI agent
+act like human. In Figure 1 and AlphaStar, selection is considered as an independent
+action head as a part of the auto-regressive structure. This naturally gives an AI agent
+superhuman capability that it can always ﬁnish selection and an eﬀective command, e.g.,
+attack a target, at a single step. On the contrary, humans have to perform a selection
+operation at an earlier step and then launch the command after that. We empirically
+ﬁnd that by isolating selection operation from other abilities into the auto-regressive
+structure, the AI agent can always reach the ratio of EPM/APM around 0.8 ∼0.85. An
+earlier version of TStarBot-X indeed absorbs the selection head into the ability head,
+and it has to use a single step to act selection ﬁrst and then executes a command at a
+later step, identical to human. The supervised agent can then only reach an average
+ratio of EPM/APM around 0.5.
+4.4. Imitation Learning with Importance Sampling
+We use a dataset containing 309,571 Zerg vs. Zerg replays. Table 4 shows the replay
+distribution with respect to game versions. Version 4.8.3 seems to be damaged and it raises
+11
+
+Table 4: Human replays used by TStarBot-X.
+Game version
+4.8.2
+4.8.4
+4.8.6
+4.9.0
+4.9.1
+4.9.2
+4.9.3
+total
+Number of replays
+43,144
+31,576
+51,907
+33,612
+29,467
+44,152
+75,713
+309,571
+errors when loading replays in this version. The replays log the human players’ raw actions
+and generally each one can be mapped into a valid action under the space introduced in
+4.2. However, considerable amount of data preprocessing eﬀorts are required. For example,
+‘Smart’ over a ‘Hatchery’ is equivalent to the action ‘Rally’, while ‘Smart’ attackable units on
+an enemy unit indicates ‘Attack’ that unit. That is, raw actions from replays labeled with
+the same abilities work diﬀerently when the executors are from diﬀerent types. To remove
+ambiguity, we compact the raw actions and a list of the preprocessed abilities for Zerg can be
+found in the open-sourced repository via the provided link.
+In [1], there are very few discussions on imitation/supervised learning, while we empirically
+ﬁnd that a straightforward run over the preprocessed data is not a good choice. Importance
+sampling over abilities is extremely important. Using a simple importance sampling conﬁgu-
+ration will increase the win-rate of the agent against the Elite-bot from 68% to 85% (90%
+win-rate mentioned in introduction is achieved by further ﬁne-tuning the model on data with
+higher MMR). That is, we downsample ‘NOOP’ by a rate of 0.2 and downsample ‘Smart’ by a
+rate of 0.25, while all other abilities that fail to appear in each replay at least once in average
+will be upsampled by the ratio the number of total replays over the ability’s total count,
+capped by 10.0. The actions that do not belong to the above mentioned cases remain their
+original distribution. Since we use LSTM, importance sampling should be implemented over
+trajectories. Speciﬁcally, we sample trajectories by summing up all the point-wise sampling
+weights within a trajectory, normalized by the total weights in the concurrent replay memory.
+After a trajectory is sampled, the point-wise weights are reassigned to the supervised loss for
+back-propagation. This guarantees the estimation unbiased.
+Our imitation learning procedure diﬀers from traditional supervised learning fashions
+where the data is preprocessed once and then stored untouched. Instead, we use online and
+distributed data generators, which are named Replay Actors, to send human trajectories
+to the imitation learner as the training proceeds. Although such an infrastructure uses
+more CPUs to generate data, it keeps compatible with the RL infrastructure and facilitate
+algorithms using mixture of human data and self-generated data. Another beneﬁt is that
+feature engineering is much more convenient. The training is implemented on 144 GPUs and
+5,600 CPU cores. We choose a model after 43 hours of imitation learning, which shows the
+best testing performance against the Elite-bot, and then we ﬁne-tune this model on 1500
+human replays with at least one human player’s MMR above 6200. The obtained model,
+with a win-rate of 90% against the Elite-bot, servers as a standard baseline supervised agent,
+which will be used as one of the initial models for exploiters in league training.
+From the baseline supervised agent, we continue ﬁne-tuning this model in K = 6 separate
+subsets of human replays with at least one human player’s MMR above 3500 (the subset of
+replays may overlap). Each subset of the replays covers the usage of a speciﬁc unit or strategy,
+including the Hydralisk, Lurker, Mutalisk, Nydus Network, Researching TunnelingClaws and
+12
+
+Worker Rush, which are frequently observed in human replays. The K ﬁne-tuned supervised
+models will be used by some speciﬁc exploiters as initial models, as will be introduced in 4.5.
+4.5. Diversiﬁed League Training
+Choosing appropriate RL algorithms, e.g., V-trace, PPO or UPGO, could stabilise RL
+training. We have empirically veriﬁed that using prioritized ﬁctitious self-play (PFSP) [1],
+optimizing Equation 1 or replacing V-trace with PPO in Equation 1 can both let the training
+agent consistently surpass its historical models. However, due to the complexities in SC2,
+especially for its large space of cyclic and non-transitive strategies, using PFSP is not suﬃcient
+to let the agent discover robust or novel policies. Diversity in the policy population thus
+plays an important role to solve this challenge.
+To enrich the diversity in the policy population, AlphaStar emphasizes the usage of the
+z-stat feature and populating the league [1]. The former one directly ﬁts strong strategic
+human knowledge into the policy, enabling the control of the agents’ strategies by just choosing
+the z-stat, while the latter one focuses on game-theoretic perspective to employ exploiters to
+discover new strategies. As we have explained, the former one aims to enhance the diversity in
+MA (in AlphaStar, only MAs use z-stat), and the latter one enriches the exploiters’ diversity
+in the league. To be general, we refer to populating the league with diverse roles as League
+Training. The word ‘League’ is essentially from Blizzard Entertainment’s Battle.net League.
+AlphaStar’s league contains three agent roles: Main Agent (MA), Main Exploiter (ME) and
+League Exploiter (LE). MA is unique in the league (for a distinct race) and it keeps training
+against all other agents and itself throughout the entire life of learning. It is positioned as
+a ROBUST agent that can respond to all other strategies. ME is set to exploit MA only
+and LE aims to ﬁnd weakness of the entire league. Both ME and LE reset to the supervised
+model periodically when their maximum number of training steps is reached or they achieve
+a high win-rate (above 70%) against their opponents. It can be deduced from [1] (or Table 1)
+that the ME of AlphaStar resets every 24 hours approximately (4 × 109 steps) and the LE
+resets about every 2 days in average (2×109 steps with a reset probability of 25%), regardless
+of their win-rates. It is also worth noting that from Figure 4A in [1], the performance of LE
+keeps improving even if it resets every 2 days in average. This implies that restarting from a
+baseline supervised model, AlphaStar’s exploiters can quickly reach a strong performance
+that is competitive to its MA (which never reset) even within a single training period. In
+addition, a mixture training across all SC2 races further diversiﬁes the league.
+In our experiments, reimplementing the above conﬁgured league training raises issues:
+1) keeping the same amount of periodic training steps for the exploiters costs us more than
+10 days for a single period. This is unendurable and makes the league too sparse; 2) using
+less training steps leads to weak ME and LE agents that can hardly catch up with the
+continuously trained MA, and the problem becomes worse as the training proceeds; 3) Zerg
+vs. Zerg reduces the chance for discovering many novel strategies, and strategic explorations
+become more diﬃcult.
+To address the aforementioned issues, we introduce several new agent roles:
+• Speciﬁc Exploiter (SE): it works similarly as ME except that it starts from one of the
+speciﬁc ﬁne-tuned supervised model introduced at the end of 4.4. Each SE focuses
+13
+
+on the exploration of a speciﬁc strategy or unit type. Although SE is limited by its
+distinct strategy or unit type, it still resets like ME to have chance to discover novel
+timing and micro-management policies. SE only uses the win-loss reward and samples
+z-stats from the according subset of human replays. It utilizes policy distillation to
+stay close to its speciﬁc initial policy with a larger coeﬃcient compared to others.
+• Evolutionary Exploiter (EE): it plays against MA and periodically resets to (inherits) a
+historical EE with the best win-rate against MA. Once a maximum number of steps
+reached or it beats MA above 70% win-rate, a copy of the model is frozen into the
+league and it resets (inherits). EE focuses on continually exploiting MA probably with
+some distinct strategies. As can be imagined, EE is easy to over-exploit MA, and hence
+its learning period length should be carefully set; otherwise, if the learning period is too
+short, multiple strong EEs with similar strategy will be added into the league frequently,
+and this will lead to a sharp change in MA’s value, as we have observed in our trials.
+EE’s evolutionary path is less likely to be wide but tends to be deep.
+• Adaptive Evolutionary Exploiter (AEE): it plays against MA and periodically resets
+to (inherits) a historical leaf AEE node, whose win-rate against MA lies in 20%-50%,
+implying this model is slightly weaker than MA but still exploitable. A leaf AEE node
+indicates the newest model in a branch which has never been inherited yet. Each branch
+might keep inheriting and improving some distinct strategy as it grows. If there is no
+historical model whose win-rate lies in 20%-50%, it resets to its initial supervised model.
+If there exists more than one eligible model, it resets to the one whose win-rate against
+MA is closest to 50%. AEE continually adds comparable opponents for MA to the
+league, making the training of MA stable, and it balances exploration and exploitation.
+AEE’s evolutionary path is less likely to be deep but tends to be wide.
+Figure 3 shows two examples of how EE and AEE work. We give a brief explanation
+for Figure 3(b), and then Figure 3(a) can be understood easily. In Figure 3(b), the training
+period proceeds horizontally and a new model ID is generated for this AEE in a new learning
+period. For a distinct model ID, once it has been ﬁxed and added into the league, its win-rate
+against MA will generally decrease horizontally, since MA keeps training with probability
+to sample it as opponent. At the beginning of period 2, model 0001 is a leaf node and its
+win-rate against MA lies in 20%-50%, so model 0002 inherits model 0001; at the beginning of
+period 3, model 0002’s win-rate exceeds 50% and there does not exist any other leaf node, so
+model 0003 resets to the initial model; at the beginning of period 4, there exist two leaf nodes,
+i.e., model 0002 with 48% win-rate and model 0003 with 40% win-rate, and then model 0004
+inherits model 0002 whose win-rate is closest to 50%, to name a few. Both EE and AEE
+can be combined with SE, ME, LE by varying the initial supervised model or the opponent
+matching mechanism.
+The proposed exploiters either reduce the exploration space, extend the training life or
+seek a balance for stabilising MA’s training, and hence they are general methods to deal
+with the aforementioned league training problems. After some practical trails, in our formal
+experiment, we use a combination among SE, ME, LE and AEE in the league. We refer to
+14
+
+0005: 
+88%
+0003: 
+75%
+0002: 
+80%
+0001: 
+50%
+Period
+1
+2
+3
+4
+5
+initial
+model
+0001: 
+40%
+0001: 
+35%
+0001: 
+20%
+0001: 
+15%
+0002: 
+78%
+0002: 
+70%
+0002: 
+65%
+0004: 
+85%
+0003: 
+65%
+0003: 
+40%
+0004: 
+80%
+(a) Evolutionary Exploiter
+0005: 
+65%
+0003: 
+40%
+0002: 
+55%
+0001: 
+45%
+Period
+1
+2
+3
+4
+5
+initial
+model
+0001: 
+40%
+0001: 
+35%
+0001: 
+18%
+0001: 
+15%
+0002: 
+48%
+0002: 
+45%
+0002: 
+40%
+0004: 
+60%
+0003: 
+32%
+0003: 
+30%
+0004: 
+55%
+(b) Adaptive Evolutionary Exploiter
+Figure 3: Examples of how EE and AEE work as the training periods proceed. Green cycles indicate leaf
+nodes. The texts in each node consist of a model ID before the colon followed by the win-rate against the
+current MA at the end of that training period. Grey texts indicate the corresponding node has been frozen
+as a historical model in the league.
+such league training with a mixture of these exploiters as Diversiﬁed League Training (DLT).
+We will show that DLT enriches the league diversity and beneﬁts MA’s training, compared to
+AlphaStar Surrogate. The MA will use 25% Self-Play, 60% PFSP and 15% of PFSP matches
+against forgotten main players, similar to AlphaStar. In our experiments, MA is assigned
+with 32 GPUs and each exploiter is assigned with 8 GPUs for training. MA pushes a copy
+of its model into the league every 3 × 108 steps (around 12 hours in our case). The period
+length of all the exploiters is set with a minimum number of 7.65 × 107 steps (also around
+12 hours), and after that the exploiters periodically check whether a maximum number of
+1.53 × 108 steps is reached or it satisﬁes its condition to reset, inherit or continue training.
+4.6. Rule-Guided Policy Search
+Following AlphaStar, our RL loss consists of a V-trace [20] loss, an UPGO [1] loss, an
+entropy regularizer, and a policy distillation [28] term targeting to the supervised model.
+That is, the considered RL loss is
+LRL = LV -trace + LUPGO + Lentropy + Ldistill.
+(1)
+We have also tried a distributed version of PPO [19], and the results suggest that distributed
+PPO + UPGO does not show much diﬀerence compared with V-trace + UPGO within 5
+days of training.
+In addition, we introduce a new Rule-Guided Policy Search (RGPS) loss to promote MA’s
+exploration on some critical states. RGPS is a principled way to fuse expert knowledge into
+a policy. Speciﬁcally, the RGPS loss induces the policy as follows:
+LRGPS =
+(
+KL
+
+πexpert(·|s)||πθ(·|s)
+
+,
+s ∈Scritical,
+0,
+s /∈Scritical,
+(2)
+15
+
+where πθ is the training policy parameterized by θ, πexpert is an expert teacher policy and
+Scritical ⊂S is a small subset of state space which are considered to be critical by human
+experts. The RGPS loss is activated only when s ∈Scritical. RGPS promotes explorations
+on these states by following the teacher expert policy πexpert and then generalizes to similar
+states. Indeed, in SC2 it is extremely diﬃcult for the traditional RL algorithms to explore
+such critical decisions with limited trial-and-errors. Still think about the example in the
+introduction, “humans understand that ‘Hydralisk’ is strong against ‘Mutalisk’...”. Fitting
+such hard game logics into a policy requires extremely large amount of game episodes, because
+within one match these key state-action pairs, say, morphing ‘Lair’ after observing enemy’s
+intention to use ‘Mutalisk’, would probably only be performed once among thousands of steps.
+We observe in the experiments that without using RGPS, the agents have to spend a large
+amount of training time to explore some quite simple scenarios, such as training ‘Hydralisk’
+ﬁrst requires ‘Morph Lair’.
+For a given s ∈Scritical and discrete action space, πexpert(·|s) in Equation 2 can be
+designated by human expert. For example, it can be either a one-hot vector as in conventional
+supervised learning or a soft label via the label-smoothing technique [29]. We can further
+use hand-craft rules (by human experts) to decide the critical states. Conceptually, RGPS is
+similar to the Guided Policy Search (GPS) [30] in regards of imitating an expert policy. The
+diﬀerence is that RGPS is an uniﬁed approach for RL by involving an extra regularization
+term, while GPS is a two-stage process by ﬁrst generating the expert policy and then imitating
+it. GPS obtains the expert policy via Diﬀerential Dynamic Programming (DDP), while RGPS
+utilizes hand-craft rules. In most applications, it is impractical to express an expert policy
+by solving DDP and using closed-form equations, while it is often possible to transfer expert
+knowledges into hand-craft rules conveniently using if-else sentences. For example, behavior
+tree and ﬁnite state machine have been well studied and demonstrated to be practically
+useful for decades. SAIDA [31], a pure rule-based AI in StarCraft: Brood War, won the 2018
+AIIDE tournament. However, an important drawback for systems based on behavior tree,
+ﬁnite state machine or rule-based systems is that they lack the ability to learn. That is, these
+systems can not evolve automatically. RGPS thus provides a hybrid learning solution to fuse
+expert knowledge into a parameterized policy through RL’s exploration.
+In our implementation, the ‘Morph Lair’ example mentioned above is an exact case used
+in RGPS. We code a few other game logics in the same way, and we will list all of these
+logics in the experimental section. These hand-craft rules might not be optimal, but they can
+indeed eﬃciently promote exploration through RGPS and the policy will then be optimized
+by policy gradient. RGPS is only activated for MA in our experiments.
+4.7. Stabilized Policy Improvement with DAPO
+Divergence-Augmented Policy Optimization (DAPO) [? ] was originally derived for
+stabilized policy optimization from the scope of mirror descent algorithms. In the policy
+space, the mirror descent step can be explained as penalized policy gradient with a Bregman
+divergence term between two successive policies. Choosing a speciﬁc form of the function in
+the Bregman divergence will recover the KL divergence. In our league training, we apply
+DAPO at the agent level that the successive policies in the KL divergence are deﬁned as
+16
+
+two successive stored models with gap between them as a learning period (around 12 hours).
+Empirically, our objective after activating DAPO is
+LRL + LRGPS + LDAPO,
+(3)
+where
+LDAPO = KL
+ πθt−1(·|s)||πθt(·|s)
+
+,
+(4)
+and t is the index of the learning period. Heuristically, LDAPO constrains the training policy
+to stay close to its previous historical ﬁxed model, and hence explorations are within a
+reasonable space, similar to Ldistill which forces the policy to stay close to human strategies.
+The diﬀerence is that the teacher policy shifts in DAPO as the league training proceeds
+while in Ldistill the teacher policy is always ﬁxed as the supervised agent. An important
+necessity for using DAPO in our case is that our supervised agent is indeed not strong
+enough. AlphaStar’s supervised agent has been validated to reach Diamond level in Battle.net
+oﬃcially, while our supervised agent loses some games when playing with Platinum human
+players half the time. We conjecture this is due to the signiﬁcantly reduced network size
+and imitating only Zerg v.s. Zerg replays. Therefore, in AlphaStar, even after reseting the
+exploiters to the supervised agent, the exploiters can still quickly catch up with the MA
+within a single learning period. Hence, consistently constraining MA to stay close to the
+supervised agent will be a natural choice for AlphaStar. However, in our case, situations
+become totally diﬀerent. For exploiters, we have proposed new agent rules such as AEE to
+continually training the exploiters to avoid the embarrassed situation that once reseting they
+will never catch up with the MA. For MA, apparently, consistently restricting MA around
+the supervised agent prevents MA from improving eﬃciently. Therefore, DAPO is necessary
+to promote policy improvement. In our implementation, DAPO is only activated for the ﬁrst
+4 minutes of an episode and the agent is free to explore after that. As we will show in the
+experiments, by doing so, policy improvement can be signiﬁcantly promoted.
+4.8. The Entire Infrastructure
+All the introduced techniques are implemented under an infrastructure depicted in Figure 4.
+To scale up the training, we adopt a distributed learner-actor architecture, where the actors
+are deployed on CPU machines to let the agent interact with the game core to generate
+trajectories and send them to the learner, and the learners are deployed on GPU machines to
+train the parameters using the received trajectories. Similar to SEED, we employ a GPU
+Inference Server (InfServer) to leverage the GPUs for action inference on actors. Compared
+to the scheme of using pure CPUs for action inference, using InfServer reduces 34% of CPU
+usage while maintaining the same data generation speed. Importantly, the infrastructure is
+specially designed for multi-agent learning that a League Manager (LeagueMgr) schedules
+the matches and keeps track of all the historical models. The entire infrastructure is referred
+to as TLeague [33]. The full-scale training is run over a Kubernetes cluster on Tencent Cloud.
+Please refer to [33] for more details.
+17
+
+ReplayMem
+DataServer
+ML copies
+MG copies
+MI copies
+Env
+Agt
+MA copies
+InfServer
+MP copies
+ModelPool
+HyperMgr
+GameMgr
+Saver
+Trajectories
+Obs
+Act
+NN param
+Outcome
+Task
+Task
+NN param
+NN param
+NN param
+Actor
+Learner
+LeagueMgr
+Figure 4:
+The framework of the entire training architecture TLeague.
+5. Results
+In our experiments, the full scale of computational resources contains 144 NVDIA v100
+GPUs and 13,440 CPU cores on Tencent Cloud.
+This section includes comprehensive
+experimental results, including studies of one formal league training experiment with full
+computation scale that lasts for 57 days, several ablation league training experiments each of
+which is running with full computation scale and lasts for 7 days, imitation learning results,
+and full scale of testing matches for evaluation, etc. We access every detail of the learning
+and show which are the most sensitive parts that aﬀect the agent performance.
+5.1. Overall Performance
+5.1.1. Human Evaluation
+Within 57 days of league training of the formal experiment, we invite four human players
+oﬃcially ranked at Master and Grandmaster in Battle.net League to evaluate the trained
+agents. For all the matches, we let MAs play with human players. We use unconditional
+policy, i.e., zero z-stat, with 50% probability and randomly sample z-stat from the top-25
+z-stats (of the according MA) from the 174 z-stats used for training for another half of the
+time. There are two modes for humans and AIs to join a game: local and remote. For local
+connection, the AI agent is deployed on a single laptop with a single GeForce GTX 1650
+GPU, and the human player uses a laptop under the same local network. The agent then
+suﬀers an additional 134ms delay (in average, for inference and lag in real time mode) except
+its predicted delay from its NOOP head. For remote connection, the AI agent is deployed on
+a Tencent Cloud Virtual Machine with one NVIDIA v100 GPU, and the human players are
+free to choose their local equipments. For remote connection, the agent suﬀers an additional
+18
+
+(a)
+DLT+RGPS+DAPO
+DLT+RGPS
+Elite-bot
+(b)
+Figure 5:
+(a) The payoﬀmatrix from the Round Robin tournament of the models in the formal experiment’s
+league. (b) ELO scores of agents in the formal experiment’s league. Each point represents a historical agent,
+evaluated against the entire league and the Elite-bot, which is referenced as the baseline with zero ELO
+score. Cycles indicate MAs, triangles indicate exploiters with their types in diﬀerent colors, and squares are
+supervised models.
+179ms delay except its predicted delay from its NOOP head. The invited two Grandmaster
+players are at diﬀerent locations and have to join the game using the remote mode.
+The overall human evaluation results are depicted in Table 5. Each human player is asked
+to play at least three consecutive matches and additional matches depending on their interests.
+TStarBot-X loses one match against a Grandmaster player. Replays can be downloaded from
+the public link. Some evaluations received from the Grandmaster players: “it can play with
+diverse strategies across matches”, “it locates its Overlords perfectly”, “its economic operation
+is professional”. On the other side, the Grandmaster who won one of ﬁve consecutive matches
+points out that “it is not good at multitasking and counter-multitasking”.
+Table 5: Overall results from human evaluation. The score formats as “Human player : TStarBot-X’s MA”.
+Human player rank
+League region
+Expertise
+Played
+Mode/Lag
+Score
+Training days
+Master
+CN
+Protoss
+Zerg
+Local
+0:11
+47
+Master
+CN
+Protoss, Terran
+Zerg
+Local
+0:13
+49
+Grandmaster∗
+US
+Zerg
+Zerg
+Remote
+0:3
+55
+Grandmaster
+KR, CN (Top-50)
+Zerg, Protoss
+Zerg
+Remote
+1:4
+55
+Grandmaster∗
+US
+Zerg
+Zerg
+Remote
+0:4
+57
+* The same human player played on diﬀerent dates.
+5.1.2. League Evaluation
+In the formal experiment, the league consists of one MA and 8 exploiters. The MA is
+assigned with 32 GPUs for training and each exploiter is assigned with 8 GPUs for training,
+and hence there are a total number of 96 GPUs used for training and another 48 GPUs
+used for inference via InfServer. The 8 exploiters are combinations of ME/LE/SE and
+AEE, i.e., AEE with distinct initial supervised model or opponent matching mechanism,
+which we denote as AEE-General (ME+AEE), AEE-League (LE+AEE), AEE-Hydralisk
+19
+
+Table 6: Rules used in RGPS.
+Rules on
+Explanation
+Morph Lair
+After observing opponent has done so
+Morph Overseer
+After observing opponent’s Lurker
+Build Lurkerden
+After observing opponent’s Lurker
+Build Spire/Hydraliskden
+After observing opponent’s air unit
+Train Viper
+After seeing many opponent’s Lurkers
+Morph Hive
+If ‘Train Viper’ rule is activated
+(SE+AEE), AEE-Lurker (SE+AEE), AEE-Mutalisk (SE+AEE), AEE-Nydus (SE+AEE),
+AEE-TunnelingClaws (SE+AEE) and AEE-WorkerRush (SE+AEE). In the ﬁrst 42 days
+of training, DLT and RGPS are activated, and after that DAPO is activated additionally.
+This is an empirical choice, and it is expensive to repeat the entire formal experiment with
+diﬀerent conﬁgurations. However, we will use some shorter league training experiments to
+evaluate the eﬀectiveness of each component. Table 6 provides a list of all rules used in RGPS
+in our experiments.
+During 57 days of training, a total number of 25,708,491 matches are generated by all
+the actors, and a total number of 583 agents are generated, including 124 main agents,
+452 exploiters and 7 initial supervised models. We select half of these models stored every
+two learning periods, and perform Round Robin tournament among these models. That is,
+any pair of these models will be tested for 100 matches. For all the testing matches, the
+conﬁguration of z-stat follows the conﬁguration in training. After a total number of around 4
+million testing matches, we obtain the payoﬀmatrix shown in Figure 5(a). The rows/columns
+are ranked by agent types and training time. Important conclusions can be drawn from
+Figure 5(a) are: (1) for each type of the agents, their strength is consistently increasing with
+higher win-rates against earlier models; (2) for each type of the exploiters, continually training
+allows they are consistently competitive compared to MA (recall the working mechanism of
+AEE); by comparision, the payoﬀmatrix in AlphaStar [1] shows that its MEs can rarely catch
+up with its MA as the training proceeds, and therefore these computational eﬀorts should be
+more reasonably reallocated; (3) the strength of all the agents is signiﬁcantly improved after
+DAPO activated. Figure 5(b) shows the ELO scores of the agents in the league. As we can
+observe, the MA consistently improves while the exploiters can also catch up with the MA
+as the training proceeds. Again, it is obvious that DAPO signiﬁcantly promotes the policy
+improvement after its activation.
+5.1.3. Key Components Evaluation in League Training
+In addition to the formal experiment, we also conduct several ablation studies, each of
+which uses full scale of the computational resources as the formal experiment but runs for
+a week. The compared settings are AlphaStar Surrogate, DLT (only), DLT+RGPS and
+DLT+RGPS+DAPO. AlphaStar Surrogate is constructed by composing the league with one
+MA (assigned with 32 GPUs), two MEs (each with 16 GPUs), and two LEs (each with 16
+GPUs). To compare among diﬀerent leagues, we use the Relative Population Performance
+20
+
+(a)
+(b)
+Figure 6:
+Comparing diﬀerent league compositions using RPP. (a) comparison between the entire leagues;
+(b) comparison between MAs.
+(RPP) [1], that is the payoﬀvalue of the Nash solution between two leagues. To test the
+RPP value between league A and league B, we let every agent in A play against every agent
+in B with 100 matches. For all the testing matches, the conﬁguration of z-stat follows the
+conﬁguration in training. We use the AlphaStar Surrogate as the reference league. Figure 6
+shows the test RPP of diﬀerent conﬁgurations when comparing the whole league and the
+MAs, respectively. By using DLT, although the entire league’s RPP is only slightly higher
+than AlphaStar Surrogate, the RPP of the MAs increases apparently, indicating the MAs in
+DLT are more robust and stronger than the MAs in AlphaStar Surrogate. It is not surprising
+that the RPP increment of the entire league of DLT is not obvious, because at early stage of
+the league training, MA is not strong and AEEs can easily catch up with MA; then, according
+to the scheme of AEE, these exploiters reset to their supervised agents, and therefore act
+like ME and LE; also, in DLT, each exploiter is assigned with only 8 GPUs and hence their
+policy improvement is limited compared to MEs and LEs in AlphaStar Surrogate. However,
+the diversity generated from DLT results in more robust MAs. This can further be veriﬁed
+in Figure 7(a), which shows the occurrence probability of most main Zerg units, upgrades
+and buildings in all the training matches of the last day of training. From the ﬁgure, it is
+clear that the exploiters in DLT show much diverse units, upgrades and buildings, while
+the non-zero quantities of AlphaStar Surrogate are mainly concentrated at the left side.
+By adding RGPS, we also observe slight RPP improvement of both the league and MAs
+comparison, with DLT as the reference. It is not surprising either that the RPP values are
+with slight increment because very few critical states are considered in RGPS (see Table 6).
+However, when considering these critical states, Figure 7(b) demonstrates that RGPS indeed
+ﬁts these rules in the policy to enhance the probability of these relevant actions. Finally,
+after adding DAPO, the RPP values against AlphaStar Surrogate signiﬁcantly increases for
+both league and MAs comparisons, showing the eﬀectiveness of DAPO in promoting policy
+improvement.
+5.2. Other Results
+5.2.1. Build-in Bots Evaluation
+We report build-in bots evaluation results for both the supervised agents from IL and
+some early agents from the formal experiment. Figure 8(a) shows the testing win-rates of the
+21
+
+ZERGLING
+ZERGLINGMETABOLICBOOST
+ROACH
+ZERGMISSILEWEAPONS
+LAIR
+RAVAGER
+GLIALREGENERATION
+BANELING
+SPINECRAWLER
+ZERGGROUNDARMOR
+OVERSEER
+SPORECRAWLER
+SPIRE
+ZERGMELEEWEAPONS
+MUTALISK
+BURROW
+NYDUSNETWORK
+PNEUMATIZEDCARAPACE
+NYDUSWORM
+HYDRALISKDEN
+ZERGFLYERATTACK
+HYDRALISK
+CONTAMINATE
+GROOVEDSPINES
+INFESTATIONPIT
+MUSCULARAUGMENTS
+TUNNELINGCLAWS
+CORRUPTOR
+LURKERDENMP
+CENTRIFUGALHOOKS
+HIVE
+LURKER
+INFESTOR
+ZERGFLYERARMOR
+ADAPTIVETALONS
+VIPER
+Units, Upgrades and Buildings
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Occurrence Probability
+Exploiter Diversity
+DLT
+AlphaStar Surrogate
+(a)
+LAIR
+OVERSEER
+SPIRE
+HYDRALISKDEN
+HIVE
+LURKERDENMP
+VIPER
+Production Encouraged by The Rules in RGPS
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+Occurrence Probability
+Main Agent Diversity
+DLT
+DLT+RGPS
+(b)
+Figure 7:
+(a) Exploiters’ diversity in the league: units, upgrades and buildings’ occurrence probability in
+all exploiters’ matches of last training day of the 7 days. (b) The occurrence probability of the units and
+buildings considered in RGPS with respect to Table 6, counted in MA’s matches in the last training day of
+the 7 days.
+0h
+4h
+8h
+12h
+16h
+20h
+24h
+28h
+32h
+36h
+40h
+44h
+48h
+Training time (hours)
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+Win-rate
+vs. build-in bot level 4
+vs. build-in bot level 5
+vs. build-in bot level 6
+vs. build-in bot level 7
+vs. build-in bot level 8
+vs. build-in bot level 9
+vs. build-in bot level 10
+(a) W/ importance sampling
+0h
+4h
+8h
+12h
+16h
+20h
+24h
+28h
+32h
+36h
+40h
+44h
+48h
+Training time (hours)
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+Win-rate
+vs. build-in bot level 10
+vs. build-in bot level 4
+vs. build-in bot level 5
+vs. build-in bot level 6
+vs. build-in bot level 7
+vs. build-in bot level 8
+vs. build-in bot level 9
+(b) W/o importance sampling
+0h
+12h
+24h
+36h
+48h
+60h
+72h
+84h
+96h
+108h
+120h
+Training time (hours)
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+Win-rate
+vs. build-in bot level 4
+vs. build-in bot level 5
+vs. build-in bot level 6
+vs. build-in bot level 7
+vs. build-in bot level 8
+vs. build-in bot level 9
+vs. build-in bot level 10
+(c) Win-rates in early league
+Figure 8: (a)-(b) Comparison of IL with and without importance sampling. (c) Win-rates of the agents in
+early league training. Each point indicates the win-rate of a stored model against the corresponding build-in
+bot, averaged over 100 testing matches.
+supervised agents against the build-in bots from level 4 to level 10 as the imitation learning
+proceeds. Each point indicates an average win-rate from 100 matches and the agent randomly
+samples a z-stat from a subset of 174 human replays with the winner’s MMR ≥6200 on
+the Kairos Junction map. For an ablation study, we also provide the training curve by
+removing importance sampling and Figure 8(b) shows the test win-rates. Obviously, training
+the agent using the original data distribution signiﬁcantly reduces the performance. Similar
+to IL, we provide evaluation results of the main agents from early league training against the
+build-in bots. Figure 3 shows the testing curve and we observe that the reinforced agent can
+consistently enhance its performance against the build-in bots although it never meet any of
+them in its league training.
+22
+
+None:init_model
+init_model:0001
+0001:0511
+init_model:0004
+0004:0011
+0011:0014
+0014:0022
+0022:0026
+0026:0033
+0033:0038
+0038:0045
+0045:0050
+0050:0056
+0056:0060
+0060:0067
+0067:0072
+0072:0079
+0079:0083
+0083:0090
+0090:0094
+0094:0101
+0101:0106
+0106:0113
+0113:0117
+0117:0123
+0123:0126
+0126:0135
+0135:0138
+0138:0146
+0146:0149
+0149:0157
+0157:0160
+0160:0169
+0169:0172
+0172:0180
+0180:0183
+0183:0189
+0189:0192
+0192:0198
+0198:0203
+0203:0209
+0209:0214
+0214:0221
+0221:0226
+0226:0231
+0231:0233
+0233:0240
+0240:0242
+0242:0249
+0249:0251
+0251:0258
+0258:0260
+0260:0267
+0267:0269
+0269:0276
+0276:0278
+0278:0285
+0285:0287
+0287:0293
+0293:0296
+0296:0302
+0302:0305
+0305:0311
+0311:0314
+0314:0320
+0320:0323
+0323:0329
+0329:0332
+0332:0338
+0338:0341
+0341:0347
+0347:0350
+0350:0356
+0356:0358
+0358:0364
+0364:0368
+0368:0373
+0373:0378
+init_model:0009
+0009:0010
+0010:0012
+0012:0020
+0020:0023
+0023:0031
+0031:0034
+0034:0036
+0036:0044
+0044:0046
+0046:0054
+0054:0057
+0057:0064
+0064:0068
+0068:0070
+0070:0078
+0078:0080
+0080:0088
+0088:0091
+0091:0097
+0097:0102
+0102:0104
+0104:0112
+0112:0114
+0114:0124
+0124:0127
+0127:0134
+0134:0137
+0137:0143
+0143:0147
+0147:0150
+0150:0158
+0158:0161
+0161:0168
+0168:0171
+0171:0177
+0177:0181
+0181:0184
+0184:0190
+0190:0193
+0193:0201
+0201:0204
+0204:0212
+0212:0215
+0215:0220
+0220:0225
+0225:0232
+0232:0235
+0235:0241
+0241:0244
+0244:0250
+0250:0253
+0253:0259
+0259:0262
+0262:0268
+0268:0271
+0271:0277
+0277:0280
+0280:0286
+0286:0288
+0288:0295
+0295:0297
+0297:0304
+0304:0306
+0306:0313
+0313:0315
+0315:0322
+0322:0324
+0324:0331
+0331:0333
+0333:0340
+0340:0346
+0346:0349
+0349:0355
+0355:0359
+0359:0367
+0367:0375
+0375:0379
+0379:0385
+0385:0388
+0388:0393
+0393:0396
+0396:0407
+0407:0411
+0411:0415
+0415:0419
+0419:0423
+0423:0427
+0427:0431
+0431:0435
+0435:0439
+0439:0443
+0443:0447
+0447:0451
+0451:0455
+0455:0459
+0459:0465
+0465:0467
+0467:0473
+0473:0476
+0476:0481
+0481:0484
+0484:0489
+0489:0492
+0492:0497
+0497:0500
+0500:0505
+0505:0508
+0508:0513
+0513:0516
+0516:0521
+0521:0525
+0525:0529
+0529:0533
+0533:0537
+0537:0540
+0540:0545
+0545:0548
+0548:0553
+0553:0556
+0556:0561
+0561:0564
+0564:0569
+0569:0571
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+init_model:0017
+0017:0030
+0030:0041
+0041:0052
+0052:0062
+0062:0074
+0074:0085
+0085:0096
+0096:0108
+0108:0119
+0119:0130
+0130:0141
+0141:0152
+0152:0163
+0163:0174
+0174:0185
+0185:0194
+0194:0219
+0219:0228
+0228:0237
+0237:0246
+0246:0255
+0255:0291
+0291:0300
+0300:0309
+0309:0318
+0318:0327
+0327:0343
+0343:0351
+0351:0370
+0370:0381
+0381:0389
+0389:0397
+0397:0408
+0408:0416
+0416:0424
+0424:0432
+0432:0440
+0440:0448
+0448:0456
+0456:0463
+0463:0471
+0471:0479
+0479:0495
+0495:0503
+0503:0520
+0520:0536
+0536:0544
+0544:0560
+init_model:0208
+0208:0264
+0264:0273
+0273:0282
+0282:0336
+0336:0361
+0361:0487
+0487:0528
+0528:0552
+0552:0568
+init_hl:0006
+0006:0019
+0019:0025
+0025:0037
+0037:0048
+0048:0061
+0061:0073
+0073:0084
+0084:0095
+0095:0107
+0107:0118
+0118:0140
+0140:0175
+0175:0211
+0211:0223
+init_hl:0129
+init_hl:0153
+init_hl:0164
+init_hl:0200
+init_lu:0005
+0005:0013
+0013:0024
+0024:0035
+0035:0047
+0047:0058
+0058:0069
+0069:0081
+0081:0092
+0092:0115
+0115:0159
+0159:0170
+0170:0182
+0182:0191
+0191:0213
+0213:0234
+0234:0252
+0252:0270
+0270:0365
+0365:0384
+0384:0392
+0392:0464
+0464:0472
+0472:0480
+0480:0488
+0488:0496
+0496:0504
+0504:0512
+0512:0519
+0519:0527
+0527:0543
+0543:0551
+0551:0559
+0559:0567
+init_lu:0103
+init_lu:0125
+init_lu:0136
+0136:0374
+init_lu:0148
+init_lu:0202
+init_lu:0224
+init_lu:0243
+init_lu:0261
+init_lu:0279
+init_lu:0289
+init_lu:0298
+init_lu:0307
+0307:0399
+0399:0409
+0409:0418
+0418:0425
+0425:0433
+0433:0441
+0441:0449
+0449:0457
+0457:0535
+init_lu:0316
+init_lu:0325
+init_lu:0334
+init_lu:0342
+init_lu:0352
+init_lu:0363
+init_lu:0372
+init_lu:0401
+0401:0426
+0426:0450
+init_lu:0403
+0403:0417
+init_lu:0410
+0410:0434
+0434:0458
+0458:0466
+0466:0474
+0474:0482
+0482:0490
+0490:0498
+0498:0506
+0506:0514
+0514:0522
+0522:0530
+0530:0538
+0538:0546
+0546:0554
+0554:0562
+0562:0570
+init_lu:0442
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+init_ml:0007
+0007:0015
+0015:0042
+0042:0065
+0065:0076
+0076:0087
+0087:0110
+0110:0121
+0121:0132
+0132:0144
+0144:0166
+0166:0178
+0178:0197
+0197:0207
+0207:0217
+0217:0229
+0229:0236
+0236:0245
+0245:0254
+0254:0263
+0263:0272
+0272:0290
+0290:0299
+0299:0308
+0308:0317
+0317:0326
+0326:0335
+0335:0362
+0362:0380
+0380:0387
+0387:0430
+0430:0462
+0462:0486
+0486:0494
+0494:0502
+0502:0510
+0510:0518
+0518:0526
+0526:0534
+0534:0550
+0550:0566
+init_ml:0028
+0028:0053
+0053:0099
+0099:0155
+0155:0187
+0187:0281
+0281:0344
+0344:0353
+0353:0369
+0369:0395
+0395:0406
+0406:0414
+0414:0421
+0421:0438
+0438:0446
+0446:0470
+0470:0478
+0478:0542
+0542:0558
+0558:0574
+init_ml:0454
+init_ny:0003
+0003:0016
+0016:0027
+0027:0039
+0039:0049
+0049:0059
+0059:0071
+0071:0082
+0082:0093
+0093:0105
+0105:0131
+0131:0154
+0154:0165
+0165:0176
+0176:0186
+0186:0218
+0218:0239
+0239:0265
+0265:0274
+0274:0283
+0283:0292
+0292:0301
+0301:0310
+0310:0319
+0319:0328
+0328:0337
+0337:0345
+0345:0360
+0360:0382
+0382:0398
+0398:0413
+0413:0422
+0422:0437
+0437:0445
+0445:0453
+0453:0461
+0461:0477
+0477:0493
+0493:0517
+0517:0532
+0532:0549
+0549:0573
+init_ny:0116
+0116:0565
+init_ny:0142
+0142:0557
+init_ny:0195
+0195:0390
+0390:0501
+0501:0509
+init_ny:0206
+init_ny:0227
+0227:0485
+init_ny:0248
+0248:0524
+init_ny:0257
+0257:0404
+0404:0429
+0429:0468
+init_ny:0354
+init_ny:0371
+0371:0541
+init_tc:0008
+0008:0021
+0021:0032
+0032:0043
+0043:0055
+0055:0066
+0066:0077
+0077:0089
+0089:0100
+0100:0111
+0111:0122
+0122:0133
+0133:0145
+0145:0156
+0156:0167
+0167:0179
+0179:0188
+0188:0196
+0196:0205
+0205:0216
+0216:0230
+0230:0238
+0238:0266
+0266:0275
+0275:0294
+0294:0303
+0303:0312
+0312:0330
+0330:0339
+0339:0357
+0357:0366
+0366:0402
+0402:0460
+0460:0475
+0475:0483
+0483:0507
+0507:0531
+0531:0563
+init_tc:0247
+0247:0376
+0376:0428
+0428:0436
+0436:0444
+0444:0452
+0452:0469
+0469:0491
+0491:0523
+0523:0547
+0547:0572
+init_tc:0256
+init_tc:0284
+init_tc:0321
+0321:0386
+0386:0394
+0394:0405
+0405:0412
+0412:0420
+0420:0499
+0499:0515
+0515:0539
+0539:0555
+init_tc:0348
+init_wr:0002
+0002:0051
+0051:0120
+0120:0151
+0151:0383
+init_wr:0018
+0018:0029
+0029:0040
+0040:0063
+0063:0075
+0075:0086
+0086:0098
+0098:0109
+0109:0128
+0128:0139
+0139:0162
+0162:0173
+0173:0199
+0199:0210
+0210:0222
+0222:0391
+None:init_hl
+None:init_lu
+None:init_ml
+None:init_ny
+None:init_tc
+None:init_wr
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+The training main agent (0569:0571)'s win-rates against the entire league
+Figure 9: The training MA’s win-rates against the entire league at the 57th day of training.
+5.2.2. Opponent Matching Status in League Training
+Figure 9 shows the opponent matching status of MA in the entire league on the ﬁnal day
+of the formal experiment. A number of 583 agents are generated and each agent is denoted
+by a bar in the Figure. The agent ID consists of a parent ID following by the descendent
+ID, separated by a colon. If the parent ID is ‘None’, it indicates that the model is one of
+the initial models. The bar values indicate the win-rates of the training MA against all
+other agents in the league at that time. The group of green bars (right hand side of the
+top sub-ﬁgure) indicates all the MAs generated in history and the right-most one is the MA
+that is under training. All the other colorful bars indicate various exploiters. Groups of
+bars located together with the same color indicate an evolving branch of agents. As we can
+observe, the training MA can almost beat all the historical agents with win-rate above 50%
+except a few most recent exploiters.
+5.2.3. Diversity in Supervised Models and MA’s Counter Strategies
+In IL, we ﬁne-tuned K = 6 supervised models on 6 subsets of human replays, each of
+which includes one the following units/upgrades/strategies: Hydralisk, Lurker, Mutalisk,
+Nydus Network, TunnelingClaws, and Worker Rush. We indeed tried more subsets from
+common human strategies while we ﬁnd that the above selected strategies are relatively more
+competitive. We evaluate each of them by 100 matches versus the Elite-bot and the collected
+unit counts are shown in Figure 10. The results demonstrate that ﬁne-tuning the model
+using distinct subsets of replays is empirically eﬀective to provide initial diversities.
+Next,
+we show the robustness of the MA. A simple way to access MA’s robustness is varying its
+opponents with diverse strategies and see how MA responses. For demonstration, we choose
+some representative exploiters each of which focusing on a distinct strategy, including using
+23
+
+ZERGLING
+BANELING
+ROACH
+RAVAGER
+MUTALISK
+HYDRALISK
+LURKER
+SPINECRAWLER
+NYDUSNETWORK
+NYDUSWORM
+TUNNELINGCLAWS
+0
+2
+4
+6
+8
+sqrt(count)
+IL-Mutalisk
+IL-Hydralisk
+IL-Nydus
+IL-WorkerRush
+IL-TunnelingClaws
+IL-Lurker
+Figure 10: Average (square root) unit counts for the ﬁne-tuned IL models in testing matches against the
+Elite-bot.
+ZERGLING
+ROACH
+DRONE
+BANELING
+QUEEN
+RAVAGER
+OVERSEER
+MUTALISK
+HYDRALISK
+LURKER
+VIPER
+BROODLORD
+CORRUPTOR
+INFESTOR
+SWARMHOST
+ULTRALISK
+0
+2
+4
+6
+8
+10
+12
+sqrt(count)
+Zergling and Baneling Rush
+Lurker
+Worker Rush
+MA
+Mutalisk
+Figure 11: Average (square root) unit counts in MA’s counter strategies when it plays against diverse
+opponents.
+Zergling and Baneling rush, Worker rush, Mutalisk and Lurker, respectively. We then let
+MA (with zero z-stat) play against these exploiters and itself to see how MA reacts after
+seeing diﬀerent strategies. Figure 11 shows the average unit counts in MA’s counter strategies
+when it plays against diverse opponents (100 matches for each). As we can see, MA performs
+multiple strategies when it encounters diﬀerent opponents. When its opponent uses Zergling
+and Baneling Rush, it responses with Zerglings and Banelings as well; when its opponent
+produces Lurkers, the MA tends to produce more Overseers; when its opponent uses Mutalisk,
+it bursts a large number of Hydralisks; for Self-Play, it prefers to use Roach, Zergling and
+Ravager. These results demonstrate that the unconditional MA is a robust agent and is able
+to use multiple counter-strategies.
+5.2.4. Infrastructure Comparison
+We use a distributed learner-actor infrastructure with 144 Tesla V100 GPUs and 13,440
+CPU cores. In our formal experiment, 96 GPUs are used for training and the rest GPUs
+are used for inference. Generally, we assign 32 GPUs for training the MA and 64 GPUs
+are alternatively allocated to diﬀerent exploiters. Each training GPU is allocated with 70
+actors, running 70 concurrent matches, and each actor is assigned with 2 CPU cores. A total
+number of used GPUs and CPUs has been given in Table 1. All the computation resources
+are deployed on the Tencent Cloud. In our infrastructure, the data consuming speed is 210
+fps/GPU, and the replay buﬀer of each GPU receives data with a speed of 43 fps. That
+is, each data point will be used ﬁve times in average. In AlphaStar’s infrastructure, its
+consuming speed is 390 fps/TPU core and the data generating speed is 195 fps with each
+24
+
+ZERGLING
+ROACH
+DRONE
+BANELING
+QUEEN
+RAVAGER
+OVERSEER
+MUTALISK
+HYDRALISK LURKER
+VIPER
+BROODLORD
+CORRUPTOR
+INFESTOR
+SWARMHOST
+ULTRALISK
+0
+2
+4
+6
+8
+10
+sqrt(count)
+AlphaStar-Mid-ZvZ
+AlphaStar-Mid-ZvP
+AlphaStar-Mid-ZvT
+AlphaStar-Final-ZvZ
+AlphaStar-Final-ZvP
+AlphaStar-Final-ZvT
+Figure 12: Average (square root) unit counts in AlphaStar Zerg’s human evaluation replays.
+data sample used twice in its replay buﬀer. Table 1 provides a detailed comparison. From
+the perspective of the entire league training, AlphaStar’s total consuming/generating speed
+in the league is about 30/73 times faster than that in TStarBot-X. Although this is indeed
+not straightforwardly comparable, since AlphaStar learns to play three races on four SC2
+maps and we only focus on Zerg vs. Zerg on the Kairos Junction map, we can still observe
+the scale diﬀerences of the two systems.
+6. Discussion and Conclusion
+We end up the manuscript with a discussion of the AlphaStar and TStarBot-X’s ﬁnal
+agents. With curiosity on the Zerg MA’s performance in AlphaStar, we parse all AlphaStar’s
+human evaluation replays and show its unit counts of the Zerg agent in Figure 12. It seems
+that AlphaStar’s Zerg agent prefers to use a speciﬁc strategy that only produces Roach,
+Zergling, Ravager and Queen in all its Zerg vs. Zerg (ZvZ) matches. A few other units can
+be observed only in its Zerg vs. Terran (ZvT) and Zerg vs. Protoss (ZvP) matches. Although
+these statistics might be biased from AlphaStar’s training distribution, it probably suggests
+that 1) exploration and keeping diversity (in a single policy) in ZvZ game are diﬃcult; 2) a
+joint training with all three races can enhance the diversity in the league. TStarBot-X has
+a more diversiﬁed league and more strategic diversity in a single policy, even though it is
+trained under a much smaller scale of computations and ZvZ setting. However, TStarBot-X
+is not good at multitasking and counter-multitasking, from the evaluation of Grandmaster
+human player.
+Overall, in this paper, we provided a detailed study on training a competitive AI agent
+in SC2 under limited scale of computation resources. We encountered problems when we
+reimplemented the settings in AlphaStar, and we then proposed new techniques to solve
+these problems. The study suggests that 1) when the computations are insuﬃcient to aﬀord
+enough explorations in a complex problem, diversiﬁed league training with mixture of the
+proposed agent roles could be a more eﬃcient way to provide diversity in the league; 2)
+rule-guided policy search is an eﬀective way to fuse human knowledge into a neural network
+to avoid tedious explorations; 3) divergence-augmented policy optimization on the agent
+level can signiﬁcantly enhance policy improvement. Most importantly, the entire system is
+open-sourced and we expect that this might be useful for future AI research in solving similar
+problems, policy transfer from the released parameters, and so on. For future directions,
+25
+
+we are interested in applying the proposed techniques and infrastructure to other complex
+multi-agent systems and apply to read-world applications.
+Acknowledgement
+We would like to thank Zhong Fan, Lei Jiang, Yan Wang, Zhihuai Wen and Yang Liu
+for providing us specialized advices in SC2. We would like to thank our colleagues from
+Department of AI Platform and Tencent Cloud for their valuable discussions and supports.
+We would like to show respect to and thank Blizzard Entertainment for creating StarCraft.
+Lei Han and Peng Sun are faithful players of StarCraft: Brood War since its release. Lei Han
+plays Zerg. Peng Sun and Lei Han would like to show gratitudes to their boyhood friends
+who had ever played StarCraft together with them. We could not play StarCraft forever but
+can be brothers for a lifetime.
+Author Contributions
+Lei Han, Jiechao Xiong and Peng Sun contributed equally. Peng Sun organized the
+infrastructure. Lei Han, Jiechao Xiong and Peng Sun designed, built and experimented
+multiple versions of environmental spaces, neural network architectures, RL algorithms,
+league training methods, etc., with early contributions from Xinghai Sun. Peng Sun, Jiechao
+Xiong and Lei Han completed the engineering, evaluation, visualization and analyzing tools.
+Meng Fang, Qingwei Guo, Qiaobo Chen, Tengfei Shi, Hongsheng Yu and Xipeng Wu helped
+reviewing the project codes and experimenting with some ablations. Lei Han wrote the paper
+with contributions from Peng Sun, Jiechao Xiong and Meng Fang. Zhengyou Zhang provided
+general scope advices and consistently supported the team.
+References
+[1] Oriol Vinyals, Igor Babuschkin, Wojciech M Czarnecki, Michaël Mathieu, Andrew Dudzik, Jun-
+young Chung, David H Choi, Richard Powell, Timo Ewalds, Petko Georgiev, et al. Grandmaster
+level in starcraft ii using multi-agent reinforcement learning. Nature, 575(7782):350–354, 2019.
+[2] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A Rusu, Joel Veness, Marc G
+Bellemare, Alex Graves, Martin Riedmiller, Andreas K Fidjeland, Georg Ostrovski, et al.
+Human-level control through deep reinforcement learning. Nature, 518(7540):529, 2015.
+[3] David Silver, Aja Huang, Chris J Maddison, Arthur Guez, Laurent Sifre, George Van Den Driess-
+che, Julian Schrittwieser, Ioannis Antonoglou, Veda Panneershelvam, Marc Lanctot, et al.
+Mastering the game of go with deep neural networks and tree search. nature, 529(7587):484,
+2016.
+[4] David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur
+Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. Mastering the game of
+go without human knowledge. Nature, 550(7676):354, 2017.
+26
+
+[5] Max Jaderberg, Wojciech M Czarnecki, Iain Dunning, Luke Marris, Guy Lever, Antonio Garcia
+Castaneda, Charles Beattie, Neil C Rabinowitz, Ari S Morcos, Avraham Ruderman, et al.
+Human-level performance in 3d multiplayer games with population-based reinforcement learning.
+Science, 364(6443):859–865, 2019.
+[6] Open ai ﬁve. https://blog.openai.com/openai-five/. 2018.
+[7] Peng Sun, Xinghai Sun, Lei Han, Jiechao Xiong, Qing Wang, Bo Li, Yang Zheng, Ji Liu,
+Yongsheng Liu, Han Liu, et al. Tstarbots: Defeating the cheating level built-in ai in starcraft ii
+in the full game. arXiv preprint arXiv:1809.07193, 2018.
+[8] Michał Kempka, Marek Wydmuch, Grzegorz Runc, Jakub Toczek, and Wojciech Jaśkowski.
+Vizdoom: A doom-based ai research platform for visual reinforcement learning. arXiv preprint
+arXiv:1605.02097, 2016.
+[9] Nicolas Usunier, Gabriel Synnaeve, Zeming Lin, and Soumith Chintala. Episodic exploration for
+deep deterministic policies: An application to starcraft micromanagement tasks. arXiv preprint
+arXiv:1609.02993, 2016.
+[10] Oriol Vinyals, Timo Ewalds, Sergey Bartunov, Petko Georgiev, Alexander Sasha Vezhnevets,
+Michelle Yeo, Alireza Makhzani, Heinrich Küttler, John Agapiou, Julian Schrittwieser, et al.
+Starcraft ii: a new challenge for reinforcement learning. arXiv preprint arXiv:1708.04782, 2017.
+[11] Lei Han, Peng Sun, Yali Du, Jiechao Xiong, Qing Wang, Xinghai Sun, Han Liu, and Tong Zhang.
+Grid-wise control for multi-agent reinforcement learning in video game ai. In International
+Conference on Machine Learning, pages 2576–2585, 2019.
+[12] Yali Du, Lei Han, Meng Fang, Ji Liu, Tianhong Dai, and Dacheng Tao. Liir: Learning individual
+intrinsic reward in multi-agent reinforcement learning. In Advances in Neural Information
+Processing Systems, pages 4403–4414, 2019.
+[13] Islam Elnabarawy, Kristijana Arroyo, and Donald C Wunsch II.
+Starcraft ii build order
+optimization using deep reinforcement learning and monte-carlo tree search. arXiv preprint
+arXiv:2006.10525, 2020.
+[14] Tonghan Wang, Heng Dong, Victor Lesser, and Chongjie Zhang. Roma: Multi-agent rein-
+forcement learning with emergent roles. In International Conference on Machine Learning,
+2020.
+[15] Xinyi Xu, Tiancheng Huang, Pengfei Wei, Akshay Narayan, and Tze-Yun Leong. Hierarchial
+reinforcement learning in starcraft ii with human expertise in subgoals selection. arXiv preprint
+arXiv:2008.03444, 2020.
+[16] http://www.inspirai.com/research/scc?language=en.
+[17] https://liquipedia.net/starcraft2/Zerg_Units_(Legacy_of_the_Void).
+[18] John Schulman, Sergey Levine, Pieter Abbeel, Michael Jordan, and Philipp Moritz. Trust region
+policy optimization. In International Conference on Machine Learning, pages 1889–1897, 2015.
+27
+
+[19] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal
+policy optimization algorithms. arXiv preprint arXiv:1707.06347, 2017.
+[20] Lasse Espeholt, Hubert Soyer, Remi Munos, Karen Simonyan, Vlad Mnih, Tom Ward, Yotam
+Doron, Vlad Firoiu, Tim Harley, Iain Dunning, et al. Impala: Scalable distributed deep-rl
+with importance weighted actor-learner architectures. In International Conference on Machine
+Learning, pages 1407–1416, 2018.
+[21] Marc Lanctot, Vinicius Zambaldi, Audrunas Gruslys, Angeliki Lazaridou, Julien Perolat, David
+Silver, Thore Graepel, et al. A uniﬁed game-theoretic approach to multiagent reinforcement
+learning. In Advances in Neural Information Processing Systems, pages 4190–4203, 2017.
+[22] David Balduzzi, Marta Garnelo, Yoram Bachrach, Wojciech M Czarnecki, Julien Perolat, Max
+Jaderberg, and Thore Graepel. Open-ended learning in symmetric zero-sum games. arXiv
+preprint arXiv:1901.08106, 2019.
+[23] Sriram Srinivasan, Marc Lanctot, Vinicius Zambaldi, Julien Pérolat, Karl Tuyls, Rémi Munos,
+and Michael Bowling.
+Actor-critic policy optimization in partially observable multiagent
+environments. In Advances in Neural Information Processing Systems, pages 3422–3435, 2018.
+[24] Volodymyr Mnih, Adria Puigdomenech Badia, Mehdi Mirza, Alex Graves, Timothy Lillicrap,
+Tim Harley, David Silver, and Koray Kavukcuoglu. Asynchronous methods for deep reinforcement
+learning. In International Conference on Machine Learning, pages 1928–1937, 2016.
+[25] Mohammad Babaeizadeh, Iuri Frosio, Stephen Tyree, Jason Clemons, and Jan Kautz. Re-
+inforcement learning through asynchronous advantage actor-critic on a gpu. arXiv preprint
+arXiv:1611.06256, 2016.
+[26] Lasse Espeholt, Raphaël Marinier, Piotr Stanczyk, Ke Wang, and Marcin Michalski. Seed rl:
+Scalable and eﬃcient deep-rl with accelerated central inference. arXiv preprint arXiv:1910.06591,
+2019.
+[27] Qing Wang, Jiechao Xiong, Lei Han, Meng Fang, Xinghai Sun, Zhuobin Zheng, Peng Sun,
+and Zhengyou Zhang. Arena: a toolkit for multi-agent reinforcement learning. arXiv preprint
+arXiv:1907.09467, 2019.
+[28] Andrei A Rusu, Sergio Gomez Colmenarejo, Caglar Gulcehre, Guillaume Desjardins, James
+Kirkpatrick, Razvan Pascanu, Volodymyr Mnih, Koray Kavukcuoglu, and Raia Hadsell. Policy
+distillation. arXiv preprint arXiv:1511.06295, 2015.
+[29] Christian Szegedy, Vincent Vanhoucke, Sergey Ioﬀe, Jon Shlens, and Zbigniew Wojna. Rethink-
+ing the inception architecture for computer vision. In IEEE Conference on Computer Vision
+and Pattern Recognition, pages 2818–2826, 2016.
+[30] Sergey Levine and Vladlen Koltun. Guided policy search. In International Conference on
+Machine Learning, pages 1–9, 2013.
+[31] https://liquipedia.net/starcraft/SAIDA.
+28
+
+[32] Johannes Heinrich, Marc Lanctot, and David Silver. Fictitious self-play in extensive-form games.
+In International Conference on Machine Learning, pages 805–813, 2015.
+[33] Peng Sun, Jiechao Xiong, Lei Han, Xinghai Sun, Shuxing Li, Jiawei Xu, Meng Fang, and
+Zhang Zhengyou. TLeague: A framework for competitive self-play based distributed multi-agent
+reinforcement learning. arXiv preprint arXiv:2011.12895, 2020.
+29

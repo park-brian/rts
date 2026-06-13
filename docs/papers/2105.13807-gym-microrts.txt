@@ -1,0 +1,2318 @@
+Gym-µRTS: Toward Affordable Full Game
+Real-time Strategy Games Research with Deep
+Reinforcement Learning
+Shengyi Huang
+Drexel University
+Philadelphia, PA, USA
+sh3397@drexel.edu
+Santiago Onta˜n´on*
+Drexel University
+Philadelphia, PA, USA
+sh3397@drexel.edu
+Chris Bamford
+Queen Mary University
+London, United Kindom
+c.d.j.bamford@qmul.ac.uk
+Lukasz Grela
+grotrianster@gmail.com
+Abstract—In recent years, researchers have achieved great
+success in applying Deep Reinforcement Learning (DRL) al-
+gorithms to Real-time Strategy (RTS) games, creating strong
+autonomous agents that could defeat professional players in
+StarCraft II. However, existing approaches to tackle full games
+have high computational costs, usually requiring the use of
+thousands of GPUs and CPUs for weeks. This paper has two main
+contributions to address this issue: 1) We introduce Gym-µRTS
+(pronounced “gym-micro-RTS”) as a fast-to-run RL environment
+for full-game RTS research and 2) we present a collection of
+techniques to scale DRL to play full-game µRTS as well as
+ablation studies to demonstrate their empirical importance. Our
+best-trained bot can defeat every µRTS bot we tested from the
+past µRTS competitions when working in a single-map setting,
+resulting in a state-of-the-art DRL agent while only taking about
+60 hours of training using a single machine (one GPU, three
+vCPU, 16GB RAM).
+Index Terms—Deep reinforcement learning, Real-time strategy
+games
+I. INTRODUCTION
+In recent years, researchers have achieved great success
+in applying Deep Reinforcement Learning (DRL) algorithms
+to Real-time Strategy (RTS) games. Most notably, Deep-
+Mind trained a grandmaster-level AI called AlphaStar with
+DRL for the popular RTS game StarCraft II [1]. AlphaStar
+demonstrates impressive strategy and game control, presenting
+many human-like behaviors, and is able to defeat professional
+players consistently. Given most previously designed bots
+fail to perform well in the full-game against humans [2],
+AlphaStar clearly represents a signiﬁcant milestone in the ﬁeld.
+While this accomplishment is impressive, it comes with high
+computational costs. In particular, AlphaStar and even further
+attempts by other teams to lower the computational costs [3]
+still require thousands of CPUs and GPUs/TPUs to train the
+agents for an extended period of time, which is outside of the
+computational budget of most researchers.
+This paper has two main contributions to address this issue.
+The ﬁrst main contribution is to introduce Gym-µRTS as an
+*Currently at Google
+RL testbed for affordable full-game RTS research, which fo-
+cuses on all aspects of the game such as harvesting resources,
+defending units, and attack enemies (this is in contrast to
+mini-games that only focus on one aspect of the game). Gym-
+µRTS is a reinforcement learning interface for the RTS game
+µRTS [4], which has been a popular platform to test out a
+variety of AI techniques for RTS games. Despite its simple
+visuals, µRTS captures the core challenges of RTS games.
+Although Gym-µRTS shares many similarities to the StarCraft
+II Learning Environment (PySC2) [5], there are also many
+key differences (e.g., PySC2 uses a human-like action space
+whereas Gym-µRTS uses a lower-level action space). Through
+Gym-µRTS, we are able to conduct full-game RTS research
+using DRL without extensive technical resources such as high-
+performance compute clusters.
+Despite the simpliﬁcations done in µRTS, playing 1v1
+competitive matches via DRL is still a daunting task. Thus, our
+second main contribution is a collection of techniques to scale
+DRL to play µRTS. We start with a Proximal Policy Optimiza-
+tion (PPO) [6] implementation that matches implementation
+details of PPO in openai/baselines [7], and incrementally stack
+augmentations to account for Gym-µRTS’s combinatorial ac-
+tion space (all units must be controlled simultaneously) and
+improve training efﬁciency and performance. Among these
+augmentations, two are essential: 1) action composition and
+2) invalid action masking. These two augmentations combined
+allowed us to bootstrap an initial agent that could compete
+on the 16 × 16 map to a reasonable standard. Additionally,
+we experimented with 3) diversiﬁed training opponents, and
+4) different neural network architectures. We provide ablation
+studies to shed insights on the importance of each of these
+augmentations. Our best-trained agent can defeat every µRTS
+bot we tested against, from the past µRTS competitions1 in a
+single-map setting, establishing a new state-of-the-art for DRL
+bots in µRTS while only taking about 60 hours of training
+using a single machine (one GPU, three vCPU, 16GB RAM).
+We make source code and trained models 2, as well as all the
+1https://sites.google.com/site/micrortsaicompetition/home
+2https://github.com/vwxyzjn/gym-microrts-paper
+978-1-6654-3886-5/21/$31.00 ©2021 IEEE
+arXiv:2105.13807v3  [cs.LG]  28 Jul 2021
+
+Fig. 1: Screenshot of our best-trained agent (top-left) playing
+against CoacAI (bottom-right), the 2020 µRTS AI competition
+champion. Strategy-wise, our agent usually defeats CoacAI
+by harvesting resources (green squares) efﬁciently using two
+workers (dark gray circles), doing a highly optimized worker
+rush that takes out the enemy base in the bottom right (shown
+with 50% damage), followed by a transition to the mid and
+late game by producing combat units (colored circles) from
+the barracks (dark gray squares). The blue and red border
+suggest the unit is owned by player 1 and 2, respectively.
+See additional combat videos here: https://bit.ly/3llOhex
+metrics, logs, and recorded videos3 available for comparison.
+II. BACKGROUND
+Real-time Strategy (RTS) games are complex adversarial
+domains, typically simulating battles between a large number
+of combat units, that pose a signiﬁcant challenge to both
+human and artiﬁcial intelligence [8]. Designing AI techniques
+for RTS games is challenging due to a variety of reasons: 1)
+players need to issue actions in real-time, leaving little time
+computational budget, 2) the action spaces grows combinato-
+rially with the number of units in the game, 3) the rewards are
+very sparse (win/loss at the end of the game), 4) generalizing
+against diverse set of opponents and maps is difﬁcult, and
+5) stochasticity of game mechanics and partial observability
+(these last two are not considered in this paper).
+StarCraft I & II are very popular RTS games and, among
+other games, have attracted much research attention. Past
+work in this area includes reinforcement learning [9], case-
+based reasoning [10], [11], or game tree search [12]–[15]
+among many other techniques designed to tackle different sub-
+problems in the game, such as micromanagement, or build-
+order generation. In the full-game settings, however, most tech-
+niques have had limited success in creating viable agents to
+play competitively against professional StarCraft players until
+recently. In particular, DeepMind introduced AlphaStar [1], an
+3https://wandb.ai/vwxyzjn/gym-microrts-paper
+agent trained with DRL and self-play, that sets a new state-of-
+the-art bot for StarCraft II, defeating professional players in
+the full-game. In Dota 2, a popular collaborative online-player
+game that shares many similar challenges as StarCraft, Open
+AI Five [16] is able to create agents that can achieve super-
+human performance. Although these two systems achieve
+great performance, they come with large computational costs.
+AlphaStar used 3072 TPU cores and 50,400 preemptible CPU
+cores for a duration of 44 days [1], [3]. This makes it difﬁcult
+for those with less computational resources to do full-game
+RTS research using DRL.
+There are usually three ways to circumvent this computa-
+tional costs. The ﬁrst way is to focus on sub problems such as
+combat scenarios [17]. The second way is to reduce the full-
+game complexity by either considering hierarchical actions
+spaces or incorporating scripted actions [18], [19]. The third
+way is to use alternative game simulators that run faster such
+as Mini-RTS [20], Deep RTS [21], and CodeCraft4.
+We show that Gym-µRTS as an alternative that could be
+used for full-game RTS research with the full action space
+while using affordable computational resources.
+III. PRELIMINARIES
+In this paper, we use policy gradient methods to train
+agents. Let us consider the Reinforcement Learning prob-
+lem in a Markov Decision Process (MDP) denoted as
+(S, A, P, ρ0, r, γ, T), where S is the state space, A is the
+discrete action space, P : S × A × S →[0, 1] is the state
+transition probability, ρ0 : S →[0, 1] is the initial state
+distribution, r : S × A →R is the reward function, γ is
+the discount factor, and T is the maximum episode length.
+A stochastic policy πθ : S × A →[0, 1], parameterized by
+a parameter vector θ, assigns a probability value to an action
+given a state. The goal is to maximize the expected discounted
+return of the policy:
+J = Eτ
+"T −1
+X
+t=0
+γtrt
+#
+where τ is the trajectory (s0, a0, r0, . . . , sT −1, aT −1, rT −1)
+and s0 ∼ρ0, st ∼P(·|st−1, at−1), at ∼πθ(·|st), rt = r (st, at)
+The core idea behind policy gradient algorithms is to obtain
+the policy gradient ∇θJ of the expected discounted return
+with respect to the policy parameter θ. Doing gradient ascent
+θ = θ + ∇θJ therefore maximizes the expected discounted
+reward. Earlier work proposes the following policy gradient
+estimate to the objective J [22]:
+∇θJ = Eτ∼πθ
+"T −1
+X
+t=0
+∇θ log πθ(at|st)Gt
+#
+, Gt =
+∞
+X
+k=0
+γkrt+k
+This gradient estimate, however, suffers from high vari-
+ance [22] and there are many techniques and extensions to
+address it [6], [23], [24].
+4https://github.com/cswinter/DeepCodeCraft
+
+Fig. 2: Unit Action Simulation (UAS) calls the policy iter-
+atively until all units have actions (at each step, the policy
+chooses a unit and issue a unit action to it).
+Fig. 3: Gridnet predicts an action for each cell in the map (it
+predicts all the action component planes in one step), which
+then deﬁne which actions each unit will perform.
+IV. GYM-µRTS
+Gym-µRTS5 is a reinforcement learning interface for the
+RTS games simulator µRTS6. Despite having a simpliﬁed
+implementation, µRTS captures the core challenges of RTS
+games, such as combinatorial action space, real-time decision-
+making, optionally partial observability and stochasticity.
+Gym-µRTS’s observation space provides a series of feature
+maps similar to PySC2 (the StarCraft II Learning environ-
+ment [5]). Its action space design, however, is more low-level
+due to its lack of AI assisted actions. In this section, we
+introduce their technical details.
+A. Observation Space.
+Given a map of size h × w, the observation is a tensor
+of shape (h, w, nf), where nf is a number of feature planes
+that have binary values. The observation space used in this
+paper uses 27 feature planes as shown in Table I. The different
+feature planes result as the concatenation of multiple one-hot
+encoded features. As an example, if there is a worker player
+1 with hit points equal to 1, not carrying any resources, and
+currently not executing any actions, then the one-hot encoding
+features will look like this (see Table I):
+[0, 1, 0, 0, 0], [1, 0, 0, 0, 0], [1, 0, 0],
+[0, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 0, 0]
+5https://github.com/vwxyzjn/gym-microrts
+6https://github.com/santiontanon/microrts
+TABLE I: Observation features and action components. ar = 7
+is the maximum attack range.
+Observation
+Features
+Planes
+Description
+Hit Points
+5
+0, 1, 2, 3, ≥4
+Resources
+5
+0, 1, 2, 3, ≥4
+Owner
+3
+player 1, -, player 2
+Unit Types
+8
+-,
+resource,
+base,
+bar-
+rack, worker, light, heavy,
+ranged
+Current Action
+6
+-, move, harvest, return,
+produce, attack
+Action Components
+Range
+Description
+Source Unit
+[0, h × w −1]
+the location of the unit se-
+lected to perform an ac-
+tion
+Action Type
+[0, 5]
+NOOP, move, harvest, re-
+turn, produce, attack
+Move Parameter
+[0, 3]
+north, east, south, west
+Harvest Parameter
+[0, 3]
+north, east, south, west
+Return Parameter
+[0, 3]
+north, east, south, west
+Produce
+Direction
+Parameter
+[0, 3]
+north, east, south, west
+Produce
+Type
+Pa-
+rameter
+[0, 6]
+resource,
+base,
+barrack,
+worker,
+light,
+heavy,
+ranged
+Relative Attack Po-
+sition
+[0, a2
+r −1]
+the relative location of the
+unit that will be attacked
+Each feature plane contains one value for each coordinate in
+the map. The values for the 27 feature planes for the position
+in the map of such worker will thus be:
+[0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0]
+B. Action Space.
+Compared to traditional reinforcement learning environ-
+ments, the design of the action space of RTS games is more
+difﬁcult because, depending on the game state, there is a
+different number of units to control, and each unit might have
+different number of actions available. This poses a challenge
+for directly applying off-the-shelf DRL algorithm such as PPO
+that generally assume a ﬁxed output size for the actions.
+Early work on RL in RTS games simply learned policies for
+individual units, rather than having the policy control all the
+units at once [9]. To address this issue, we decompose the
+action space into two parts: the unit action space (the space
+of possibilities for issuing actions to only one unit) and the
+player action space (the space of unit actions for all the units
+a player owns).
+In the unit action space, given a map of size h × w, the
+unit action is an 8-dimensional vector of discrete values as
+speciﬁed in Table I. The ﬁrst component of the unit action
+vector represents the unit in the map to issue commands to,
+the second is the unit action type, and the rest of components
+represent the different parameters different unit action types
+can take. Depending on which unit action type is selected, the
+game engine will use the corresponding parameters to execute
+the action. As an example, if the RL agent issues a “move
+
+south” unit action to the worker at x = 3, y = 2 in a 16 × 16
+map, the unit action will be encoded in the following way:
+[3 + 2 ∗16, 1, 2, 0, 0, 0, 0, 0]
+In the player action space, we compare two ways to issue
+player actions to a variable number of units at each frame:
+Unit Action Simulation (UAS) and Gridnet [25].
+Their mechanisms are best illustrated through an example
+as shown in Figs. 2 and 3, where the player owns two workers
+and a base in a 4 × 5 map.
+UAS calls the RL policy iteratively. At each step, the policy
+chooses a unit based on the source unit masks (a vector of
+h × w scalars). It then chooses the action type and parameter
+via the unit action masks (a vector of 6+4+4+4+4+7+49
+scalars). We then compute a “simulated game state” where that
+action has been issued (and any potential rewards collected).
+Once all three units have been issued actions, the simulated
+game states are discarded, and the three actions are collected
+and sent to the actual game environment.
+Under Gridnet [25], The RL agent receives a player action
+mask (a tensor of shape (h, w, 1+6+4+4+4+4+7+49),
+where the ﬁrst plane indicates if the source unit is available). It
+then issues actions to each cell in this map in one single step,
+that is, issues in total 4∗5 = 20 unit actions. The environment
+executes the three valid actions (actions in cells with no player-
+owned units are ignored).
+C. The Action Spaces of Gym-µRTS and PySC2
+Although Gym-µRTS is heavily inspired by and shares
+many similarities with PySC2 [5], their action space designs
+are considerably different. Speciﬁcally, PySC2 has designed its
+action space to mimic the human interface, while Gym-µRTS
+has a more low-level action that require actions being issued
+for each individual unit. This distinction is rather interesting
+from a research standpoint because certain challenges are
+easier for an AI agent and some more difﬁcult.
+Consider the canonical task of harvesting resources and
+returning them to the base. In PySC2, the RL agent would
+need to issue two actions at two timesteps 1) select an area
+that has workers and 2) move the selected workers towards to a
+coordinate that has resources. Then, the workers will continue
+harvesting resources until otherwise instructed. Note that this
+sequence of actions is assisted by AI algorithms such as path-
+ﬁnding. After the workers harvest the resources, the engine
+automatically determines the closest base for returning the
+resources, and repeating these actions to continuously harvest
+resources. So the challenge for the RL agent is to learn to
+select the correct area and move to the correct coordinates. In
+Gym-µRTS, however, the RL agent can only issue primitive
+actions to the workers such as “move north for one cell” or
+“harvest resource that is one cell away at north”. Therefore, it
+needs to constantly issue actions to control units at all times,
+having to learn how to perform these AI-assisted decisions
+from scratch7.
+The beneﬁt of PySC2’s approach is that it makes it easier to
+do imitation learning from human datasets and the resulting
+agent will have a fairer comparison when evaluated against
+humans since the AI and the human are mostly playing the
+same game. That being said, the human interface could be an
+artiﬁcial limitation to the AI system. In particular, the human
+interface is constructed to accommodate the human limita-
+tions: humans’ eyes have limited range, so camera locations
+are designed to help capture larger maps, and humans have
+limited physical mobility, so hotkeys are set to help control
+a group of units with one mouse click. However, machines
+don’t have these limitations and can observe the entire map
+and issue actions to all units individually.
+D. Reward Function
+We use a shaped reward function to train the agents, which
+gives the agent +10 for winning, 0 for drawing, -10 for losing,
++1 for harvesting one resource, +1 for producing one worker,
++0.2 for constructing a building, +1 for each valid attack action
+it issues, +4 for each combat unit it produces. It gives the
+rewards to the frame at which the events are initialized (e.g.
+attack takes 5 game frames to ﬁnish, but the attack reward is
+given at the ﬁrst frame). For reporting purposes, we also keep
+track of the sparse reward, which is +1 for winning, 0 for
+drawing, -1 for losing. The shaped reward weights are picked
+by hand with very little tuning.
+Note this shaped reward function is similar to the one used
+in Open AI Five for Dota 2 [16]. Like in Open AI Five, it
+is possible for the agents to gain more shaped rewards by
+doing other good behaviors than winning the game outright.
+Notice we have avoided using very large win/lose rewards
+because anecdotally large reward numbers could cause worse
+performance for RL algorithms, which might be the reason
+why reward normalization [26] or reward clipping [27] have
+been used in previous work.
+V. SCALING DRL TO GYM-µRTS
+We use PPO [6], a popular policy gradient algorithm, to
+train agents for all experiments in this paper. In addition
+to PPO’s core algorithm, many implementation details and
+empirical setting also have a huge impact on the algorithm’s
+performance [26].
+We start with a PPO implementation that matches the
+implementation details and benchmarked performance in ope-
+nai/baselines [7]8, and use it along with the architecture from
+Mnih, et al. (denoted as Nature-CNN) [27] as the baseline. We
+train the RL agents using UAS and Gridnet by playing against
+CoacAI, the 2020 µRTS competition winner, in the standard
+16x16basesWorkers map, where the RL agents always
+spawn from the top left position and end episodes after 2000
+7Notice, however that µRTS offers both the low-level interface and a
+PySC2-style interface with AI-assisted actions, but for Gym-µRTS, we only
+expose the former.
+8See https://costa.sh/blog-the-32-implementation-details-of-ppo.html
+
+PPO + invalid action masking 
++ diverse bots + IMPALA-CNN
+PPO + invalid action masking 
+ + diverse bots
+PPO + invalid action masking
+PPO + partial invalid action masking
+PPO
+UAS
+0.91
+0.82
+0.82
+0.32
+0.0
+0.22M
+0.39M
+0.39M
+0.39M
+0.39M
+63.67h
+37.57h
+39.2h
+49.95h
+38.8h
+0.00
+0.25
+0.50
+0.75
+1.00
+Cumulative Win Rate
+(Higher is Better)
+PPO + invalid action masking 
++ diverse bots + encoder-decoder
+PPO + invalid action masking 
+ + diverse bots + IMPALA-CNN
+PPO + invalid action masking 
+ + diverse bots
+PPO + invalid action masking
+PPO + partial invalid action masking
+PPO
+Gridnet
+0.89
+0.84
+0.87
+0.73
+0.0
+0.0
+0
+2
+4
+6
+Parameters in Model 1e6
+0.84M
+5.27M
+5.43M
+5.43M
+5.43M
+5.43M
+0
+50
+100
+150
+Runtime
+(Lower is Better)
+117.03h
+85.65h
+59.65h
+62.95h
+68.89h
+121.27h
+Fig. 4: Ablation study for UAS and Gridnet.
+game ticks. We then incrementally include augmentations for
+both UAS and Gridnet and compare their relative performance.
+We run each ablation with 4 random seeds each. Then,
+we select the best performing seeds according to the reported
+sparse reward function and evaluate them against a pool of 11
+bots with various strategies that have participated in previous
+µRTS competitions (other competition bots are not included
+due to either staleness or difﬁculty to set up) and 2 baseline
+bots which are mainly used for testing. All µRTS bots are
+conﬁgured to use their µRTS competition parameters and
+setups. The name, category and best result of these bots are
+listed in Table II. The evaluation involves playing 100 games
+against each bot in the pool for 4000 maximum game ticks,
+and we report the cumulative win rate, the model size, and
+total run time in Figure 4. To further provide insights, we
+record videos of the RL agents against each of the bots in the
+pool and make them publicly available9. Let us now describe
+the different augmentations we added on top of PPO.
+A. Action Composition
+After having solved the problem of issuing actions to a
+variable number of units (via either UAS or Gridnet), the next
+problem is that even the action space of a single unit is too
+large. Speciﬁcally, to issue a single action at in µRTS using
+UAS, according to Table I, we have to select a Source Unit,
+Action Type, and its corresponding action parameters. So in
+total, there are hw ×6×4×4×4×4×6×a2
+r = 9216(hwa2
+r)
+number of possible discrete actions, which includes many
+invalid actions, which is huge even for small maps (about 50
+million in the map size we use in this paper).
+To address this problem, we use action composition,
+where we consider an action as composed of some smaller
+9https://wandb.ai/vwxyzjn/gym-microrts-paper-eval/reports/
+Final-Eval--Vmlldzo0OTY1Mzc
+independent discrete actions. Namely, at is composed of a set
+of smaller actions D = {aSource Unit
+t
+, aAction Type
+t
+, aMove Parameter
+t
+,
+aHarvest Parameter
+t
+,
+aReturn Parameter
+t
+,
+aProduce Direction Parameter
+t
+,
+aProduce Type Parameter
+t
+,
+aRelative Attack Position
+t
+}.
+And
+the
+policy
+gradient is updated in the following way (without considering
+the PPO’s clipping for simplicity):
+T −1
+X
+t=0
+∇θ log πθ(at|st)Gt =
+T −1
+X
+t=0
+∇θ
+
+X
+ad
+t ∈D
+log πθ(ad
+t |st)
+
+Gt
+=
+T −1
+X
+t=0
+∇θ log
+
+Y
+ad
+t ∈D
+πθ(ad
+t |st)
+
+Gt
+Implementation-wise, for each action component, the logits
+of the corresponding shape are output by the policy, which
+we refer to as action component logits. Each action ad
+t is
+sampled from a softmax distribution parameterized by these
+action component logits. In this way, the algorithm has to
+generate hw + 6 + 4 + 4 + 4 + 4 + 6 + a2
+r = hw + 36 + a2
+r
+logits, signiﬁcantly less than 9216(hwa2
+r) (301 vs 50 million).
+B. Invalid Action Masking
+The next most important augmentation in our experiments
+is invalid action masking, which “masks out” invalid actions
+out of the action space (by exploiting the fact that we know
+the rules of the game), signiﬁcantly reducing it. This is used in
+PySC2 [5], OpenAI Five [16], and a number of related work
+with large action spaces [17].
+Masks are generated and being applied as shown in Figure 5.
+Under UAS, the agent would ﬁrst sample a source unit based
+on the source units masks of shape (hw), then query the
+game client for the action type and parameter mask of the
+said units with shape (78). Under Gridnet, the agent would
+receive all the masks up front on source unit, action type and
+parameter with shape (hw, 79), where the ﬁrst plane of 79
+
+Feature Maps 
+Embeddings
+Policy Head
+Value Head
+Action Type and 
+Parameter Logits 
+Value
+Feature Maps 
+Inputs
+Action Type and 
+Parameter Mask 
+(for All Cells)
+Masked
+Action Type and 
+Parameter Logits 
+Action Type
+(for All Cells)
+Action 
+Parameter
+(for All Cells)
+(a) Gridnet.
+Feature Maps 
+Embeddings
+Policy Head
+Value Head
+Source Unit 
+Logits
+Action Type and 
+Parameter Logits
+Value
+Feature Maps 
+Inputs
+Source Unit 
+Mask
+Source Unit
+Masked
+Source Unit 
+Logits
+Action Type and 
+Parameter Mask
+Masked Action 
+Type and 
+Parameter Logits
+Action Type
+Action 
+Parameter
+(b) UAS.
+Fig. 5: Neural network architectures for Gridnet and UAS. The
+green boxes are (conditional) inputs from the environments,
+blue boxes are neural networks, red boxes are outputs, and
+purple boxes are sampled outputs.
+is the mask on the source unit selection. Note that in both
+cases, the agent received a full action mask that in a sense
+signiﬁcantly reduce the search space. In contrast, PySC2 and
+SMAC (the StarCraft Multi-Agent Challenge) [17] would only
+provide a partial mask on the action type, and the logits of
+action parameters are unmasked (our action types and action
+parameters are function identiﬁers and arguments in PySC2’s
+term). This could explain why invalid action masking does not
+seem to cause as drastic of a difference in PySC2 as shown
+by Kanervisto et al. [28].
+In the interest of ablation study, we also conduct experi-
+ments that provide masking on the action types but not the
+action parameters, which is more similar to PySC2’s settings.
+As shown in Figure 4, we see that having only a partial mask
+has little impact whereas having the full mask considerably
+improves performance. Although the action space and PySC2
+is quite different as discussed above, masking all invalid
+actions maximally reduces the action space, hence simplifying
+the learning task. We therefore believe that the PySC2 agents
+could receive a performance boost by providing masks on
+function arguments as well.
+TABLE II: The previous µRTS competition bots.
+Name
+Category
+Best result
+CoacAI
+Scripted
+1st place in 2020
+Tiamat
+MCTS-based
+1st place in 2018
+MixedBot
+MCTS-based
+2nd place in 2019
+Droplet
+MCTS-based
+3rd place in 2019
+Izanagi
+MCTS-based
+4th place in 2019
+Rojo
+MCTS-based
+5th place in 2020
+LightRush
+Scripted
+6th place in 2020
+GuidedRojoA3N
+MCTS-based
+7th place in 2020
+WorkerRush
+Scripted
+8th place in 2020
+NaiveMCTS
+MCTS-based
+9th place in 2020
+RandomBiasedAI
+Scripted
+10th place in 2020
+Random
+Scripted
+-
+PassiveAI
+Scripted
+-
+C. Other augmentations
+This section details other additional augmentations that
+contribute to the agents’ performance, but not as much as the
+previous two (which are essential for having an agent that even
+starts learning to play the full game).
+1) Diverse Opponents: The baseline setting is to train
+the agents against CoacAI. However, this lacks a diversiﬁed
+experience and when evaluating, we frequently see the agents
+being defeated by AIs as simple as WorkerRush. To help
+alleviate this problem, we train the agents against a diverse set
+of built-in bots. Since we train with 24 parallel environments
+for PPO, we set 18 of these environments to have CoacAI
+as the opponent, 2 to have RandomBiasedAI, 2 to have
+WorkerRush, and 2 to have LightRush. Per Figure 4, we see
+a rather signiﬁcant performance boost for Gridnet, whereas in
+UAS the performance boost is milder.
+2) Nature-CNN vs Impala-CNN vs Encoder-Decoder: To
+seek better neural network architectures, we experimented
+with the use of residual blocks [29] (denoted IMPALA-CNN),
+which have been shown to improve the agents’ performance
+in several domains like DMLab [24]. Additionally, Han et al.
+[25] also experimented with an encoder-decoder network in
+Gridnet, so we also conducted experiments using this architec-
+ture. Per the ablation study in Figure 4, we see IMPALA-CNN
+helps with the performance of UAS whereas encoder-decoder
+beneﬁts Gridnet.
+VI. DISCUSSION
+Establishing a SOTA in Gym-µRTS. According to Fig-
+ure 4, our best agent consists of ppo + coacai + invalid
+action masking + diverse opponents + impala cnn, reaching
+the cumulative win rate of 91%. Additionally, Figure 6 shows
+the speciﬁc match results, showing this agent can outperform
+all other bots in the pool. Note that in the µRTS competition
+settings the players could start in two different locations of
+the map whereas our agent always start from the top left.
+Nevertheless, due to the symmetric nature of the map, we
+could address this issue by “rotating” the map when needed
+so that both starting locations look the same to our agent.
+Therefore, our agent establishes the state of the art for µRTS
+in the 16x16basesWorkers map. Note that generalizing to
+
+0
+20
+40
+60
+80
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+lightRushAI
+0
+20
+40
+60
+80
+100
+coacAI
+naiveMCTSAI
+mixedBot
+rojo
+loss
+tie
+win
+0
+20
+40
+60
+80
+100
+izanagi
+loss
+tie
+win
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+Fig. 6: Match results: the y-axis shows the number of losses,
+ties, and wins against AIs listed in Table II. The Random bot’s
+match result is excluded for presentation purposes.
+0
+50
+100
+150
+Shaped return
+UAS
+Gridnet
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+Fig. 7: The shaped and sparse return over training steps for all
+4 random seeds of PPO + invalid action masking for Gridnet
+and UAS. The curve is smoothed using exponential moving
+average with weight 0.99.
+handle a variety of maps (including the asymmetric ones) in
+µRTS competition settings is part of our future work (also note
+that some work on StarCraft II also focused in the one map
+setting [3], while still requiring large computation budgets).
+Our best agent struggles the most against the Droplet bot,
+which typically uses a worker rush strategy, but enhanced
+thanks to MCTS search. Droplet usually defeats our agent by
+destroying the ﬁrst barracks our agent makes, which is a rare
+experience with other bots. As a result, our agent would keep
+trying to build a barracks until it exhausts its resources, at
+which point, Droplet would have more left over resources,
+build more workers and eventually defeat our agent. However,
+if by chance our agent successfully builds and protects the ﬁrst
+barracks and combat units, it is usually able to defeat Droplet.
+As part of our future work, we would like to include agents
+like Droplet in our training process. However, search-based
+bots like Droplet signiﬁcantly decrease the speed of training.
+Hardware Usage and Training Time. Most of our experi-
+ments are conducted using 3 vCPUs, 1 GPU, and 16GB RAM.
+According to Figure 4, the experiments take anywhere from
+37 hours to 117 hours, where our SOTA agent takes 63 hours.
+Model size vs performance. Overall, Gridnet models have
+more parameters compared to the UAS models. This is because
+Gridnet predicts the action type and parameter logits for every
+cell in the map. We did not ﬁnd a strong correlation between
+the model’s size (in number of trainable parameters) and
+the performance of the agents. As shown in Figure 4, it is
+clear that the techniques such as invalid action masking or
+different neural network architectures are more important to
+the performance than the sheer number of the model’s trainable
+parameters in our experiments.
+Variance w.r.t. Shaped and Sparse Reward. In almost all
+experiments conducted in this paper, we observe the RL agents
+are able to optimize against the shaped rewards well, showing
+little variance across different random seeds; however, this is
+not the case with respect to the sparse reward (win/loss). We
+report the sum of shaped rewards and sparse rewards in the
+episode as shaped return and sparse return respectively in
+Figure 7, where we usually see little difference in the shaped
+return when the sparse (win/loss) return could be drastically
+different. This is a common drawback with reward shaping:
+agents sometimes overﬁt to the shaped rewards instead of
+sparse rewards.
+UAS vs Gridnet. Figure 7 shows a typical result where
+Gridnet is able to get much higher shaped return, but it
+receives relatively similar sparse return as UAS. Upon further
+inspection of the agents actual behaviors, we found the Gridnet
+agents obtain higher shaped return by 1) producing more
+barracks, 2) producing more combat units, and 3) harvesting
+more resources effectively. In fact, Gridnet agents learn to
+harvest resources using three workers, which is a behavior
+we haven’t observed in any existing bots. We suspect this
+difference is due to how rewards are attributed in UAS vs
+Gridnet. UAS attributes rewards to unit actions individually,
+while Gridnet attributes the rewards to the player action
+collectively.
+Depending on the implementation, Gridnet agents usually
+have many more trainable parameters. Also, when the player
+owns a relatively small amount of units, it is faster to step
+the environment using UAS because Gridnet has to predict an
+action for all the cells in the map; however, when the player
+owns a large number of units, Gridnet’s mechanism becomes
+faster because UAS has to do more simulated steps and thus
+more inferences.
+The Amount of Human Knowledge Injected. In our
+best trained agents, there are usually three sources of human
+knowledge injected: 1) the reward function, 2) invalid action
+masking, and 3) the use of human-designed bots such as Coa-
+cAI. In comparison, AlphaStar uses 1) human replays, 2) its
+related use of Statistics z and Supervised KL divergence [1],
+and 3) invalid action masking.
+
+VII. CONCLUSIONS AND FUTURE WORK
+We present a new efﬁcient library, Gym-µRTS, which
+allows DRL research to be realized in the complex RTS envi-
+ronment µRTS. Through Gym-µRTS, we conducted ablation
+studies on techniques such as action composition, invalid ac-
+tion masking, diversiﬁed training opponents, and novel neural
+network architectures, providing insights on their importance
+to scale agents to play the full game of µRTS. Our agents can
+be trained on a single CPU+GPU within 2-4 days, which is a
+reasonable hardware and time budget that is available to many
+researchers outside of large research labs
+For future work, we would like to consider multiple maps
+and the partial observability setting of µRTS (i.e. fog-of-war).
+Additionally, we also want to experiment with selfplay, which
+further reduces human knowledge injected such as the human-
+designed bots we used in this paper.
+ACKNOWLEDGMENTS
+This research utilized Queen Mary’s Apocrita HPC facility,
+supported by QMUL Research-IT [30].
+REFERENCES
+[1] O. Vinyals, I. Babuschkin, W. M. Czarnecki, M. Mathieu, A. Dudzik,
+J. Chung, D. H. Choi, R. Powell, T. Ewalds, P. Georgiev, J. Oh,
+D. Horgan, M. Kroiss, I. Danihelka, A. Huang, L. Sifre, T. Cai, J. P.
+Agapiou, M. Jaderberg, A. S. Vezhnevets, R. Leblond, T. Pohlen,
+V.
+Dalibard,
+D.
+Budden,
+Y.
+Sulsky,
+J.
+Molloy,
+T.
+L.
+Paine,
+C. Gulcehre, Z. Wang, T. Pfaff, Y. Wu, R. Ring, D. Yogatama,
+D.
+W¨unsch,
+K.
+McKinney,
+O.
+Smith,
+T.
+Schaul,
+T.
+Lillicrap,
+K. Kavukcuoglu, D. Hassabis, C. Apps, and D. Silver, “Grandmaster
+level in StarCraft II using multi-agent reinforcement learning.” Nature,
+vol. 575, no. 7782, pp. 350–354, oct 2019. [Online]. Available:
+http://www.nature.com/articles/s41586-019-1724-z
+[2] S. Ontan´on, G. Synnaeve, A. Uriarte, F. Richoux, D. Churchill, and
+M. Preuss, “A survey of real-time strategy game ai research and com-
+petition in starcraft,” IEEE Transactions on Computational Intelligence
+and AI in games, vol. 5, no. 4, pp. 293–311, 2013.
+[3] L. Han, J. Xiong, P. Sun, X. Sun, M. Fang, Q. Guo, Q. Chen, T. Shi,
+H. Yu, and Z. Zhang, “Tstarbot-x: An open-sourced and comprehensive
+study for efﬁcient league training in starcraft ii full game,” arXiv preprint
+arXiv:2011.13729, 2020.
+[4] S. Ontan´on, “The combinatorial multi-armed bandit problem and its
+application to real-time strategy games,” in Proceedings of the AAAI
+Conference on Artiﬁcial Intelligence and Interactive Digital Entertain-
+ment, vol. 9, no. 1, 2013.
+[5] O. Vinyals, T. Ewalds, S. Bartunov, P. Georgiev, A. S. Vezhnevets,
+M. Yeo, A. Makhzani, H. K¨uttler, J. Agapiou, J. Schrittwieser et al.,
+“Starcraft ii: A new challenge for reinforcement learning,” arXiv preprint
+arXiv:1708.04782, 2017.
+[6] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov,
+“Proximal policy optimization algorithms,” arXiv, jul 2017. [Online].
+Available: https://arxiv.org/abs/1707.06347
+[7] P. Dhariwal, C. Hesse, O. Klimov, A. Nichol, M. Plappert, A. Radford,
+J. Schulman, S. Sidor, Y. Wu, and P. Zhokhov, “Openai baselines,” https:
+//github.com/openai/baselines, 2017.
+[8] M. Buro, “Real-time strategy games: A new ai research challenge,” in
+Proceedings of the 18th International Joint Conference on Artiﬁcial In-
+telligence, ser. IJCAI’03. San Francisco, CA, USA: Morgan Kaufmann
+Publishers Inc., 2003, p. 1534–1535.
+[9] U. Jaidee and H. Mu˜noz-Avila, “Classq-l: A q-learning algorithm for
+adversarial real-time strategy games,” in Proceedings of the AAAI Con-
+ference on Artiﬁcial Intelligence and Interactive Digital Entertainment,
+vol. 8, no. 1, 2012.
+[10] B. Weber and M. Mateas, “Case-based reasoning for build order in
+real-time strategy games,” in Proceedings of the AAAI Conference on
+Artiﬁcial Intelligence and Interactive Digital Entertainment, vol. 4,
+no. 1, 2009.
+[11] S. Ontan´on, K. Mishra, N. Sugandh, and A. Ram, “On-line case-based
+planning,” Computational Intelligence, vol. 26, no. 1, pp. 84–119, 2010.
+[12] R.-K. Balla and A. Fern, “Uct for tactical assault planning in real-time
+strategy games,” in Proceedings of the 21st international jont conference
+on Artiﬁcal intelligence, 2009, pp. 40–45.
+[13] D. Churchill, A. Safﬁdine, and M. Buro, “Fast heuristic search for rts
+game combat scenarios,” in Proceedings of the AAAI conference on
+artiﬁcial intelligence and interactive digital entertainment, vol. 8, no. 1,
+2012.
+[14] N. Justesen, B. Tillman, J. Togelius, and S. Risi, “Script-and cluster-
+based uct for starcraft,” in 2014 IEEE Conference on Computational
+Intelligence and Games.
+IEEE, 2014, pp. 1–8.
+[15] S. Ontan´on, “Combinatorial multi-armed bandits for real-time strategy
+games,” Journal of Artiﬁcial Intelligence Research, vol. 58, pp. 665–702,
+2017.
+[16] C. Berner, G. Brockman, B. Chan, V. Cheung, P. Debiak, C. Dennison,
+D. Farhi, Q. Fischer, S. Hashme, C. Hesse, R. J´ozefowicz, S. Gray,
+C. Olsson, J. W. Pachocki, M. Petrov, H. P. de Oliveira Pinto, J. Raiman,
+T. Salimans, J. Schlatter, J. Schneider, S. Sidor, I. Sutskever, J. Tang,
+F. Wolski, and S. Zhang, “Dota 2 with large scale deep reinforcement
+learning,” ArXiv, vol. abs/1912.06680, 2019.
+[17] M. Samvelyan, T. Rashid, C. S. De Witt, G. Farquhar, N. Nardelli,
+T. G. Rudner, C.-M. Hung, P. H. Torr, J. Foerster, and S. Whiteson,
+“The starcraft multi-agent challenge,” arXiv preprint arXiv:1902.04043,
+2019.
+[18] P. Sun, X. Sun, L. Han, J. Xiong, Q. Wang, B. Li, Y. Zheng, J. Liu,
+Y. Liu, H. Liu et al., “Tstarbots: Defeating the cheating level builtin ai
+in starcraft ii in the full game,” arXiv preprint arXiv:1809.07193, 2018.
+[19] D. Lee, H. Tang, J. O. Zhang, H. Xu, T. Darrell, and P. Abbeel, “Mod-
+ular architecture for starcraft ii with deep reinforcement learning,” in
+Fourteenth Artiﬁcial Intelligence and Interactive Digital Entertainment
+Conference, 2018.
+[20] Y. Tian, Q. Gong, W. Shang, Y. Wu, and C. L. Zitnick, “Elf: An ex-
+tensive, lightweight and ﬂexible research platform for real-time strategy
+games,” in Advances in Neural Information Processing Systems, 2017,
+pp. 2659–2669.
+[21] P.-A. Andersen, M. Goodwin, and O.-C. Granmo, “Deep rts: a game en-
+vironment for deep reinforcement learning in real-time strategy games,”
+in 2018 IEEE conference on computational intelligence and games
+(CIG).
+IEEE, 2018, pp. 1–8.
+[22] R. S. Sutton and A. G. Barto, Reinforcement learning: An introduction
+(2nd), chapter 13.4, p329.
+MIT press, 2018.
+[23] J. Schulman, P. Moritz, S. Levine, M. Jordan, and P. Abbeel, “High-
+dimensional continuous control using generalized advantage estimation,”
+arXiv preprint arXiv:1506.02438, 2015.
+[24] L. Espeholt, H. Soyer, R. Munos, K. Simonyan, V. Mnih, T. Ward,
+Y. Doron, V. Firoiu, T. Harley, I. Dunning et al., “Impala: Scalable dis-
+tributed deep-rl with importance weighted actor-learner architectures,”
+in International Conference on Machine Learning.
+PMLR, 2018, pp.
+1407–1416.
+[25] L. Han, P. Sun, Y. Du, J. Xiong, Q. Wang, X. Sun, H. Liu, and T. Zhang,
+“Grid-wise control for multi-agent reinforcement learning in video game
+ai,” in International Conference on Machine Learning.
+PMLR, 2019,
+pp. 2576–2585.
+[26] L. Engstrom, A. Ilyas, S. Santurkar, D. Tsipras, F. Janoos, L. Rudolph,
+and A. Madry, “Implementation matters in deep rl: A case study on
+ppo and trpo,” in International conference on learning representations,
+2019.
+[27] V. Mnih, K. Kavukcuoglu, D. Silver, A. Graves, I. Antonoglou, D. Wier-
+stra, and M. Riedmiller, “Playing atari with deep reinforcement learn-
+ing,” arXiv preprint arXiv:1312.5602, 2013.
+[28] A. Kanervisto, C. Scheller, and V. Hautam¨aki, “Action space shaping
+in deep reinforcement learning,” in 2020 IEEE Conference on Games
+(CoG).
+IEEE, 2020, pp. 479–486.
+[29] K. He, X. Zhang, S. Ren, and J. Sun, “Identity mappings in deep residual
+networks,” Lecture Notes in Computer Science, p. 630–645, 2016.
+[Online]. Available: http://dx.doi.org/10.1007/978-3-319-46493-0 38
+[30] T. King, S. Butcher, and L. Zalewski, Apocrita - High Performance
+Computing Cluster for Queen Mary University of London, Mar. 2017.
+[Online]. Available: https://doi.org/10.5281/zenodo.438045
+[31] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+arXiv preprint arXiv:1412.6980, 2014.
+[32] S. Huang and S. Onta˜n´on, “A closer look at invalid action masking in
+policy gradient algorithms,” 2020.
+
+APPENDIX
+A. Details on the Training Algorithm Proximal Policy Optimization
+The DRL algorithm that we used to train the agent is Proximal Policy Optimization (PPO) [6], one of the state-of-the-art
+algorithms available. The hyper-parameters of our experiments can be found in Table III. In addition to the techniques of action
+composition and invalid action masking, whose details are highlighted in the main text, our PPO implementation matches the
+implementation details in openai/baselines. Here we enumerate these details, including a footnote directing the readers to the
+original ﬁles in the openai/baselines [7] that implements these details.
+TABLE III: The list of hyperparameters and their values.
+Parameter Names
+Parameter Values
+Ntotal Total Time Steps
+300,000,000
+Nmb Number of Mini-batches
+4
+Nenvs Number of Environments
+24
+Nsteps Number of Steps per Environment
+256 for UAS and 512 for Gridnet
+γ (Discount Factor)
+0.99
+λ (for GAE)
+0.95
+ε (PPO’s Clipping Coefﬁcient)
+0.1
+ω (Gradient Norm Threshold)
+0.5
+K (Number of PPO Update Iteration Per Epoch)
+4
+α Learning Rate
+0.00025 Linearly Decreased to 0
+over the Total Time Steps
+c1 (Value Function Coefﬁcient)
+0.5
+c2 (Entropy Coefﬁcient)
+0.01
+Nupdates (Total Number of Updates)
+Ntotal/(NmbNenvs)
+1) Clipped Surrogate Objective10: This core feature of PPO.
+2) Generalized Advantage Estimation (GAE)11: Although Schulman, et al. [6] just use the abstraction of advantage
+estimate in the PPO’s objective, the implementation in openai/baselines speciﬁcally use GAE.
+3) Normalization of Advantages12: After calculating the advantages based on GAE, the advantages vector is normalized
+by subtracting its mean and divided by its standard deviation.
+4) Value Function Loss Clipping13: The PPO implementation of openai/baselines clips the value function loss in a manner
+that is similar to the PPO’s clipped surrogate objective:
+Vloss = max
+h
+(Vθt −Vtarg)2 ,
+ Vθt−1 + clip
+ Vθt −Vθt−1, −ε, ε
+2i
+where Vtarg is calculated by adding Vθt−1 and the A calculated by General Advantage Estimation [23].
+5) Overall Loss Includes Entropy Loss14: The overall loss is constructed with the policy gradient loss, value loss, and
+entropy loss. The entropy loss intuitively encourages the exploration by encouraging the action probability distribution
+to be more chaotic.
+6) Adam Learning Rate Annealing15: The Adam [31] optimizer’s learning rate is set to decay as the number of timesteps
+agent trained increase.
+7) Mini-batch updates16: The PPO implementation of the openai/baselines also uses mini-batches to compute the gradient
+and update the policy instead of the whole batch data such as in open/spinningup. The mini-batch sampling scheme,
+however, still makes sure that every transition is sampled only once, and that the all the transitions sampled are actually
+for the network update.
+8) Global Gradient Clipping17: For each update iteration in an epoch, the gradients of the policy and value network are
+clipped so that the “global ℓ2 norm” (i.e. the norm of the concatenated gradients of all parameters) does not exceed 0.5.
+9) Orthogonal Initialization of weights18: The weights and biases of fully connected layers use with orthogonal
+initialization scheme with different scaling.
+10https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L81-L86
+11https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/runner.py#L56-L65
+12https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L139
+13https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L68-L75
+14https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L91
+15https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/ppo2.py#L135
+16https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/ppo2.py#L160-L162
+17https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L107
+18https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/a2c/utils.py#L58
+
+10) Global Gradient Clipping19: For each update iteration in an epoch, the gradients of the policy and value network are
+clipped so that the “global ℓ2 norm” (i.e. the norm of the concatenated gradients of all parameters) does not exceed 0.5.
+11) The Use of Parallel Environment20: PPO uses parallel environments to speed up execution. In these environments, PPO
+collects “ﬁxed-length trajectory segments” as rollouts (e.g. after the “ﬁxed-length trajectory segments” of the episode,
+the observation in the current segment becomes the ﬁrst observation in the next segment; if the episode has terminated,
+replace the terminal observation with the observation from the reset environments).
+12) The Epsilon Parameter of Adam Optimizer21: By default, this parameter is not in the list of conﬁgurable hyper-
+parameters of PPO, but it was set to 10−5.
+13) Sharing Hidden Layers for Policy and Value Functions22: The hidden layers for the policy and value functions share
+the same weights and biases. Although I don’t think it makes much difference for the performance, the computational
+costs are deﬁnitely reduced since only one set of hidden layers needs to be optimized.
+B. Invalid Action Masking Implementation
+The most important augmentation in our experiments is invalid action masking. However, this technique introduces subtle
+issues when implementation is involved: existing literature usually does not describe the speciﬁc details, whereas in open
+source repositories we see different implementations. Hence, we describe a canonical implementation and discuss a variant.
+Consider this example: suppose we are generating a unit action in Gym-µRTS at state s0, and we have already sampled
+a valid source unit (worker 1) and an action type (move). Imagine now that the network outputs the following logits for
+the move parameter: l = [1.0, 1.0, 1.0, 1.0], resulting in a probability distribution (via softmax) of: πθ(·|s0) = softmax(l) =
+[0.25, 0.25, 0.25, 0.25]
+At this point, regular policy gradient algorithms will sample an action from πθ(·|s0). Suppose a0 is sampled from πθ(·|s0),
+and the policy gradient is calculated as follows:
+gpolicy = Eτ
+"
+∇θ
+T −1
+X
+t=0
+log πθ(at|st)Gt
+#
+= ∇θ log πθ(a0|s0)G0
+= [0.75, −0.25, −0.25, −0.25]
+where (∇θ log softmax(θ)j)i =
+
+
+
+(1 −
+exp(lj)
+P
+j exp(lj))
+if i = j
+−exp(lj)
+P
+j exp(lj)
+otherwise
+Now suppose a2 is invalid for state s0, and the only valid actions are a0, a1, a3. The canonical implementation is to “mask
+out” the logits corresponding to the invalid actions23. That is, it replaces the logits of the invalid actions by a large negative
+number M (e.g. M = −1 × 108). Unless otherwise speciﬁed, this is the implementation we used for experiments. Let us use
+invs to denote this masking process, and we can calculate the re-normalized probability distribution π′
+θ(·|s0) as the following:
+π′
+θ(·|s0) = softmax(invs([l0, l1, l2, l3]))
+= softmax([l0, l1, M, l3]) = [π′
+θ(a0|s0), π′
+θ(a1|s0), ϵ, π′
+θ(a3|s0)]
+≈[0.33, 0.33, 0.00, 0.33]
+where ϵ is the resulting probability of the masked invalid action, which should be a small number. If M is chosen to be
+sufﬁciently negative, the probability of choosing the masked invalid action a2 will be virtually zero. After ﬁnishing the
+episode, the policy is updated according to the following gradient, which we refer to as the invalid action policy gradient.
+ginvalid action policy = Eτ
+"
+∇θ
+T −1
+X
+t=0
+log π′
+θ(at|st)Gt
+#
+= ∇θ log π′
+θ(a0|s0)G0
+≈[0.67, −0.33, 0.00, −0.33]
+Hence, the canonical implementation both “renormalizes the probability distribution” and also makes the gradient corresponding
+to the logits of the invalid action to zero.
+19https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L107
+20https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/cmd util.py#L22
+21https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L100
+22https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/policies.py#L157
+23See https://bit.ly/3cnMOAb for the original source code.
+
+PPO + invalid action masking 
++ diverse bots + IMPALA-CNN
+PPO + invalid action masking 
+ + diverse bots
+PPO + invalid action masking
+PPO + naive invalid action masking
+PPO + partial invalid action masking
+PPO
+UAS
+0.91
+0.82
+0.82
+0.0
+0.32
+0.0
+0.22M
+0.39M
+0.39M
+0.39M
+0.39M
+0.39M
+63.67h
+37.57h
+39.2h
+50.88h
+49.95h
+38.8h
+0.0
+0.5
+1.0
+Cumulative Win Rate
+(Higher is Better)
+PPO + invalid action masking 
++ diverse bots + encoder-decoder
+PPO + invalid action masking 
+ + diverse bots + IMPALA-CNN
+PPO + invalid action masking 
+ + diverse bots
+PPO + invalid action masking
+PPO + invalid action masking +
+half self-play / half bots + encoder-decoder
+PPO + invalid action masking 
++ selfplay + encoder-decoder
+PPO + naive invalid action masking
+PPO + partial invalid action masking
+PPO
+Gridnet
+0.89
+0.84
+0.87
+0.73
+0.72
+0.71
+0.11
+0.0
+0.0
+0
+2
+4
+6
+Parameters in Model1e6
+0.84M
+5.27M
+5.43M
+5.43M
+0.84M
+0.84M
+5.43M
+5.43M
+5.43M
+0
+100
+200
+Runtime
+(Lower is Better)
+117.03h
+85.65h
+59.65h
+62.95h
+176.29h
+183.41h
+66.86h
+68.89h
+121.27h
+Fig. 8: Full ablation study for UAS and Gridnet.
+Another implementation of invalid action masking is to still sample actions using the masks, but update the gradient as if
+the masks had never been applied, as done in [17]. So using the example above, the gradient will look exactly the same as
+gpolicy, but we refer to this implementation as naive invalid action masking since the behavior policy does not match the target
+policy. Although it is shown naive invalid action masking can perform just as well as the canonical counterparts in simple
+tasks [32], Figure 8 provides clear evidence that the canonical implementation is superior in larger tasks such as the full-game.
+C. Selfplay Experiments
+Another augmentation we tried is selfplay, which is a crucial component in recent work such as AlphaStar [1] and OpenAI
+Five [16]. If the agents issue actions via Gridnet, selfplay can be implemented naturally with the parallel environments of
+PPO. That is, assume there are 2 parallel environments, we can spawn 1 game under the hood and use return player 1 and
+2’s observation for the ﬁrst and second parallel environments, respectively and take the player actions respectively. However,
+note that the agents in the selfplay experiments are learning to handle both starting locations of the map, which is a different
+setting for other experiments, and it is for this reason we did not include the selfplay experiments in the main text.
+We examine two settings: 1) selfplay with 12 underlying selfplay games for 24 parallel environments, and 2) half selfplay
+/ half bots with 8 underlying selfplay games for 16 parallel environments and 8 bot parallel environments (2 CoacAI, 2
+RandomBiasedAI, 2 LightRush, and 2 WorkerRush). Additionally, we always use the same network to predict actions for
+these 24 parallel environments, which is a simpler setting (i.e. always playing against the latest self) compared to the more
+sophisticated selfplay settings in AlphaStar [1] and OpenAI Five [16]. When the agents are evaluated using the same setting
+as other experiments (i.e. spawn from the top right), Figure 8 shows both settings do not perform particularly well. This likely
+suggests a more sophisticated method for selfplay such as league training [1] is required to create strong agents. But again,
+notice the selfplay agents learn to play the game with both starting locations, so they do not compare fairly with the other
+experiments that always start from the top left of the map.
+
+D. Infrastructure
+Although the cost of training one instance of agent in Gym-µRTS is relatively cheap (1 GPU, 4 CPU for 3-4 days), conducting
+the ablation studies with 4 random seeds is less so (about 6000 CPU and GPU hours in total). In practice, we leverage Amazon
+Web Services (AWS) as an easily accessible cloud provider to help scale the experiments. Speciﬁcally, we package our codebase
+into a docker container and submit experiments to AWS Batch, which is conﬁgured to use the g4dn.xlarge instances (4 vCPU
+16 GiB RAM, 1 GPU) to process jobs. Our training script periodically saves the model to Weights and Biases; this allows us to
+reduce computational costs by using the Spot instances that can be preempted at any time. When the instances get preempted,
+we simply submit another job to resume the run by loading the saved model from Weights and Biases. That said, some runs
+like the encoder-decoder experiments are conducted using Queen Mary University’s computing cluster.
+E. Learning curves and match results
+All the learning curves related for UAS and Gridnet can be found at Figure 9 and Figure 10, respectively. Similarly, the
+match results can be found at Figure 12 and Figure 13.
+
+0
+20
+40
+60
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.000
+0.998
+0.996
+0.994
+0.992
+0.990
+Sparse return
+PPO
+(a)
+0
+20
+40
+60
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.000
+0.995
+0.990
+0.985
+Sparse return
+PPO + partial invalid action masking
+(b)
+0
+50
+100
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking
+(c)
+0
+5
+10
+15
+20
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.000
+0.995
+0.990
+0.985
+Sparse return
+PPO + naive invalid action masking
+(d)
+50
+100
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking 
+ + diverse opponents
+(e)
+0
+50
+100
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking 
++ diverse opponents + IMPALA-CNN
+(f)
+Fig. 9: UAS learning curves.
+
+10
+8
+6
+4
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.04
+1.02
+1.00
+0.98
+0.96
+Sparse return
+PPO
+(a)
+0
+20
+40
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.04
+1.02
+1.00
+0.98
+0.96
+Sparse return
+PPO + partial invalid action masking
+(b)
+0
+50
+100
+150
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking 
+ + diverse opponents + IMPALA-CNN
+(c)
+10
+15
+20
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.04
+1.02
+1.00
+0.98
+0.96
+Sparse return
+PPO + naive invalid action masking
+(d)
+50
+100
+150
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking 
+ + diverse opponents
+(e)
+0
+50
+100
+150
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking 
+ + diverse opponents + IMPALA-CNN
+(f)
+Fig. 10: Gridnet learning curves.
+
+140
+160
+180
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1.75
+2.00
+1e8
+0.1
+0.0
+0.1
+0.2
+Sparse return
+PPO + invalid action masking 
++ selfplay + encoder-decoder
+(a)
+50
+100
+150
+Shaped return
+Seed 1
+Seed 2
+Seed 3
+Seed 4
+0.0
+0.5
+1.0
+1.5
+2.0
+1e8
+1.0
+0.5
+0.0
+0.5
+Sparse return
+PPO + invalid action masking +
+half self-play / half bots + encoder-decoder
+(b)
+Fig. 11: Gridnet selfplay learning curves.
+
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO
+(a)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + partial invalid action masking
+(b)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking
+(c)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + naive invalid action masking
+(d)
+Fig. 12: UAS match results.
+
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking 
++ diverse opponents + IMPALA-CNN
+(e)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking 
+ + diverse opponents
+(f)
+Fig. 12: UAS match results.
+
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO
+(a)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + partial invalid action masking
+(b)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking
+(c)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + naive invalid action masking
+(d)
+Fig. 13: Gridnet match results.
+
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking 
+ + diverse opponents
+(e)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking 
+ + diverse opponents + IMPALA-CNN
+(f)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking 
++ selfplay + encoder-decoder
+(g)
+0
+25
+50
+75
+100
+randomBiasedAI
+passiveAI
+workerRushAI
+0
+25
+50
+75
+100
+lightRushAI
+coacAI
+naiveMCTSAI
+0
+25
+50
+75
+100
+mixedBot
+rojo
+izanagi
+loss
+tie
+win
+0
+25
+50
+75
+100
+tiamat
+loss
+tie
+win
+droplet
+loss
+tie
+win
+guidedRojoA3N
+PPO + invalid action masking +
+half self-play / half bots + encoder-decoder
+(h)
+Fig. 13: Gridnet match results.

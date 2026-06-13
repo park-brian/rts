@@ -1,0 +1,519 @@
+An Introduction of mini-AlphaStar
+Ruo-Ze Liu∗1, Wenhai Wang1, Yanjie Shen1, Zhiqi Li1, Yang Yu1,
+and Tong Lu1
+1Nanjing University, Nanjing, China
+Abstract
+StarCraft II (SC2) is a real-time strategy game in which players pro-
+duce and control multiple units to ﬁght against opponent’s units. Due
+to its diﬃculties, such as huge state space, various action space, a long
+time horizon, and imperfect information, SC2 has been a research hotspot
+in reinforcement learning. Recently, an agent called AlphaStar (AS) has
+been proposed, which shows good performance, obtaining a high win-rates
+of 99.8% against human players. We implemented a mini-scaled version
+of it called mini-AlphaStar (mAS) based on AS’s paper and pseudocode.
+The diﬀerence between AS and mAS is that we substituted the hyper-
+parameters of AS with smaller ones for mini-scale training. Codes of mAS
+are all open-sourced1 for future research.
+1
+Introduction
+StarCraft II (SC2) is a new challenge for reinforcement learning (RL) [1].
+To tackle it, DeepMind has proposed a learning environment called SC2LE
+(short for StarCraft II learning environment) [2] for researchers to build its
+agents on the SC2. The SC2LE provides a human-level API for interacting
+between the agents and SC2. E.g., the agent should ﬁrst select the unit by the
+unit’s coordinate position in the game screen, and then the unit can be given
+a command. This schema greatly improves the learning diﬃculties. The agent
+not only needs to learn which action to do but also needs to learn how to select.
+Several works of research [3, 4, 5] have tried on this setting. But they only test
+against the built-in AIs. This situation is changed due to the proposition of
+AlphaStar [6].
+AlphaStar (AS) has beaten 99.8% human players on Battle.Net (the bat-
+tle matching platform for SC2). Compared to previous methods, AS has three
+diﬀerences: (1) huge computing resources. AS uses 128,000 CPU cores and 384
+TPUs for training while lasting 44 training days; (2) a big neural network. AS’s
+∗liuruoze@163.com
+1https://github.com/liuruoze/mini-AlphaStar
+1
+arXiv:2104.06890v2  [cs.AI]  17 Nov 2021
+
+model consists of 3 encoders, 1 core, and 6 heads. Each of them contains one
+or multi convolution neural networks, recurrent neural networks, and Trans-
+formers [7]; (3) usage of many new tricks, such as behavior cloning, pointer
+network, pFSP algorithm (a gaming theory method), and the scatter way in
+feature maps. These all contributed to AS’s good performance. AS’s success is
+not only an advance of technology but also an artwork of engineering.
+However, AS is still not a perfect method to solve SC2 due to the follow-
+ing reasons. First, AS doesn’t use the human-level API in SC2LE (also called
+feature-level API). AS used is a raw-level API arising in the 3rd version of
+SC2LE’s python interface, PySC2. The learning diﬃculties between the two are
+quite diﬀerent. The exploring space for raw-level API is indeed much smaller
+than human-level. Thus reinforcement learning is easier. Second, the AS ex-
+ploits human data in three ways. The overmuch usage of human data makes
+the learned agent more likely to imitate human behaviors instead of exploring
+new strategies. Third, the combat settings between AS and humans are not so
+fair (such as diﬀerences of EPM, camera moving operations, and control accu-
+racy), making humans at a disadvantage in ﬁghting against it, which reduced
+the persuasive results. For more information, we recommend the readers refer
+to another more detailed paper.
+In this paper, we present our re-implementation of AS, called mini-AlphaStar
+(short as mAS). The design and implementation details are referenced by AS’s
+Nature paper [6] and the supplementary details of that paper. We keep the
+structure and method of mAS similar to AS’s but make many hyper-parameters
+much smaller ones (making it can be trained in a common commercial machine).
+We test the supervised learning code and reinforcement learning code of mAS
+and ﬁnd it can be running as expected (however, the ﬁnal performance of the
+training is not ideal).
+Section 2 presents the background knowledge of this paper. Section 3 intro-
+duces the deep neural network structure of mAS, the supervised learning and
+reinforcement learning of mAS, and the multi-agent mechanism. Section 4 gives
+the settings of mAS. Section 5 concludes the paper.
+2
+Background
+Reinforcement learning is a sub-area of machine learning, which aims to obtain
+smart agents through training them within a speciﬁc environment to maximize
+the cumulative reward value. A popular research ﬁeld in reinforcement learning
+is games. Initially, this method is used to solve simple games such as Black Jack
+and Atari games. With the rapid development of this ﬁeld, attention has shifted
+to more complex games, as well as changes in research objects, from single-agent
+to multi-agent. As a typical multi-agent game, SC2 becomes a hot spot.
+Reinforcement learning has made some progress in the research of StarCraft.
+Oriol Vinyals et al.[8] introduced the SC2 game environment, describing the
+characteristics and research challenges in this problem. Julian Togelius et al.[9]
+devised a representation of StarCraft maps suitable for evolutionary search.
+2
+
+Nicolas Usunier et al.[10] applied episodic exploration for deep deterministic
+policies to StarCraft micromanagement tasks. Peng Sun et al.[11] presented
+their game agents that succeeded in defeating the cheating level built-in AI in
+the full game of SC2.
+3
+Methods
+3.1
+Overall Structure
+The whole method consists of four main parts: Deep Neural Networks (DNN)
+architecture; Supervised Learning (SL) process; Reinforcement Learning (RL)
+process; and Multi-Agent (MA) League.
+DNN part is the base model for SL and RL. The agent was ﬁrstly trained by
+supervised learning using game replays of expert human players to obtain a base
+agent can imitate human players, which is implemented in the SL part. Then, the
+pre-trained agent will be trained through a series of self-play matches, using the
+reinforcement learning method to continuously adjust its policy network, which
+is implemented in the RL part. To improve the performance of reinforcement
+learning, a multi-agent league is used for collecting diﬀerent trained agents and
+arranging matches between agents according to win-loss probability. The league
+also deﬁnes diﬀerent kinds of agents with speciﬁc training targets, improving the
+training process by their cooperation. These selection algorithms for choosing
+which agent to be the opponents are implemented in the MA part.
+3.2
+Neural Network Architecture
+The DNN architecture contains 3 encoder parts, 1 core part, and 6 head parts.
+The 3 encoders are entity encoder, spatial encoder, and scalar encoder. The
+entity encoder is used for processing the states of each entity to be one single
+tensor for further processing. The entity can be a unit or a building. The spatial
+encoder is used for processing the feature maps of the game screen or minimap.
+E.g., the height map or the visible map are processed in this encoder. The
+scalar encoder is for processing the statistical information of the game, e.g., the
+current minerals or supply of the game. The tensors output from the 3 three
+encodes are concatenated to input to the core part. The core part is a big LSTM
+which is to process the history information. LSTM accepts the input from the
+current state information from 3 encoders and the historical information from
+the hidden state. The output of the core part is going to the ﬁrst head of the 6
+heads, which is the action-type head. The action-type head decides which action
+type the agent will choose now. And its output is also carried on to the next
+head, which is the queue head. The output of the queue head decides the action
+whether should be queued. The output is also carried on to the next head. These
+transfers will be repeated. The next heads are delay head, selected units head,
+target unit head, and target location head respectively. The delay head decides
+how many frames the action will be delayed. The selected unit head decides
+3
+
+which units will be put these actions. The target unit head and target location
+head decide which target will be chosen. The target will be an enemy unit or
+one position, so only one output of the two heads will be selected.
+For RL training, the game process is pushed forward in frames. In each
+frame, the agent obtains the action by calling a step function. The step func-
+tion accepts the observation and the previous hidden state, then outputs the
+action. The observation is called MsState. The three parts of MsState, the en-
+tity state, the spatial state, the scalar state, are pre-processed using diﬀerent
+encoders respectively, and then be transferred to the core part. LSTM in the
+core part accepts the encoder input and generates the core output and the new
+hidden state. Then, the action type and an autoregressive embedding are got
+by passing the output of the core through a seris of processing. The action-type
+and the autoregressive embedding are used to generate other heads including
+the delay, the queue, the selected units, the target unit, and the target location
+respectively. Outputs from these heads form an ArgsAction. The ArgsAction
+will be transformed into a function call of PySC2 and will be applied in the
+environment.
+Encoder Structure
+We have diﬀerent encoders for the three parts of MsState. In the entity encoder,
+the input is ﬁrst embedded by a linear layer, then processed by a transformer.
+The output is passed through a ReLU and then a 2D convolution layer with
+ReLU to obtain entity-embedding. We also get embedded-entity by calculating
+the mean across all entities (the transformer output) and passing it through
+a linear layer with ReLU. Both two results are returned as the output of the
+encoder. The illustration of the entity encoder is shown in Fig. 1.
+Figure 1: The entity encoder.
+In the spatial encoder, the input is ﬁrst projected by a 2D convolution layer
+and a ReLU then downsampled through three 2D convolution layers, passed
+through several Resblocks to generate the map-skip, and ﬁnally through a linear
+layer with ReLU to generate the embedded-spatial. The results of the map-skip,
+the embedded-spatial are returned together as the output of the encoder.
+4
+
+In the scalar encoder, we ﬁrst split the input scalar list into detailed elements.
+Each element is passed through the corresponding linear layer with ReLU and
+appended to a scalar list or context list. Then the elements in two lists are
+concatenated into a tensor and passed through a linear layer with ReLU respec-
+tively. The results, embedded-scalar-out, and scalar-context-out, are returned
+together as the output of the encoder.
+For transformer structure in the entity encoder, it consists of three encoder
+layers, each of which contains two sublayers, an att (multi-head attention) layer,
+and an ﬀ(position-wise feed-forward) layer. The att layer contains a residual
+network, which receives three inputs and generates an output value and an
+attention value. The ﬀlayers receive the output of the att layer as input and
+also pass it through a residual network with two linear layers, one with ReLU
+and one with dropout. Finally, the result is returned together with the attention
+value. The output values are computed recursively through encoder layers, while
+attention values generated in each encoder layer are collected in a list. The
+illustration of the transformer structure is shown in Fig. 2.
+Core Structure
+The core receives the previous hidden state and three embedded tensors (i.e.,
+embedded-scalar, embedded-entity, and embedded-spatial). The embedded ten-
+sors are concatenated into one tensor. It is noted that before forwarding, the
+tensor shape is [batch seq size, embedding size], we transform the shape to the
+[batch size, seq size, embedding size]. The LSTM model will accept the tensor
+and the previous hidden state, and output the new output and the new hidden
+state.
+Head Structure
+We have six arguments in the action, which are action type, delay, queue, se-
+lected unit, target unit, and location. These components are generated in the
+following heads respectively.
+In the action-type head, we get LSTM output and scalar context as input.
+The LSTM output is ﬁrst embedded through a linear layer with the shape
+original 256, then through a series of Resblocks and ReLU. The result is then
+passed through a GLU gated by scalar context to generate action type logits.
+The action type is sampled from the probability obtained by applying a softmax
+on logits with temperature. Then we transfer the action type into one-hot and
+pass it through a linear layer with ReLU. The result and LSTM output are
+passed through GLU gated by scalar context respectively and added together
+to obtain autoregressive embedding. The logits, action-type, and autoregressive
+embedding are returned as output.
+In delay head, we ﬁrst decode the autoregressive embedding by passing it
+through two linear layers (each with size original 256) with ReLU, then embed
+the result with a linear layer with shape last-delay. The delay value is sampled in
+a similar way as above. Then we transfer it to one-hot, pass it through two linear
+5
+
+Figure 2: The transformer structure.
+layers with ReLU, and ﬁnally project it to the shape same as autoregressive
+embedding. The result is added to the old autoregressive value and then returned
+as the new one, together with logits and delay value.
+The way we deal with queue head is similar to that in delay head, except
+that the project queued value is applied a mask before added to autoregressive-
+embedding, which checks if queuing is possible for the chosen action type.
+6
+
+In the selected-units head, we ﬁrst use a mask to determine which entity
+types can accept the action-type and generate a one-hot vector to represent it,
+then embed it through a linear layer with ReLU to obtain func-embed with
+shape original 256. We also compute a mask representing which units can be
+selected, and a key corresponding to each entity passing the entity-embedding
+through a 1D convolution layer with original 32 channels and kernel size 1. Then,
+we repeat the following procedure for selecting the max-limit of units: we ﬁrst
+pass autoregressive-embedding through a linear layer with shape original 256
+and add it to func-embed, then pass the result through a linear layer with
+shape original 32 and through ReLU, and feed it to LSTM (especially deﬁned
+in this head) to generate query output and new hidden state. We multiply key
+and query, and then apply the mask computed above, obtaining the logits by
+dividing it by temperature. We compute entity-probs and sample entity-id as
+usual and append them to the logit list and unit list respectively. To update
+autoregressive-embedding, we transfer entity-id into one-hot and multiply it
+with key. We subtract the mean value of the one-hot from the result and project
+it through a linear layer, and ﬁnally add it to autoregressive-embedding. After
+the iteration, we concatenate the elements of logits and units respectively and
+return them together with autoregressive-embedding, each multiplied with a
+mask that represents whether action-type involves selecting units.
+The process in the target-unit head is similar to what we do in the select-unit
+head, except that we do not update autoregressive-embedding since this head
+in one of the terminal heads. The other terminal head is the location head.
+In the location head, we get autoregressive-embedding, action-type, and
+map-skip as input. We ﬁrst concatenate autoregressive-embedding and map-skip
+along the channel dimension, then pass it through a ReLU and a 2D convolution
+layer with ReLU. The result is passed through a FiLM gated by autoregressive-
+embedding and then added with map skip. Afterward, it is unsampled by a
+series of transposed 2D convolution layers, then applied a mask decided by
+action-type to rule out the invalid locations, and we obtain the logits by divid-
+ing the result by temperature. Then we sample location-id using the probability
+of softmax value of logits and obtain location-out by calculating the coordinate
+from the index. Logits and location-out are both applied by a mask to check if
+the action-type involves targeting location and ﬁnally returned.
+3.3
+Supervised Learning
+Training data
+Training datasets are game replays from human players that were pre-processed
+into the feature label format. Features represent the game states of the player,
+while labels represent the actions taken by the player. The feature action pairs
+can be transformed into trajectories in the form of [state, action, isfinal] for
+training use. A dataset object is constructed with replay data loaded by Py-
+Torch. During learning, the supervised learner obtains training and testing data
+from it, and the predicted action value is generated by unrolling the state with
+7
+
+network forwarding.
+Loss Function
+The label (action) to be learned contains six important parts, which are action
+type, delay, and queue. Therefore, the supervised training loss takes into con-
+sideration the corresponding loss, action type loss t, delay loss d, queue loss q,
+units loss u, target unit loss tu if have, and target location loss tl if have. Thus
+we have the loss function
+L = C(tp, tg) + C(dp, dg) + C(qp, qg) + C(up, ug) + C(tup, tug) + C(tlp, tlg) (1)
+where C denotes cross-entropy loss function, p and g are predict value and replay
+value respectively.
+We additionally use a gradient clip of 0.5 to prevent gradient explosion and
+then apply updates to parameters with the Adam optimizer via gradient back-
+ward.
+3.4
+Reinforcement Learning
+State
+We maintain two states during training. One is the LSTM hidden state, which
+contains the information of all previous states and actions; the other is the
+MsState, which represents the current game state based on the player’s obser-
+vations, consisting of entity state, statistical state, and map state. The entity
+state contains information about the unit’s status like unit position, health,
+attack/armor level, weapon cooldown; the statistical state represents some sys-
+temic properties like player/opponent race and upgrades, time, available actions;
+map state reveals the map information.
+Training process
+We use an actor-learner scheme for reinforcement learning. The actor thread
+and learner thread are created when the training starts. The actor thread con-
+tinuously carries forward the game and keeps adding each other’s trajectory into
+a list. When a speciﬁc number of trajectories are collected, they will be sent to
+the learner. When the number of trajectories received by the learner reaches
+batch-size, the learner extracts this batch and computes the loss function for it,
+and ﬁnally, network parameters are updated according to it.
+Loss Function
+The loss function used in learner parameter update consists of four parts sum-
+ming up.
+The ﬁrst part is actor-critic loss. It computes the pseudo-reward of actor
+trajectories and computes TD(λ) with the baseline pseudo-reward associated
+with following the human strategy statistic z. It also computes the split vtrace
+8
+
+pg-loss (policy-gradient), by calculating vtrace pg-loss respectively for “action
+type”, “delay” and “arguments”, which sums up pg-loss on all sets of logits of
+autoregressive actions. pg-loss is calculated using cross-entropy loss over logits
+and actions. The results above will be added up as a total actor-critic loss.
+To compute the baseline, we ﬁrst pre-process the observation of the player
+and the opponent and obtain each other’s scalar-out value to form the action
+type together with the LSTM output. We pass it through a linear of original 256
+with ReLU, then through ResBlocks with original 256 hidden units and layer
+normalization, and then through a ReLU and a linear with 1 hidden unit to get
+result b. Finally, we obtain the baseline value
+baseline = 2
+π arctan(π
+2 b)
+(2)
+The second part is split upgo-loss. We ﬁrst remove the last timestep for
+trajectories and baselines, then calculate upgo-return from state values, step
+rewards, discount, and bootstrap values. Importance weight is computed by the
+diﬀerence between behavior log probability from cut trajectories and target log
+probability, then weighted advantage is obtained by multiplying the diﬀerence
+of upgo returns and state values with it. Finally, we compute the pg-loss on
+target logits and action type values obtained from trajectories, by multiplying
+it with the weighted advantage. The equation can be written as
+Loss = weight ∗C(logitst, action)
+(3)
+weight is computed as
+(upgo return −baseline) ∗exp(C(action, logitst) −C(action, logitsb))
+(4)
+upgo return is computed as
+lambda return(bootstraps, rewards, discounts, lambdas)
+(5)
+where C denotes cross-entropy loss function, and logitst and logitsb respectively
+denotes split target logits and behavior logits.
+The third part computes the KL divergence between the actor trajectories
+to the supervised trained human policy, and the last part computes the entropy-
+loss for a set of policy logits.
+3.5
+Multi-Agent League
+League Architecture
+For self-play in reinforcement learning, we build a multi-agent league with three
+types of agents: main player (MP), main exploiter (ME), and league exploiters
+(LE). Main players are trained for improving themselves, while exploiters are
+trained to ﬁnd the weakness of other agents. We also use a coordinator to
+maintain the payoﬀmatrix and assigns new matches.
+9
+
+The payoﬀmatrix is initialized when league training begins, containing the
+original agents. During the training process, outcomes of each match will be sent
+to the coordinator, updating the win-loss status between players in the matrix.
+For each training agent, checkpoints are set when its win rate to other his-
+torical players is higher than 0.7, or a speciﬁc number (like 4 × 109)of steps has
+passed. When an agent reaches the checkpoint, the current model of it will be
+added as a historical (i.e., past player) into the league.
+Game Matching
+The three types of agents have diﬀerent training targets: main players train
+against all historical main players; main exploiters train against all players;
+league exploiters train against all historical players. Therefore, they have diﬀer-
+ent mechanisms to get a match opponent
+We use the priority ﬁctitious self-play (PFSP) algorithm to randomly sample
+an opponent for a given player, by calculating the probabilities using a speciﬁc
+weighting function on win-rate, then randomly choose one according to normal-
+ized probability. Weight functions includes “linear”, “linear capped”, “variance”
+and “squared”, and “linear” is set as default.
+For main players, they have a 0.5 probability to directly sample a random
+historical player with squared weight; otherwise, they either try to ﬁnd some
+rare players omitted or arbitrarily choose a main player and sample one of its
+historical with variance weight instead if it is too hard to beat.
+For main exploiters, they ﬁrst arbitrarily choose a main player. If the win
+rate against it is above 0.1, they will return it as the opponent; Otherwise, they
+will instead sample a random historical of it with variance weight.
+For league exploiters, they directly sample a random historical player with
+linear capped weight.
+4
+Setting
+In mini-AlphaStar, we substitute the hyper-parameters in AlphaStar, which
+includes races, batch size, network shape, etc., with smaller ones, in order to
+support mini-scale training. The detailed values are shown in the Table 1, which
+compares the parameters between AlphaStar and mini-AlphaStar.
+AlphaStar
+Mini-AlphaStar
+Races
+Protoss, Zerg, Terran
+Protoss
+batch size
+512/A s
+96/A s
+sequence length
+64/A s
+64/A s
+max entities
+64/A s
+32/A s
+max selected
+512/A s
+384/A s
+minimap size
+128
+64
+embedding size
+3585
+1543
+map channels
+18
+18
+10
+
+scalar encoder fc input
+1504
+864
+scalar encoder fc input
+544
+448
+scalar feature size
+7327
+7327
+entity embedding size
+256
+64
+lstm hidden dim
+384
+128
+lstm layers
+3
+1
+n resblocks
+16
+4
+original 1024
+1024
+256
+original 512
+512
+128
+original 256
+256
+64
+original 128
+128
+48
+original 64
+64
+32
+original 32
+32
+16
+context size
+512
+128
+location head max map channels
+128
+32
+autoregressive embedding size
+1024
+256
+baseline input size
+1152
+1152
+league learner num
+12
+4
+actorloop num
+16000
+512
+Table 1: Comparison of hyper-parameters. A s=Adjustable scale.
+5
+Conclusion
+AlphaStar is a program that achieves Grandmaster level in SC2 for the ﬁrst
+time. We have implemented most of the components, with a few functions to be
+ﬁnished, including the z value generation. In the future, we will try to do more
+experiments on it for assessment and improvements.
+11
+
+6
+Reference
+[1] Richard S. Sutton and Andrew G. Barto.
+Reinforcement Learning: An
+Introduction, volume 135. 1998.
+[2] Oriol Vinyals, Timo Ewalds, Sergey Bartunov, and et al. Starcraft II: A
+new challenge for reinforcement learning. CoRR, 2017.
+[3] Peng Sun and et al. TStarBots: Defeating the Cheating Level Builtin AI
+in StarCraft II in the full game. CoRR, 2018.
+[4] Zhen-Jia Pang, Ruo-Ze Liu, and et al. On reinforcement learning for full-
+length game of starcraft. In AAAI, 2019.
+[5] Dennis Lee, Haoran Tang, and el al. Modular Architecture for StarCraft
+II with Deep Reinforcement Learning. In AIIDE, pages 187–193, 2018.
+[6] Oriol Vinyals, Igor Babuschkin, Wojciech M Czarnecki, Micha¨el Mathieu,
+Andrew Dudzik, Junyoung Chung, David H Choi, Richard Powell, Timo
+Ewalds, Petko Georgiev, Junhyuk Oh, Dan Horgan, Manuel Kroiss, Ivo
+Danihelka, Aja Huang, Laurent Sifre, Trevor Cai, John P Agapiou, Max
+Jaderberg, Alexander S Vezhnevets, R´emi Leblond, Tobias Pohlen, Valentin
+Dalibard, David Budden, Yury Sulsky, James Molloy, Tom L Paine, Caglar
+Gulcehre, Ziyu Wang, Tobias Pfaﬀ, Yuhuai Wu, Roman Ring, Dani Yo-
+gatama, Dario W¨unsch, Katrina McKinney, Oliver Smith, Tom Schaul,
+Timothy Lillicrap, Koray Kavukcuoglu, Demis Hassabis, Chris Apps, and
+David Silver. Grandmaster level in StarCraft II using multi-agent reinforce-
+ment learning. Nature, 2019.
+[7] Ashish Vaswani and et al. Attention is all you need. In NIPS, 2017.
+[8] Oriol Vinyals, Timo Ewalds, Sergey Bartunov, Petko Georgiev, Alexan-
+der Sasha Vezhnevets, Michelle Yeo, Alireza Makhzani, Heinrich K¨uttler,
+John Agapiou, Julian Schrittwieser, John Quan, Stephen Gaﬀney, Stig Pe-
+tersen, Karen Simonyan, Tom Schaul, Hado van Hasselt, David Silver,
+Timothy Lillicrap, Kevin Calderone, Paul Keet, Anthony Brunasso, David
+Lawrence, Anders Ekermo, Jacob Repp, and Rodney Tsing. Starcraft ii: A
+new challenge for reinforcement learning, 2017.
+[9] J. Togelius, M. Preuss, N. Beume, S. Wessing, J. Hagelb¨ack, and G. N.
+Yannakakis.
+Multiobjective exploration of the starcraft map space.
+In
+Proceedings of the 2010 IEEE Conference on Computational Intelligence
+and Games, pages 265–272, 2010.
+[10] Nicolas Usunier, Gabriel Synnaeve, Zeming Lin, and Soumith Chintala.
+Episodic exploration for deep deterministic policies: An application to star-
+craft micromanagement tasks, 2016.
+12
+
+[11] Peng Sun, Xinghai Sun, Lei Han, Jiechao Xiong, Qing Wang, Bo Li, Yang
+Zheng, Ji Liu, Yongsheng Liu, Han Liu, and Tong Zhang. Tstarbots: De-
+feating the cheating level builtin ai in starcraft ii in the full game, 2018.
+13

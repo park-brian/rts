@@ -1,0 +1,1876 @@
+Mastering Atari Games with Limited Data
+Weirui Ye∗
+Shaohuai Liu∗
+Thanard Kurutach†
+Pieter Abbeel†
+Yang Gao∗‡
+∗Tsinghua University, †UC Berkeley, ‡ Shanghai Qi Zhi Institute
+Abstract
+Reinforcement learning has achieved great success in many applications. However,
+sample efﬁciency remains a key challenge, with prominent methods requiring
+millions (or even billions) of environment steps to train. Recently, there has
+been signiﬁcant progress in sample efﬁcient image-based RL algorithms; however,
+consistent human-level performance on the Atari game benchmark remains an
+elusive goal. We propose a sample efﬁcient model-based visual RL algorithm
+built on MuZero, which we name EfﬁcientZero. Our method achieves 194.3%
+mean human performance and 109.0% median performance on the Atari 100k
+benchmark with only two hours of real-time game experience and outperforms
+the state SAC in some tasks on the DMControl 100k benchmark. This is the ﬁrst
+time an algorithm achieves super-human performance on Atari games with such
+little data. EfﬁcientZero’s performance is also close to DQN’s performance at 200
+million frames while we consume 500 times less data. EfﬁcientZero’s low sample
+complexity and high performance can bring RL closer to real-world applicability.
+We implement our algorithm in an easy-to-understand manner and it is available
+at https://github.com/YeWR/EfficientZero. We hope it will accelerate the
+research of MCTS-based RL algorithms in the wider community.
+Figure 1: Our proposed method EfﬁcientZero is 176% and 163% better than the previous SoTA
+performance in mean and median human normalized score and is the ﬁrst to outperform the average
+human performance on the Atari 100k benchmark. The high sample efﬁciency and performance of
+EfﬁcientZero can bring RL closer to the real-world applications.
+1
+Introduction
+Reinforcement learning has achieved great success on many challenging problems. Notable work
+includes DQN [27], AlphaGo [38] and OpenAI Five [7]. However, most of these works come at
+the cost of a large number of environmental interactions. For example, AlphaZero [39] needs to
+play 21 million games at training time. On the contrary, a professional human player can only
+play around 5 games per day, meaning it would take a human player 11,500 years to achieve the
+same amount of experience. The sample complexity might be less of an issue when applying RL
+algorithms in simulation and games. However, when it comes to real-world problems, such as robotic
+∗{ywr20, liush20}@mails.tsinghua.edu.cn, gaoyangiiis@tsinghua.edu.cn
+†{thanard.kurutach, pabbeel}@berkeley.edu
+35th Conference on Neural Information Processing Systems (NeurIPS 2021), Sydney, Australia.
+arXiv:2111.00210v2  [cs.LG]  12 Dec 2021
+
+manipulation, healthcare, and advertisement recommendation systems, achieving high performance
+while maintaining low sample complexity is the key to viability.
+People have made a lot of progress in sample efﬁcient RL in the past years [10, 12, 40, 25, 23, 37, 20].
+Among them, model-based methods have attracted a lot of attention, since both the data from real
+environments and the “imagined data” from the model can be used to train the policy, making these
+methods particularly sample-efﬁcient [10, 12]. However, most of the successes are in state-based
+environments. In image-based environments, some model-based methods such as MuZero [32]
+and Dreamer V2 [16] achieve super-human performance, but they are not sample efﬁcient; other
+methods such as SimPLe [20] is quite efﬁcient but achieve inferior performance (0.144 human
+normalized median scores). Recently, data-augmented and self-supervised methods applied to model-
+free methods have achieved more success in the data-efﬁcient regime [37]. However, they still fail to
+achieve the levels which can be expected of a human.
+Therefore, for improving the sample efﬁciency as well as keeping superior performance, we ﬁnd
+the following three components are essential to the model-based visual RL agent: a self-supervised
+environment model, a mechanism to alleviate the model compounding error, and a method to correct
+the off-policy issue. In this work, we propose EfﬁcientZero, a model-based RL algorithm that
+achieves high performance with limited data. Our proposed method is built on MuZero. We make
+three critical changes: (1) use self-supervised learning to learn a temporally consistent environment
+model, (2) learn the value preﬁx in an end-to-end manner, thus helping to alleviate the compounding
+error in the model, (3) use the learned model to correct off-policy value targets.
+As illustrated as Figure 1, our model achieves state-of-the-art performance on the widely used
+Atari [6] 100k benchmark and it achieves super-human performance with only 2 hours of real-time
+gameplay. More speciﬁcally, our model achieves 194.3% mean human normalized performance and
+109.0% median human normalized performance. As a reference, DQN [27] achieves 220% mean
+human normalized performance, and 96% median human normalized performance, at the cost of 500
+times more data (200 million frames). To further verify the effectiveness of EfﬁcientZero, we conduct
+experiments on some simulated robotics environments of the DeepMind Control (DMControl) suite.
+It achieves state-of-the-art performance and outperforms the state SAC which directly learns from the
+ground truth states. Our sample efﬁcient and high-performance algorithm opens the possibility of
+having more impact on many real-world problems.
+2
+Related Work
+2.1
+Sample Efﬁcient Reinforcement Learning
+Sample efﬁciency has attracted signiﬁcant work in the past. In RL with image inputs, model-based
+approaches [15, 14] which model the world with both a stochastic and a deterministic component,
+have achieved promising results for simulated robotic control. Kaiser et al. [20] propose to use an
+action-conditioned video prediction model, along with a policy learning algorithm. It achieves the
+ﬁrst strong performance on Atari games with as little as 400k frames. However, Kielak [21] and van
+Hasselt et al. [46] argue that this is not necessary to achieve strong results with model-based methods,
+and they show that when tuned appropriately, Rainbow [18] can achieve comparable results.
+Recent advances in self-supervised learning, such as SimCLR [8], MoCo [17], SimSiam [9] and
+BYOL [13] have inspired representation learning in image-based RL. Srinivas et al. [40] propose to
+use contrastive learning in RL algorithms and their work achieves strong performance on image-based
+continuous and discrete control tasks. Later, Laskin et al. [25] and Kostrikov et al. [23] ﬁnd that
+contrastive learning is not necessary, but with data augmentations alone, they can achieve better
+performance. Some researchers propose to use contrastive learning to enforce action equivariance
+on the learned representations [44]. Schwarzer et al. [37] propose a temporal consistency loss,
+which is combined with data augmentations and achieves state-of-the-art performance. Notably, our
+self-supervised consistency loss is quite similar to SPR[37], except we use SimSiam [8] while they
+use BYOL [13] as the base self-supervised learning framework. However, they only apply the learned
+representations in a model-free manner, while we combine the learned model with model-based
+exploration and policy improvement, thus leading to more efﬁcient use of the environment model.
+Despite the recent progress in the sample-efﬁcient RL, today’s RL algorithms are still well behind
+human performance when the amount of data is limited. Although traditional model-based RL is
+2
+
+considered more sample efﬁcient than model-free ones, current model-free methods dominate in
+terms of performance for image-input settings. In this paper, we propose a model-based RL algorithm
+that for the ﬁrst time, achieves super-human performance on Atari games with limited data.
+2.2
+Reinforcement Learning with MCTS
+Temporal difference learning [27, 45, 47, 18] and policy gradient based methods [28, 26, 34, 36] are
+two types of popular reinforcement learning algorithms. Recently, Silver et al. [38] propose to use
+MCTS as a policy improvement operator and has achieved great success in many board games, such
+as Go, Chess, and Shogi [39]. Later, the algorithm is adapted to learn the world model at the same
+time [32]. It has also been extended to deal with continuous action spaces [19] and ofﬂine data [33].
+These MCTS RL algorithms are a hybrid of model-based learning and model-free learning.
+However, most of them are trained with a lot of environmental samples. Our method is built on top of
+MuZero [32], and we demonstrate that our method can achieve higher sample efﬁciency while still
+achieving competitive performance on the Atari 100k benchmark. de Vries et al. [11] have studied the
+potential of using auxiliary loss similar to our self-supervised consistency loss. However, they only
+test on two low dimensional state-based environments and ﬁnd the auxiliary loss has mixed effects on
+the performance. On the contrary, we ﬁnd that the consistency loss is critical in most environments
+with high dimensional observations and limited data.
+2.3
+Multi-Step Value Estimation
+In Q-learning [48], the target Q value is computed by one step backup. In practice, people ﬁnd that
+incorporating multiple steps of rewards at once, i.e. zt = Pk−1
+i=0 γiut+i + γkvt+k, where ut+i is
+the reward from the replay buffer, vt+k is the value estimation from the target network, to compute
+the value target zt leads to faster convergence [27, 18]. However, the use of multi-step value has
+off-policy issues, since ut+i are not generated by the current policy. In practice, this issue is usually
+ignored when there is a large amount of data since the data can be thought as approximately on-policy.
+TD(λ) [41] and GAE [35] improve the value estimation by better trading off the bias and the variance,
+but they do not deal with the off-policy issue. Recently, image input model-based algorithms such as
+Kaiser et al. [20] and Hafner et al. [14] use model imaginary rollouts to avoid the off-policy issue.
+However, this approach has the risk of model exploitation. Asadi et al. [3] proposed a multi-step
+model to combat the compounding error. Our proposed model-based off-policy correction method
+starts from the rewards in the real-world experience and uses model-based value estimate to bootstrap.
+Our approach balances between the off-policy issue and model exploitation.
+3
+Background
+3.1
+MuZero
+Our method is built on top of the MuZero Reanalyze [32] algorithm. For brevity, we refer to it as
+MuZero throughout the paper. MuZero is a policy learning method based on the Monte-Carlo Tree
+Search (MCTS) algorithm. The MCTS algorithm operates with an environment model, a prior policy
+function, and a value function. The environment model is represented as the reward function R and
+the dynamic function G: rt = R(st, at), ˆst+1 = G(st, at), which are needed when MCTS expands
+a new node. In MuZero, the environment model is learned. Thus the reward and the next state are
+approximated. Besides, the predicted policy pt = acts as a search prior over actions of a node. It
+helps the MCTS focus on more promising actions when expanding the node. MCTS also needs a
+value function V(st) that measures the expected return of the node st, which provides a long-term
+evaluation of the tree’s leaf node without further search. MCTS will output an action visit distribution
+πt over the root node, which is potentially a better policy, compared to the current neural network.
+Thus, the MCTS algorithm can be thought of as a policy improvement operator.
+In practice, the environment model, policy function, and value function operate on a hidden abstract
+state st, both for computational efﬁciency and ease of environment modeling. The abstract state
+is extracted by a representation function H on observations ot: st = H(ot). All of the mentioned
+models above are usually represented as neural networks. During training, the algorithm collects
+roll-out data in the environment using MCTS, resulting in potentially higher quality data than the
+3
+
+current neural network policy. The data is stored in a replay buffer. The optimizer minimizes the
+following loss on the data sampled from the replay buffer:
+L(ut, rt) + λ1L(πt, pt) + λ2L(zt, vt)
+(1)
+Here, ut is the reward from the environment, rt = R(st, at) is the predicted reward, πt is the output
+visit count distribution of the MCTS, pt = P(st) is the predicted policy, zt = Pk−1
+i=0 γiut+i+γkvt+k
+is the bootstrapped value target and vt = V(st) is the predicted value. Speciﬁcally, the reward function
+R, policy function P, value function V, the representation function H and the dynamics function G
+are trainable neural networks. It is worth noting that MuZero does not explicitly learn the environment
+model. Instead, it solely relies on the reward, value, and policy prediction to learn the model.
+3.2
+Monte-Carlo Tree Search
+Monte-Carlo Tree Search [1, 38, 39, 16], or MCTS, is a heuristic search algorithm. In our setup,
+MCTS is used to ﬁnd an action policy that is better than the current neural network policy.
+More speciﬁcally, MCTS needs an environment model, including the reward function and the
+dynamics function. It also needs a value function and a policy function, which act as heuristics during
+search. MCTS operates by expanding a search tree from the current node. It saves computation by
+selectively expanding nodes. To ﬁnd a high-quality decision, the expansion process has to balance
+between exploration versus exploitation, i.e. balance between expanding a node that is promising with
+more visits versus a node with lower performance but fewer visits. MCTS employs the UCT [30, 22]
+rule, i.e. UCB [4] on trees. At every node expansion step, UCT will select a node as follows [16]:
+ak = arg max
+a
+(
+Q(s, a) + P(s, a)
+pP
+b N(s, b)
+1 + N(s, a)
+
+c1 + log
+P
+b N(s, b) + c2 + 1
+c2
+)
+(2)
+where, Q(s, a) is the current estimate of the Q-value, P(s, a) is the current neural network policy
+for selecting this action, helping the MCTS prioritize exploring promising part of the tree. During
+training time, P(s, a) is usually perturbed by noises to allow explorations. N(s, a) denotes how
+many times this state-action pair is visited in the tree search, and N(s, b) denote that of a’s siblings.
+Thus this term will encourage the search to visit the nodes whose siblings are visited often, but itself
+less visited. Finally, the last term gives a weights to the previous terms.
+After expanding the nodes for a pre-deﬁned number of times, the MCTS will return how many times
+each action under the root node is visited, as the improved policy to the root node. Thus, MCTS can
+be considered as a policy improvement operator in the RL setting.
+4
+EfﬁcientZero
+Model-based algorithms have achieved great success in sample-efﬁcient learning from low-
+dimensional states. However, current visual model-based algorithms either require large amounts of
+training data or exhibit inferior performance to model-free algorithms in data-limited settings [37].
+Many previous works even suspect whether model-based algorithms can really offer data efﬁciency
+when using image observations [46]. We provide a positive answer here. We propose the Efﬁ-
+cientZero, a model-based algorithm built on the MCTS, that achieves super-human performance on
+the 100k Atari benchmark, outperforming the previous SoTA to a large degree.
+When directly running MCTS-based RL algorithms such as MuZero, we ﬁnd that they do not perform
+well on the limited-data benchmark. Through our ablations, we conﬁrm the following three issues
+which pose challenges to algorithms like MuZero in data-limited settings.
+Lack of supervision on environment model. First, the learned model in the environment dynamics
+is only trained through the reward, value and policy functions. However, the reward is only a
+scalar signal and in many scenarios, the reward will be sparse. Value functions are trained with
+bootstrapping, and thus are noisy. Policy functions are trained with the search process. None of the
+reward, value and policy losses can provide enough training signals to learn the environment model.
+Hardness to deal with aleatoric uncertainty. Second, we ﬁnd that even with enough data, the
+predicted rewards still have large prediction errors. This is caused by the aleatoric uncertainty of the
+4
+
+underlying environment. For example, when the environment is hard to model, the reward prediction
+errors will accumulate when expanding the MCTS tree to a large depth.
+Off-policy issues of multi-step value. Lastly, as for value targets, MuZero uses the multi-step reward
+observed in the environment. Although it allows rewards to be propagated to the value function faster,
+it suffers from severe off-policy issues and hinders convergence given limited data.
+To address the above issues, we propose the following three critical modiﬁcations, which can greatly
+improve performance when samples are limited.
+4.1
+Self-Supervised Consistency Loss
+𝑂!
+representation
+next-state
+𝑎!
+̂𝑠!"#
+predictor
+𝑂!"#
+𝑠!"#
+similarity
+𝑠!
+stop-grad
+projector
+representation
+projector
+Figure 2: The self-supervised consis-
+tency loss.
+In previous MCTS RL algorithms, the environment model
+is either given or only trained with rewards, values, and
+policies, which cannot provide sufﬁcient training signals
+due to their scalar nature. The problem is more severe
+when the reward is sparse or the bootstrapped value is not
+accurate. The MCTS policy improvement operator heavily
+relies on the environment model. Thus, it is vital to have
+an accurate one. We notice that the output ˆst+1 from the
+dynamic function G should be the same as st+1, i.e. the
+output of the representation function H with input of the
+next observation ot+1 (Fig. 2). This can help to supervise
+the predicted next state ˆst+1 using the actual st+1, which
+is a tensor with at least a few hundred dimensions. This
+provides ˆst+1 with much more training signals than the
+default scalar reward and value.
+Notably, in MCTS RL algorithms, the consistency be-
+tween the hidden states and the predicted states can be
+shaped through the dynamics function directly without
+extra models. More speciﬁcally, we adopt the recently
+proposed SimSiam [9] self-supervised framework. SimSiam [9] is a self-supervised method that
+takes two augmentation views of the same image and pulls the output of the second branch close to
+that of the ﬁrst branch, where the ﬁrst branch is an encoder network without gradient, and the second
+is the same encoder network with the gradient and a predictor head. The head can simply be an MLP.
+Note that SimSiam only learns the representation of individual images, and is not aware of how
+different images are connected. The learned image representations of SimSiam might not be a good
+candidate for learning the transition function, since adjacent observations might be encoded to very
+different representation encodings. We propose a self-supervised method that learns the transition
+function, along with the image representation function in an end-to-end manner, as Figure 2 shows.
+Since we aim to learn the transition between adjacent observations, we pull ot and ot+1 close to each
+other. The transition function is applied after the representation of ot, such that st is transformed
+to ˆst+1, which now represents the same entity as the other branch. Then both of st+1 and ˆst+1 go
+through a common projector network. Since st+1 is potentially a more accurate description of ot+1
+compared to ˆst+1, we make the ot+1 branch as the target branch. It is common in self-supervised
+learning that the second or the third layer from the last is chosen as the features for some reason.
+Here, we choose the outputs from the representation network or the dynamics network as the hidden
+states rather than those from the projector or the predictor. The two adjacent observations provide
+two views of the same entity. In practice, we ﬁnd that applying augmentations to observations on
+the image helps to further improve the learned representation quality [40, 37]. We also unroll the
+dynamic function recurrently for 5 further steps and also pull ˆst+k close to st+k (k = 1, ..., 5). Please
+see App.A.1 for more details. We note that our temporal consistency loss is similar to SPR [37], an
+unsupervised representation method applied on rainbow. However, the consistency loss in our case is
+applied in a model-based manner, and we use the SimSiam loss function.
+4.2
+End-To-End Prediction of the Value Preﬁx
+In model-based learning, the agent needs to predict the future states conditioned on the current state
+and a series of hypothetical actions. The longer the prediction, the harder to predict it accurately, due
+5
+
+to the compounding error in the recurrent rollouts. This is called the state aliasing problem. The
+environment model plays an important role in MCTS. The state aliasing problem harms the MCTS
+expansion, which will result in sub-optimal exploration as well as sub-optimal action search.
+t
+t+10
+t+20
+Figure 3: A sample trajectory from the Atari Pong
+game. In this case, the right player didn’t move
+and missed the ball.
+Predicting the reward from an aliased state is a
+hard problem. For example, as shown in Figure
+3, the right agent loses the ball. If we only see
+the ﬁrst observation, along with future actions,
+it is very hard both for an agent and a human
+to predict at which exact future timestep the
+player would lose a point. However, it is easy
+to predict the agent will miss the ball after a
+sufﬁcient number of timesteps if he does not
+move. In practice, a human will never try to predict the exact step that he loses the point but will
+imagine over a longer horizon and thus get a more conﬁdent prediction.
+Inspired by this intuition, we propose an end-to-end method to predict the value preﬁx. We notice that
+the predicted reward is always used in the estimation of the Q-value Q(s, a) in UCT of Equation 2
+Q(st, a) =
+k−1
+X
+i=0
+γirt+i + γkvt+k
+(3)
+, where rt+i is the reward predicted from unrolled state ˆst+i. We name the sum of rewards
+Pk−1
+i=0 γirt+i as the value preﬁx, since it is used as a preﬁx in the later Q-value computation.
+We propose to predict value preﬁx from the unrolled states (st, ˆst+1, · · · , ˆst+k−1) in an end-to-end
+manner, i.e. value-preﬁx = f(st, ˆst+1, · · · , ˆst+k−1). Here f is some neural network architecture
+that takes in a variable number of inputs and outputs a scalar. We choose the LSTM in our experiment.
+During the training time, the LSTM is supervised at every time step, since the value preﬁx can
+be computed whenever a new state comes in. This per-step rich supervision allows the LSTM
+can be trained well even with limited data. Compared with the naive per step reward prediction
+and summation approach, the end-to-end value preﬁx prediction is more accurate, because it can
+automatically handle the intermediate state aliasing problem. See Experiment Section 5.3 for
+empirical evaluations. As a result, it helps the MCTS to explore better, and thus increases the
+performance. See App.A.1 for architectural details.
+4.3
+Model-Based Off-Policy Correction
+In MCTS RL algorithms, the value function ﬁts the value of the current neural network policy.
+However, in practice as MuZero Reanalyze does, the value target is computed by sampling a
+trajectory from the replay buffer and computing: zt = Pk−1
+i=0 γiut+i + γkvt+k. This value target
+suffers from off-policy issues, since the trajectory is rolled out using an older policy, and thus the
+value target is no longer accurate. When data is limited, we have to reuse the data sampled from a
+much older policy, thus exaggerating the inaccurate value target issue.
+In previous model-free settings, there is no straightforward approach to ﬁx this issue. On the contrary,
+since we have a model of the environment, we can use the model to imagine an "online experience".
+More speciﬁcally, we propose to use rewards of a dynamic horizon l from the old trajectory, where
+l < k and l should be smaller if the trajectory is older. This reduces the policy divergence by fewer
+rollout steps. Further, we redo an MCTS search with the current policy on the last state st+l and
+compute the empirical mean value at the root node. This effectively corrects the off policy issue using
+imagined rollouts with current policy and reduces the increased bias caused by setting l less than k.
+Formally, we propose to use the following value target:
+zt =
+l−1
+X
+i=0
+γiut+i + γlνMCTS
+t+l
+(4)
+where l <= k and the older the sampled trajectory, the smaller the l. νMCTS(st+l) is the root value
+of the MCTS tree expanded from st+l with the current policy, as MuZero non-Reanalyze does. See
+App.A.4 for how to choose l. In practice, the computation cost of the correction is two times on the
+reanalyzed side. However, the training will not be affected due to the parallel implementation.
+6
+
+5
+Experiments
+In this section, we aim to evaluate the sample efﬁciency of the proposed algorithm. Here, the
+sample efﬁciency is measured by the performance of each algorithm at a common, small amount
+of environment transitions, i.e. the better the performance, the higher the sample efﬁciency. More
+speciﬁcally, we use the Atari 100k benchmark. Intuitively, this benchmark asks the agent to learn
+to play Atari games within two hours of real-world game time. Additionally, we conduct some
+ablation studies to investigate and analyze each component on Atari 100k. To further show the sample
+efﬁciency, we apply EfﬁcientZero to some simulated robotics environments on the DMControl 100k
+benchmark, which contains the same 100k environment steps.
+5.1
+Environments
+Atari 100k Atari 100k was ﬁrst proposed by the SimPLe [20] method, and is now used by many
+sample-efﬁcient RL works, such as Srinivas et al. [40], Laskin et al. [25], Kostrikov et al. [23],
+Schwarzer et al. [37]. The benchmark contains 26 Atari games, and the diverse set of games can
+effectively measure the performance of different algorithms. The benchmark allows the agent to
+interact with 100 thousand environment steps, i.e. 400 thousand frames due to a frameskip of 4, with
+each environment. 100k steps roughly correspond to 2 hours of real-time gameplay, which is far less
+than the usual RL settings. For example, DQN [27] uses 200 million frames, which is around 925
+hours of real-time gameplay. Note that the human player’s performance is tested after allowing the
+human to get familiar with the game after 2 hours as well. We report the raw performance on each
+game, as well as the mean and median of the human normalized score. The human normalized score
+is deﬁned as: (scoreagent −scorerandom)/(scorehuman −scorerandom).
+We compare our method to the following baselines. (1) SimPLe [20], a model-based RL algorithm that
+learns an action conditional video prediction model and trains PPO within the learned environment.
+(2) OTRainbow [21], which tunes the hyper-parameters of the Rainbow [18] method to achieve higher
+sample efﬁciency. (3) CURL [40], which uses contrastive learning as a side task to improve the
+image representation quality. (4) DrQ [23], which adds data augmentations to the input images while
+learning the original RL objective. (5) SPR [37], the previous SoTA in Atari 100k which proposes
+to augment the Rainbow [18] agent with data augmentations as well as a multi-step consistency
+loss using BYOL-style self-supervision. (6) MuZero [32] with our implementations and the same
+hyper-parameters as EfﬁcientZero. (7) Random Agent (8) Human performance.
+DeepMind Control 100k Tassa et al. [42] propose the DMControl suite, which includes some
+challenging visual robotics tasks with continuous action space. And some works [14, 40] have
+benchmarked for the sample efﬁciency on the DMControl 100k which contains 100k environment
+steps data. Since the MCTS-based methods cannot deal with tasks with continuous action space,
+we discretize each dimension into 5 discrete slots in MuZero [32] and EfﬁcientZero. To avoid the
+dimension explosion, we evaluate EfﬁcientZero in three low-dimensional tasks.
+We compare our method to the following baselines. (1) Pixel SAC, which applies SAC directly to
+pixels. (2) SAC-AE [50], which combines the SAC and an auto-encoder to handle image-based
+inputs. (3) State SAC, which applies SAC directly to ground truth low dimensional states rather than
+the pixels. (4) Dreamer [14], which learns a world model and is trained in dreamed scenarios. (5)
+CURL [40], the previous SoTA in DMControl 100k. (6) MuZero [32] with action discretizations.
+5.2
+Results
+Table 1 shows the results of EfﬁcientZero on the Atari 100k benchmark. Normalizing our score with
+the score of human players, EfﬁcientZero achieves a mean score of 1.904 and a median score of
+1.160. As a reference, DQN [27] achieves a mean and median performance of 2.20 and 0.959 on
+these 26 games. However, it is trained with 500 times more data (200 million frames). For the ﬁrst
+time, an agent trained with only 2 hours of game data can outperform the human player in terms
+of the mean and median performance. Among all games, our method outperforms the human in 14
+out of 26 games. Compared with the previous state-of-the-art method (SPR [37]), we are 170% and
+180% better in terms of mean and median score respectively. As for more robust results, we record
+the aggregate metrics in App.A.5 with statistical tools proposed by Agarwal et al. [2].
+7
+
+Apart from the Atari games, EffcientZero achieves remarkable results in the simulated tasks. As
+shown in Table 2, EffcientZero outperforms CURL, the previous SoTA, to a considerable degree and
+keeps a smaller variance but MuZero cannot work well. Notably, EfﬁcientZero achieves comparable
+results to the state SAC, which consumes the ground truth states and is considered as the oracles.
+Table 1: Scores on the Atari 100k benchmark (3 runs with 32 seeds). EfﬁcientZero achieves super-
+human performance with only 2 hours of real-time game play. Our method is 176% and 163% better
+than the previous SoTA performance, in mean and median human normalized score respectively.
+Game
+Random
+Human
+SimPLe
+OTRainbow
+CURL
+DrQ
+SPR
+MuZero
+Ours
+Alien
+227.8
+7127.7
+616.9
+824.7
+558.2
+771.2
+801.5
+530.0
+808.5
+Amidar
+5.8
+1719.5
+88.0
+82.8
+142.1
+102.8
+176.3
+38.8
+148.6
+Assault
+222.4
+742.0
+527.2
+351.9
+600.6
+452.4
+571.0
+500.1
+1263.1
+Asterix
+210.0
+8503.3
+1128.3
+628.5
+734.5
+603.5
+977.8
+1734.0
+25557.8
+Bank Heist
+14.2
+753.1
+34.2
+182.1
+131.6
+168.9
+380.9
+192.5
+351.0
+BattleZone
+2360.0
+37187.5
+5184.4
+4060.6
+14870.0
+12954.0
+16651.0
+7687.5
+13871.2
+Boxing
+0.1
+12.1
+9.1
+2.5
+1.2
+6.0
+35.8
+15.1
+52.7
+Breakout
+1.7
+30.5
+16.4
+9.8
+4.9
+16.1
+17.1
+48.0
+414.1
+ChopperCmd
+811.0
+7387.8
+1246.9
+1033.3
+1058.5
+780.3
+974.8
+1350.0
+1117.3
+Crazy Climber
+10780.5
+35829.4
+62583.6
+21327.8
+12146.5
+20516.5
+42923.6
+56937.0
+83940.2
+Demon Attack
+152.1
+1971.0
+208.1
+711.8
+817.6
+1113.4
+545.2
+3527.0
+13003.9
+Freeway
+0.0
+29.6
+20.3
+25.0
+26.7
+9.8
+24.4
+21.8
+21.8
+Frostbite
+65.2
+4334.7
+254.7
+231.6
+1181.3
+331.1
+1821.5
+255.0
+296.3
+Gopher
+257.6
+2412.5
+771.0
+778.0
+669.3
+636.3
+715.2
+1256.0
+3260.3
+Hero
+1027.0
+30826.4
+2656.6
+6458.8
+6279.3
+3736.3
+7019.2
+3095.0
+9315.9
+Jamesbond
+29.0
+302.8
+125.3
+112.3
+471.0
+236.0
+365.4
+87.5
+517.0
+Kangaroo
+52.0
+3035.0
+323.1
+605.4
+872.5
+940.6
+3276.4
+62.5
+724.1
+Krull
+1598.0
+2665.5
+4539.9
+3277.9
+4229.6
+4018.1
+3688.9
+4890.8
+5663.3
+Kung Fu Master
+258.5
+22736.3
+17257.2
+5722.2
+14307.8
+9111.0
+13192.7
+18813.0
+30944.8
+Ms Pacman
+307.3
+6951.6
+1480.0
+941.9
+1465.5
+960.5
+1313.2
+1265.6
+1281.2
+Pong
+-20.7
+14.6
+12.8
+1.3
+-16.5
+-8.5
+-5.9
+-6.7
+20.1
+Private Eye
+24.9
+69571.3
+58.3
+100.0
+218.4
+-13.6
+124.0
+56.3
+96.7
+Qbert
+163.9
+13455.0
+1288.8
+509.3
+1042.4
+854.4
+669.1
+3952.0
+13781.9
+Road Runner
+11.5
+7845.0
+5640.6
+2696.7
+5661.0
+8895.1
+14220.5
+2500.0
+17751.3
+Seaquest
+68.4
+42054.7
+683.3
+286.9
+384.5
+301.2
+583.1
+208.0
+1100.2
+Up N Down
+533.4
+11693.2
+3350.3
+2847.6
+2955.2
+3180.8
+28138.5
+2896.9
+17264.2
+Normed Mean
+0.000
+1.000
+0.443
+0.264
+0.381
+0.357
+0.704
+0.562
+1.943
+Normed Median
+0.000
+1.000
+0.144
+0.204
+0.175
+0.268
+0.415
+0.227
+1.090
+Table 2: Scores achieved by EfﬁcientZero (mean & standard deviation for 10 seeds) and some
+baselines on some low-dimensional environments on the DMControl 100k benchmark. EfﬁcientZero
+achieves state-of-art performance and comparable results to the state-based SAC.
+Task
+CURL
+Dreamer
+MuZero
+SAC-AE
+Pixel SAC
+State SAC
+EfﬁcientZero
+Cartpole, Swingup
+582± 146
+326±27
+218.5 ± 122
+311±11
+419±40
+835±22
+813±19
+Reacher, Easy
+538± 233
+314±155
+493 ± 145
+274±14
+145±30
+746±25
+952±34
+Ball in cup, Catch
+769± 43
+246 ± 174
+542 ± 270
+391± 82
+312± 63
+746±91
+942±17
+5.3
+Ablations
+In Section 4, we discuss three issues that prevent MuZero from achieving high performance when
+data is limited: (1) the lack of environment model supervision, (2) the state aliasing issue, and (3)
+the off-policy target value issue. We propose three corresponding approaches to ﬁx those issues
+and demonstrate the usefulness of the combination of those approaches on a wide range of 26 Atari
+games. In this section, we will analyze each component individually.
+Each Component Firstly, we do an ablation study by removing the three components from our full
+model one at a time. As shown in Table 3, we ﬁnd that removing any one of the three components
+will lead to a performance drop compared to our full model. Furthermore, the richer learning signals
+are the aspect Muzero lacks most in the low-data regime as the largest performance drop is from the
+version without consistency supervision. As for the performance in the high-data regime, We ﬁnd
+that the temporal consistency can signiﬁcantly accelerate the training. The value preﬁx seems to be
+8
+
+Table 3: Ablations of the self-supervised consistency, end-to-end value preﬁx and model-based
+off-policy correction. We remove one component at a time and evaluate the corresponding version on
+the 26 Atari games. Each component matters and the consistency one is the most signiﬁcant. The
+detailed results are attached in App.A.2 .
+Game
+Full
+w.o. consistency
+w.o. value preﬁx
+w.o. off-policy correction
+Normed Mean
+1.943
+0.881
+1.482
+1.475
+Normed Median
+1.090
+0.340
+0.552
+0.836
+Figure 4: Evaluations of image reconstructions based on latent states extracted from the model with
+or without self-supervised consistency. The predicted next states with consistency can basically be
+reconstructed into observations while the ones without consistency cannot.
+helpful during the early learning process, but not as much in the later stage. The off-policy correction
+is not necessary as it is speciﬁcally designed under limited data.
+Temporal Consistency As the version without self-supervised consistency cannot work well in most
+of the games, we attempt to dig into the reason for such phenomenon. We design a decoder D to
+reconstruct the original observations, taking the latent states as inputs. Speciﬁcally, the architecture
+of D and the H are symmetrical, which means that all the convolutional layers are replaced by
+deconvolutional layers in D and the order of the layers are reversed in D. Therefore, H is an encoder
+to obtain state st from observation ot and D tries to decode the ot from st. In this ablation, we freeze
+all parameters of the trained EfﬁcientZero network with or without consistency respectively and the
+reconstructed results are shown in different columns of Figure 4. We regard the decoder as a tool to
+visualize the current states and unrolled states, shown in different rows of Figure 4. Here we note that
+Mcon is the trained EfﬁcientZero model with consistency and Mnon is the one without consistency.
+As shown in Figure 4, as for the current state st, the observation is reconstructed well enough in the
+two versions. However, it is remarkable that the the decoder given Mnon can not reconstruct images
+from the unrolled predicted states ˆst+k while the one given Mcon can reconstruct basic observations.
+To sum up, there are some distributional shifts between the latent states from the representation
+network and the states from the dynamics function without consistency. The consistency component
+can reduce the shift and provide more supervision for training the dynamics network.
+Value Preﬁx We further validate our assumptions in the end-to-end learning of value preﬁx, i.e. the
+state aliasing problem will cause difﬁculty in predicting the reward, and end-to-end learning of value
+preﬁx can alleviate this phenomenon.
+To fairly compare directly predicting the reward versus end-to-end learning of the value preﬁx, we
+need to control for the dataset that both methods are trained on. Since during the RL training, the
+dataset distribution is determined by the method, we opt to load a half-trained Pong model and rollout
+total 100k steps as the common static dataset. We split this dataset into a training set and a validation
+set. Then we run both the direct reward prediction and the value preﬁx method on the training split.
+9
+
+Figure 5: Training and validation losses of direct reward prediction
+method and the value preﬁx method.
+As shown in Figure 5, we ﬁnd
+that the direct reward prediction
+method has lower losses on the
+training set. However, the value
+preﬁx’s validation error is much
+smaller when unrolled for 5 steps.
+This shows that the value pre-
+ﬁx method avoids overﬁtting the
+hard reward prediction problem,
+and thus it can reduce the state
+aliasing problem, reaching a bet-
+ter generalization performance.
+Off-Policy Correction To prove
+the effectiveness of the off-policy correction component, we compare the error between the target
+values and the ground truth values with or without off-policy correction. Speciﬁcally, the ground
+truth values are estimated by Monte Carlo sampling.
+We train a model for the game UpNDown with total 100k training steps, and collect the trajectories
+at different training stages respectively (20k, 40k, ..., 100k steps). Then we calculate the ground
+truth values with the ﬁnal model. We choose the trajectories at the same stage (20k) and use the ﬁnal
+model to evaluate the target values with or without off-policy correction, following the Equation 4.
+We evaluate the L1 error of the target values and the ground truth, as shown in Table 4. The error
+of unrolled next 5 states means the average error of the unrolled 1-5 states with dynamics network
+from current states. The error is smaller in both current states and the unrolled states with off-policy
+correction. Thus, the correction component does reduce the bias caused by the off-policy issue.
+Table 4: Ablations of the off-policy correction: L1 error of the target values versus the ground truth
+values. Take UpNDown as an example.
+States
+Current state
+Unrolled next 5 states (Avg.)
+All states (Avg.)
+Value error without correction
+0.765
+0.636
+0.657
+Value error with correction
+0.533
+0.576
+0.569
+Furthermore, we also ablate the value error of the trajectories at distinct stages in Table 5. We can ﬁnd
+that the value error becomes smaller as the trajectories are fresher. This indicates that the off-policy
+issue is severe due to the staleness of the data. More signiﬁcantly, the off-policy correction can
+provide more accurate target value estimation for the trajectories at distinct time-steps as all the errors
+with correction shown in the table are smaller than those without correction at the same stage.
+Table 5: Ablations of the off-policy correction: Average L1 error of the values of the trajectories at
+distinct stages. Take UpNDown as an example.
+Stages of trajectories
+20k
+40k
+60k
+80k
+100k
+Value error without correction
+0.657
+0.697
+0.628
+0.574
+0.441
+Value error with correction
+0.569
+0.552
+0.537
+0.488
+0.397
+6
+Discussion
+In this paper, we propose a sample-efﬁcient model-based method EfﬁcientZero. It achieves super-
+human performance on the Atari games with as little as 2 hours of the gameplay experience and
+state-of-the-art performance on some DMControl tasks. Apart from the full results, we do detailed
+ablation studies to examine the effectiveness of the proposed components. This work is one step
+towards running RL in the physical world with complex sensory inputs. In the future, we plan to
+extend it to more directions, such as a better design for the continuous action space. And we also
+plan to study the acceleration of MCTS and how to combine this framework with life-long learning.
+10
+
+Acknowledgments and Disclosure of Funding
+This work is supported by the Ministry of Science and Technology of the People’s Republic of China,
+the 2030 Innovation Megaprojects “Program on New Generation Artiﬁcial Intelligence” (Grant No.
+2021AAA0150000).
+References
+[1] Bruce Abramson. The expected-outcome model of two-player games. Morgan Kaufmann, 2014.
+[2] Rishabh Agarwal, Max Schwarzer, Pablo Samuel Castro, Aaron Courville, and Marc G Belle-
+mare. Deep reinforcement learning at the edge of the statistical precipice. Advances in Neural
+Information Processing Systems, 2021.
+[3] Kavosh Asadi, Dipendra Misra, Seungchan Kim, and Michel L Littman. Combating the
+compounding-error problem with a multi-step model. arXiv preprint arXiv:1905.13320, 2019.
+[4] Peter Auer, Nicolo Cesa-Bianchi, and Paul Fischer. Finite-time analysis of the multiarmed
+bandit problem. Machine learning, 47(2):235–256, 2002.
+[5] Andrew G Barto, Richard S Sutton, and Charles W Anderson. Neuronlike adaptive elements
+that can solve difﬁcult learning control problems. IEEE transactions on systems, man, and
+cybernetics, (5):834–846, 1983.
+[6] Marc G Bellemare, Yavar Naddaf, Joel Veness, and Michael Bowling. The arcade learning
+environment: An evaluation platform for general agents. Journal of Artiﬁcial Intelligence
+Research, 47:253–279, 2013.
+[7] Christopher Berner, Greg Brockman, Brooke Chan, Vicki Cheung, Przemysław D˛ebiak, Christy
+Dennison, David Farhi, Quirin Fischer, Shariq Hashme, Chris Hesse, et al. Dota 2 with large
+scale deep reinforcement learning. arXiv preprint arXiv:1912.06680, 2019.
+[8] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. A simple framework
+for contrastive learning of visual representations. In International conference on machine
+learning, pages 1597–1607. PMLR, 2020.
+[9] Xinlei Chen and Kaiming He. Exploring simple siamese representation learning. arXiv preprint
+arXiv:2011.10566, 2020.
+[10] Kurtland Chua, Roberto Calandra, Rowan McAllister, and Sergey Levine. Deep reinforce-
+ment learning in a handful of trials using probabilistic dynamics models. arXiv preprint
+arXiv:1805.12114, 2018.
+[11] Joery A de Vries, Ken S Voskuil, Thomas M Moerland, and Aske Plaat. Visualizing muzero
+models. arXiv preprint arXiv:2102.12924, 2021.
+[12] Marc Deisenroth and Carl E Rasmussen. Pilco: A model-based and data-efﬁcient approach
+to policy search. In Proceedings of the 28th International Conference on machine learning
+(ICML-11), pages 465–472. Citeseer, 2011.
+[13] Jean-Bastien Grill, Florian Strub, Florent Altché, Corentin Tallec, Pierre H Richemond, Elena
+Buchatskaya, Carl Doersch, Bernardo Avila Pires, Zhaohan Daniel Guo, Mohammad Gheshlaghi
+Azar, et al. Bootstrap your own latent: A new approach to self-supervised learning. arXiv
+preprint arXiv:2006.07733, 2020.
+[14] Danijar Hafner, Timothy Lillicrap, Jimmy Ba, and Mohammad Norouzi. Dream to control:
+Learning behaviors by latent imagination. arXiv preprint arXiv:1912.01603, 2019.
+[15] Danijar Hafner, Timothy Lillicrap, Ian Fischer, Ruben Villegas, David Ha, Honglak Lee,
+and James Davidson. Learning latent dynamics for planning from pixels. In International
+Conference on Machine Learning, pages 2555–2565. PMLR, 2019.
+[16] Danijar Hafner, Timothy Lillicrap, Mohammad Norouzi, and Jimmy Ba. Mastering atari with
+discrete world models. arXiv preprint arXiv:2010.02193, 2020.
+11
+
+[17] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. Momentum contrast for
+unsupervised visual representation learning. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 9729–9738, 2020.
+[18] Matteo Hessel, Joseph Modayil, Hado Van Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney,
+Dan Horgan, Bilal Piot, Mohammad Azar, and David Silver. Rainbow: Combining improve-
+ments in deep reinforcement learning. In Proceedings of the AAAI Conference on Artiﬁcial
+Intelligence, volume 32, 2018.
+[19] Thomas Hubert, Julian Schrittwieser, Ioannis Antonoglou, Mohammadamin Barekatain, Simon
+Schmitt, and David Silver. Learning and planning in complex action spaces. arXiv preprint
+arXiv:2104.06303, 2021.
+[20] Lukasz Kaiser, Mohammad Babaeizadeh, Piotr Milos, Blazej Osinski, Roy H Campbell, Konrad
+Czechowski, Dumitru Erhan, Chelsea Finn, Piotr Kozakowski, Sergey Levine, et al. Model-
+based reinforcement learning for atari. arXiv preprint arXiv:1903.00374, 2019.
+[21] Kacper Kielak. Do recent advancements in model-based deep reinforcement learning really
+improve data efﬁciency? arXiv preprint arXiv:2003.10181, 2020.
+[22] Levente Kocsis and Csaba Szepesvári. Bandit based monte-carlo planning. In European
+conference on machine learning, pages 282–293. Springer, 2006.
+[23] Ilya Kostrikov, Denis Yarats, and Rob Fergus. Image augmentation is all you need: Regularizing
+deep reinforcement learning from pixels. arXiv preprint arXiv:2004.13649, 2020.
+[24] Anurag Koul. Pytorch implementation of muzero. https://github.com/koulanurag/
+muzero-pytorch, 2019.
+[25] Michael Laskin, Kimin Lee, Adam Stooke, Lerrel Pinto, Pieter Abbeel, and Aravind Srinivas.
+Reinforcement learning with augmented data. arXiv preprint arXiv:2004.14990, 2020.
+[26] Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa,
+David Silver, and Daan Wierstra. Continuous control with deep reinforcement learning. arXiv
+preprint arXiv:1509.02971, 2015.
+[27] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A Rusu, Joel Veness, Marc G
+Bellemare, Alex Graves, Martin Riedmiller, Andreas K Fidjeland, Georg Ostrovski, et al.
+Human-level control through deep reinforcement learning. nature, 518(7540):529–533, 2015.
+[28] Volodymyr Mnih, Adria Puigdomenech Badia, Mehdi Mirza, Alex Graves, Timothy Lillicrap,
+Tim Harley, David Silver, and Koray Kavukcuoglu. Asynchronous methods for deep reinforce-
+ment learning. In International conference on machine learning, pages 1928–1937. PMLR,
+2016.
+[29] Philipp Moritz, Robert Nishihara, Stephanie Wang, Alexey Tumanov, Richard Liaw, Eric Liang,
+Melih Elibol, Zongheng Yang, William Paul, Michael I Jordan, et al. Ray: A distributed
+framework for emerging {AI} applications. In 13th {USENIX} Symposium on Operating
+Systems Design and Implementation ({OSDI} 18), pages 561–577, 2018.
+[30] Christopher D Rosin. Multi-armed bandits with episode context. Annals of Mathematics and
+Artiﬁcial Intelligence, 61(3):203–230, 2011.
+[31] Tom Schaul, John Quan, Ioannis Antonoglou, and David Silver. Prioritized experience replay.
+arXiv preprint arXiv:1511.05952, 2015.
+[32] Julian Schrittwieser, Ioannis Antonoglou, Thomas Hubert, Karen Simonyan, Laurent Sifre, Si-
+mon Schmitt, Arthur Guez, Edward Lockhart, Demis Hassabis, Thore Graepel, et al. Mastering
+atari, go, chess and shogi by planning with a learned model. Nature, 588(7839):604–609, 2020.
+[33] Julian Schrittwieser, Thomas Hubert, Amol Mandhane, Mohammadamin Barekatain, Ioannis
+Antonoglou, and David Silver. Online and ofﬂine reinforcement learning by planning with a
+learned model. arXiv preprint arXiv:2104.06294, 2021.
+12
+
+[34] John Schulman, Sergey Levine, Pieter Abbeel, Michael Jordan, and Philipp Moritz. Trust
+region policy optimization. In International conference on machine learning, pages 1889–1897.
+PMLR, 2015.
+[35] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, and Pieter Abbeel. High-
+dimensional continuous control using generalized advantage estimation.
+arXiv preprint
+arXiv:1506.02438, 2015.
+[36] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal
+policy optimization algorithms. arXiv preprint arXiv:1707.06347, 2017.
+[37] Max Schwarzer, Ankesh Anand, Rishab Goel, R Devon Hjelm, Aaron Courville, and Philip
+Bachman. Data-efﬁcient reinforcement learning with self-predictive representations.
+[38] David Silver, Aja Huang, Chris J Maddison, Arthur Guez, Laurent Sifre, George Van Den Driess-
+che, Julian Schrittwieser, Ioannis Antonoglou, Veda Panneershelvam, Marc Lanctot, et al. Mas-
+tering the game of go with deep neural networks and tree search. nature, 529(7587):484–489,
+2016.
+[39] David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur
+Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. Mastering the game of
+go without human knowledge. nature, 550(7676):354–359, 2017.
+[40] Aravind Srinivas, Michael Laskin, and Pieter Abbeel. Curl: Contrastive unsupervised represen-
+tations for reinforcement learning. arXiv preprint arXiv:2004.04136, 2020.
+[41] Richard S Sutton and Andrew G Barto. Reinforcement learning: An introduction. MIT press,
+2018.
+[42] Yuval Tassa, Yotam Doron, Alistair Muldal, Tom Erez, Yazhe Li, Diego de Las Casas, David
+Budden, Abbas Abdolmaleki, Josh Merel, Andrew Lefrancq, et al. Deepmind control suite.
+arXiv preprint arXiv:1801.00690, 2018.
+[43] Yuandong Tian, Jerry Ma, Qucheng Gong, Shubho Sengupta, Zhuoyuan Chen, James Pinkerton,
+and Larry Zitnick. Elf opengo: An analysis and open reimplementation of alphazero. In
+International Conference on Machine Learning, pages 6244–6253. PMLR, 2019.
+[44] Elise van der Pol, Thomas Kipf, Frans A Oliehoek, and Max Welling. Plannable approximations
+to mdp homomorphisms: Equivariance under actions. arXiv preprint arXiv:2002.11963, 2020.
+[45] Hado Van Hasselt, Arthur Guez, and David Silver. Deep reinforcement learning with double
+q-learning. In Proceedings of the AAAI Conference on Artiﬁcial Intelligence, volume 30, 2016.
+[46] Hado van Hasselt, Matteo Hessel, and John Aslanides. When to use parametric models in
+reinforcement learning? arXiv preprint arXiv:1906.05243, 2019.
+[47] Ziyu Wang, Tom Schaul, Matteo Hessel, Hado Hasselt, Marc Lanctot, and Nando Freitas.
+Dueling network architectures for deep reinforcement learning. In International conference on
+machine learning, pages 1995–2003. PMLR, 2016.
+[48] Christopher John Cornish Hellaby Watkins. Learning from delayed rewards. 1989.
+[49] Aurèle Hainaut Werner Duvaud. Muzero general: Open reimplementation of muzero. https:
+//github.com/werner-duvaud/muzero-general, 2019.
+[50] Denis Yarats, Amy Zhang, Ilya Kostrikov, Brandon Amos, Joelle Pineau, and Rob Fergus.
+Improving sample efﬁciency in model-free reinforcement learning from images. arXiv preprint
+arXiv:1910.01741, 2019.
+13
+
+A
+Appendix
+A.1
+Models and Hyper-parameters
+As for the architecture of the networks, there are three parts in our model pipeline: the representation
+part, the dynamics part, and the prediction part. The architecture of the representation part is as
+follows:
+• 1 convolution with stride 2 and 32 output planes, output resolution 48x48. (BN + ReLU)
+• 1 residual block with 32 planes.
+• 1 residual downsample block with stride 2 and 64 output planes, output resolution 24x24.
+• 1 residual block with 64 planes.
+• Average pooling with stride 2, output resolution 12x12. (BN + ReLU)
+• 1 residual block with 64 planes.
+• Average pooling with stride 2, output resolution 6x6. (BN + ReLU)
+• 1 residual block with 64 planes.
+, where the kernel size is 3 × 3 for all operations.
+As for the dynamics network, we follow the architecture of MuZero [32] but reduce the residual
+blocks from 16 to 1. Furthermore, we add an extra residual link in the dynamics part to keep the
+information of historical hidden states during recurrent inference. The design of the dynamics network
+is listed here:
+• Concatenate the input states and input actions into 65 planes.
+• 1 convolution with stride 2 and 64 output planes. (BN)
+• A residual link: add up the output and the input states. (ReLU)
+• 1 residual block with 64 planes.
+In the prediction part, we use two-layer MLPs with batch normalization to predict the reward, value,
+or policy. Considering the stability of the prediction part, we set the weights and bias of the last
+layer to zero in prediction networks. As for the reward prediction network, it predicts the sum of the
+rewards, namely value preﬁx: rt, ht+1 = R(ˆst+1, ht), where rt is the predicted sum of rewards, h0
+is zero-initialized and hidden size of LSTM is 512. The architecture of the value prediction network
+is as follows:
+• 1 1x1convolution and 16 output planes. (BN + ReLU)
+• Flatten.
+• LSTM with 512 hidden size. (BN + ReLU)
+• 1 fully connected layers and 32 output dimensions. (BN + ReLU)
+• 1 fully connected layers and 601 output dimensions.
+The horizontal length of the LSTM during training is limited to the unrolled steps lunroll = 5, but it
+will be larger in MCTS as the dynamics process can go deeper. Therefore, we reset the hidden state
+of LSTM after ζ = 5 steps of recurrent inference, where ζ is the valid horizontal length.
+The design of the reward and policy prediction networks are the same except for the dimension of the
+outputs:
+• 1 residual block with 64 planes.
+• 1 1x1convolution and 16 output planes. (BN + ReLU)
+• Flatten.
+• 1 fully connected layers and 32 output dimensions. (BN + ReLU)
+• 1 fully connected layers and D output dimensions.
+14
+
+Table 6: Hyper-parameters for EfﬁcientZero on Atari games
+Parameter
+Setting
+Observation down-sampling
+96 × 96
+Frames stacked
+4
+Frames skip
+4
+Reward clipping
+True
+Terminal on loss of life
+True
+Max frames per episode
+108K
+Discount factor
+0.9974
+Minibatch size
+256
+Optimizer
+SGD
+Optimizer: learning rate
+0.2
+Optimizer: momentum
+0.9
+Optimizer: weight decay (c)
+0.0001
+Learning rate schedule
+0.2 →0.02
+Max gradient norm
+5
+Priority exponent (α)
+0.6
+Priority correction (β)
+0.4 →1
+Training steps
+120K
+Evaluation episodes
+32
+Min replay size for sampling
+2000
+Self-play network updating inerval
+100
+Target network updating interval
+200
+Unroll steps (lunroll)
+5
+TD steps (k)
+5
+Policy loss coefﬁcient (λ1)
+1
+Value loss coefﬁcient (λ2)
+0.25
+Self-supervised consistency loss coefﬁcient (λ3)
+2
+LSTM horizontal length (ζ)
+5
+Dirichlet noise ratio (ξ)
+0.3
+Number of simulations in MCTS (Nsim)
+50
+Reanalyzed policy ratio
+0.99
+, where D = 601 in the reward prediction network and D is equal to the action space in the policy
+prediction network.
+Here is the brief introduction of the training pipeline, taking one-step rollout as an example.
+st = H(ot)
+st+1 = H(ot+1)
+ˆst+1 = G(st, at)
+vt = V(st)
+pt = P(st)
+rt, ht+1 = R(ˆst+1, ht) = R(G(st, at), ht)
+(5)
+, where H is the representation network, G is the dynamics network, V is the value prediction network,
+P is the policy prediction network, R is the reward (value preﬁx) prediction network. ot, st, at are
+observations, states and actions. ht is the hidden states in recurrent neural networks.
+Here is the training loss, taking one-step rollout as an example:
+Lsimilarity(st+1, ˆst+1) = L2(sg(P1(st+1)), P2(P1(ˆst+1)))
+Lt(θ) = L(ut, rt) + λ1L(πt, pt) + λ2L(zt, vt)
++ λ3Lsimilarity(st+1, ˆst+1) + c||θ||2
+L(θ) =
+1
+lunroll
+lunroll−1
+X
+i=0
+Lt+i(θ)
+(6)
+, where L is the total loss of the unrolled lunroll steps, L1 is the Cross-Entropy loss, and L2 is the
+negtive cosine similarity loss. Besides, P1 is a 3-layer MLP while P2 is a 2-layer MLP. The dimension
+15
+
+of the hidden layers is 512 and the dimension of the output layers is 1024. We add batch normalization
+between every two layers in those MLP except the ﬁnal layer. sg(P1) means stopping gradients.
+We stack 4 historical frames, with an interval of 4 frames-skip. Thus the input effectively covers
+16 frames of the game history. We stack the input images on the channel dimension, resulting in a
+96 × 96 × 12 tensor. We do not use any extra state normalization besides the batch norm and we
+choose reward clipping to keep better scales in the searching process.
+Generally, compared with MuZero [32], we reduce the number of residual blocks and the number
+of planes as we ﬁnd that there is no capability issue caused by much smaller networks in our
+EfﬁcientZero with limited data. In another word, such a tiny network can acquire good performance
+in the limited setting.
+For other details, we provide hyper-parameters in Table 6. It is notable that we train the model for
+120k steps where we only collect data during the ﬁrst 100k steps. In this way, the latter trajectories
+can be fully used in training. Besides, the learning rate will drop after every 100k training steps (from
+0.2 to 0.02 at 100k).
+A.2
+More Ablations
+In the experiment section , we list some ablation studies to prove the effectiveness of each component.
+In this section, we will display more results for the ablation study.
+Firstly, the detailed results of the ablation study of each component are listed in Table 7. In this
+table, We ﬁnd that the full version of EfﬁcientZero outperforms the others without any one of the
+components. Furthermore, for those environments EfﬁcientZero can already solve, the performance
+is similar between the full version and the version without off-policy correction, such as Breakout,
+Pong, etc. In such a case, the off-policy issue is not severe, which is the reason for this phenomenon.
+Besides, for some environments with sparse rewards, the value preﬁx component matters, such as
+Pong; and for those with dense rewards, the state aliasing problem has less negative effects for the
+reward signals are sufﬁcient, such as Qbert. As for the version without self-supervised consistency,
+the results of all the environments are much poorer.
+Table 7: Ablations of the self-supervised consistency, end-to-end value preﬁx and model-based
+off-policy correction on more Atari games. (Scores on the Atari 100k benchmark)
+Game
+Full
+w.o. consistency
+w.o. value preﬁx
+w.o. off-policy correction
+Alien
+808.5
+961.3
+558
+619.4
+Amidar
+148.6
+32.2
+31.0
+256.3
+Assault
+1263.1
+572.9
+955.0
+1190.4
+Asterix
+25557.8
+2065.6
+7330.0
+13525.0
+Bank Heist
+351.0
+165.6
+273.0
+297.5
+BattleZone
+13871.2
+14063.0
+9900.0
+16125.0
+Boxing
+52.7
+6.1
+60.2
+30.5
+Breakout
+414.1
+237.4
+379.2
+400.3
+ChopperCommand
+1117.3
+1138.0
+1280
+1487.5
+Crazy Climber
+83940.2
+75550.0
+106090.0
+70681.0
+Demon Attack
+13003.9
+5973.8
+6818.5
+8640.6
+Freeway
+21.8
+21.8
+21.8
+21.8
+Frostbite
+296.3
+248.8
+235.2
+227.5
+Gopher
+3260.3
+1155
+2792.0
+2275.0
+Hero
+9315.9
+5824.4
+3167.5
+9053.0
+Jamesbond
+517.0
+154.7
+380.0
+356.3
+Kangaroo
+724.1
+375.0
+200.0
+687.5
+Krull
+5663.3
+4178.625
+4527.6
+3635.6
+Kung Fu Master
+30944.8
+19312.5
+25980.0
+25025.0
+Ms Pacman
+1281.2
+1090.0
+1475.0
+1297.2
+Pong
+20.1
+-1.5
+16.8
+19.5
+Private Eye
+96.7
+100.0
+100.0
+100.0
+Qbert
+13781.9
+5340.7
+6360.0
+13637.5
+Road Runner
+17751.3
+2700.0
+3010.0
+9856.0
+Seaquest
+1100.2
+460.0
+468.0
+843.8
+Up N Down
+17264.2
+3040.0
+7656.0
+4897.2
+Normed Mean
+1.943
+0.881
+1.482
+1.475
+Normed Median
+1.090
+0.340
+0.552
+0.836
+16
+
+In addition, we do the ablation study for the data augmentation technique in the consistency component
+to examine the effect of data augmentations. We apply a random small shift of 0-4 pixels as well as
+the change of the intensity as the augmentation techniques. Here we choose several Atari games and
+train the model for 100k steps. The results are shown in Table 8. We can ﬁnd that the version without
+data augmentation has similar performances while the version without consistency component is
+worse. This indicates that the improvement of the consistency component is basically from the
+self-supervised learning loss rather than the data augmentation.
+Table 8: Ablations of the data augmentation technique in the consistency component. Results show
+that the data augmentation has limited improvement in EfﬁcientZero and the self-supervised training
+loss is more signiﬁcant.
+Game
+Full
+w.o. consistency
+w.o. data augmentation
+Asterix
+6218.8
+1350.0
+13884.0
+Breakout
+388.8
+12.0
+365.2
+Demon Attack
+10536.6
+5973.8
+8730.0
+Gopher
+2828.8
+1155.0
+1823.75
+Pong
+19.8
+-8.5
+13.9
+Qbert
+15268.8
+2304.7
+14286.0
+Seaquest
+1321.0
+460.0
+1125.0
+Up N Down
+10238.1
+3040.0
+16380.0
+Finally, we also do the ablation study for the MCTS root value and the dynamic horizon in the
+off-policy correction component. Here we choose several Atari games and train the model for 100k
+steps. As shown in Table 9, the version without dynamic horizon has poorer results than that without
+the MCTS root value. In the off-policy correction component, the dynamic horizon seems more
+important.
+Table 9: Ablations of the techniques (the MCTS root value and the dynamic horizon) in the off-policy
+correction component. The dynamic horizon seems more important than the MCTS root value when
+data is limited.
+Game
+Full
+w.o. off-policy correction
+w.o. dynamic horizon
+w.o. MCTS root value
+Asterix
+6218.8
+2706.3
+3263.0
+6288.0
+Breakout
+388.8
+468.6
+427.0
+387.8
+Demon Attack
+10536.6
+8640.6
+9211.1
+10063.0
+Gopher
+2828.8
+2275.0
+2459.2
+2651.0
+Pong
+19.8
+19.5
+19.2
+14.5
+Qbert
+15268.8
+3948.4
+7945
+14738.0
+Seaquest
+1321.0
+1248.0
+1292.0
+876.0
+Up N Down
+10238.1
+3240.0
+4772.0
+9925.6
+A.3
+MCTS Details
+Our policy searching approach is based on Monte-Carlo tree search (MCTS). We follow the procedure
+in MuZero [32], which includes three stages and repeats the searching process for Nsim = 50
+simulations. Here are some brief introductions for each stage.
+Selection In the selection part, it targets at choosing an appropriate unvisited node while balancing
+exploration and exploitation with UCT:
+ak =
+(
+arg max
+a
+Q(s, a) + P(s, a)
+pP
+b N(s, b)
+1 + N(s, a)
+
+c1 + log
+P
+b N(s, b) + c2 + 1
+c2
+)
+(7)
+, where Q(s, a) is the average Q values after simulations, N(s, a) is the total visit counts at state s by
+selecting action a, and P(s, a) is the policy prior set in the expansion process. In each simulation, the
+MCTS starts from the root node s0. And for each time-step k = 1...l of the simulation, the algorithm
+will select the action ak according to the UCT. Usually, c1 = 1.25 and c2 = 19652 according to the
+literature [38, 39, 16].
+However, the default Q value of the unvisted node is set to 0, which indicates the worst state. To give
+a better Q-value estimation of the unvisited nodes, we evaluate a mean Q value mechanism in each
+17
+
+simulation for tree nodes, similar to the implementation of Elf OpenGo [43].
+ˆQ(sroot) = 0
+ˆQ(s) =
+ˆQ(sparent) + P
+b 1N(s,b)>0Q(s, b)
+1 + P
+b 1N(s,b)>0
+Q(s, a) : =
+ Q(s, a)
+N(s, a) > 0
+ˆQ(s)
+N(s, a) = 0
+(8)
+, where ˆQ(s) is the estimated Q value for unvisited nodes to make better selections considering
+exploration and exploitation. sroot is the state of the root node and sparent is the state of the parent
+node of s. In experiments, we ﬁnd that the mean Q value mechanism gives a better exploration than
+the default one.
+Expansion Then the newly selected node will be expanded with the predicted reward and policy as
+its prior. Furthermore, when the root node is to expand, we apply the Dirichlet noise to the policy
+prior during the self-play stage and the reanalyzing stage to give more explorations.
+P(s, a) := (1 −ρ)P(s, a) + ρND(ξ)
+(9)
+, where ND(ξ) is the Dirichlet noise distribution, ρ, ξ is set to 0.25 and 0.3 respectively. However,
+we do not use any noise and set ρ to 0 instead for those non-root node or during evaluations.
+Backup After selecting and expanding a new node, we need to backup along the current searching
+trajectory to update the Q(s, a). Considering the scales of values in distinct environments, we compute
+a normalized Q-value by using the minimum-maximum values calculated along with all visited tree
+nodes, which is applied in MuZero[32]. However, when the data is limited, the small difference
+between the minimum and maximum values will result in overconﬁdence in UCT calculation. For
+example, when all the Q-values in those visited tree nodes are in a range of 0 to 10−4, the normalized
+Q-value of 10−5 and 5 × 10−5 will make a huge difference as one is normalized to 0.1 and another is
+0.5. Therefore, we set a threshold here to reduce overconﬁdence in such occasions, which is called
+the soft minimum-maximum updates:
+¯Q(sk−1, ak) =
+Q(sk−1, ak) −min(s,a)∈T ree Q(s, a)
+max(max(s,a)∈T ree Q(s, a) −min(s,a)∈T ree Q(s, a), ϵ)
+(10)
+, where ϵ, the threshold to give a smooth range of the min-max bound, is set to 0.01.
+After all the expansions in the MCTS, we will obtain average value and visit count distributions of the
+root node. Here, the root value can be applied in off-policy correction and the visit count distribution
+is the target policy distribution:
+π(s, a) =
+N(s, a)1/T
+P
+b N(s, b)1/T
+(11)
+We decay the temperature of the MCTS output policy distribution here twice during training, at 50%
+and 75% of the training progress to 0.5 and 0.25 respectively.
+A.4
+Training Details
+In this subsection, we will introduce more training details.
+Pipeline As for the code implementation of EfﬁcientZero, we design a paralleled architecture with a
+double buffering mechanism in Pytorch and Ray, as shown in Figure 6.
+Intuitively, we will describe the training process in a synchronized way. Firstly, the data workers
+called self-play actors are aimed at doing self-play with the given model updated within 600 training
+steps and then they will send the rolled-out trajectories into the replay buffer. Then the CPU rollout
+workers attempt to prepare the contexts of those batch transitions sampled from the replay buffer,
+in which way only CPU resources are required. Afterward, the GPU batch workers reanalyze those
+past data with the given contexts by the given target model, and most of the time-consuming parts in
+this procedure are in GPUs. Considering the frequent utilization of CPUs and GPUs in MCTS, the
+searching process is assigned for those GPU workers. Finally, the learner will obtain the reanalyzed
+batch and begin to train the agent.
+18
+
+Data 
+worker #1
+Data
+worker #2
+……
+Data 
+worker #N1
+Replay 
+Buffer
+CPU 
+rollout worker #1
+CPU 
+rollout worker #2
+……
+CPU 
+rollout worker #N2
+GPU 
+batch worker #1
+GPU 
+batch worker #2
+……
+GPU 
+batch worker #N3
+Learner
+Self-play
+Sample transitions
+Reanalyzing
+Update 
+target model
+Update 
+self-play model
+Context 
+Queue
+Batch Queue
+Prepare contexts
+training
+In parallel
+Figure 6: Pipeline of the EfﬁcientZero implementation.
+The learner, all the data workers, CPU workers, and GPU workers start in parallel. The data workers
+and CPU workers share the replay buffer to sample data while the CPU and GPU workers share a
+context queue for reanalyzing data. Besides, the learner and the GPU workers use a batch queue to
+communicate. In such a design, we can utilize the CPU and GPU as much as possible.
+Self-play During self-play, the priorities of the transition to collect are set to the max of the whole
+priorities in replay buffer. We also update the priority in EfﬁcientZero according to MuZero [32]:
+P(i) =
+pα
+i
+P
+k pα
+k , where pi is the L1 error of the value during training. And the we scale with important
+sampling ratio wi = (
+1
+N×P (i))β. We set α to 0.6 and anneal β from 0.4 to 1.0, following prioritized
+replay [31]. However, we ﬁnd the priority mechanism only improves a little with limited data.
+Considering the long horizons in atari games, we collect the intermediate sequences of 400 moves.
+Reanalyze The reanalyzed part is introduced in MuZero [32], which revisits the past trajectories
+and re-executes the data with lasted target model to obtain a fresher value and policy with model
+inference as well as MCTS.
+For the off-policy correction, the target values are reanalyzed as follows:
+zt =
+l−1
+X
+i=0
+γiut+i + γlνMCTS
+t+l
+,
+l = (k −⌊Tcurrent −Tst
+τTtotal
+⌋).clip(1, k), l ∈[1, k]
+(12)
+, where k is the TD steps here, and is set to 5; Tcurrent is the current training steps, Tst is the training
+steps of collecting the data st, Ttotal is the total training steps (100k), and τ is a coefﬁcient which is
+set to 0.3. Intuitively, l is to deﬁne how fresh the collected data st is. When the trajectory is stale,
+we need to unroll less to estimate the target values for the sake of the gaps between current model
+predictions and the stale trajectory rollouts. Besides, we replace the predicted value vt+k with the
+averaged root value from MCTS νMCTS
+t+l
+to alleviate the off-policy bias.
+Notably, we re-sample Dirichlet noise into the MCTS procedure in reanalyzed part to improve the
+sample efﬁciency with a more diverse searching process. Besides, we reanalyze the policy among
+99% of the data and reanalyze the value among 100% data.
+A.5
+Evaluation
+We evaluate the EfﬁcientZero on Atari 100k benchmark with a total of 26 games. Here are the
+evaluation curves during training, as shown in Figure 7.
+19
+
+Figure 7: Evaluation curves of EfﬁcientZero on Atari 100k benchmark for individual games.
+The average of the total rewards among 32 evaluation seeds for 3 runs is show on the y-axis and the
+number of total training steps is 120,000, shown on the x-axis.
+Figure 8: Aggregate metrics on Atari 100k benchmark with 95% CIs. Here the higher mean,
+median and IQM scores and lower optimality gap indicate better performance. The CIs are estimated
+by the percentile bootstrap with stratiﬁed sampling. All results except EfﬁcientZero are from Agarwal
+et al. [2]. And all the methods are based on 10 runs per game except SimPLe with 5 runs and
+EfﬁcientZero with 3 runs. EfﬁcientZero signiﬁcantly outperforms the other methods concerning the
+four metrics.
+Besides, we also report the scores for 3 runs (different seeds) with 32 evaluation seeds across the 26
+Atari games, which is shown in Table 10.
+Recently, Agarwal et al. [2] propose to use statistical tools to present more robust and efﬁcient
+aggregate metrics. Here we display the corresponding results based on its open-sourced codebase.
+Figure 8 illustrates that EfﬁcientZero signiﬁcantly outperforms the other methods on Atari 100k
+benchmark concerning all the metrics.
+A.6
+Open Source EfﬁcientZero Implementation
+MCTS-based RL algorithms present a promising future research direction: to achieve strong per-
+formance with model-based methods. However, two major practical obstacles prevent them from
+20
+
+Table 10: Scores reported for 3 random seeds for each of the above games, with the last two columns
+being the mean and standard deviation across the runs. Each run is evaluated with 32 different seeds.
+Game
+Seed 0
+Seed 1
+Seed 2
+Mean
+Std
+Alien
+1093.1
+622.2
+710.3
+808.5
+204.4
+Amidar
+198.7
+116.4
+130.6
+148.6
+35.9
+Assault
+1436.3
+1150.8
+1202.2
+1263.1
+124.3
+Asterix
+18421.9
+43220.2
+15031.3
+25557.8
+12565.7
+Bank Heist
+362.6
+336.3
+354.0
+351.0
+10.9
+Battle Zone
+11812.5
+13100.8
+16700.4
+13871.2
+2068.5
+Boxing
+45.9
+49.9
+62.4
+52.7
+7.0
+Breakout
+432.8
+418.7
+390.9
+414.1
+17.4
+ChopperCommand
+1190.9
+1360.9
+800.0
+1117.3
+234.8
+Crazy Climber
+98640.2
+65520.4
+87660.1
+83940.2
+13774.6
+Demon Attack
+11517.5
+14323.3
+13170.8
+13003.9
+1151.5
+Freeway
+21.8
+21.8
+21.8
+21.8
+0.0
+Frostbite
+407.1
+225.5
+256.3
+296.3
+79.4
+Gopher
+3002.6
+2744.2
+4034.1
+3260.3
+557.2
+Hero
+12349.1
+8006.5
+7592.0
+9315.9
+2151.5
+Jamesbond
+530.7
+600.3
+420.1
+517.0
+74.2
+Kangaroo
+980.2
+460.7
+731.3
+724.1
+212.1
+Krull
+4839.5
+5548.5
+6602.0
+5663.3
+724.1
+Kung Fu Master
+28493.1
+36840.7
+27500.5
+30944.8
+4188.7
+Ms Pacman
+1465.0
+1203.4
+1175.3
+1281.2
+130.4
+Pong
+20.6
+18.8
+21.0
+20.1
+1.0
+Private Eye
+100.0
+90.0
+100.0
+96.7
+4.7
+Qbert
+15458.1
+14577.5
+13310.0
+14448.5
+881.7
+Road Runner
+17843.8
+20140.0
+15270.2
+17751.3
+1989.2
+Seaquest
+1038.1
+1078.2
+1184.4
+1100.2
+61.7
+Up N Down
+22717.5
+8095.6
+20979.4
+17264.2
+6521.9
+being widely used currently. First, there are no high-quality open-source implementations of these
+algorithms. Existing implementations [49, 24] can only deal with simple state-based environments,
+such as CartPole [5]. Accurately scaling to complex image input environments requires non-trivial
+engineering efforts. Second, MCTS RL algorithms such as MuZero [32] require a large number of
+computations. For example, MuZero needs 64 TPUs to train 12 hours for one agent on Atari games.
+The high computational costs pose problems both for the future development of such methods as well
+as practical applications.
+We think our open-source implementation of EfﬁcientZero can drastically accelerate the research
+in MCTS RL algorithms. Our implementation is computationally friendly. To train an Atari agent
+for 100k steps, it only needs 4 GPUs to train 7 hours. Our framework could potentially have a large
+impact on many real-world applications, such as robotics since it requires signiﬁcantly fewer samples.
+Our open-source framework aims to provide an easy way to understand the implementation while
+keeping relatively high compute efﬁciency. As shown in Fig. 9, the system is composed of four
+components: the replay buffer, the experience sampling actor, the reanalyze training target preparation
+module, and the training component.
+replay buff.
+actor
+reanalyze
+train
+update model
+prepare targets
+sample experience
+sample training data
+update model
+reanalyze
+CPU threads
+GPU threads
+Figure 9: EfﬁcientZero implementation overview.
+To make sure the framework is
+easy to use, we implement them
+based on Ray [29], and the four
+components are implemented as
+ray actors which run in paral-
+lel. The main computation bot-
+tleneck is in the reanalyze mod-
+ule, which samples from the re-
+play, and runs an MCTS search
+on each observation. To acceler-
+ate the reanalyze module, we split the reanalyze computation into the CPU part and the GPU part,
+such that computation on CPU and GPU are run in parallel. We use a different number of actors
+between CPU and GPU to match their total throughput. To increase the throughput on GPU, we also
+collocate multiple batch computation threads on one GPU, as in Tian et al. [43]. We also implement
+the MCTS in C++ to avoid performance issues with Python on large amounts of atomic computations.
+21
+
+We implement the MCTS by a couple of important techniques, which are quite crucial to improve
+the efﬁciency of the MCTS process. On the one hand, we implement batch MCTS to allow the
+agent to search a batch of trees in parallel, to enlarge the throughput of MCTS during self-play and
+reanalyzing targets. On the other, we choose C++ in the MCTS process. However, the process of
+MCTS needs to do searching as well as model inference, which needs to communicate with Pytorch.
+Therefore, we use Python to do model inference, C++ to do other atomic computations, and Cython
+to communicate between Python contexts and C++ contexts. In another word, we use pure C++
+to do selection, expansion, and backup while using neural networks in Python. Meanwhile, we
+build a database to store the hidden states in Python while storing the corresponding data index
+during the searching process in C++. For more details of the implementation, please refer to
+https://github.com/YeWR/EfficientZero.
+22
