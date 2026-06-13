@@ -152,7 +152,13 @@ Controller:  observe(Observation) -> PlayerCommands
 - Rendering is **pure read-only** over `fullState()` (or the fog-limited observation for the
   human player). It never mutates the sim. It runs at display framerate (60fps) while the sim
   ticks at the logical rate, interpolating between ticks for smoothness.
-- **WebGL/Canvas** for the map, units, fog, effects. Sprite/quad batching for mobile GPUs.
+- **WebGL/Canvas** for the map, units, fog, effects, animation — rendered **imperatively in a
+  `requestAnimationFrame` loop, never through a VDOM.** This is the hard rule that keeps the
+  60fps hot path framework-free. Sprite/quad batching for mobile GPUs.
+- **UI chrome** (HUD, command card, selection tray, minimap overlay, alerts, menus) is the
+  *only* part using a component framework: **Preact (~3KB) + `@preact/signals`**, authored in
+  TSX. Signals give fine-grained reactivity (only the changed widget updates) so even the
+  chrome avoids VDOM churn. Preact never touches the game-world render loop.
 - **Mobile-first vertical UI** is a first-class concern with its own doc ([`ui-mobile.md`](./ui-mobile.md)) —
   touch controls, selection, command palette, minimap, all designed for a tall narrow screen,
   verified with Playwright screenshots throughout development.
@@ -176,14 +182,13 @@ Controller:  observe(Observation) -> PlayerCommands
 ```
 rts/
 ├── README.md
-├── package.json              # pnpm workspace root
-├── pnpm-workspace.yaml
+├── package.json              # npm workspace root
 ├── packages/
 │   ├── sim/                  # deterministic core (no DOM, no I/O, no float in hot path)
 │   ├── ai/                   # scripted controllers; later the policy controller
 │   ├── render/               # WebGL/Canvas read-only renderer
 │   ├── ui/                   # mobile UI components, gesture/touch -> commands
-│   ├── app/                  # browser game (Vite) — the thing we screenshot
+│   ├── app/                  # browser game (esbuild) — the thing we screenshot
 │   └── headless/             # Node CLI: games, self-play, replays, benchmarks, worker pool
 ├── maps/                     # map definitions (data)
 ├── replays/                  # recorded command-stream replays
@@ -194,8 +199,32 @@ rts/
     └── scripts/              # paper fetcher / pdf parser, tooling
 ```
 
-Tooling: pnpm workspaces, Vite (app), Vitest (unit + replay-hash determinism tests), tsx (Node
-scripts), Playwright (mobile UI screenshots).
+### Build & runtime toolchain (deliberately minimal, 2026)
+
+The guiding principle: **as little build tooling as possible.** 2026 Node/TS make most of it
+unnecessary.
+
+- **npm workspaces** — no extra package-manager dependency (npm is fine now).
+- **No build step for sim / ai / headless / tests.** Node 24+ LTS runs `.ts` files **directly**
+  via native type stripping (default, no flag) — no `tsx`/`ts-node`/transpile. We set
+  `"erasableSyntaxOnly": true` (TS 5.8+) so our code uses only strip-compatible syntax (no
+  enums, no runtime namespaces — which we avoid anyway). The whole engine + training side is
+  just "Node running TypeScript."
+- **Tests:** the built-in **`node --test`** runner (runs `.ts` natively) — including the
+  replay-hash determinism test. Zero test-framework dependency.
+- **Type-checking:** `tsc --noEmit` (stable); adopt **`tsgo` / TypeScript 7** (Go-native,
+  ~10× faster) for the speed win as it stabilizes out of beta.
+- **Browser bundle only:** a thin in-house **esbuild** script (esbuild's JS API, ~40 lines):
+  bundle + dev server + live reload. esbuild compiles TSX → Preact `h` via
+  `jsxImportSource: "preact"`. **No Vite, no app framework** — esbuild is the lightweight
+  primitive that fits a custom game pipeline. (Native Node type stripping doesn't do JSX, which
+  is the one reason the browser side needs a transform at all.)
+- **UI runtime:** **Preact + `@preact/signals`** (~3–4KB total) for the HUD chrome only; the
+  game world is imperative WebGL (see §6).
+- **Playwright** for mobile-resolution UI screenshots.
+
+Net: the only thing resembling a "build" in the whole repo is one small esbuild script for the
+browser app. Everything else just runs.
 
 ## 9. Why TypeScript-first (and how the throughput door stays open)
 

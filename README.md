@@ -61,12 +61,12 @@ over a network without touching the simulation.
 ## Repository layout (planned)
 
 ```
-packages/                  # pnpm workspace
+packages/                  # npm workspace (one language: TypeScript)
   sim/         deterministic core (no DOM, no I/O, no float in hot path)
   ai/          scripted controllers; later the policy controller
   render/      WebGL/Canvas read-only renderer
   ui/          mobile UI components, gesture/touch -> commands
-  app/         browser game (Vite) — the thing we screenshot
+  app/         browser game (esbuild) — the thing we screenshot
   headless/    Node CLI: games, self-play, replays, benchmarks, worker pool
 maps/          map definitions (data)
 replays/       recorded command-stream replays
@@ -101,7 +101,20 @@ not algorithmic mystery. Our plan, grounded in the research under `docs/`:
 - **Reach superhuman via a PFSP self-play league + a couple of exploiters**, then **distill**
   into one shippable agent.
 
-## Tooling
+## Toolchain (deliberately minimal — 2026)
+
+The whole engine + training side has **no build step**: Node 24+ runs TypeScript directly via
+native type stripping. Only the browser app carries a tiny esbuild script (for TSX). Details in
+[`docs/specs/architecture.md`](docs/specs/architecture.md#build--runtime-toolchain-deliberately-minimal-2026).
+
+| Concern | Choice |
+|---|---|
+| Package manager | **npm workspaces** |
+| Sim / AI / headless / tests | **No build** — run `.ts` directly on Node 24+; tests via `node --test` |
+| Type-check | `tsc --noEmit` (→ `tsgo`/TS7 as it stabilizes) |
+| Browser bundle | thin in-house **esbuild** script (no Vite/framework) |
+| UI runtime | **Preact + @preact/signals** (HUD chrome only; game world is imperative WebGL) |
+| Screenshots | Playwright |
 
 ```bash
 # Download + extract reference papers (PDFs are git-ignored; text is committed)
