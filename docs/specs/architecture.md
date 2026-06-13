@@ -106,10 +106,12 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
   and reused by every unit heading there — N units to one goal cost one field, not N A\* runs),
   a line-of-sight shortcut for the open-terrain/final-approach common case, and **ground-unit
   collision** (a two-pass, symmetric, walkable-clamped overlap resolve) so groups form a body
-  instead of stacking — workers and air units (`Role.Air`) are exempt. The field is a pure
-  function of (map, goal), so it lives outside game state and never affects the hash. Still the
-  first candidate for a future WASM port if profiling demands it. (Building footprints are not
-  yet solid — units path through them; a roadmap item.)
+  instead of stacking — workers and air units (`Role.Air`) are exempt. **Building footprints are
+  solid:** each State carries a transient "solid" grid (stamped from structures) that the field
+  and line-of-sight consult, so units route around buildings; the field cache is keyed per-State
+  and invalidated when the building layout changes (a cheap signature). Fields are a pure
+  function of (terrain + solid + goal), so determinism holds and forks rebuild their own context.
+  Still the first candidate for a future WASM port if profiling demands it.
 - **No I/O in core.** Logging, file access, rendering, and timing live in the host layers.
 - **Snapshot/restore.** State is plain typed-array buffers, so we can clone/serialize cheaply to
   fork games, save/load, and reset parallel envs fast. **Implemented:** in-memory
@@ -127,7 +129,7 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
 class Sim {
   constructor(map: MapDef, players: PlayerSetup[], seed: number);
   step(commands: PlayerCommands[]): StepResult; // advance 1 tick
-  observe(player: PlayerId): Observation;        // fog-limited view (TODO: stubbed to fullState)
+  observe(player: PlayerId): Observation;        // fog-limited view (sim-side fog; opt-in)
   fullState(): WorldState;                        // for rendering / god-view AI
   snapshot(): State;                              // in-memory deep clone (fork / what-ifs)
   static restore(snap: State): Sim;

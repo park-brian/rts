@@ -142,19 +142,22 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
 
 - **`packages/sim`** — deterministic, data-oriented core: fixed-point math, seeded PRNG, SoA
   entity store, tick pipeline (census → commands → construction → production → harvest → combat
-  → movement → separation → victory), **flow-field group pathfinding** (one shared integer
-  Dijkstra field per goal, so N units to one destination cost one field, not N A\* runs) with a
-  line-of-sight shortcut and **ground-unit collision** (units form a body instead of stacking;
-  workers and air units are exempt), a **typed-array spatial grid** (target acquisition is
-  O(n·k_local), not O(n²)), **SC1/SC2-style mineral saturation** (a patch is reserved while
-  mined, ≈3 workers rotate per patch — derived from round-trip timing — with auto re-routing on
-  depletion), per-structure **rally points** (CCs default to the mineral line), the SC1 damage
-  model, and procedural symmetric NvN maps (base plateaus, ramps, validated connectivity).
-  **Replays** are first-class: opt-in command-stream recording, `play`/`replayHashes`
-  re-simulation, and `serialize()`/`deserialize()` of full state to a flat `ArrayBuffer`
-  (disk/Worker transfer; the same record is the netcode + RL-trajectory format). Systems are
-  **role/capability-driven, not race-specific** (Worker / ResourceDepot / Resource / Producer
-  flags in data) so adding a unit — or a race — is data, not new system code.
+  → movement → collision → vision → victory), **flow-field group pathfinding** (one shared
+  integer Dijkstra field per goal, so N units to one destination cost one field, not N A\* runs)
+  that **routes around building footprints** (dynamic per-State solidity, field cache invalidated
+  on building change), **ground-unit collision** (units form a body instead of stacking; workers
+  and air units exempt), a **typed-array spatial grid** (target acquisition is O(n·k_local), not
+  O(n²)), **SC1/SC2-style mineral saturation** (a patch is reserved while mined, ≈3 workers rotate
+  per patch — derived from round-trip timing — with auto re-routing on depletion), **gas via
+  refineries** built on vespene geysers, per-structure **rally points** (CCs default to the
+  mineral line), the SC1 damage model, and procedural symmetric NvN maps (base plateaus, ramps,
+  validated connectivity). **Fog of war** is computed sim-side and exposed through a fog-limited
+  `observe(player)` (the fair-play view for network/RL, vs. `fullState()`'s god view; opt-in so
+  headless throughput skips it). **Replays** are first-class: opt-in command-stream recording,
+  `play`/`replayHashes` re-simulation, and `serialize()`/`deserialize()` of full state to a flat
+  `ArrayBuffer` (disk/Worker transfer; the same record is the netcode + RL-trajectory format).
+  Systems are **role/capability-driven, not race-specific** (Worker / ResourceDepot / Resource /
+  Producer flags in data) so adding a unit — or a race — is data, not new system code.
 - **`packages/ai`** — a faction-driven scripted AI (economy, supply, tech, army, attack/defend),
   deterministic and god-vision; the built-in opponent and future BC demonstrator.
 - **`packages/app`** — top-down Canvas renderer (imperative, never via the VDOM) + Preact/signals
@@ -162,9 +165,13 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   fog, minimap, win screen, and an **in-app replay viewer** (scrubber, play/pause, 0.5–4× speed,
   save/load JSON). One ~40-line esbuild build; static, GitHub-Pages-ready.
 
-Verified by `node --test` (28 tests: fixed-point, RNG, economy, combat, **replay-hash &
+- **`packages/app`** also: a **deselect** button, **double-tap to select all of a type on
+  screen**, **minimap drag-to-pan**, **Set Rally** / **Build Gas** commands, and a gas readout.
+
+Verified by `node --test` (33 tests: fixed-point, RNG, economy, combat, **replay-hash &
 snapshot/restore & byte-serialize determinism**, **group pathfinding (arrives + fans out,
-deterministic)**, **what-if branching**, procedural connectivity, full **AI-vs-AI games end
+deterministic)**, **mineral reservation/rotation, spread & depletion re-route**, **gas via a
+refinery**, **what-if branching**, procedural connectivity, full **AI-vs-AI games end
 deterministically**, and an entity-column coverage guard) and Playwright screenshots at phone
 resolution.
 
@@ -173,10 +180,11 @@ resolution.
 | ![play](docs/screenshots/play-open.png) | ![battle](docs/screenshots/spectate-battle.png) | ![replay](docs/screenshots/replay-viewer.png) |
 
 Run it: `npm install && npm run build:app`, then serve `packages/app/dist/` (or `npm --workspace
-@rts/app run dev`). Headless throughput (single-threaded V8, one game): **~140k ticks/s** for a
-2-player economy and **~30k ticks/s** for a full AI-vs-AI 1v1 (the spatial grid makes combat
-acquisition O(n·k) rather than O(n²), so this scales with army size). A Worker/process pool
-multiplies that across cores — the runway for AlphaStar-style training next.
+@rts/app run dev`). Headless throughput (single-threaded V8, one game, fog off): **~95k ticks/s**
+for a 2-player economy and **~8k ticks/s** for a full AI-vs-AI 1v1 (the spatial grid keeps combat
+acquisition O(n·k), and building-aware pathing + collision add a per-tick cost that scales with
+unit count). Fog of war is opt-in, so training that doesn't need it keeps the fast path. A
+Worker/process pool multiplies this across cores — the runway for AlphaStar-style training next.
 
 ## Roadmap
 

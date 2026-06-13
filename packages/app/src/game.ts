@@ -52,7 +52,7 @@ export class Game {
     this.replay = null;
     const players = perTeam * 2;
     this.map = generateMap(perTeam, seed);
-    this.sim = new Sim({ map: this.map, players, seed, record: true }); // record so the game is replayable
+    this.sim = new Sim({ map: this.map, players, seed, record: true, vision: true }); // record + fog for rendering
     const bots = createBotControllers(players);
     this.human = mode === 'play' ? 0 : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === 0 ? null : bots[p]!));
@@ -106,7 +106,7 @@ export class Game {
     if (!this.replay) return;
     const r = this.replay;
     const target = Math.max(0, Math.min(tick, r.frames.length));
-    this.sim = new Sim({ map: this.map, players: r.players, seed: r.seed });
+    this.sim = new Sim({ map: this.map, players: r.players, seed: r.seed, vision: true });
     for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
     this.replayTick = target;
     this.paused = target >= r.frames.length;
@@ -223,27 +223,15 @@ export class Game {
     return q;
   }
 
-  // ---- fog of war (client-side; human's vision) ----
+  // ---- fog of war: mirror the sim's per-player vision (computed deterministically
+  // in the tick pipeline), so the renderer and the policy/network see the same fog. ----
   private computeFog(): void {
-    const m = this.map;
     const vis = this.visible;
     if (this.human < 0) { vis.fill(2); this.explored.fill(2); return; } // spectate: see all
-    vis.fill(0);
-    const e = this.sim.fullState().e;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.owner[i] !== this.human) continue;
-      const sight = Units[e.kind[i]!]?.sight ?? 0;
-      if (sight <= 0) continue;
-      const tx = Math.floor(e.x[i]! / ONE / TILE);
-      const ty = Math.floor(e.y[i]! / ONE / TILE);
-      const r2 = sight * sight;
-      for (let dy = -sight; dy <= sight; dy++) {
-        const yy = ty + dy; if (yy < 0 || yy >= m.h) continue;
-        for (let dx = -sight; dx <= sight; dx++) {
-          const xx = tx + dx; if (xx < 0 || xx >= m.w) continue;
-          if (dx * dx + dy * dy <= r2) { vis[yy * m.w + xx] = 2; this.explored[yy * m.w + xx] = 1; }
-        }
-      }
+    const v = this.sim.fullState().vision[this.human]!;
+    for (let t = 0; t < vis.length; t++) {
+      vis[t] = v[t]!;
+      if (v[t]! >= 1) this.explored[t] = 1; // accumulate explored memory
     }
   }
 
@@ -321,8 +309,8 @@ export class Game {
       if ((e.flags[i]! & Role.Structure) !== 0) continue;
       if (hit >= 0 && isEnemy(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!)) {
         this.queued.push({ t: 'attack', unit: id, target: hit });
-      } else if (hit >= 0 && e.owner[slotOf(hit)] === NEUTRAL && (e.flags[i]! & Role.Worker) !== 0) {
-        this.queued.push({ t: 'harvest', unit: id, patch: hit });
+      } else if (hit >= 0 && (e.flags[slotOf(hit)]! & Role.Resource) !== 0 && (e.flags[i]! & Role.Worker) !== 0) {
+        this.queued.push({ t: 'harvest', unit: id, patch: hit }); // minerals (neutral) or own refinery (gas)
       } else if (amove) {
         this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
       } else {
@@ -420,6 +408,7 @@ export class Game {
     const s = this.sim.fullState();
     const p = this.human < 0 ? 0 : this.human;
     ui.minerals.value = s.players.minerals[p]!;
+    ui.gas.value = s.players.gas[p]!;
     ui.supplyUsed.value = s.players.supplyUsed[p]!;
     ui.supplyMax.value = s.players.supplyMax[p]!;
     ui.seconds.value = Math.floor(s.tick / FPS);

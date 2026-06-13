@@ -6,6 +6,7 @@ export type Mode = 'play' | 'spectate' | 'replay';
 
 export const ui = {
   minerals: signal(0),
+  gas: signal(0),
   supplyUsed: signal(0),
   supplyMax: signal(0),
   seconds: signal(0),

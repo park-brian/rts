@@ -133,6 +133,7 @@ const addResources = (out: ResourceSpawn[], base: StartLoc, dir: number): void =
   for (let i = 0; i < 8; i++) {
     out.push({ x: base.x - 4 + i, y: base.y + dir * 4, amount: PATCH_AMOUNT, gas: false });
   }
+  out.push({ x: base.x + 6, y: base.y + dir * 3, amount: 0, gas: true }); // one gas geyser per base
 };
 
 const addObstacles = (m: MapDef, rng: Rng): void => {

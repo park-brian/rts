@@ -8,8 +8,9 @@ import { cloneState, hashState } from './world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './serialize.ts';
+import { observe, type Observation } from './observe.ts';
 
-export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean };
+export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean };
 export type Snapshot = State; // an in-memory deep-cloned state (see serialize() for bytes)
 
 /** Deep-copy one tick's command batch so a recorded replay is immune to caller reuse. */
@@ -24,6 +25,7 @@ export class Sim {
 
   constructor(opts: SimOptions) {
     this.state = setupMatch(opts.map, opts.players, opts.seed);
+    this.state.trackVision = !!opts.vision;
     this.seed = opts.seed;
     if (opts.record) this.frames = [];
   }
@@ -51,9 +53,9 @@ export class Sim {
     return this.state;
   }
 
-  /** Fog-limited observation for player `p`. TODO: implement fog of war. */
-  observe(_p: number): State {
-    return this.state;
+  /** Fog-limited observation for player `p` (fair-play view; RL/network seam). */
+  observe(p: number): Observation {
+    return observe(this.state, p);
   }
 
   snapshot(): Snapshot {

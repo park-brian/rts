@@ -45,6 +45,7 @@ export const sliceMap = (): MapDef => {
     for (let i = 0; i < 8; i++) {
       resources.push({ x: s.x - 4 + i, y: s.y + dir * 4, amount: PATCH_AMOUNT, gas: false });
     }
+    resources.push({ x: s.x + 6, y: s.y + dir * 3, amount: 0, gas: true }); // one gas geyser per base
   }
   return { name: 'Slice (1v1, S vs N)', w, h, walk, build, elev, starts, resources, teams: [0, 1] };
 };

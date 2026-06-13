@@ -72,6 +72,33 @@ test('starting workers spread across the mineral line (fewest-miners-first)', ()
   assert.equal(targets.size, 4, 'four starting workers pick four distinct patches');
 });
 
+test('a refinery built on a geyser yields harvestable gas', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const gy = slotOf(spawnUnit(s, Kind.Geyser, NEUTRAL, tc(12), tc(8)));
+  const w = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(9)));
+  // Send the worker to build a refinery on the geyser.
+  e.order[w] = Order.Build; e.buildKind[w] = Kind.Refinery; e.tx[w] = tc(12); e.ty[w] = tc(8);
+
+  let refinery = -1;
+  for (let t = 0; t < 3000; t++) {
+    stepWorld(s, []);
+    refinery = -1;
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Refinery) { refinery = i; break; }
+    if (refinery >= 0 && e.built[refinery] === 1) break;
+  }
+  assert.ok(refinery >= 0 && e.built[refinery] === 1, 'refinery finishes building');
+  assert.equal(e.alive[gy], 0, 'the geyser is consumed by the refinery');
+  assert.ok(e.cargo[refinery]! > 0, 'refinery holds gas');
+
+  // Assign the worker to gather gas; it should accrue in the gas pool.
+  e.order[w] = Order.Harvest; e.target[w] = eid(e, refinery);
+  const before = s.players.gas[0]!;
+  for (let t = 0; t < 2000; t++) stepWorld(s, []);
+  assert.ok(s.players.gas[0]! > before, 'gas accrues from the refinery');
+});
+
 test('a command center defaults its rally to the mineral line', () => {
   const s = setupMatch(sliceMap(), 2, 1);
   const e = s.e;

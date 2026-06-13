@@ -76,6 +76,7 @@ export type State = {
   startTeams: number; // distinct teams at match start (victory needs >= 2)
   result: Result;
   vision: Uint8Array[]; // per-player visibility grid (0 unseen, 1 explored, 2 visible)
+  trackVision: boolean; // compute fog each tick? (off by default for headless throughput)
   e: Entities;
 };
 
@@ -153,6 +154,7 @@ export const makeState = (map: MapDef, playerCount: number, seed: number): State
     startTeams: 0, // set by setupMatch once teams are finalized
     result: { over: false, winner: -1 },
     vision,
+    trackVision: false,
     e: makeEntities(),
   };
 };
@@ -264,6 +266,7 @@ export const cloneState = (s: State): State => ({
   startTeams: s.startTeams,
   result: { over: s.result.over, winner: s.result.winner },
   vision: s.vision.map((v) => v.slice()),
+  trackVision: s.trackVision,
   e: cloneEntities(s.e),
 });
 

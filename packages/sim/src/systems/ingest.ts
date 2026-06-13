@@ -38,7 +38,14 @@ const startBuild = (s: State, slot: number, kind: number, x: number, y: number, 
   if ((e.flags[slot]! & Role.Worker) === 0) return;
   const def = Units[kind];
   if (!def || (def.roles & Role.Structure) === 0) return;
-  if (!buildable(s.map, tileX(x), tileY(y))) return; // can't build on cliffs/obstacles
+  // A Refinery must sit on a vespene geyser — find the nearest and snap onto it.
+  if (kind === Kind.Refinery) {
+    const gy = nearest(s, x, y, (sl) => e.kind[sl] === Kind.Geyser);
+    if (gy === NONE) return;
+    const dx = e.x[gy]! - x; const dy = e.y[gy]! - y;
+    if (dx * dx + dy * dy > RALLY_SNAP * RALLY_SNAP) return; // tapped too far from a geyser
+    x = e.x[gy]!; y = e.y[gy]!;
+  } else if (!buildable(s.map, tileX(x), tileY(y))) return; // can't build on cliffs/obstacles
   if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return;
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;

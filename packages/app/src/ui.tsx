@@ -25,6 +25,7 @@ const Btn = (p: { label: string; onClick: () => void; active?: boolean }) => (
 const TopBar = (p: { game: Game }) => (
   <div style={{ ...bar, top: '0', paddingTop: 'max(8px, env(safe-area-inset-top))' }}>
     <b style={{ color: '#49d0c0' }}>⬡ {ui.minerals.value}</b>
+    <b style={{ color: '#56d364' }}>◆ {ui.gas.value}</b>
     <span style={{ opacity: 0.85 }}>▦ {ui.supplyUsed.value}/{ui.supplyMax.value}</span>
     <span style={{ opacity: 0.6 }}>⏱ {fmt(ui.seconds.value)}</span>
     <span style={{ flex: '1' }} />
@@ -101,6 +102,7 @@ const Hotbar = (p: { game: Game }) => {
     if (ui.selCanBuild.value) {
       buttons.push(<Btn label="Build Depot" onClick={() => (ui.placement.value = Kind.SupplyDepot)} />);
       buttons.push(<Btn label="Build Rax" onClick={() => (ui.placement.value = Kind.Barracks)} />);
+      buttons.push(<Btn label="Build Gas" onClick={() => (ui.placement.value = Kind.Refinery)} />);
     }
     if (ui.selProducer.value !== 0) {
       buttons.push(<Btn label="Set Rally" active={ui.rally.value} onClick={() => (ui.rally.value = !ui.rally.value)} />);
@@ -146,4 +148,5 @@ export const App = (p: { game: Game }) => (
 );
 
 const fmt = (s: number): string => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-const name = (k: number): string => (k === Kind.SupplyDepot ? 'Supply Depot' : k === Kind.Barracks ? 'Barracks' : 'building');
+const name = (k: number): string =>
+  k === Kind.SupplyDepot ? 'Supply Depot' : k === Kind.Barracks ? 'Barracks' : k === Kind.Refinery ? 'Refinery (on a geyser)' : 'building';

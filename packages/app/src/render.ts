@@ -1,7 +1,7 @@
 // Top-down Canvas renderer (imperative, runs in rAF — never via the VDOM). Draws
 // cached terrain, fog of war, resources, units/buildings, selection, and a minimap.
 
-import { TILE, ONE, Units, Role, eid, slotOf, isAlive, type MapDef } from './sim.ts';
+import { TILE, ONE, Units, Role, Kind, eid, slotOf, isAlive, type MapDef } from './sim.ts';
 import type { Game } from './game.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -67,21 +67,25 @@ export const render = (ctx: CanvasRenderingContext2D, game: Game, dpr: number): 
     const def = Units[e.kind[i]!]!;
     const isStruct = (def.roles & Role.Structure) !== 0;
     const isRes = (def.roles & Role.Resource) !== 0;
+    const isGeyser = e.kind[i] === Kind.Geyser;
     const own = e.owner[i] === game.human;
-    if (!own && !isRes && vis !== 2) continue; // hide unseen enemies
-    if (isRes && vis === 0) continue; // hide unexplored resources
+    if (!own && !isRes && !isGeyser && vis !== 2) continue; // hide unseen enemies
+    if ((isRes || isGeyser) && vis === 0) continue; // hide unexplored resources
     const baseR = def.radius / ONE;
-    const r = isStruct || isRes ? baseR : Math.max(baseR, 5 / game.zoom); // keep units visible when zoomed out
+    const r = isStruct || isRes || isGeyser ? baseR : Math.max(baseR, 5 / game.zoom); // keep units visible when zoomed out
 
-    if (isRes) {
+    if (isGeyser) {
+      ctx.fillStyle = '#56d364'; // vespene green marker
+      ctx.beginPath(); ctx.arc(wx, wy, r, 0, Math.PI * 2); ctx.fill();
+    } else if (isStruct) {
+      ctx.globalAlpha = e.built[i] === 1 ? 1 : 0.55;
+      ctx.fillStyle = e.kind[i] === Kind.Refinery ? '#3fae57' : color(e.owner[i]!); // gas building tinted green
+      ctx.fillRect(wx - r, wy - r, r * 2, r * 2);
+      ctx.globalAlpha = 1;
+    } else if (isRes) {
       const frac = Math.max(0.3, Math.min(1, e.cargo[i]! / 1500));
       ctx.fillStyle = NEUTRAL_COL;
       ctx.fillRect(wx - r, wy - r * frac, r * 2, r * 2 * frac);
-    } else if (isStruct) {
-      ctx.globalAlpha = e.built[i] === 1 ? 1 : 0.55;
-      ctx.fillStyle = color(e.owner[i]!);
-      ctx.fillRect(wx - r, wy - r, r * 2, r * 2);
-      ctx.globalAlpha = 1;
     } else {
       ctx.beginPath();
       ctx.arc(wx, wy, r, 0, Math.PI * 2);

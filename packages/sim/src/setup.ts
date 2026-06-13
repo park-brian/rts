@@ -22,11 +22,10 @@ export const setupMatch = (
   const s = makeState(map, playerCount, seed);
   const e = s.e;
 
-  // Neutral resources.
+  // Neutral resources: mineral patches and (inert) vespene geysers.
   for (const r of map.resources) {
-    if (r.gas) continue; // gas not in the slice yet
-    const id = spawnUnit(s, Kind.Mineral, NEUTRAL, tilePx(r.x), tilePx(r.y));
-    e.cargo[slotOf(id)] = r.amount;
+    const id = spawnUnit(s, r.gas ? Kind.Geyser : Kind.Mineral, NEUTRAL, tilePx(r.x), tilePx(r.y));
+    if (!r.gas) e.cargo[slotOf(id)] = r.amount;
   }
 
   // Teams from the map (if provided), else each player on their own team.

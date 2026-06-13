@@ -24,6 +24,8 @@ export const Kind = {
   SupplyDepot: 4,
   Barracks: 5,
   Marine: 6,
+  Geyser: 7, // vespene geyser: inert placement marker; build a Refinery on it
+  Refinery: 8, // structure on a geyser; becomes the gas resource node
 } as const;
 export type Kind = (typeof Kind)[keyof typeof Kind];
 
@@ -131,6 +133,16 @@ export const Units: Record<number, UnitDef> = {
     name: 'Mineral Field', roles: Role.Resource, size: Size.Large,
     radius: fx(16), resourceType: ResourceType.Minerals,
   }),
+  [Kind.Geyser]: def({
+    // Inert marker (no roles): you build a Refinery on it to gather gas.
+    name: 'Vespene Geyser', roles: 0, size: Size.Large, radius: fx(32), resourceType: ResourceType.Gas,
+  }),
+  [Kind.Refinery]: def({
+    // Structure + Resource: once built it holds gas and is harvested like a patch.
+    name: 'Refinery', roles: Role.Structure | Role.Resource, size: Size.Large,
+    hp: 750, armor: 1, sight: 8, radius: fx(40), minerals: 75, buildTime: sec(30),
+    resourceType: ResourceType.Gas,
+  }),
 };
 
 /** Effective damage of one hit: type×size multiplier, then flat armor, min 1. */
@@ -163,6 +175,7 @@ export const START_WORKERS = 4;
 export const MAX_QUEUE = 5;
 export const SUPPLY_CAP = 200;
 export const PATCH_AMOUNT = 1500;
+export const GAS_AMOUNT = 5000; // gas a Refinery yields once built on a geyser
 
 export const Terran: Faction = {
   name: 'Terran',

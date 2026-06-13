@@ -71,7 +71,8 @@ export const pickPatch = (
   let best = NONE; let bestCount = Infinity; let bestD = Infinity;
   let near = NONE; let nearD = Infinity;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0) continue;
+    // Auto-mining considers mineral patches only; gas (geysers/refineries) is assigned by command.
+    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0 || Units[e.kind[i]!]!.resourceType !== ResourceType.Minerals) continue;
     const dx = e.x[i]! - fromX; const dy = e.y[i]! - fromY;
     const d = dx * dx + dy * dy;
     if (d < nearD) { nearD = d; near = i; }
