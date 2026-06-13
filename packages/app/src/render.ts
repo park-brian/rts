@@ -1,7 +1,7 @@
 // Top-down Canvas renderer (imperative, runs in rAF — never via the VDOM). Draws
 // cached terrain, fog of war, resources, units/buildings, selection, and a minimap.
 
-import { TILE, ONE, Units, Role, eid, type MapDef } from './sim.ts';
+import { TILE, ONE, Units, Role, eid, slotOf, isAlive, type MapDef } from './sim.ts';
 import type { Game } from './game.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -101,6 +101,19 @@ export const render = (ctx: CanvasRenderingContext2D, game: Game, dpr: number): 
       ctx.fillStyle = frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
       ctx.fillRect(wx - r, wy - r - 5, w * frac, 3);
     }
+  }
+
+  // Rally lines for selected structures.
+  for (const id of game.selection) {
+    if (!isAlive(e, id)) continue;
+    const i = slotOf(id);
+    if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
+    const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
+    const rx = e.rallyX[i]! / ONE; const ry = e.rallyY[i]! / ONE;
+    ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 1.5 / game.zoom;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(rx, ry); ctx.stroke();
+    ctx.fillStyle = '#ffe14e';
+    ctx.beginPath(); ctx.arc(rx, ry, 4 / game.zoom, 0, Math.PI * 2); ctx.fill();
   }
 
   // Fog overlay (only non-fully-visible tiles, within view).

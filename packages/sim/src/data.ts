@@ -154,6 +154,7 @@ export type Faction = {
 export const MINE_AMOUNT = 8;
 export const MINE_TICKS = sec(2);
 export const MINE_RANGE = fx(20);
+export const MAX_PER_PATCH = 3; // ceiling for the timing-derived patch saturation cap
 export const DEPOSIT_RANGE = fx(48);
 export const BUILD_RANGE = fx(28); // worker "at the construction site" radius
 export const START_MINERALS = 50;

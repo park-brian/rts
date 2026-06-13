@@ -4,9 +4,10 @@
 // The worker is freed and auto-returns to mining.
 
 import type { State } from '../world.ts';
-import { spawn, slotOf, eid, nearest, NONE } from '../world.ts';
+import { spawn, slotOf, eid, NONE } from '../world.ts';
 import { Order, Role, Units, BUILD_RANGE } from '../data.ts';
 import { navigate } from '../pathing.ts';
+import { pickPatch } from './harvest.ts';
 
 export const construction = (s: State): void => {
   const e = s.e;
@@ -24,10 +25,12 @@ export const construction = (s: State): void => {
       const st = slotOf(id);
       e.built[st] = 0;
       e.ctimer[st] = def.buildTime;
-      // Free the worker; auto-return to the nearest resource.
+      // Free the worker; auto-return to the nearest free resource.
       e.buildKind[i] = 0;
-      const node = nearest(s, e.x[i]!, e.y[i]!, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
-      if ((e.flags[i]! & Role.Worker) !== 0 && node !== NONE) {
+      const node = (e.flags[i]! & Role.Worker) !== 0
+        ? pickPatch(s, i, e.owner[i]!, Units[e.kind[i]!]!.speed)
+        : NONE;
+      if (node !== NONE) {
         e.order[i] = Order.Harvest;
         e.target[i] = eid(e, node);
       } else {

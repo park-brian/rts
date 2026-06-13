@@ -64,6 +64,7 @@ export class Game {
     ui.perTeam.value = perTeam;
     ui.placement.value = 0;
     ui.amove.value = false;
+    ui.rally.value = false;
     ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
@@ -287,6 +288,17 @@ export class Game {
       return;
     }
 
+    // Set-rally mode: point every selected structure's rally at the tapped spot.
+    if (ui.rally.value) {
+      for (const id of this.selection) {
+        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
+          this.queued.push({ t: 'rally', building: id, x: (wx * ONE) | 0, y: (wy * ONE) | 0 });
+        }
+      }
+      ui.rally.value = false;
+      return;
+    }
+
     const hit = this.hitTest(wx, wy);
     // Tapping our own unit selects it.
     if (hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) === 0) {
@@ -344,7 +356,7 @@ export class Game {
   stopSelected(): void {
     const e = this.sim.fullState().e;
     for (const id of this.selection) if (isAlive(e, id)) this.queued.push({ t: 'stop', unit: id });
-    ui.placement.value = 0; ui.amove.value = false;
+    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
   }
 
   trainSelected(kind: number): void {
@@ -354,6 +366,49 @@ export class Game {
         this.queued.push({ t: 'train', building: id, kind });
       }
     }
+  }
+
+  deselect(): void {
+    this.selection.clear();
+    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
+  }
+
+  /** Double-tap: select every visible (on-screen) unit of the tapped unit's type. */
+  selectAllByType(sx: number, sy: number): void {
+    if (this.human < 0) return;
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const e = this.sim.fullState().e;
+    const hit = this.hitTest(wx, wy);
+    if (hit < 0) return;
+    const hs = slotOf(hit);
+    if (e.owner[hs] !== this.human || (e.flags[hs]! & Role.Structure) !== 0) return;
+    const kind = e.kind[hs]!;
+    const x0 = this.camX; const y0 = this.camY;
+    const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
+    this.selection.clear();
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
+      if ((e.flags[i]! & Role.Structure) !== 0) continue;
+      const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
+    }
+    ui.amove.value = false;
+  }
+
+  // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----
+  minimapRect(): { ox: number; oy: number; W: number; H: number; scale: number } {
+    const m = this.map; const size = 116; const pad = 8;
+    const scale = size / Math.max(m.w, m.h);
+    const W = m.w * scale; const H = m.h * scale;
+    return { ox: this.viewW - W - pad, oy: this.viewH - H - pad, W, H, scale };
+  }
+
+  /** If (sx,sy) is on the minimap, recenter the camera there. Returns true if handled. */
+  minimapPan(sx: number, sy: number): boolean {
+    const r = this.minimapRect();
+    if (sx < r.ox - 2 || sy < r.oy - 2 || sx > r.ox + r.W + 2 || sy > r.oy + r.H + 2) return false;
+    this.centerOn(((sx - r.ox) / r.scale) * TILE, ((sy - r.oy) / r.scale) * TILE);
+    return true;
   }
 
   private pruneSelection(): void {

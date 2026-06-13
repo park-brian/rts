@@ -25,4 +25,5 @@ export const ui = {
   selProducer: signal(0), // producer kind if a producer is selected (else 0)
   placement: signal(0), // build-placement kind in progress (0 = none)
   amove: signal(false), // attack-move targeting armed
+  rally: signal(false), // set-rally-point targeting armed
 };

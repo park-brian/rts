@@ -3,11 +3,14 @@
 // unaffordable, illegal target) are ignored.
 
 import type { State } from '../world.ts';
-import { slotOf, isAlive, NONE } from '../world.ts';
+import { slotOf, eid, isAlive, nearest, NONE } from '../world.ts';
 import { buildable } from '../map.ts';
 import { tileX, tileY } from '../pathing.ts';
 import type { PlayerCommands } from '../commands.ts';
-import { Kind, Order, Role, Units, MAX_QUEUE } from '../data.ts';
+import { Kind, Order, Role, Units, MAX_QUEUE, TILE } from '../data.ts';
+import { fx } from '../fixed.ts';
+
+const RALLY_SNAP = fx(2 * TILE); // a rally tap this close to a resource means "harvest it"
 
 const startProduction = (s: State, slot: number, kind: number, player: number): void => {
   const e = s.e;
@@ -98,6 +101,21 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): void => {
           e.order[slot] = Order.Harvest;
           e.target[slot] = c.patch;
           e.timer[slot] = 0;
+          break;
+        }
+        case 'rally': {
+          if (!isAlive(e, c.building)) break;
+          const slot = slotOf(c.building);
+          if (e.owner[slot] !== player || (e.flags[slot]! & Role.Structure) === 0) break;
+          e.rallyX[slot] = c.x;
+          e.rallyY[slot] = c.y;
+          // A tap on (near) a resource means "rally to harvest"; else a ground point.
+          e.rallyTarget[slot] = NONE;
+          const node = nearest(s, c.x, c.y, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
+          if (node !== NONE) {
+            const dx = e.x[node]! - c.x; const dy = e.y[node]! - c.y;
+            if (dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP) e.rallyTarget[slot] = eid(e, node);
+          }
           break;
         }
         case 'stop': {

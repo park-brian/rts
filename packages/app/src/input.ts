@@ -11,6 +11,9 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   let start = { x: 0, y: 0 };
   let pinchDist = 0;
   let panMid = { x: 0, y: 0 };
+  let onMinimap = false; // dragging on the minimap to pan
+  let lastTapT = 0;
+  let lastTap = { x: 0, y: 0 };
 
   const rect = (): DOMRect => canvas.getBoundingClientRect();
   const local = (e: PointerEvent): { x: number; y: number } => {
@@ -22,8 +25,10 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     canvas.setPointerCapture(e.pointerId);
     const p = local(e);
     pts.set(e.pointerId, p);
-    if (pts.size === 1) { start = p; moved = false; game.box = null; }
-    else if (pts.size === 2) {
+    if (pts.size === 1) {
+      start = p; moved = false; game.box = null;
+      onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
+    } else if (pts.size === 2) {
       game.box = null; // cancel any box once a second finger lands
       const [a, b] = [...pts.values()];
       pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
@@ -37,6 +42,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     pts.set(e.pointerId, p);
 
     if (pts.size === 1) {
+      if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
       if (Math.hypot(p.x - start.x, p.y - start.y) > TAP_SLOP) moved = true;
       if (moved) game.box = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
     } else if (pts.size === 2) {
@@ -59,8 +65,16 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     const p = local(e);
     pts.delete(e.pointerId);
     if (wasOne) {
-      if (!moved) game.tap(p.x, p.y);
-      else if (game.box) { game.boxSelect(game.box.x0, game.box.y0, game.box.x1, game.box.y1); }
+      if (onMinimap) { onMinimap = false; }
+      else if (!moved) {
+        const now = performance.now();
+        const dbl = now - lastTapT < 300 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 24;
+        lastTapT = now; lastTap = p;
+        if (dbl) game.selectAllByType(p.x, p.y); // double-tap: all of this type on screen
+        else game.tap(p.x, p.y);
+      } else if (game.box) {
+        game.boxSelect(game.box.x0, game.box.y0, game.box.x1, game.box.y1);
+      }
       game.box = null;
     }
   };

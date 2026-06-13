@@ -13,6 +13,7 @@ export type Command =
   | { t: 'attack'; unit: number; target: number } // attack a specific entity
   | { t: 'amove'; unit: number; x: number; y: number } // attack-move to a point
   | { t: 'harvest'; unit: number; patch: number }
+  | { t: 'rally'; building: number; x: number; y: number } // set a structure's rally point
   | { t: 'stop'; unit: number };
 
 export type PlayerCommands = { player: number; cmds: Command[] };

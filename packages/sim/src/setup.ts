@@ -6,8 +6,9 @@ import type { MapDef } from './map.ts';
 import type { State } from './world.ts';
 import { makeState, slotOf, eid, nearest, NEUTRAL, NONE } from './world.ts';
 import { spawnUnit } from './factory.ts';
-import { Kind, Order, Role, TILE, START_MINERALS, Terran, type Faction } from './data.ts';
+import { Kind, Order, Role, TILE, START_MINERALS, Terran, Units, type Faction } from './data.ts';
 import { census } from './systems/census.ts';
+import { pickPatch } from './systems/harvest.ts';
 import { fx } from './fixed.ts';
 
 const tilePx = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center
@@ -37,15 +38,23 @@ export const setupMatch = (
     const loc = map.starts[p % map.starts.length]!;
     const cx = tilePx(loc.x);
     const cy = tilePx(loc.y);
-    spawnUnit(s, faction.depot, p, cx, cy);
+    const depot = slotOf(spawnUnit(s, faction.depot, p, cx, cy));
     s.players.minerals[p] = START_MINERALS;
 
+    // Default rally = the mineral line, so produced workers auto-mine smoothly (SC2-style).
+    const line = nearest(s, cx, cy, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
+    if (line !== NONE) {
+      e.rallyTarget[depot] = eid(e, line);
+      e.rallyX[depot] = e.x[line]!;
+      e.rallyY[depot] = e.y[line]!;
+    }
+
+    const speed = Units[faction.worker]!.speed;
     for (let w = 0; w < faction.startWorkers; w++) {
       // Horizontal-only spread so a N/S-mirrored map stays perfectly symmetric.
       const dx = fx((w - (faction.startWorkers - 1) / 2) * 14);
-      const id = spawnUnit(s, faction.worker, p, cx + dx, cy);
-      const slot = slotOf(id);
-      const node = nearest(s, cx, cy, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
+      const slot = slotOf(spawnUnit(s, faction.worker, p, cx + dx, cy));
+      const node = pickPatch(s, slot, p, speed); // spread across the line (fewest-miners-first)
       if (node !== NONE) {
         e.order[slot] = Order.Harvest;
         e.target[slot] = eid(e, node);

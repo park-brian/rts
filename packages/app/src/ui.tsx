@@ -102,8 +102,12 @@ const Hotbar = (p: { game: Game }) => {
       buttons.push(<Btn label="Build Depot" onClick={() => (ui.placement.value = Kind.SupplyDepot)} />);
       buttons.push(<Btn label="Build Rax" onClick={() => (ui.placement.value = Kind.Barracks)} />);
     }
+    if (ui.selProducer.value !== 0) {
+      buttons.push(<Btn label="Set Rally" active={ui.rally.value} onClick={() => (ui.rally.value = !ui.rally.value)} />);
+    }
     buttons.push(<Btn label="Atk-Move" active={ui.amove.value} onClick={() => (ui.amove.value = !ui.amove.value)} />);
     buttons.push(<Btn label="Stop" onClick={() => g.stopSelected()} />);
+    buttons.push(<Btn label="Deselect" onClick={() => g.deselect()} />);
   } else {
     buttons.push(<span style={{ opacity: 0.5, alignSelf: 'center' }}>Drag to select · tap to command</span>);
   }

@@ -8,8 +8,27 @@ import { nearest, eid, slotOf, NONE } from '../world.ts';
 import { spawnUnit } from '../factory.ts';
 import { Kind, Order, Role, Units } from '../data.ts';
 import { fx, isqrt } from '../fixed.ts';
+import { pickPatch, isResource } from './harvest.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
+
+/** Direct a freshly produced unit per its producer's rally (default worker = auto-mine). */
+const applyRally = (s: State, producer: number, slot: number, owner: number, isWorker: boolean, speed: number): void => {
+  const e = s.e;
+  const hasPoint = e.rallyX[producer]! >= 0;
+  const mineRally = isResource(e, e.rallyTarget[producer]!);
+  if (isWorker && (mineRally || !hasPoint)) {
+    // No rally, or rallied to the mineral line → harvest, spreading from the rally point.
+    const fromX = hasPoint ? e.rallyX[producer]! : e.x[slot]!;
+    const fromY = hasPoint ? e.rallyY[producer]! : e.y[slot]!;
+    const np = pickPatch(s, slot, owner, speed, fromX, fromY);
+    if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
+  } else if (hasPoint) {
+    // Rally to a ground point (any unit, or a worker rallied to open ground).
+    e.order[slot] = Order.Move; e.target[slot] = NONE;
+    e.tx[slot] = e.rallyX[producer]!; e.ty[slot] = e.rallyY[producer]!;
+  }
+};
 
 export const production = (s: State): void => {
   const e = s.e;
@@ -39,11 +58,7 @@ export const production = (s: State): void => {
     }
 
     const id = spawnUnit(s, kind, owner, sx, sy);
-    if (isWorker && node !== NONE) {
-      const slot = slotOf(id);
-      e.order[slot] = Order.Harvest;
-      e.target[slot] = eid(e, node);
-    }
+    applyRally(s, i, slotOf(id), owner, isWorker, def.speed);
 
     // Dequeue the next unit, or go idle.
     if (e.prodQueued[i]! > 0) {

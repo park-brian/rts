@@ -39,6 +39,9 @@ export type Entities = {
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
   prodQueued: Int32Array; // additional queued units of prodKind
+  rallyX: Int32Array; // structure rally point (fixed px); produced units head here
+  rallyY: Int32Array;
+  rallyTarget: Int32Array; // rally onto an entity (resource → harvest), or NONE
 };
 
 // Single source of truth for the typed-array columns: every per-slot column lives
@@ -52,6 +55,7 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['cargo', 'i32'],
   ['cargoType', 'u8'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
+  ['rallyX', 'i32'], ['rallyY', 'i32'], ['rallyTarget', 'i32'],
 ];
 
 export type Players = {
@@ -124,6 +128,9 @@ const makeEntities = (): Entities => {
     prodKind: new Uint16Array(CAP),
     prodTimer: new Int32Array(CAP),
     prodQueued: new Int32Array(CAP),
+    rallyX: new Int32Array(CAP),
+    rallyY: new Int32Array(CAP),
+    rallyTarget: new Int32Array(CAP),
   };
 };
 
@@ -185,6 +192,9 @@ export const spawn = (
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
+  e.rallyX[slot] = 0;
+  e.rallyY[slot] = 0;
+  e.rallyTarget[slot] = NONE;
   return eid(e, slot);
 };
 
@@ -293,6 +303,9 @@ export const hashState = (s: State): number => {
     h = fold(h, e.prodKind[i]!);
     h = fold(h, e.prodTimer[i]!);
     h = fold(h, e.prodQueued[i]!);
+    h = fold(h, e.rallyTarget[i]!);
+    h = fold(h, e.rallyX[i]!);
+    h = fold(h, e.rallyY[i]!);
   }
   return h >>> 0;
 };
