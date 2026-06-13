@@ -4,9 +4,11 @@
 // The worker is freed and auto-returns to mining.
 
 import type { State } from '../world.ts';
-import { spawn, slotOf, eid, nearest, NONE } from '../world.ts';
-import { Order, Role, Units, BUILD_RANGE } from '../data.ts';
+import { spawn, slotOf, eid, nearest, kill, NONE } from '../world.ts';
+import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, tiles } from '../data.ts';
 import { navigate } from '../pathing.ts';
+import { pickPatch } from './harvest.ts';
+import { within } from './move.ts';
 
 export const construction = (s: State): void => {
   const e = s.e;
@@ -24,10 +26,12 @@ export const construction = (s: State): void => {
       const st = slotOf(id);
       e.built[st] = 0;
       e.ctimer[st] = def.buildTime;
-      // Free the worker; auto-return to the nearest resource.
+      // Free the worker; auto-return to the nearest free resource.
       e.buildKind[i] = 0;
-      const node = nearest(s, e.x[i]!, e.y[i]!, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
-      if ((e.flags[i]! & Role.Worker) !== 0 && node !== NONE) {
+      const node = (e.flags[i]! & Role.Worker) !== 0
+        ? pickPatch(s, i, e.owner[i]!, Units[e.kind[i]!]!.speed)
+        : NONE;
+      if (node !== NONE) {
         e.order[i] = Order.Harvest;
         e.target[i] = eid(e, node);
       } else {
@@ -44,7 +48,14 @@ export const construction = (s: State): void => {
     if (e.alive[i] !== 1 || e.built[i] === 1) continue;
     if (e.ctimer[i]! > 0) {
       e.ctimer[i] = e.ctimer[i]! - 1;
-      if (e.ctimer[i]! <= 0) e.built[i] = 1;
+      if (e.ctimer[i]! <= 0) {
+        e.built[i] = 1;
+        // A finished Refinery consumes its geyser and starts holding gas to harvest.
+        if (e.kind[i] === Kind.Refinery) {
+          const gy = nearest(s, e.x[i]!, e.y[i]!, (sl) => e.kind[sl] === Kind.Geyser);
+          if (gy !== NONE && within(e, i, e.x[gy]!, e.y[gy]!, tiles(2))) { e.cargo[i] = GAS_AMOUNT; kill(s, gy); }
+        }
+      }
     }
   }
 };

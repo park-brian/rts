@@ -1,12 +1,12 @@
 // Headless demo: a full AI-vs-AI 1v1 on a procedural map, played to completion,
 // then a throughput benchmark. Run with: `npm run demo`.
 
-import { Sim, generateMap, count, Kind, Terran, type PlayerCommands } from '@rts/sim';
+import { Sim, generateMap, count, Kind, Terran, toReplay, play, type MapSpec, type PlayerCommands } from '@rts/sim';
 import { createBot } from '@rts/ai';
 
 const SEED = 2026;
 const map = generateMap(1, SEED);
-const sim = new Sim({ map, players: 2, seed: SEED });
+const sim = new Sim({ map, players: 2, seed: SEED, record: true });
 const bots = [
   createBot(Terran, { attackThreshold: 8, barracksTarget: 2 }), // aggressive
   createBot(Terran, { attackThreshold: 16, barracksTarget: 3 }), // greedier
@@ -40,6 +40,14 @@ while (!sim.fullState().result.over && sim.tick < 80000) {
 }
 const r = sim.fullState().result;
 console.log(`\nresult: ${r.over ? `team ${r.winner} wins` : 'ongoing'} at tick ${sim.tick} (~${(sim.tick / 24 / 60).toFixed(1)} min)`);
+
+// Replay verification: re-simulate the recorded command stream and confirm it
+// reproduces the game bit-for-bit (the property RL "what-ifs" and netcode rely on).
+const spec: MapSpec = { kind: 'procedural', perTeam: 1, seed: SEED };
+const replay = toReplay(sim, spec);
+const replayed = play(replay);
+const ok = replayed.tick === sim.tick && replayed.hash() === sim.hash();
+console.log(`replay: ${replay.frames.length} frames → ${ok ? 'reproduced exactly ✓' : 'MISMATCH ✗'}`);
 
 // Throughput benchmark.
 const bench = new Sim({ map: generateMap(1, SEED), players: 2, seed: SEED });

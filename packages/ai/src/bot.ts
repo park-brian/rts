@@ -8,15 +8,16 @@ import {
   Role, Order, Kind, Units, buildable, tileX, tileY, eid, isEnemy, nearest,
   NONE, TILE, SUPPLY_CAP, type Faction, type State, type Command, type Controller,
 } from '@rts/sim';
-import { fx, ONE } from '@rts/sim';
+import { fx, ONE, isqrt } from '@rts/sim';
 
 export type BotConfig = {
-  workerTarget: number;
+  workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
   barracksTarget: number;
   attackThreshold: number; // army size that triggers an attack wave
 };
 
-const DEFAULT: BotConfig = { workerTarget: 14, barracksTarget: 3, attackThreshold: 12 };
+const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
+const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 
@@ -100,9 +101,30 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const cap = s.players.supplyMax[p]!;
     const room = (need: number): boolean => used + need <= cap;
 
+    // Worker target: derived from how many patches this base can mine (income now
+    // saturates at ~WORKERS_PER_PATCH each, so over-building workers is wasted supply).
+    let patches = 0;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] === 1 && (e.flags[i]! & Role.Resource) !== 0 && withinTiles(s, i, e.x[depot]!, e.y[depot]!, 14)) patches++;
+    }
+    const workerTarget = c.workerTarget ?? Math.max(8, Math.min(24, patches * WORKERS_PER_PATCH + 2));
+
+    // Rally barracks to a staging point toward the centre so produced units form up
+    // in the open instead of jamming the production exit (ground units now collide).
+    if (builtBarracks.length) {
+      const cxFx = Math.trunc((s.map.w * TILE * ONE) / 2);
+      const cyFx = Math.trunc((s.map.h * TILE * ONE) / 2);
+      const dx = cxFx - e.x[depot]!; const dy = cyFx - e.y[depot]!;
+      const d = isqrt(dx * dx + dy * dy) || 1;
+      const stage = 5 * TILE * ONE;
+      const sx = e.x[depot]! + Math.trunc((dx * stage) / d);
+      const sy = e.y[depot]! + Math.trunc((dy * stage) / d);
+      for (const b of builtBarracks) if (e.rallyX[b]! < 0) cmds.push({ t: 'rally', building: eid(e, b), x: sx, y: sy });
+    }
+
     // 1) Workers from idle depots.
     for (const d of idleDepots) {
-      if (workers < c.workerTarget && minerals >= workerDef.minerals && room(workerDef.supply)) {
+      if (workers < workerTarget && minerals >= workerDef.minerals && room(workerDef.supply)) {
         cmds.push({ t: 'train', building: eid(e, d), kind: faction.worker });
       }
     }

@@ -4,8 +4,9 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Kind, Units, Role,
-  slotOf, eid, isEnemy, isAlive, NEUTRAL,
+  slotOf, eid, isEnemy, isAlive, NEUTRAL, toReplay, mapFromSpec,
   type MapDef, type Command, type PlayerCommands, type Controller,
+  type Replay, type MapSpec,
 } from './sim.ts';
 import { ui, type Mode } from './store.ts';
 
@@ -27,6 +28,12 @@ export class Game {
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
+  // replay viewer state (mode === 'replay')
+  replay: Replay | null = null;
+  replayTick = 0;
+  replaySpeed = 1;
+  paused = false;
+
   visible!: Uint8Array; // per-tile, human vision this frame
   explored!: Uint8Array;
   private acc = 0;
@@ -38,12 +45,14 @@ export class Game {
   }
 
   restart(mode: Mode, seed = (Math.random() * 1e9) | 0, perTeam = this.perTeam): void {
+    if (mode === 'replay') { this.startReplay(); return; } // toggle into watching the last game
     this.mode = mode;
     this.seed = seed;
     this.perTeam = perTeam;
+    this.replay = null;
     const players = perTeam * 2;
     this.map = generateMap(perTeam, seed);
-    this.sim = new Sim({ map: this.map, players, seed });
+    this.sim = new Sim({ map: this.map, players, seed, record: true, vision: true }); // record + fog for rendering
     const bots = createBotControllers(players);
     this.human = mode === 'play' ? 0 : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === 0 ? null : bots[p]!));
@@ -55,8 +64,73 @@ export class Game {
     ui.perTeam.value = perTeam;
     ui.placement.value = 0;
     ui.amove.value = false;
+    ui.rally.value = false;
+    ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
+  }
+
+  private mapSpec(): MapSpec {
+    return { kind: 'procedural', perTeam: this.perTeam, seed: this.seed };
+  }
+
+  /** Switch into replay playback. With no argument, watch the game just played. */
+  startReplay(replay?: Replay): void {
+    const r = replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
+    if (!r || r.frames.length === 0) return;
+    this.replay = r;
+    this.mode = 'replay';
+    this.perTeam = r.map.kind === 'procedural' ? r.map.perTeam : this.perTeam;
+    this.seed = r.map.kind === 'procedural' ? r.map.seed : this.seed;
+    this.map = mapFromSpec(r.map);
+    this.human = -1; // god view for analysis
+    this.controllers = [];
+    this.selection.clear();
+    this.queued = [];
+    this.visible = new Uint8Array(this.map.w * this.map.h);
+    this.explored = new Uint8Array(this.map.w * this.map.h);
+    this.replaySpeed = 1;
+    this.paused = false;
+    this.seekReplay(0);
+    ui.mode.value = 'replay';
+    ui.replayTotal.value = r.frames.length;
+    ui.replaySpeed.value = 1;
+    ui.paused.value = false;
+    ui.over.value = false;
+    this.framed = false;
+    if (this.viewW > 1) this.frame();
+  }
+
+  /** Rebuild the replay sim and fast-forward to `tick` (scrubbing). */
+  seekReplay(tick: number): void {
+    if (!this.replay) return;
+    const r = this.replay;
+    const target = Math.max(0, Math.min(tick, r.frames.length));
+    this.sim = new Sim({ map: this.map, players: r.players, seed: r.seed, vision: true });
+    for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
+    this.replayTick = target;
+    this.paused = target >= r.frames.length;
+    this.selection.clear();
+    ui.replayTick.value = target;
+    ui.paused.value = this.paused;
+    this.computeFog();
+    this.publish();
+  }
+
+  setReplaySpeed(x: number): void { this.replaySpeed = x; ui.replaySpeed.value = x; }
+  togglePause(): void {
+    if (this.replayTick >= (this.replay?.frames.length ?? 0)) this.seekReplay(0); // restart at the end
+    else { this.paused = !this.paused; ui.paused.value = this.paused; }
+  }
+
+  /** The replay JSON for the current/just-played game (download payload). */
+  exportReplay(): string | null {
+    const r = this.replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
+    return r ? JSON.stringify(r) : null;
+  }
+
+  loadReplay(json: string): void {
+    this.startReplay(JSON.parse(json) as Replay);
   }
 
   resize(w: number, h: number): void {
@@ -93,14 +167,35 @@ export class Game {
     this.lastSel = now;
     if (dt > 250) dt = 250; // avoid spiral after a stall
     this.acc += dt;
-    let steps = 0;
-    while (this.acc >= TICK_MS && steps < 8) {
-      this.tick();
-      this.acc -= TICK_MS;
-      steps++;
+    if (this.mode === 'replay') {
+      const interval = TICK_MS / Math.max(0.01, this.replaySpeed); // honor playback speed
+      let steps = 0;
+      while (!this.paused && this.acc >= interval && steps < 480) {
+        this.replayStep();
+        this.acc -= interval;
+        steps++;
+      }
+      if (this.paused) this.acc = 0;
+    } else {
+      let steps = 0;
+      while (this.acc >= TICK_MS && steps < 8) {
+        this.tick();
+        this.acc -= TICK_MS;
+        steps++;
+      }
     }
     this.computeFog();
     this.publish();
+  }
+
+  private replayStep(): void {
+    const r = this.replay;
+    if (!r || this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; return; }
+    this.sim.step(r.frames[this.replayTick] ?? []);
+    this.replayTick++;
+    ui.replayTick.value = this.replayTick;
+    this.pruneSelection();
+    if (this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; }
   }
 
   /** Advance the sim by n ticks immediately (demos / screenshot automation). */
@@ -128,27 +223,15 @@ export class Game {
     return q;
   }
 
-  // ---- fog of war (client-side; human's vision) ----
+  // ---- fog of war: mirror the sim's per-player vision (computed deterministically
+  // in the tick pipeline), so the renderer and the policy/network see the same fog. ----
   private computeFog(): void {
-    const m = this.map;
     const vis = this.visible;
     if (this.human < 0) { vis.fill(2); this.explored.fill(2); return; } // spectate: see all
-    vis.fill(0);
-    const e = this.sim.fullState().e;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.owner[i] !== this.human) continue;
-      const sight = Units[e.kind[i]!]?.sight ?? 0;
-      if (sight <= 0) continue;
-      const tx = Math.floor(e.x[i]! / ONE / TILE);
-      const ty = Math.floor(e.y[i]! / ONE / TILE);
-      const r2 = sight * sight;
-      for (let dy = -sight; dy <= sight; dy++) {
-        const yy = ty + dy; if (yy < 0 || yy >= m.h) continue;
-        for (let dx = -sight; dx <= sight; dx++) {
-          const xx = tx + dx; if (xx < 0 || xx >= m.w) continue;
-          if (dx * dx + dy * dy <= r2) { vis[yy * m.w + xx] = 2; this.explored[yy * m.w + xx] = 1; }
-        }
-      }
+    const v = this.sim.fullState().vision[this.human]!;
+    for (let t = 0; t < vis.length; t++) {
+      vis[t] = v[t]!;
+      if (v[t]! >= 1) this.explored[t] = 1; // accumulate explored memory
     }
   }
 
@@ -193,6 +276,17 @@ export class Game {
       return;
     }
 
+    // Set-rally mode: point every selected structure's rally at the tapped spot.
+    if (ui.rally.value) {
+      for (const id of this.selection) {
+        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
+          this.queued.push({ t: 'rally', building: id, x: (wx * ONE) | 0, y: (wy * ONE) | 0 });
+        }
+      }
+      ui.rally.value = false;
+      return;
+    }
+
     const hit = this.hitTest(wx, wy);
     // Tapping our own unit selects it.
     if (hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) === 0) {
@@ -215,8 +309,8 @@ export class Game {
       if ((e.flags[i]! & Role.Structure) !== 0) continue;
       if (hit >= 0 && isEnemy(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!)) {
         this.queued.push({ t: 'attack', unit: id, target: hit });
-      } else if (hit >= 0 && e.owner[slotOf(hit)] === NEUTRAL && (e.flags[i]! & Role.Worker) !== 0) {
-        this.queued.push({ t: 'harvest', unit: id, patch: hit });
+      } else if (hit >= 0 && (e.flags[slotOf(hit)]! & Role.Resource) !== 0 && (e.flags[i]! & Role.Worker) !== 0) {
+        this.queued.push({ t: 'harvest', unit: id, patch: hit }); // minerals (neutral) or own refinery (gas)
       } else if (amove) {
         this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
       } else {
@@ -250,7 +344,7 @@ export class Game {
   stopSelected(): void {
     const e = this.sim.fullState().e;
     for (const id of this.selection) if (isAlive(e, id)) this.queued.push({ t: 'stop', unit: id });
-    ui.placement.value = 0; ui.amove.value = false;
+    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
   }
 
   trainSelected(kind: number): void {
@@ -262,6 +356,49 @@ export class Game {
     }
   }
 
+  deselect(): void {
+    this.selection.clear();
+    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
+  }
+
+  /** Double-tap: select every visible (on-screen) unit of the tapped unit's type. */
+  selectAllByType(sx: number, sy: number): void {
+    if (this.human < 0) return;
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const e = this.sim.fullState().e;
+    const hit = this.hitTest(wx, wy);
+    if (hit < 0) return;
+    const hs = slotOf(hit);
+    if (e.owner[hs] !== this.human || (e.flags[hs]! & Role.Structure) !== 0) return;
+    const kind = e.kind[hs]!;
+    const x0 = this.camX; const y0 = this.camY;
+    const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
+    this.selection.clear();
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
+      if ((e.flags[i]! & Role.Structure) !== 0) continue;
+      const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
+    }
+    ui.amove.value = false;
+  }
+
+  // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----
+  minimapRect(): { ox: number; oy: number; W: number; H: number; scale: number } {
+    const m = this.map; const size = 116; const pad = 8;
+    const scale = size / Math.max(m.w, m.h);
+    const W = m.w * scale; const H = m.h * scale;
+    return { ox: this.viewW - W - pad, oy: this.viewH - H - pad, W, H, scale };
+  }
+
+  /** If (sx,sy) is on the minimap, recenter the camera there. Returns true if handled. */
+  minimapPan(sx: number, sy: number): boolean {
+    const r = this.minimapRect();
+    if (sx < r.ox - 2 || sy < r.oy - 2 || sx > r.ox + r.W + 2 || sy > r.oy + r.H + 2) return false;
+    this.centerOn(((sx - r.ox) / r.scale) * TILE, ((sy - r.oy) / r.scale) * TILE);
+    return true;
+  }
+
   private pruneSelection(): void {
     const e = this.sim.fullState().e;
     for (const id of [...this.selection]) if (!isAlive(e, id)) this.selection.delete(id);
@@ -271,11 +408,13 @@ export class Game {
     const s = this.sim.fullState();
     const p = this.human < 0 ? 0 : this.human;
     ui.minerals.value = s.players.minerals[p]!;
+    ui.gas.value = s.players.gas[p]!;
     ui.supplyUsed.value = s.players.supplyUsed[p]!;
     ui.supplyMax.value = s.players.supplyMax[p]!;
     ui.seconds.value = Math.floor(s.tick / FPS);
     ui.over.value = s.result.over;
     ui.winner.value = s.result.winner;
+    ui.hasReplay.value = this.mode !== 'replay' && s.result.over && this.sim.frames !== null;
 
     // selection summary
     const e = s.e;

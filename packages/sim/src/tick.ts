@@ -10,7 +10,11 @@ import { production } from './systems/production.ts';
 import { harvest } from './systems/harvest.ts';
 import { combat } from './systems/combat.ts';
 import { movement } from './systems/movement.ts';
+import { collide } from './systems/collision.ts';
+import { vision } from './systems/vision.ts';
 import { victory } from './systems/victory.ts';
+import { buildGrid } from './grid.ts';
+import { prepareNav } from './flow.ts';
 
 export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   if (s.result.over) return; // frozen once decided
@@ -18,9 +22,13 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   applyCommands(s, batch);
   construction(s);
   production(s);
+  prepareNav(s); // refresh building footprints for pathing (after new structures appear)
   harvest(s);
-  combat(s);
+  const grid = buildGrid(s); // spatial index for target acquisition + collision
+  combat(s, grid);
   movement(s);
+  collide(s); // builds its own fine (one-tile) grid for tight overlap resolution
+  if (s.trackVision) vision(s); // per-player fog (derived; for observe()/rendering)
   victory(s);
   s.tick++;
 };

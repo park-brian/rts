@@ -10,7 +10,6 @@ import { fold, foldArray, FNV_OFFSET } from './hash.ts';
 export const CAP = 4096; // max simultaneous entities (grow later if needed)
 export const NONE = -1; // null EntityId sentinel
 export const NEUTRAL = 255; // owner id for non-player entities (resources)
-export const MAXPATH = 32; // max stored waypoints per unit (string-pulled paths are short)
 
 // Parallel component columns. EntityId encodes (slot, generation) so stale
 // references are detected after a slot is reused.
@@ -37,15 +36,27 @@ export type Entities = {
   buildKind: Uint16Array; // for a worker en route to build: the structure kind
   cargo: Int32Array; // carried resources (workers) / remaining amount (nodes)
   cargoType: Uint8Array; // ResourceType currently carried by a worker
-  // navigation cache (derived; cloned but not hashed)
-  pathGoal: Int32Array; // goal tile index the current path was built for (-1 none)
-  pathLen: Uint8Array;
-  pathIdx: Uint8Array;
-  pathPts: Int32Array; // CAP * MAXPATH waypoint tile indices
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
   prodQueued: Int32Array; // additional queued units of prodKind
+  rallyX: Int32Array; // structure rally point (fixed px); produced units head here
+  rallyY: Int32Array;
+  rallyTarget: Int32Array; // rally onto an entity (resource → harvest), or NONE
 };
+
+// Single source of truth for the typed-array columns: every per-slot column lives
+// here exactly once, so allocation, cloning, and (de)serialization all stay in
+// sync. A coverage test asserts this list matches the Entities shape, so a new
+// column can't silently escape clone/serialize. (`hi`/`freeTop` are plain scalars.)
+export type ColType = 'u8' | 'u16' | 'u32' | 'i32';
+export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> = [
+  ['free', 'i32'], ['gen', 'u32'], ['alive', 'u8'], ['kind', 'u16'], ['owner', 'u8'],
+  ['x', 'i32'], ['y', 'i32'], ['hp', 'i32'], ['flags', 'u16'], ['order', 'u8'],
+  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
+  ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['cargo', 'i32'],
+  ['cargoType', 'u8'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
+  ['rallyX', 'i32'], ['rallyY', 'i32'], ['rallyTarget', 'i32'],
+];
 
 export type Players = {
   minerals: Int32Array;
@@ -65,6 +76,7 @@ export type State = {
   startTeams: number; // distinct teams at match start (victory needs >= 2)
   result: Result;
   vision: Uint8Array[]; // per-player visibility grid (0 unseen, 1 explored, 2 visible)
+  trackVision: boolean; // compute fog each tick? (off by default for headless throughput)
   e: Entities;
 };
 
@@ -83,6 +95,11 @@ export const isEnemy = (s: State, a: number, b: number): boolean =>
   a < s.teams.length && b < s.teams.length && s.teams[a] !== s.teams[b];
 
 // ---- construction ----
+// NOTE: built as an explicit object literal (not a loop over ENTITY_COLUMNS) so the
+// Entities object gets a fast, fixed hidden class. Adding columns via dynamic keys
+// would drop it into V8 dictionary mode and slow every `e.x[i]` access in the hot
+// loop (~2× across all systems). `cloneEntities`/`deserializeEntities` reuse this
+// factory and only *reassign* existing columns, which preserves the fast shape.
 const makeEntities = (): Entities => {
   const free = new Int32Array(CAP);
   for (let i = 0; i < CAP; i++) free[i] = CAP - 1 - i; // pop yields ascending slots
@@ -109,13 +126,12 @@ const makeEntities = (): Entities => {
     buildKind: new Uint16Array(CAP),
     cargo: new Int32Array(CAP),
     cargoType: new Uint8Array(CAP),
-    pathGoal: new Int32Array(CAP).fill(-1),
-    pathLen: new Uint8Array(CAP),
-    pathIdx: new Uint8Array(CAP),
-    pathPts: new Int32Array(CAP * MAXPATH),
     prodKind: new Uint16Array(CAP),
     prodTimer: new Int32Array(CAP),
     prodQueued: new Int32Array(CAP),
+    rallyX: new Int32Array(CAP),
+    rallyY: new Int32Array(CAP),
+    rallyTarget: new Int32Array(CAP),
   };
 };
 
@@ -138,6 +154,7 @@ export const makeState = (map: MapDef, playerCount: number, seed: number): State
     startTeams: 0, // set by setupMatch once teams are finalized
     result: { over: false, winner: -1 },
     vision,
+    trackVision: false,
     e: makeEntities(),
   };
 };
@@ -174,12 +191,12 @@ export const spawn = (
   e.buildKind[slot] = 0;
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
-  e.pathGoal[slot] = -1;
-  e.pathLen[slot] = 0;
-  e.pathIdx[slot] = 0;
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
+  e.rallyX[slot] = 0;
+  e.rallyY[slot] = 0;
+  e.rallyTarget[slot] = NONE;
   return eid(e, slot);
 };
 
@@ -226,37 +243,14 @@ export const nearest = (
 };
 
 // ---- clone (fork / snapshot) ----
-const cloneEntities = (e: Entities): Entities => ({
-  hi: e.hi,
-  freeTop: e.freeTop,
-  free: e.free.slice(),
-  gen: e.gen.slice(),
-  alive: e.alive.slice(),
-  kind: e.kind.slice(),
-  owner: e.owner.slice(),
-  x: e.x.slice(),
-  y: e.y.slice(),
-  hp: e.hp.slice(),
-  flags: e.flags.slice(),
-  order: e.order.slice(),
-  target: e.target.slice(),
-  tx: e.tx.slice(),
-  ty: e.ty.slice(),
-  timer: e.timer.slice(),
-  wcd: e.wcd.slice(),
-  ctimer: e.ctimer.slice(),
-  built: e.built.slice(),
-  buildKind: e.buildKind.slice(),
-  cargo: e.cargo.slice(),
-  cargoType: e.cargoType.slice(),
-  pathGoal: e.pathGoal.slice(),
-  pathLen: e.pathLen.slice(),
-  pathIdx: e.pathIdx.slice(),
-  pathPts: e.pathPts.slice(),
-  prodKind: e.prodKind.slice(),
-  prodTimer: e.prodTimer.slice(),
-  prodQueued: e.prodQueued.slice(),
-});
+// Reuse the fast-shape factory, then reassign existing columns from the registry
+// (keeps the hidden class fast; can't forget a column — the registry is the source).
+const cloneEntities = (e: Entities): Entities => {
+  const c = makeEntities();
+  c.hi = e.hi; c.freeTop = e.freeTop;
+  for (const [k] of ENTITY_COLUMNS) (c[k] as Int32Array).set(e[k] as Int32Array);
+  return c;
+};
 
 export const cloneState = (s: State): State => ({
   tick: s.tick,
@@ -272,6 +266,7 @@ export const cloneState = (s: State): State => ({
   startTeams: s.startTeams,
   result: { over: s.result.over, winner: s.result.winner },
   vision: s.vision.map((v) => v.slice()),
+  trackVision: s.trackVision,
   e: cloneEntities(s.e),
 });
 
@@ -311,6 +306,9 @@ export const hashState = (s: State): number => {
     h = fold(h, e.prodKind[i]!);
     h = fold(h, e.prodTimer[i]!);
     h = fold(h, e.prodQueued[i]!);
+    h = fold(h, e.rallyTarget[i]!);
+    h = fold(h, e.rallyX[i]!);
+    h = fold(h, e.rallyY[i]!);
   }
   return h >>> 0;
 };

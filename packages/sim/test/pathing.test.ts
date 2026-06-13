@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeState, slotOf } from '../src/world.ts';
+import { makeState, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear } from '../src/pathing.ts';
+import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapConnected } from '../src/procedural.ts';
-import { Kind, TILE } from '../src/data.ts';
+import { sliceMap } from '../src/map.ts';
+import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 
@@ -45,6 +47,36 @@ test('procedural maps are connected and scale with team size', () => {
       assert.equal(m.teams.length, m.starts.length);
     }
   }
+});
+
+test('a group moving to one goal arrives and spreads (no perfect stacking)', () => {
+  const run = (): { hash: number; distinct: number; arrived: boolean } => {
+    const map = sliceMap();
+    const s = makeState(map, 1, 777);
+    const gx = tc(32); const gy = tc(32);
+    const slots: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const id = spawnUnit(s, Kind.Marine, 0, tc(20) + fx((i % 4) * 6), tc(70) + fx(((i / 4) | 0) * 6));
+      const sl = slotOf(id);
+      s.e.order[sl] = Order.Move; s.e.tx[sl] = gx; s.e.ty[sl] = gy;
+      slots.push(sl);
+    }
+    for (let t = 0; t < 900; t++) stepWorld(s, []);
+    // All reached the goal region (within a few tiles, since separation fans them out).
+    let arrived = true;
+    const pos = new Set<string>();
+    for (const sl of slots) {
+      const dx = s.e.x[sl]! - gx; const dy = s.e.y[sl]! - gy;
+      if (dx * dx + dy * dy > fx(5 * TILE) * fx(5 * TILE)) arrived = false;
+      pos.add(`${s.e.x[sl]},${s.e.y[sl]}`);
+    }
+    return { hash: hashState(s), distinct: pos.size, arrived };
+  };
+  const a = run();
+  const b = run();
+  assert.ok(a.arrived, 'every unit should reach the goal region');
+  assert.ok(a.distinct > 1, 'separation must keep units off a single pixel');
+  assert.equal(a.hash, b.hash, 'group movement + separation must be deterministic');
 });
 
 test('base ramps make plateaus reachable (no walled-off starts)', () => {

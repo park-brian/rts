@@ -24,6 +24,8 @@ export const Kind = {
   SupplyDepot: 4,
   Barracks: 5,
   Marine: 6,
+  Geyser: 7, // vespene geyser: inert placement marker; build a Refinery on it
+  Refinery: 8, // structure on a geyser; becomes the gas resource node
 } as const;
 export type Kind = (typeof Kind)[keyof typeof Kind];
 
@@ -46,6 +48,7 @@ export const Role = {
   ResourceDepot: 1 << 3,
   Resource: 1 << 4,
   Producer: 1 << 5,
+  Air: 1 << 6, // flying unit: ignores terrain & ground collision
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
@@ -130,6 +133,16 @@ export const Units: Record<number, UnitDef> = {
     name: 'Mineral Field', roles: Role.Resource, size: Size.Large,
     radius: fx(16), resourceType: ResourceType.Minerals,
   }),
+  [Kind.Geyser]: def({
+    // Inert marker (no roles): you build a Refinery on it to gather gas.
+    name: 'Vespene Geyser', roles: 0, size: Size.Large, radius: fx(32), resourceType: ResourceType.Gas,
+  }),
+  [Kind.Refinery]: def({
+    // Structure + Resource: once built it holds gas and is harvested like a patch.
+    name: 'Refinery', roles: Role.Structure | Role.Resource, size: Size.Large,
+    hp: 750, armor: 1, sight: 8, radius: fx(40), minerals: 75, buildTime: sec(30),
+    resourceType: ResourceType.Gas,
+  }),
 };
 
 /** Effective damage of one hit: type×size multiplier, then flat armor, min 1. */
@@ -154,6 +167,7 @@ export type Faction = {
 export const MINE_AMOUNT = 8;
 export const MINE_TICKS = sec(2);
 export const MINE_RANGE = fx(20);
+export const MAX_PER_PATCH = 3; // ceiling for the timing-derived patch saturation cap
 export const DEPOSIT_RANGE = fx(48);
 export const BUILD_RANGE = fx(28); // worker "at the construction site" radius
 export const START_MINERALS = 50;
@@ -161,6 +175,7 @@ export const START_WORKERS = 4;
 export const MAX_QUEUE = 5;
 export const SUPPLY_CAP = 200;
 export const PATCH_AMOUNT = 1500;
+export const GAS_AMOUNT = 5000; // gas a Refinery yields once built on a geyser
 
 export const Terran: Faction = {
   name: 'Terran',
