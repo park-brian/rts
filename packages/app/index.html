@@ -13,13 +13,15 @@
       html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e13;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #e6edf3;
         touch-action: none; user-select: none; -webkit-user-select: none; }
-      #game { position: fixed; inset: 0; display: block; }
+      #game, #overlay { position: fixed; inset: 0; display: block; }
+      #overlay { pointer-events: none; } /* world is GL; this layer is screen-space chrome */
       #ui { position: fixed; inset: 0; pointer-events: none; }
       #ui > * { pointer-events: auto; }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    <canvas id="overlay"></canvas>
     <div id="ui"></div>
     <script type="module" src="./bundle.js"></script>
   </body>

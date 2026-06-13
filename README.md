@@ -160,7 +160,10 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   Producer flags in data) so adding a unit — or a race — is data, not new system code.
 - **`packages/ai`** — a faction-driven scripted AI (economy, supply, tech, army, attack/defend),
   deterministic and god-vision; the built-in opponent and future BC demonstrator.
-- **`packages/app`** — top-down Canvas renderer (imperative, never via the VDOM) + Preact/signals
+- **`packages/app`** — top-down **WebGL2 instanced-sprite renderer** (imperative, never via the
+  VDOM): one batched draw for all units/buildings/HP-bars/selection, self-drawn team-colored SVG
+  sprites baked to a runtime texture atlas, soft texture-based fog, with a Canvas2D fallback +
+  2D overlay for chrome — see [`docs/specs/assets.md`](docs/specs/assets.md). Plus a Preact/signals
   HUD; touch model (1-finger select/box, 2-finger pan, pinch zoom, smart-tap, command hotbar);
   fog, minimap, win screen, and an **in-app replay viewer** (scrubber, play/pause, 0.5–4× speed,
   save/load JSON). One ~40-line esbuild build; static, GitHub-Pages-ready.

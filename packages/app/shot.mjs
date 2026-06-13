@@ -6,7 +6,11 @@ import { mkdirSync } from 'node:fs';
 const URL = process.env.URL || 'http://127.0.0.1:8099/';
 mkdirSync('shots', { recursive: true });
 
-const browser = await chromium.launch();
+// SwiftShader gives headless Chromium a working WebGL2 stack so screenshots
+// capture the real GL renderer (gl/renderer.ts), not the Canvas2D fallback.
+const browser = await chromium.launch({
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+});
 const ctx = await browser.newContext({ ...devices['iPhone 12'] }); // 390x844 portrait
 const page = await ctx.newPage();
 await page.goto(URL, { waitUntil: 'load' });
