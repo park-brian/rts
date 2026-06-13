@@ -5,9 +5,11 @@
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Kind, Units, Role,
   slotOf, eid, isEnemy, isAlive, NEUTRAL, toReplay, mapFromSpec,
+  makeState, spawnUnit, fx,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec,
 } from './sim.ts';
+import { ROSTER } from './art/roster.ts';
 import { ui, type Mode } from './store.ts';
 
 const TICK_MS = 1000 / FPS;
@@ -147,6 +149,49 @@ export class Game {
     this.framed = true;
   }
 
+  /** Debug/showcase: a static, paused god-view with one of every unit & building
+   *  laid out in a grid, colored by race. Exposed on window.__game for the viewer. */
+  gallery(seed = 1): void {
+    this.mode = 'spectate';
+    this.seed = seed;
+    this.perTeam = 4;
+    this.replay = null;
+    this.map = generateMap(this.perTeam, seed);
+    const st = makeState(this.map, 6, seed);
+    for (let p = 0; p < 6; p++) st.teams[p] = 0; // all allied → a static, fight-free showcase
+    this.sim = Sim.fromState(st);
+    this.human = -1;
+    this.controllers = [];
+    this.selection.clear();
+    this.queued = [];
+    this.paused = true;
+    this.visible = new Uint8Array(this.map.w * this.map.h);
+    this.explored = new Uint8Array(this.map.w * this.map.h);
+
+    const lower = (k: string): string => (/^[A-Z]+$/.test(k) ? k.toLowerCase() : k[0]!.toLowerCase() + k.slice(1));
+    const nameToKind = new Map(Object.entries(Kind).map(([k, v]) => [lower(k), v as number]));
+    const raceColor: Record<string, number> = { terran: 0, protoss: 3, zerg: 1 };
+    const items = ROSTER.filter((r) => nameToKind.has(r.name));
+    const COLS = 14;
+    const rows = Math.ceil(items.length / COLS);
+    const pitch = 4 * TILE; // 128px cells: clears the largest building footprints
+    const x0 = 3 * TILE;
+    const y0 = 3 * TILE;
+    items.forEach((r, i) => {
+      const px = x0 + (i % COLS) * pitch;
+      const py = y0 + ((i / COLS) | 0) * pitch;
+      spawnUnit(this.sim.fullState(), nameToKind.get(r.name)!, raceColor[r.race] ?? NEUTRAL, fx(px), fx(py));
+    });
+
+    ui.mode.value = 'spectate';
+    ui.placement.value = 0;
+    this.framed = true;
+    const bw = COLS * pitch;
+    const bh = rows * pitch;
+    this.zoom = Math.min(this.viewW / (bw + pitch), this.viewH / (bh + pitch)) * 0.98;
+    this.centerOn(x0 + ((COLS - 1) * pitch) / 2, y0 + ((rows - 1) * pitch) / 2);
+  }
+
   centerOn(wx: number, wy: number): void {
     this.camX = wx - this.viewW / this.zoom / 2;
     this.camY = wy - this.viewH / this.zoom / 2;
@@ -178,11 +223,12 @@ export class Game {
       if (this.paused) this.acc = 0;
     } else {
       let steps = 0;
-      while (this.acc >= TICK_MS && steps < 8) {
+      while (!this.paused && this.acc >= TICK_MS && steps < 8) {
         this.tick();
         this.acc -= TICK_MS;
         steps++;
       }
+      if (this.paused) this.acc = 0;
     }
     this.computeFog();
     this.publish();

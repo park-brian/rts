@@ -31,16 +31,13 @@ const TEAM_RGB = OWN_HEX.map(rgb);
 const NEUTRAL_RGB = rgb(NEUTRAL_HEX);
 const teamColor = (owner: number): [number, number, number] => TEAM_RGB[owner] ?? NEUTRAL_RGB;
 
-const SPRITE_OF: Record<number, string> = {
-  [Kind.SCV]: 'scv',
-  [Kind.Marine]: 'marine',
-  [Kind.CommandCenter]: 'commandCenter',
-  [Kind.SupplyDepot]: 'supplyDepot',
-  [Kind.Barracks]: 'barracks',
-  [Kind.Refinery]: 'refinery',
-  [Kind.Mineral]: 'mineral',
-  [Kind.Geyser]: 'geyser',
-};
+// Map every Kind → its roster sprite name (lower-camel of the Kind enum key; an
+// all-caps key like SCV lowercases whole). Minerals/geyser map to the neutral art.
+const lowerName = (key: string): string =>
+  /^[A-Z]+$/.test(key) ? key.toLowerCase() : key[0]!.toLowerCase() + key.slice(1);
+const SPRITE_OF: Record<number, string> = Object.fromEntries(
+  Object.entries(Kind).filter(([, v]) => v !== Kind.None).map(([k, v]) => [v, lowerName(k)]),
+);
 const scaleOf = (kind: number): number => SPRITES[SPRITE_OF[kind] ?? '']?.scale ?? 1;
 /** Drawn footprint radius (world px) for a kind, before zoom min-size clamping. */
 const radiusOf = (kind: number): number => (Units[kind]!.radius / ONE) * scaleOf(kind);
