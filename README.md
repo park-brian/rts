@@ -142,27 +142,38 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
 
 - **`packages/sim`** — deterministic, data-oriented core: fixed-point math, seeded PRNG, SoA
   entity store, tick pipeline (census → commands → construction → production → harvest → combat
-  → movement → victory), line-of-sight + A* pathfinding, the SC1 damage model, and procedural
-  symmetric NvN maps (base plateaus, ramps, validated connectivity). Systems are
+  → movement → separation → victory), **flow-field group pathfinding** (one shared integer
+  Dijkstra field per goal, so N units to one destination cost one field, not N A\* runs) with a
+  line-of-sight shortcut and boids-lite **separation** (units fan out instead of stacking), a
+  **typed-array spatial grid** (target acquisition is O(n·k_local), not O(n²)), the SC1 damage
+  model, and procedural symmetric NvN maps (base plateaus, ramps, validated connectivity).
+  **Replays** are first-class: opt-in command-stream recording, `play`/`replayHashes`
+  re-simulation, and `serialize()`/`deserialize()` of full state to a flat `ArrayBuffer`
+  (disk/Worker transfer; the same record is the netcode + RL-trajectory format). Systems are
   **role/capability-driven, not race-specific** (Worker / ResourceDepot / Resource / Producer
   flags in data) so adding a unit — or a race — is data, not new system code.
 - **`packages/ai`** — a faction-driven scripted AI (economy, supply, tech, army, attack/defend),
   deterministic and god-vision; the built-in opponent and future BC demonstrator.
 - **`packages/app`** — top-down Canvas renderer (imperative, never via the VDOM) + Preact/signals
   HUD; touch model (1-finger select/box, 2-finger pan, pinch zoom, smart-tap, command hotbar);
-  fog, minimap, win screen. One ~40-line esbuild build; static, GitHub-Pages-ready.
+  fog, minimap, win screen, and an **in-app replay viewer** (scrubber, play/pause, 0.5–4× speed,
+  save/load JSON). One ~40-line esbuild build; static, GitHub-Pages-ready.
 
-Verified by `node --test` (22 tests: fixed-point, RNG, economy, combat, **replay-hash &
-snapshot/restore determinism**, pathfinding, procedural connectivity, full **AI-vs-AI games end
-deterministically**) and Playwright screenshots at phone resolution.
+Verified by `node --test` (28 tests: fixed-point, RNG, economy, combat, **replay-hash &
+snapshot/restore & byte-serialize determinism**, **group pathfinding (arrives + fans out,
+deterministic)**, **what-if branching**, procedural connectivity, full **AI-vs-AI games end
+deterministically**, and an entity-column coverage guard) and Playwright screenshots at phone
+resolution.
 
-| Play (fog + base) | Selection + hotbar | AI vs AI battle |
+| Play (fog + base) | AI vs AI battle | Replay viewer |
 |---|---|---|
-| ![play](docs/screenshots/play-open.png) | ![selected](docs/screenshots/play-selected.png) | ![battle](docs/screenshots/spectate-battle.png) |
+| ![play](docs/screenshots/play-open.png) | ![battle](docs/screenshots/spectate-battle.png) | ![replay](docs/screenshots/replay-viewer.png) |
 
 Run it: `npm install && npm run build:app`, then serve `packages/app/dist/` (or `npm --workspace
-@rts/app run dev`). Throughput stays in the hundreds of thousands of ticks/s headless — the
-runway for AlphaStar-style training next.
+@rts/app run dev`). Headless throughput (single-threaded V8, one game): **~140k ticks/s** for a
+2-player economy and **~30k ticks/s** for a full AI-vs-AI 1v1 (the spatial grid makes combat
+acquisition O(n·k) rather than O(n²), so this scales with army size). A Worker/process pool
+multiplies that across cores — the runway for AlphaStar-style training next.
 
 ## Roadmap
 

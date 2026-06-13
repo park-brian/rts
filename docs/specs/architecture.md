@@ -101,12 +101,22 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
   7. death/cleanup, fog-of-vision update, event emission
 - **Spatial index.** A uniform grid / bucket structure (typed-array backed) for range queries
   (target acquisition, splash, selection, fog). Rebuilt or incrementally updated each tick.
-- **Pathfinding.** Tile-grid based (SC1-style 32px build tiles / 8px walk tiles). Start with
-  deterministic A* + flow-field/boids-lite for groups; integer-only. Historically the perf hot
-  spot — budget for it; it's also the first candidate for a future WASM port.
+- **Pathfinding.** Tile-grid based (SC1-style 32px build tiles / 8px walk tiles), integer-only.
+  **Implemented:** a shared **flow field** per goal tile (one integer Dijkstra, cached per-map
+  and reused by every unit heading there — N units to one goal cost one field, not N A\* runs),
+  a line-of-sight shortcut for the open-terrain/final-approach common case, and **boids-lite
+  separation** so groups fan out instead of stacking. The field is a pure function of
+  (map, goal), so it lives outside game state and never affects the hash. Still the first
+  candidate for a future WASM port if profiling demands it.
 - **No I/O in core.** Logging, file access, rendering, and timing live in the host layers.
 - **Snapshot/restore.** State is plain typed-array buffers, so we can clone/serialize cheaply to
-  fork games, save/load, and reset parallel envs fast (memcpy of buffers).
+  fork games, save/load, and reset parallel envs fast. **Implemented:** in-memory
+  `snapshot()/restore()` (deep clone, for forking "what-ifs") and `serialize()/deserialize()` to
+  a flat `ArrayBuffer` (full state + map) for disk persistence and Worker transfer. The entity
+  columns are driven by a single `ENTITY_COLUMNS` registry (a coverage test fails if a new column
+  escapes clone/serialize). Note: `makeEntities` stays an explicit object literal so V8 keeps a
+  fast hidden class — building it from the registry dropped it into dictionary mode and ~halved
+  hot-loop throughput.
 
 ### Public core API (sketch, TypeScript)
 
@@ -115,10 +125,12 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
 class Sim {
   constructor(map: MapDef, players: PlayerSetup[], seed: number);
   step(commands: PlayerCommands[]): StepResult; // advance 1 tick
-  observe(player: PlayerId): Observation;        // fog-limited view
+  observe(player: PlayerId): Observation;        // fog-limited view (TODO: stubbed to fullState)
   fullState(): WorldState;                        // for rendering / god-view AI
-  snapshot(): ArrayBuffer;                        // flat buffers, cheap
-  static restore(buf: ArrayBuffer): Sim;
+  snapshot(): State;                              // in-memory deep clone (fork / what-ifs)
+  static restore(snap: State): Sim;
+  serialize(): ArrayBuffer;                       // flat bytes (disk / Worker transfer)
+  static deserialize(buf: ArrayBuffer): Sim;
   hash(): number;                                 // for the replay-determinism test
 }
 ```
@@ -276,8 +288,9 @@ TypeScript.
 
 ## 10. Open questions / deferred
 
-- Pathfinding approach at scale (A* + flow fields vs. SC1's path tables) — prototype/benchmark;
-  first candidate for a future WASM hot-loop port.
+- ~~Pathfinding approach at scale (A* + flow fields vs. SC1's path tables)~~ — **decided:**
+  shared flow fields + LOS + boids-lite separation (see §4). Revisit SC1-style path tables / a
+  WASM hot-loop port only if profiling at training scale demands it.
 - Fixed-point scale factor and whether to mirror SC1's exact sub-tile units.
 - The training substrate: JS-native RL loop vs. Python bridge vs. eventual WASM/JAX port —
   decided in [`ai-training.md`](./ai-training.md) when we reach that stage and can measure.
