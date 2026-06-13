@@ -93,6 +93,20 @@ export const buildAtlas = async (): Promise<Atlas> => {
     cg.restore();
     uv.ring = rect(x, y);
   }
+  // Procedural: soft radial glow (white center → transparent). Tinted at draw
+  // time for ground shadows, lights, muzzle flashes, and explosion particles.
+  {
+    const { x, y } = place(i++);
+    const cx = x + inner / 2;
+    const cy = y + inner / 2;
+    const g = cg.createRadialGradient(cx, cy, 0, cx, cy, inner / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cg.fillStyle = g;
+    cg.fillRect(x, y, inner, inner);
+    uv.glow = rect(x, y);
+  }
 
   return { color, mask, uv, size };
 };

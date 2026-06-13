@@ -23,7 +23,7 @@ export type CommandSpec = {
   attributes: Record<string, AttribSpec>;
   uniforms?: string[]; // declared uniform names (samplers auto-assigned a unit)
   primitive?: number; // default gl.TRIANGLES
-  blend?: boolean; // default true (premultiply-free src-alpha over)
+  blend?: boolean | 'add'; // true = src-alpha over (default), 'add' = additive, false = off
   depth?: boolean; // default false
 };
 
@@ -213,7 +213,8 @@ export class Gl {
     return (props: DrawProps): void => {
       gl.useProgram(prog);
       gl.bindVertexArray(vao);
-      if (blend) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
+      if (blend === 'add') { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE); }
+      else if (blend) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); }
       else gl.disable(gl.BLEND);
       if (depth) gl.enable(gl.DEPTH_TEST); else gl.disable(gl.DEPTH_TEST);
       if (props.uniforms) {

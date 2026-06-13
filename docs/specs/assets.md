@@ -5,13 +5,17 @@
 > imperative WebGL world layer (see [architecture §6](./architecture.md#6-rendering--ui-browser-ts)).
 >
 > **Implemented (vertical slice).** The WebGL2 path described below is live in `packages/app`:
-> a tiny regl-like core (`src/gl/gl.ts`) drives one instanced sprite pass for every
-> unit/building/resource plus HP bars, selection rings, and rally markers. Self-drawn SVG sprites
-> (`src/art/sprites.ts`) bake into a runtime color+mask texture atlas (`src/gl/atlas.ts`) at
-> startup; team color is a fragment-shader multiply through the mask channel (§4); fog is a soft,
-> linear-filtered texture quad. Canvas2D (`src/render2d.ts`) remains the fallback and the source of
-> the 2D-overlay chrome (minimap, drag box). Next: re-bake per zoom bucket (§3.3), animation,
-> particles, and lights on the same instanced substrate.
+> a tiny regl-like core (`src/gl/gl.ts`) drives two instanced sprite passes — a normal-blend
+> batch (ground shadows, every unit/building/resource body, HP bars, selection rings, rally
+> markers) and an **additive** batch (ambient building/resource lights + combat particles). Self-
+> drawn SVG sprites (`src/art/sprites.ts`, flat-with-baked-volume, consistent top-left lighting)
+> bake into a runtime color+mask texture atlas (`src/gl/atlas.ts`) at startup; team color is a
+> fragment-shader multiply through the mask channel (§4); fog is a soft, linear-filtered texture
+> quad. A CPU particle pool (`src/gl/particles.ts`) spawns muzzle flashes and death explosions by
+> diffing observable state frame-to-frame (cosmetic only — never the sim). Units rotate to face
+> their move target. Canvas2D (`src/render2d.ts`) remains the fallback and the source of the
+> 2D-overlay chrome (minimap, drag box). Next: re-bake per zoom bucket (§3.3), multi-frame sprite
+> animation, and richer effects (impact sparks, smoke) on the same instanced substrate.
 
 ## 1. Hard rule: only CC0 or self-made ships
 
