@@ -15,11 +15,17 @@
 //  - If a worker's patch depletes or vanishes, it re-routes to the nearest free one.
 
 import type { State } from '../world.ts';
-import { slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
+import { CAP, slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, MINE_RANGE, DEPOSIT_RANGE, MAX_PER_PATCH } from '../data.ts';
 import { isqrt } from '../fixed.ts';
 import { within } from './move.ts';
 import { navigate } from '../pathing.ts';
+
+// Per-tick scratch (transient; never hashed/cloned). mineLock[node] = the worker
+// mid-extraction there (or -1); depotList = drop-off points. Both let the per-worker
+// work in the loop be O(1)/O(depots) instead of an O(workers) rescan each.
+const mineLock = new Int32Array(CAP);
+const depotList = new Int32Array(CAP);
 
 export const isResource = (e: State['e'], id: number): boolean =>
   isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Resource) !== 0;
@@ -34,17 +40,6 @@ const minersOn = (s: State, node: number, owner: number, except: number): number
     if (isResource(e, e.target[i]!) && slotOf(e.target[i]!) === node) n++;
   }
   return n;
-};
-
-/** True if another worker is mid-extraction on `node` (the patch is reserved this tick). */
-const nodeBusy = (s: State, node: number, except: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (i === except || e.alive[i] !== 1) continue;
-    if ((e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest || e.timer[i]! <= 0) continue;
-    if (isResource(e, e.target[i]!) && slotOf(e.target[i]!) === node) return true;
-  }
-  return false;
 };
 
 /** Saturation cap of a patch, derived from its round-trip-to-depot vs mine time. */
@@ -86,6 +81,28 @@ export const pickPatch = (
 export const harvest = (s: State): void => {
   const e = s.e;
 
+  // Pre-passes (each O(entities) once): node reservations + the drop-off list, so
+  // the per-worker checks below are O(1)/O(depots), not an O(workers) rescan each.
+  mineLock.fill(-1, 0, e.hi);
+  let nDepots = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1) continue;
+    if ((e.flags[i]! & Role.ResourceDepot) !== 0) depotList[nDepots++] = i;
+    if ((e.flags[i]! & Role.Worker) !== 0 && e.order[i] === Order.Harvest && e.timer[i]! > 0 && isResource(e, e.target[i]!)) {
+      mineLock[slotOf(e.target[i]!)] = i;
+    }
+  }
+  const nearestDepot = (x: number, y: number, owner: number): number => {
+    let best = NONE; let bd = Infinity;
+    for (let k = 0; k < nDepots; k++) {
+      const d = depotList[k]!;
+      if (e.owner[d] !== owner) continue;
+      const dx = e.x[d]! - x; const dy = e.y[d]! - y; const dd = dx * dx + dy * dy;
+      if (dd < bd) { bd = dd; best = d; }
+    }
+    return best;
+  };
+
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || (e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
     const owner = e.owner[i]!;
@@ -93,7 +110,7 @@ export const harvest = (s: State): void => {
 
     if (e.cargo[i]! > 0) {
       // Returning: deliver to the nearest owned resource depot.
-      const depot = nearest(s, e.x[i]!, e.y[i]!, (sl) => (e.flags[sl]! & Role.ResourceDepot) !== 0 && e.owner[sl] === owner);
+      const depot = nearestDepot(e.x[i]!, e.y[i]!, owner);
       if (depot === NONE) { e.order[i] = Order.Idle; continue; }
       if (within(e, i, e.x[depot]!, e.y[depot]!, DEPOSIT_RANGE)) {
         const pool = e.cargoType[i]! === ResourceType.Gas ? s.players.gas : s.players.minerals;
@@ -126,10 +143,11 @@ export const harvest = (s: State): void => {
           e.cargo[node] = e.cargo[node]! - taken;
           e.cargo[i] = taken;
           e.cargoType[i] = Units[e.kind[node]!]!.resourceType;
+          mineLock[node] = -1; // done extracting → release for a waiting worker
           if (e.cargo[node]! <= 0) kill(s, node);
         }
-      } else if (!nodeBusy(s, node, i)) {
-        e.timer[i] = MINE_TICKS; // patch free → reserve it and begin mining
+      } else if (mineLock[node] === -1) {
+        e.timer[i] = MINE_TICKS; mineLock[node] = i; // patch free → reserve it and begin mining
       }
       // else: another worker is mining here — wait our turn (hold position).
     } else {

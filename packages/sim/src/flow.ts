@@ -66,8 +66,17 @@ export const prepareNav = (s: State): Nav => {
 
 const navOf = (s: State): Nav => navByState.get(s) ?? prepareNav(s);
 
+// The solid grid's array reference is stable across ticks (prepareNav refills it in
+// place), so memoize the per-State lookup: every navigate() in a tick shares one
+// State, turning a WeakMap.get per call into a pointer compare.
+let memoState: State | null = null;
+let memoSolid: Uint8Array = new Uint8Array(0);
+
 /** The current building-footprint grid (fetch once, then use `open` in hot loops). */
-export const navSolid = (s: State): Uint8Array => navOf(s).solid;
+export const navSolid = (s: State): Uint8Array => {
+  if (s !== memoState) { memoState = s; memoSolid = navOf(s).solid; }
+  return memoSolid;
+};
 
 /** Walkable terrain AND free of a building footprint, given a fetched solid grid. */
 export const open = (m: State['map'], solid: Uint8Array, tx: number, ty: number): boolean =>
