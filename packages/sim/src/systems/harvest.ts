@@ -6,7 +6,8 @@
 import type { State } from '../world.ts';
 import { slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, MINE_RANGE, DEPOSIT_RANGE } from '../data.ts';
-import { moveToward, within } from './move.ts';
+import { within } from './move.ts';
+import { navigate } from '../pathing.ts';
 
 export const harvest = (s: State): void => {
   const e = s.e;
@@ -33,7 +34,7 @@ export const harvest = (s: State): void => {
           e.target[i] = np === NONE ? NONE : eid(e, np);
         }
       } else {
-        moveToward(e, i, e.x[depot]!, e.y[depot]!, speed);
+        navigate(s, i, e.x[depot]!, e.y[depot]!, speed);
       }
       continue;
     }
@@ -63,7 +64,7 @@ export const harvest = (s: State): void => {
         }
       }
     } else {
-      moveToward(e, i, e.x[node]!, e.y[node]!, speed);
+      navigate(s, i, e.x[node]!, e.y[node]!, speed);
     }
   }
 };

@@ -28,6 +28,9 @@ export const setupMatch = (
     e.cargo[slotOf(id)] = r.amount;
   }
 
+  // Teams from the map (if provided), else each player on their own team.
+  for (let p = 0; p < playerCount; p++) s.teams[p] = map.teams[p] ?? p;
+
   // Players: depot + workers, per faction.
   for (let p = 0; p < playerCount; p++) {
     const faction = factions?.[p] ?? Terran;

@@ -6,7 +6,7 @@
 import type { State } from '../world.ts';
 import { spawn, slotOf, eid, nearest, NONE } from '../world.ts';
 import { Order, Role, Units, BUILD_RANGE } from '../data.ts';
-import { moveToward } from './move.ts';
+import { navigate } from '../pathing.ts';
 
 export const construction = (s: State): void => {
   const e = s.e;
@@ -35,7 +35,7 @@ export const construction = (s: State): void => {
         e.target[i] = NONE;
       }
     } else {
-      moveToward(e, i, e.tx[i]!, e.ty[i]!, speed);
+      navigate(s, i, e.tx[i]!, e.ty[i]!, speed);
     }
   }
 

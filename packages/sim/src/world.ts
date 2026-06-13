@@ -10,6 +10,7 @@ import { fold, foldArray, FNV_OFFSET } from './hash.ts';
 export const CAP = 4096; // max simultaneous entities (grow later if needed)
 export const NONE = -1; // null EntityId sentinel
 export const NEUTRAL = 255; // owner id for non-player entities (resources)
+export const MAXPATH = 32; // max stored waypoints per unit (string-pulled paths are short)
 
 // Parallel component columns. EntityId encodes (slot, generation) so stale
 // references are detected after a slot is reused.
@@ -36,6 +37,11 @@ export type Entities = {
   buildKind: Uint16Array; // for a worker en route to build: the structure kind
   cargo: Int32Array; // carried resources (workers) / remaining amount (nodes)
   cargoType: Uint8Array; // ResourceType currently carried by a worker
+  // navigation cache (derived; cloned but not hashed)
+  pathGoal: Int32Array; // goal tile index the current path was built for (-1 none)
+  pathLen: Uint8Array;
+  pathIdx: Uint8Array;
+  pathPts: Int32Array; // CAP * MAXPATH waypoint tile indices
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
   prodQueued: Int32Array; // additional queued units of prodKind
@@ -103,6 +109,10 @@ const makeEntities = (): Entities => {
     buildKind: new Uint16Array(CAP),
     cargo: new Int32Array(CAP),
     cargoType: new Uint8Array(CAP),
+    pathGoal: new Int32Array(CAP).fill(-1),
+    pathLen: new Uint8Array(CAP),
+    pathIdx: new Uint8Array(CAP),
+    pathPts: new Int32Array(CAP * MAXPATH),
     prodKind: new Uint16Array(CAP),
     prodTimer: new Int32Array(CAP),
     prodQueued: new Int32Array(CAP),
@@ -164,6 +174,9 @@ export const spawn = (
   e.buildKind[slot] = 0;
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
+  e.pathGoal[slot] = -1;
+  e.pathLen[slot] = 0;
+  e.pathIdx[slot] = 0;
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
@@ -236,6 +249,10 @@ const cloneEntities = (e: Entities): Entities => ({
   buildKind: e.buildKind.slice(),
   cargo: e.cargo.slice(),
   cargoType: e.cargoType.slice(),
+  pathGoal: e.pathGoal.slice(),
+  pathLen: e.pathLen.slice(),
+  pathIdx: e.pathIdx.slice(),
+  pathPts: e.pathPts.slice(),
   prodKind: e.prodKind.slice(),
   prodTimer: e.prodTimer.slice(),
   prodQueued: e.prodQueued.slice(),

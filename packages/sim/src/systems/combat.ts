@@ -7,7 +7,8 @@
 import type { State } from '../world.ts';
 import { slotOf, eid, kill, isAlive, isEnemy, nearest, NONE } from '../world.ts';
 import { Order, Units, computeDamage, tiles } from '../data.ts';
-import { moveToward, within } from './move.ts';
+import { within } from './move.ts';
+import { navigate } from '../pathing.ts';
 
 const acquire = (s: State, i: number, aggro: number): number => {
   const e = s.e;
@@ -45,7 +46,7 @@ export const combat = (s: State): void => {
     if (tgt === NONE) {
       if (order === Order.Attack) e.order[i] = Order.Idle; // target gone
       else if (order === Order.AttackMove) {
-        if (moveToward(e, i, e.tx[i]!, e.ty[i]!, def.speed)) e.order[i] = Order.Idle;
+        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed)) e.order[i] = Order.Idle;
       }
       continue;
     }
@@ -60,7 +61,7 @@ export const combat = (s: State): void => {
       // remember the engaged target so Idle defenders keep firing it
       e.target[i] = eid(e, tgt);
     } else {
-      moveToward(e, i, e.x[tgt]!, e.y[tgt]!, def.speed); // approach
+      navigate(s, i, e.x[tgt]!, e.y[tgt]!, def.speed); // approach
     }
   }
 };

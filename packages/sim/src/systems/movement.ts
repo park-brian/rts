@@ -1,9 +1,9 @@
-// Generic movement: units carrying out a plain Move order advance toward their
-// target point and go Idle on arrival. (Harvesters move via the harvest system.)
+// Generic movement: units carrying out a plain Move order path toward their target
+// point and go Idle on arrival. (Harvesters/attackers move via their own systems.)
 
 import type { State } from '../world.ts';
 import { Order, Units } from '../data.ts';
-import { moveToward } from './move.ts';
+import { navigate } from '../pathing.ts';
 
 export const movement = (s: State): void => {
   const e = s.e;
@@ -14,6 +14,6 @@ export const movement = (s: State): void => {
       e.order[i] = Order.Idle;
       continue;
     }
-    if (moveToward(e, i, e.tx[i]!, e.ty[i]!, def.speed)) e.order[i] = Order.Idle;
+    if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed)) e.order[i] = Order.Idle;
   }
 };

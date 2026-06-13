@@ -4,6 +4,8 @@
 
 import type { State } from '../world.ts';
 import { slotOf, isAlive, NONE } from '../world.ts';
+import { buildable } from '../map.ts';
+import { tileX, tileY } from '../pathing.ts';
 import type { PlayerCommands } from '../commands.ts';
 import { Kind, Order, Role, Units, MAX_QUEUE } from '../data.ts';
 
@@ -33,6 +35,7 @@ const startBuild = (s: State, slot: number, kind: number, x: number, y: number, 
   if ((e.flags[slot]! & Role.Worker) === 0) return;
   const def = Units[kind];
   if (!def || (def.roles & Role.Structure) === 0) return;
+  if (!buildable(s.map, tileX(x), tileY(y))) return; // can't build on cliffs/obstacles
   if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return;
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;

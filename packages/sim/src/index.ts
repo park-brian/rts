@@ -7,6 +7,8 @@ export * from './data.ts';
 export * from './map.ts';
 export * from './commands.ts';
 export * from './world.ts';
+export * from './pathing.ts';
+export * from './procedural.ts';
 export * from './factory.ts';
 export * from './systems/census.ts';
 export * from './tick.ts';
