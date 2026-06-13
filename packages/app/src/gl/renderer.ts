@@ -12,7 +12,7 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, Order, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
+import { TILE, ONE, Units, Role, Kind, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
 import { SPRITES } from '../art/sprites.ts';
@@ -138,6 +138,10 @@ export class GlRenderer {
   private prevX = new Int32Array(CAP);
   private prevY = new Int32Array(CAP);
   private prevKind = new Uint16Array(CAP);
+  // Persistent render-side facing (radians) + whether it has been seeded. Smoothed
+  // toward the desired heading each frame so units bank into turns instead of snapping.
+  private faceA = new Float32Array(CAP);
+  private faceSet = new Uint8Array(CAP);
   private last = 0; // wall-clock seconds of the previous frame
 
   constructor(core: Gl, atlas: Atlas) {
@@ -301,15 +305,33 @@ export class GlRenderer {
       const r = this.rr[i]!;
       const sprite = uv[SPRITE_OF[kind] ?? ''] ?? uv.white!;
 
-      // Facing: rotate mobile units toward their move target ("up" art = −y).
+      // Facing (render-only; sim stays deterministic — "up" art = −y). Desired
+      // heading: aim at a live combat target when fighting, else turn to the unit's
+      // actual velocity when moving, else hold. The angle is then eased toward that
+      // heading at a capped turn rate so units pivot smoothly instead of snapping.
       let rot = 0;
       const isMobile = (def.roles & (Role.Structure | Role.Resource)) === 0 && !isGeyser;
       if (isMobile) {
-        const ord = e.order[i]!;
-        if (ord === Order.Move || ord === Order.AttackMove || ord === Order.Build || ord === Order.Harvest) {
-          const dx = e.tx[i]! - e.x[i]!; const dy = e.ty[i]! - e.y[i]!;
-          if (dx * dx + dy * dy > 16) rot = Math.atan2(dx, -dy);
+        let desired = NaN;
+        const tgt = e.target[i]!;
+        if (isAlive(e, tgt)) {
+          const s = slotOf(tgt);
+          desired = Math.atan2(e.x[s]! - e.x[i]!, -(e.y[s]! - e.y[i]!));
+        } else {
+          const vx = (e.x[i]! - this.prevX[i]!) / ONE;
+          const vy = (e.y[i]! - this.prevY[i]!) / ONE;
+          if (vx * vx + vy * vy > 0.04) desired = Math.atan2(vx, -vy);
         }
+        // Seed on first sighting / slot reuse so a fresh unit doesn't spin up from 0.
+        if (this.faceSet[i] !== 1 || this.prevAlive[i] !== 1) {
+          this.faceA[i] = Number.isNaN(desired) ? 0 : desired;
+          this.faceSet[i] = 1;
+        } else if (!Number.isNaN(desired)) {
+          const d = Math.atan2(Math.sin(desired - this.faceA[i]!), Math.cos(desired - this.faceA[i]!));
+          const MAX = 0.35; // ~20°/frame turn cap
+          this.faceA[i] += Math.max(-MAX, Math.min(MAX, d));
+        }
+        rot = this.faceA[i]!;
       }
       const alpha = isStruct && e.built[i] !== 1 ? 0.55 : 1;
       const [tr, tg, tb] = teamColor(e.owner[i]!);

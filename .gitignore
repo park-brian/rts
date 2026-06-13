@@ -38,3 +38,6 @@ checkpoints/
 
 # app build artifacts
 packages/app/shots/
+
+# Local art/screenshot scratch (regenerable)
+packages/app/proto/shots/
