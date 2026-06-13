@@ -1,0 +1,10 @@
+{
+  "name": "@rts/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic, data-oriented RTS simulation core. No DOM, no I/O, no float in the hot path.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

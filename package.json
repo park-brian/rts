@@ -1,0 +1,22 @@
+{
+  "name": "rts",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Mobile-first, browser-playable RTS (StarCraft 1-style) with a research-grade AI platform.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc -p tsconfig.json",
+    "demo": "node packages/headless/src/demo.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}

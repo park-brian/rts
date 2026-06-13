@@ -123,10 +123,26 @@ native type stripping. Only the browser app carries a tiny esbuild script (for T
 | Screenshots | Playwright |
 
 ```bash
+npm install            # workspaces + typescript + @types/node
+npm test               # node --test (runs the .ts tests directly, no build)
+npm run typecheck      # tsc --noEmit
+npm run demo           # headless 2-player economy game + throughput benchmark
+```
+
+```bash
 # Download + extract reference papers (PDFs are git-ignored; text is committed)
 pip install pymupdf
 python3 docs/scripts/fetch_papers.py
 ```
+
+### Current status
+
+The deterministic **sim core** (`packages/sim`) is in: fixed-point math, seeded PRNG,
+SoA entity store, the tick pipeline (commands → production → harvest → movement), the
+vertical-slice map, the `Sim` API, and a scripted macro bot (`packages/ai`). Verified by
+`node --test` — including **replay-hash and snapshot/restore determinism** — and a headless
+demo (`packages/headless`) that runs a symmetric 2-player economy game at **~700k ticks/s
+single-threaded**. Next: the browser renderer + mobile UI (Pages deploy), then combat/fog.
 
 ## Roadmap
 

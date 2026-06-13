@@ -1,0 +1,13 @@
+{
+  "name": "@rts/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scripted controllers (god-vision bots). Consumes @rts/sim through the controller boundary.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@rts/sim": "*"
+  }
+}
