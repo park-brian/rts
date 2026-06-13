@@ -16,19 +16,21 @@ import { ROSTER, EDGE } from './roster.ts';
 
 export type SpriteDef = { body: string; mask?: string; scale?: number };
 
-// Neutralize a roster body (TEAMFILL → shaded grey) for the mask-multiply tint.
-const tgDefs =
-  `<defs><linearGradient id="t" x1="0.1" y1="0.05" x2="0.9" y2="1">` +
-  `<stop offset="0" stop-color="#f4f6f9"/><stop offset="0.55" stop-color="#dfe3e8"/>` +
-  `<stop offset="1" stop-color="#bcc2ca"/></linearGradient></defs>`;
-const neutral = (svg: string): string => tgDefs + svg.replaceAll('TEAMFILL', 'url(#t)');
+// Neutralize a roster body for the mask-multiply tint. Three team tones — light
+// highlight / medium / dark shadow facets — become grey levels so `base × team`
+// yields shades of the player color (faceted volume); all three sit in the mask.
+const neutral = (svg: string): string =>
+  svg
+    .replaceAll('TEAMLITE', '#eef1f6')
+    .replaceAll('TEAMDARK', '#787f8c')
+    .replaceAll('TEAMFILL', '#c2c7cf');
 
-// Derive the team mask from a body: white over the team region, black elsewhere.
+// Derive the team mask from a body: white over any team tone, black elsewhere.
 const autoMask = (svg: string): string =>
   svg
     .replace(/stroke="[^"]*"/g, 'stroke="#000"')
-    .replace(/fill="(?!none"|TEAMFILL")[^"]*"/g, 'fill="#000"')
-    .replace(/fill="TEAMFILL"/g, 'fill="#fff"');
+    .replace(/fill="(?!none"|TEAMFILL"|TEAMDARK"|TEAMLITE")[^"]*"/g, 'fill="#000"')
+    .replace(/fill="TEAM(?:FILL|DARK|LITE)"/g, 'fill="#fff"');
 
 export const SPRITES: Record<string, SpriteDef> = {};
 for (const s of ROSTER) {

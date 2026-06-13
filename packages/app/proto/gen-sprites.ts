@@ -62,12 +62,20 @@ const ROSTER = ${JSON.stringify(data)};
 const TEAMS = ['#4ea1ff','#ff5a5a','#ffd24e','#9b7bff','#5affa0','#ff9b4e'];
 let team = TEAMS[0];
 const cache = new Map();
+function shade(hex, f, w) { // f = multiply (darken); w = lighten toward white
+  const n = parseInt(hex.slice(1), 16), ch = [(n>>16)&255, (n>>8)&255, n&255];
+  const mix = (v) => Math.max(0, Math.min(255, Math.round(w ? v + (255-v)*w : v*f)));
+  return '#' + ch.map(v => mix(v).toString(16).padStart(2,'0')).join('');
+}
 function imgFor(svg, color) {
   const key = color + '|' + svg;
   if (cache.has(key)) return cache.get(key);
   const img = new Image();
-  const doc = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
-    svg.replaceAll('TEAMFILL', color) + '</svg>';
+  const tinted = svg
+    .replaceAll('TEAMLITE', shade(color, 1, 0.5))
+    .replaceAll('TEAMDARK', shade(color, 0.62, 0))
+    .replaceAll('TEAMFILL', color);
+  const doc = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' + tinted + '</svg>';
   img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(doc);
   const p = new Promise(res => { if (img.complete) res(img); else img.onload = () => res(img); });
   cache.set(key, p); return p;

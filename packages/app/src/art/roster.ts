@@ -50,6 +50,17 @@ const HL = (x: number, y: number, w: number, h: number): string =>
 const RING = (x: number, y: number, r: number, col: string, w = 1.6, op = 0.7): string =>
   `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}"/>`;
 
+// --- Faceted style (matches the hand-authored reference look): bold filled angular
+// polygons, no outlines. The team region is `TP` (team-filled); `HL` is a light
+// facet highlight (cut-paper bevel); `DK` is near-black detail; `AC` is an accent. ---
+const FACET = '#d6d2db';
+const NEARBLACK = '#16121a';
+const TP = (pts: string): string => `<polygon points="${pts}" fill="TEAMFILL"/>`;
+const FH = (pts: string): string => `<polygon points="${pts}" fill="${FACET}"/>`;
+const DK = (pts: string): string => `<polygon points="${pts}" fill="${NEARBLACK}"/>`;
+const AC = (pts: string, col: string): string => `<polygon points="${pts}" fill="${col}"/>`;
+const DOT = (x: number, y: number, r: number, col: string): string => `<circle cx="${x}" cy="${y}" r="${r}" fill="${col}"/>`;
+
 import { IMPORTED } from './imported.ts';
 
 export type Sprite = {
@@ -70,13 +81,18 @@ const terran: Sprite[] = [
   // SCV: a worker in a boxy power-suit — square helmet + square pauldrons (the
   // Marine's anatomy, squared off) with a forward welding tool instead of a rifle.
   { race: 'terran', cat: 'unit', name: 'scv', label: 'SCV', svg:
-    R(11, 33, 12, 13, 3, T, 2) + R(41, 33, 12, 13, 3, T, 2) +
-    R(30, 5, 5, 18, 2, STEEL, 1) + G(32, 7, 2.6, WARN) +
-    R(22, 26, 20, 20, 5, T, 2.5) + R(26, 31, 12, 8, 2, '#bfe0f2') + G(27, 31, 1.8, HI, 0.45) },
+    TP('10,31 22,29 22,47 12,49') + FH('10,31 12,49 15,48 14,32') +
+    TP('54,31 42,29 42,47 52,49') + FH('54,31 52,49 49,48 50,32') +
+    TP('22,23 42,23 45,49 19,49') + FH('19,49 22,23 26,24 24,48') +
+    DK('25,27 39,27 40,40 24,40') + AC('28,29 36,29 35,38 29,38', '#bfe0f2') +
+    AC('29,5 35,5 34,22 30,22', WARN) + DK('30,2 34,2 33,7 31,7') + DOT(32, 7, 2, '#ffe49a') },
 
   { race: 'terran', cat: 'unit', name: 'marine', label: 'Marine', svg:
-    C(21, 40, 9, T) + C(43, 40, 9, T) + R(38, 13, 6, 25, 2.5, STEEL, 1.4) +
-    C(32, 37, 11, T, 2.5) + P('M24 34 a8 8 0 0 1 16 0 z', STEEL) + G(28, 33, 2.3, HI, 0.4) },
+    TP('11,32 23,28 25,44 13,48') + FH('11,32 13,48 16,47 15,33') +
+    TP('53,32 41,28 39,44 51,48') + FH('53,32 51,48 48,47 49,33') +
+    TP('23,29 41,29 44,50 20,50') + FH('20,50 23,29 27,30 24,49') +
+    TP('25,15 39,15 44,27 32,32 20,27') + FH('20,27 25,15 28,16 24,27') +
+    DK('26,20 38,20 41,27 32,31 23,27') + DK('41,6 46,8 45,30 40,28') },
 
   { race: 'terran', cat: 'unit', name: 'firebat', label: 'Firebat', svg:
     C(22, 41, 9, T) + C(42, 41, 9, T) +
@@ -228,16 +244,20 @@ const protoss: Sprite[] = [
     C(32, 31, 5, CYAN) + G(32, 14, 2.6, GOLD) },
 
   { race: 'protoss', cat: 'unit', name: 'zealot', label: 'Zealot', svg:
-    PL('23,4 20,25 27,25', CYAN, 0.8) + PL('41,4 37,25 44,25', CYAN, 0.8) +
-    PL('16,34 24,24 26,40', T, 2) + PL('48,34 40,24 38,40', T, 2) +
-    C(32, 37, 11, T, 2.5) + C(32, 34, 4.2, GOLD) + G(28, 32, 2, HI, 0.45) },
+    AC('19,3 26,9 23,28 17,25', CYAN) + AC('45,3 38,9 41,28 47,25', CYAN) +
+    AC('19,3 17,25 19,24 21,6', '#d6f7ff') + AC('45,3 47,25 45,24 43,6', '#d6f7ff') +
+    TP('12,29 26,23 28,39 14,44') + FH('12,29 14,44 17,43 16,31') +
+    TP('52,29 38,23 36,39 50,44') + FH('52,29 50,44 47,43 48,31') +
+    TP('24,25 40,25 43,51 21,51') + FH('21,51 24,25 28,26 25,50') +
+    DK('28,20 36,20 35,27 29,27') + AC('29,32 35,32 34,45 30,45', GOLD) },
 
   { race: 'protoss', cat: 'unit', name: 'dragoon', label: 'Dragoon', svg:
-    L(32, 32, 13, 13, STEEL2, 4.5) + L(32, 32, 51, 13, STEEL2, 4.5) +
-    L(32, 32, 15, 51, STEEL2, 4.5) + L(32, 32, 49, 51, STEEL2, 4.5) +
-    C(13, 13, 3, STEEL, 0) + C(51, 13, 3, STEEL, 0) + C(15, 51, 3, STEEL, 0) + C(49, 51, 3, STEEL, 0) +
-    C(32, 32, 15, T, 2.5) +
-    C(32, 31, 7.5, CYAN) + C(32, 31, 3.6, '#eaffff', 0) + G(32, 18, 3, GOLD) },
+    DK('30,30 13,12 17,14 32,28') + DK('34,30 51,12 47,14 32,28') +
+    DK('30,34 13,52 17,50 32,36') + DK('34,34 51,52 47,50 32,36') +
+    AC('11,10 19,12 17,18 9,16', STEEL2) + AC('53,10 45,12 47,18 55,16', STEEL2) +
+    AC('11,54 19,52 17,46 9,48', STEEL2) + AC('53,54 45,52 47,46 55,48', STEEL2) +
+    TP('26,17 38,17 47,26 47,38 38,47 26,47 17,38 17,26') + FH('17,26 26,17 30,19 21,28') +
+    DOT(32, 31, 8, CYAN) + DOT(32, 31, 3.8, '#eaffff') + AC('29,15 35,15 34,21 30,21', GOLD) },
 
   { race: 'protoss', cat: 'unit', name: 'highTemplar', label: 'High Templar', svg:
     RING(32, 34, 14, CYAN, 1.6, 0.5) +
@@ -368,21 +388,23 @@ const zerg: Sprite[] = [
     L(24, 50, 20, 60, BONE, 2.4) + L(40, 50, 44, 60, BONE, 2.4) + L(32, 52, 32, 62, BONE, 2.4) +
     E(32, 28, 9, 7, '#1a0b22', 0) + C(32, 28, 3, BIO, 0) },
 
-  // Zergling: small, fast, hunched — curved scythe-claws and sharp mandibles.
-  { race: 'zerg', cat: 'unit', name: 'zergling', label: 'Zergling', scale: 0.85, svg:
-    SP('M29 25 C17 19 12 9 20 5', BONE, 2.4) + SP('M35 25 C47 19 52 9 44 5', BONE, 2.4) +
-    P('M32 17 C38 25 38 42 34 51 L30 51 C26 42 26 25 32 17 Z', T, 2.5) +
-    PL('29,19 25,7 32,17', BONE, 0) + PL('35,19 39,7 32,17', BONE, 0) +
-    G(32, 23, 2.6, BIO) },
+  // Zergling: small, fast, hunched — bulky carapace, angular scythe-claws, mandibles.
+  { race: 'zerg', cat: 'unit', name: 'zergling', label: 'Zergling', scale: 0.9, svg:
+    AC('27,24 12,11 19,9 30,21', BONE) + AC('37,24 52,11 45,9 34,21', BONE) +
+    TP('26,20 38,20 41,38 32,53 23,38') + FH('23,38 26,20 29,21 27,38') +
+    AC('29,18 25,7 32,17', BONE) + AC('35,18 39,7 32,17', BONE) +
+    DOT(32, 27, 2.8, BIO) },
 
-  // Hydralisk: a Marine-like build — rounded head + body — but with sharp forward
-  // mandibles and curving carapace spines sweeping back where the arms would be.
+  // Hydralisk: a hooded top-down serpent — raised carapace hood spines swept back
+  // and out, sharp forward mandibles, a tapering abdomen (faceted).
   { race: 'zerg', cat: 'unit', name: 'hydralisk', label: 'Hydralisk', svg:
-    SP('M24 38 C11 34 9 18 18 9', BONE, 2.6) + SP('M40 38 C53 34 55 18 46 9', BONE, 2.6) +
-    SP('M27 36 C18 33 17 23 23 17', BONE, 2) + SP('M37 36 C46 33 47 23 41 17', BONE, 2) +
-    C(32, 40, 11, T, 2.5) + C(32, 25, 8, T, 2) +
-    PL('27,21 22,5 31,18', BONE, 0) + PL('37,21 42,5 33,18', BONE, 0) +
-    G(32, 25, 3, BIO) },
+    TP('24,21 7,31 14,35 27,27') + FH('7,31 14,35 14,32 11,31') +
+    TP('40,21 57,31 50,35 37,27') + FH('57,31 50,35 50,32 53,31') +
+    TP('26,24 38,24 36,30 28,30') +
+    TP('27,28 37,28 40,40 32,54 24,40') + FH('24,40 27,28 30,29 28,40') +
+    TP('26,13 38,13 41,23 32,28 23,23') + FH('23,23 26,13 29,14 25,23') +
+    AC('28,13 25,2 31,12', BONE) + AC('36,13 39,2 33,12', BONE) +
+    DOT(32, 20, 3, BIO) },
 
   { race: 'zerg', cat: 'unit', name: 'lurker', label: 'Lurker', scale: 1.1, svg:
     L(32, 30, 14, 12, BONE, 2.6) + L(32, 30, 50, 12, BONE, 2.6) + L(32, 30, 10, 34, BONE, 2.6) +
