@@ -135,17 +135,34 @@ pip install pymupdf
 python3 docs/scripts/fetch_papers.py
 ```
 
-### Current status
+### Current status — playable
 
-The deterministic **sim core** (`packages/sim`) is in: fixed-point math, seeded PRNG,
-SoA entity store, the tick pipeline (census → commands → production → harvest → movement),
-the vertical-slice map, the `Sim` API, and a faction-driven macro bot (`packages/ai`).
-Systems are **role/capability-driven, not race-specific** — they reason about `Worker` /
-`ResourceDepot` / `Resource` / `Producer` flags declared in data, so adding a unit or a whole
-race is data, not new system code. Verified by `node --test` — including **replay-hash and
-snapshot/restore determinism** — and a headless demo (`packages/headless`) that runs a
-symmetric 2-player economy game at **hundreds of thousands of ticks/s single-threaded**.
-Next: the browser renderer + mobile UI (Pages deploy), then combat/fog.
+A complete vertical slice is playable in the browser: **play vs the AI or watch AI vs AI**, on
+procedural maps, with economy, construction, combat, fog of war, pathfinding, and win/lose.
+
+- **`packages/sim`** — deterministic, data-oriented core: fixed-point math, seeded PRNG, SoA
+  entity store, tick pipeline (census → commands → construction → production → harvest → combat
+  → movement → victory), line-of-sight + A* pathfinding, the SC1 damage model, and procedural
+  symmetric NvN maps (base plateaus, ramps, validated connectivity). Systems are
+  **role/capability-driven, not race-specific** (Worker / ResourceDepot / Resource / Producer
+  flags in data) so adding a unit — or a race — is data, not new system code.
+- **`packages/ai`** — a faction-driven scripted AI (economy, supply, tech, army, attack/defend),
+  deterministic and god-vision; the built-in opponent and future BC demonstrator.
+- **`packages/app`** — top-down Canvas renderer (imperative, never via the VDOM) + Preact/signals
+  HUD; touch model (1-finger select/box, 2-finger pan, pinch zoom, smart-tap, command hotbar);
+  fog, minimap, win screen. One ~40-line esbuild build; static, GitHub-Pages-ready.
+
+Verified by `node --test` (22 tests: fixed-point, RNG, economy, combat, **replay-hash &
+snapshot/restore determinism**, pathfinding, procedural connectivity, full **AI-vs-AI games end
+deterministically**) and Playwright screenshots at phone resolution.
+
+| Play (fog + base) | Selection + hotbar | AI vs AI battle |
+|---|---|---|
+| ![play](docs/screenshots/play-open.png) | ![selected](docs/screenshots/play-selected.png) | ![battle](docs/screenshots/spectate-battle.png) |
+
+Run it: `npm install && npm run build:app`, then serve `packages/app/dist/` (or `npm --workspace
+@rts/app run dev`). Throughput stays in the hundreds of thousands of ticks/s headless — the
+runway for AlphaStar-style training next.
 
 ## Roadmap
 

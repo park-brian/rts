@@ -13,10 +13,12 @@
   "scripts": {
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.json",
-    "demo": "node packages/headless/src/demo.ts"
+    "demo": "node packages/headless/src/demo.ts",
+    "build:app": "npm run build -w @rts/app"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "playwright": "^1.60.0",
     "typescript": "^5.8.0"
   }
 }

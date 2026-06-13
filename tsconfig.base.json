@@ -12,6 +12,9 @@
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": false,
 
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
