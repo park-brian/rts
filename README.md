@@ -85,6 +85,7 @@ docs/          specs, research notes, papers, tooling (see below)
 | [`docs/specs/sc1-spec.md`](docs/specs/sc1-spec.md) | The game data: universal mechanics + combat model, and full Terran / Protoss / Zerg unit, building, and tech data. |
 | [`docs/specs/ui-mobile.md`](docs/specs/ui-mobile.md) | Mobile-first vertical UI: layout zones, touch grammar, control groups, APM-reduction, Playwright verification workflow. |
 | [`docs/specs/ai-training.md`](docs/specs/ai-training.md) | AI plan: scripted bots → behavior-cloning warmstart → PPO → PFSP self-play league → distillation; throughput strategy. |
+| [`docs/specs/assets.md`](docs/specs/assets.md) | Art strategy: self-drawn SVG + Kenney CC0 packs (license-clean), rasterized to a GPU texture atlas; per-player team-color tinting. |
 | [`docs/research/`](docs/research/) | Synthesized research: [AlphaStar](docs/research/alphastar.md), [efficient RL](docs/research/efficient-rl.md), [SC1 spells & upgrades](docs/research/sc1-spells-upgrades.md). |
 | [`docs/papers/index.md`](docs/papers/index.md) | Annotated reading list of 39 reference papers (text committed; PDFs regenerable). |
 

@@ -208,7 +208,7 @@ rts/
 ├── packages/
 │   ├── sim/                  # deterministic core (no DOM, no I/O, no float in hot path)
 │   ├── ai/                   # scripted controllers; later the policy controller
-│   ├── render/               # WebGL/Canvas read-only renderer
+│   ├── render/               # WebGL/Canvas read-only renderer (+ assets/: SVG + Kenney CC0)
 │   ├── ui/                   # mobile UI components, gesture/touch -> commands
 │   ├── app/                  # browser game (esbuild) — the thing we screenshot
 │   └── headless/             # Node CLI: games, self-play, replays, benchmarks, worker pool
