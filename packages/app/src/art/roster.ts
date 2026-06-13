@@ -50,6 +50,8 @@ const HL = (x: number, y: number, w: number, h: number): string =>
 const RING = (x: number, y: number, r: number, col: string, w = 1.6, op = 0.7): string =>
   `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}"/>`;
 
+import { IMPORTED } from './imported.ts';
+
 export type Sprite = {
   race: 'terran' | 'protoss' | 'zerg';
   cat: 'unit' | 'building';
@@ -506,6 +508,13 @@ const zerg: Sprite[] = [
 ];
 
 export const ROSTER: Sprite[] = [...terran, ...protoss, ...zerg];
+
+// Apply any imported high-fidelity art overrides (art/imported.ts) in place, so the
+// viewer (sprites.html) and the engine atlas both use them.
+for (const s of ROSTER) {
+  const ov = IMPORTED[s.name];
+  if (ov) { s.svg = ov.svg; if (ov.scale !== undefined) s.scale = ov.scale; }
+}
 
 /** Wrap inner markup as a standalone, sized SVG document for rasterization. */
 export const svgDoc = (inner: string): string =>
