@@ -104,10 +104,12 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
 - **Pathfinding.** Tile-grid based (SC1-style 32px build tiles / 8px walk tiles), integer-only.
   **Implemented:** a shared **flow field** per goal tile (one integer Dijkstra, cached per-map
   and reused by every unit heading there — N units to one goal cost one field, not N A\* runs),
-  a line-of-sight shortcut for the open-terrain/final-approach common case, and **boids-lite
-  separation** so groups fan out instead of stacking. The field is a pure function of
-  (map, goal), so it lives outside game state and never affects the hash. Still the first
-  candidate for a future WASM port if profiling demands it.
+  a line-of-sight shortcut for the open-terrain/final-approach common case, and **ground-unit
+  collision** (a two-pass, symmetric, walkable-clamped overlap resolve) so groups form a body
+  instead of stacking — workers and air units (`Role.Air`) are exempt. The field is a pure
+  function of (map, goal), so it lives outside game state and never affects the hash. Still the
+  first candidate for a future WASM port if profiling demands it. (Building footprints are not
+  yet solid — units path through them; a roadmap item.)
 - **No I/O in core.** Logging, file access, rendering, and timing live in the host layers.
 - **Snapshot/restore.** State is plain typed-array buffers, so we can clone/serialize cheaply to
   fork games, save/load, and reset parallel envs fast. **Implemented:** in-memory

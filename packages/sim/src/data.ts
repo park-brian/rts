@@ -46,6 +46,7 @@ export const Role = {
   ResourceDepot: 1 << 3,
   Resource: 1 << 4,
   Producer: 1 << 5,
+  Air: 1 << 6, // flying unit: ignores terrain & ground collision
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 

@@ -10,7 +10,7 @@ import { production } from './systems/production.ts';
 import { harvest } from './systems/harvest.ts';
 import { combat } from './systems/combat.ts';
 import { movement } from './systems/movement.ts';
-import { separation } from './systems/separation.ts';
+import { collide } from './systems/collision.ts';
 import { victory } from './systems/victory.ts';
 import { buildGrid } from './grid.ts';
 
@@ -24,7 +24,7 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   const grid = buildGrid(s); // spatial index for target acquisition + separation
   combat(s, grid);
   movement(s);
-  separation(s, grid);
+  collide(s, grid);
   victory(s);
   s.tick++;
 };

@@ -144,8 +144,11 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   entity store, tick pipeline (census → commands → construction → production → harvest → combat
   → movement → separation → victory), **flow-field group pathfinding** (one shared integer
   Dijkstra field per goal, so N units to one destination cost one field, not N A\* runs) with a
-  line-of-sight shortcut and boids-lite **separation** (units fan out instead of stacking), a
-  **typed-array spatial grid** (target acquisition is O(n·k_local), not O(n²)), the SC1 damage
+  line-of-sight shortcut and **ground-unit collision** (units form a body instead of stacking;
+  workers and air units are exempt), a **typed-array spatial grid** (target acquisition is
+  O(n·k_local), not O(n²)), **SC1/SC2-style mineral saturation** (a patch is reserved while
+  mined, ≈3 workers rotate per patch — derived from round-trip timing — with auto re-routing on
+  depletion), per-structure **rally points** (CCs default to the mineral line), the SC1 damage
   model, and procedural symmetric NvN maps (base plateaus, ramps, validated connectivity).
   **Replays** are first-class: opt-in command-stream recording, `play`/`replayHashes`
   re-simulation, and `serialize()`/`deserialize()` of full state to a flat `ArrayBuffer`
