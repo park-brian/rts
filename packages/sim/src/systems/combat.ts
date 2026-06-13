@@ -5,7 +5,7 @@
 // Units on Move/Harvest/Build do not fire (they're busy).
 
 import type { State } from '../world.ts';
-import { slotOf, eid, kill, isAlive, NONE } from '../world.ts';
+import { slotOf, eid, kill, isAlive, isEnemy, NONE } from '../world.ts';
 import { Order, Units, computeDamage, tiles } from '../data.ts';
 import { within } from './move.ts';
 import { navigate } from '../pathing.ts';
@@ -23,13 +23,20 @@ export const combat = (s: State, grid: Grid): void => {
     const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle;
     if (!engaging) continue;
 
-    // Pick a target: explicit (Attack) or acquired (AttackMove/Idle).
+    // Keep the current target while it's still valid — for Attack, chase it at any
+    // range; for Idle/AttackMove, hold it while it's in sight. This avoids a grid
+    // re-acquire every tick once a unit is engaged (the bulk of a melee). Only when
+    // there's no valid target do Idle/AttackMove units acquire the nearest enemy.
+    const owner = e.owner[i]!;
+    const sight = tiles(def.sight);
     let tgt = NONE;
-    if (order === Order.Attack && isAlive(e, e.target[i]!)) {
-      tgt = slotOf(e.target[i]!);
-    } else {
-      tgt = nearestEnemy(s, grid, i, tiles(def.sight));
+    const rem = e.target[i]!;
+    if (isAlive(e, rem)) {
+      const rs = slotOf(rem);
+      if (isEnemy(s, owner, e.owner[rs]!) && (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     }
+    if (tgt === NONE && order !== Order.Attack) tgt = nearestEnemy(s, grid, i, sight);
+    if (tgt !== NONE) e.target[i] = eid(e, tgt); // remember for next tick
 
     if (tgt === NONE) {
       if (order === Order.Attack) e.order[i] = Order.Idle; // target gone
@@ -46,8 +53,6 @@ export const combat = (s: State, grid: Grid): void => {
         e.wcd[i] = def.weapon.cooldown;
         if (e.hp[tgt]! <= 0) kill(s, tgt);
       }
-      // remember the engaged target so Idle defenders keep firing it
-      e.target[i] = eid(e, tgt);
     } else {
       navigate(s, i, e.x[tgt]!, e.y[tgt]!, def.speed); // approach
     }

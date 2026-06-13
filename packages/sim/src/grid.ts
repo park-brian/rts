@@ -52,7 +52,7 @@ export const nearestEnemy = (s: State, g: Grid, i: number, range: number): numbe
   const e = s.e;
   const ox = e.x[i]!; const oy = e.y[i]!; const owner = e.owner[i]!;
   const r2 = range * range;
-  const span = Math.ceil(range / CELL_FX) + 1;
+  const span = Math.ceil(range / CELL_FX); // exactly sufficient: ⌊q/c⌋−⌊p/c⌋ ≤ ⌈r/c⌉
   const cx = cell(ox, g.cols); const cy = cell(oy, g.rows);
   const x0 = Math.max(0, cx - span); const x1 = Math.min(g.cols - 1, cx + span);
   let best = NONE; let bestD = r2 + 1;
