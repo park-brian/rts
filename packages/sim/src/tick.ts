@@ -27,7 +27,7 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   const grid = buildGrid(s); // spatial index for target acquisition + collision
   combat(s, grid);
   movement(s);
-  collide(s, grid);
+  collide(s); // builds its own fine (one-tile) grid for tight overlap resolution
   if (s.trackVision) vision(s); // per-player fog (derived; for observe()/rendering)
   victory(s);
   s.tick++;

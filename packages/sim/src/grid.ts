@@ -47,21 +47,6 @@ export const buildGrid = (s: State): Grid => {
   return { cols, rows, head: sHead, next: sNext };
 };
 
-/** Visit every alive slot within `r` fixed px (by cell overlap; caller checks exact range). */
-export const forEachNear = (
-  s: State, g: Grid, x: number, y: number, r: number, cb: (slot: number) => void,
-): void => {
-  const span = Math.ceil(r / CELL_FX) + 1;
-  const cx = cell(x, g.cols); const cy = cell(y, g.rows);
-  const x0 = Math.max(0, cx - span); const x1 = Math.min(g.cols - 1, cx + span);
-  for (let gy = Math.max(0, cy - span); gy <= Math.min(g.rows - 1, cy + span); gy++) {
-    const row = gy * g.cols;
-    for (let gx = x0; gx <= x1; gx++) {
-      for (let j = g.head[row + gx]!; j >= 0; j = g.next[j]!) cb(j);
-    }
-  }
-};
-
 /** Nearest enemy of slot `i` within `range` fixed px; slot index or NONE. Inlined (no closure: hot path). */
 export const nearestEnemy = (s: State, g: Grid, i: number, range: number): number => {
   const e = s.e;

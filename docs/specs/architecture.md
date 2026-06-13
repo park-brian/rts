@@ -106,7 +106,11 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
   and reused by every unit heading there — N units to one goal cost one field, not N A\* runs),
   a line-of-sight shortcut for the open-terrain/final-approach common case, and **ground-unit
   collision** (a two-pass, symmetric, walkable-clamped overlap resolve) so groups form a body
-  instead of stacking — workers and air units (`Role.Air`) are exempt. **Building footprints are
+  instead of stacking — workers and air units (`Role.Air`) are exempt. Collision uses its own
+  **one-tile grid** (built solid-only and lazily; skipped when no army is present): the
+  interaction radius is under a tile, so a 3×3 cell scan is provably sufficient and keeps few
+  units per cell — O(n·local-density) rather than the O(n²) a coarse grid hits when a death-ball
+  packs one cell. **Building footprints are
   solid:** each State carries a transient "solid" grid (stamped from structures) that the field
   and line-of-sight consult, so units route around buildings; the field cache is keyed per-State
   and invalidated when the building layout changes (a cheap signature). Fields are a pure
