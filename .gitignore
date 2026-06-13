@@ -1,0 +1,40 @@
+# Reference paper PDFs are large (~135MB) and fully regenerable:
+#   python3 docs/scripts/fetch_papers.py
+# We commit the extracted .txt (grep-able) and the fetch script instead.
+docs/papers/*.pdf
+
+# Rust
+/target
+**/target
+Cargo.lock
+
+# Node / web
+node_modules/
+dist/
+*.tsbuildinfo
+.wasm-pack.log
+
+# Python / training
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+wandb/
+runs/
+checkpoints/
+*.pt
+*.ckpt
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Generated artifacts
+/replays/*.replay
+
+# app build artifacts
+packages/app/shots/

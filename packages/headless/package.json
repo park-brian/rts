@@ -1,0 +1,11 @@
+{
+  "name": "@rts/headless",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless runner: play games fast, benchmark throughput, record replays.",
+  "dependencies": {
+    "@rts/sim": "*",
+    "@rts/ai": "*"
+  }
+}

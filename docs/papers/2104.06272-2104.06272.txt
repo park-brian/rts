@@ -1,0 +1,558 @@
+2021-4-14
+Podracer architectures for scalable
+Reinforcement Learning
+Matteo Hessel*,1, Manuel Kroiss*,1,
+Aidan Clark1, Iurii Kemaev1, John Quan1, Thomas Keck1, Fabio Viola1 and Hado van Hasselt*,1
+*Equal contributions, 1DeepMind
+Supporting state-of-the-art AI research requires balancing rapid prototyping, ease of use, and quick iter-
+ation, with the ability to deploy experiments at a scale traditionally associated with production systems.
+Deep learning frameworks such as TensorFlow, PyTorch and JAX allow users to transparently make use
+of accelerators, such as TPUs and GPUs, to oﬄoad the more computationally intensive parts of training
+and inference in modern deep learning systems. Popular training pipelines that use these frameworks
+for deep learning typically focus on (un-)supervised learning. How to best train reinforcement learning
+(RL) agents at scale is still an active research area. In this report we argue that TPUs are particularly
+well suited for training RL agents in a scalable, eﬃcient and reproducible way. Speciﬁcally we describe
+two architectures designed to make the best use of the resources available on a TPU Pod (a special
+conﬁguration in a Google data center that features multiple TPU devices connected to each other by
+extremely low latency communication channels).
+Introduction
+Reinforcement learning (RL) algorithms have been shown to be capable of performing well on
+challenging sequential decision problems, ranging from board games (Silver et al., 2016) to video
+games (Mnih et al., 2015) and continuous control (Lillicrap et al., 2016; Van Hasselt, 2012). Many of
+these advances were powered by the adoption of deep learning (Krizhevsky et al., 2012) in RL.
+As in other areas of machine learning, however, the adoption of deep learning comes at non-trivial
+computational cost. Indeed a steady increase can be observed in the workloads associated to popular
+RL agents (Hessel et al., 2018; Mnih et al., 2015, 2016). This has been driven by two factors: 1) an
+increase in the number of steps of environment interactions required by agents, due to the tackling of
+increasingly hard problems, 2) an increase in the amount of compute required, on each step, due to
+the agent’s policy (and other predictions) being parameterized by larger deep neural networks.
+This has motivated extensive research on scalable research platforms for (deep) RL (Espeholt et al.,
+2018, 2020; Horgan et al., 2018; Liang et al., 2018; Nair et al., 2015; Petrov et al., 2018; Stooke and
+Abbeel, 2018). Any such platform must balance enabling easy and rapid prototyping (an essential
+requirement for research) and optimising execution speed (critical for platforms managing workloads
+that, until recently, were reserved to production systems rather than research experiments).
+In this report, we argue that the compute requirements of large scale reinforcement learning
+systems are particularly well suited for making use of Cloud TPUs (Jouppi et al., 2017), and specif-
+ically TPU Pods: special conﬁgurations in a Google data center that feature multiple TPU devices
+interconnected by low latency communication channels. We collectively call Podracers the research
+platforms that we have built to support scalable RL research on TPU Pods, and we describe two such
+architectures, Anakin and Sebulba, designed to train online agents and decomposed actor-learner
+agents, respectively. Both have been used in recent deep RL publications (Oh et al., 2021; Xu et al.,
+2020; Zahavy et al., 2020), and are here presented in full detail for the ﬁrst time. Both build upon
+JAX (Bradbury et al., 2018), to distribute computation and make eﬀective use of TPUs.
+© 2021 DeepMind. All rights reserved
+arXiv:2104.06272v1  [cs.LG]  13 Apr 2021
+
+Podracer architectures for scalable Reinforcement Learning
+Background
+In this section we provide context to understand the systems we describe in the subsequent section.
+Reinforcement Learning
+Reinforcement learning is a formalism for sequential decision making under uncertainty (Sutton and
+Barto, 2018). Consider a learning system (the agent) tasked with learning to act in the world it is
+embedded in (the environment), in order to maximise the total cumulative rewards collected while
+interacting with such an environment. The interaction between agent and environment takes place
+over a discrete loop: at each step, the environment provides the agent with a (partial) snapshot of its
+state (an observation) together with a scalar feedback (the reward), and the agent responds by picking
+an action to execute in the environment. For instance, the learning system may be tasked to learn
+chess (Silver et al., 2017): the agent then selects the moves for one of the players; its environment
+includes the chess board and the opponent; observations encode the state of the board; rewards are
+0 everywhere, except on check-mate, where the agent receives +1 for winning or −1 for losing.
+There are several critical diﬀerences between RL and other ML paradigms such as supervised
+learning (Bishop, 2006; Murphy, 2012). 1) The data distribution observed by the agent depends
+on the agent’s actions; this means that data is inherently sequential and non-stationary. 3) It is up
+to the agent to trade oﬀthe exploitation of existing knowledge versus the exploration of alternative
+courses of actions that may appear sub-optimal now, but that might allow the agent to learn even
+better behaviours. 3) The agent is not told, on each step, what the right action is; rewards give an
+evaluation of how well the agent is performing, but do not indicate what better sequence of actions
+could have been taken instead. 4) the feedback may be stochastic and delayed; it is up to the agent
+to correctly assign credit (Minsky, 1961) for past actions to rewards observed at a later time.
+A brief overview of JAX
+JAX (Bradbury et al., 2018) is a numerical computing library for machine learning (ML) in Python.
+Its API for writing numerical functions follows NumPy (Harris et al., 2020) closely, but augments it
+with a ﬂexible system for composable program transformation (Ward, 1989), that supports automatic
+diﬀerentiation (Nolan, 1953), SIMD-programming (Flynn, 1972), just-in-time compilation (McCarthy,
+1960), and hardware acceleration via GPUs (Barron and Glorioso, 1973) or TPUs (Jouppi et al., 2017).
+Automatic diﬀerentiation is critical to modern ML due to the widespread use of gradient descent
+(Cauchy, 1847). JAX supports both forward mode (Wengert, 1964) and reverse mode (Speelpenning,
+1980) diﬀerentiation via the program transformations grad, hessian, jacfwd and jacrev that
+take a numerical function and return a new function computing the derivative of the original one.
+SIMD programming is popular in ML, as it is common to apply the same function (e.g. a loss) to a
+batch of data (e.g. a collection of images and labels). JAX supports SIMD programming via vmap and
+pmap. The ﬁrst implements automatic vectorization: given a numerical function, vmap returns a new
+function that expects inputs with an additional (batch) dimension; this avoids having to manually
+vectorize your code. Through pmap, JAX also supports large scale data parallelism (Dean et al., 2012),
+where shards of the same computation can distributed across multiple accelerators or host machines.
+Just-in-time (JIT) compilation is the compilation of code at run time, rather than prior to execution.
+The jit primitive in JAX uses XLA (team, 2017) to JIT-compile numerical programs. JIT compilation
+provides substantial speed-ups, and bypasses Python’s “global interpreter lock” (GIL) (Beazley, 2009).
+Hardware acceleration is achieved in JAX by JIT-compiling code, via XLA, for execution on diﬀerent
+hardware (e.g. GPU, TPU). The user only needs to specify on which device to run each computation.
+2
+
+Podracer architectures for scalable Reinforcement Learning
+Core 1
+Core 2
+Core 4
+Core 3
+Core 5
+Core 8
+Core 6
+Core 7
+56 
+Cores
+Chip 1
+Chip 2
+Chip 3
+Chip 4
+TPU
+CPU
+a)
+TPU
+Chip 1
+Chip 2
+Chip 3
+Chip 4
+CPU
+b)
+TPU
+Chip 1
+Chip 2
+Chip 3
+Chip 4
+CPU
+c)
+Figure 1 | a) A graphical depiction of a TPU. One CPU host is connected to 8 TPU cores (grouped into 4
+chips). All TPU cores are connected to each other via high speed network. b) In Anakin: environment
+(in green), action selection (in yellow) and learning (in pink) are all executed on the accelerators, and
+the computation is replicated across all available cores. c) In Sebulba: the environment computation
+(in green) happens on the CPU host, the computation associated to action selection (in yellow) and
+parameter updates (in pink) is distributed across disjoint subsets of the available TPU cores.
+Tensor Processing Units
+Tensor Processing Units (TPUs) are custom accelerator chips developed by Google to handle machine
+learning workloads, i.e. workloads associated with big matrix multiplications and batch operations. A
+TPU pod is a collection of TPU cores that are connected to each other via a high-speed network. Each
+TPU core (also referred to as a device) has access to dedicated high-bandwidth memory (HBM) and
+can perform computations independently of other cores. TPU cores are managed by CPU machines
+(henceforth hosts) which schedule computations and move data to and from device. On TPUv2
+or TPUv3 machines, each host manages 8 TPU cores. A graphical depiction of the host and the 8
+associated TPU cores is shown in Figure 1a.
+To run computations on a TPU device, JAX programs must be compiled by XLA on the CPU host,
+and then loaded onto the TPU device. The computation inputs are transferred from host memory
+to device memory and the computation program is executed using the device inputs. This produces
+outputs on the device memory, which can be transferred back to the host when appropriate. There
+can only be one program running at a time per TPU device. Some computations require the output of
+the last execution as input to the next execution, in which case the memory may be kept on the device
+and needless transfers via the host are avoided. Memory on TPU is automatically garbage collected
+when no Python reference to the corresponding data on the TPU is left.
+It is common for data processed on one device to later be needed on a diﬀerent device. In this
+case, the data may be transferred directly from a device to another, bypassing the host. Whenever
+possible, this kind of device to device communication is preferred over host to device communication,
+since the network transfer speed from a TPU core to another is signiﬁcantly faster than from CPU to
+TPU. JAX also oﬀers collective operations (such as psum, to combine tensors and other numerical data
+across one or more devices). These collective operations are also performed by automatically sending
+the relevant data directly from a device to another, without requiring any transfer back to the host.
+3
+
+Podracer architectures for scalable Reinforcement Learning
+Two Reinforcement Learning Frameworks
+We now describe two frameworks for eﬃcient use of TPUs for reinforcement learning research at scale,
+called Anakin and Sebulba. The Anakin framework supports environments that are themselves
+written in Jax, and hence can run eﬃciently on the TPU devices. The Sebulba framework supports
+arbitrary environments (such as Atari video games) that run on the CPU hosts.
+Online Learning with Anakin
+Our ﬁrst Podracer architecture is Anakin, an online learning system where the environment runs on
+the TPU alongside the agent. This setup requires the environments themselves to be implemented as
+JAX (pure) functions, in order for these to be compiled by XLA for execution on the TPU.
+Each environment is deﬁned by an initial_state function to initialize such state and by a
+step function which maps a state and action to a new state and reward. The state must be handled
+explicitly for the environment stepping to be a pure function. All the environments must be written
+in JAX; this restricts the range of environments supported, but provides large beneﬁts in terms of
+performance and cleanliness of the research platform.
+For instance, we found that writing agents in this setup is straight forward. There is no need for
+the actor/learner separation that is so popular in large scale deep RL platforms (Espeholt et al., 2018,
+2020; Horgan et al., 2018). Instead, the agent environment interaction loop maps more directly onto
+the math or pseudo-code you would ﬁnd in an RL textbook.
+The minimal unit of computation in Anakin is depicted on the top of Figure 2: the environment is
+stepped as part of the forward computation of a suitable RL objective, and the objective can then be
+diﬀerentiated all the way through multiple agent-environment interaction to update the parameters.
+The parameter update computation (in pink) can reuse the forward pass of any neural network used
+by the agent’s policy (in yellow), as they are part of the same XLA program.
+Scaling this up is very easy using JAX. The minimal unit of computation described above is ﬁrst
+vmapped to vectorise the computation across a batch large enough to ensure good utilisation of an
+entire TPU core, then the vectorized function is distributed across the 8 cores of a TPU, by using the
+pmap primitive to replicate the program across all cores.
+Figure 1b graphically depicts this: each TPU core includes the computation associated with the
+environment (in green), action selection (in yellow) and the parameter update (in pink). JAX’s
+collective operations (e.g. psum/pmean) can be used in the update function to ensure that parameter
+updates are averaged across all participating cores. The CPU host is exclusively used to schedule the
+computation of this large JAX program but is otherwise unused. We provide a minimal open source
+demonstration of how Anakin can be implemented in this Colab.
+The architecture is highly eﬃcient as the agent-environment interaction can be compiled into a
+single XLA program, allowing the compiler to fuse operations and optimise computation. Furthermore,
+there are no host to device transfers, as the environment itself lives on the TPU, and there is no
+overhead from Python, as there is no latency-critical work outside of XLA. This means each TPU core
+is always fully utilized.
+The design is also scalable, as it is possible to replicate the basic setup, and therefore use larger
+TPU slices (potentially, all the 2048 cores of a TPU Pod), with the change of one conﬁguration setting.
+Finally, Anakin experiments are self contained and deterministic. Overall, these feature makes this
+Podracer architecture very ﬂexible, as it can be used for debugging research ideas at a small scale, as
+well as for running reliable and reproducible experiments at a massive scale.
+4
+
+Podracer architectures for scalable Reinforcement Learning
+A
+Policy
+Policy
+Env
+Env
+Input:
+State
+Policy
+O, R
+O, R
+A
+Forward
+Backward
+Output:
+Update
+Objective
+def step_and_update_fn(...):
+  # 1) step the agent and environment N times
+  # 2) compute the loss or other RL objective
+  # 3) derive a gradient update by differentiating back through the entire loop (if needed)
+batched_fn = jax.vmap(step_and_update)  # batch to utilize an entire TPU core
+iterated_fn = jax.lax.fori_loop(batched_fn)  # iterate many times to avoid going back to Python
+replicated_fn = jax.pmap(iterated_fn)  # replicate computation across all available TPU cores
+Env
+O, R
+Figure 2 | Top: The minimal unit of computation in Anakin: a sequence of interactions between one
+agent and one environment, followed by the calculation of a parameter update (typically optimising
+for a suitable RL objective – e.g. a loss). The computation of the update can reuse the computation of
+the policy, as they are all part of a single JAX function. Bottom: Pseudo-code showing how to scale
+up such JAX programs through vectorisation and replication across many cores.
+TPU 
+Batched Env
+Policy
+Trajectory
+step the entire batch of 
+environments in parallel in C++
+A actor devices
+Objective
+Update
+L learner devices
+CPU 
+split batch among learner devices 
+average gradients (*) across learner devices, 
+then send updated params to actor devices
+This entire computation is replicated across S slices of a TPU Pod, 
+in which case gradients in (*) are averaged across all learner devices of all slices
+batch of actions
+batch of 
+observations and
+rewards
+B batched envs
+Figure 3 | The minimal unit of computation in Sebulba: the 8 TPU cores attached to a CPU host are split
+between 𝐴actor cores and 𝐿= 8−𝐴learner cores. Actor cores process batches of observations to select
+actions. Trajectories are accumulated on each actor and then split among all learners, gradient updates
+are averaged across participating learner cores before updating parameters. Updated parameters are
+sent directly to the actor devices. The entire computation may be replicated across multiple TPUs.
+5
+
+Podracer architectures for scalable Reinforcement Learning
+Decomposed Actors and Learners with Sebulba
+Our second architecture, Sebulba, relaxes Anakin’s assumption that environments can be compiled to
+run on TPU. Instead, it supports arbitrary environments, and relies on an actor-learner decomposition
+(Espeholt et al., 2018) for performance. In decomposed architectures, several actors interact with
+parallel copies of an environment; the experience they generate is fed to a learner through a queue.
+As in Anakin, Sebulba co-locates acting and learning on a single TPU machine. However, it steps
+the environments on the host CPU, and splits the available 8 TPU cores (for each host) in two disjoint
+sets: 𝐴cores are used exclusively to act, and the remaining 8 −𝐴cores are used to learn. Figure 1c
+graphically depicts how the computation is distributed across the available hardware: the environment
+(in green) is executed on the CPU host, the action selection (in yellow) and the parameter update
+computation (in pink) are assigned to distinct TPU cores. The optimal split between actor and learner
+cores depends on the nature of the agent being trained. For simple model-free agents we often ﬁnd it
+convenient to have 3x as many learner cores as actor cores (since the backward pass is slower than
+the forward pass). For other agent designs, e.g. if an agent uses search, the optimal split may diﬀer.
+To generate experience, we use (at least) one separate Python thread for each actor core. Each
+Python thread then steps an entire batch of environments in parallel and feeds the resulting batch
+of observations to a TPU core, to perform inference in batch and select the next batch of actions.
+To minimise the eﬀect of Python’s GIL, when stepping a batch of environments in parallel, each
+Python actor-thread interacts with a special batched environment; this is exposed to Python as a
+single environment that takes a batch of actions and returns a batch of observations; behind the
+scenes it steps each environment in the batch in parallel using a shared pool of C++ threads. To
+make eﬃcient use of the actor cores, it is essential that while a Python thread is stepping a batch of
+environments, the corresponding TPU core is not idle. This is achieved by creating multiple Python
+threads per actor core, each with its own batched environment. They threads alternate in using the
+same actor core, without manual synchronization.
+To learn from this experience, each actor thread accumulates a batch of trajectories of ﬁxed length
+on device, splits the batch of trajectories along the batch dimension, sends each shard directly to
+one of the learners through the fast device-to-device communication channel, and places the Python
+reference to this tensor data onto a Python queue. A single learner thread on host then takes the
+handle to the data (already sharded across the appropriate learner cores), and executes the same
+update function on all the TPU cores dedicated to learning (via JAX’s pmap primitive). Each learner
+core will then apply the same update function to its own shard of the experience, and parameter
+updates can averaged (by using JAX’s pmean/psum primitives) across all participating learner cores.
+As for the transfer of trajectories from actor cores to learner cores, the collective operations also
+exploit the fast device-to-device transfer to avoid transferring parameters back and forth between
+the host and TPU. If the gradients are averaged before each update, the parameters on the diﬀerent
+learner cores remain in sync throughout training without requiring additional transfers. The actor
+devices receive the new parameters in a timely manner as the learner thread sends them to the actor
+cores after each update. The Python actor threads can then switch to using the latest parameters
+before each new inference step.
+This minimal unit of computation in Sebulba is graphically depicted in Figure 3, including the ﬂow
+of information between the various components. Similar to Anakin, this computation can be scaled
+up via replication. For every additional replica we gain a separate host CPU (that independently steps
+its own batched environments and uses the associated actor cores for inference). The learner cores in
+each replica process only trajectories generated on the corresponding host, but parameter updates
+will be averaged using JAX’s collective operations across all learner cores from all replicas.
+6
+
+Podracer architectures for scalable Reinforcement Learning
+16
+32
+64
+128
+Number of TPU Cores
+(a)
+  7e6
+  15e6
+  30e6
+  60e6
+Frames per Second
+32
+64
+128
+Actor batch size 
+(b)
+200e3
+135e3
+90e3
+60e3
+Frames per Second (V-trace)
+16
+32
+64
+128
+Number of TPU Cores
+(c)
+ 5e3
+ 10e3
+ 20e3
+ 40e3
+Frames per Second (MuZero)
+Figure 4 | a) FPS for Anakin, as a function of the number of TPU cores, ranging from 16 (i.e. 2 replicas)
+to 128 (i.e.16 replicas). b) FPS for a Sebulba implementation of IMPALA’s V-trace algorithm, as a
+function of the actor batch size, from 32 (as in IMPALA) to 128. c) FPS for a Sebulba implementation
+of MuZero, as a function of the number of TPU cores, from 16 (i.e. 2 replicas) to 128 (i.e. 16 replicas).
+Example use cases and performance
+In this section we discuss some concrete use cases, to highlight the expected performance (and cost)
+of using the Anakin and Sebulba architectures in settings that are relevant to today’s research.
+Anakin:
+When using small neural networks and grid-world environments an Anakin architecture can easily
+perform 5 million steps per second, even on the 8-core TPU accessible for free 1 through Google Colab.
+This can be very useful to experiment and debug research ideas in the friendly Colab environment.
+In Figure 4a we show how, thanks to the eﬃcient network connecting diﬀerent TPU cores in a
+Pod, performance scales almost linearly with the number of cores; the collective operations used to
+average gradients across replicas appear to cause only minimal overhead.
+In a recent paper by Oh et al. (2021) Anakin was used, at a much larger scale, to discover a
+general reinforcement learning update, from experience of interacting with a rich set of environments
+implemented in JAX. In this paper, Anakin was used to learn a single shared update rule from 60𝐾
+JAX environments and 1𝐾policies running and training in parallel.
+Despite the complex nature of the system, based on the use of neural networks to meta-learn
+not just a policy but the entire RL update, Anakin delivered over 3 million steps per second on a
+16-core TPU. Training the update rule to a good level of performance, required running Anakin for
+approximately 24 hours; this would cost approximately 100 dollars on GCP’s preemptible instances 2.
+This use case also demonstrated a potential synergy between Anakin and Sebulba: once a general
+RL update was learned on JAX environment in Anakin, the meta-learned update rule was lifted and
+loaded in a Sebulba agent to verify it was general enough to also solve Atari 2600 classic video games.
+1As of April 12 2021, using the hosted TPU runtime.
+2As of April 12 2021, using TPU V3, see https://cloud.google.com/tpu/pricing for reference.
+7
+
+Podracer architectures for scalable Reinforcement Learning
+Sebulba:
+Our second podracer architecture has also been extensively used for exploring a variety of RL ideas at
+scale, on environments that cannot be compiled to run on TPU (e.g. Atari, DmLab and Mujoco).
+As both IMPALA and Sebulba are based on a decomposition between actors and learners, agents
+designed for the IMPALA architecture can be easily mapped onto Sebulba; for instance a Podracer
+version of the V-trace agent easily reproduced the results from Espeholt et al. (2018).
+However, we found that training an agent for 200 million frames of an Atari game could be done
+in just ∼1 hour, by running Sebulba on a 8-core TPU. This comes at a cost of approximately 2.88
+dollars, on GCP’s pre-emptible instances. This is similar in cost to training with the more complex
+SEED RL framework, and much cheaper than training an agent for 200 million Atari frames using
+either IMPALA or single-stream GPU-based system such as that traditionally used by DQN.
+Just replicating IMPALA’s setup does not however make the best use of the available resources.
+Sebulba enables to scale up in diﬀerent ways which are not exploited by the canonical IMPALA: using
+bigger batch size in the actors, increasing the batch size on the learner (by using longer trajectories
+and/or more replicas), and using larger or deeper neural networks.
+Increasing the batch size is particularly eﬀective at maximising throughput. In Figure 4b, we
+report the eﬀect of the actor batch size when training a V-trace agent on an 8-core TPU, with a
+trajectory length of 60 (up from 20 in IMPALA) and varying actor batch size. We found increasing the
+batch size from 32 (as in IMPALA) to 128 allowed the same V-trace agent to reach 200𝐾frames per
+second on an 8 core TPU.
+In addition to the trajectory length the eﬀective batch size used to compute each update also
+depends on how many times we replicate the basic 8-TPU setup. Sebulba also scales eﬀectively along
+this dimension: using 2048 TPU cores (an entire Pod) we were able to further scale all the way to 43
+million frames per second, solving the classic Atari videogame pong in less than 1 minute.
+One disadvantage of maximising throughput by increasing the batch size on actors and learners is
+that, if done naively, it can result in much reduced data eﬃciency. When interested in maximising data
+eﬃciency instead of wall-clock time, we found it convenient to scale in a diﬀerent way: maximising
+TPU utilisation by using larger networks instead of bigger batches.
+The Sebulba architecture was quite eﬀective in this regard as well, by increasing the number
+of channels and number of residual blocks in the IMPALA network, we found we could improve
+signiﬁcantly the data eﬃciency of our agents. Since this is achieved by improving TPU utilisation
+rather than increasing the total number of TPU hours, it does not increase the cost of the experiments.
+Sebulba has also been used to train search-based agents inspired by MuZero Schrittwieser et al.
+(2020). The workloads associated to these agents are very diﬀerent from that of model-free agents
+like IMPALA. The key diﬀerence is in the cost of action selection. This increases because MuZero’s
+policy combines search with deep neural networks (used to guide and/or truncate the search).
+Typically, search-based agents like MuZero required custom C++ implementations of the search
+to deliver good performance. We could reproduce results from MuZero (no Reanalyse) on multiple
+RL environments, using Sebulba and a pure JAX implementation of MCTS. Training a MuZero agent
+with Sebulba for 200𝑀Atari frames takes 9 hours on a 16-core TPU (at a cost of ∼40 $ on GCP’s
+preemptible instances).
+We found that scalability, via replication, was particularly useful in this context. Figure 4c reports
+the number of frames per seconds processed by Sebulba when running MuZero on Atari, as a function
+of the number of TPU cores. The throughput increased linearly with the number of cores.
+8
+
+Podracer architectures for scalable Reinforcement Learning
+Since in this setting the search was the main bottleck we found that we could eﬃciently decouple
+the acting batch size from the learning batch size, by splitting each batch on the learner(s), and then
+applying N updates instead of a single larger one. This simple trick allowed to preserve the same
+degree of data eﬃciency while scaling up; therefore the linear speed up provided by larger Pod slices
+delivered faster turnaround time for research on search based agents, without increasing the cost of
+training an agent to any given level of performance.
+Conclusions:
+We ﬁnd that the Podracer architectures described in this report, and implemented in JAX, are very
+eﬀective in supporting a variety of research use cases; they ﬁnd a sweet spot between scalability, on
+one side, and ease of implementation and maintainance on the other. Similarly to Espeholt et al.
+(2020), we also ﬁnd that RL platforms based on TPUs can deliver exceptional performance at a cost
+that is often better to that of training smaller scale agents that lack parallelism or TPU acceleration.
+Acknowledgements:
+Thanks to all our great colleagues at DeepMind, and in particular to Trevor Cai, Dan Horgan, Hamza
+Merzic, Dan Belov for all the great comments, discussions and contributions. Also, thanks the JAX
+team for the amazing JAX library that made implementing all these architectures easy and fun!
+References
+E. T. Barron and R. M. Glorioso. A micro controlled peripheral processor. In Conference Record of the
+6th Annual Workshop on Microprogramming, MICRO 6, page 122–128, New York, NY, USA, 1973.
+Association for Computing Machinery. ISBN 9781450377836. doi: 10.1145/800203.806247. URL
+https://doi.org/10.1145/800203.806247.
+D. Beazley. Inside the python gil. Chicago: Chicago Python User Group, 2009.
+C. M. Bishop. Pattern Recognition and Machine Learning (Information Science and Statistics). Springer-
+Verlag, Berlin, Heidelberg, 2006. ISBN 0387310738.
+J. Bradbury, R. Frostig, P. Hawkins, M. J. Johnson, C. Leary, D. Maclaurin, G. Necula, A. Paszke, J. Van-
+derPlas, S. Wanderman-Milne, and Q. Zhang. JAX: composable transformations of Python+NumPy
+programs. http://github.com/google/jax, 2018.
+Cauchy. Méthode générale pour la résolution des systèmes d’équations simultanées. Publisher, 1847.
+J. Dean, G. Corrado, R. Monga, K. Chen, M. Devin, M. Mao, M. a. Ranzato, A. Senior, P. Tucker, K. Yang,
+Q. Le, and A. Ng. Large scale distributed deep networks. In F. Pereira, C. J. C. Burges, L. Bottou,
+and K. Q. Weinberger, editors, Advances in Neural Information Processing Systems, volume 25, pages
+1223–1231. Curran Associates, Inc., 2012. URL https://proceedings.neurips.cc/paper/
+2012/file/6aca97005c68f1206823815f66102863-Paper.pdf.
+L. Espeholt, H. Soyer, R. Munos, K. Simonyan, V. Mnih, T. Ward, Y. Doron, V. Firoiu, T. Harley,
+I. Dunning, S. Legg, and K. Kavukcuoglu. Impala: Scalable distributed deep-rl with importance
+weighted actor-learner architectures. In International Conference on Machine Learning, 2018.
+9
+
+Podracer architectures for scalable Reinforcement Learning
+L. Espeholt, R. Marinier, P. Stanczyk, K. Wang, and M. Michalski. Seed rl: Scalable and eﬃcient
+deep-rl with accelerated central inference. In International Conference on Learning Representations,
+2020. URL https://openreview.net/forum?id=rkgvXlrKwH.
+M. J. Flynn. Some computer organizations and their eﬀectiveness. IEEE Transactions on Computers,
+C-21(9):948–960, 1972. doi: 10.1109/TC.1972.5009071.
+C. R. Harris, K. J. Millman, S. J. van der Walt, R. Gommers, P. Virtanen, D. Cournapeau, E. Wieser,
+J. Taylor, S. Berg, N. J. Smith, R. Kern, M. Picus, S. Hoyer, M. H. van Kerkwijk, M. Brett, A. Haldane,
+J. F. del R’ıo, M. Wiebe, P. Peterson, P. G’erard-Marchant, K. Sheppard, T. Reddy, W. Weckesser,
+H. Abbasi, C. Gohlke, and T. E. Oliphant. Array programming with NumPy. Nature, 585(7825):
+357–362, Sept. 2020. doi: 10.1038/s41586-020-2649-2. URL https://doi.org/10.1038/
+s41586-020-2649-2.
+M. Hessel, J. Modayil, H. van Hasselt, T. Schaul, G. Ostrovski, W. Dabney, D. Horgan, B. Piot, M. G.
+Azar, and D. Silver. Rainbow: Combining improvements in deep reinforcement learning. In
+S. A. McIlraith and K. Q. Weinberger, editors, AAAI, pages 3215–3222. AAAI Press, 2018. URL
+http://dblp.uni-trier.de/db/conf/aaai/aaai2018.html#HesselMHSODHPAS18.
+D. Horgan, J. Quan, D. Budden, G. Barth-Maron, M. Hessel, H. van Hasselt, and D. Silver. Distributed
+prioritized experience replay. In International Conference on Learning Representations, 2018. URL
+https://openreview.net/forum?id=H1Dy---0Z.
+N. P. Jouppi, C. Young, N. Patil, D. Patterson, G. Agrawal, R. Bajwa, S. Bates, S. Bhatia, N. Boden,
+A. Borchers, R. Boyle, P. luc Cantin, C. Chao, C. Clark, J. Coriell, M. Daley, M. Dau, J. Dean,
+B. Gelb, T. V. Ghaemmaghami, R. Gottipati, W. Gulland, R. Hagmann, C. R. Ho, D. Hogberg, J. Hu,
+R. Hundt, D. Hurt, J. Ibarz, A. Jaﬀey, A. Jaworski, A. Kaplan, H. Khaitan, D. Killebrew, A. Koch,
+N. Kumar, S. Lacy, J. Laudon, J. Law, D. Le, C. Leary, Z. Liu, K. Lucke, A. Lundin, G. MacKean,
+A. Maggiore, M. Mahony, K. Miller, R. Nagarajan, R. Narayanaswami, R. Ni, K. Nix, T. Norrie,
+M. Omernick, N. Penukonda, A. Phelps, J. Ross, M. Ross, A. Salek, E. Samadiani, C. Severn,
+G. Sizikov, M. Snelham, J. Souter, D. Steinberg, A. Swing, M. Tan, G. Thorson, B. Tian, H. Toma,
+E. Tuttle, V. Vasudevan, R. Walter, W. Wang, E. Wilcox, and D. H. Yoon. In-datacenter performance
+analysis of a tensor processing unit. In ISCA, pages 1–12. ACM, 2017. ISBN 978-1-4503-4892-8. URL
+http://dblp.uni-trier.de/db/conf/isca/isca2017.html#JouppiYPPABBBBB17.
+A. Krizhevsky, I. Sutskever, and G. E. Hinton.
+Imagenet classiﬁcation with deep convolutional
+neural networks.
+In F. Pereira, C. J. C. Burges, L. Bottou, and K. Q. Weinberger, edi-
+tors, Advances in Neural Information Processing Systems, volume 25, pages 1097–1105. Cur-
+ran Associates, Inc., 2012. URL https://proceedings.neurips.cc/paper/2012/file/
+c399862d3b9d6b76c8436e924a68c45b-Paper.pdf.
+E. Liang, R. Liaw, R. Nishihara, P. Moritz, R. Fox, K. Goldberg, J. Gonzalez, M. Jordan, and I. Stoica.
+RLlib: Abstractions for distributed reinforcement learning. In J. Dy and A. Krause, editors, Proceed-
+ings of the 35th International Conference on Machine Learning, volume 80 of Proceedings of Machine
+Learning Research, pages 3053–3062, Stockholmsmässan, Stockholm Sweden, 10–15 Jul 2018.
+PMLR. URL http://proceedings.mlr.press/v80/liang18b.html.
+T. P. Lillicrap, J. J. Hunt, A. Pritzel, N. Heess, T. Erez, Y. Tassa, D. Silver, and D. Wierstra. Continuous
+control with deep reinforcement learning. In Y. Bengio and Y. LeCun, editors, ICLR, 2016.
+J. McCarthy. Recursive functions of symbolic expressions and their computation by machine, part i.
+Commun. ACM, 3(4):184–195, Apr. 1960. ISSN 0001-0782. doi: 10.1145/367177.367199. URL
+https://doi.org/10.1145/367177.367199.
+10
+
+Podracer architectures for scalable Reinforcement Learning
+M. Minsky. Steps toward artiﬁcial intelligence. Proceedings of the IRE, 49(1):8–30, 1961.
+V. Mnih, K. Kavukcuoglu, D. Silver, A. A. Rusu, J. Veness, M. G. Bellemare, A. Graves, M. Riedmiller,
+A. K. Fidjeland, G. Ostrovski, S. Petersen, C. Beattie, A. Sadik, I. Antonoglou, H. King, D. Kumaran,
+D. Wierstra, S. Legg, and D. Hassabis. Human-level control through deep reinforcement learning.
+Nature, 2015.
+V. Mnih, A. P. Badia, M. Mirza, A. Graves, T. Lillicrap, T. Harley, D. Silver, and K. Kavukcuoglu.
+Asynchronous methods for deep reinforcement learning. In International conference on machine
+learning, pages 1928–1937, 2016.
+K. P. Murphy. Machine Learning: A Probabilistic Perspective. The MIT Press, 2012. ISBN 0262018020.
+A. Nair, P. Srinivasan, S. Blackwell, C. Alcicek, R. Fearon, A. D. Maria, V. Panneershelvam, M. Suleyman,
+C. Beattie, S. Petersen, S. Legg, V. Mnih, K. Kavukcuoglu, and D. Silver. Massively parallel methods
+for deep reinforcement learning. CoRR, abs/1507.04296, 2015. URL http://arxiv.org/abs/
+1507.04296.
+Nolan. Analytical diﬀerentiation on a digital computer. Massachusetts Institute of Technology, Mas-
+sachusetts Institute of Technology, 1953.
+J. Oh, M. Hessel, W. M. Czarnecki, Z. Xu, H. van Hasselt, S. Singh, and D. Silver. Discovering
+reinforcement learning algorithms, 2021.
+M. Petrov, S. Sidor, S. Zhang, J. Pachocki, P. D˛ebiak, F. Wolski, C. Dennison, H. Pondé, G. Brockman,
+J. Tang, D. Farhi, B. Chan, and J. Raiman. Openai rapid. https://openai.com/blog/openai-ﬁve/,
+2018.
+J. Schrittwieser, I. Antonoglou, T. Hubert, K. Simonyan, L. Sifre, S. Schmitt, A. Guez, E. Lockhart,
+D. Hassabis, T. Graepel, T. Lillicrap, and D. Silver. Mastering Atari, Go, chess and shogi by planning
+with a learned model. Nature, 588(7839):604–609, Dec 2020. ISSN 1476-4687.
+D. Silver, A. Huang, C. J. Maddison, A. Guez, L. Sifre, G. Van Den Driessche, J. Schrittwieser,
+I. Antonoglou, V. Panneershelvam, M. Lanctot, et al. Mastering the game of Go with deep neural
+networks and tree search. Nature, 529(7587):484, 2016.
+D. Silver, T. Hubert, J. Schrittwieser, I. Antonoglou, M. Lai, A. Guez, M. Lanctot, L. Sifre, D. Kumaran,
+T. Graepel, T. P. Lillicrap, K. Simonyan, and D. Hassabis. Mastering chess and shogi by self-play
+with a general reinforcement learning algorithm. CoRR, abs/1712.01815, 2017. URL http:
+//arxiv.org/abs/1712.01815.
+B. Speelpenning. Compiling fast partial derivatives of functions given by algorithms. Technical
+Report COO-2383-0063; UILU-ENG-80-1702; UIUCDCS-R-80-1002, Illinois Univeristy, Urbana,
+USA, 1980.
+A. Stooke and P. Abbeel. Accelerated methods for deep reinforcement learning. CoRR, abs/1803.02811,
+2018. URL http://arxiv.org/abs/1803.02811.
+R. S. Sutton and A. G. Barto. Reinforcement learning: An introduction. MIT press, 2018.
+X. team. Xla — tensorﬂow, compiled. https://developers.googleblog.com, 2017.
+H. Van Hasselt. Reinforcement learning in continuous state and action spaces. In Reinforcement
+learning, pages 207–251. Springer, 2012.
+11
+
+Podracer architectures for scalable Reinforcement Learning
+M. Ward. Proving program reﬁnements and transformations. PhD thesis, University of Oxford, UK,
+1989. URL http://ethos.bl.uk/OrderDetails.do?uin=uk.bl.ethos.306712.
+R. E. Wengert. A simple automatic derivative evaluation program. Commun. ACM, 7(8):463–464,
+1964. URL http://dblp.uni-trier.de/db/journals/cacm/cacm7.html#Wengert64.
+Z. Xu, H. van Hasselt, M. Hessel, J. Oh, S. Singh, and D. Silver. Meta-gradient reinforcement learning
+with an objective discovered online, 2020.
+T. Zahavy, Z. Xu, V. Veeriah, M. Hessel, J. Oh, H. van Hasselt, D. Silver, and S. Singh. A self-tuning
+actor-critic algorithm, 2020.
+12
