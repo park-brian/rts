@@ -4,13 +4,12 @@
 
 import type { MapDef } from './map.ts';
 import type { State } from './world.ts';
-import { makeState, slotOf, eid, nearest, NONE } from './world.ts';
+import { makeState, slotOf, eid, nearest, NEUTRAL, NONE } from './world.ts';
 import { spawnUnit } from './factory.ts';
 import { Kind, Order, Role, TILE, START_MINERALS, Terran, type Faction } from './data.ts';
 import { census } from './systems/census.ts';
 import { fx } from './fixed.ts';
 
-const NEUTRAL = 255;
 const tilePx = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center
 
 export const setupMatch = (
@@ -50,6 +49,11 @@ export const setupMatch = (
       }
     }
   }
+
+  // Record how many distinct teams started (victory needs >= 2).
+  const seen = new Set<number>();
+  for (let p = 0; p < playerCount; p++) seen.add(s.teams[p]!);
+  s.startTeams = seen.size;
 
   census(s); // derive initial supply
   return s;

@@ -1,6 +1,7 @@
 // World state: a data-oriented (Struct-of-Arrays) entity store plus per-player
-// economy, the RNG, the tick counter, and the (immutable) map. Everything here is
-// plain data so it clones cheaply (fork/reset) and hashes deterministically.
+// economy, teams, the RNG, the tick counter, the (immutable) map, and per-player
+// vision. Everything here is plain data so it clones cheaply (fork/reset) and
+// hashes deterministically.
 
 import type { MapDef } from './map.ts';
 import { type Rng, cloneRng } from './rng.ts';
@@ -8,6 +9,7 @@ import { fold, foldArray, FNV_OFFSET } from './hash.ts';
 
 export const CAP = 4096; // max simultaneous entities (grow later if needed)
 export const NONE = -1; // null EntityId sentinel
+export const NEUTRAL = 255; // owner id for non-player entities (resources)
 
 // Parallel component columns. EntityId encodes (slot, generation) so stale
 // references are detected after a slot is reused.
@@ -21,14 +23,18 @@ export type Entities = {
   owner: Uint8Array; // player id, 255 = neutral
   x: Int32Array; // fixed-point position
   y: Int32Array;
-  hp: Int32Array; // integer hit points
+  hp: Int32Array; // current hit points (integer)
   flags: Uint16Array; // Role bitflags (copied from the unit def at spawn)
   order: Uint8Array;
-  target: Int32Array; // EntityId or NONE
-  tx: Int32Array; // fixed-point target point
+  target: Int32Array; // EntityId or NONE (harvest node / attack target / depot)
+  tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
   timer: Int32Array; // generic countdown (mining)
-  cargo: Int32Array; // carried resources (workers) / remaining amount (resource nodes)
+  wcd: Int32Array; // weapon cooldown (ticks)
+  ctimer: Int32Array; // construction remaining (ticks)
+  built: Uint8Array; // 1 once a structure is complete (0 while constructing)
+  buildKind: Uint16Array; // for a worker en route to build: the structure kind
+  cargo: Int32Array; // carried resources (workers) / remaining amount (nodes)
   cargoType: Uint8Array; // ResourceType currently carried by a worker
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
@@ -42,11 +48,17 @@ export type Players = {
   supplyMax: Int32Array;
 };
 
+export type Result = { over: boolean; winner: number }; // winner = team id, or -1
+
 export type State = {
   tick: number;
   rng: Rng;
   map: MapDef; // immutable; shared across clones
   players: Players;
+  teams: Int32Array; // team id per player
+  startTeams: number; // distinct teams at match start (victory needs >= 2)
+  result: Result;
+  vision: Uint8Array[]; // per-player visibility grid (0 unseen, 1 explored, 2 visible)
   e: Entities;
 };
 
@@ -59,6 +71,10 @@ export const isAlive = (e: Entities, id: number): boolean => {
   const s = id % CAP;
   return e.alive[s] === 1 && e.gen[s] === genOf(id);
 };
+
+/** Two owners are enemies if both are players on different teams. */
+export const isEnemy = (s: State, a: number, b: number): boolean =>
+  a < s.teams.length && b < s.teams.length && s.teams[a] !== s.teams[b];
 
 // ---- construction ----
 const makeEntities = (): Entities => {
@@ -81,6 +97,10 @@ const makeEntities = (): Entities => {
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
     timer: new Int32Array(CAP),
+    wcd: new Int32Array(CAP),
+    ctimer: new Int32Array(CAP),
+    built: new Uint8Array(CAP),
+    buildKind: new Uint16Array(CAP),
     cargo: new Int32Array(CAP),
     cargoType: new Uint8Array(CAP),
     prodKind: new Uint16Array(CAP),
@@ -89,18 +109,28 @@ const makeEntities = (): Entities => {
   };
 };
 
-export const makeState = (map: MapDef, playerCount: number, seed: number): State => ({
-  tick: 0,
-  rng: { s: seed >>> 0 },
-  map,
-  players: {
-    minerals: new Int32Array(playerCount),
-    gas: new Int32Array(playerCount),
-    supplyUsed: new Int32Array(playerCount),
-    supplyMax: new Int32Array(playerCount),
-  },
-  e: makeEntities(),
-});
+export const makeState = (map: MapDef, playerCount: number, seed: number): State => {
+  const vision: Uint8Array[] = [];
+  for (let p = 0; p < playerCount; p++) vision.push(new Uint8Array(map.w * map.h));
+  const teams = new Int32Array(playerCount);
+  for (let p = 0; p < playerCount; p++) teams[p] = p; // default: each player own team
+  return {
+    tick: 0,
+    rng: { s: seed >>> 0 },
+    map,
+    players: {
+      minerals: new Int32Array(playerCount),
+      gas: new Int32Array(playerCount),
+      supplyUsed: new Int32Array(playerCount),
+      supplyMax: new Int32Array(playerCount),
+    },
+    teams,
+    startTeams: 0, // set by setupMatch once teams are finalized
+    result: { over: false, winner: -1 },
+    vision,
+    e: makeEntities(),
+  };
+};
 
 /** Allocate an entity, resetting all columns to defaults. Returns its EntityId. */
 export const spawn = (
@@ -128,6 +158,10 @@ export const spawn = (
   e.tx[slot] = 0;
   e.ty[slot] = 0;
   e.timer[slot] = 0;
+  e.wcd[slot] = 0;
+  e.ctimer[slot] = 0;
+  e.built[slot] = 1; // complete by default; construction sets 0
+  e.buildKind[slot] = 0;
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
   e.prodKind[slot] = 0;
@@ -196,6 +230,10 @@ const cloneEntities = (e: Entities): Entities => ({
   tx: e.tx.slice(),
   ty: e.ty.slice(),
   timer: e.timer.slice(),
+  wcd: e.wcd.slice(),
+  ctimer: e.ctimer.slice(),
+  built: e.built.slice(),
+  buildKind: e.buildKind.slice(),
   cargo: e.cargo.slice(),
   cargoType: e.cargoType.slice(),
   prodKind: e.prodKind.slice(),
@@ -213,14 +251,20 @@ export const cloneState = (s: State): State => ({
     supplyUsed: s.players.supplyUsed.slice(),
     supplyMax: s.players.supplyMax.slice(),
   },
+  teams: s.teams.slice(),
+  startTeams: s.startTeams,
+  result: { over: s.result.over, winner: s.result.winner },
+  vision: s.vision.map((v) => v.slice()),
   e: cloneEntities(s.e),
 });
 
-// ---- deterministic state fingerprint ----
+// ---- deterministic state fingerprint (vision is derived, so excluded) ----
 export const hashState = (s: State): number => {
   let h = FNV_OFFSET;
   h = fold(h, s.tick);
   h = fold(h, s.rng.s);
+  h = fold(h, s.result.over ? 1 : 0);
+  h = fold(h, s.result.winner);
   const p = s.players;
   h = foldArray(h, p.minerals, p.minerals.length);
   h = foldArray(h, p.gas, p.gas.length);
@@ -241,6 +285,10 @@ export const hashState = (s: State): number => {
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
     h = fold(h, e.timer[i]!);
+    h = fold(h, e.wcd[i]!);
+    h = fold(h, e.ctimer[i]!);
+    h = fold(h, e.built[i]!);
+    h = fold(h, e.buildKind[i]!);
     h = fold(h, e.cargo[i]!);
     h = fold(h, e.cargoType[i]!);
     h = fold(h, e.prodKind[i]!);

@@ -14,7 +14,7 @@ const EXIT = fx(40); // how far from a structure produced units appear
 export const production = (s: State): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.prodKind[i] === Kind.None) continue;
+    if (e.alive[i] !== 1 || e.built[i] !== 1 || e.prodKind[i] === Kind.None) continue;
     if (e.prodTimer[i]! > 0) {
       e.prodTimer[i] = e.prodTimer[i]! - 1;
       if (e.prodTimer[i]! > 0) continue;

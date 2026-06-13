@@ -8,7 +8,10 @@ import type { State } from './world.ts';
 
 export type Command =
   | { t: 'train'; building: number; kind: number }
+  | { t: 'build'; unit: number; kind: number; x: number; y: number }
   | { t: 'move'; unit: number; x: number; y: number }
+  | { t: 'attack'; unit: number; target: number } // attack a specific entity
+  | { t: 'amove'; unit: number; x: number; y: number } // attack-move to a point
   | { t: 'harvest'; unit: number; patch: number }
   | { t: 'stop'; unit: number };
 

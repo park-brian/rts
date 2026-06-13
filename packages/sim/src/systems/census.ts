@@ -20,7 +20,7 @@ export const census = (s: State): void => {
     const d = Units[e.kind[i]!];
     if (!d) continue;
     p.supplyUsed[owner] = p.supplyUsed[owner]! + d.supply;
-    p.supplyMax[owner] = p.supplyMax[owner]! + d.provides;
+    if (e.built[i] === 1) p.supplyMax[owner] = p.supplyMax[owner]! + d.provides;
     if (e.prodKind[i] !== Kind.None) {
       const pd = Units[e.prodKind[i]!];
       if (pd) p.supplyUsed[owner] = p.supplyUsed[owner]! + pd.supply * (1 + e.prodQueued[i]!);
