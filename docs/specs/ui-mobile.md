@@ -41,8 +41,9 @@ iPhone 14 (390×844), Pixel 7 (412×915). All screenshots taken at these sizes.
 ├─────────────────────────────┤
 │                             │
 │                             │
-│        GAME VIEWPORT        │  ← MAP (largest zone; pan/zoom/pinch)
-│   (pan · pinch-zoom · tap)  │     selection + command issuing happen here
+│        GAME VIEWPORT        │  ← MAP (top-down, north-up; largest zone)
+│  (1-finger=select/act ·     │     1-finger drag = box-select · 2-finger = pan
+│   2-finger=pan · pinch=zoom)│     pinch = zoom · tap = select/smart-act
 │                             │
 │                             │
 │                             │
@@ -51,8 +52,8 @@ iPhone 14 (390×844), Pixel 7 (412×915). All screenshots taken at these sizes.
 ├──────────────┴────────────┴─┤
 │ [selection portraits/count] │  ← SELECTION TRAY: who/what is selected
 ├─────────────────────────────┤
-│  ▢  ▢  ▢      COMMAND CARD   │  ← ACTION ZONE (thumb arc): context actions
-│  ▢  ▢  ▢   (Move/Atk/Build…) │     adaptive grid of big buttons + sub-menus
+│  ▢  ▢  ▢    COMMAND HOTBAR   │  ← ACTION ZONE (thumb arc): context verbs
+│  ▢  ▢  ▢  (A-move/Hold/Build…)│     adaptive grid of big buttons + sub-menus
 └─────────────────────────────┘
 ```
 
@@ -61,38 +62,58 @@ Zones, top to bottom:
 - **Top status bar** — minerals, gas, supply, game time, and a stack of tappable
   *alerts* ("under attack", "unit ready", "research done"). Slim and translucent so it
   doesn't eat the map. Read-only; tapping an alert jumps the camera.
-- **Game viewport** — the dominant zone. Pan with one-finger drag, **pinch to zoom**,
-  tap to select, double-tap to select all of type on screen. Long-press for a radial
-  context menu. This is where commands are targeted.
+- **Game viewport** — the dominant zone, rendered **top-down, north-up** (see
+  [`maps.md`](./maps.md) for why top-down and how elevation reads). **One-finger drag =
+  box-select; two-finger drag = pan; pinch = zoom.** Tap to select / smart-act, double-tap to
+  select all of type on screen. This is where selection and command-targeting happen.
 - **Minimap** — floats over a bottom corner of the viewport, collapsible to a pip.
   Tap to recenter camera; drag to scrub. Shows fog, units, alerts.
 - **Selection tray** — compact representation of the current selection (portrait +
   count, or a grouped icon list for mixed selections). Tap a sub-group to narrow.
-- **Command card** — the heart of touch RTS: a grid of large, context-sensitive action
-  buttons for the current selection (Move, Attack, Stop, Hold, Patrol, Build, Train,
-  abilities…). Build/train open a sub-grid. Smart-cast for abilities. This replaces PC
-  hotkeys.
+- **Command hotbar** — the heart of touch RTS: a prominent bottom row of large,
+  context-sensitive **verb** buttons for the current selection (Attack-move, Stop, Hold,
+  Patrol, Build, Train, abilities…). Tapping a verb enters target mode (§4). It complements
+  the **smart-tap default action** (tap a target to do the obvious thing) — the hotbar is for
+  the explicit verbs that aren't the default. Build/train open a sub-grid; smart-cast for
+  abilities. This replaces PC hotkeys.
 
 The map zone can expand to (near) full-screen with a tap, collapsing the chrome into
 edge handles for an immersive view; controls slide back on demand.
 
 ## 4. Interaction grammar (touch gestures)
 
+The core principle resolves the one real conflict on touch: **single-finger = select & command
+(you do it constantly); two-finger = navigate.**
+
 | Gesture | Action |
 |---|---|
-| One-finger drag (on map) | Pan camera |
+| **One-finger drag on the world** | **Box-select** units in the rectangle (the "highlight" gesture) |
+| **Two-finger drag** | Pan camera |
 | Pinch / spread | Zoom out / in |
-| Tap unit | Select single unit |
-| Tap empty ground | Deselect / (after selecting + action) issue command at point |
-| Drag a lasso (toggle mode) | Box-select multiple units |
-| Double-tap unit | Select all of that type on screen |
-| Long-press unit/ground | Radial context menu (Attack-move, Patrol, etc.) |
-| Tap command-card button | Issue command or open sub-menu / enter target mode |
-| Two-finger tap minimap | Quick-ping / alert teammates |
+| Tap a unit | Select that unit |
+| Tap with a selection active | **Smart action** at the tap target (see below) |
+| Double-tap a unit | Select all of that type on screen |
+| Long-press | Queue the command (shift-equivalent) / radial extras |
+| Tap a hotbar verb | Enter **target mode** for that verb |
+| Tap / drag the minimap | Jump / scrub the camera |
+| Two-finger tap | Ping / alert (teammates) |
 
-**Target mode:** tapping an action that needs a target (Move, Attack, Build) puts the
-viewport into a one-tap "now tap where" mode with a clear visual cue, then auto-exits.
-This avoids needing two simultaneous inputs.
+**Smart-tap default action** (with units selected, tap a target — the unit auto-approaches if
+out of range, then acts):
+
+| Tap target | Default action |
+|---|---|
+| Empty ground | **Move** |
+| Enemy unit / building | **Attack** |
+| Mineral patch / geyser (workers selected) | **Harvest** |
+| Damaged friendly biological unit (Medic selected) | **Heal** |
+| Damaged friendly building / mechanical (SCV selected) | **Repair** |
+| Own production building | Set **rally point** |
+
+**Target mode** (for explicit verbs from the hotbar — Attack-move, Patrol, Build, cast, etc.):
+tapping the verb puts the viewport into a clear one-tap "now tap where/what" mode, then
+auto-exits. This is how you attack-move a group: tap **A-move** → tap the destination. It avoids
+needing two simultaneous inputs. Tapping empty space or a Cancel affordance exits target mode.
 
 ## 5. Control groups & selection without a keyboard
 
@@ -128,16 +149,16 @@ Every UI iteration is checked by rendering at the reference resolutions and capt
 screenshots, so we *see* the mobile layout rather than guessing:
 
 - Emulate iPhone SE / iPhone 14 / Pixel 7 viewports (portrait).
-- Capture: main game view, unit selected (command card), build menu open, minimap
-  expanded, "under attack" alert state, immersive full-map mode.
+- Capture: main game view, unit selected (command hotbar), box-selection in progress,
+  build menu open, minimap expanded, "under attack" alert state, immersive full-map mode.
 - Compare across iterations to catch layout regressions and reachability problems.
 - Screenshots are how we evaluate "elegant on a small vertical screen" — the stated goal.
 
 ## 9. Open questions / deferred
 
-- Exact zoom range and whether to support a "tactical" top-down zoom-out view.
-- Lasso-select vs. tap-select as the default (likely a toggle in the action zone).
-- How much of the SC1 command card to surface at once vs. progressive disclosure.
+- Exact zoom range and whether to support a "tactical" zoom-out view.
+- Whether two-finger-pan vs. minimap-jump should be the primary camera move (test both).
+- How much of the command hotbar to surface at once vs. progressive disclosure.
 - Landscape and tablet layouts (post-MVP).
 - Visual style / art direction (separate from layout; TBD).
 ```

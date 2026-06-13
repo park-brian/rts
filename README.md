@@ -83,7 +83,8 @@ docs/          specs, research notes, papers, tooling (see below)
 |---|---|
 | [`docs/specs/architecture.md`](docs/specs/architecture.md) | Engine design: determinism, ECS/SoA core, tick pipeline, player interface, build targets, repo layout. |
 | [`docs/specs/sc1-spec.md`](docs/specs/sc1-spec.md) | The game data: universal mechanics + combat model, and full Terran / Protoss / Zerg unit, building, and tech data. |
-| [`docs/specs/ui-mobile.md`](docs/specs/ui-mobile.md) | Mobile-first vertical UI: layout zones, touch grammar, control groups, APM-reduction, Playwright verification workflow. |
+| [`docs/specs/ui-mobile.md`](docs/specs/ui-mobile.md) | Mobile-first vertical UI: layout zones, touch grammar (1-finger select / 2-finger pan, smart-tap, command hotbar), control groups, APM-reduction, Playwright workflow. |
+| [`docs/specs/maps.md`](docs/specs/maps.md) | Perspective (top-down, north-up), portrait map design (S vs N), elevation in top-down (low/high + ramps), and the map data model. |
 | [`docs/specs/ai-training.md`](docs/specs/ai-training.md) | AI plan: scripted bots → behavior-cloning warmstart → PPO → PFSP self-play league → distillation; throughput strategy. |
 | [`docs/specs/assets.md`](docs/specs/assets.md) | Art strategy: self-drawn SVG + Kenney CC0 packs (license-clean), rasterized to a GPU texture atlas; per-player team-color tinting. |
 | [`docs/research/`](docs/research/) | Synthesized research: [AlphaStar](docs/research/alphastar.md), [efficient RL](docs/research/efficient-rl.md), [SC1 spells & upgrades](docs/research/sc1-spells-upgrades.md). |
