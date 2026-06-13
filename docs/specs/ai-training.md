@@ -7,8 +7,9 @@
 ## 0. The thesis
 
 AlphaStar proved superhuman RTS is possible; its cost was **throughput** (a 384-TPU,
-44-day league), not algorithmic mystery. Our defining asset is the [deterministic, fast,
-headless Rust sim](./architecture.md) that runs **many parallel games**. With that, we
+44-day league), not algorithmic mystery. Our defining asset is the [deterministic, headless
+sim](./architecture.md) that runs **many parallel games** (TypeScript now, with a measured
+Rust→WASM/JAX hot-loop port available later — see §9). With that, we
 substitute throughput-driven model-free RL + an imitation warmstart + a small self-play
 league for DeepMind's fleet. The closest existence proof on small hardware is **Gym-µRTS**
 (SOTA full-RTS DRL, beat every prior competition bot in ~60h on a *single* GPU). Our job is
@@ -28,13 +29,18 @@ Five load-bearing decisions:
 
 ## 1. The environment interface (the contract with the sim)
 
-The training stack consumes the sim through the [`PolicyController` boundary](./architecture.md#5-players-as-an-interface-input-source-abstraction). Concretely we expose a Gym/PettingZoo-style API via the PyO3 bindings (`crates/sim-py`):
+The training stack consumes the sim through the [`PolicyController` boundary](./architecture.md#5-players-as-an-interface-input-source-abstraction). We expose a Gym/PettingZoo-style API over the TypeScript sim:
 
 - `reset(map, seed, opponents) -> obs`
 - `step(action) -> obs, reward, done, info`
-- a **vectorized** form, `step_batch`, advancing N independent games in one call (the SoA
-  layout + cheap `snapshot/restore` make resets and batching cheap).
+- a **vectorized** form, `step_batch`, advancing N independent games (a Worker pool / multiple
+  Node processes; the typed-array SoA layout + cheap `snapshot/restore` make resets and batching
+  cheap).
 - **Action masks** returned every step so the policy never samples illegal actions.
+
+Two integration paths, chosen when we reach the RL stage (see §9): a **JS-native RL loop**, or a
+thin **bridge to Python/PyTorch** (stdin/stdout JSON or shared-memory/Arrow) so we can reuse the
+mature Python RL ecosystem while keeping the TS sim as the single source of truth.
 
 Two observation modes (same as the controller boundary): **fog-limited** (fair play /
 final agents) and **full god-view** (scripted bots, the critic's opponent-observation
@@ -136,15 +142,22 @@ AlphaStar league structure at small scale:
 
 ## 9. Throughput plan (the real lever)
 
-- **Native vectorized sim** is the default high-throughput path: hundreds of `Sim` instances
-  across cores via the headless crate + PyO3 `step_batch`, feeding APPO/PufferLib to keep the
-  GPU saturated (target **≥10⁵–10⁶ env-steps/s on one node**).
-- If we hit a wall, evaluate an **EnvPool-grade** batched executor, or a JAX/CUDA
-  re-expression of the hot loop for the **Anakin/podracer** "everything on the accelerator"
-  pattern. This is a later optimization, not a Stage-0 requirement — but the sim's data layout
-  is designed to keep that door open.
-- Benchmark games/sec continuously (the headless crate has a `bench` mode); throughput is a
-  first-class, tracked metric.
+Throughput is the lever, but it's reclaimed in **stages, on measurement** — we do not pay for
+native infrastructure before it's the proven bottleneck.
+
+1. **TS sim + Worker/process pool (start here).** A tight data-oriented TS sim (typed arrays,
+   zero hot-loop allocation, monomorphic code) is fast under V8; many instances across a Worker
+   pool / multiple Node processes give real parallelism. This is enough for BC, the first PPO
+   runs, and an early league. (µRTS — a JVM sim — was the SOTA-efficient RTS-RL benchmark, so a
+   managed-language sim is demonstrably viable for serious RTS RL.)
+2. **Port the sim hot-loop to Rust→WASM** *if* profiling shows sim-step is the bottleneck. The
+   same WASM serves the browser and Node; the port is validated bit-for-bit against the TS sim
+   via the recorded-replay `hash()` test (see [architecture §9](./architecture.md#9-why-typescript-first-and-how-the-throughput-door-stays-open)).
+3. **JAX/CUDA vectorized sim** ("everything on the accelerator," Anakin/podracer) only for
+   large-scale batched self-play if we go that far. This is a separate training-only
+   representation regardless of day-1 language.
+- Benchmark games/sec continuously (the `headless` package has a `bench` mode); throughput is a
+  first-class, tracked metric that *drives* when we move between stages.
 
 ## 10. Evaluation
 
@@ -157,7 +170,8 @@ AlphaStar league structure at small scale:
 
 ## 11. Phased roadmap (maps onto the Terran-first vertical slice)
 
-1. **Sim + Gym/PyO3 interface + obs/action/masks** for the Terran slice; `bench` mode.
+1. **Sim + Gym-like env interface + obs/action/masks** for the Terran slice; Worker-pool
+   parallelism; `bench` mode.
 2. **Scripted bot** (economy/production/military managers) with difficulty knobs.
 3. **BC warmstart** from scripted-vs-scripted games; verify the cloned policy plays sanely.
 4. **PPO fine-tune** vs the scripted ladder; beat `hard`.
@@ -167,8 +181,9 @@ AlphaStar league structure at small scale:
 
 ## 12. Decisions deferred
 
-- **PyTorch vs JAX.** PyTorch + PufferLib/CleanRL for fast iteration now; JAX kept open for a
-  future Anakin-style accelerator-resident pipeline if throughput demands it.
+- **RL stack.** Likely a thin **Python/PyTorch** bridge (PufferLib/CleanRL) over the TS sim for
+  the mature ecosystem; a **JS-native** loop stays an option for the simplest setups. JAX kept
+  open for a future Anakin-style accelerator-resident pipeline if throughput demands it.
 - Camera-style partial observability (fair human comparison) vs. full-map observation — start
   full-map for tractability, add camera later.
 - Exact action factorization (pointer vs GridNet vs hybrid) — decide empirically.

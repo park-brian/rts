@@ -18,10 +18,10 @@ over a network without touching the simulation.
 2. **Mobile-first, rethought.** Not a shrunk PC UI — an interaction model redesigned for a small
    vertical touchscreen (thumb-first controls, selection-then-action, reduced-APM automation),
    verified continuously with Playwright screenshots. See [`docs/specs/ui-mobile.md`](docs/specs/ui-mobile.md).
-3. **One deterministic simulation, many consumers.** A single Rust core runs in the browser
-   (WASM), in headless training (native), and in network play — no second implementation to
-   drift. Deterministic + fixed-point → reproducible replays, lockstep netcode, stable RL. See
-   [`docs/specs/architecture.md`](docs/specs/architecture.md).
+3. **One deterministic simulation, many consumers.** A single TypeScript core runs in the
+   browser, in Node headless training, and in network play — same module everywhere, no
+   boundary to drift. Deterministic + fixed-point integers → reproducible replays, lockstep
+   netcode, stable RL. See [`docs/specs/architecture.md`](docs/specs/architecture.md).
 4. **Players are an interface.** Local human, networked human, scripted bot, and neural-net
    policy are interchangeable behind one `observe → commands` boundary.
 5. **Built for superhuman AI on a small budget.** The engine is high-throughput and runs many
@@ -32,37 +32,42 @@ over a network without touching the simulation.
 ## Architecture at a glance
 
 ```
-            ┌──────────────────────────────────────────────┐
-            │            sim core  (Rust)                  │
-            │  deterministic · fixed-point · ECS/SoA       │
-            │  no I/O · no float · step(cmds) -> state     │
-            └──────┬─────────────┬──────────────┬──────────┘
-          wasm     │    cdylib   │     PyO3      │
-          ┌────────▼───┐ ┌───────▼─────┐ ┌──────▼────────┐
-          │  browser   │ │ headless    │ │ python RL     │
-          │ TS + WebGL │ │ bots /      │ │ (PyTorch)     │
-          │ mobile UI  │ │ self-play / │ │ vec-envs /    │
-          │ + input    │ │ replays     │ │ league train  │
-          └────────────┘ └─────────────┘ └───────────────┘
+          ┌────────────────────────────────────────────────┐
+          │            sim core  (TypeScript)              │
+          │  deterministic · fixed-point ints · SoA         │
+          │  no DOM · no I/O · no float · step(cmds)->state  │
+          └──────┬───────────────┬───────────────┬─────────┘
+       same module│   same module │   same module │
+        ┌─────────▼──┐ ┌──────────▼──┐ ┌──────────▼──────┐
+        │  browser   │ │ node        │ │ worker pool     │
+        │ WebGL +    │ │ headless    │ │ N parallel      │
+        │ mobile UI  │ │ CLI: games/ │ │ games for       │
+        │ + input    │ │ self-play / │ │ training data   │
+        │            │ │ replays/bench│ │                 │
+        └────────────┘ └─────────────┘ └─────────────────┘
 ```
 
-- **Engine:** Rust, deterministic, fixed-point integer math, data-oriented (ECS/SoA) for
-  cache-friendly bulk iteration and high throughput.
-- **Browser:** TypeScript + WebGL renderer and mobile UI; drives the sim via WASM.
-- **Training:** Python (PyTorch) over PyO3 bindings, stepping many parallel native sims.
-- **Decisions locked:** Rust sim core from day 1; first milestone is a **Terran-only vertical
-  slice** (full stack end-to-end), then expand to Protoss/Zerg, more maps, and teammates.
+- **One language:** deterministic, data-oriented TypeScript (typed-array SoA, fixed-point
+  integer math, seeded PRNG). The same `sim` module runs in the browser, in Node, and in Web
+  Workers — no cross-language boundary.
+- **Browser:** WebGL renderer + mobile UI driving the sim directly.
+- **Headless/training:** Node CLI + a Worker pool stepping many parallel games.
+- **Throughput escape hatch (deferred):** if/when training throughput is the *measured*
+  bottleneck, port just the sim hot-loop to Rust→WASM (still serves browser + Node) or a JAX
+  vectorized sim — validated bit-for-bit against the TS sim via recorded replays.
+- **Decisions locked:** TypeScript-first; first milestone is a **Terran-only vertical slice**
+  (full stack end-to-end), then expand to Protoss/Zerg, more maps, and teammates.
 
 ## Repository layout (planned)
 
 ```
-crates/
-  sim/         deterministic core (no I/O, no float)
-  sim-wasm/    wasm-bindgen wrapper -> browser
-  sim-py/      PyO3 wrapper -> python RL
-  headless/    native CLI: run games, self-play, replays, benchmarks
-web/           TS + WebGL renderer, mobile UI, input
-train/         python RL: vec-env, policy nets, league, training loops
+packages/                  # pnpm workspace
+  sim/         deterministic core (no DOM, no I/O, no float in hot path)
+  ai/          scripted controllers; later the policy controller
+  render/      WebGL/Canvas read-only renderer
+  ui/          mobile UI components, gesture/touch -> commands
+  app/         browser game (Vite) — the thing we screenshot
+  headless/    Node CLI: games, self-play, replays, benchmarks, worker pool
 maps/          map definitions (data)
 replays/       recorded command-stream replays
 docs/          specs, research notes, papers, tooling (see below)
@@ -107,8 +112,10 @@ python3 docs/scripts/fetch_papers.py
 ## Roadmap
 
 1. **Foundations (this commit):** vision, specs, architecture, UI design, AI plan, research. ✅
-2. **Terran vertical slice:** Rust sim core (economy, a few buildings/units, combat, fog, one
-   map, win condition) + mobile UI in the browser + a scripted opponent.
-3. **AI loop:** Gym/PyO3 interface, scripted bot ladder, behavior-cloning warmstart, PPO fine-tune.
+2. **Terran vertical slice:** TypeScript sim core (economy, a few buildings/units, combat, fog,
+   one map, win condition) + mobile UI in the browser + a scripted opponent.
+3. **AI loop:** Gym-like env interface + Worker-pool parallelism, scripted bot ladder,
+   behavior-cloning warmstart, PPO fine-tune.
 4. **Superhuman:** self-play + PFSP league + PBT; distill; APM/reaction constraints; human eval.
+   (Port the sim hot-loop to Rust→WASM / JAX here *if* measured throughput demands it.)
 5. **Expand:** full Terran roster → Protoss & Zerg, more maps, computer teammates, network play.
