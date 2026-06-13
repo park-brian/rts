@@ -3,6 +3,15 @@
 > Status: living design doc. Goal: a crisp, elegant, mobile-first look that stays **lightweight,
 > in-house, and 100% license-clean** for a public GitHub Pages deploy. Renders through the
 > imperative WebGL world layer (see [architecture §6](./architecture.md#6-rendering--ui-browser-ts)).
+>
+> **Implemented (vertical slice).** The WebGL2 path described below is live in `packages/app`:
+> a tiny regl-like core (`src/gl/gl.ts`) drives one instanced sprite pass for every
+> unit/building/resource plus HP bars, selection rings, and rally markers. Self-drawn SVG sprites
+> (`src/art/sprites.ts`) bake into a runtime color+mask texture atlas (`src/gl/atlas.ts`) at
+> startup; team color is a fragment-shader multiply through the mask channel (§4); fog is a soft,
+> linear-filtered texture quad. Canvas2D (`src/render2d.ts`) remains the fallback and the source of
+> the 2D-overlay chrome (minimap, drag box). Next: re-bake per zoom bucket (§3.3), animation,
+> particles, and lights on the same instanced substrate.
 
 ## 1. Hard rule: only CC0 or self-made ships
 
