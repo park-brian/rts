@@ -17,6 +17,7 @@ export class Game {
   controllers: (Controller | null)[] = [];
   human = 0; // human player index, -1 in spectate
   mode: Mode = 'play';
+  perTeam = 1; // players per side (1 = 1v1, 2 = 2v2, …)
   seed = 1;
 
   camX = 0; camY = 0; zoom = 1; // camera (world px) + scale
@@ -36,19 +37,22 @@ export class Game {
     this.restart(mode, seed);
   }
 
-  restart(mode: Mode, seed = (Math.random() * 1e9) | 0): void {
+  restart(mode: Mode, seed = (Math.random() * 1e9) | 0, perTeam = this.perTeam): void {
     this.mode = mode;
     this.seed = seed;
-    this.map = generateMap(1, seed);
-    this.sim = new Sim({ map: this.map, players: 2, seed });
-    const bots = createBotControllers();
+    this.perTeam = perTeam;
+    const players = perTeam * 2;
+    this.map = generateMap(perTeam, seed);
+    this.sim = new Sim({ map: this.map, players, seed });
+    const bots = createBotControllers(players);
     this.human = mode === 'play' ? 0 : -1;
-    this.controllers = [mode === 'play' ? null : bots[0]!, bots[1]!];
+    this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === 0 ? null : bots[p]!));
     this.selection.clear();
     this.queued = [];
     this.visible = new Uint8Array(this.map.w * this.map.h);
     this.explored = new Uint8Array(this.map.w * this.map.h);
     ui.mode.value = mode;
+    ui.perTeam.value = perTeam;
     ui.placement.value = 0;
     ui.amove.value = false;
     this.framed = false;

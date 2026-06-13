@@ -3,7 +3,7 @@ export * from '@rts/sim';
 import { createBot } from '@rts/ai';
 import { Terran, type Controller } from '@rts/sim';
 
-export const createBotControllers = (): Controller[] => [
-  createBot(Terran, { attackThreshold: 10, barracksTarget: 2 }),
-  createBot(Terran, { attackThreshold: 12, barracksTarget: 3 }),
-];
+export const createBotControllers = (n = 2): Controller[] =>
+  Array.from({ length: n }, (_, i) =>
+    createBot(Terran, i % 2 === 0 ? { attackThreshold: 10, barracksTarget: 2 } : { attackThreshold: 12, barracksTarget: 3 }),
+  );

@@ -31,5 +31,12 @@ await page.evaluate('window.__game.fastForward(4500)');
 await page.waitForTimeout(300);
 await page.screenshot({ path: 'shots/spectate-battle.png' });
 
+// 4) A 2v2 (twice as wide), fast-forwarded.
+await page.evaluate('window.__game.restart("spectate", 12345, 2)');
+await page.waitForTimeout(100);
+await page.evaluate('window.__game.fastForward(5000)');
+await page.waitForTimeout(300);
+await page.screenshot({ path: 'shots/spectate-2v2.png' });
+
 await browser.close();
 console.log('screenshots -> packages/app/shots/');

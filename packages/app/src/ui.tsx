@@ -28,6 +28,7 @@ const TopBar = (p: { game: Game }) => (
     <span style={{ opacity: 0.85 }}>▦ {ui.supplyUsed.value}/{ui.supplyMax.value}</span>
     <span style={{ opacity: 0.6 }}>⏱ {fmt(ui.seconds.value)}</span>
     <span style={{ flex: '1' }} />
+    <Btn label={`${ui.perTeam.value}v${ui.perTeam.value}`} onClick={() => p.game.restart(ui.mode.value, undefined, (ui.perTeam.value % 3) + 1)} />
     <Btn label={ui.mode.value === 'play' ? '▶ Play' : '◎ Watch'} onClick={() => p.game.restart(ui.mode.value === 'play' ? 'spectate' : 'play')} />
     <Btn label="⟳ Map" onClick={() => p.game.restart(ui.mode.value)} />
   </div>

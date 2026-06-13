@@ -10,6 +10,7 @@ export const ui = {
   supplyMax: signal(0),
   seconds: signal(0),
   mode: signal<Mode>('play'),
+  perTeam: signal(1),
   over: signal(false),
   winner: signal(-1),
   selCount: signal(0),
