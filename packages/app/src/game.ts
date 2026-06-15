@@ -276,37 +276,43 @@ export class Game {
       return;
     }
 
-    // Set-rally mode: point every selected structure's rally at the tapped spot.
-    if (ui.rally.value) {
-      for (const id of this.selection) {
-        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          this.queued.push({ t: 'rally', building: id, x: (wx * ONE) | 0, y: (wy * ONE) | 0 });
-        }
-      }
-      ui.rally.value = false;
+    const hit = this.hitTest(wx, wy);
+    const hitOwnStruct = hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) !== 0;
+    // Does the current selection contain a building? If so, taps are rally commands
+    // (so you can rally onto your own units), not unit re-selection.
+    let hasStructSel = false;
+    for (const id of this.selection) if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) { hasStructSel = true; break; }
+
+    // Tapping our own building selects it (single) — for production / switching bases.
+    if (hitOwnStruct) {
+      this.selection.clear(); this.selection.add(hit);
+      ui.amove.value = false; ui.rally.value = false;
       return;
     }
-
-    const hit = this.hitTest(wx, wy);
-    // Tapping our own unit selects it.
-    if (hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) === 0) {
+    // Tapping our own unit selects it — unless a building is selected (then we rally).
+    if (hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) === 0 && !hasStructSel) {
       this.selection.clear(); this.selection.add(hit);
       ui.amove.value = false;
       return;
     }
-    if (this.selection.size === 0) {
-      // No selection: tap a structure to select it (for production).
-      if (hit >= 0 && e.owner[slotOf(hit)] === this.human) { this.selection.clear(); this.selection.add(hit); }
-      return;
-    }
+    if (this.selection.size === 0) return;
 
     const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
     const amove = ui.amove.value;
-    ui.amove.value = false;
+    ui.amove.value = false; ui.rally.value = false;
     for (const id of this.selection) {
       if (!isAlive(e, id)) continue;
       const i = slotOf(id);
-      if ((e.flags[i]! & Role.Structure) !== 0) continue;
+      // Buildings rally by default: onto the tapped entity (a unit to follow, a
+      // resource to harvest), else to the tapped ground point.
+      if ((e.flags[i]! & Role.Structure) !== 0) {
+        if ((e.flags[i]! & Role.Producer) !== 0) {
+          const cmd: Command = { t: 'rally', building: id, x: tx, y: ty };
+          if (hit >= 0 && slotOf(hit) !== i) cmd.target = hit;
+          this.queued.push(cmd);
+        }
+        continue;
+      }
       if (hit >= 0 && isEnemy(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!)) {
         this.queued.push({ t: 'attack', unit: id, target: hit });
       } else if (hit >= 0 && (e.flags[slotOf(hit)]! & Role.Resource) !== 0 && (e.flags[i]! & Role.Worker) !== 0) {
@@ -361,7 +367,11 @@ export class Game {
     ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
   }
 
-  /** Double-tap: select every visible (on-screen) unit of the tapped unit's type. */
+  /**
+   * Double-tap: select every visible (on-screen) entity of the tapped one's type.
+   * Works for units *and* buildings — double-tapping a Barracks grabs every Barracks
+   * on screen, so a unified command card trains/rallies the whole group at once.
+   */
   selectAllByType(sx: number, sy: number): void {
     if (this.human < 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
@@ -369,14 +379,13 @@ export class Game {
     const hit = this.hitTest(wx, wy);
     if (hit < 0) return;
     const hs = slotOf(hit);
-    if (e.owner[hs] !== this.human || (e.flags[hs]! & Role.Structure) !== 0) return;
+    if (e.owner[hs] !== this.human) return;
     const kind = e.kind[hs]!;
     const x0 = this.camX; const y0 = this.camY;
     const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
     this.selection.clear();
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
-      if ((e.flags[i]! & Role.Structure) !== 0) continue;
       const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
       if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
     }

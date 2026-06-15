@@ -148,12 +148,15 @@ const TRON: Record<string, Tron> = {
     lines: `<line x1="15" y1="20" x2="33" y2="20"/>`,
     cores: `<circle cx="32" cy="42" r="2.4"/>`,
   },
-  // Mineral field: faceted cyan crystals (neutral, never tinted).
+  // Mineral field: a faceted cyan crystal cluster that fills its build-tile square
+  // (scale 1.0 → the footprint is exactly one tile; the geometry spans the cell).
   mineral: {
-    sw: 2, scale: 1.25, color: '#46f0e0',
-    panels: `<polygon points="18,48 27,18 34,34 45,15 50,48"/>`,
-    lines: `<line x1="27" y1="18" x2="27" y2="48"/><line x1="45" y1="15" x2="42" y2="48"/><line x1="34" y1="34" x2="34" y2="48"/>`,
-    cores: `<polygon points="27,18 31,27 24,28"/><polygon points="45,15 49,26 41,26"/>`,
+    sw: 2, scale: 1.0, color: '#46f0e0',
+    panels: `<polygon points="4,60 5,33 15,11 24,31 32,5 40,31 49,13 59,33 60,60"/>`,
+    lines:
+      `<line x1="15" y1="11" x2="15" y2="60"/><line x1="24" y1="31" x2="24" y2="60"/>` +
+      `<line x1="32" y1="5" x2="32" y2="60"/><line x1="40" y1="31" x2="40" y2="60"/><line x1="49" y1="13" x2="49" y2="60"/>`,
+    cores: `<polygon points="32,5 37,21 27,21"/><polygon points="15,11 20,26 10,26"/><polygon points="49,13 54,28 44,28"/>`,
   },
   // Vespene geyser: dark vent with rising green gas (neutral).
   geyser: {

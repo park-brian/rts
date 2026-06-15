@@ -108,13 +108,15 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     }
   }
 
-  // Rally lines for selected structures.
+  // Rally lines for selected structures (to a live followed entity, else the point).
   for (const id of game.selection) {
     if (!isAlive(e, id)) continue;
     const i = slotOf(id);
-    if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
+    const rt = e.rallyTarget[i]!;
+    const live = isAlive(e, rt) ? slotOf(rt) : -1;
+    if ((e.flags[i]! & Role.Structure) === 0 || (e.rallyX[i]! < 0 && live < 0)) continue;
     const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
-    const rx = e.rallyX[i]! / ONE; const ry = e.rallyY[i]! / ONE;
+    const rx = (live >= 0 ? e.x[live]! : e.rallyX[i]!) / ONE; const ry = (live >= 0 ? e.y[live]! : e.rallyY[i]!) / ONE;
     ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 1.5 / game.zoom;
     ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(rx, ry); ctx.stroke();
     ctx.fillStyle = '#ffe14e';

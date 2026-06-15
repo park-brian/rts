@@ -116,12 +116,22 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): void => {
           if (e.owner[slot] !== player || (e.flags[slot]! & Role.Structure) === 0) break;
           e.rallyX[slot] = c.x;
           e.rallyY[slot] = c.y;
-          // A tap on (near) a resource means "rally to harvest"; else a ground point.
           e.rallyTarget[slot] = NONE;
-          const node = nearest(s, c.x, c.y, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
-          if (node !== NONE) {
-            const dx = e.x[node]! - c.x; const dy = e.y[node]! - c.y;
-            if (dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP) e.rallyTarget[slot] = eid(e, node);
+          // Rally onto a chosen entity: a unit/building to follow, or a resource to
+          // harvest. Snap the stored point onto it so it doubles as the last-known
+          // location (the fallback reference once that entity dies — see production).
+          if (c.target !== undefined && isAlive(e, c.target) && c.target !== c.building) {
+            const ts = slotOf(c.target);
+            e.rallyTarget[slot] = c.target;
+            e.rallyX[slot] = e.x[ts]!;
+            e.rallyY[slot] = e.y[ts]!;
+          } else {
+            // A tap on (near) a resource still means "rally to harvest it".
+            const node = nearest(s, c.x, c.y, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
+            if (node !== NONE) {
+              const dx = e.x[node]! - c.x; const dy = e.y[node]! - c.y;
+              if (dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP) e.rallyTarget[slot] = eid(e, node);
+            }
           }
           break;
         }

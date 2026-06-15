@@ -105,7 +105,7 @@ const Hotbar = (p: { game: Game }) => {
       buttons.push(<Btn label="Build Gas" onClick={() => (ui.placement.value = Kind.Refinery)} />);
     }
     if (ui.selProducer.value !== 0) {
-      buttons.push(<Btn label="Set Rally" active={ui.rally.value} onClick={() => (ui.rally.value = !ui.rally.value)} />);
+      buttons.push(<span style={{ opacity: 0.5, alignSelf: 'center', fontSize: '11px' }}>Tap map/unit to rally</span>);
     }
     buttons.push(<Btn label="Atk-Move" active={ui.amove.value} onClick={() => (ui.amove.value = !ui.amove.value)} />);
     buttons.push(<Btn label="Stop" onClick={() => g.stopSelected()} />);

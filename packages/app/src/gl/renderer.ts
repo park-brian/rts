@@ -12,7 +12,7 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, Order, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
+import { TILE, ONE, Units, Role, Kind, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
 import { SPRITES } from '../art/sprites.ts';
@@ -47,6 +47,9 @@ const radiusOf = (kind: number): number => (Units[kind]!.radius / ONE) * scaleOf
 
 const FLOATS = 16; // floats per instance (pos2,size2,rot1,uv4,color4,team3)
 const FOG_COLOR = new Float32Array([4 / 255, 6 / 255, 10 / 255]);
+// Facing only re-aims when a unit actually moved this frame (fixed-px², ≈ ¼px) —
+// below this it keeps its last heading, so idle units don't snap back to "up".
+const FACE_EPS = (ONE >> 2) * (ONE >> 2);
 
 // A growable instance buffer: a CPU Float32Array mirrored to a GPU buffer. push()
 // appends one quad instance; flush() uploads the used range for one draw.
@@ -167,6 +170,7 @@ export class GlRenderer {
   private rr = new Float32Array(CAP);
   private wxA = new Float32Array(CAP);
   private wyA = new Float32Array(CAP);
+  private facing = new Float32Array(CAP); // last rendered heading per slot (radians)
   // Previous-frame state for combat-event detection.
   private prevDrawn = new Uint8Array(CAP);
   private prevAlive = new Uint8Array(CAP);
@@ -337,15 +341,22 @@ export class GlRenderer {
       const r = this.rr[i]!;
       const sprite = uv[SPRITE_OF[kind] ?? ''] ?? uv.white!;
 
-      // Facing: rotate mobile units toward their move target ("up" art = −y).
+      // Facing: rotate mobile units toward their *actual* heading ("up" art = −y),
+      // derived from the movement since last frame so units look where they're going
+      // even when the path curves around obstacles (toward the goal looked wonky).
       let rot = 0;
       const isMobile = (def.roles & (Role.Structure | Role.Resource)) === 0 && !isGeyser;
       if (isMobile) {
-        const ord = e.order[i]!;
-        if (ord === Order.Move || ord === Order.AttackMove || ord === Order.Build || ord === Order.Harvest) {
+        rot = this.facing[i]!;
+        if (this.prevAlive[i] === 1) {
+          const dx = e.x[i]! - this.prevX[i]!; const dy = e.y[i]! - this.prevY[i]!;
+          if (dx * dx + dy * dy > FACE_EPS) rot = Math.atan2(dx, -dy);
+        } else {
+          // Just appeared: aim at the move target, if any (else default "up").
           const dx = e.tx[i]! - e.x[i]!; const dy = e.ty[i]! - e.y[i]!;
-          if (dx * dx + dy * dy > 16) rot = Math.atan2(dx, -dy);
+          if (dx * dx + dy * dy > ONE * ONE) rot = Math.atan2(dx, -dy);
         }
+        this.facing[i] = rot;
       }
       const alpha = isStruct && e.built[i] !== 1 ? 0.55 : 1;
       const [tr, tg, tb] = teamColor(e.owner[i]!);
@@ -421,13 +432,17 @@ export class GlRenderer {
       }
     }
 
-    // Rally lines for selected structures.
+    // Rally lines for selected structures — to the live followed entity if any,
+    // else the stored ground point.
     for (const id of game.selection) {
       if (!isAlive(e, id)) continue;
       const i = slotOf(id);
-      if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
+      const rt = e.rallyTarget[i]!;
+      const live = isAlive(e, rt) ? slotOf(rt) : -1;
+      if ((e.flags[i]! & Role.Structure) === 0 || (e.rallyX[i]! < 0 && live < 0)) continue;
       const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
-      const rx = e.rallyX[i]! / ONE; const ry = e.rallyY[i]! / ONE;
+      const rx = (live >= 0 ? e.x[live]! : e.rallyX[i]!) / ONE;
+      const ry = (live >= 0 ? e.y[live]! : e.rallyY[i]!) / ONE;
       const dx = rx - bx; const dy = ry - by;
       const len = Math.hypot(dx, dy);
       if (len < 1) continue;

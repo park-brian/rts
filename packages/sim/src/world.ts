@@ -194,8 +194,8 @@ export const spawn = (
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
-  e.rallyX[slot] = 0;
-  e.rallyY[slot] = 0;
+  e.rallyX[slot] = -1; // -1 = no rally point (only the starting base gets one — setupMatch)
+  e.rallyY[slot] = -1;
   e.rallyTarget[slot] = NONE;
   return eid(e, slot);
 };
