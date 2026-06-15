@@ -182,6 +182,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   scout: neon([ring(11), arc(15, -125, -90), arc(15, -90, -55)], U),
   carrier: neon([ring(22), dot(C, C, 4.5), ...dotsOnRing(12, 6, 3)], U),
   interceptor: neon([ring(5), dot(C, C, 1.6)], U),
+  scarab: neon([ring(4), dot(C, C, 1.8)], U),
   arbiter: neon([ring(12), ring(6), triUp(5)], U),
   corsair: neon([ring(10), arc(13, -120, -60)], U),
   nexus: neon([ring(22), ring(13), dot(C, C, 3), ...dotsOnRing(22, 4, 2.4)], B),
@@ -254,7 +255,7 @@ export const ROSTER_GROUPS: { race: string; keys: string[] }[] = [
     race: 'Protoss',
     keys: [
       'probe', 'zealot', 'dragoon', 'highTemplar', 'darkTemplar', 'archon', 'darkArchon', 'reaver', 'observer',
-      'shuttle', 'scout', 'carrier', 'interceptor', 'arbiter', 'corsair', 'nexus', 'pylon', 'assimilator', 'gateway',
+      'shuttle', 'scout', 'carrier', 'interceptor', 'scarab', 'arbiter', 'corsair', 'nexus', 'pylon', 'assimilator', 'gateway',
       'forge', 'photonCannon', 'cyberneticsCore', 'shieldBattery', 'roboticsFacility', 'stargate', 'citadelOfAdun',
       'templarArchives', 'roboticsSupportBay', 'observatory', 'fleetBeacon', 'arbiterTribunal',
     ],
