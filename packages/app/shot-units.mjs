@@ -18,11 +18,8 @@ await page.waitForTimeout(500);
 await page.screenshot({ path: 'shots/units-codex.png', fullPage: true });
 
 // 2) Per-race crops, for legible close-ups.
-for (const key of ['vanguard', 'seraph', 'swarm']) {
-  const sec = page.locator(`section.race`).filter({ has: page.locator(`[style*="--${key}"]`) });
-}
 const sections = await page.locator('section.race').all();
-const labels = ['vanguard', 'seraph', 'swarm', 'neutral'];
+const labels = ['terran', 'protoss', 'zerg', 'neutral'];
 for (let i = 0; i < sections.length && i < labels.length; i++) {
   await sections[i].screenshot({ path: `shots/units-${labels[i]}.png` });
 }

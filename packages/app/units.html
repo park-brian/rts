@@ -3,16 +3,24 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RTS · Unit Codex — Tron Roster</title>
+<title>RTS · Unit Codex — Terran · Protoss · Zerg (tron treatment)</title>
 <style>
   /* ----------------------------------------------------------------------------
-     Tron-style unit codex. Every sprite is a self-drawn SVG authored in a 64×64
-     viewBox, "facing" up (−y). Geometry is a near-black chassis (occludes the grid,
-     reads as solid volume) with neon strokes in `currentColor`; team color is just
-     the CSS `color` of the tile, so a single sprite recolors to any of the 8 player
-     colors (assets.md §4) — demonstrated by the recolor strip at the bottom.
-     Bloom is stacked `drop-shadow(currentColor)` so the neon edge "glows" without
-     per-sprite filters. 100% in-house → CC0-clean for the Pages deploy.
+     Unit codex for the three StarCraft:BW-faithful races of this engine
+     (docs/specs/sc1-spec.md). Names, stats and tech roles are canonical; the
+     *look* is a clean neon "tron" treatment (the user's art direction) over the
+     project's self-drawn-SVG, team-tintable pipeline (docs/specs/assets.md §4).
+
+     Each sprite is authored in a 64×64 viewBox, facing up (−y), as a near-black
+     chassis (occludes the grid, reads as solid volume) with neon strokes in
+     `currentColor`; player color is just the tile's CSS color — one sprite, any
+     team (shown by the recolor strip). Sprite keys match the engine's Kind names
+     so the art drops into gl/renderer.ts' SPRITE_OF map. 100% in-house → CC0.
+
+     Silhouette LANGUAGE per race = its canonical identity, so they read apart:
+       TERRAN  — rectilinear hulls, treads, gun-barrels; hard 45/90° machinery.
+       PROTOSS — curved crystalline energy-constructs; concentric arcs, shields.
+       ZERG    — organic carapace, claws, spines, vein-lines; living asymmetry.
   ---------------------------------------------------------------------------- */
   :root {
     --bg: #04060c;
@@ -20,168 +28,139 @@
     --ink: #c9d6e6;
     --dim: #5b6b82;
     --line: #16314a;
-    --vanguard: #46d6ff; /* order / military */
-    --seraph: #ffcf5a;   /* light / crystalline */
-    --swarm: #6cffb0;    /* organic / viral */
+    --terran: #46d6ff;  /* steel / machinery */
+    --protoss: #ffcf5a; /* gold / psi-energy */
+    --zerg: #b985ff;    /* creep / bio */
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); }
   body {
     font: 14px/1.5 ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     color: var(--ink);
-    /* faint engineering grid behind everything — the Grid. */
     background-image:
       linear-gradient(transparent 0 31px, rgba(70,214,255,0.045) 31px 32px),
       linear-gradient(90deg, transparent 0 31px, rgba(70,214,255,0.045) 31px 32px),
       radial-gradient(1200px 700px at 50% -10%, rgba(70,214,255,0.10), transparent 70%);
     background-size: 32px 32px, 32px 32px, 100% 100%;
-    padding: 0 0 80px;
+    padding: 0 0 70px;
   }
   header {
-    padding: 44px 24px 28px;
-    text-align: center;
+    padding: 44px 24px 26px; text-align: center;
     border-bottom: 1px solid var(--line);
     background: radial-gradient(700px 240px at 50% 0%, rgba(70,214,255,0.10), transparent 70%);
   }
   header h1 {
-    margin: 0;
-    font-size: 30px;
-    letter-spacing: 0.42em;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #eaf6ff;
-    text-shadow: 0 0 18px rgba(70,214,255,0.55);
+    margin: 0; font-size: 28px; letter-spacing: 0.40em; font-weight: 600;
+    text-transform: uppercase; color: #eaf6ff; text-shadow: 0 0 18px rgba(70,214,255,0.55);
   }
-  header p { margin: 12px auto 0; max-width: 720px; color: var(--dim); letter-spacing: 0.04em; }
-  header .tag { color: var(--vanguard); }
+  header p { margin: 12px auto 0; max-width: 760px; color: var(--dim); letter-spacing: 0.03em; }
+  header .tag { color: var(--terran); }
+  header .src { margin-top: 8px; font-size: 11.5px; color: #3f4f63; letter-spacing: 0.06em; }
 
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
 
-  .race { margin-top: 56px; }
-  .race-head { display: flex; align-items: baseline; gap: 16px; padding: 0 4px 14px; border-bottom: 1px solid var(--line); }
-  .race-head .glyph {
-    width: 34px; height: 34px; flex: none; align-self: center;
-    color: var(--accent);
-    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 9px currentColor);
-  }
-  .race-head h2 {
-    margin: 0; font-size: 21px; letter-spacing: 0.30em; text-transform: uppercase; font-weight: 600;
-    color: var(--accent); text-shadow: 0 0 14px currentColor;
-  }
-  .race-head .sub { color: var(--dim); letter-spacing: 0.05em; font-size: 12.5px; margin-left: auto; max-width: 460px; text-align: right; }
+  .race { margin-top: 50px; }
+  .race-head { display: flex; align-items: center; gap: 16px; padding: 0 4px 14px; border-bottom: 1px solid var(--line); }
+  .race-head .glyph { width: 32px; height: 32px; flex: none; color: var(--accent);
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 9px currentColor); }
+  .race-head h2 { margin: 0; font-size: 20px; letter-spacing: 0.30em; text-transform: uppercase;
+    font-weight: 600; color: var(--accent); text-shadow: 0 0 14px currentColor; }
+  .race-head .sub { color: var(--dim); letter-spacing: 0.04em; font-size: 12px; margin-left: auto;
+    max-width: 460px; text-align: right; }
 
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; }
   @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 
   .cell {
     position: relative;
     background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.25)), var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 12px 12px;
-    overflow: hidden;
-    transition: border-color .2s;
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 12px 12px; overflow: hidden;
   }
-  .cell::before { /* corner registration ticks — HUD flavor */
+  .cell::before {
     content: ""; position: absolute; inset: 7px;
-    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 8px;
     -webkit-mask:
-      linear-gradient(#000 0 0) top left / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) top right / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) bottom left / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) bottom right / 14px 14px no-repeat;
-          mask:
-      linear-gradient(#000 0 0) top left / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) top right / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) bottom left / 14px 14px no-repeat,
-      linear-gradient(#000 0 0) bottom right / 14px 14px no-repeat;
+      linear-gradient(#000 0 0) top left / 14px 14px no-repeat, linear-gradient(#000 0 0) top right / 14px 14px no-repeat,
+      linear-gradient(#000 0 0) bottom left / 14px 14px no-repeat, linear-gradient(#000 0 0) bottom right / 14px 14px no-repeat;
+            mask:
+      linear-gradient(#000 0 0) top left / 14px 14px no-repeat, linear-gradient(#000 0 0) top right / 14px 14px no-repeat,
+      linear-gradient(#000 0 0) bottom left / 14px 14px no-repeat, linear-gradient(#000 0 0) bottom right / 14px 14px no-repeat;
     opacity: .7; pointer-events: none;
   }
-  .art {
-    color: var(--accent);
-    height: 120px; display: grid; place-items: center;
-    background:
-      radial-gradient(60px 60px at 50% 46%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
-  }
-  .art svg {
-    width: 104px; height: 104px; overflow: visible;
-    filter: drop-shadow(0 0 1.4px currentColor) drop-shadow(0 0 4px currentColor);
-  }
+  .tier { position: absolute; top: 11px; right: 13px; font-size: 9.5px; letter-spacing: 0.12em;
+    color: color-mix(in srgb, var(--accent) 70%, var(--dim)); text-transform: uppercase; }
+  .art { color: var(--accent); height: 116px; display: grid; place-items: center;
+    background: radial-gradient(58px 58px at 50% 46%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%); }
+  .art svg { width: 102px; height: 102px; overflow: visible;
+    filter: drop-shadow(0 0 1.4px currentColor) drop-shadow(0 0 4px currentColor); }
   .core { animation: pulse 2.6s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: .85; } 50% { opacity: 1; } }
 
-  .meta { margin-top: 10px; text-align: center; }
-  .meta .nm { color: #eaf6ff; letter-spacing: 0.10em; font-size: 13.5px; }
-  .meta .ro { color: var(--dim); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
+  .meta { margin-top: 8px; text-align: center; }
+  .meta .nm { color: #eaf6ff; letter-spacing: 0.08em; font-size: 13.5px; }
+  .meta .ro { color: var(--dim); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 3px; }
+  .meta .st { color: color-mix(in srgb, var(--accent) 55%, var(--dim)); font-size: 10.5px; letter-spacing: 0.04em; margin-top: 5px; }
 
-  .recolor { margin-top: 64px; padding: 26px 0 0; border-top: 1px solid var(--line); }
-  .recolor h3 { margin: 0 0 4px; letter-spacing: 0.22em; text-transform: uppercase; font-size: 14px; color: #eaf6ff; }
-  .recolor p { margin: 0 0 18px; color: var(--dim); }
+  .recolor { margin-top: 56px; padding: 26px 0 0; border-top: 1px solid var(--line); }
+  .recolor h3 { margin: 0 0 4px; letter-spacing: 0.20em; text-transform: uppercase; font-size: 14px; color: #eaf6ff; }
+  .recolor p { margin: 0 0 16px; color: var(--dim); }
   .strip { display: flex; gap: 14px; flex-wrap: wrap; }
-  .chip { width: 78px; height: 78px; border-radius: 12px; border: 1px solid var(--line);
+  .chip { width: 76px; height: 76px; border-radius: 12px; border: 1px solid var(--line);
     display: grid; place-items: center; background: var(--panel); }
-  .chip svg { width: 60px; height: 60px; overflow: visible;
+  .chip svg { width: 58px; height: 58px; overflow: visible;
     filter: drop-shadow(0 0 1.4px currentColor) drop-shadow(0 0 4px currentColor); }
 
-  footer { text-align: center; color: var(--dim); margin-top: 60px; letter-spacing: 0.05em; font-size: 12px; }
-  footer b { color: var(--vanguard); font-weight: 600; }
+  footer { text-align: center; color: var(--dim); margin-top: 54px; letter-spacing: 0.05em; font-size: 12px; }
+  footer b { color: var(--terran); font-weight: 600; }
 </style>
 </head>
 <body>
 <header>
   <h1>Unit&nbsp;Codex</h1>
-  <p>A clean, neon-on-black <span class="tag">tron</span> roster for three visually-distinct races.
-  Every sprite is a self-drawn, team-tintable SVG — dark chassis, glowing edge, one bright power core.</p>
+  <p>The three <span class="tag">StarCraft:&nbsp;Brood&nbsp;War</span>–faithful races of this engine —
+  <b>Terran</b>, <b>Protoss</b>, <b>Zerg</b> — drawn in a clean neon&nbsp;tron treatment.
+  Each sprite is self-drawn, team-tintable, and keyed to the engine’s unit kinds.</p>
+  <div class="src">roster · stats · tech roles per docs/specs/sc1-spec.md · art per docs/specs/assets.md §4</div>
 </header>
 
 <div class="wrap" id="root"></div>
 
 <script>
 /* ===========================================================================
-   SPRITE LIBRARY
-   Convention per sprite (64×64 viewBox, up = −y, centred):
-     • A <g> sets the neon defaults: no fill, stroke=currentColor, round joins.
-     • `chassis` shapes add fill="#05070e" so the body reads solid & dark.
-     • Detail shapes are stroke-only neon lines.
-     • The power core is fill="currentColor" (+ a small hot-white center).
-   Each race has its own silhouette LANGUAGE so they read apart instantly:
-     VANGUARD — rectilinear, hexes, chevrons, hard 45/90° military geometry.
-     SERAPH   — curved, crystalline diamonds, concentric arcs, radial symmetry.
-     SWARM    — organic carapace, claws, segments, spikes, vein lines.
+   SPRITE LIBRARY — geometry only; team color is the tile's CSS `color`.
+   Conventions (64×64, up = −y, centred):
+     • <g> sets neon defaults (no fill, stroke=currentColor, round joins).
+     • chassis shapes add fill DARK so the body reads solid & dark.
+     • detail shapes are stroke-only neon lines.
+     • the power core is fill=currentColor (+ a hot-white pip), gently pulsing.
+   `key` matches the engine Kind name (gl/renderer.ts SPRITE_OF) where one exists.
    =========================================================================== */
 const DARK = '#05070e';
 const HOT = '#eafcff';
-// group open/close with shared neon presentation attributes.
 const G = (sw, inner) =>
   `<g fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round">${inner}</g>`;
-// a bright power core: filled neon disc + hot white pip, gently pulsing.
 const core = (cx, cy, r) =>
   `<circle class="core" cx="${cx}" cy="${cy}" r="${r}" fill="currentColor" stroke="none"/>` +
   `<circle class="core" cx="${cx}" cy="${cy}" r="${Math.max(0.9, r*0.42)}" fill="${HOT}" stroke="none"/>`;
 
 const RACES = [
   {
-    key: 'vanguard', name: 'Vanguard', accent: 'var(--vanguard)',
-    sub: 'The Grid’s standing army — rigid, rectilinear, built from hard angles and treads.',
-    glyph: G(3, `<polygon points="17,4 17,30 4,17" transform="translate(15 15) scale(1)" fill="${DARK}"/>` +
-      `<polygon points="32,6 56,20 56,44 32,58 8,44 8,20" fill="${DARK}"/><circle cx="32" cy="32" r="7" fill="currentColor" stroke="none"/>`),
+    key: 'terran', name: 'Terran', accent: 'var(--terran)',
+    sub: 'Industrial war machines — rectilinear hulls, treads and gun-barrels; hard 45/90° geometry.',
+    glyph: G(3, `<polygon points="32,6 56,20 56,44 32,58 8,44 8,20" fill="${DARK}"/><circle cx="32" cy="32" r="7" fill="currentColor" stroke="none"/>`),
     units: [
-      { nm: 'Loader', ro: 'Worker', svg: G(2,
-        // hex hauler + side treads + forward claw
+      { key: 'scv', nm: 'SCV', ro: 'Worker', tier: 'T1', st: '60 HP · 50m', svg: G(2,
         `<rect x="9" y="22" width="7" height="22" rx="2" fill="${DARK}"/><line x1="12.5" y1="26" x2="12.5" y2="40"/>` +
         `<rect x="48" y="22" width="7" height="22" rx="2" fill="${DARK}"/><line x1="51.5" y1="26" x2="51.5" y2="40"/>` +
         `<polygon points="32,13 48,23 48,43 32,53 16,43 16,23" fill="${DARK}"/>` +
         `<line x1="23" y1="13" x2="22" y2="4"/><line x1="41" y1="13" x2="42" y2="4"/><line x1="22" y1="6" x2="42" y2="6"/>` +
         `<line x1="22" y1="33" x2="42" y2="33"/>` + core(32,32,4)) },
-      { nm: 'Trooper', ro: 'Infantry', svg: G(2,
-        // chevron head, torso, shoulder blocks, barrel
+      { key: 'marine', nm: 'Marine', ro: 'Infantry', tier: 'T1', st: '40 HP · 50m · ⚔6 r4', svg: G(2,
         `<rect x="15" y="26" width="9" height="13" rx="2" fill="${DARK}"/><rect x="40" y="26" width="9" height="13" rx="2" fill="${DARK}"/>` +
         `<rect x="24" y="24" width="16" height="26" rx="4" fill="${DARK}"/>` +
         `<polygon points="32,9 41,20 32,17 23,20" fill="${DARK}"/>` +
         `<line x1="44.5" y1="26" x2="44.5" y2="10"/><line x1="40" y1="44" x2="24" y2="44"/>` + core(32,33,3.2)) },
-      { nm: 'Sentinel', ro: 'Siege', svg: G(2,
-        // tank: hull, treads w/ rungs, turret hex, long barrel up
+      { key: 'siegeTank', nm: 'Siege Tank', ro: 'Siege', tier: 'T2', st: '150 HP · 150/100 · ⚔30→70', svg: G(2,
         `<rect x="9" y="19" width="8" height="34" rx="2" fill="${DARK}"/>` +
         `<rect x="47" y="19" width="8" height="34" rx="2" fill="${DARK}"/>` +
         `<line x1="9" y1="27" x2="17" y2="27"/><line x1="9" y1="36" x2="17" y2="36"/><line x1="9" y1="45" x2="17" y2="45"/>` +
@@ -189,35 +168,30 @@ const RACES = [
         `<rect x="16" y="24" width="32" height="28" rx="5" fill="${DARK}"/>` +
         `<polygon points="32,24 41,30 41,40 32,46 23,40 23,30" fill="${DARK}"/>` +
         `<rect x="29.5" y="4" width="5" height="24" rx="1.5" fill="${DARK}"/>` + core(32,35,3.4)) },
-      { nm: 'Wraith', ro: 'Air', svg: G(2,
-        // swept-wing delta with twin tails + cockpit core
+      { key: 'wraith', nm: 'Wraith', ro: 'Air · Cloak', tier: 'T3', st: '120 HP · 150/100', svg: G(2,
         `<polygon points="32,7 38,30 35,47 29,47 26,30" fill="${DARK}"/>` +
         `<polygon points="33,25 56,41 50,45 33,35" fill="${DARK}"/>` +
         `<polygon points="31,25 8,41 14,45 31,35" fill="${DARK}"/>` +
         `<line x1="29" y1="46" x2="26" y2="55"/><line x1="35" y1="46" x2="38" y2="55"/>` + core(32,20,3.2)) },
-      { nm: 'Citadel', ro: 'HQ · Depot', svg: G(2.4,
-        // cut-corner fortress, corner bastions, central landing ring
+      { key: 'commandCenter', nm: 'Command Center', ro: 'HQ · Depot', tier: 'T1', st: '1500 HP · 400m · +10▲', svg: G(2.4,
         `<polygon points="20,5 44,5 59,20 59,44 44,59 20,59 5,44 5,20" fill="${DARK}"/>` +
         `<rect x="8" y="8" width="11" height="11" rx="2" fill="${DARK}"/><rect x="45" y="8" width="11" height="11" rx="2" fill="${DARK}"/>` +
         `<rect x="8" y="45" width="11" height="11" rx="2" fill="${DARK}"/><rect x="45" y="45" width="11" height="11" rx="2" fill="${DARK}"/>` +
         `<circle cx="32" cy="32" r="14" fill="${DARK}"/><circle cx="32" cy="32" r="9"/>` +
         `<line x1="32" y1="20" x2="32" y2="26"/><line x1="32" y1="38" x2="32" y2="44"/>` +
         `<line x1="20" y1="32" x2="26" y2="32"/><line x1="38" y1="32" x2="44" y2="32"/>` + core(32,32,4.5)) },
-      { nm: 'Foundry', ro: 'Production', svg: G(2.2,
-        // production block, bay door w/ slats, roof vent chevrons, beacon
+      { key: 'barracks', nm: 'Barracks', ro: 'Production', tier: 'T1', st: '1000 HP · 150m', svg: G(2.2,
         `<rect x="8" y="11" width="48" height="44" rx="6" fill="${DARK}"/>` +
         `<polyline points="14,24 20,18 26,24"/><polyline points="38,24 44,18 50,24"/>` +
         `<rect x="24" y="33" width="16" height="22" rx="2" fill="#03050a"/>` +
         `<line x1="28" y1="36" x2="28" y2="55"/><line x1="32" y1="36" x2="32" y2="55"/><line x1="36" y1="36" x2="36" y2="55"/>` +
         `<polygon points="32,5 36,11 28,11" fill="currentColor" stroke="none" class="core"/>`) },
-      { nm: 'Relay', ro: 'Supply', svg: G(2.2,
-        // antenna pylon: base, mast, cross arms, top light
+      { key: 'supplyDepot', nm: 'Supply Depot', ro: 'Supply', tier: 'T1', st: '500 HP · 100m · +8▲', svg: G(2.2,
         `<polygon points="20,50 44,50 40,60 24,60" fill="${DARK}"/>` +
         `<line x1="32" y1="50" x2="32" y2="13"/>` +
         `<line x1="22" y1="22" x2="42" y2="22"/><line x1="25" y1="32" x2="39" y2="32"/><line x1="27" y1="41" x2="37" y2="41"/>` +
         `<line x1="22" y1="22" x2="32" y2="14"/><line x1="42" y1="22" x2="32" y2="14"/>` + core(32,11,3.2)) },
-      { nm: 'Bastion', ro: 'Defense', svg: G(2.2,
-        // octagon emplacement, twin barrels up
+      { key: 'missileTurret', nm: 'Missile Turret', ro: 'Defense · Detect', tier: 'T2', st: '200 HP · 75m · anti-air', svg: G(2.2,
         `<polygon points="22,16 42,16 52,26 52,42 42,52 22,52 12,42 12,26" fill="${DARK}"/>` +
         `<polygon points="26,28 38,28 38,40 26,40" fill="${DARK}"/>` +
         `<rect x="25.5" y="6" width="4" height="18" rx="1.5" fill="${DARK}"/><rect x="34.5" y="6" width="4" height="18" rx="1.5" fill="${DARK}"/>` +
@@ -225,36 +199,30 @@ const RACES = [
     ],
   },
   {
-    key: 'seraph', name: 'Seraph', accent: 'var(--seraph)',
-    sub: 'Ascended light-constructs — curved, crystalline, radially symmetric, hovering.',
-    glyph: G(3, `<circle cx="32" cy="32" r="22" fill="${DARK}"/><polygon points="32,12 52,32 32,52 12,32" fill="${DARK}"/>` +
-      `<circle cx="32" cy="32" r="6" fill="currentColor" stroke="none"/>`),
+    key: 'protoss', name: 'Protoss', accent: 'var(--protoss)',
+    sub: 'Crystalline energy-constructs — curved, shielded, radiant; concentric arcs and floating geometry.',
+    glyph: G(3, `<circle cx="32" cy="32" r="22" fill="${DARK}"/><polygon points="32,12 52,32 32,52 12,32" fill="${DARK}"/><circle cx="32" cy="32" r="6" fill="currentColor" stroke="none"/>`),
     units: [
-      { nm: 'Acolyte', ro: 'Worker', svg: G(2,
-        // floating crystal shard inside an orbit ring with nodes
+      { key: 'probe', nm: 'Probe', ro: 'Worker', tier: 'T1', st: '20+20 · 50m', svg: G(2,
         `<circle cx="32" cy="32" r="21" stroke-dasharray="3 5"/>` +
         `<polygon points="32,16 43,32 32,48 21,32" fill="${DARK}"/>` +
         `<line x1="32" y1="16" x2="32" y2="48"/>` +
         `<circle cx="32" cy="11" r="2.4" fill="currentColor" stroke="none" class="core"/>` +
         `<circle cx="51" cy="40" r="2.4" fill="currentColor" stroke="none" class="core"/>` + core(32,32,3.6)) },
-      { nm: 'Lumen', ro: 'Infantry', svg: G(2,
-        // ogival body flanked by twin curved light-blades
+      { key: 'zealot', nm: 'Zealot', ro: 'Infantry · Melee', tier: 'T1', st: '100+60 · 100m · ⚔16', svg: G(2,
         `<path d="M32 8 C40 18 40 34 32 46 C24 34 24 18 32 8 Z" fill="${DARK}"/>` +
-        `<path d="M19 22 Q13 33 21 44"/><path d="M45 22 Q51 33 43 44"/>` +
+        `<path d="M19 22 Q11 32 21 45"/><path d="M45 22 Q53 32 43 45"/>` +
         `<line x1="32" y1="14" x2="32" y2="40"/>` + core(32,30,3.2)) },
-      { nm: 'Aegis', ro: 'Heavy', svg: G(2,
-        // domed carapace, concentric brow arcs, central eye, side fins
-        `<path d="M14 40 C14 20 50 20 50 40 L46 46 L18 46 Z" fill="${DARK}"/>` +
+      { key: 'dragoon', nm: 'Dragoon', ro: 'Ranged · Walker', tier: 'T2', st: '100+80 · 125/50 · ⚔20 r4', svg: G(2,
+        `<path d="M14 38 C14 18 50 18 50 38 L46 44 L18 44 Z" fill="${DARK}"/>` +
         `<path d="M20 30 Q32 20 44 30"/><path d="M24 25 Q32 18 40 25"/>` +
-        `<path d="M14 38 Q6 40 8 50"/><path d="M50 38 Q58 40 56 50"/>` +
-        `<circle cx="32" cy="37" r="6" fill="${DARK}"/>` + core(32,37,4)) },
-      { nm: 'Halo', ro: 'Air', svg: G(2,
-        // central disc with two crescent wings sweeping back
+        `<path d="M19 42 L11 56"/><path d="M27 44 L23 57"/><path d="M37 44 L41 57"/><path d="M45 42 L53 56"/>` +
+        `<circle cx="32" cy="35" r="6" fill="${DARK}"/>` + core(32,35,4)) },
+      { key: 'scout', nm: 'Scout', ro: 'Air', tier: 'T3', st: '150+100 · 275/125', svg: G(2,
         `<path d="M14 26 Q4 34 16 46 Q14 36 26 34 Z" fill="${DARK}"/>` +
         `<path d="M50 26 Q60 34 48 46 Q50 36 38 34 Z" fill="${DARK}"/>` +
-        `<circle cx="32" cy="32" r="11" fill="${DARK}"/><circle cx="32" cy="32" r="11"/>` + core(32,32,4.2)) },
-      { nm: 'Sanctum', ro: 'HQ · Depot', svg: G(2.2,
-        // radial mandala: outer ring, cardinal nodes, 4-point star, central gem
+        `<polygon points="32,12 39,30 36,46 28,46 25,30" fill="${DARK}"/>` + core(32,30,3.8)) },
+      { key: 'nexus', nm: 'Nexus', ro: 'HQ · Depot', tier: 'T1', st: '750+750 · 400m · +10▲', svg: G(2.2,
         `<circle cx="32" cy="32" r="25" fill="${DARK}"/><circle cx="32" cy="32" r="25"/>` +
         `<polygon points="32,9 39,25 55,32 39,39 32,55 25,39 9,32 25,25" fill="${DARK}"/>` +
         `<polygon points="32,20 44,32 32,44 20,32" fill="${DARK}"/>` +
@@ -262,74 +230,63 @@ const RACES = [
         `<circle cx="32" cy="57" r="2.4" fill="currentColor" stroke="none" class="core"/>` +
         `<circle cx="7" cy="32" r="2.4" fill="currentColor" stroke="none" class="core"/>` +
         `<circle cx="57" cy="32" r="2.4" fill="currentColor" stroke="none" class="core"/>` + core(32,32,5)) },
-      { nm: 'Conflux', ro: 'Production', svg: G(2.2,
-        // rounded base with a tall focusing spire and flanking arcs
-        `<path d="M14 52 C14 36 50 36 50 52 Z" fill="${DARK}"/>` +
-        `<polygon points="32,6 39,26 32,40 25,26" fill="${DARK}"/>` +
-        `<line x1="32" y1="14" x2="32" y2="40"/>` +
-        `<path d="M16 46 Q8 40 12 30"/><path d="M48 46 Q56 40 52 30"/>` + core(32,48,4)) },
-      { nm: 'Pylon', ro: 'Supply', svg: G(2.2,
-        // levitating tetra: nested diamonds with radiating power lines
+      { key: 'gateway', nm: 'Gateway', ro: 'Production · Warp', tier: 'T1', st: '500+500 · 150m', svg: G(2.2,
+        `<path d="M12 54 C12 22 52 22 52 54 Z" fill="${DARK}"/>` +
+        `<path d="M22 54 C22 34 42 34 42 54 Z" fill="#03050a"/>` +
+        `<polygon points="32,8 38,22 32,32 26,22" fill="${DARK}"/>` +
+        `<line x1="32" y1="14" x2="32" y2="30"/>` + core(32,46,3.6)) },
+      { key: 'pylon', nm: 'Pylon', ro: 'Supply · Power', tier: 'T1', st: '300+300 · 100m · +8▲', svg: G(2.2,
         `<polygon points="32,7 53,32 32,57 11,32" fill="${DARK}"/>` +
         `<polygon points="32,18 44,32 32,46 20,32" fill="${DARK}"/>` +
         `<line x1="32" y1="7" x2="32" y2="18"/><line x1="32" y1="46" x2="32" y2="57"/>` +
         `<line x1="11" y1="32" x2="20" y2="32"/><line x1="44" y1="32" x2="53" y2="32"/>` + core(32,32,4.2)) },
-      { nm: 'Spire', ro: 'Defense', svg: G(2.2,
-        // photon stalk: tripod base, stalk, focusing crystal head
+      { key: 'photonCannon', nm: 'Photon Cannon', ro: 'Defense · Detect', tier: 'T2', st: '100+100 · 150m · ⚔20', svg: G(2.2,
         `<line x1="32" y1="40" x2="18" y2="56"/><line x1="32" y1="40" x2="46" y2="56"/><line x1="32" y1="40" x2="32" y2="58"/>` +
         `<line x1="32" y1="24" x2="32" y2="42"/>` +
         `<polygon points="32,6 42,20 32,34 22,20" fill="${DARK}"/>` + core(32,20,4)) },
     ],
   },
   {
-    key: 'swarm', name: 'Swarm', accent: 'var(--swarm)',
-    sub: 'A runaway process made flesh — organic carapace, claws, segments and spines.',
+    key: 'zerg', name: 'Zerg', accent: 'var(--zerg)',
+    sub: 'The Swarm — living carapace, claws, spines and creep; organic asymmetry and vein-lines.',
     glyph: G(3, `<path d="M32 8 C46 18 46 40 32 56 C18 40 18 18 32 8 Z" fill="${DARK}"/>` +
       `<path d="M24 12 Q18 6 26 4"/><path d="M40 12 Q46 6 38 4"/><circle cx="32" cy="30" r="6" fill="currentColor" stroke="none"/>`),
     units: [
-      { nm: 'Gatherer', ro: 'Worker', svg: G(2,
-        // teardrop chitin body, two forward mandibles, body segments
+      { key: 'drone', nm: 'Drone', ro: 'Worker', tier: 'T1', st: '40 HP · 50m', svg: G(2,
         `<path d="M32 12 C45 21 45 41 32 53 C19 41 19 21 32 12 Z" fill="${DARK}"/>` +
         `<path d="M26 15 Q20 6 28 4"/><path d="M38 15 Q44 6 36 4"/>` +
         `<path d="M22 28 Q32 33 42 28"/><path d="M23 37 Q32 41 41 37"/>` + core(32,22,3.6)) },
-      { nm: 'Skitter', ro: 'Infantry', svg: G(2,
-        // low crescent body, two raised scythe-claws, eyes
+      { key: 'zergling', nm: 'Zergling', ro: 'Infantry · Melee', tier: 'T1', st: '35 HP · 25m/2 · ⚔5', svg: G(2,
         `<path d="M16 41 Q32 31 48 41 Q40 49 32 47 Q24 49 16 41 Z" fill="${DARK}"/>` +
         `<path d="M23 38 Q17 20 30 12" /><path d="M41 38 Q47 20 34 12"/>` +
         `<circle cx="27" cy="40" r="1.6" fill="currentColor" stroke="none" class="core"/>` +
         `<circle cx="37" cy="40" r="1.6" fill="currentColor" stroke="none" class="core"/>` + core(32,42,3)) },
-      { nm: 'Spitter', ro: 'Heavy', svg: G(2,
-        // coiled serpent body, flared cobra hood, spine ridges
+      { key: 'hydralisk', nm: 'Hydralisk', ro: 'Ranged', tier: 'T2', st: '80 HP · 75/25 · ⚔10 r4', svg: G(2,
         `<path d="M20 52 Q14 40 24 36 Q34 33 30 26" fill="none"/>` +
         `<path d="M44 52 Q50 40 40 36" fill="none"/>` +
         `<path d="M20 18 L32 7 L44 18 L40 27 L24 27 Z" fill="${DARK}"/>` +
         `<line x1="28" y1="14" x2="28" y2="25"/><line x1="32" y1="11" x2="32" y2="27"/><line x1="36" y1="14" x2="36" y2="25"/>` +
         `<path d="M26 27 Q32 33 38 27" fill="${DARK}"/>` + core(32,33,3.4)) },
-      { nm: 'Wing', ro: 'Air', svg: G(2,
-        // bat-like flyer: scalloped membrane wings, slim body, barbed tail
+      { key: 'mutalisk', nm: 'Mutalisk', ro: 'Air', tier: 'T2', st: '120 HP · 100/100', svg: G(2,
         `<path d="M30 18 Q10 16 8 30 Q20 26 28 34 Z" fill="${DARK}"/>` +
         `<path d="M34 18 Q54 16 56 30 Q44 26 36 34 Z" fill="${DARK}"/>` +
         `<path d="M32 14 C37 22 37 38 32 48 C27 38 27 22 32 14 Z" fill="${DARK}"/>` +
         `<path d="M32 48 L29 56 M32 48 L35 56"/>` + core(32,27,3.2)) },
-      { nm: 'Hive', ro: 'HQ · Depot', svg: G(2.2,
-        // bulbous mound, internal brood cells, root tendrils, pulsing core
+      { key: 'hatchery', nm: 'Hatchery', ro: 'HQ · Depot · Larvae', tier: 'T1', st: '1250 HP · 300m · +1▲', svg: G(2.2,
         `<path d="M32 8 C50 12 56 30 50 46 C44 56 20 56 14 46 C8 30 14 12 32 8 Z" fill="${DARK}"/>` +
         `<circle cx="23" cy="28" r="5" fill="${DARK}"/><circle cx="44" cy="27" r="5" fill="${DARK}"/><circle cx="40" cy="42" r="5" fill="${DARK}"/>` +
         `<path d="M18 50 Q14 58 8 58"/><path d="M32 54 Q32 60 30 62"/><path d="M46 50 Q50 58 56 58"/>` + core(28,40,5)) },
-      { nm: 'Den', ro: 'Production', svg: G(2.2,
-        // carapace shell with a toothed central maw, radiating veins
+      { key: 'spawningPool', nm: 'Spawning Pool', ro: 'Production', tier: 'T1', st: '750 HP · 200m', svg: G(2.2,
         `<path d="M10 44 C10 18 54 18 54 44 L48 52 L16 52 Z" fill="${DARK}"/>` +
         `<circle cx="32" cy="36" r="11" fill="#03050a"/>` +
         `<polygon points="24,30 26,36 22,35"/><polygon points="40,30 38,36 42,35"/>` +
         `<polygon points="32,25 35,31 29,31"/><polygon points="26,44 32,40 38,44 32,47"/>` +
         `<path d="M21 24 L14 18 M43 24 L50 18 M32 21 L32 13"/>` + core(32,36,3.4)) },
-      { nm: 'Sac', ro: 'Supply', svg: G(2.2,
-        // floating brood sac, inner pods, hanging tendrils
+      { key: 'overlord', nm: 'Overlord', ro: 'Supply · Detect', tier: 'T1', st: '200 HP · 100m · +8▲', svg: G(2.2,
         `<path d="M32 8 C48 10 52 28 46 40 C42 48 22 48 18 40 C12 28 16 10 32 8 Z" fill="${DARK}"/>` +
         `<circle cx="26" cy="24" r="4" fill="${DARK}"/><circle cx="40" cy="26" r="4" fill="${DARK}"/>` +
         `<path d="M24 44 Q22 54 26 60"/><path d="M32 46 Q32 56 31 62"/><path d="M40 44 Q42 54 38 60"/>` + core(33,33,4) ) },
-      { nm: 'Colony', ro: 'Defense', svg: G(2.2,
-        // spine tower: bulb base, segmented stalk, barbed tip
+      { key: 'sunkenColony', nm: 'Sunken Colony', ro: 'Defense', tier: 'T2', st: '300 HP · 50m · ⚔40 r7', svg: G(2.2,
         `<path d="M20 54 Q14 44 22 42 Q32 40 30 34" fill="none"/>` +
         `<path d="M44 54 Q50 44 42 42" fill="none"/>` +
         `<path d="M26 40 L32 6 L38 40 Z" fill="${DARK}"/>` +
@@ -338,14 +295,14 @@ const RACES = [
   },
 ];
 
-// Neutral resources (never team-tinted): shown in their own fixed hues.
+// Neutral resources (never team-tinted) — fixed canonical hues.
 const NEUTRAL = [
-  { nm: 'Crystal', ro: 'Minerals', color: '#46f0e0', svg: G(2,
+  { nm: 'Mineral Field', ro: 'Minerals · 1500', color: '#46f0e0', svg: G(2,
     `<polygon points="18,48 27,18 34,34 45,15 50,48" fill="${DARK}"/>` +
     `<line x1="27" y1="18" x2="27" y2="48"/><line x1="45" y1="15" x2="42" y2="48"/><line x1="34" y1="34" x2="34" y2="48"/>` +
     `<polygon points="27,18 31,27 24,28" fill="currentColor" stroke="none" class="core"/>` +
     `<polygon points="45,15 49,26 41,26" fill="currentColor" stroke="none" class="core"/>`) },
-  { nm: 'Vent', ro: 'Vespene', color: '#54f08a', svg: G(2,
+  { nm: 'Vespene Geyser', ro: 'Gas · 5000', color: '#54f08a', svg: G(2,
     `<polygon points="32,30 50,40 50,52 32,60 14,52 14,40" fill="${DARK}"/>` +
     `<ellipse cx="32" cy="40" rx="13" ry="6" fill="#03050a"/>` +
     `<path d="M28 36 Q24 26 30 18 Q34 12 30 6" /><path d="M38 38 Q42 30 38 22"/>` +
@@ -355,12 +312,12 @@ const NEUTRAL = [
 // Player palette mirrors the renderer's OWN_HEX (gl/renderer.ts §teamColor).
 const TEAM = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 
-const svgDoc = (inner) =>
-  `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
-
+const svgDoc = (inner) => `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 const cell = (u) =>
-  `<div class="cell"><div class="art">${svgDoc(u.svg)}</div>` +
-  `<div class="meta"><div class="nm">${u.nm}</div><div class="ro">${u.ro}</div></div></div>`;
+  `<div class="cell">${u.tier ? `<div class="tier">${u.tier}</div>` : ''}` +
+  `<div class="art">${svgDoc(u.svg)}</div>` +
+  `<div class="meta"><div class="nm">${u.nm}</div><div class="ro">${u.ro}</div>` +
+  `${u.st ? `<div class="st">${u.st}</div>` : ''}</div></div>`;
 
 const root = document.getElementById('root');
 root.innerHTML = RACES.map((r) => `
@@ -372,23 +329,21 @@ root.innerHTML = RACES.map((r) => `
     </div>
     <div class="grid">${r.units.map(cell).join('')}</div>
   </section>`).join('')
-  // Neutral resources row.
-  + `<section class="race" style="--accent:var(--vanguard)">
+  + `<section class="race" style="--accent:var(--terran)">
       <div class="race-head"><h2 style="color:#9fb4cc;text-shadow:none">Neutral</h2>
-      <div class="sub">Resources — fixed hues, never team-tinted.</div></div>
+      <div class="sub">Resources — fixed hues, never team-tinted (start amounts per spec §A.3).</div></div>
       <div class="grid">${NEUTRAL.map((u) =>
         `<div class="cell" style="--accent:${u.color}"><div class="art" style="color:${u.color}">${svgDoc(u.svg)}</div>` +
         `<div class="meta"><div class="nm">${u.nm}</div><div class="ro">${u.ro}</div></div></div>`).join('')}</div>
     </section>`
-  // Team-recolor demonstration.
   + `<div class="recolor">
       <h3>One sprite · every team</h3>
-      <p>The chassis is drawn once; player color is a single shader uniform. Here is the Vanguard <b>Trooper</b> across the renderer’s six-player palette.</p>
+      <p>The chassis is drawn once; player color is a single shader uniform (assets.md §4). Here is the Terran <b>Marine</b> across the renderer’s six-player palette.</p>
       <div class="strip">${TEAM.map((c) =>
         `<div class="chip" style="color:${c}">${svgDoc(RACES[0].units[1].svg)}</div>`).join('')}</div>
     </div>`;
 </script>
 
-<footer>RTS · self-drawn SVG · CC0-clean · <b>packages/app/units.html</b></footer>
+<footer>RTS · self-drawn SVG · CC0-clean · faithful to docs/specs/sc1-spec.md · <b>packages/app/units.html</b></footer>
 </body>
 </html>
