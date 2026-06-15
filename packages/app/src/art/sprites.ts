@@ -1,200 +1,173 @@
 // Self-drawn SVG sprite art (100% in-house → CC0-clean for the Pages deploy, per
-// docs/specs/assets.md §1). Flat top-down with baked volume: a consistent
-// top-left light gives each sprite a highlight (upper-left) and a darker
-// lower-right, plus a crisp dark outline so it reads on a small phone screen.
+// docs/specs/assets.md §1), in a neon "tron" treatment: a near-black chassis with
+// glowing, team-colored edges and a bright power core. The full three-race showcase
+// (Terran/Protoss/Zerg, canonical to docs/specs/sc1-spec.md) lives in
+// packages/app/units.html; the engine currently has Terran kinds only, so the Terran
+// subset is what bakes into the atlas here. Protoss/Zerg art is ready in the showcase
+// and ports in the moment their Kinds land in the sim.
 //
-// Each sprite has two layers that feed the texture atlas (gl/atlas.ts):
-//   • `body` — full-color art. Team-colorable regions use a near-neutral grey
-//     gradient so a fragment-shader multiply by the player color yields a vivid,
-//     still-shaded team tint. Non-team detail (guns, glass, vents) keeps its own
-//     color and is punched out of the mask.
-//   • `mask` — the team silhouette in white with detail shapes in black.
-// Sprites without a `mask` (minerals, geyser) are never team-tinted.
+// Pipeline (gl/atlas.ts): each sprite rasterizes two layers that share one UV cell:
+//   • `body` — full-color art. The dark chassis is a fixed near-black (never tinted).
+//     The neon edges/cores are drawn in a neutral bright color so the fragment-shader
+//     multiply by the player color (assets.md §4) yields a vivid, still-glowing team
+//     tint. A baked SVG blur under the strokes makes the neon edge bloom in-engine.
+//   • `mask` — the team region (the neon edges + their bloom + cores) in white; the
+//     chassis stays transparent so it reads black for every player.
+// Neutral sprites (minerals, geyser) carry a fixed hue and no mask, so they're never
+// team-tinted.
 //
-// Authored in a 64×64 viewBox, centered, "facing" up (−y) so units can rotate
-// toward their move target. Gradient ids are local to each rasterized SVG.
+// Authored in a 64×64 viewBox, centered, "facing" up (−y) so units rotate toward a
+// move target. Each sprite is described by role layers (see Tron) and the body/mask
+// SVG is generated from them, so a sprite is data, not duplicated markup.
+
+const DARK = '#0d1119'; // chassis fill — lifted just off black so silhouettes read on dark terrain
+const DARK2 = '#06080d'; // recessed insets (bay doors, vents, maws)
+const NEON = '#eef3ff'; // neutral-bright edge → fragment-shader multiply by team color stays a clean tint
+// One soft blur, reused per rasterized SVG (filter id is local to each doc). A roomy
+// filter region keeps the bloom from clipping; geometry is inset enough to stay in 64².
+const GLOW = '<filter id="g" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="1.15"/></filter>';
+const EJOIN = 'stroke-linejoin="round" stroke-linecap="round"';
+
+// A sprite as role layers; body/mask are generated from these (see below).
+type Tron = {
+  sw: number; // neon stroke width
+  panels?: string; // plates: dark fill + neon outline (the chassis)
+  insets?: string; // recessed dark fills only, no neon (doors, vents, maws)
+  lines?: string; // pure neon detail strokes (fill:none)
+  cores?: string; // filled neon nodes — the glowing power core
+  scale?: number; // world-size multiplier vs. the unit's interaction radius (default 1)
+  color?: string; // fixed hue for NEUTRAL sprites (no team mask); omit → team-tinted
+};
+
+// glow underlay + crisp pass for stroked geometry (panels' outlines + detail lines).
+const strokeLayers = (geom: string, sw: number, color: string): string =>
+  `<g color="${color}" fill="none" stroke="currentColor" stroke-width="${sw}" ${EJOIN} filter="url(#g)">${geom}</g>` +
+  `<g color="${color}" fill="none" stroke="currentColor" stroke-width="${sw}" ${EJOIN}>${geom}</g>`;
+// glow underlay + crisp pass for filled geometry (cores, bright facets).
+const fillLayers = (geom: string, color: string): string =>
+  `<g color="${color}" fill="currentColor" stroke="none" filter="url(#g)">${geom}</g>` +
+  `<g color="${color}" fill="currentColor" stroke="none">${geom}</g>`;
+
+const bodyOf = (t: Tron): string => {
+  const c = t.color ?? NEON;
+  const stroked = (t.panels ?? '') + (t.lines ?? '');
+  return (
+    `<defs>${GLOW}</defs>` +
+    (t.panels ? `<g fill="${DARK}" stroke="none">${t.panels}</g>` : '') +
+    (t.insets ? `<g fill="${DARK2}" stroke="none">${t.insets}</g>` : '') +
+    strokeLayers(stroked, t.sw, c) +
+    (t.cores ? fillLayers(t.cores, c) : '')
+  );
+};
+// Team mask: white over the neon (edges + bloom + cores); chassis stays transparent
+// (→ black for every player). Omitted for neutral sprites so they're never tinted.
+const maskOf = (t: Tron): string | undefined => {
+  if (t.color) return undefined;
+  const stroked = (t.panels ?? '') + (t.lines ?? '');
+  return `<defs>${GLOW}</defs>` + strokeLayers(stroked, t.sw, '#fff') + (t.cores ? fillLayers(t.cores, '#fff') : '');
+};
 
 export type SpriteDef = {
   body: string; // inner SVG markup, full color
-  mask?: string; // inner SVG markup, team region white / details black
+  mask?: string; // inner SVG markup, team region white / chassis transparent
   scale?: number; // world-size multiplier vs. the unit's interaction radius (default 1)
 };
 
-const EDGE = '#0b0e13'; // outline
-const STEEL = '#262b33'; // dark metal detail
-const STEEL2 = '#3a414b';
-const WARN = '#ffb43d';
+const sprite = (t: Tron): SpriteDef => {
+  const m = maskOf(t);
+  return { body: bodyOf(t), ...(m ? { mask: m } : {}), scale: t.scale ?? 1 };
+};
 
-// Team gradient: neutral greys (no hue) so the in-shader multiply stays a clean
-// team color, light at top-left → darker at bottom-right (matches the lighting).
-const tg = (id = 't'): string =>
-  `<linearGradient id="${id}" x1="0.1" y1="0.05" x2="0.9" y2="1">` +
-  `<stop offset="0" stop-color="#f4f6f9"/><stop offset="0.55" stop-color="#dfe3e8"/>` +
-  `<stop offset="1" stop-color="#bcc2ca"/></linearGradient>`;
-// Glass/visor (cool blue) and a warm light (landing pad / glow).
-const glass = (id = 'v'): string =>
-  `<radialGradient id="${id}" cx="0.35" cy="0.3" r="0.8">` +
-  `<stop offset="0" stop-color="#cdeeff"/><stop offset="1" stop-color="#2f6f9e"/></radialGradient>`;
-const warm = (id = 'w'): string =>
-  `<radialGradient id="${id}" cx="0.4" cy="0.35" r="0.75">` +
-  `<stop offset="0" stop-color="#ffe49a"/><stop offset="1" stop-color="#ef9d1c"/></radialGradient>`;
-// A soft top-left highlight reused across sprites.
-const HI = '#ffffff';
-
-export const SPRITES: Record<string, SpriteDef> = {
-  // --- SCV: top-down builder; tread strips, cab + window, drill/claw facing up. ---
+// ---- Terran roster + neutral resources (the engine's current Kinds). ----
+const TRON: Record<string, Tron> = {
+  // SCV: hex hauler, side treads, forward claw, central core.
   scv: {
-    scale: 1.7,
-    body: `<defs>${tg()}${glass()}</defs>
-      <rect x="12" y="17" width="7" height="30" rx="3" fill="${STEEL}"/>
-      <rect x="45" y="17" width="7" height="30" rx="3" fill="${STEEL}"/>
-      <rect x="14" y="21" width="3" height="22" rx="1.5" fill="${STEEL2}"/>
-      <rect x="47" y="21" width="3" height="22" rx="1.5" fill="${STEEL2}"/>
-      <rect x="20" y="7" width="24" height="11" rx="3" fill="${WARN}" stroke="${EDGE}" stroke-width="1.5"/>
-      <rect x="25" y="4" width="4" height="6" rx="1" fill="#cf8a1f"/>
-      <rect x="35" y="4" width="4" height="6" rx="1" fill="#cf8a1f"/>
-      <rect x="16" y="14" width="32" height="37" rx="7" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
-      <rect x="22" y="24" width="20" height="17" rx="3" fill="${STEEL}"/>
-      <rect x="24" y="26" width="16" height="11" rx="2" fill="url(#v)"/>
-      <rect x="18" y="16" width="22" height="4" rx="2" fill="${HI}" opacity="0.22"/>`,
-    mask: `
-      <rect x="12" y="17" width="7" height="30" rx="3" fill="#000"/>
-      <rect x="45" y="17" width="7" height="30" rx="3" fill="#000"/>
-      <rect x="20" y="7" width="24" height="11" rx="3" fill="#000"/>
-      <rect x="16" y="14" width="32" height="37" rx="7" fill="#fff"/>
-      <rect x="22" y="24" width="20" height="17" rx="3" fill="#000"/>`,
+    sw: 2, scale: 1.7,
+    panels:
+      `<rect x="9" y="22" width="7" height="22" rx="2"/><rect x="48" y="22" width="7" height="22" rx="2"/>` +
+      `<polygon points="32,13 48,23 48,43 32,53 16,43 16,23"/>`,
+    lines:
+      `<line x1="12.5" y1="26" x2="12.5" y2="40"/><line x1="51.5" y1="26" x2="51.5" y2="40"/>` +
+      `<line x1="23" y1="13" x2="22" y2="4"/><line x1="41" y1="13" x2="42" y2="4"/><line x1="22" y1="6" x2="42" y2="6"/>` +
+      `<line x1="22" y1="33" x2="42" y2="33"/>`,
+    cores: `<circle cx="32" cy="32" r="4"/>`,
   },
-
-  // --- Marine: torso + shoulder pauldrons (team), helmet/visor, rifle, backpack. ---
+  // Marine: CMC power armor (top-down) — swept shoulder plate, helmet+visor, gauss rifle.
   marine: {
-    scale: 1.7,
-    body: `<defs>${tg()}${glass()}</defs>
-      <rect x="27" y="41" width="10" height="12" rx="3" fill="${STEEL}"/>
-      <rect x="33" y="7" width="5" height="23" rx="2" fill="${STEEL2}" stroke="${EDGE}" stroke-width="1"/>
-      <rect x="31" y="24" width="10" height="9" rx="2" fill="${STEEL}"/>
-      <circle cx="20" cy="35" r="8" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
-      <circle cx="44" cy="35" r="8" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
-      <rect x="22" y="26" width="20" height="25" rx="9" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
-      <circle cx="32" cy="26" r="9" fill="${STEEL}" stroke="${EDGE}" stroke-width="1.5"/>
-      <path d="M25 27 a7 7 0 0 1 14 0 z" fill="url(#v)"/>
-      <circle cx="28" cy="23" r="2.4" fill="${HI}" opacity="0.5"/>`,
-    mask: `
-      <circle cx="20" cy="35" r="8" fill="#fff"/>
-      <circle cx="44" cy="35" r="8" fill="#fff"/>
-      <rect x="22" y="26" width="20" height="25" rx="9" fill="#fff"/>
-      <rect x="27" y="41" width="10" height="12" rx="3" fill="#000"/>
-      <circle cx="32" cy="26" r="9" fill="#000"/>
-      <rect x="33" y="7" width="5" height="23" rx="2" fill="#000"/>
-      <rect x="31" y="24" width="10" height="9" rx="2" fill="#000"/>`,
+    sw: 2, scale: 1.7,
+    panels:
+      `<path d="M25 41 L39 41 L37 53 Q32 56 27 53 Z"/>` +
+      `<path d="M18 24 Q32 16 46 24 L47 39 Q32 45 17 39 Z"/>` +
+      `<circle cx="32" cy="27" r="7"/>` +
+      `<rect x="40" y="7" width="5" height="27" rx="1.5"/>`,
+    lines: `<path d="M17 33 Q14 26 21 22"/><path d="M27 26 Q32 21 37 26"/><line x1="35" y1="23" x2="42" y2="20"/>`,
+    cores: `<circle cx="30" cy="34" r="3"/>`,
   },
-
-  // --- Command Center: large hub, central landing pad, corner modules. ---
+  // Command Center: cut-corner fortress, corner bastions, central landing ring.
   commandCenter: {
-    scale: 1.0,
-    body: `<defs>${tg()}${warm()}</defs>
-      <rect x="5" y="5" width="54" height="54" rx="13" fill="url(#t)" stroke="${EDGE}" stroke-width="3"/>
-      <rect x="11" y="11" width="42" height="42" rx="9" fill="none" stroke="${EDGE}" stroke-width="1" opacity="0.22"/>
-      <rect x="8" y="8" width="12" height="12" rx="3" fill="${STEEL}"/>
-      <rect x="44" y="8" width="12" height="12" rx="3" fill="${STEEL}"/>
-      <rect x="8" y="44" width="12" height="12" rx="3" fill="${STEEL}"/>
-      <rect x="44" y="44" width="12" height="12" rx="3" fill="${STEEL}"/>
-      <circle cx="32" cy="32" r="16" fill="${STEEL}" stroke="${EDGE}" stroke-width="2"/>
-      <circle cx="32" cy="32" r="9" fill="url(#w)"/>
-      <path d="M9 16 a8 8 0 0 1 7 -7" fill="none" stroke="${HI}" stroke-width="3" opacity="0.25" stroke-linecap="round"/>`,
-    mask: `
-      <rect x="5" y="5" width="54" height="54" rx="13" fill="#fff"/>
-      <rect x="8" y="8" width="12" height="12" rx="3" fill="#000"/>
-      <rect x="44" y="8" width="12" height="12" rx="3" fill="#000"/>
-      <rect x="8" y="44" width="12" height="12" rx="3" fill="#000"/>
-      <rect x="44" y="44" width="12" height="12" rx="3" fill="#000"/>
-      <circle cx="32" cy="32" r="16" fill="#000"/>`,
+    sw: 2.4, scale: 1.0,
+    panels:
+      `<polygon points="20,5 44,5 59,20 59,44 44,59 20,59 5,44 5,20"/>` +
+      `<rect x="8" y="8" width="11" height="11" rx="2"/><rect x="45" y="8" width="11" height="11" rx="2"/>` +
+      `<rect x="8" y="45" width="11" height="11" rx="2"/><rect x="45" y="45" width="11" height="11" rx="2"/>` +
+      `<circle cx="32" cy="32" r="14"/>`,
+    lines:
+      `<circle cx="32" cy="32" r="9"/>` +
+      `<line x1="32" y1="20" x2="32" y2="26"/><line x1="32" y1="38" x2="32" y2="44"/>` +
+      `<line x1="20" y1="32" x2="26" y2="32"/><line x1="38" y1="32" x2="44" y2="32"/>`,
+    cores: `<circle cx="32" cy="32" r="4.5"/>`,
   },
-
-  // --- Supply Depot: low slab, hazard stripe, status lights. ---
+  // Supply Depot: antenna pylon — base, mast, cross arms, top light.
   supplyDepot: {
-    scale: 1.0,
-    body: `<defs>${tg()}</defs>
-      <rect x="8" y="14" width="48" height="36" rx="10" fill="url(#t)" stroke="${EDGE}" stroke-width="3"/>
-      <rect x="15" y="20" width="34" height="7" rx="3" fill="${WARN}"/>
-      <rect x="15" y="31" width="34" height="8" rx="3" fill="${STEEL}"/>
-      <circle cx="19" cy="35" r="2.2" fill="#5aff7a"/>
-      <circle cx="26" cy="35" r="2.2" fill="#5aff7a"/>
-      <rect x="14" y="16" width="26" height="3.5" rx="1.5" fill="${HI}" opacity="0.2"/>`,
-    mask: `
-      <rect x="8" y="14" width="48" height="36" rx="10" fill="#fff"/>
-      <rect x="15" y="20" width="34" height="7" rx="3" fill="#000"/>
-      <rect x="15" y="31" width="34" height="8" rx="3" fill="#000"/>`,
+    sw: 2.2, scale: 1.0,
+    panels: `<polygon points="20,50 44,50 40,60 24,60"/>`,
+    lines:
+      `<line x1="32" y1="50" x2="32" y2="13"/>` +
+      `<line x1="22" y1="22" x2="42" y2="22"/><line x1="25" y1="32" x2="39" y2="32"/><line x1="27" y1="41" x2="37" y2="41"/>` +
+      `<line x1="22" y1="22" x2="32" y2="14"/><line x1="42" y1="22" x2="32" y2="14"/>`,
+    cores: `<circle cx="32" cy="11" r="3.2"/>`,
   },
-
-  // --- Barracks: production block, bay door, roof vents, beacon. ---
+  // Barracks: production block, bay door with slats, roof vent chevrons, beacon.
   barracks: {
-    scale: 1.0,
-    body: `<defs>${tg()}</defs>
-      <rect x="7" y="9" width="50" height="46" rx="8" fill="url(#t)" stroke="${EDGE}" stroke-width="3"/>
-      <rect x="13" y="15" width="14" height="9" rx="2" fill="${STEEL}"/>
-      <rect x="37" y="15" width="14" height="9" rx="2" fill="${STEEL}"/>
-      <rect x="15" y="17" width="10" height="2" rx="1" fill="${STEEL2}"/>
-      <rect x="39" y="17" width="10" height="2" rx="1" fill="${STEEL2}"/>
-      <rect x="23" y="34" width="18" height="21" rx="2" fill="${STEEL}"/>
-      <rect x="26" y="38" width="12" height="17" rx="1" fill="${STEEL2}"/>
-      <rect x="28" y="11" width="8" height="7" rx="2" fill="#ff5a4d"/>
-      <rect x="12" y="11" width="26" height="3.5" rx="1.5" fill="${HI}" opacity="0.2"/>`,
-    mask: `
-      <rect x="7" y="9" width="50" height="46" rx="8" fill="#fff"/>
-      <rect x="13" y="15" width="14" height="9" rx="2" fill="#000"/>
-      <rect x="37" y="15" width="14" height="9" rx="2" fill="#000"/>
-      <rect x="23" y="34" width="18" height="21" rx="2" fill="#000"/>`,
+    sw: 2.2, scale: 1.0,
+    panels: `<rect x="8" y="11" width="48" height="44" rx="6"/>`,
+    insets: `<rect x="24" y="33" width="16" height="22" rx="2"/>`,
+    lines:
+      `<polyline points="14,24 20,18 26,24"/><polyline points="38,24 44,18 50,24"/>` +
+      `<line x1="28" y1="36" x2="28" y2="55"/><line x1="32" y1="36" x2="32" y2="55"/><line x1="36" y1="36" x2="36" y2="55"/>`,
+    cores: `<polygon points="32,5 36,11 28,11"/>`,
   },
-
-  // --- Refinery: structure over a geyser, twin gas tanks + pipes. ---
+  // Refinery: structure over a geyser, twin gas tanks + central riser (gas glow added by the renderer).
   refinery: {
-    scale: 1.0,
-    body: `<defs>${tg()}<radialGradient id="g" cx="0.4" cy="0.35" r="0.8">
-        <stop offset="0" stop-color="#76e89a"/><stop offset="1" stop-color="#2c8a48"/></radialGradient></defs>
-      <rect x="8" y="15" width="48" height="35" rx="10" fill="url(#t)" stroke="${EDGE}" stroke-width="3"/>
-      <rect x="29" y="17" width="6" height="16" rx="2" fill="${STEEL}"/>
-      <circle cx="21" cy="33" r="9" fill="url(#g)" stroke="${EDGE}" stroke-width="2"/>
-      <circle cx="43" cy="33" r="9" fill="url(#g)" stroke="${EDGE}" stroke-width="2"/>
-      <circle cx="21" cy="33" r="3" fill="#0c3b22"/>
-      <circle cx="43" cy="33" r="3" fill="#0c3b22"/>
-      <rect x="14" y="17" width="22" height="3.5" rx="1.5" fill="${HI}" opacity="0.2"/>`,
-    mask: `
-      <rect x="8" y="15" width="48" height="35" rx="10" fill="#fff"/>
-      <circle cx="21" cy="33" r="9" fill="#000"/>
-      <circle cx="43" cy="33" r="9" fill="#000"/>
-      <rect x="29" y="17" width="6" height="16" rx="2" fill="#000"/>`,
+    sw: 2.2, scale: 1.0,
+    panels:
+      `<rect x="8" y="15" width="48" height="35" rx="10"/>` +
+      `<circle cx="21" cy="33" r="9"/><circle cx="43" cy="33" r="9"/>` +
+      `<rect x="29" y="17" width="6" height="16" rx="2"/>`,
+    insets: `<circle cx="21" cy="33" r="3.4"/><circle cx="43" cy="33" r="3.4"/>`,
+    lines: `<line x1="15" y1="20" x2="33" y2="20"/>`,
+    cores: `<circle cx="32" cy="42" r="2.4"/>`,
   },
-
-  // --- Mineral field: faceted cyan crystals (neutral, never tinted). ---
+  // Mineral field: faceted cyan crystals (neutral, never tinted).
   mineral: {
-    scale: 1.25,
-    body: `<defs>
-        <linearGradient id="c" x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0" stop-color="#9ff7ec"/><stop offset="1" stop-color="#19a9a0"/></linearGradient>
-        <linearGradient id="c2" x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0" stop-color="#cafdf6"/><stop offset="1" stop-color="#36cabe"/></linearGradient></defs>
-      <polygon points="17,47 28,15 35,33 46,13 51,47" fill="url(#c)" stroke="#063b37" stroke-width="2" stroke-linejoin="round"/>
-      <polygon points="23,47 30,23 38,47" fill="url(#c2)"/>
-      <polygon points="40,47 46,21 52,47" fill="url(#c2)"/>
-      <polygon points="28,15 31,24 25,25" fill="#dffdf8"/>
-      <polygon points="46,13 49,24 42,24" fill="#dffdf8" opacity="0.9"/>`,
+    sw: 2, scale: 1.25, color: '#46f0e0',
+    panels: `<polygon points="18,48 27,18 34,34 45,15 50,48"/>`,
+    lines: `<line x1="27" y1="18" x2="27" y2="48"/><line x1="45" y1="15" x2="42" y2="48"/><line x1="34" y1="34" x2="34" y2="48"/>`,
+    cores: `<polygon points="27,18 31,27 24,28"/><polygon points="45,15 49,26 41,26"/>`,
   },
-
-  // --- Vespene geyser: dark vent with rising green gas (neutral). ---
+  // Vespene geyser: dark vent with rising green gas (neutral).
   geyser: {
-    scale: 1.0,
-    body: `<defs>
-        <radialGradient id="r" cx="0.5" cy="0.45" r="0.6">
-          <stop offset="0" stop-color="#1c2a18"/><stop offset="1" stop-color="#2c3a2a"/></radialGradient>
-        <radialGradient id="gg" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stop-color="#7dff8e"/><stop offset="1" stop-color="#2f9a46"/></radialGradient></defs>
-      <ellipse cx="32" cy="45" rx="25" ry="14" fill="url(#r)" stroke="${EDGE}" stroke-width="2"/>
-      <ellipse cx="32" cy="43" rx="13" ry="8" fill="#0e1a0c"/>
-      <circle cx="30" cy="31" r="8" fill="url(#gg)" opacity="0.9"/>
-      <circle cx="39" cy="22" r="5.5" fill="url(#gg)" opacity="0.7"/>
-      <circle cx="33" cy="14" r="3.5" fill="url(#gg)" opacity="0.5"/>`,
+    sw: 2, scale: 1.0, color: '#54f08a',
+    panels: `<polygon points="32,30 50,40 50,52 32,60 14,52 14,40"/>`,
+    insets: `<ellipse cx="32" cy="40" rx="13" ry="6"/>`,
+    lines: `<path d="M28 36 Q24 26 30 18 Q34 12 30 6"/><path d="M38 38 Q42 30 38 22"/>`,
+    cores: `<circle cx="29" cy="14" r="2"/>`,
   },
 };
+
+export const SPRITES: Record<string, SpriteDef> = Object.fromEntries(
+  Object.entries(TRON).map(([k, t]) => [k, sprite(t)]),
+);
 
 /** Wrap inner markup into a standalone, sized SVG document for rasterization. */
 export const svgDoc = (inner: string): string =>
