@@ -315,13 +315,16 @@ export class GlRenderer {
       const [tr, tg, tb] = teamColor(e.owner[i]!);
       this.sprites.push(wx, wy, r * 2, r * 2, rot, sprite, 1, 1, 1, alpha, tr, tg, tb);
 
-      // Ambient light: a soft glow that grounds the entity (additive, subtle).
-      if (isStruct && e.built[i] === 1) {
-        this.fx.push(wx, wy, r * 3.2, r * 3.2, 0, glow, tr, tg, tb, 0.12, 0, 0, 0);
-      } else if (kind === Kind.Mineral) {
-        this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
+      // Ambient light: a soft team-colored bloom under each neon emblem
+      // (additive) so the Tron line-art glows on the dark map.
+      if (kind === Kind.Mineral) {
+        this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.12, 0, 0, 0);
       } else if (isGeyser || kind === Kind.Refinery) {
-        this.fx.push(wx, wy - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
+        this.fx.push(wx, wy - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.14, 0, 0, 0);
+      } else if (isStruct) {
+        if (e.built[i] === 1) this.fx.push(wx, wy, r * 2.8, r * 2.8, 0, glow, tr, tg, tb, 0.18, 0, 0, 0);
+      } else {
+        this.fx.push(wx, wy, r * 2.4, r * 2.4, 0, glow, tr, tg, tb, 0.2, 0, 0, 0); // mobile units
       }
     }
   }
