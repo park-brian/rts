@@ -41,6 +41,17 @@ const rect = (w: number, h: number, cx = C, cy = C): El => ({ r: [cx - w, cy - h
 const diamond = (h: number, cx = C, cy = C): El => ({
   d: `M${P(cx, cy - h)} L${P(cx + h, cy)} L${P(cx, cy + h)} L${P(cx - h, cy)} Z`,
 });
+// rectilinear octagon (a "round" rectilinear footprint — saucers, domes, forts).
+const octagon = (h: number, cx = C, cy = C): El => {
+  const a = h * 0.42;
+  return {
+    d: `M${P(cx - a, cy - h)} L${P(cx + a, cy - h)} L${P(cx + h, cy - a)} L${P(cx + h, cy + a)} L${P(cx + a, cy + h)} L${P(cx - a, cy + h)} L${P(cx - h, cy + a)} L${P(cx - h, cy - a)} Z`,
+  };
+};
+// lozenge: a diamond with independent width/height (slim sleek silhouettes).
+const loz = (w: number, h: number, cx = C, cy = C): El => ({
+  d: `M${P(cx, cy - h)} L${P(cx + w, cy)} L${P(cx, cy + h)} L${P(cx - w, cy)} Z`,
+});
 const vbar = (x: number, y0: number, y1: number): El => ({ d: `M${P(x, y0)} L${P(x, y1)}` });
 const hbar = (y: number, x0: number, x1: number): El => ({ d: `M${P(x0, y)} L${P(x1, y)}` });
 const node = (cx: number, cy: number, half = 2.1): El => ({ sq: [cx, cy, half] });
@@ -133,107 +144,107 @@ const B = 1.0; // default building scale
 //  mathematical family; role/tier vary the parameters.
 // =============================================================================
 export const SPRITES: Record<string, SpriteDef> = {
-  // ----------------------------- TERRAN (squares) ----------------------------
-  scv: neon([square(8), dot(C, C, 2.2)], U),
-  marine: neon([square(8), vbar(C, C - 14, C - 8)], U),
-  firebat: neon([square(8), vbar(C - 3, C - 13, C - 8), vbar(C + 3, C - 13, C - 8)], U),
-  medic: neon([square(8), vbar(C, C - 5, C + 5), hbar(C, C - 5, C + 5)], U),
-  ghost: neon([diamond(9), dot(C, C, 1.8)], U),
-  vulture: neon([rect(11, 6), vbar(C, C - 12, C - 6)], U),
-  siegeTank: neon([rect(11, 9), vbar(C, C - 22, C - 9)], U),
-  goliath: neon([square(9), vbar(C - 3, C - 18, C - 9), vbar(C + 3, C - 18, C - 9)], U),
-  wraith: neon([diamond(11), diamond(5)], U),
-  dropship: neon([rect(12, 8), rect(6, 4)], U),
-  scienceVessel: neon([diamond(11), diamond(6), dot(C, C, 1.6)], U),
-  valkyrie: neon([diamond(11), vbar(C - 4, C - 14, C - 9), vbar(C, C - 16, C - 9), vbar(C + 4, C - 14, C - 9)], U),
-  battlecruiser: neon([square(20), square(12), ...corners(20, 2.4)], U),
-  spiderMine: neon([square(5), dot(C, C, 1.6)], U),
-  nuke: neon([rect(5, 13), triUp(5, C, C - 13)], U),
-  commandCenter: neon([square(22), square(13), dot(C, C, 2.4), ...corners(22, 2.4)], B),
-  supplyDepot: neon([rect(20, 11), hbar(C, C - 12, C + 12)], B),
-  refinery: neon([square(18), diamond(8)], B),
-  barracks: neon([square(20), rect(7, 4, C, C + 14)], B),
-  engineeringBay: neon([square(19), vbar(C, C - 8, C + 8), hbar(C, C - 8, C + 8)], B),
-  bunker: neon([square(16), ...corners(16, 3.2)], B),
-  academy: neon([square(19), square(8), dot(C, C, 1.8)], B),
-  missileTurret: neon([square(11), square(5), vbar(C, C - 18, C - 11)], B),
-  factory: neon([square(20), rect(9, 6), node(C, C, 2.2)], B),
-  machineShop: neon([square(11), node(C, C, 2.2)], B),
-  starport: neon([square(20), diamond(9)], B),
-  controlTower: neon([square(11), dot(C, C, 2)], B),
-  armory: neon([square(19), vbar(C - 5, C - 10, C + 10), vbar(C + 5, C - 10, C + 10)], B),
-  scienceFacility: neon([square(20), square(10), dot(C, C, 2)], B),
-  physicsLab: neon([square(11), diamond(5)], B),
-  covertOps: neon([square(11), dot(C, C, 1.8)], B),
-  comsat: neon([square(11), ring(6)], B),
-  nuclearSilo: neon([square(18), rect(5, 11)], B),
+  // --------------------- TERRAN (rectilinear) — distinct silhouettes ---------
+  scv: neon([square(7), node(C + 8, C - 4, 2.6)], U), // body + offset claw arm
+  marine: neon([rect(4.5, 9), vbar(C, C - 16, C - 9)], U), // narrow trooper + rifle
+  firebat: neon([rect(7.5, 6), node(C - 9, C, 2.8), node(C + 9, C, 2.8)], U), // wide + side tanks
+  medic: neon([vbar(C, C - 11, C + 11), hbar(C, C - 11, C + 11), square(4.5)], U), // a plus (cross)
+  ghost: neon([loz(5, 12), dot(C, C, 1.6)], U), // slim lozenge (stealth)
+  vulture: neon([rect(3.5, 11), node(C, C + 12, 2)], U), // NARROW vertical bike + tail
+  siegeTank: neon([rect(12, 8), vbar(C, C - 23, C - 8)], U), // wide hull + long cannon
+  goliath: neon([square(8), vbar(C - 4, C - 18, C - 8), vbar(C + 4, C - 18, C - 8), node(C - 8, C + 9, 2.2), node(C + 8, C + 9, 2.2)], U), // walker: twin guns + legs
+  wraith: neon([diamond(11)], U), // clean diamond (air)
+  dropship: neon([rect(13, 8), hbar(C, C - 13, C + 13)], U), // bulky wide transport
+  scienceVessel: neon([octagon(11), dot(C, C, 2)], U), // saucer
+  valkyrie: neon([diamond(10), hbar(C - 2, C - 12, C + 12)], U), // air + missile rack
+  battlecruiser: neon([square(20), square(12), ...corners(20, 2.4)], U), // capital
+  spiderMine: neon([square(4), node(C - 6, C - 6, 1.8), node(C + 6, C - 6, 1.8), node(C - 6, C + 6, 1.8), node(C + 6, C + 6, 1.8)], U), // tiny + 4 legs
+  nuke: neon([rect(3.5, 12), triUp(4, C, C - 12)], U), // missile
+  commandCenter: neon([square(21), square(12), dot(C, C, 2.4), ...corners(21, 2.4)], B),
+  supplyDepot: neon([rect(20, 9), hbar(C - 4, C - 17, C + 17), hbar(C + 4, C - 17, C + 17)], B), // low + slats
+  refinery: neon([square(15), diamond(7), node(C - 16, C, 2.4), node(C + 16, C, 2.4)], B), // tanks
+  barracks: neon([square(19), rect(6, 4, C, C + 15)], B), // bay door
+  engineeringBay: neon([square(18), vbar(C, C - 10, C + 10), hbar(C, C - 10, C + 10)], B), // inner cross
+  bunker: neon([octagon(15), ...corners(11, 3.2)], B), // fort: octagon + heavy nodes
+  academy: neon([square(18), rect(9, 5, C, C - 1)], B), // inner screen
+  missileTurret: neon([square(8, C, C + 7), square(6, C, C - 6), vbar(C, C - 18, C - 12)], B), // stacked turret
+  factory: neon([rect(20, 14), rect(8, 5), node(C + 14, C - 9, 2.4)], B), // wide industrial
+  machineShop: neon([square(10), node(C - 5, C - 5, 1.9), node(C + 5, C - 5, 1.9), node(C - 5, C + 5, 1.9), node(C + 5, C + 5, 1.9)], B), // gear cluster
+  starport: neon([square(19), diamond(9)], B), // air bay
+  controlTower: neon([square(8), vbar(C, C - 19, C - 8)], B), // antenna tower
+  armory: neon([square(18), vbar(C - 5, C - 11, C + 11), vbar(C + 5, C - 11, C + 11)], B), // twin racks
+  scienceFacility: neon([square(19), octagon(9), dot(C, C, 1.8)], B), // dome lab
+  physicsLab: neon([square(10), diamond(5)], B),
+  covertOps: neon([square(10), hbar(C, C - 5, C + 5)], B), // slit (vs tower/lab)
+  comsat: neon([square(9), arc(7, -160, -20, C, C - 1)], B), // dish arc
+  nuclearSilo: neon([square(17), rect(4, 9), hbar(C, C - 17, C + 17)], B), // silo + hatch
 
-  // ----------------------------- PROTOSS (circles) ---------------------------
-  probe: neon([ring(9), dot(C, C, 2.2)], U),
-  zealot: neon([ring(9), arc(13, -130, -50)], U),
-  dragoon: neon([ring(11), arc(15, -120, -60), dot(C, C, 1.8)], U),
-  highTemplar: neon([ring(9), triUp(5)], U),
-  darkTemplar: neon([ring(9), triUp(6, C, C + 1)], U),
-  archon: neon([ring(12), ring(6), dot(C, C, 2.4)], U),
-  darkArchon: neon([ring(12), triUp(6), dot(C, C, 1.8)], U),
-  reaver: neon([ring(12), ...dotsOnRing(6, 3, 2)], U),
-  observer: neon([ring(8), ring(4)], U),
-  shuttle: neon([ring(11), ring(5)], U),
-  scout: neon([ring(11), arc(15, -125, -90), arc(15, -90, -55)], U),
-  carrier: neon([ring(22), dot(C, C, 4.5), ...dotsOnRing(12, 6, 3)], U),
-  interceptor: neon([ring(5), dot(C, C, 1.6)], U),
-  scarab: neon([ring(4), dot(C, C, 1.8)], U),
+  // --------------------- PROTOSS (harmonic) — distinct silhouettes -----------
+  probe: neon([ring(8), dot(C, C, 2.2)], U),
+  zealot: neon([ring(9), arc(13, -135, -100), arc(13, -80, -45)], U), // twin blade arcs
+  dragoon: neon([ring(11), dot(C, C, 2.4), arc(15, -125, -55)], U), // body + leg arc
+  highTemplar: neon([ring(8), triUp(5)], U), // psi triangle
+  darkTemplar: neon([ring(8), arc(11, -150, -30), dot(C, C, 1.6)], U), // crescent + core
+  archon: neon([ring(12), ring(6), dot(C, C, 3.2)], U), // energy ball
+  darkArchon: neon([ring(12), arc(8, -160, -20), triUp(4)], U),
+  reaver: neon([ring(11), ...dotsOnRing(5, 3, 2.2)], U), // scarab cluster
+  observer: neon([ring(7), ring(3.5)], U), // tiny eye
+  shuttle: neon([ring(11), dot(C - 5, C, 2.2), dot(C + 5, C, 2.2)], U), // twin cargo pods
+  scout: neon([ring(10), arc(14, -130, -90), arc(14, -90, -50), dot(C, C, 1.6)], U), // swept wings
+  carrier: neon([ring(22), dot(C, C, 4.5), ...dotsOnRing(13, 6, 2.6)], U), // flower-of-life
+  interceptor: neon([ring(6), dot(C, C, 1.4)], U),
+  scarab: neon([triUp(5), dot(C, C, 1.4)], U), // tiny wedge (vs interceptor ring)
   arbiter: neon([ring(12), ring(6), triUp(5)], U),
-  corsair: neon([ring(10), arc(13, -120, -60)], U),
+  corsair: neon([ring(10), arc(13, -110, -70)], U), // single forward arc
   nexus: neon([ring(22), ring(13), dot(C, C, 3), ...dotsOnRing(22, 4, 2.4)], B),
   pylon: neon([diamond(13), dot(C, C, 2.4)], B), // diamond motif (canon)
-  assimilator: neon([ring(17), diamond(7)], B),
-  gateway: neon([ring(19), arc(13, -150, -30)], B),
-  forge: neon([ring(18), triUp(8)], B),
-  photonCannon: neon([ring(12), ring(5), dot(C, C, 1.8)], B),
-  cyberneticsCore: neon([ring(19), ring(9), dot(C, C, 2)], B),
-  shieldBattery: neon([ring(16), ring(8)], B),
-  roboticsFacility: neon([ring(19), ring(8), dot(C, C, 2)], B),
-  stargate: neon([ring(20), ring(10), ...dotsOnRing(20, 4, 2.2)], B),
-  citadelOfAdun: neon([ring(18), triUp(9)], B),
-  templarArchives: neon([ring(19), triUp(8), dot(C, C, 1.8)], B),
-  roboticsSupportBay: neon([ring(13), dot(C, C, 2.2)], B),
-  observatory: neon([ring(14), ring(7), dot(C, C, 1.6)], B),
-  fleetBeacon: neon([ring(19), ring(9), dot(C, C, 2.2)], B),
-  arbiterTribunal: neon([ring(19), ring(9), triUp(6)], B),
+  assimilator: neon([ring(16), diamond(7)], B), // gas
+  gateway: neon([arc(18, -160, -20), arc(18, 20, 160), dot(C, C, 2.4)], B), // split portal
+  forge: neon([ring(17), triUp(8)], B),
+  photonCannon: neon([ring(10), dot(C, C, 2.4), ...dotsOnRing(13, 3, 2)], B), // 3 prongs
+  cyberneticsCore: neon([ring(18), ring(9), ...dotsOnRing(13, 3, 2)], B),
+  shieldBattery: neon([ring(16), arc(9, -150, -30)], B), // crescent cell
+  roboticsFacility: neon([ring(18), square(8)], B), // square-in-circle (robotic)
+  stargate: neon([ring(19), ...dotsOnRing(19, 6, 2.2), dot(C, C, 2)], B), // 6-node portal
+  citadelOfAdun: neon([ring(17), triUp(9), dot(C, C, 1.6)], B),
+  templarArchives: neon([ring(18), triUp(7), ...dotsOnRing(11, 2, 1.8)], B),
+  roboticsSupportBay: neon([ring(12), square(6)], B), // small robotic
+  observatory: neon([ring(13), ring(6.5), dot(C, C, 1.6)], B), // eye
+  fleetBeacon: neon([ring(18), arc(9, -150, -30), dot(C, C, 2)], B), // crescent beacon
+  arbiterTribunal: neon([ring(18), ring(9), triUp(6)], B),
 
-  // ------------------------------ ZERG (stars) -------------------------------
-  larva: neon([...star(6, 3, 1), dot(C, C, 1.4)], U),
-  drone: neon([...star(10, 5, 2), dot(C, C, 2)], U),
-  overlord: neon([...star(13, 6, 1), ring(6)], U),
-  zergling: neon(star(9, 5, 2), U),
-  hydralisk: neon(star(12, 6, 2), U),
-  lurker: neon([...star(13, 6, 2), dot(C, C, 2)], U),
-  mutalisk: neon(star(11, 5, 2), U),
-  scourge: neon(star(7, 3, 1), U),
-  guardian: neon(star(14, 6, 2), U),
-  devourer: neon(star(13, 7, 3), U),
+  // ----------------------- ZERG (stars) — distinct silhouettes ---------------
+  larva: neon([...star(6, 3, 1), dot(C, C, 1.4)], U), // tiny triangle + core
+  drone: neon([...star(10, 5, 2), dot(C, C, 2)], U), // pentagram + core
+  overlord: neon([...star(13, 6, 1), ring(6), dot(C, C, 1.6)], U), // hexagon + eye
+  zergling: neon(star(9, 5, 2), U), // small pentagram
+  hydralisk: neon(star(12, 6, 2), U), // hexagram
+  lurker: neon([...star(12, 6, 3), dot(C, C, 2)], U), // {6/3} burst + core
+  mutalisk: neon([...star(11, 5, 2), dot(C, C, 1.4)], U),
+  scourge: neon(star(8, 4, 1), U), // small 4-point (diamond)
+  guardian: neon(star(15, 6, 2), U), // big hexagram
+  devourer: neon(star(13, 8, 3), U), // octagram {8/3}
   queen: neon([...star(12, 6, 2), ring(5)], U),
-  defiler: neon([...star(13, 7, 2), ring(5)], U),
-  ultralisk: neon(star(20, 7, 3), U),
+  defiler: neon([...star(13, 7, 2), ring(5)], U), // heptagram + ring
+  ultralisk: neon(star(20, 7, 3), U), // {7/3} (hero)
   infestedTerran: neon([...star(9, 5, 2), dot(C, C, 1.8)], U),
-  broodling: neon(star(6, 3, 1), U),
-  hatchery: neon([...star(20, 6, 1), ring(8), dot(C, C, 2.4)], B),
-  lair: neon([...star(20, 6, 1), ring(9), dot(C, C, 2.2)], B),
-  hive: neon([...star(21, 6, 1), ring(12), ring(6)], B),
-  creepColony: neon([...star(14, 5, 1), dot(C, C, 2.2)], B),
-  sunkenColony: neon([...star(15, 6, 2), dot(C, C, 2.2)], B),
-  sporeColony: neon([...star(14, 6, 1), ring(6)], B),
-  spawningPool: neon([...star(18, 6, 1), ring(8)], B),
-  evolutionChamber: neon([...star(18, 6, 1), dot(C, C, 2.4)], B),
-  hydraliskDen: neon([...star(18, 6, 2), dot(C, C, 2.2)], B),
-  extractor: neon([...star(16, 6, 1), diamond(6)], B),
-  spire: neon([...star(16, 5, 2), dot(C, C, 2.2)], B),
-  greaterSpire: neon([...star(17, 5, 2), ring(7)], B),
-  queensNest: neon([...star(17, 6, 1), ring(8)], B),
-  nydusCanal: neon([...star(14, 6, 1), ring(7)], B),
-  ultraliskCavern: neon([...star(18, 6, 1), dot(C, C, 2.4)], B),
-  defilerMound: neon([...star(18, 6, 1), ring(7), dot(C, C, 2)], B),
+  broodling: neon(star(6, 3, 1), U), // tiny triangle
+  hatchery: neon([...star(20, 6, 1), dot(C, C, 2.4)], B), // hexagon mound
+  lair: neon([...star(20, 6, 1), ring(8), dot(C, C, 2)], B), // + eye (tier 2)
+  hive: neon([...star(21, 6, 1), ring(11), ring(5)], B), // double ring (tier 3)
+  creepColony: neon([...star(14, 5, 1), dot(C, C, 2.2)], B), // pentagon
+  sunkenColony: neon([...star(15, 6, 2), dot(C, C, 2.2)], B), // hexagram (AG)
+  sporeColony: neon([...star(14, 6, 2), ring(6)], B), // hexagram + eye (AA)
+  spawningPool: neon([...star(18, 6, 1), ...star(8, 6, 1)], B), // nested hexagons
+  evolutionChamber: neon([...star(18, 5, 1), ring(7)], B), // pentagon + ring
+  hydraliskDen: neon([...star(18, 6, 2), dot(C, C, 2.2)], B), // hexagram den
+  extractor: neon([...star(16, 6, 1), diamond(6)], B), // hexagon + gas
+  spire: neon([...star(16, 5, 2), dot(C, C, 2.2)], B), // pentagram spire
+  greaterSpire: neon([...star(17, 7, 3), ring(6)], B), // heptagram (taller)
+  queensNest: neon([...star(17, 5, 1), ring(7)], B), // pentagon + ring
+  nydusCanal: neon([...star(14, 6, 1), ring(8)], B), // big tunnel mouth
+  ultraliskCavern: neon([...star(18, 7, 1), dot(C, C, 2.4)], B), // heptagon
+  defilerMound: neon([...star(18, 7, 2), ring(6)], B), // {7/2} + ring
 
   // ------------------------------ RESOURCES (neutral) ------------------------
   mineral: neonFixed([diamond(10, 26, 34), diamond(13, 39, 30), diamond(7, 31, 21)], '#7ef0e6', '#dffdf8', 1.25),
