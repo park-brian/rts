@@ -21,12 +21,12 @@ const buildTerrain = (m: MapDef): HTMLCanvasElement => {
       const i = ty * m.w + tx;
       const walk = m.walk[i] === 1;
       const high = m.elev[i]! >= 1;
-      g.fillStyle = !walk ? '#222732' : high ? '#3c5740' : '#26331f';
+      g.fillStyle = !walk ? '#05070d' : high ? '#0e1622' : '#090d16';
       g.fillRect(tx * TILE, ty * TILE, TILE, TILE);
     }
   }
-  // Cliff edges: a darker line below high/blocked tiles for a sense of height.
-  g.fillStyle = 'rgba(0,0,0,0.35)';
+  // Cliff edges: a glowing cyan trace below high/blocked tiles (tron sense of height).
+  g.fillStyle = 'rgba(110,205,235,0.30)';
   for (let ty = 0; ty < m.h - 1; ty++) {
     for (let tx = 0; tx < m.w; tx++) {
       const a = m.walk[ty * m.w + tx] === 0 || m.elev[ty * m.w + tx]! >= 1;
@@ -161,7 +161,7 @@ export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => 
     for (let tx = 0; tx < m.w; tx += 2) {
       const v = game.tileVisible(tx, ty);
       if (v === 0) { ctx.fillStyle = '#05070b'; }
-      else { ctx.fillStyle = m.walk[ty * m.w + tx] === 0 ? '#222732' : m.elev[ty * m.w + tx]! >= 1 ? '#3c5740' : '#26331f'; }
+      else { ctx.fillStyle = m.walk[ty * m.w + tx] === 0 ? '#0a0e16' : m.elev[ty * m.w + tx]! >= 1 ? '#16263a' : '#0f1622'; }
       ctx.fillRect(ox + tx * scale, oy + ty * scale, scale * 2, scale * 2);
     }
   }
