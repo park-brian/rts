@@ -31,9 +31,9 @@ type El =
   | { dot: [number, number, number] }; // filled circle (cx,cy,r)
 
 const C = 32; // emblem center
+const TAU = Math.PI * 2;
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const P = (x: number, y: number): string => `${r1(x)},${r1(y)}`;
-const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
 
 // rectilinear (Terran)
 const square = (h: number, cx = C, cy = C): El => ({ r: [cx - h, cy - h, 2 * h, 2 * h] });
@@ -86,22 +86,46 @@ const dotsOnRing = (rad: number, n: number, rDot: number, rot = -90): El[] =>
     return dot(C + rad * Math.cos(a), C + rad * Math.sin(a), rDot);
   });
 
-// star polygons {n/k} (Zerg) — handles compound stars (gcd>1 ⇒ multiple parts).
-const star = (R: number, n: number, k: number, rot = -90): El[] => {
-  const g = gcd(n, k);
-  const out: El[] = [];
-  for (let s = 0; s < g; s++) {
-    const pts: string[] = [];
-    let idx = s;
-    for (let i = 0; i < n / g; i++) {
-      const a = ((rot + (idx * 360) / n) * Math.PI) / 180;
-      pts.push(P(C + R * Math.cos(a), C + R * Math.sin(a)));
-      idx = (idx + k) % n;
-    }
-    out.push({ d: `M${pts.join(' L ')} Z` });
+// Superformula (Gielis) outline (Zerg) — organic + sharp. Sampled densely into a
+// closed path: the glow softens the segments into smooth chitin curves between
+// SHARP cusps (not a hard star polygon). `nn` low ⇒ spiky claws, high ⇒ ridged
+// mound; `asym` makes it lopsided (organic); `sy` elongates (spires).
+const sfPath = (R: number, m: number, nn: number, asym = 0.14, sy = 1, rot = -90, steps = 150): El => {
+  const raw: number[] = [];
+  for (let i = 0; i < steps; i++) {
+    const t = (m * ((i / steps) * TAU)) / 4;
+    raw.push(Math.pow(Math.pow(Math.abs(Math.cos(t)), nn) + Math.pow(Math.abs(Math.sin(t)), nn), -1 / nn));
   }
-  return out;
+  const max = Math.max(...raw) || 1;
+  const pts: string[] = [];
+  for (let i = 0; i < steps; i++) {
+    const th = (i / steps) * TAU;
+    // two modulations — one slow lopsided bias, one non-integer harmonic — break
+    // the radial symmetry so the shape reads as a lumpy organism, not a star.
+    const organic = (1 + asym * Math.sin(th + 0.6)) * (1 + 0.5 * asym * Math.sin(2.3 * th + 1.1));
+    const rr = (R / max) * raw[i]! * organic;
+    const ang = th + (rot * Math.PI) / 180;
+    pts.push(P(C + rr * Math.cos(ang), C + rr * Math.sin(ang) * sy));
+  }
+  return { d: `M${pts.join(' L ')} Z` };
 };
+// rounded, lumpy, asymmetric organic body (nn high ⇒ no hard spikes; the
+// irregular modulation in sfPath supplies the "alive" lopsided lumps).
+const blob = (R: number, m: number, lump = 0.25, sy = 1): El => sfPath(R, m, 2, lump, sy);
+// sharp barbs (spines/claws) radiating outward, with organic angular jitter so
+// they read as a living bristle, not a regular star.
+const spikes = (n: number, r0: number, r1: number, rot = -90, w = 0.3, jitter = 0.16): El[] =>
+  Array.from({ length: n }, (_, i) => {
+    const a = (rot * Math.PI) / 180 + (i * TAU) / n + Math.sin(i * 2.7) * jitter;
+    return {
+      d: `M${P(C + r0 * Math.cos(a - w), C + r0 * Math.sin(a - w))} L${P(C + r1 * Math.cos(a), C + r1 * Math.sin(a))} L${P(C + r0 * Math.cos(a + w), C + r0 * Math.sin(a + w))}`,
+    };
+  });
+// paired curved talons sweeping up-forward (melee Zerg).
+const talons = (spread: number, reach: number, curl: number): El[] => [
+  { d: `M${P(C - spread, C + 4)} Q${P(C - spread - curl, C - reach * 0.5)} ${P(C - spread * 0.3, C - reach)}` },
+  { d: `M${P(C + spread, C + 4)} Q${P(C + spread + curl, C - reach * 0.5)} ${P(C + spread * 0.3, C - reach)}` },
+];
 
 // ---- neon assembly ----------------------------------------------------------
 const GLOWN = '#eaf1fb'; // neutral glow → player color via mask multiply
@@ -213,42 +237,42 @@ export const SPRITES: Record<string, SpriteDef> = {
   fleetBeacon: neon([ring(18), arc(9, -150, -30), dot(C, C, 2)], B), // crescent beacon
   arbiterTribunal: neon([ring(18), ring(9), triUp(6)], B),
 
-  // ----------------------- ZERG (stars) — distinct silhouettes ---------------
-  larva: neon([...star(6, 3, 1), dot(C, C, 1.4)], U), // tiny triangle + core
-  drone: neon([...star(10, 5, 2), dot(C, C, 2)], U), // pentagram + core
-  overlord: neon([...star(13, 6, 1), ring(6), dot(C, C, 1.6)], U), // hexagon + eye
-  zergling: neon(star(9, 5, 2), U), // small pentagram
-  hydralisk: neon(star(12, 6, 2), U), // hexagram
-  lurker: neon([...star(12, 6, 3), dot(C, C, 2)], U), // {6/3} burst + core
-  mutalisk: neon([...star(11, 5, 2), dot(C, C, 1.4)], U),
-  scourge: neon(star(8, 4, 1), U), // small 4-point (diamond)
-  guardian: neon(star(15, 6, 2), U), // big hexagram
-  devourer: neon(star(13, 8, 3), U), // octagram {8/3}
-  queen: neon([...star(12, 6, 2), ring(5)], U),
-  defiler: neon([...star(13, 7, 2), ring(5)], U), // heptagram + ring
-  ultralisk: neon(star(20, 7, 3), U), // {7/3} (hero)
-  infestedTerran: neon([...star(9, 5, 2), dot(C, C, 1.8)], U),
-  broodling: neon(star(6, 3, 1), U), // tiny triangle
-  hatchery: neon([...star(20, 6, 1), dot(C, C, 2.4)], B), // hexagon mound
-  lair: neon([...star(20, 6, 1), ring(8), dot(C, C, 2)], B), // + eye (tier 2)
-  hive: neon([...star(21, 6, 1), ring(11), ring(5)], B), // double ring (tier 3)
-  creepColony: neon([...star(14, 5, 1), dot(C, C, 2.2)], B), // pentagon
-  sunkenColony: neon([...star(15, 6, 2), dot(C, C, 2.2)], B), // hexagram (AG)
-  sporeColony: neon([...star(14, 6, 2), ring(6)], B), // hexagram + eye (AA)
-  spawningPool: neon([...star(18, 6, 1), ...star(8, 6, 1)], B), // nested hexagons
-  evolutionChamber: neon([...star(18, 5, 1), ring(7)], B), // pentagon + ring
-  hydraliskDen: neon([...star(18, 6, 2), dot(C, C, 2.2)], B), // hexagram den
-  extractor: neon([...star(16, 6, 1), diamond(6)], B), // hexagon + gas
-  spire: neon([...star(16, 5, 2), dot(C, C, 2.2)], B), // pentagram spire
-  greaterSpire: neon([...star(17, 7, 3), ring(6)], B), // heptagram (taller)
-  queensNest: neon([...star(17, 5, 1), ring(7)], B), // pentagon + ring
-  nydusCanal: neon([...star(14, 6, 1), ring(8)], B), // big tunnel mouth
-  ultraliskCavern: neon([...star(18, 7, 1), dot(C, C, 2.4)], B), // heptagon
-  defilerMound: neon([...star(18, 7, 2), ring(6)], B), // {7/2} + ring
+  // ----- ZERG (organic-sharp superformula carapace + asymmetry + talons) -----
+  larva: neon([blob(7, 3, 0.4, 1.45), dot(C, C, 1.4)], U), // soft grub (no spikes)
+  drone: neon([blob(8, 4, 0.3), ...spikes(5, 7, 12), dot(C, C, 2)], U),
+  overlord: neon([blob(13, 5, 0.22), ring(6), dot(C, C, 1.5)], U), // soft sac + eye
+  zergling: neon([blob(7, 3, 0.32), ...talons(4, 9, 5), ...spikes(3, 6, 11, 90)], U), // claws + back spikes
+  hydralisk: neon([blob(8, 4, 0.3), ...spikes(7, 7, 15)], U), // needle spines
+  lurker: neon([blob(8, 5, 0.25), ...spikes(9, 7, 16)], U), // urchin
+  mutalisk: neon([blob(9, 4, 0.42), ...spikes(3, 8, 14)], U), // asymmetric flyer
+  scourge: neon([blob(5, 3, 0.35), ...spikes(3, 5, 10)], U), // dart
+  guardian: neon([blob(11, 4, 0.28, 1.1), ...spikes(5, 10, 15)], U),
+  devourer: neon([blob(10, 5, 0.28), ...spikes(7, 9, 15)], U),
+  queen: neon([blob(9, 4, 0.3), ring(5), ...spikes(4, 8, 13)], U), // caster sac
+  defiler: neon([blob(9, 5, 0.28), ring(5), ...spikes(6, 8, 14)], U),
+  ultralisk: neon([blob(11, 4, 0.24), ...talons(6, 15, 7), ...spikes(4, 10, 15, 90)], U), // tusks + back (hero)
+  infestedTerran: neon([blob(7, 4, 0.32), ...spikes(4, 6, 11), dot(C, C, 1.8)], U),
+  broodling: neon([blob(5, 3, 0.34), ...spikes(3, 5, 9)], U),
+  hatchery: neon([blob(15, 5, 0.2), ...spikes(5, 15, 19), ring(7), dot(C, C, 2.2)], B), // mound
+  lair: neon([blob(15, 5, 0.2), ...spikes(6, 15, 19), ring(9), dot(C, C, 2)], B), // tier 2
+  hive: neon([blob(16, 6, 0.2), ...spikes(7, 16, 20), ring(11), ring(5)], B), // tier 3
+  creepColony: neon([blob(11, 5, 0.22), ...spikes(5, 11, 15), dot(C, C, 2.2)], B),
+  sunkenColony: neon([blob(9, 4, 0.2), ...spikes(4, 9, 21), dot(C, C, 2.2)], B), // long tentacles (AG)
+  sporeColony: neon([blob(10, 6, 0.2), ...spikes(6, 10, 17), ring(6)], B), // + eye (AA)
+  spawningPool: neon([blob(14, 5, 0.2), blob(7, 5, 0.2)], B), // nested
+  evolutionChamber: neon([blob(14, 6, 0.2), ...spikes(6, 14, 17), ring(7)], B),
+  hydraliskDen: neon([blob(14, 5, 0.22), ...spikes(6, 13, 19), dot(C, C, 2.2)], B), // spiny den
+  extractor: neon([blob(13, 5, 0.2), ...spikes(5, 13, 16), diamond(6)], B), // gas
+  spire: neon([blob(7, 3, 0.22, 1.6), ...spikes(3, 8, 24, -90, 0.2), dot(C, C, 2)], B), // tall spire
+  greaterSpire: neon([blob(8, 4, 0.22, 1.55), ...spikes(4, 9, 24, -90, 0.2), ring(5)], B),
+  queensNest: neon([blob(13, 5, 0.2), ...spikes(5, 13, 16), ring(7)], B),
+  nydusCanal: neon([blob(12, 6, 0.2), ring(8)], B), // tunnel mouth (blunt)
+  ultraliskCavern: neon([blob(14, 5, 0.2), ...spikes(5, 13, 17), dot(C, C, 2.4)], B),
+  defilerMound: neon([blob(14, 6, 0.2), ...spikes(6, 13, 16), ring(6)], B),
 
   // ------------------------------ RESOURCES (neutral) ------------------------
   mineral: neonFixed([diamond(10, 26, 34), diamond(13, 39, 30), diamond(7, 31, 21)], '#7ef0e6', '#dffdf8', 1.25),
-  geyser: neonFixed([...star(13, 6, 1), dot(C, 24, 2), dot(35, 18, 1.5), dot(30, 13, 1.2)], '#76e89a', '#dffbe6', 1.0),
+  geyser: neonFixed([blob(12, 6, 0.18), dot(C, 24, 2), dot(35, 18, 1.5), dot(30, 13, 1.2)], '#76e89a', '#dffbe6', 1.0),
 };
 
 /** Race groupings (rollout / gallery order). */
