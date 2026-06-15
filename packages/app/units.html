@@ -156,10 +156,15 @@ const RACES = [
         `<line x1="23" y1="13" x2="22" y2="4"/><line x1="41" y1="13" x2="42" y2="4"/><line x1="22" y1="6" x2="42" y2="6"/>` +
         `<line x1="22" y1="33" x2="42" y2="33"/>` + core(32,32,4)) },
       { key: 'marine', nm: 'Marine', ro: 'Infantry', tier: 'T1', st: '40 HP · 50m · ⚔6 r4', svg: G(2,
-        `<rect x="15" y="26" width="9" height="13" rx="2" fill="${DARK}"/><rect x="40" y="26" width="9" height="13" rx="2" fill="${DARK}"/>` +
-        `<rect x="24" y="24" width="16" height="26" rx="4" fill="${DARK}"/>` +
-        `<polygon points="32,9 41,20 32,17 23,20" fill="${DARK}"/>` +
-        `<line x1="44.5" y1="26" x2="44.5" y2="10"/><line x1="40" y1="44" x2="24" y2="44"/>` + core(32,33,3.2)) },
+        // CMC power armor (top-down): swept shoulder plate, helmet+visor, gauss rifle held to the side.
+        `<path d="M25 41 L39 41 L37 53 Q32 56 27 53 Z" fill="${DARK}"/>` +            // armored legs
+        `<path d="M18 24 Q32 16 46 24 L47 39 Q32 45 17 39 Z" fill="${DARK}"/>` +      // swept chest/shoulder plate
+        `<path d="M17 33 Q14 26 21 22"/>` +                                            // left pauldron cap
+        `<circle cx="32" cy="27" r="7" fill="${DARK}"/>` +                            // helmet
+        `<path d="M27 26 Q32 21 37 26"/>` +                                            // visor
+        `<rect x="40" y="7" width="5" height="27" rx="1.5" fill="${DARK}"/>` +         // gauss rifle (right)
+        `<line x1="35" y1="23" x2="42" y2="20"/>` +                                    // arm to grip
+        core(30,34,3)) },
       { key: 'siegeTank', nm: 'Siege Tank', ro: 'Siege', tier: 'T2', st: '150 HP · 150/100 · ⚔30→70', svg: G(2,
         `<rect x="9" y="19" width="8" height="34" rx="2" fill="${DARK}"/>` +
         `<rect x="47" y="19" width="8" height="34" rx="2" fill="${DARK}"/>` +
@@ -257,10 +262,17 @@ const RACES = [
         `<path d="M26 15 Q20 6 28 4"/><path d="M38 15 Q44 6 36 4"/>` +
         `<path d="M22 28 Q32 33 42 28"/><path d="M23 37 Q32 41 41 37"/>` + core(32,22,3.6)) },
       { key: 'zergling', nm: 'Zergling', ro: 'Infantry · Melee', tier: 'T1', st: '35 HP · 25m/2 · ⚔5', svg: G(2,
-        `<path d="M16 41 Q32 31 48 41 Q40 49 32 47 Q24 49 16 41 Z" fill="${DARK}"/>` +
-        `<path d="M23 38 Q17 20 30 12" /><path d="M41 38 Q47 20 34 12"/>` +
-        `<circle cx="27" cy="40" r="1.6" fill="currentColor" stroke="none" class="core"/>` +
-        `<circle cx="37" cy="40" r="1.6" fill="currentColor" stroke="none" class="core"/>` + core(32,42,3)) },
+        // Demonic swarm-beast (top-down): raised scythe-wings, horned & fanged skull, glowing eyes, claws.
+        `<path d="M26 40 Q32 33 38 40 L35 52 Q32 56 29 52 Z" fill="${DARK}"/>` +       // body + abdomen
+        `<path d="M30 36 Q20 28 18 11 Q28 23 33 34" fill="${DARK}"/>` +                // left scythe-wing
+        `<path d="M34 36 Q44 28 46 11 Q36 23 31 34" fill="${DARK}"/>` +                // right scythe-wing
+        `<path d="M26 32 L32 20 L38 32 Q32 38 26 32 Z" fill="${DARK}"/>` +             // skull
+        `<path d="M28 24 Q22 17 24 8"/><path d="M36 24 Q42 17 40 8"/>` +              // curved horns
+        `<circle cx="29" cy="29" r="1.6" fill="currentColor" stroke="none" class="core"/>` +
+        `<circle cx="35" cy="29" r="1.6" fill="currentColor" stroke="none" class="core"/>` +
+        `<path d="M29 34 L30 38 L32 35 L34 38 L35 34"/>` +                              // fanged maw
+        `<path d="M27 40 Q19 39 15 33"/><path d="M37 40 Q45 39 49 33"/>` +            // clawed forelimbs
+        core(32,45,2.2)) },
       { key: 'hydralisk', nm: 'Hydralisk', ro: 'Ranged', tier: 'T2', st: '80 HP · 75/25 · ⚔10 r4', svg: G(2,
         `<path d="M20 52 Q14 40 24 36 Q34 33 30 26" fill="none"/>` +
         `<path d="M44 52 Q50 40 40 36" fill="none"/>` +

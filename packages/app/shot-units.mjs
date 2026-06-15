@@ -24,5 +24,9 @@ for (let i = 0; i < sections.length && i < labels.length; i++) {
   await sections[i].screenshot({ path: `shots/units-${labels[i]}.png` });
 }
 
+// 3) Header + team-recolor strip.
+await page.locator('header').screenshot({ path: 'shots/units-header.png' });
+await page.locator('.recolor').screenshot({ path: 'shots/units-recolor.png' });
+
 await browser.close();
 console.log('codex screenshots -> packages/app/shots/');
