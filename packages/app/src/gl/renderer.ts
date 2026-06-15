@@ -80,27 +80,63 @@ class InstanceList {
   flush(): void { if (this.n > 0) this.buf.sub(this.arr.subarray(0, this.n * FLOATS)); }
 }
 
+// Tron terrain: a dark grid world. Tiles fill near-black (subtly bluer/lighter on
+// raised plateaus), a faint cyan build-tile grid runs throughout, and elevation /
+// walkability boundaries are traced with glowing cyan edges — bright "walls" around
+// the playable border & obstacles, dimmer "cliffs" around plateaus. Baked once per map.
 const buildTerrainCanvas = (m: MapDef): HTMLCanvasElement => {
   const c = document.createElement('canvas');
   c.width = m.w * TILE; c.height = m.h * TILE;
   const g = c.getContext('2d')!;
-  for (let ty = 0; ty < m.h; ty++) {
-    for (let tx = 0; tx < m.w; tx++) {
-      const i = ty * m.w + tx;
-      const walk = m.walk[i] === 1;
-      const high = m.elev[i]! >= 1;
-      g.fillStyle = !walk ? '#222732' : high ? '#3c5740' : '#26331f';
+  const W = m.w, H = m.h;
+  const walkable = (x: number, y: number): boolean => m.walk[y * W + x] === 1;
+  const elevated = (x: number, y: number): boolean => m.elev[y * W + x]! >= 1;
+
+  // 1) tile fills: void (blocked) → low ground → raised plateau.
+  for (let ty = 0; ty < H; ty++) {
+    for (let tx = 0; tx < W; tx++) {
+      const w = walkable(tx, ty);
+      g.fillStyle = !w ? '#05070d' : elevated(tx, ty) ? '#0e1622' : '#090d16';
       g.fillRect(tx * TILE, ty * TILE, TILE, TILE);
     }
   }
-  g.fillStyle = 'rgba(0,0,0,0.35)'; // cliff shading below high/blocked tiles
-  for (let ty = 0; ty < m.h - 1; ty++) {
-    for (let tx = 0; tx < m.w; tx++) {
-      const a = m.walk[ty * m.w + tx] === 0 || m.elev[ty * m.w + tx]! >= 1;
-      const b = m.walk[(ty + 1) * m.w + tx] === 0 || m.elev[(ty + 1) * m.w + tx]! >= 1;
-      if (a && !b) g.fillRect(tx * TILE, (ty + 1) * TILE, TILE, 3);
+
+  // 2) faint build-tile grid across the whole map (the Grid).
+  g.strokeStyle = 'rgba(70,214,255,0.06)';
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let tx = 0; tx <= W; tx++) { g.moveTo(tx * TILE + 0.5, 0); g.lineTo(tx * TILE + 0.5, H * TILE); }
+  for (let ty = 0; ty <= H; ty++) { g.moveTo(0, ty * TILE + 0.5); g.lineTo(W * TILE, ty * TILE + 0.5); }
+  g.stroke();
+
+  // 3) neon boundary traces. Each boundary is emitted once, from the "more solid" tile:
+  //    walls = walkable↔blocked (incl. the map border), cliffs = high↔low ground.
+  const walls = new Path2D();
+  const cliffs = new Path2D();
+  for (let ty = 0; ty < H; ty++) {
+    for (let tx = 0; tx < W; tx++) {
+      if (!walkable(tx, ty)) continue; // only trace from playable tiles
+      const hi = elevated(tx, ty);
+      const x = tx * TILE, y = ty * TILE;
+      const sides: [number, number, number, number, number, number][] = [
+        [tx, ty - 1, x, y, x + TILE, y],                       // top
+        [tx, ty + 1, x, y + TILE, x + TILE, y + TILE],         // bottom
+        [tx - 1, ty, x, y, x, y + TILE],                       // left
+        [tx + 1, ty, x + TILE, y, x + TILE, y + TILE],         // right
+      ];
+      for (const [nx, ny, ax, ay, bx, by] of sides) {
+        const inB = nx >= 0 && ny >= 0 && nx < W && ny < H;
+        if (!inB || !walkable(nx, ny)) { walls.moveTo(ax, ay); walls.lineTo(bx, by); }
+        else if (hi && !elevated(nx, ny)) { cliffs.moveTo(ax, ay); cliffs.lineTo(bx, by); }
+      }
     }
   }
+  g.lineCap = 'round';
+  // soft underglow then a crisp core, for each trace kind.
+  g.strokeStyle = 'rgba(70,214,255,0.10)'; g.lineWidth = 5; g.stroke(walls);
+  g.strokeStyle = 'rgba(150,235,255,0.55)'; g.lineWidth = 1.6; g.stroke(walls);
+  g.strokeStyle = 'rgba(70,214,255,0.05)'; g.lineWidth = 5; g.stroke(cliffs);
+  g.strokeStyle = 'rgba(110,205,235,0.30)'; g.lineWidth = 1.4; g.stroke(cliffs);
   return c;
 };
 
