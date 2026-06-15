@@ -25,6 +25,19 @@ const STEEL = '#262b33'; // dark metal detail
 const STEEL2 = '#3a414b';
 const WARN = '#ffb43d';
 
+// --- Racial accent palettes (assets.md / Geometric-Grammar art direction) ---
+// Each race tints the same neutral team region (tg) so 8-player colors stay
+// dominant; identity comes from SHAPE + a FIXED accent set that never tints:
+//   • Terran — steel + amber WARN (+ cyan glass). Boxy, riveted, bilateral.
+//   • Protoss — GOLD filigree + a glowing psi-blue gem core + shield rim.
+//     Faceted triangles/diamonds, radial symmetry, points skyward.
+//   • Zerg — bio-orange FLESH/sacs + ACID green. Asymmetric chitin, spines.
+const GOLD = '#e8b84b'; // Protoss trim (fixed)
+const GOLD2 = '#9c7522';
+const ZCHITIN = '#2a1a22'; // Zerg dark carapace detail (warm, not steel)
+const ZSPINE = '#160c12';
+const ACID = '#8bd146'; // Zerg spit / gas accent
+
 // Team gradient: neutral greys (no hue) so the in-shader multiply stays a clean
 // team color, light at top-left → darker at bottom-right (matches the lighting).
 const tg = (id = 't'): string =>
@@ -38,6 +51,19 @@ const glass = (id = 'v'): string =>
 const warm = (id = 'w'): string =>
   `<radialGradient id="${id}" cx="0.4" cy="0.35" r="0.75">` +
   `<stop offset="0" stop-color="#ffe49a"/><stop offset="1" stop-color="#ef9d1c"/></radialGradient>`;
+// Protoss psionic gem (cool blue-white core) and Zerg living-flesh (orange sac).
+const gem = (id = 'p'): string =>
+  `<radialGradient id="${id}" cx="0.38" cy="0.32" r="0.85">` +
+  `<stop offset="0" stop-color="#eafbff"/><stop offset="0.5" stop-color="#5cc3ff"/>` +
+  `<stop offset="1" stop-color="#1f6fd6"/></radialGradient>`;
+const flesh = (id = 'f'): string =>
+  `<radialGradient id="${id}" cx="0.4" cy="0.35" r="0.8">` +
+  `<stop offset="0" stop-color="#ffce8f"/><stop offset="0.55" stop-color="#f0863a"/>` +
+  `<stop offset="1" stop-color="#b83f16"/></radialGradient>`;
+// Zerg wing membrane (leathery, slightly translucent — fixed, never team-tinted).
+const membrane = (id = 'm'): string =>
+  `<linearGradient id="${id}" x1="0.1" y1="0" x2="0.7" y2="1">` +
+  `<stop offset="0" stop-color="#8a6273"/><stop offset="1" stop-color="#4a2f3c"/></linearGradient>`;
 // A soft top-left highlight reused across sprites.
 const HI = '#ffffff';
 
@@ -193,6 +219,204 @@ export const SPRITES: Record<string, SpriteDef> = {
       <circle cx="30" cy="31" r="8" fill="url(#gg)" opacity="0.9"/>
       <circle cx="39" cy="22" r="5.5" fill="url(#gg)" opacity="0.7"/>
       <circle cx="33" cy="14" r="3.5" fill="url(#gg)" opacity="0.5"/>`,
+  },
+
+  // ===================== TERRAN — air =====================
+  // --- Wraith: boxy fuselage + swept rectangular wings, glass canopy, twin
+  //     engine glows. A *machine* that flies — hard angles read as Terran air. ---
+  wraith: {
+    scale: 1.7,
+    body: `<defs>${tg()}${glass()}${warm()}</defs>
+      <polygon points="24,28 7,43 13,48 27,40" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="40,28 57,43 51,48 37,40" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="32,6 41,20 41,49 23,49 23,20" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <rect x="27" y="46" width="4" height="9" rx="1.5" fill="${STEEL}"/>
+      <rect x="33" y="46" width="4" height="9" rx="1.5" fill="${STEEL}"/>
+      <circle cx="29" cy="53" r="3.5" fill="url(#w)"/>
+      <circle cx="35" cy="53" r="3.5" fill="url(#w)"/>
+      <polygon points="28,16 36,16 34,28 30,28" fill="url(#v)"/>
+      <path d="M25 10 L30 9" stroke="${HI}" stroke-width="2" opacity="0.3" stroke-linecap="round"/>`,
+    mask: `
+      <polygon points="24,28 7,43 13,48 27,40" fill="#fff"/>
+      <polygon points="40,28 57,43 51,48 37,40" fill="#fff"/>
+      <polygon points="32,6 41,20 41,49 23,49 23,20" fill="#fff"/>
+      <polygon points="28,16 36,16 34,28 30,28" fill="#000"/>
+      <rect x="27" y="46" width="4" height="9" fill="#000"/>
+      <rect x="33" y="46" width="4" height="9" fill="#000"/>`,
+  },
+
+  // ===================== PROTOSS =====================
+  // --- Probe: hovering faceted drone, gold trim, central psi gem, mining
+  //     emitter at the nose, three small claws. (Worker = tool + glow.) ---
+  probe: {
+    scale: 1.6,
+    body: `<defs>${tg()}${gem()}</defs>
+      <polygon points="22,40 17,52 23,49" fill="${GOLD2}"/>
+      <polygon points="42,40 47,52 41,49" fill="${GOLD2}"/>
+      <polygon points="32,46 30,55 34,55" fill="${GOLD2}"/>
+      <polygon points="32,15 44,24 44,38 32,47 20,38 20,24" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="32,15 44,24 44,38 32,47 20,38 20,24" fill="none" stroke="${GOLD}" stroke-width="1.6"/>
+      <rect x="29" y="9" width="6" height="7" rx="1.5" fill="${GOLD}" stroke="${EDGE}" stroke-width="1"/>
+      <circle cx="32" cy="31" r="6.5" fill="url(#p)"/>
+      <circle cx="30" cy="29" r="2" fill="#fff" opacity="0.6"/>`,
+    mask: `
+      <polygon points="32,15 44,24 44,38 32,47 20,38 20,24" fill="#fff"/>
+      <circle cx="32" cy="31" r="6.5" fill="#000"/>
+      <rect x="29" y="9" width="6" height="7" fill="#000"/>
+      <polygon points="22,40 17,52 23,49" fill="#000"/>
+      <polygon points="42,40 47,52 41,49" fill="#000"/>
+      <polygon points="32,46 30,55 34,55" fill="#000"/>`,
+  },
+
+  // --- Zealot: faceted diamond torso, gold shoulder crests, twin glowing psi
+  //     blades extended forward, head gem. Melee → blades point up (facing). ---
+  zealot: {
+    scale: 1.55,
+    body: `<defs>${tg()}${gem()}
+        <linearGradient id="b" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#7fe9ff"/><stop offset="1" stop-color="#eafdff"/></linearGradient></defs>
+      <polygon points="23,6 27,6 26,26 22,26" fill="url(#b)" stroke="${EDGE}" stroke-width="0.8"/>
+      <polygon points="37,6 41,6 42,26 38,26" fill="url(#b)" stroke="${EDGE}" stroke-width="0.8"/>
+      <polygon points="20,24 13,18 18,33" fill="${GOLD}" stroke="${EDGE}" stroke-width="1.2"/>
+      <polygon points="44,24 51,18 46,33" fill="${GOLD}" stroke="${EDGE}" stroke-width="1.2"/>
+      <polygon points="32,18 43,35 32,50 21,35" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="32,24 38,33 32,42 26,33" fill="${GOLD2}" opacity="0.55"/>
+      <circle cx="32" cy="22" r="5" fill="url(#p)"/>`,
+    mask: `
+      <polygon points="32,18 43,35 32,50 21,35" fill="#fff"/>
+      <circle cx="32" cy="22" r="5" fill="#000"/>
+      <polygon points="20,24 13,18 18,33" fill="#000"/>
+      <polygon points="44,24 51,18 46,33" fill="#000"/>
+      <polygon points="23,6 27,6 26,26 22,26" fill="#000"/>
+      <polygon points="37,6 41,6 42,26 38,26" fill="#000"/>`,
+  },
+
+  // ===================== PROTOSS — air =====================
+  // --- Scout: sleek symmetric manta/arrowhead, gold leading edges, central psi
+  //     gem, twin engine glows, faint shield rim. Floats → soft elevated shadow. ---
+  scout: {
+    scale: 1.75,
+    body: `<defs>${tg()}${gem()}</defs>
+      <polygon points="32,7 55,39 41,45 32,39 23,45 9,39" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="32,7 55,39 41,45 32,39 23,45 9,39" fill="none" stroke="#7fd0ff" stroke-width="1" opacity="0.4"/>
+      <path d="M32 8 L52 38" stroke="${GOLD}" stroke-width="1.6" opacity="0.9"/>
+      <path d="M32 8 L12 38" stroke="${GOLD}" stroke-width="1.6" opacity="0.9"/>
+      <circle cx="27" cy="41" r="3" fill="url(#p)"/>
+      <circle cx="37" cy="41" r="3" fill="url(#p)"/>
+      <circle cx="32" cy="27" r="5.5" fill="url(#p)"/>
+      <circle cx="30" cy="25" r="1.8" fill="#fff" opacity="0.6"/>`,
+    mask: `
+      <polygon points="32,7 55,39 41,45 32,39 23,45 9,39" fill="#fff"/>
+      <circle cx="32" cy="27" r="5.5" fill="#000"/>
+      <circle cx="27" cy="41" r="3" fill="#000"/>
+      <circle cx="37" cy="41" r="3" fill="#000"/>`,
+  },
+
+  // --- Nexus: pyramid-from-above — concentric diamonds rising to a bright warp
+  //     gem, gold-trimmed tiers, corner nodes. Radial symmetry = Protoss hub. ---
+  nexus: {
+    scale: 1.0,
+    body: `<defs>${tg()}${gem()}</defs>
+      <polygon points="32,3 61,32 32,61 3,32" fill="url(#t)" stroke="${EDGE}" stroke-width="3"/>
+      <circle cx="32" cy="6" r="3" fill="${GOLD}"/><circle cx="58" cy="32" r="3" fill="${GOLD}"/>
+      <circle cx="32" cy="58" r="3" fill="${GOLD}"/><circle cx="6" cy="32" r="3" fill="${GOLD}"/>
+      <polygon points="32,13 51,32 32,51 13,32" fill="url(#t)" stroke="${GOLD}" stroke-width="1.8"/>
+      <polygon points="32,21 43,32 32,43 21,32" fill="${STEEL}" stroke="${EDGE}" stroke-width="1.5"/>
+      <circle cx="32" cy="32" r="8" fill="url(#p)"/>
+      <circle cx="29" cy="29" r="2.6" fill="#fff" opacity="0.7"/>`,
+    mask: `
+      <polygon points="32,3 61,32 32,61 3,32" fill="#fff"/>
+      <polygon points="32,13 51,32 32,51 13,32" fill="#fff"/>
+      <polygon points="32,21 43,32 32,43 21,32" fill="#000"/>
+      <circle cx="32" cy="32" r="8" fill="#000"/>`,
+  },
+
+  // ===================== ZERG =====================
+  // --- Drone: asymmetric chitin teardrop over orange flesh, dorsal sac, mineral
+  //     mandibles at the front, a couple of spines. (Worker = gather + glow.) ---
+  drone: {
+    scale: 1.55,
+    body: `<defs>${tg()}${flesh()}</defs>
+      <ellipse cx="35" cy="40" rx="11" ry="9" fill="url(#f)"/>
+      <path d="M31 9 C 44 13, 45 33, 37 47 C 27 51, 19 41, 21 27 C 22 15, 25 11, 31 9 Z"
+        fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <path d="M24 24 C 30 22, 36 26, 34 35" fill="none" stroke="${ZCHITIN}" stroke-width="1.6" opacity="0.8"/>
+      <polygon points="28,10 25,2 31,9" fill="${ZSPINE}"/>
+      <polygon points="36,12 40,4 38,13" fill="${ZSPINE}"/>
+      <path d="M27 12 C 24 6, 22 10, 26 16 Z" fill="${ZCHITIN}"/>
+      <path d="M35 12 C 39 7, 41 11, 37 16 Z" fill="${ZCHITIN}"/>
+      <circle cx="30" cy="18" r="2" fill="#ffcf6a"/>`,
+    mask: `
+      <path d="M31 9 C 44 13, 45 33, 37 47 C 27 51, 19 41, 21 27 C 22 15, 25 11, 31 9 Z" fill="#fff"/>
+      <ellipse cx="35" cy="40" rx="11" ry="9" fill="#000"/>
+      <polygon points="28,10 25,2 31,9" fill="#000"/>
+      <polygon points="36,12 40,4 38,13" fill="#000"/>`,
+  },
+
+  // --- Zergling: tiny low fast carapace blob, twin forward scythe-claws, dorsal
+  //     spines, glowing eyes. Asymmetric & spiny → unmistakably Zerg ground. ---
+  zergling: {
+    scale: 1.35,
+    body: `<defs>${tg()}</defs>
+      <path d="M26 24 C 20 14, 16 8, 21 6 C 25 8, 28 16, 30 24 Z" fill="${ZCHITIN}" stroke="${EDGE}" stroke-width="1.2"/>
+      <path d="M39 25 C 46 16, 49 9, 44 7 C 40 9, 37 17, 35 25 Z" fill="${ZCHITIN}" stroke="${EDGE}" stroke-width="1.2"/>
+      <path d="M32 22 C 41 25, 41 44, 33 49 C 24 46, 23 30, 32 22 Z" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <polygon points="28,40 25,50 31,44" fill="${ZSPINE}"/>
+      <polygon points="36,40 39,50 33,44" fill="${ZSPINE}"/>
+      <polygon points="32,30 35,38 29,38" fill="${ZSPINE}"/>
+      <circle cx="29" cy="27" r="1.7" fill="#ff7a3a"/>
+      <circle cx="35" cy="27" r="1.7" fill="#ff7a3a"/>`,
+    mask: `
+      <path d="M32 22 C 41 25, 41 44, 33 49 C 24 46, 23 30, 32 22 Z" fill="#fff"/>
+      <path d="M26 24 C 20 14, 16 8, 21 6 C 25 8, 28 16, 30 24 Z" fill="#000"/>
+      <path d="M39 25 C 46 16, 49 9, 44 7 C 40 9, 37 17, 35 25 Z" fill="#000"/>
+      <polygon points="32,30 35,38 29,38" fill="#000"/>`,
+  },
+
+  // ===================== ZERG — air =====================
+  // --- Mutalisk: lumpy asymmetric body, two leathery membrane wings (uneven),
+  //     glowing dorsal sac, no engines, spore tail. A *creature* that flies. ---
+  mutalisk: {
+    scale: 1.7,
+    body: `<defs>${tg()}${flesh()}${membrane()}</defs>
+      <path d="M28 24 C 12 14, 4 20, 8 30 C 14 30, 20 30, 28 32 Z" fill="url(#m)" stroke="${EDGE}" stroke-width="1.5"/>
+      <path d="M36 26 C 52 18, 61 26, 56 36 C 49 35, 43 34, 36 34 Z" fill="url(#m)" stroke="${EDGE}" stroke-width="1.5"/>
+      <path d="M12 22 L20 28 M50 24 L42 30" stroke="${ZSPINE}" stroke-width="1" opacity="0.6"/>
+      <ellipse cx="33" cy="30" rx="11" ry="13" fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <ellipse cx="33" cy="26" rx="5.5" ry="6" fill="url(#f)"/>
+      <polygon points="30,9 28,2 33,9" fill="${ZSPINE}"/>
+      <circle cx="29" cy="14" r="1.8" fill="#ff7a3a"/>
+      <circle cx="37" cy="15" r="1.6" fill="#ff7a3a"/>
+      <path d="M33 43 C 30 50, 36 52, 34 58" fill="none" stroke="${ZCHITIN}" stroke-width="2"/>`,
+    mask: `
+      <ellipse cx="33" cy="30" rx="11" ry="13" fill="#fff"/>
+      <ellipse cx="33" cy="26" rx="5.5" ry="6" fill="#000"/>
+      <path d="M28 24 C 12 14, 4 20, 8 30 C 14 30, 20 30, 28 32 Z" fill="#000"/>
+      <path d="M36 26 C 52 18, 61 26, 56 36 C 49 35, 43 34, 36 34 Z" fill="#000"/>`,
+  },
+
+  // --- Hatchery: bulbous asymmetric mound, carapace plates over orange orifices,
+  //     rim spines. Rooted & fleshy → Zerg hub (sits on creep in-world). ---
+  hatchery: {
+    scale: 1.0,
+    body: `<defs>${tg()}${flesh()}</defs>
+      <path d="M32 8 C 54 10, 60 28, 56 44 C 50 58, 30 60, 16 52 C 4 44, 6 22, 18 13 C 23 9, 27 8, 32 8 Z"
+        fill="url(#f)" stroke="${EDGE}" stroke-width="2"/>
+      <path d="M30 12 C 46 12, 52 26, 48 38 C 40 48, 24 48, 18 38 C 13 28, 17 16, 30 12 Z"
+        fill="url(#t)" stroke="${EDGE}" stroke-width="2"/>
+      <path d="M40 16 C 50 20, 50 34, 44 40 C 50 30, 48 22, 40 16 Z" fill="url(#t)" stroke="${EDGE}" stroke-width="1.5"/>
+      <ellipse cx="28" cy="30" rx="7" ry="6" fill="url(#f)"/>
+      <ellipse cx="28" cy="30" rx="3" ry="2.6" fill="#3a1408"/>
+      <circle cx="42" cy="44" r="3.5" fill="url(#f)"/>
+      <polygon points="14,18 6,12 17,17" fill="${ZSPINE}"/>
+      <polygon points="52,16 60,11 53,20" fill="${ZSPINE}"/>
+      <polygon points="50,50 58,54 49,53" fill="${ZSPINE}"/>
+      <polygon points="18,52 12,58 22,54" fill="${ZSPINE}"/>`,
+    mask: `
+      <path d="M30 12 C 46 12, 52 26, 48 38 C 40 48, 24 48, 18 38 C 13 28, 17 16, 30 12 Z" fill="#fff"/>
+      <path d="M40 16 C 50 20, 50 34, 44 40 C 50 30, 48 22, 40 16 Z" fill="#fff"/>
+      <ellipse cx="28" cy="30" rx="7" ry="6" fill="#000"/>
+      <circle cx="42" cy="44" r="3.5" fill="#000"/>`,
   },
 };
 
