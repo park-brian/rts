@@ -17,10 +17,10 @@ Rules:
 | Unit | Primitive recipe | Rig status |
 |---|---|---|
 | Larva | Tiny curled grub body, small head nub/mandible point, two segment arcs. | recipe locked |
-| Egg | Inert cocoon made from sac plates; tiny slit/mouth glow only as morph cue. | recipe locked |
-| Drone | Compact beetle body, two forward mandibles, mirrored side shell/wing plates, small head core. | recipe locked |
+| Egg | Small oval cocoon. | recipe locked |
+| Drone | Fat delta body with two rear/side delta wings behind it, small front mandibles, small head core. | recipe locked |
 | Overlord | Large bloated sac, two horn/mandible tusks at front, three tentacle strokes, central eye/core. | recipe locked |
-| Zergling | Narrow body, open jaw/head wedge, two forward claw/mandible arcs, tiny eye/core. | recipe locked |
+| Zergling | Near-pentagon body with missing/open front, triangle head, front jaws, four limbs, tiny eye/core. | recipe locked |
 | Hydralisk | Head mandible wedge, long tapered torso, mirrored forward-raking spine shoulder arcs. | recipe locked |
 | Lurker | Flattened wide body plate, front mandible head, mirrored long lateral spike strokes, center ridge. | recipe locked |
 | Mutalisk | Two mirrored spiky bat wing membranes, narrow body, visible head mandibles, tail/stinger stroke. | recipe locked |
@@ -39,8 +39,8 @@ Use these comparisons before drawing. Zerg analogues translate the same gameplay
 
 | Zerg unit | Simplify from | What changes |
 |---|---|---|
-| Drone | SCV | Worker body becomes beetle shell; arms become small mandibles. |
-| Zergling | Zealot / Firebat | Infantry body becomes narrow torso; blades become claw/mandible arcs. |
+| Drone | SCV | Worker body becomes a fat delta shell; side blocks become rear delta wings; arms become small mandibles. |
+| Zergling | Zealot / Firebat | Infantry body becomes an open pentagon; head becomes a triangle; blades become front jaws and four limbs. |
 | Hydralisk | Marine | Helmet/shoulders become mandible head and spine shoulders; gun becomes head projectile. |
 | Lurker | Siege Tank | Low siege body; barrel becomes forward burrow-spike line and side spines. |
 | Mutalisk | Wraith | Fighter skeleton; wings become bat membranes; nose gets mandibles. |

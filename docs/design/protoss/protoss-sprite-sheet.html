@@ -57,6 +57,7 @@
   .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .core { fill: #51e8ff; stroke: none; }
+  .cargo-dot { opacity: 0.48; }
   .dark-core { fill: var(--dark2); stroke: currentColor; stroke-width: 2; }
   .cut { fill: var(--dark2); stroke: none; }
   .name { margin-top: 9px; text-align: center; color: #fff8e8; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -183,25 +184,32 @@ const units = [
     `,
   },
   {
-    name: 'Shuttle', meta: 'transport rig', box: '10 9 44 44',
-    recipe: 'smooth delta shell, cargo bay',
+    name: 'Shuttle', meta: 'transport rig', box: '7 9 50 38',
+    recipe: 'wide delta shell, cargo dot bay',
     svg: `
-      <path class="panel" data-part="delta-shell" d="M32 10 C46 20 52 31 50 43 C42 40 36 35 32 27 C28 35 22 40 14 43 C12 31 18 20 32 10 Z"/>
-      <path class="cut" data-part="open-cargo-bay" d="M24 31 Q32 24 40 31 L37 42 H27 Z"/>
-      <path class="line" data-part="bay-arc" d="M22 29 Q32 20 42 29"/>
+      <path class="panel" data-part="delta-shell" d="M32 10 C48 15 57 29 56 42 C44 40 37 36 32 29 C27 36 20 40 8 42 C7 29 16 15 32 10 Z"/>
+      <path class="cut" data-part="open-cargo-bay" d="M20 29 H44 V43 H20 Z"/>
       <circle class="core" data-part="forward-core" cx="32" cy="18" r="3"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-1" data-anim="cargo-fill" cx="23" cy="33" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-2" data-anim="cargo-fill" cx="29" cy="33" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-3" data-anim="cargo-fill" cx="35" cy="33" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-4" data-anim="cargo-fill" cx="41" cy="33" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-5" data-anim="cargo-fill" cx="23" cy="39" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-6" data-anim="cargo-fill" cx="29" cy="39" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-7" data-anim="cargo-fill" cx="35" cy="39" r="1.6"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-8" data-anim="cargo-fill" cx="41" cy="39" r="1.6"/>
     `,
   },
   {
     name: 'Scout', meta: 'fighter rig', box: '8 7 48 50',
-    recipe: 'tall smooth fuselage, rear wings',
+    recipe: 'smooth jet fuselage, rear delta wings',
     svg: `
-      <path class="panel" data-part="left-rear-wing" d="M29 38 C21 38 14 43 9 49 C19 50 26 48 31 43 Z"/>
-      <path class="panel" data-part="right-rear-wing" d="M35 38 C43 38 50 43 55 49 C45 50 38 48 33 43 Z"/>
-      <path class="panel" data-part="fuselage" d="M32 8 C42 21 41 43 32 56 C23 43 22 21 32 8 Z"/>
-      <circle class="core" data-part="cockpit-core" cx="32" cy="23" r="3.4"/>
-      <circle class="core" data-part="left-tip" data-emits="plasma" data-emission-dir="0 -1" cx="16" cy="47" r="2"/>
-      <circle class="core" data-part="right-tip" data-emits="plasma" data-emission-dir="0 -1" cx="48" cy="47" r="2"/>
+      <path class="panel" data-part="left-rear-wing" d="M28 39 C21 40 14 45 9 51 C19 51 26 48 31 44 Z"/>
+      <path class="panel" data-part="right-rear-wing" d="M36 39 C43 40 50 45 55 51 C45 51 38 48 33 44 Z"/>
+      <path class="panel" data-part="fuselage" d="M32 8 C40 22 39 43 32 57 C25 43 24 22 32 8 Z"/>
+      <circle class="core" data-part="cockpit-core" cx="32" cy="22" r="3.4"/>
+      <circle class="core" data-part="left-tip" data-emits="plasma" data-emission-dir="0 -1" cx="18" cy="48" r="2"/>
+      <circle class="core" data-part="right-tip" data-emits="plasma" data-emission-dir="0 -1" cx="46" cy="48" r="2"/>
     `,
   },
   {
@@ -228,8 +236,7 @@ const units = [
     name: 'Arbiter', meta: 'caster air rig', box: '9 7 46 45',
     recipe: 'sleek shuttle, stasis core',
     svg: `
-      <path class="panel" data-part="sleek-delta-shell" data-anim="hover-bob" d="M32 8 C46 22 54 39 55 50 C44 44 37 36 32 25 C27 36 20 44 9 50 C10 39 18 22 32 8 Z"/>
-      <path class="line" data-part="inner-stasis-arc" data-anim="stasis-pulse" d="M21 34 Q32 21 43 34"/>
+      <path class="panel" data-part="sleek-delta-shell" data-anim="hover-bob" d="M32 8 C44 19 51 35 53 48 C42 45 36 36 32 26 C28 36 22 45 11 48 C13 35 20 19 32 8 Z"/>
       <circle class="core" data-part="caster-core" data-anim="core-pulse" cx="32" cy="24" r="5"/>
     `,
   },

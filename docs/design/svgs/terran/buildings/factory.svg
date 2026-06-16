@@ -13,8 +13,8 @@
         
         <line class="line" data-part="upper-body-split" x1="11" y1="21" x2="53" y2="21"></line>
         <line class="line" data-part="lower-body-split" x1="11" y1="40" x2="53" y2="40"></line>
-        <circle class="line" data-part="roof-fan" data-anim="fan-spin" cx="26" cy="32" r="4.5"></circle>
-        <line class="line" data-part="roof-fan-horizontal" data-anim="fan-spin" x1="22.5" y1="32" x2="29.5" y2="32"></line>
-        <line class="line" data-part="roof-fan-vertical" data-anim="fan-spin" x1="26" y1="28.5" x2="26" y2="35.5"></line>
-        <rect class="line" data-part="roof-square" x="35" y="27.5" width="9" height="9" rx="1.5"></rect>
+        <circle class="line" data-part="roof-fan" data-anim="fan-spin" cx="26" cy="30.5" r="4.5"></circle>
+        <line class="line" data-part="roof-fan-horizontal" data-anim="fan-spin" x1="22.5" y1="30.5" x2="29.5" y2="30.5"></line>
+        <line class="line" data-part="roof-fan-vertical" data-anim="fan-spin" x1="26" y1="27" x2="26" y2="34"></line>
+        <rect class="line" data-part="roof-square" x="35" y="26" width="9" height="9" rx="1.5"></rect>
       </svg>

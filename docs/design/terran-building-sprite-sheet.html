@@ -101,7 +101,7 @@ const buildings = [
   { name: 'Machine Shop', footprint: '2 2', bounds: [71, 49], addon: true, recipe: 'addon pad, gear, vent stripes' },
   { name: 'Starport', footprint: '4 3', bounds: [97, 79], shell: 'none', liftable: true, footLayout: 'starport-thrusters', recipe: 'landing circle, 3 thrusters, 120-degree supports' },
   { name: 'Control Tower', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'lowered dish cup, antenna dot' },
-  { name: 'Armory', footprint: '3 2', bounds: [96, 55], recipe: 'union jack braces, central hub' },
+  { name: 'Armory', footprint: '3 2', bounds: [96, 55], shell: 'corner-diagonals', bevel: 0.34, bevelMax: 11, recipe: 'incomplete octagon corners, hub-to-bevel rays' },
   { name: 'Science Facility', footprint: '4 3', bounds: [97, 77], liftable: true, footLayout: 'science-four-thrusters', recipe: 'inset lab shell, central sphere, 4 thrusters' },
   { name: 'Physics Lab', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'pivot, long instrument capsule' },
   { name: 'Covert Ops', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'stealth bars, forward visor' },
@@ -122,6 +122,7 @@ function fitBox(footprint) {
 
 function bodyBoxFor(building, footprintBox) {
   if (!building.liftable) return footprintBox;
+  if (building.footLayout === 'starport-thrusters') return footprintBox;
   if (building.footLayout === 'hq-corner-round') {
     return {
       x: footprintBox.x + 4,
@@ -188,6 +189,17 @@ function shellPoints(box, building) {
 
 function shellMarkup(building, box) {
   if (building.shell === 'none') return '';
+  if (building.shell === 'corner-diagonals') {
+    const bevel = Math.max(3, Math.min(building.bevelMax ?? 10, Math.round(Math.min(box.width, box.height) * (building.bevel ?? 0.14))));
+    const inset = 2;
+    const x2 = box.x + box.width;
+    const y2 = box.y + box.height;
+    return `
+        <line class="line shell" data-part="upper-left-corner" x1="${box.x + inset}" y1="${box.y + bevel}" x2="${box.x + bevel}" y2="${box.y + inset}"/>
+        <line class="line shell" data-part="upper-right-corner" x1="${x2 - bevel}" y1="${box.y + inset}" x2="${x2 - inset}" y2="${box.y + bevel}"/>
+        <line class="line shell" data-part="lower-right-corner" x1="${x2 - inset}" y1="${y2 - bevel}" x2="${x2 - bevel}" y2="${y2 - inset}"/>
+        <line class="line shell" data-part="lower-left-corner" x1="${box.x + bevel}" y1="${y2 - inset}" x2="${box.x + inset}" y2="${y2 - bevel}"/>`;
+  }
   return `<polygon class="panel shell" data-part="shell" points="${shellPoints(box, building)}"/>`;
 }
 
@@ -216,6 +228,31 @@ function connectorBetween(part, from, to, width, trimStart, trimEnd) {
   const angle = Math.atan2(dy, dx) * 180 / Math.PI;
   return `<rect class="panel" data-part="${part}" x="${cx - length / 2}" y="${cy - width / 2}" width="${length}" height="${width}" rx="2" transform="rotate(${angle.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})"/>`;
 }
+
+function spokeBetween(part, from, to, width, overlap = 3) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  const length = distance + overlap * 2;
+  const cx = (from.x + to.x) / 2;
+  const cy = (from.y + to.y) / 2;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  return `<rect class="panel" data-part="${part}" x="${cx - length / 2}" y="${cy - width / 2}" width="${length}" height="${width}" rx="2" transform="rotate(${angle.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})"/>`;
+}
+
+function spokeLine(part, from, to, trim = 5) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const x1 = from.x + ux * trim;
+  const y1 = from.y + uy * trim;
+  const x2 = to.x - ux * trim;
+  const y2 = to.y - uy * trim;
+  return `<line class="line" data-part="${part}" x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>`;
+}
+
 
 function gear(cx, cy, part) {
   const points = Array.from({ length: 16 }, (_, index) => {
@@ -412,7 +449,6 @@ function detailMarkup(building, box) {
   }
   if (building.name === 'Bunker') {
     return `
-        <circle class="line" data-part="hatch" cx="${cx}" cy="${cy}" r="5"/>
         <rect class="line" data-part="north-window-slit" x="${cx - 5}" y="${box.y + 3}" width="10" height="4" rx="0.5"/>
         <rect class="line" data-part="south-window-slit" x="${cx - 5}" y="${y2 - 7}" width="10" height="4" rx="0.5"/>
         <rect class="line" data-part="west-window-slit" x="${box.x + 3}" y="${cy - 5}" width="4" height="10" rx="0.5"/>
@@ -433,7 +469,7 @@ function detailMarkup(building, box) {
   if (building.name === 'Factory') {
     const bevel = Math.max(3, Math.min(building.bevelMax ?? 10, Math.round(Math.min(box.width, box.height) * (building.bevel ?? 0.14))));
     const fanCx = cx - 6;
-    const fanCy = cy;
+    const fanCy = (box.y + bevel + y2 - bevel) / 2;
     const roofSquareSize = 9;
     const squareX = cx + 3;
     return `
@@ -453,26 +489,19 @@ function detailMarkup(building, box) {
         <line class="line" data-part="parent-connector" x1="${box.x}" y1="${cy}" x2="${box.x + 5}" y2="${cy}"/>`;
   }
   if (building.name === 'Starport') {
-    const padCx = cx - 3;
+    const padCx = cx;
     const pad = { x: padCx, y: cy };
     const upperThruster = { x: box.x + 6, y: cy - 14 };
     const lowerThruster = { x: box.x + 6, y: cy + 14 };
     const rightThruster = { x: box.x + box.width - 3, y: cy };
-    const supportWidth = 9;
-    const supportLength = 22;
-    const upperAngle = Math.atan2(pad.y - upperThruster.y, pad.x - upperThruster.x) * 180 / Math.PI;
-    const lowerAngle = Math.atan2(pad.y - lowerThruster.y, pad.x - lowerThruster.x) * 180 / Math.PI;
-    const upperSupportCx = (upperThruster.x + pad.x) / 2;
-    const upperSupportCy = (upperThruster.y + pad.y) / 2;
-    const lowerSupportCx = (lowerThruster.x + pad.x) / 2;
-    const lowerSupportCy = (lowerThruster.y + pad.y) / 2;
-    const rightSupportCx = (rightThruster.x + pad.x) / 2;
-    const rightSupportCy = cy;
+    const supportWidth = 7;
     return `
-        <rect class="panel" data-part="upper-left-support" x="${upperSupportCx - supportLength / 2}" y="${upperSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="2" transform="rotate(${upperAngle.toFixed(2)} ${upperSupportCx.toFixed(2)} ${upperSupportCy.toFixed(2)})"/>
-        <rect class="panel" data-part="lower-left-support" x="${lowerSupportCx - supportLength / 2}" y="${lowerSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="2" transform="rotate(${lowerAngle.toFixed(2)} ${lowerSupportCx.toFixed(2)} ${lowerSupportCy.toFixed(2)})"/>
-        <rect class="panel" data-part="attached-facility" x="${rightSupportCx - supportLength / 2}" y="${rightSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="3"/>
-        <line class="line" data-part="facility-centerline" x1="${rightSupportCx - 6}" y1="${cy}" x2="${rightSupportCx + 6}" y2="${cy}"/>
+        ${spokeBetween('upper-left-support', upperThruster, pad, supportWidth)}
+        ${spokeBetween('lower-left-support', lowerThruster, pad, supportWidth)}
+        ${spokeBetween('attached-facility', rightThruster, pad, supportWidth)}
+        ${spokeLine('upper-left-support-centerline', upperThruster, pad)}
+        ${spokeLine('lower-left-support-centerline', lowerThruster, pad)}
+        ${spokeLine('facility-centerline', rightThruster, pad)}
         <circle class="panel" data-part="landing-pad" data-anim="landing-light" cx="${padCx}" cy="${cy}" r="16"/>
         <circle class="line" data-part="inner-landing-ring" data-anim="landing-light" cx="${padCx}" cy="${cy}" r="10"/>`;
   }
@@ -482,11 +511,25 @@ function detailMarkup(building, box) {
         <circle class="core" data-part="antenna-dot" data-anim="antenna-blink" cx="${cx}" cy="${cy - 5}" r="2.5"/>`;
   }
   if (building.name === 'Armory') {
+    const bevel = Math.max(3, Math.min(building.bevelMax ?? 10, Math.round(Math.min(box.width, box.height) * (building.bevel ?? 0.14))));
+    const inset = 2;
+    const hubRadius = 5;
+    const cornerTargets = [
+      { name: 'upper-left', x: box.x + (bevel + inset) / 2, y: box.y + (bevel + inset) / 2 },
+      { name: 'upper-right', x: x2 - (bevel + inset) / 2, y: box.y + (bevel + inset) / 2 },
+      { name: 'lower-right', x: x2 - (bevel + inset) / 2, y: y2 - (bevel + inset) / 2 },
+      { name: 'lower-left', x: box.x + (bevel + inset) / 2, y: y2 - (bevel + inset) / 2 },
+    ];
+    const rays = cornerTargets.map((target) => {
+      const dx = target.x - cx;
+      const dy = target.y - cy;
+      const length = Math.hypot(dx, dy);
+      const startX = cx + dx / length * hubRadius;
+      const startY = cy + dy / length * hubRadius;
+      return `<line class="line" data-part="brace-${target.name}" x1="${startX.toFixed(2)}" y1="${startY.toFixed(2)}" x2="${target.x.toFixed(2)}" y2="${target.y.toFixed(2)}"/>`;
+    }).join('');
     return `
-        <line class="line" data-part="brace-horizontal" x1="${box.x + 6}" y1="${cy}" x2="${x2 - 6}" y2="${cy}"/>
-        <line class="line" data-part="brace-vertical" x1="${cx}" y1="${box.y + 5}" x2="${cx}" y2="${y2 - 5}"/>
-        <line class="line" data-part="brace-diagonal-a" x1="${box.x + 8}" y1="${box.y + 6}" x2="${x2 - 8}" y2="${y2 - 6}"/>
-        <line class="line" data-part="brace-diagonal-b" x1="${x2 - 8}" y1="${box.y + 6}" x2="${box.x + 8}" y2="${y2 - 6}"/>
+        ${rays}
         <circle class="panel" data-part="central-hub" data-anim="upgrade-pulse" cx="${cx}" cy="${cy}" r="5"/>`;
   }
   if (building.name === 'Science Facility') {

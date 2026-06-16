@@ -18,9 +18,9 @@ All sprites face up in source. Emission directions are local vectors before game
 | Reaver | `long-shell` moves as a heavy body; `launcher-mouth` opens/pulses; no foot parts. | Scarab from `launcher-mouth`, `0 -1` |
 | Scarab | Projectile rig; body stays rigid. | travel direction `0 -1`; impact radial from anchor |
 | Observer | `lens` pulses; side fins can hover-bob. | detector/caster effect from `lens` |
-| Shuttle | `delta-shell` stays rigid; `open-cargo-bay` can pulse on load/unload. | transport state only |
+| Shuttle | `delta-shell` stays rigid; `cargo-dot-*` fill/pulse on load/unload. | transport state only |
 | Scout | `left-rear-wing`, `right-rear-wing`, and `fuselage` stay rigid; `wing-tip` cores pulse. | shots from `left-tip` and `right-tip`, `0 -1` |
 | Carrier | `narrow-top-hull`, `left-lower-oval`, and `right-lower-oval` stay rigid as a clean triad. | Interceptors launch from side hull edges |
 | Interceptor | Tiny rigid fighter; optional `core` pulse. | shot from nose/core, `0 -1` |
-| Arbiter | `sleek-delta-shell` drifts; `inner-stasis-arc` pulses around `caster-core`. | cloak/stasis effects from `caster-core` |
+| Arbiter | `sleek-delta-shell` drifts; `caster-core` pulses. | cloak/stasis effects from `caster-core` |
 | Corsair | `integrated-body` stays rigid; `left-front-engine-spike`, `right-front-engine-spike`, `left-engine-tip`, `right-engine-tip`, and `engine-core` pulse for air attack. | disruption shot from `engine-core`, `0 -1` |

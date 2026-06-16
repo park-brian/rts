@@ -9,11 +9,12 @@
         <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
         
         <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
-        <polygon class="panel shell" data-part="shell" points="17,19 48,19 52,23 52,41 48,45 17,45 13,41 13,23"></polygon>
         
-        <line class="line" data-part="brace-horizontal" x1="19" y1="32" x2="46" y2="32"></line>
-        <line class="line" data-part="brace-vertical" x1="32" y1="24" x2="32" y2="40"></line>
-        <line class="line" data-part="brace-diagonal-a" x1="21" y1="25" x2="44" y2="39"></line>
-        <line class="line" data-part="brace-diagonal-b" x1="44" y1="25" x2="21" y2="39"></line>
+        <line class="line shell" data-part="upper-left-corner" x1="15" y1="28" x2="22" y2="21"></line>
+        <line class="line shell" data-part="upper-right-corner" x1="43" y1="21" x2="50" y2="28"></line>
+        <line class="line shell" data-part="lower-right-corner" x1="50" y1="36" x2="43" y2="43"></line>
+        <line class="line shell" data-part="lower-left-corner" x1="22" y1="43" x2="15" y2="36"></line>
+        
+        <line class="line" data-part="brace-upper-left" x1="27.63" y1="29.57" x2="18.50" y2="24.50"></line><line class="line" data-part="brace-upper-right" x1="36.44" y1="29.70" x2="46.50" y2="24.50"></line><line class="line" data-part="brace-lower-right" x1="36.44" y1="34.30" x2="46.50" y2="39.50"></line><line class="line" data-part="brace-lower-left" x1="27.63" y1="34.43" x2="18.50" y2="39.50"></line>
         <circle class="panel" data-part="central-hub" data-anim="upgrade-pulse" cx="32" cy="32" r="5"></circle>
       </svg>

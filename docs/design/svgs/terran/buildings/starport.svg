@@ -11,10 +11,12 @@
         <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
         
         
-        <rect class="panel" data-part="upper-left-support" x="12" y="20.5" width="22" height="9" rx="2" transform="rotate(49.40 23.00 25.00)"></rect>
-        <rect class="panel" data-part="lower-left-support" x="12" y="34.5" width="22" height="9" rx="2" transform="rotate(-49.40 23.00 39.00)"></rect>
-        <rect class="panel" data-part="attached-facility" x="28.5" y="27.5" width="22" height="9" rx="3"></rect>
-        <line class="line" data-part="facility-centerline" x1="33.5" y1="32" x2="45.5" y2="32"></line>
-        <circle class="panel" data-part="landing-pad" data-anim="landing-light" cx="29" cy="32" r="16"></circle>
-        <circle class="line" data-part="inner-landing-ring" data-anim="landing-light" cx="29" cy="32" r="10"></circle>
+        <rect class="panel" data-part="upper-left-support" x="6.793444384266298" y="21.5" width="30.413111231467404" height="7" rx="2" transform="rotate(34.99 22.00 25.00)"></rect>
+        <rect class="panel" data-part="lower-left-support" x="6.793444384266298" y="35.5" width="30.413111231467404" height="7" rx="2" transform="rotate(-34.99 22.00 39.00)"></rect>
+        <rect class="panel" data-part="attached-facility" x="29" y="28.5" width="29" height="7" rx="2" transform="rotate(180.00 43.50 32.00)"></rect>
+        <line class="line" data-part="upper-left-support-centerline" x1="16.10" y1="20.87" x2="27.90" y2="29.13"></line>
+        <line class="line" data-part="lower-left-support-centerline" x1="16.10" y1="43.13" x2="27.90" y2="34.87"></line>
+        <line class="line" data-part="facility-centerline" x1="50.00" y1="32.00" x2="37.00" y2="32.00"></line>
+        <circle class="panel" data-part="landing-pad" data-anim="landing-light" cx="32" cy="32" r="16"></circle>
+        <circle class="line" data-part="inner-landing-ring" data-anim="landing-light" cx="32" cy="32" r="10"></circle>
       </svg>

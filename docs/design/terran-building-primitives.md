@@ -35,14 +35,14 @@ Rules:
 | Refinery | Beveled shell with three large top-facing smoke stack rings. | 4x2 |
 | Barracks | Inset production block, two vertical line marks, four round landing pads at the footprint ends. | 4x3 |
 | Engineering Bay | Smaller Barracks-like lab block with stronger bevels, inset hull line, oversized corner landing pads. | 4x3 |
-| Bunker | Squat pillbox shell, central hatch circle, four rectangular N/S/E/W viewport slits. | 3x2 |
+| Bunker | Squat pillbox shell with four rectangular N/S/E/W viewport slits just inside the walls. | 3x2 |
 | Academy | Main training dome, small tower dome, rear block, courtyard crescent. | 3x2 |
 | Missile Turret | Square base, central rotating pivot, twin launcher rectangles. | 2x2 |
-| Factory | Inset octagonal hull, two full-length horizontal split lines, roof fan, roof square, oversized corner landing pads. | 4x3 |
+| Factory | Inset octagonal hull, two full-length horizontal split lines, center-band fan, center-band square, oversized corner landing pads. | 4x3 |
 | Machine Shop | Add-on pad, upgrade gear, vent stripes, connector edge. | 2x2 add-on |
-| Starport | Large centered landing circle, two left thrusters with matching connector rectangles, narrow right facility with one z-under thruster, arranged around the pad. | 4x3 |
+| Starport | Large centered landing circle, three center-to-center support spokes from thruster centers to pad center, two left thrusters, one right facility thruster. | 4x3 |
 | Control Tower | Add-on pad, lowered upward-facing dish cup, antenna dot. | 2x2 add-on |
-| Armory | Union Jack-style braces, central upgrade hub. | 3x2 |
+| Armory | Incomplete octagon: only four inset bevel-corner strokes, with four diagonal rays from the central upgrade hub to the bevel midpoints. | 3x2 |
 | Science Facility | Inset lab shell, large central sphere, four endpoint thrusters. | 4x3 |
 | Physics Lab | Add-on pad, pivot circle, long instrument capsule. | 2x2 add-on |
 | Covert Ops | Add-on rectangle, two parallel roof bars, forward visor slit. | 2x2 add-on |

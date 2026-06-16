@@ -84,27 +84,22 @@ const units = [
     `,
   },
   {
-    name: 'Egg', meta: 'morph rig', box: '16 12 32 43',
-    recipe: 'cocoon sacs, seam, glow slit',
+    name: 'Egg', meta: 'morph rig', box: '22 17 20 30',
+    recipe: 'small oval cocoon',
     svg: `
-      <ellipse class="panel" data-part="cocoon-body" cx="32" cy="34" rx="15" ry="20"/>
-      <circle class="panel" data-part="upper-sac" cx="29" cy="23" r="6"/>
-      <circle class="panel" data-part="left-sac" cx="24" cy="36" r="6"/>
-      <circle class="panel" data-part="right-sac" cx="38" cy="38" r="6"/>
-      <path class="line" data-part="seam" d="M32 18 Q37 34 30 51"/>
-      <ellipse class="core" data-part="morph-slit" data-anim="morph-pulse" cx="34" cy="34" rx="3" ry="5"/>
+      <ellipse class="panel" data-part="cocoon-body" data-anim="morph-pulse" cx="32" cy="32" rx="9" ry="14"/>
     `,
   },
   {
-    name: 'Drone', meta: 'worker rig', box: '12 14 40 37',
-    recipe: 'beetle shell, front mandibles',
+    name: 'Drone', meta: 'worker rig', box: '11 13 42 38',
+    recipe: 'fat delta body, rear wing deltas, small mandibles',
     svg: `
-      <path class="line" data-part="left-mandible" d="M27 23 Q20 14 14 20"/>
-      <path class="line" data-part="right-mandible" d="M37 23 Q44 14 50 20"/>
-      <ellipse class="panel" data-part="left-shell-wing" cx="22" cy="36" rx="9" ry="11"/>
-      <ellipse class="panel" data-part="right-shell-wing" cx="42" cy="36" rx="9" ry="11"/>
-      <path class="panel" data-part="body" d="M32 17 Q44 27 39 48 H25 Q20 27 32 17 Z"/>
-      <circle class="core" data-part="head-core" cx="32" cy="25" r="3"/>
+      <path class="line" data-part="left-mandible" d="M29 24 Q25 17 21 21"/>
+      <path class="line" data-part="right-mandible" d="M35 24 Q39 17 43 21"/>
+      <path class="panel" data-part="left-rear-wing-delta" data-anim="wing-bob" d="M27 34 L13 44 L29 47 Z"/>
+      <path class="panel" data-part="right-rear-wing-delta" data-anim="wing-bob" d="M37 34 L51 44 L35 47 Z"/>
+      <path class="panel" data-part="fat-delta-body" d="M32 15 L44 50 H20 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="24" r="3"/>
     `,
   },
   {
@@ -121,13 +116,17 @@ const units = [
     `,
   },
   {
-    name: 'Zergling', meta: 'melee rig', box: '14 13 36 39',
-    recipe: 'jaw wedge, torso, claw arcs',
+    name: 'Zergling', meta: 'melee rig', box: '9 13 46 42',
+    recipe: 'open pentagon body, triangle head, front jaws, four limbs',
     svg: `
-      <path class="line" data-part="left-claw" data-anim="claw-swing" d="M27 34 Q17 31 14 20"/>
-      <path class="line" data-part="right-claw" data-anim="claw-swing" d="M37 34 Q47 31 50 20"/>
-      <polygon class="panel" data-part="jaw-head" data-anim="jaw-snap" points="25,20 32,13 39,20 37,30 32,26 27,30"/>
-      <path class="panel" data-part="torso" d="M26 30 Q32 25 38 30 L35 52 H29 Z"/>
+      <path class="line" data-part="left-front-jaw" data-anim="jaw-snap" d="M28 23 L20 14"/>
+      <path class="line" data-part="right-front-jaw" data-anim="jaw-snap" d="M36 23 L44 14"/>
+      <path class="line" data-part="left-front-limb" data-anim="claw-swing" d="M26 35 L10 27"/>
+      <path class="line" data-part="right-front-limb" data-anim="claw-swing" d="M38 35 L54 27"/>
+      <path class="line" data-part="left-rear-limb" data-anim="claw-swing" d="M28 45 L17 54"/>
+      <path class="line" data-part="right-rear-limb" data-anim="claw-swing" d="M36 45 L47 54"/>
+      <polygon class="panel" data-part="triangle-head" points="32,14 42,29 22,29"/>
+      <path class="panel" data-part="open-pentagon-body" d="M22 31 L42 31 L38 48 L32 54 L26 48 Z"/>
       <circle class="core" data-part="eye-core" cx="32" cy="24" r="2.6"/>
     `,
   },

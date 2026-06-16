@@ -11,7 +11,6 @@
         <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
         <polygon class="panel shell" data-part="shell" points="20,19 45,19 52,26 52,38 45,45 20,45 13,38 13,26"></polygon>
         
-        <circle class="line" data-part="hatch" cx="32" cy="32" r="5"></circle>
         <rect class="line" data-part="north-window-slit" x="27" y="22" width="10" height="4" rx="0.5"></rect>
         <rect class="line" data-part="south-window-slit" x="27" y="38" width="10" height="4" rx="0.5"></rect>
         <rect class="line" data-part="west-window-slit" x="16" y="27" width="4" height="10" rx="0.5"></rect>
