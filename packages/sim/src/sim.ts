@@ -3,29 +3,35 @@
 
 import type { MapDef } from './map.ts';
 import type { State } from './world.ts';
-import type { Command, PlayerCommands } from './commands.ts';
+import type { Command, CommandResult, PlayerCommands } from './commands.ts';
 import { cloneState, hashState } from './world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './serialize.ts';
 import { observe, type Observation } from './observe.ts';
+import { vision } from './systems/vision.ts';
 
 export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean };
 export type Snapshot = State; // an in-memory deep-cloned state (see serialize() for bytes)
 
 /** Deep-copy one tick's command batch so a recorded replay is immune to caller reuse. */
 const cloneBatch = (batch: PlayerCommands[]): PlayerCommands[] =>
-  batch.map((pc) => ({ player: pc.player, cmds: pc.cmds.map((c) => ({ ...c }) as Command) }));
+  batch
+    .filter((pc) => pc.cmds.length > 0)
+    .map((pc) => ({ player: pc.player, cmds: pc.cmds.map((c) => ({ ...c }) as Command) }));
 
 export class Sim {
   state: State;
   seed = 0;
   /** Per-tick recorded command batches (frames[t] applied at tick t), or null when not recording. */
   frames: PlayerCommands[][] | null = null;
+  /** Deterministic receipts for the most recent step's command batch. */
+  lastCommandResults: CommandResult[] = [];
 
   constructor(opts: SimOptions) {
     this.state = setupMatch(opts.map, opts.players, opts.seed);
     this.state.trackVision = !!opts.vision;
+    if (this.state.trackVision) vision(this.state);
     this.seed = opts.seed;
     if (opts.record) this.frames = [];
   }
@@ -35,6 +41,7 @@ export class Sim {
     sim.state = state;
     sim.seed = 0;
     sim.frames = null;
+    sim.lastCommandResults = [];
     return sim;
   }
 
@@ -43,9 +50,10 @@ export class Sim {
   }
 
   /** Advance one logical tick with this tick's commands (one bundle per player). */
-  step(batch: PlayerCommands[] = []): void {
-    if (this.frames) this.frames.push(cloneBatch(batch));
-    stepWorld(this.state, batch);
+  step(batch: PlayerCommands[] = []): CommandResult[] {
+    if (this.frames && !this.state.result.over) this.frames.push(cloneBatch(batch));
+    this.lastCommandResults = stepWorld(this.state, batch);
+    return this.lastCommandResults;
   }
 
   /** Full god-view state (rendering / scripted AI). */

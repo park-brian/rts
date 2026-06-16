@@ -5,7 +5,7 @@
 // T (Sim.snapshot/serialize) and feed alternative commands to branch the future.
 
 import { Sim } from './sim.ts';
-import type { PlayerCommands } from './commands.ts';
+import type { Command, PlayerCommands } from './commands.ts';
 import { sliceMap, type MapDef } from './map.ts';
 import { generateMap } from './procedural.ts';
 
@@ -27,6 +27,163 @@ export type Replay = {
   frames: PlayerCommands[][]; // frames[t] = the command batch applied at tick t
 };
 
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === 'object' && x !== null && !Array.isArray(x);
+
+const isInt = (x: unknown): x is number => Number.isInteger(x);
+const isNonNegativeInt = (x: unknown): x is number => isInt(x) && x >= 0;
+const isPositiveInt = (x: unknown): x is number => isInt(x) && x > 0;
+
+const fail = (msg: string): never => {
+  throw new Error(`replay: ${msg}`);
+};
+
+const asRecord = (x: unknown, msg: string): Record<string, unknown> => {
+  if (isRecord(x)) return x;
+  return fail(msg);
+};
+
+const readInt = (x: unknown, msg: string): number => {
+  if (isInt(x)) return x;
+  return fail(msg);
+};
+
+const readNonNegativeInt = (x: unknown, msg: string): number => {
+  if (isNonNegativeInt(x)) return x;
+  return fail(msg);
+};
+
+const readPositiveInt = (x: unknown, msg: string): number => {
+  if (isPositiveInt(x)) return x;
+  return fail(msg);
+};
+
+const readArray = (x: unknown, msg: string): unknown[] => {
+  if (Array.isArray(x)) return x;
+  return fail(msg);
+};
+
+const validateMapSpec = (x: unknown): MapSpec => {
+  const r = asRecord(x, 'map must be an object');
+  const kind = r.kind;
+  if (kind === 'slice') return { kind: 'slice' };
+  if (kind === 'procedural') {
+    const perTeam = readPositiveInt(r.perTeam, 'procedural map perTeam must be a positive integer');
+    const seed = readInt(r.seed, 'procedural map seed must be an integer');
+    return { kind: 'procedural', perTeam, seed };
+  }
+  return fail('unknown map spec');
+};
+
+const validateCommand = (x: unknown): Command => {
+  const r = asRecord(x, 'command must be an object with type');
+  const t = r.t;
+  if (typeof t !== 'string') fail('command must be an object with type');
+  const unit = r.unit;
+  const building = r.building;
+  const kind = r.kind;
+  const xPos = r.x;
+  const yPos = r.y;
+  switch (t) {
+    case 'train': {
+      const trainBuilding = readNonNegativeInt(building, 'invalid train command');
+      const trainKind = readPositiveInt(kind, 'invalid train command');
+      return { t: 'train', building: trainBuilding, kind: trainKind };
+    }
+    case 'build': {
+      return {
+        t: 'build',
+        unit: readNonNegativeInt(unit, 'invalid build command'),
+        kind: readPositiveInt(kind, 'invalid build command'),
+        x: readInt(xPos, 'invalid build command'),
+        y: readInt(yPos, 'invalid build command'),
+      };
+    }
+    case 'cancelBuild': {
+      return { t: 'cancelBuild', building: readNonNegativeInt(building, 'invalid cancelBuild command') };
+    }
+    case 'move': {
+      return {
+        t: 'move',
+        unit: readNonNegativeInt(unit, 'invalid move command'),
+        x: readInt(xPos, 'invalid move command'),
+        y: readInt(yPos, 'invalid move command'),
+      };
+    }
+    case 'attack': {
+      return {
+        t: 'attack',
+        unit: readNonNegativeInt(unit, 'invalid attack command'),
+        target: readNonNegativeInt(r.target, 'invalid attack command'),
+      };
+    }
+    case 'amove': {
+      return {
+        t: 'amove',
+        unit: readNonNegativeInt(unit, 'invalid amove command'),
+        x: readInt(xPos, 'invalid amove command'),
+        y: readInt(yPos, 'invalid amove command'),
+      };
+    }
+    case 'harvest': {
+      return {
+        t: 'harvest',
+        unit: readNonNegativeInt(unit, 'invalid harvest command'),
+        patch: readNonNegativeInt(r.patch, 'invalid harvest command'),
+      };
+    }
+    case 'rally': {
+      return {
+        t: 'rally',
+        building: readNonNegativeInt(building, 'invalid rally command'),
+        x: readInt(xPos, 'invalid rally command'),
+        y: readInt(yPos, 'invalid rally command'),
+      };
+    }
+    case 'stop': {
+      return { t: 'stop', unit: readNonNegativeInt(unit, 'invalid stop command') };
+    }
+    default:
+      return fail(`unknown command type ${t}`);
+  }
+};
+
+const validatePlayerCommands = (x: unknown): PlayerCommands => {
+  const r = asRecord(x, 'player command batch must be an object');
+  const player = readNonNegativeInt(r.player, 'player id must be a non-negative integer');
+  const cmds = readArray(r.cmds, 'cmds must be an array');
+  return { player, cmds: cmds.map(validateCommand) };
+};
+
+export const validateReplay = (x: unknown): Replay => {
+  const r = asRecord(x, 'root must be an object');
+  const version = r.version;
+  if (version !== REPLAY_VERSION) fail(`unsupported version ${String(version)}`);
+  const players = readPositiveInt(r.players, 'players must be a positive integer');
+  const seed = readInt(r.seed, 'seed must be an integer');
+  const frames = readArray(r.frames, 'frames must be an array');
+  return {
+    version: REPLAY_VERSION,
+    map: validateMapSpec(r.map),
+    players,
+    seed,
+    frames: frames.map((frame: unknown) => {
+      const frameBatch = readArray(frame, 'each frame must be an array');
+      return frameBatch.map(validatePlayerCommands);
+    }),
+  };
+};
+
+export const parseReplay = (json: string): Replay => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    fail('invalid JSON');
+  }
+  return validateReplay(parsed);
+};
+
 /** Assemble a Replay from a recording Sim's captured frames. */
 export const toReplay = (sim: Sim, map: MapSpec): Replay => ({
   version: REPLAY_VERSION,
@@ -36,20 +193,24 @@ export const toReplay = (sim: Sim, map: MapSpec): Replay => ({
   frames: sim.frames ?? [],
 });
 
-const simForReplay = (r: Replay): Sim =>
-  new Sim({ map: mapFromSpec(r.map), players: r.players, seed: r.seed });
+const simForReplay = (r: Replay): Sim => {
+  const replay = validateReplay(r);
+  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed });
+};
 
 /** Re-simulate a replay to completion; returns the final Sim. */
 export const play = (r: Replay): Sim => {
-  const sim = simForReplay(r);
-  for (const batch of r.frames) sim.step(batch);
+  const replay = validateReplay(r);
+  const sim = simForReplay(replay);
+  for (const batch of replay.frames) sim.step(batch);
   return sim;
 };
 
 /** Re-simulate, returning the per-tick state-hash sequence (the replay-hash check). */
 export const replayHashes = (r: Replay): number[] => {
-  const sim = simForReplay(r);
+  const replay = validateReplay(r);
+  const sim = simForReplay(replay);
   const hs: number[] = [];
-  for (const batch of r.frames) { sim.step(batch); hs.push(sim.hash()); }
+  for (const batch of replay.frames) { sim.step(batch); hs.push(sim.hash()); }
   return hs;
 };

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { count, eid, kill } from '../src/world.ts';
+import { count, eid, kill, slotOf } from '../src/world.ts';
 import { Kind, Units, computeDamage } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 
@@ -34,6 +34,19 @@ test('damage respects type/size/armor', () => {
   assert.equal(computeDamage(conc, 0 /*Small*/, 0), 20);
 });
 
+test('attacking units face their current target', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8 });
+  const s = sim.fullState();
+  const a = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const b = spawnUnit(s, Kind.Marine, 1, fx(460), fx(400));
+
+  sim.step([{ player: 0, cmds: [{ t: 'attack', unit: a, target: b }] }]);
+
+  const e = sim.fullState().e;
+  assert.ok(e.faceX[slotOf(a)]! > 0, 'attacker faces east toward the target');
+  assert.equal(e.faceY[slotOf(a)], 0);
+});
+
 test('destroying a team\'s last structure ends the game', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 6 });
   const s = sim.fullState();
@@ -46,6 +59,21 @@ test('destroying a team\'s last structure ends the game', () => {
   sim.step([]);
   assert.equal(sim.fullState().result.over, true);
   assert.equal(sim.fullState().result.winner, 0, 'player 0 (team 0) wins');
+});
+
+test('victory supports sparse team ids', () => {
+  const sim = new Sim({ map: sliceMap(), players: 4, seed: 9 });
+  const s = sim.fullState();
+  s.teams.set([2, 2, 7, 7]);
+  s.startTeams = 2;
+
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.kind[i] === Kind.CommandCenter && s.e.owner[i]! >= 2) kill(s, i);
+  }
+  sim.step([]);
+
+  assert.equal(s.result.over, true);
+  assert.equal(s.result.winner, 2);
 });
 
 test('a worker constructs a supply depot, raising the supply cap', () => {

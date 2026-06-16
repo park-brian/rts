@@ -12,7 +12,7 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, Order, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
+import { TILE, ONE, Units, Role, Kind, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
 import { SPRITES } from '../art/sprites.ts';
@@ -337,15 +337,13 @@ export class GlRenderer {
       const r = this.rr[i]!;
       const sprite = uv[SPRITE_OF[kind] ?? ''] ?? uv.white!;
 
-      // Facing: rotate mobile units toward their move target ("up" art = −y).
+      // Facing: rotate mobile units from deterministic sim state ("up" art = -y).
       let rot = 0;
       const isMobile = (def.roles & (Role.Structure | Role.Resource)) === 0 && !isGeyser;
       if (isMobile) {
-        const ord = e.order[i]!;
-        if (ord === Order.Move || ord === Order.AttackMove || ord === Order.Build || ord === Order.Harvest) {
-          const dx = e.tx[i]! - e.x[i]!; const dy = e.ty[i]! - e.y[i]!;
-          if (dx * dx + dy * dy > 16) rot = Math.atan2(dx, -dy);
-        }
+        const dx = e.faceX[i]!;
+        const dy = e.faceY[i]!;
+        if (dx !== 0 || dy !== 0) rot = Math.atan2(dx, -dy);
       }
       const alpha = isStruct && e.built[i] !== 1 ? 0.55 : 1;
       const [tr, tg, tb] = teamColor(e.owner[i]!);

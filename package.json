@@ -11,10 +11,13 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "start": "npm run start -w @rts/app",
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.json",
     "demo": "node packages/headless/src/demo.ts",
-    "build:app": "npm run build -w @rts/app"
+    "build:app": "npm run build -w @rts/app",
+    "shot:terran-units": "node docs/design/shot-terran-sprite-sheet.mjs",
+    "shot:terran-buildings": "node docs/design/shot-terran-building-sprite-sheet.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

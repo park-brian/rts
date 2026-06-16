@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Starport" data-anchor="32 32" data-visible-box="6 13 52 39" data-footprint="4 3" data-bwapi-pixel-bounds="97 79" data-slug="starport" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        <circle class="panel" data-part="lift-left-upper-thruster" cx="12" cy="18" r="8"></circle><circle class="panel" data-part="lift-left-lower-thruster" cx="12" cy="46" r="8"></circle><circle class="panel" data-part="lift-right-building-thruster" cx="55" cy="32" r="9"></circle>
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        
+        
+        <rect class="panel" data-part="upper-left-support" x="12" y="20.5" width="22" height="9" rx="2" transform="rotate(49.40 23.00 25.00)"></rect>
+        <rect class="panel" data-part="lower-left-support" x="12" y="34.5" width="22" height="9" rx="2" transform="rotate(-49.40 23.00 39.00)"></rect>
+        <rect class="panel" data-part="attached-facility" x="28.5" y="27.5" width="22" height="9" rx="3"></rect>
+        <line class="line" data-part="facility-centerline" x1="33.5" y1="32" x2="45.5" y2="32"></line>
+        <circle class="panel" data-part="landing-pad" data-anim="landing-light" cx="29" cy="32" r="16"></circle>
+        <circle class="line" data-part="inner-landing-ring" data-anim="landing-light" cx="29" cy="32" r="10"></circle>
+      </svg>

@@ -5,10 +5,10 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Role, Order, Kind, Units, buildable, tileX, tileY, eid, isEnemy, nearest,
+  Role, Order, Kind, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest,
   NONE, TILE, SUPPLY_CAP, type Faction, type State, type Command, type Controller,
 } from '@rts/sim';
-import { fx, ONE, isqrt } from '@rts/sim';
+import { ONE, isqrt } from '@rts/sim';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
@@ -22,8 +22,7 @@ const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously m
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
-const findSpot = (s: State, bx: number, by: number): { x: number; y: number } | null => {
-  const m = s.map;
+const findSpot = (s: State, player: number, worker: number, kind: number, bx: number, by: number): { x: number; y: number } | null => {
   const btx = tileX(bx);
   const bty = tileY(by);
   for (let r = 3; r <= 14; r++) {
@@ -32,17 +31,10 @@ const findSpot = (s: State, bx: number, by: number): { x: number; y: number } | 
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
         const tx = btx + dx;
         const ty = bty + dy;
-        if (!buildable(m, tx, ty) || !buildable(m, tx + 1, ty) || !buildable(m, tx, ty + 1)) continue;
         const cx = px(tx);
         const cy = px(ty);
-        // keep clear of existing structures
-        const near = nearest(s, cx, cy, (sl) => (s.e.flags[sl]! & Role.Structure) !== 0);
-        if (near !== NONE) {
-          const ddx = s.e.x[near]! - cx;
-          const ddy = s.e.y[near]! - cy;
-          if (ddx * ddx + ddy * ddy < fx(56) * fx(56)) continue;
-        }
-        return { x: cx, y: cy };
+        const placement = canPlaceStructure(s, player, worker, kind, cx, cy);
+        if (placement.ok) return { x: placement.x, y: placement.y };
       }
     }
   }
@@ -96,10 +88,10 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
     if (depot === NONE) return cmds; // no base: nothing to do
 
-    const minerals = s.players.minerals[p]!;
-    const used = s.players.supplyUsed[p]!;
+    let minerals = s.players.minerals[p]!;
+    let reservedSupply = s.players.supplyUsed[p]!;
     const cap = s.players.supplyMax[p]!;
-    const room = (need: number): boolean => used + need <= cap;
+    const room = (need: number): boolean => reservedSupply + need <= cap;
 
     // Worker target: derived from how many patches this base can mine (income now
     // saturates at ~WORKERS_PER_PATCH each, so over-building workers is wasted supply).
@@ -126,25 +118,38 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     for (const d of idleDepots) {
       if (workers < workerTarget && minerals >= workerDef.minerals && room(workerDef.supply)) {
         cmds.push({ t: 'train', building: eid(e, d), kind: faction.worker });
+        minerals -= workerDef.minerals;
+        reservedSupply += workerDef.supply;
+        workers++;
       }
     }
 
     // 2) Supply when nearly capped.
-    if (cap < SUPPLY_CAP && cap - used <= 2 && pendingSupply === 0 && minerals >= supplyDef.minerals && aWorker !== NONE) {
-      const spot = findSpot(s, e.x[depot]!, e.y[depot]!);
-      if (spot) cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
+    if (cap < SUPPLY_CAP && cap - reservedSupply <= 2 && pendingSupply === 0 && minerals >= supplyDef.minerals && aWorker !== NONE) {
+      const spot = findSpot(s, p, aWorker, faction.supplyStructure, e.x[depot]!, e.y[depot]!);
+      if (spot) {
+        cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
+        minerals -= supplyDef.minerals;
+        pendingSupply++;
+      }
     }
 
     // 3) Army structures.
     else if (builtBarracks.length + pendingBarracks < c.barracksTarget && minerals >= rax.minerals && aWorker !== NONE) {
-      const spot = findSpot(s, e.x[depot]!, e.y[depot]!);
-      if (spot) cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
+      const spot = findSpot(s, p, aWorker, faction.armyStructure, e.x[depot]!, e.y[depot]!);
+      if (spot) {
+        cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
+        minerals -= rax.minerals;
+        pendingBarracks++;
+      }
     }
 
     // 4) Pump army from idle barracks.
     for (const b of builtBarracks) {
       if (e.prodKind[b] === Kind.None && minerals >= armyDef.minerals && room(armyDef.supply)) {
         cmds.push({ t: 'train', building: eid(e, b), kind: faction.armyUnit });
+        minerals -= armyDef.minerals;
+        reservedSupply += armyDef.supply;
       }
     }
 

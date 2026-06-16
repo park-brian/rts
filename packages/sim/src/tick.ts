@@ -2,7 +2,7 @@
 // deterministic). See docs/specs/architecture.md §4.
 
 import type { State } from './world.ts';
-import type { PlayerCommands } from './commands.ts';
+import type { CommandResult, PlayerCommands } from './commands.ts';
 import { census } from './systems/census.ts';
 import { applyCommands } from './systems/ingest.ts';
 import { construction } from './systems/construction.ts';
@@ -16,10 +16,10 @@ import { victory } from './systems/victory.ts';
 import { buildGrid } from './grid.ts';
 import { prepareNav } from './flow.ts';
 
-export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
-  if (s.result.over) return; // frozen once decided
+export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] => {
+  if (s.result.over) return []; // frozen once decided
   census(s); // derive supply used/cap
-  applyCommands(s, batch);
+  const results = applyCommands(s, batch);
   construction(s);
   production(s);
   prepareNav(s); // refresh building footprints for pathing (after new structures appear)
@@ -31,4 +31,5 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): void => {
   if (s.trackVision) vision(s); // per-player fog (derived; for observe()/rendering)
   victory(s);
   s.tick++;
+  return results;
 };

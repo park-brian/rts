@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zerg Primitive Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #07050a;
+    --panel: #0e0912;
+    --ink: #f0d9ff;
+    --muted: #9a729f;
+    --line: #341f3d;
+    --accent: #b985ff;
+    --dark: #120d13;
+    --dark2: #070509;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(185, 133, 255, 0.04) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(255, 88, 88, 0.035) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 920px; }
+  .sheet {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 12px 12px;
+  }
+  .art {
+    height: 132px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(72px 72px at 50% 46%, rgba(185,133,255,0.13), transparent 70%);
+    color: var(--accent);
+  }
+  svg.sprite {
+    width: 112px;
+    height: 112px;
+    overflow: visible;
+    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor);
+  }
+  .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .core { fill: currentColor; stroke: none; }
+  .cut { fill: var(--dark2); stroke: none; }
+  .name { margin-top: 9px; text-align: center; color: #f8ebff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #c8a4d0; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Zerg Primitive Sprite Sheet</h1>
+  <p>Direct SVG rig drafts only. Zerg rigs are abstract top-down and mostly symmetrical: mirrored mandibles, claws, spikes, wings, or tusks first; body, sac, and tail parts second.</p>
+</header>
+
+<main class="sheet" id="sheet"></main>
+
+<script>
+const units = [
+  {
+    name: 'Larva', meta: 'tiny morph rig', box: '22 24 20 24',
+    recipe: 'curled grub, head nub, segments',
+    svg: `
+      <path class="panel" data-part="curled-body" data-anim="wriggle" d="M41 28 Q28 22 23 33 Q21 44 35 47 Q27 39 33 34 Q37 31 41 28 Z"/>
+      <path class="line" data-part="segment-a" d="M28 31 Q34 33 38 29"/>
+      <path class="line" data-part="segment-b" d="M25 37 Q31 40 36 37"/>
+      <circle class="core" data-part="head-dot" cx="39" cy="28" r="2"/>
+    `,
+  },
+  {
+    name: 'Egg', meta: 'morph rig', box: '16 12 32 43',
+    recipe: 'cocoon sacs, seam, glow slit',
+    svg: `
+      <ellipse class="panel" data-part="cocoon-body" cx="32" cy="34" rx="15" ry="20"/>
+      <circle class="panel" data-part="upper-sac" cx="29" cy="23" r="6"/>
+      <circle class="panel" data-part="left-sac" cx="24" cy="36" r="6"/>
+      <circle class="panel" data-part="right-sac" cx="38" cy="38" r="6"/>
+      <path class="line" data-part="seam" d="M32 18 Q37 34 30 51"/>
+      <ellipse class="core" data-part="morph-slit" data-anim="morph-pulse" cx="34" cy="34" rx="3" ry="5"/>
+    `,
+  },
+  {
+    name: 'Drone', meta: 'worker rig', box: '12 14 40 37',
+    recipe: 'beetle shell, front mandibles',
+    svg: `
+      <path class="line" data-part="left-mandible" d="M27 23 Q20 14 14 20"/>
+      <path class="line" data-part="right-mandible" d="M37 23 Q44 14 50 20"/>
+      <ellipse class="panel" data-part="left-shell-wing" cx="22" cy="36" rx="9" ry="11"/>
+      <ellipse class="panel" data-part="right-shell-wing" cx="42" cy="36" rx="9" ry="11"/>
+      <path class="panel" data-part="body" d="M32 17 Q44 27 39 48 H25 Q20 27 32 17 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="25" r="3"/>
+    `,
+  },
+  {
+    name: 'Overlord', meta: 'supply air rig', box: '10 8 44 52',
+    recipe: 'bloated sac, horn mandibles, tentacles',
+    svg: `
+      <path class="line" data-part="left-horn-mandible" d="M24 19 Q13 11 16 29"/>
+      <path class="line" data-part="right-horn-mandible" d="M40 19 Q51 11 48 29"/>
+      <ellipse class="panel" data-part="bloated-sac" cx="32" cy="29" rx="19" ry="20"/>
+      <path class="line" data-part="tentacle-a" d="M25 47 Q22 55 26 60"/>
+      <path class="line" data-part="tentacle-b" d="M32 49 Q32 56 31 62"/>
+      <path class="line" data-part="tentacle-c" d="M39 47 Q42 55 38 60"/>
+      <circle class="core" data-part="eye-core" data-anim="core-pulse" cx="32" cy="31" r="4"/>
+    `,
+  },
+  {
+    name: 'Zergling', meta: 'melee rig', box: '14 13 36 39',
+    recipe: 'jaw wedge, torso, claw arcs',
+    svg: `
+      <path class="line" data-part="left-claw" data-anim="claw-swing" d="M27 34 Q17 31 14 20"/>
+      <path class="line" data-part="right-claw" data-anim="claw-swing" d="M37 34 Q47 31 50 20"/>
+      <polygon class="panel" data-part="jaw-head" data-anim="jaw-snap" points="25,20 32,13 39,20 37,30 32,26 27,30"/>
+      <path class="panel" data-part="torso" d="M26 30 Q32 25 38 30 L35 52 H29 Z"/>
+      <circle class="core" data-part="eye-core" cx="32" cy="24" r="2.6"/>
+    `,
+  },
+  {
+    name: 'Hydralisk', meta: 'ranged rig', box: '10 8 44 47',
+    recipe: 'mandible head, long body, spine shoulders',
+    svg: `
+      <path class="line" data-part="left-spine-arc" d="M26 28 Q12 20 13 9"/>
+      <path class="line" data-part="right-spine-arc" d="M38 28 Q52 20 51 9"/>
+      <polygon class="panel" data-part="mandible-head" points="22,15 32,8 42,15 39,28 32,24 25,28"/>
+      <path class="panel" data-part="tapered-torso" d="M24 29 Q32 24 40 29 L36 55 H28 Z"/>
+      <line class="line" data-part="rib-line" x1="32" y1="30" x2="32" y2="51"/>
+      <circle class="core" data-part="head-core" data-emits="spine-shot" data-emission-dir="0 -1" cx="32" cy="24" r="3"/>
+    `,
+  },
+  {
+    name: 'Lurker', meta: 'burrow siege rig', box: '5 18 54 34',
+    recipe: 'flat body, front mandibles, side spikes',
+    svg: `
+      <path class="line" data-part="left-spike-a" d="M23 35 L5 23"/>
+      <path class="line" data-part="left-spike-b" d="M23 41 L7 51"/>
+      <path class="line" data-part="right-spike-a" d="M41 35 L59 23"/>
+      <path class="line" data-part="right-spike-b" d="M41 41 L57 51"/>
+      <path class="line" data-part="front-mandibles" d="M25 27 Q32 18 39 27"/>
+      <ellipse class="panel" data-part="flat-body" cx="32" cy="39" rx="19" ry="11"/>
+      <line class="line" data-part="center-ridge" x1="32" y1="29" x2="32" y2="49"/>
+      <circle class="core" data-part="head-core" cx="32" cy="32" r="3"/>
+    `,
+  },
+  {
+    name: 'Mutalisk', meta: 'air rig', box: '7 14 50 42',
+    recipe: 'bat wings, head mandibles, tail',
+    svg: `
+      <path class="panel" data-part="left-wing" data-anim="wing-flap" d="M30 22 Q11 16 8 31 Q20 28 28 38 Z"/>
+      <path class="panel" data-part="right-wing" data-anim="wing-flap" d="M34 22 Q53 16 56 31 Q44 28 36 38 Z"/>
+      <path class="line" data-part="left-mandible" d="M29 23 Q24 16 19 20"/>
+      <path class="line" data-part="right-mandible" d="M35 23 Q40 16 45 20"/>
+      <path class="panel" data-part="body" d="M32 18 Q39 31 32 48 Q25 31 32 18 Z"/>
+      <path class="line" data-part="tail" d="M32 48 L29 57 M32 48 L35 57"/>
+      <circle class="core" data-part="head-core" data-emits="glaive" data-emission-dir="0 -1" cx="32" cy="27" r="3"/>
+    `,
+  },
+  {
+    name: 'Scourge', meta: 'suicide air rig', box: '17 18 30 32',
+    recipe: 'tiny wing dart, mandibles, split tail',
+    svg: `
+      <path class="panel" data-part="left-wing" d="M30 28 Q20 23 18 32 Q24 31 29 36"/>
+      <path class="panel" data-part="right-wing" d="M34 28 Q44 23 46 32 Q40 31 35 36"/>
+      <path class="line" data-part="mandibles" d="M28 25 Q32 19 36 25"/>
+      <path class="panel" data-part="body" d="M32 22 Q38 33 32 45 Q26 33 32 22 Z"/>
+      <path class="line" data-part="split-tail" d="M32 45 L28 51 M32 45 L36 51"/>
+      <circle class="core" data-part="core" cx="32" cy="31" r="2.4"/>
+    `,
+  },
+  {
+    name: 'Guardian', meta: 'heavy air rig', box: '4 12 56 44',
+    recipe: 'heavy abdomen, crab claw wings',
+    svg: `
+      <path class="panel" data-part="left-claw-wing" d="M28 30 Q11 12 5 31 Q15 45 27 38 Z"/>
+      <path class="panel" data-part="right-claw-wing" d="M36 30 Q53 12 59 31 Q49 45 37 38 Z"/>
+      <path class="line" data-part="mandibles" d="M26 23 Q32 14 38 23"/>
+      <ellipse class="panel" data-part="heavy-abdomen" cx="32" cy="38" rx="15" ry="17"/>
+      <circle class="core" data-part="head-core" data-emits="acid-spore" data-emission-dir="0 -1" cx="32" cy="27" r="3"/>
+    `,
+  },
+  {
+    name: 'Devourer', meta: 'heavy air rig', box: '7 9 50 48',
+    recipe: 'fat shell, huge maw, side fins',
+    svg: `
+      <polygon class="panel" data-part="left-fin" points="18,35 7,45 22,48"/>
+      <polygon class="panel" data-part="right-fin" points="46,35 57,45 42,48"/>
+      <ellipse class="panel" data-part="armored-shell" cx="32" cy="34" rx="21" ry="22"/>
+      <path class="cut" data-part="maw" data-anim="maw-open" d="M22 22 Q32 10 42 22 Q32 30 22 22 Z"/>
+      <path class="line" data-part="left-mandible" d="M27 22 Q17 15 14 25"/>
+      <path class="line" data-part="right-mandible" d="M37 22 Q47 15 50 25"/>
+      <circle class="core" data-part="acid-core" data-emits="acid" data-emission-dir="0 -1" cx="32" cy="23" r="3"/>
+    `,
+  },
+  {
+    name: 'Queen', meta: 'caster air rig', box: '8 8 48 50',
+    recipe: 'caster head, claw wings, long tail',
+    svg: `
+      <path class="line" data-part="left-claw-wing" d="M25 31 Q11 20 8 36"/>
+      <path class="line" data-part="right-claw-wing" d="M39 31 Q53 20 56 36"/>
+      <path class="line" data-part="mandibles" d="M26 21 Q32 8 38 21"/>
+      <ellipse class="panel" data-part="thorax" cx="32" cy="30" rx="13" ry="14"/>
+      <path class="panel" data-part="tail" d="M26 40 Q32 58 38 40"/>
+      <circle class="core" data-part="caster-core" cx="32" cy="27" r="4"/>
+    `,
+  },
+  {
+    name: 'Defiler', meta: 'ground caster rig', box: '9 14 46 42',
+    recipe: 'low body, mandible head, spine tail',
+    svg: `
+      <path class="line" data-part="spine-tail" data-anim="crawl-spine" d="M24 45 Q12 35 18 20"/>
+      <path class="line" data-part="root-tentacle" d="M40 45 Q52 36 46 26"/>
+      <path class="line" data-part="mandibles" d="M26 23 Q32 14 38 23"/>
+      <path class="panel" data-part="low-body" d="M18 37 Q32 22 46 37 Q42 54 22 54 Z"/>
+      <circle class="core" data-part="caster-core" cx="32" cy="33" r="4"/>
+    `,
+  },
+  {
+    name: 'Ultralisk', meta: 'massive melee rig', box: '4 8 56 49',
+    recipe: 'huge body, broad head, tusks',
+    svg: `
+      <path class="line" data-part="left-tusk" data-anim="tusk-swing" d="M26 25 Q7 26 5 52"/>
+      <path class="line" data-part="right-tusk" data-anim="tusk-swing" d="M38 25 Q57 26 59 52"/>
+      <ellipse class="panel" data-part="body-mass" cx="32" cy="39" rx="21" ry="16"/>
+      <path class="panel" data-part="mandible-head" d="M18 28 Q32 8 46 28 L40 39 H24 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="30" r="4"/>
+    `,
+  },
+  {
+    name: 'Infested Terran', meta: 'suicide rig', box: '18 15 28 38',
+    recipe: 'infected infantry, belly sac, mandible head',
+    svg: `
+      <path class="line" data-part="left-limb" d="M24 37 Q15 39 18 47"/>
+      <path class="line" data-part="right-limb" d="M40 37 Q49 39 46 47"/>
+      <path class="line" data-part="mandibles" d="M27 24 Q32 16 37 24"/>
+      <circle class="panel" data-part="belly-sac" data-anim="sac-pulse" cx="32" cy="39" r="11"/>
+      <circle class="panel" data-part="head" cx="32" cy="25" r="6"/>
+      <circle class="core" data-part="explosive-core" cx="32" cy="39" r="4"/>
+    `,
+  },
+  {
+    name: 'Broodling', meta: 'tiny melee rig', box: '20 18 24 31',
+    recipe: 'tiny body, mandibles, two claws',
+    svg: `
+      <path class="line" data-part="left-claw" d="M28 31 Q20 28 20 20"/>
+      <path class="line" data-part="right-claw" d="M36 31 Q44 28 44 20"/>
+      <path class="line" data-part="mandibles" d="M28 25 Q32 18 36 25"/>
+      <path class="panel" data-part="tiny-body" d="M26 28 Q32 22 38 28 L35 49 H29 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="27" r="2.4"/>
+    `,
+  },
+];
+
+const card = (u) => `
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}">
+        ${u.svg}
+      </svg>
+    </div>
+    <div class="name">${u.name}</div>
+    <div class="meta">${u.meta}</div>
+    <div class="recipe">${u.recipe}</div>
+  </article>`;
+
+document.getElementById('sheet').innerHTML = units.map(card).join('');
+</script>
+</body>
+</html>

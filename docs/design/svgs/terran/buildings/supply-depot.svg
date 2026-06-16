@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Supply Depot" data-anchor="32 32" data-visible-box="13 19 39 26" data-footprint="3 2" data-bwapi-pixel-bounds="77 49" data-slug="supply-depot" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        <polygon class="panel shell" data-part="shell" points="17,19 48,19 52,23 52,41 48,45 17,45 13,41 13,23"></polygon>
+        
+        <circle class="line" data-part="left-fan" data-anim="fan-spin" cx="24" cy="29" r="5"></circle>
+        <line class="line" data-part="left-fan-horizontal" data-anim="fan-spin" x1="20" y1="29" x2="28" y2="29"></line>
+        <line class="line" data-part="left-fan-vertical" data-anim="fan-spin" x1="24" y1="25" x2="24" y2="33"></line>
+        <circle class="line" data-part="right-fan" data-anim="fan-spin" cx="40" cy="29" r="5"></circle>
+        <line class="line" data-part="right-fan-horizontal" data-anim="fan-spin" x1="36" y1="29" x2="44" y2="29"></line>
+        <line class="line" data-part="right-fan-vertical" data-anim="fan-spin" x1="40" y1="25" x2="40" y2="33"></line>
+        <rect class="light" data-part="south-light-bay" data-anim="storage-light" x="20" y="41" width="24" height="3" rx="1.5"></rect>
+      </svg>

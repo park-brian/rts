@@ -79,6 +79,20 @@ test('a group moving to one goal arrives and spreads (no perfect stacking)', () 
   assert.equal(a.hash, b.hash, 'group movement + separation must be deterministic');
 });
 
+test('moving units face their current travel direction', () => {
+  const s = makeState(sliceMap(), 1, 12);
+  const id = spawnUnit(s, Kind.Marine, 0, tc(12), tc(12));
+  const slot = slotOf(id);
+  s.e.order[slot] = Order.Move;
+  s.e.tx[slot] = tc(18);
+  s.e.ty[slot] = tc(12);
+
+  stepWorld(s, []);
+
+  assert.ok(s.e.faceX[slot]! > 0, 'unit faces east while moving east');
+  assert.ok(Math.abs(s.e.faceY[slot]!) < fx(1), 'eastward move has no meaningful vertical facing');
+});
+
 test('base ramps make plateaus reachable (no walled-off starts)', () => {
   const m = generateMap(2, 5);
   // Every start tile is walkable and reachable from start 0.

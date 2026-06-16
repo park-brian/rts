@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Machine Shop" data-anchor="32 32" data-visible-box="19 19 26 26" data-footprint="2 2" data-bwapi-pixel-bounds="71 49" data-slug="machine-shop" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        <polygon class="panel shell" data-part="shell" points="23,19 41,19 45,23 45,41 41,45 23,45 19,41 19,23"></polygon>
+        
+        
+        <polygon class="line" data-part="upgrade-gear" data-anim="gear-spin" points="34.0,24.0 36.1,26.9 39.7,26.3 39.1,29.9 42.0,32.0 39.1,34.1 39.7,37.7 36.1,37.1 34.0,40.0 31.9,37.1 28.3,37.7 28.9,34.1 26.0,32.0 28.9,29.9 28.3,26.3 31.9,26.9"></polygon>
+        <circle class="line" data-part="upgrade-gear-hub" data-anim="gear-spin" cx="34" cy="32" r="3"></circle>
+        <line class="line" data-part="vent-1" x1="25" y1="27" x2="25" y2="27"></line>
+        <line class="line" data-part="vent-2" x1="25" y1="32" x2="25" y2="32"></line>
+        <line class="line" data-part="vent-3" x1="25" y1="37" x2="25" y2="37"></line>
+        <line class="line" data-part="parent-connector" x1="19" y1="32" x2="24" y2="32"></line>
+      </svg>

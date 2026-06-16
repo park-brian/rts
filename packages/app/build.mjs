@@ -1,11 +1,15 @@
 // Minimal in-house build: one esbuild call. `node build.mjs` bundles to dist/;
 // `node build.mjs serve` watches + serves. No framework, no config files.
 import * as esbuild from 'esbuild';
-import { cpSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 
 const serve = process.argv.includes('serve');
 mkdirSync('dist', { recursive: true });
-cpSync('index.html', 'dist/index.html');
+for (const file of readdirSync('.', { withFileTypes: true })) {
+  if (file.isFile() && file.name.endsWith('.html')) {
+    copyFileSync(file.name, `dist/${file.name}`);
+  }
+}
 
 /** @type {import('esbuild').BuildOptions} */
 const opts = {

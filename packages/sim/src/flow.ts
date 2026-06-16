@@ -14,18 +14,14 @@
 // unit, every tick) was a real throughput sink.
 
 import type { State } from './world.ts';
-import { Role, Units, TILE } from './data.ts';
-import { ONE } from './fixed.ts';
+import { Role } from './data.ts';
 import { fold, FNV_OFFSET } from './hash.ts';
+import { structureFootprint } from './footprint.ts';
 
 export const INF = 0x7fffffff;
 const LIMIT = 24; // cached fields per State (LRU by insertion order)
-const TILE_FX = TILE * ONE;
-
 type Nav = { sig: number; solid: Uint8Array; fields: Map<number, Int32Array> };
 const navByState = new WeakMap<State, Nav>();
-
-const tileOf = (xfx: number): number => Math.floor(xfx / TILE_FX);
 
 /** Solid = structures that aren't also resources (a refinery on a geyser stays walkable). */
 const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & Role.Resource) === 0;
@@ -36,7 +32,7 @@ const buildSig = (s: State): number => {
   let h = FNV_OFFSET;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || !blocks(e.flags[i]!)) continue;
-    h = fold(h, i); h = fold(h, e.x[i]!); h = fold(h, e.y[i]!);
+    h = fold(h, i); h = fold(h, e.gen[i]!); h = fold(h, e.kind[i]!); h = fold(h, e.x[i]!); h = fold(h, e.y[i]!);
   }
   return h >>> 0;
 };
@@ -47,10 +43,9 @@ const stampSolid = (s: State, solid: Uint8Array): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || !blocks(e.flags[i]!)) continue;
-    const cx = tileOf(e.x[i]!); const cy = tileOf(e.y[i]!);
-    const rt = Math.max(1, Math.floor(Units[e.kind[i]!]!.radius / ONE / TILE));
-    for (let ty = Math.max(0, cy - rt); ty <= Math.min(m.h - 1, cy + rt); ty++) {
-      for (let tx = Math.max(0, cx - rt); tx <= Math.min(m.w - 1, cx + rt); tx++) solid[ty * m.w + tx] = 1;
+    const fp = structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!);
+    for (let ty = Math.max(0, fp.y0); ty <= Math.min(m.h - 1, fp.y1); ty++) {
+      for (let tx = Math.max(0, fp.x0); tx <= Math.min(m.w - 1, fp.x1); tx++) solid[ty * m.w + tx] = 1;
     }
   }
 };

@@ -88,10 +88,21 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.fillStyle = NEUTRAL_COL;
       ctx.fillRect(wx - r, wy - r * frac, r * 2, r * 2 * frac);
     } else {
-      ctx.beginPath();
-      ctx.arc(wx, wy, r, 0, Math.PI * 2);
       ctx.fillStyle = color(e.owner[i]!);
+      const dx = e.faceX[i]!;
+      const dy = e.faceY[i]!;
+      const rot = dx !== 0 || dy !== 0 ? Math.atan2(dy, dx) : -Math.PI / 2;
+      ctx.save();
+      ctx.translate(wx, wy);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      ctx.moveTo(r, 0);
+      ctx.lineTo(-r * 0.75, -r * 0.65);
+      ctx.lineTo(-r * 0.4, 0);
+      ctx.lineTo(-r * 0.75, r * 0.65);
+      ctx.closePath();
       ctx.fill();
+      ctx.restore();
     }
 
     // selection ring

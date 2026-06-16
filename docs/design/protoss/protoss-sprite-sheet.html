@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Protoss Primitive Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #06050d;
+    --panel: #0c0a17;
+    --ink: #fff4d5;
+    --muted: #9b8b68;
+    --line: #3b2b16;
+    --accent: #ffd15a;
+    --dark: #111017;
+    --dark2: #07060c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(255, 209, 90, 0.045) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(81, 232, 255, 0.035) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 900px; }
+  .sheet {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 12px 12px;
+  }
+  .art {
+    height: 132px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(72px 72px at 50% 46%, rgba(81,232,255,0.13), transparent 70%);
+    color: var(--accent);
+  }
+  svg.sprite {
+    width: 112px;
+    height: 112px;
+    overflow: visible;
+    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor);
+  }
+  .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .core { fill: #51e8ff; stroke: none; }
+  .dark-core { fill: var(--dark2); stroke: currentColor; stroke-width: 2; }
+  .cut { fill: var(--dark2); stroke: none; }
+  .name { margin-top: 9px; text-align: center; color: #fff8e8; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #d0bd83; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Protoss Primitive Sprite Sheet</h1>
+  <p>Direct SVG rig drafts only. Protoss reads as Terran-like readable bodies with alien trapezoid armor, cyan cores, and a little psi hardware.</p>
+</header>
+
+<main class="sheet" id="sheet"></main>
+
+<script>
+const units = [
+  {
+    name: 'Probe', meta: 'tiny worker rig', box: '6 6 52 48',
+    recipe: 'aggressive boomerang shell, cyan core',
+    svg: `
+      <path class="panel" data-part="boomerang-shell" data-anim="hover-bob" d="M7 42 Q32 4 57 42 L45 54 Q32 26 19 54 Z"/>
+      <circle class="core" data-part="worker-core" data-anim="core-pulse" cx="32" cy="31" r="3"/>
+    `,
+  },
+  {
+    name: 'Zealot', meta: 'infantry rig', box: '11 15 43 34',
+    recipe: 'Marine circles, trapezoid head, twin blades',
+    svg: `
+      <path class="line" data-part="left-psi-blade" data-anim="blade-swing" d="M17 34 L11 15"/>
+      <path class="line" data-part="right-psi-blade" data-anim="blade-swing" d="M47 34 L53 15"/>
+      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="walk-shoulder blade-stance" points="13,43 22,31 29,45"/>
+      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="walk-shoulder blade-stance" points="51,43 42,31 35,45"/>
+      <polygon class="panel" data-part="trapezoid-helmet" points="32,19 43,30 39,41 25,41 21,30"/>
+      <circle class="core" data-part="helmet-eye" data-anim="core-pulse" cx="32" cy="28" r="2.5"/>
+    `,
+  },
+  {
+    name: 'Dragoon', meta: 'walker rig', box: '9 14 46 42',
+    recipe: 'orb body, four jointed legs',
+    svg: `
+      <line class="line" data-part="front-left-upper-leg" data-anim="walk-leg" x1="24" y1="30" x2="16" y2="22"/>
+      <line class="line" data-part="front-left-lower-leg" data-anim="walk-leg" x1="16" y1="22" x2="10" y2="15"/>
+      <circle class="core" data-part="front-left-knee" data-anim="walk-knee" cx="16" cy="22" r="2"/>
+      <line class="line" data-part="front-right-upper-leg" data-anim="walk-leg" x1="40" y1="30" x2="48" y2="22"/>
+      <line class="line" data-part="front-right-lower-leg" data-anim="walk-leg" x1="48" y1="22" x2="54" y2="15"/>
+      <circle class="core" data-part="front-right-knee" data-anim="walk-knee" cx="48" cy="22" r="2"/>
+      <line class="line" data-part="rear-left-upper-leg" data-anim="walk-leg" x1="23" y1="42" x2="16" y2="50"/>
+      <line class="line" data-part="rear-left-lower-leg" data-anim="walk-leg" x1="16" y1="50" x2="12" y2="57"/>
+      <circle class="core" data-part="rear-left-knee" data-anim="walk-knee" cx="16" cy="50" r="2"/>
+      <line class="line" data-part="rear-right-upper-leg" data-anim="walk-leg" x1="41" y1="42" x2="48" y2="50"/>
+      <line class="line" data-part="rear-right-lower-leg" data-anim="walk-leg" x1="48" y1="50" x2="52" y2="57"/>
+      <circle class="core" data-part="rear-right-knee" data-anim="walk-knee" cx="48" cy="50" r="2"/>
+      <circle class="panel" data-part="orb-shell" cx="32" cy="35" r="15"/>
+      <circle class="core" data-part="plasma-core" data-anim="core-pulse" data-emits="plasma" data-emission-dir="0 -1" cx="32" cy="35" r="5"/>
+    `,
+  },
+  {
+    name: 'High Templar', meta: 'caster rig', box: '14 18 36 36',
+    recipe: 'Medic circles, trapezoid hood, caster core',
+    svg: `
+      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="caster-drift" points="15,44 23,33 29,46"/>
+      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="caster-drift" points="49,44 41,33 35,46"/>
+      <polygon class="panel" data-part="trapezoid-hood" points="32,19 42,30 38,41 26,41 22,30"/>
+      <path class="line" data-part="inner-hood-arc" data-anim="caster-drift" d="M26 32 Q32 27 38 32"/>
+      <circle class="core" data-part="helmet-eye" data-anim="core-pulse" cx="32" cy="28" r="3.5"/>
+    `,
+  },
+  {
+    name: 'Dark Templar', meta: 'stealth melee rig', box: '14 10 39 43',
+    recipe: 'Ghost circles, trapezoid hood, one blade',
+    svg: `
+      <path class="line" data-part="warp-blade" data-anim="blade-swing" d="M46 16 Q56 31 47 49"/>
+      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="walk-shoulder cloak-pulse" points="16,43 23,34 29,45"/>
+      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="walk-shoulder cloak-pulse" points="48,43 41,34 35,45"/>
+      <polygon class="panel" data-part="trapezoid-hood" points="32,16 42,29 38,39 26,39 22,29"/>
+      <circle class="core" data-part="helmet-eye" data-anim="cloak-pulse" cx="32" cy="27" r="2.4"/>
+    `,
+  },
+  {
+    name: 'Archon', meta: 'energy rig', box: '8 8 48 48',
+    recipe: 'team aura ball, blue core',
+    svg: `
+      <circle class="line" data-part="outer-aura" data-anim="aura-pulse" cx="32" cy="32" r="22"/>
+      <circle class="line" data-part="inner-aura" data-anim="aura-pulse" cx="32" cy="32" r="14"/>
+      <circle class="core" data-part="blue-core" data-anim="core-pulse" cx="32" cy="32" r="8"/>
+    `,
+  },
+  {
+    name: 'Dark Archon', meta: 'caster energy rig', box: '8 8 48 48',
+    recipe: 'team aura ball, dark core',
+    svg: `
+      <circle class="line" data-part="outer-aura" data-anim="aura-pulse" cx="32" cy="32" r="22"/>
+      <circle class="line" data-part="inner-aura" data-anim="aura-pulse" cx="32" cy="32" r="14"/>
+      <circle class="dark-core" data-part="void-core" data-anim="core-pulse" cx="32" cy="32" r="8"/>
+    `,
+  },
+  {
+    name: 'Reaver', meta: 'siege rig', box: '16 8 32 48',
+    recipe: 'long shell, mouth launcher',
+    svg: `
+      <ellipse class="panel" data-part="long-shell" cx="32" cy="34" rx="15" ry="24"/>
+      <polygon class="panel" data-part="launcher-mouth" data-anim="mouth-open" data-emits="scarab" data-emission-dir="0 -1" points="24,12 40,12 43,25 21,25"/>
+      <line class="line" data-part="shell-spine" x1="32" y1="26" x2="32" y2="54"/>
+      <circle class="core" data-part="launcher-core" cx="32" cy="19" r="3"/>
+    `,
+  },
+  {
+    name: 'Scarab', meta: 'projectile rig', box: '22 22 20 20',
+    recipe: 'tiny orb projectile',
+    svg: `
+      <circle class="panel" data-part="backing" cx="32" cy="32" r="8"/>
+      <circle class="core" data-part="projectile-core" data-anim="core-pulse" cx="32" cy="32" r="5"/>
+    `,
+  },
+  {
+    name: 'Observer', meta: 'detector rig', box: '16 20 32 26',
+    recipe: 'oval eye, side fins',
+    svg: `
+      <polygon class="panel" data-part="left-fin" points="18,33 28,27 28,39"/>
+      <polygon class="panel" data-part="right-fin" points="46,33 36,27 36,39"/>
+      <ellipse class="panel" data-part="lens-body" cx="32" cy="33" rx="12" ry="9"/>
+      <circle class="core" data-part="detector-lens" data-anim="lens-scan" cx="32" cy="33" r="4"/>
+    `,
+  },
+  {
+    name: 'Shuttle', meta: 'transport rig', box: '10 9 44 44',
+    recipe: 'smooth delta shell, cargo bay',
+    svg: `
+      <path class="panel" data-part="delta-shell" d="M32 10 C46 20 52 31 50 43 C42 40 36 35 32 27 C28 35 22 40 14 43 C12 31 18 20 32 10 Z"/>
+      <path class="cut" data-part="open-cargo-bay" d="M24 31 Q32 24 40 31 L37 42 H27 Z"/>
+      <path class="line" data-part="bay-arc" d="M22 29 Q32 20 42 29"/>
+      <circle class="core" data-part="forward-core" cx="32" cy="18" r="3"/>
+    `,
+  },
+  {
+    name: 'Scout', meta: 'fighter rig', box: '8 7 48 50',
+    recipe: 'tall smooth fuselage, rear wings',
+    svg: `
+      <path class="panel" data-part="left-rear-wing" d="M29 38 C21 38 14 43 9 49 C19 50 26 48 31 43 Z"/>
+      <path class="panel" data-part="right-rear-wing" d="M35 38 C43 38 50 43 55 49 C45 50 38 48 33 43 Z"/>
+      <path class="panel" data-part="fuselage" d="M32 8 C42 21 41 43 32 56 C23 43 22 21 32 8 Z"/>
+      <circle class="core" data-part="cockpit-core" cx="32" cy="23" r="3.4"/>
+      <circle class="core" data-part="left-tip" data-emits="plasma" data-emission-dir="0 -1" cx="16" cy="47" r="2"/>
+      <circle class="core" data-part="right-tip" data-emits="plasma" data-emission-dir="0 -1" cx="48" cy="47" r="2"/>
+    `,
+  },
+  {
+    name: 'Carrier', meta: 'capital air rig', box: '10 0 44 58',
+    recipe: 'three aligned oval hulls, center on top',
+    svg: `
+      <path class="panel" data-part="left-lower-oval" data-anim="launch-bay" d="M31 57 C24 55 19 42 20 26 C21 12 25 3 29 1 C35 18 35 43 31 57 Z"/>
+      <path class="panel" data-part="right-lower-oval" data-anim="launch-bay" d="M33 57 C40 55 45 42 44 26 C43 12 39 3 35 1 C29 18 29 43 33 57 Z"/>
+      <ellipse class="panel" data-part="narrow-top-hull" cx="32" cy="29.5" rx="8" ry="26.5"/>
+      <circle class="core" data-part="bridge-core" cx="32" cy="15" r="4"/>
+    `,
+  },
+  {
+    name: 'Interceptor', meta: 'tiny fighter rig', box: '20 16 24 32',
+    recipe: 'diamond dart, tiny fins',
+    svg: `
+      <polygon class="panel" data-part="dart-body" points="32,17 42,32 32,47 22,32"/>
+      <line class="line" data-part="left-fin" x1="24" y1="35" x2="17" y2="42"/>
+      <line class="line" data-part="right-fin" x1="40" y1="35" x2="47" y2="42"/>
+      <circle class="core" data-part="tiny-core" cx="32" cy="31" r="2.5"/>
+    `,
+  },
+  {
+    name: 'Arbiter', meta: 'caster air rig', box: '9 7 46 45',
+    recipe: 'sleek shuttle, stasis core',
+    svg: `
+      <path class="panel" data-part="sleek-delta-shell" data-anim="hover-bob" d="M32 8 C46 22 54 39 55 50 C44 44 37 36 32 25 C27 36 20 44 9 50 C10 39 18 22 32 8 Z"/>
+      <path class="line" data-part="inner-stasis-arc" data-anim="stasis-pulse" d="M21 34 Q32 21 43 34"/>
+      <circle class="core" data-part="caster-core" data-anim="core-pulse" cx="32" cy="24" r="5"/>
+    `,
+  },
+  {
+    name: 'Corsair', meta: 'catamaran fighter rig', box: '8 12 48 37',
+    recipe: 'swept body, twin front engine spikes, side fins',
+    svg: `
+      <polygon class="panel" data-part="left-side-fin" points="21,38 9,43 22,47"/>
+      <polygon class="panel" data-part="right-side-fin" points="43,38 55,43 42,47"/>
+      <path class="panel" data-part="integrated-body" d="M18 39 Q22 29 27 27 L30 34 L32 24 L34 34 L37 27 Q42 29 46 39 L40 47 Q32 43 24 47 Z"/>
+      <polygon class="panel" data-part="left-front-engine-spike" data-anim="engine-pulse" points="24,31 27,13 32,34"/>
+      <polygon class="panel" data-part="right-front-engine-spike" data-anim="engine-pulse" points="40,31 37,13 32,34"/>
+      <circle class="core" data-part="left-engine-tip" data-anim="engine-pulse" cx="27" cy="15" r="2.3"/>
+      <circle class="core" data-part="right-engine-tip" data-anim="engine-pulse" cx="37" cy="15" r="2.3"/>
+      <circle class="core" data-part="engine-core" data-anim="core-pulse" cx="32" cy="38" r="3.2"/>
+    `,
+  },
+];
+
+const card = (u) => `
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}">
+        ${u.svg}
+      </svg>
+    </div>
+    <div class="name">${u.name}</div>
+    <div class="meta">${u.meta}</div>
+    <div class="recipe">${u.recipe}</div>
+  </article>`;
+
+document.getElementById('sheet').innerHTML = units.map(card).join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terran Building Shell Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: #080d16;
+    --ink: #dcecff;
+    --muted: #6e7f94;
+    --line: #19324a;
+    --accent: #56d8ff;
+    --dark: #0d1119;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(86, 216, 255, 0.04) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(86, 216, 255, 0.04) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 900px; }
+  .sheet {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 12px 12px;
+  }
+  .art {
+    height: 148px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(86px 78px at 50% 48%, rgba(86,216,255,0.12), transparent 72%);
+    color: var(--accent);
+  }
+  svg.sprite {
+    width: 124px;
+    height: 124px;
+    overflow: visible;
+    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor);
+  }
+  .panel {
+    fill: var(--dark);
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .core { fill: currentColor; stroke: none; }
+  .cut { fill: var(--bg); stroke: none; }
+  .light {
+    fill: #eef8ff;
+    stroke: none;
+    filter: drop-shadow(0 0 4px #eef8ff);
+  }
+  .name { margin-top: 9px; text-align: center; color: #eef8ff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #9bb6d4; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Terran Building Shell Sprite Sheet</h1>
+  <p>Footprint pass. Each SVG is one centered top-down shell sized from build-tile footprint, with BWAPI pixel bounds preserved only as metadata. No game wiring.</p>
+</header>
+
+<main class="sheet" id="sheet"></main>
+
+<script>
+const buildings = [
+  { name: 'Command Center', footprint: '4 3', bounds: [117, 83], shell: 'octagon', bevelMax: 14, liftable: true, footLayout: 'hq-corner-round', recipe: 'strong octagon hull, command dome, large corner pads' },
+  { name: 'Supply Depot', footprint: '3 2', bounds: [77, 49], recipe: 'two fans, south light bay' },
+  { name: 'Refinery', footprint: '4 2', bounds: [113, 64], recipe: 'three large smoke stacks' },
+  { name: 'Barracks', footprint: '4 3', bounds: [105, 73], liftable: true, footLayout: 'corner-round', recipe: 'inset production block, vertical lines, corner pads' },
+  { name: 'Engineering Bay', footprint: '4 3', bounds: [97, 61], bevel: 0.22, liftable: true, footLayout: 'engineering-bay', recipe: 'compact beveled lab, inset hull line, large corner pads' },
+  { name: 'Bunker', footprint: '3 2', bounds: [65, 41], bevel: 0.28, recipe: 'pillbox hatch, four firing slits' },
+  { name: 'Academy', footprint: '3 2', bounds: [85, 57], recipe: 'main dome, tower dome, courtyard arc' },
+  { name: 'Missile Turret', footprint: '2 2', bounds: [33, 49], recipe: 'square base, pivot, twin launchers' },
+  { name: 'Factory', footprint: '4 3', bounds: [113, 81], bevel: 0.18, liftable: true, footLayout: 'large-corner-round', recipe: 'inset octagon hull, large corner pads' },
+  { name: 'Machine Shop', footprint: '2 2', bounds: [71, 49], addon: true, recipe: 'addon pad, gear, vent stripes' },
+  { name: 'Starport', footprint: '4 3', bounds: [97, 79], shell: 'none', liftable: true, footLayout: 'starport-thrusters', recipe: 'landing circle, 3 thrusters, 120-degree supports' },
+  { name: 'Control Tower', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'lowered dish cup, antenna dot' },
+  { name: 'Armory', footprint: '3 2', bounds: [96, 55], recipe: 'union jack braces, central hub' },
+  { name: 'Science Facility', footprint: '4 3', bounds: [97, 77], liftable: true, footLayout: 'science-four-thrusters', recipe: 'inset lab shell, central sphere, 4 thrusters' },
+  { name: 'Physics Lab', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'pivot, long instrument capsule' },
+  { name: 'Covert Ops', footprint: '2 2', bounds: [76, 47], addon: true, recipe: 'stealth bars, forward visor' },
+  { name: 'Comsat Station', footprint: '2 2', bounds: [69, 42], addon: true, recipe: 'sonar rings, ping, sweep arm' },
+  { name: 'Nuclear Silo', footprint: '2 2', bounds: [69, 42], addon: true, recipe: 'hatch ring, core, clamps' },
+];
+
+const TILE_SIZE = 13;
+
+function fitBox(footprint) {
+  const [tileWidth, tileHeight] = footprint.split(' ').map(Number);
+  const width = tileWidth * TILE_SIZE;
+  const height = tileHeight * TILE_SIZE;
+  const x = Math.round((64 - width) / 2);
+  const y = Math.round((64 - height) / 2);
+  return { x, y, width, height };
+}
+
+function bodyBoxFor(building, footprintBox) {
+  if (!building.liftable) return footprintBox;
+  if (building.footLayout === 'hq-corner-round') {
+    return {
+      x: footprintBox.x + 4,
+      y: footprintBox.y + 2,
+      width: footprintBox.width - 8,
+      height: footprintBox.height - 4,
+    };
+  }
+  if (building.footLayout === 'engineering-bay') {
+    return {
+      x: footprintBox.x + 8,
+      y: footprintBox.y + 5,
+      width: footprintBox.width - 16,
+      height: footprintBox.height - 12,
+    };
+  }
+  const insetX = building.footLayout === 'engineering-bay' ? 8 : 5;
+  const insetTop = building.footLayout === 'engineering-bay' ? 4 : 3;
+  const insetBottom = building.footLayout === 'engineering-bay' ? 12 : 7;
+  return {
+    x: footprintBox.x + insetX,
+    y: footprintBox.y + insetTop,
+    width: footprintBox.width - insetX * 2,
+    height: footprintBox.height - insetTop - insetBottom,
+  };
+}
+
+function hexPoints({ x, y, width, height }) {
+  const bevel = Math.round(Math.min(width, height) * 0.32);
+  const x2 = x + width;
+  const y2 = y + height;
+  const cy = y + height / 2;
+  return [
+    [x + bevel, y],
+    [x2 - bevel, y],
+    [x2, cy],
+    [x2 - bevel, y2],
+    [x + bevel, y2],
+    [x, cy],
+  ].map((point) => point.join(',')).join(' ');
+}
+
+function beveledPoints({ x, y, width, height }, building = {}) {
+  const bevelFactor = building.shell === 'octagon' ? 0.28 : (building.bevel ?? 0.14);
+  const bevel = Math.max(3, Math.min(building.bevelMax ?? 10, Math.round(Math.min(width, height) * bevelFactor)));
+  const x2 = x + width;
+  const y2 = y + height;
+  return [
+    [x + bevel, y],
+    [x2 - bevel, y],
+    [x2, y + bevel],
+    [x2, y2 - bevel],
+    [x2 - bevel, y2],
+    [x + bevel, y2],
+    [x, y2 - bevel],
+    [x, y + bevel],
+  ].map((point) => point.join(',')).join(' ');
+}
+
+function shellPoints(box, building) {
+  if (building.shell === 'hexagon') return hexPoints(box);
+  return beveledPoints(box, building);
+}
+
+function shellMarkup(building, box) {
+  if (building.shell === 'none') return '';
+  return `<polygon class="panel shell" data-part="shell" points="${shellPoints(box, building)}"/>`;
+}
+
+function slug(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function square(x, y, size, part) {
+  return `<rect class="panel" data-part="${part}" x="${x}" y="${y}" width="${size}" height="${size}" rx="1.5"/>`;
+}
+
+function circlePanel(cx, cy, r, part) {
+  return `<circle class="panel" data-part="${part}" cx="${cx}" cy="${cy}" r="${r}"/>`;
+}
+
+function connectorBetween(part, from, to, width, trimStart, trimEnd) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  const length = Math.max(0, distance - trimStart - trimEnd);
+  const midDistance = trimStart + length / 2;
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const cx = from.x + ux * midDistance;
+  const cy = from.y + uy * midDistance;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  return `<rect class="panel" data-part="${part}" x="${cx - length / 2}" y="${cy - width / 2}" width="${length}" height="${width}" rx="2" transform="rotate(${angle.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})"/>`;
+}
+
+function gear(cx, cy, part) {
+  const points = Array.from({ length: 16 }, (_, index) => {
+    const radius = index % 2 === 0 ? 8 : 5.5;
+    const angle = -Math.PI / 2 + index * Math.PI / 8;
+    return `${(cx + Math.cos(angle) * radius).toFixed(1)},${(cy + Math.sin(angle) * radius).toFixed(1)}`;
+  }).join(' ');
+  return `
+        <polygon class="line" data-part="${part}" data-anim="gear-spin" points="${points}"/>
+        <circle class="line" data-part="${part}-hub" data-anim="gear-spin" cx="${cx}" cy="${cy}" r="3"/>`;
+}
+
+function rectLine(x, y, width, height, part, rx = 2) {
+  return `<rect class="line" data-part="${part}" x="${x}" y="${y}" width="${width}" height="${height}" rx="${rx}"/>`;
+}
+
+function feet(box, prefix) {
+  const size = 6;
+  const inset = 5;
+  const right = box.x + box.width - inset - size;
+  const bottom = box.y + box.height - inset - size;
+  return [
+    square(box.x + inset, box.y + inset, size, `${prefix}-upper-left-foot`),
+    square(right, box.y + inset, size, `${prefix}-upper-right-foot`),
+    square(box.x + inset, bottom, size, `${prefix}-lower-left-foot`),
+    square(right, bottom, size, `${prefix}-lower-right-foot`),
+  ].join('');
+}
+
+function bottomLiftFeet(box, prefix) {
+  const size = 12;
+  const y = box.y + box.height - size;
+  return [
+    square(box.x + 3, y, size, `${prefix}-left-bottom-foot`),
+    square(32 - size / 2, y + 1, size, `${prefix}-center-bottom-foot`),
+    square(box.x + box.width - 3 - size, y, size, `${prefix}-right-bottom-foot`),
+  ].join('');
+}
+
+function engineeringBayFeet(box, prefix) {
+  const r = 7;
+  return [
+    circlePanel(box.x + 8, box.y + 7, r, `${prefix}-upper-left-large-pad`),
+    circlePanel(box.x + box.width - 8, box.y + 7, r, `${prefix}-upper-right-large-pad`),
+    circlePanel(box.x + 8, box.y + box.height - 7, r, `${prefix}-lower-left-large-pad`),
+    circlePanel(box.x + box.width - 8, box.y + box.height - 7, r, `${prefix}-lower-right-large-pad`),
+  ].join('');
+}
+
+function cornerLiftFeet(box, prefix) {
+  const size = 11;
+  const xInset = 2;
+  const yInset = 2;
+  const right = box.x + box.width - xInset - size;
+  const bottom = box.y + box.height - yInset - size;
+  return [
+    square(box.x + xInset, box.y + yInset, size, `${prefix}-upper-left-foot`),
+    square(right, box.y + yInset, size, `${prefix}-upper-right-foot`),
+    square(box.x + xInset, bottom, size, `${prefix}-lower-left-foot`),
+    square(right, bottom, size, `${prefix}-lower-right-foot`),
+  ].join('');
+}
+
+function cornerRoundFeet(box, prefix) {
+  const r = 5;
+  return [
+    circlePanel(box.x + 6, box.y + 6, r, `${prefix}-upper-left-pad`),
+    circlePanel(box.x + box.width - 6, box.y + 6, r, `${prefix}-upper-right-pad`),
+    circlePanel(box.x + 6, box.y + box.height - 6, r, `${prefix}-lower-left-pad`),
+    circlePanel(box.x + box.width - 6, box.y + box.height - 6, r, `${prefix}-lower-right-pad`),
+  ].join('');
+}
+
+function largeCornerRoundFeet(box, prefix) {
+  const r = 7;
+  return [
+    circlePanel(box.x + 7, box.y + 7, r, `${prefix}-upper-left-heavy-pad`),
+    circlePanel(box.x + box.width - 7, box.y + 7, r, `${prefix}-upper-right-heavy-pad`),
+    circlePanel(box.x + 7, box.y + box.height - 7, r, `${prefix}-lower-left-heavy-pad`),
+    circlePanel(box.x + box.width - 7, box.y + box.height - 7, r, `${prefix}-lower-right-heavy-pad`),
+  ].join('');
+}
+
+function hqCornerRoundFeet(box, prefix) {
+  const r = 7;
+  return [
+    circlePanel(box.x + 6, box.y + 6, r, `${prefix}-upper-left-hq-pad`),
+    circlePanel(box.x + box.width - 6, box.y + 6, r, `${prefix}-upper-right-hq-pad`),
+    circlePanel(box.x + 6, box.y + box.height - 6, r, `${prefix}-lower-left-hq-pad`),
+    circlePanel(box.x + box.width - 6, box.y + box.height - 6, r, `${prefix}-lower-right-hq-pad`),
+  ].join('');
+}
+
+function industrialBlockFeet(box, prefix) {
+  const width = 9;
+  const height = 12;
+  const y = box.y + box.height - height;
+  return [
+    `<rect class="panel" data-part="${prefix}-left-front-foot" x="${box.x + 6}" y="${y}" width="${width}" height="${height}" rx="1.5"/>`,
+    `<rect class="panel" data-part="${prefix}-left-rear-foot" x="${box.x + 18}" y="${y}" width="${width}" height="${height}" rx="1.5"/>`,
+    `<rect class="panel" data-part="${prefix}-right-rear-foot" x="${box.x + box.width - 18 - width}" y="${y}" width="${width}" height="${height}" rx="1.5"/>`,
+    `<rect class="panel" data-part="${prefix}-right-front-foot" x="${box.x + box.width - 6 - width}" y="${y}" width="${width}" height="${height}" rx="1.5"/>`,
+  ].join('');
+}
+
+function scienceFourThrusters(box, prefix) {
+  return [
+    circlePanel(box.x + 7, box.y + 7, 6, `${prefix}-upper-left-thruster`),
+    circlePanel(box.x + box.width - 7, box.y + 7, 6, `${prefix}-upper-right-thruster`),
+    circlePanel(box.x + 7, box.y + box.height - 7, 6, `${prefix}-lower-left-thruster`),
+    circlePanel(box.x + box.width - 7, box.y + box.height - 7, 6, `${prefix}-lower-right-thruster`),
+  ].join('');
+}
+
+function starportFeet(box, prefix) {
+  return [
+    circlePanel(box.x + 11, box.y + box.height - 5, 5, `${prefix}-landing-left-support`),
+    circlePanel(box.x + 25, box.y + box.height - 5, 5, `${prefix}-landing-center-support`),
+    circlePanel(box.x + box.width - 8, box.y + box.height - 8, 5, `${prefix}-facility-rear-support`),
+  ].join('');
+}
+
+function starportBottomPads(box, prefix) {
+  return [
+    circlePanel(box.x + 6, box.y + box.height - 6, 7, `${prefix}-left-footprint-pad`),
+    circlePanel(32, box.y + box.height - 5, 7, `${prefix}-center-footprint-pad`),
+    circlePanel(box.x + box.width - 6, box.y + box.height - 6, 7, `${prefix}-right-footprint-pad`),
+  ].join('');
+}
+
+function starportThrusters(box, prefix) {
+  return [
+    circlePanel(box.x + 6, 32 - 14, 8, `${prefix}-left-upper-thruster`),
+    circlePanel(box.x + 6, 32 + 14, 8, `${prefix}-left-lower-thruster`),
+    circlePanel(box.x + box.width - 3, 32, 9, `${prefix}-right-building-thruster`),
+  ].join('');
+}
+
+function underlayMarkup(building, footprintBox) {
+  if (!building.liftable) return '';
+  if (building.footLayout === 'none') return '';
+  if (building.footLayout === 'corner-round') return cornerRoundFeet(footprintBox, 'lift');
+  if (building.footLayout === 'large-corner-round') return largeCornerRoundFeet(footprintBox, 'lift');
+  if (building.footLayout === 'hq-corner-round') return hqCornerRoundFeet(footprintBox, 'lift');
+  if (building.footLayout === 'bottom-triad') return bottomLiftFeet(footprintBox, 'lift');
+  if (building.footLayout === 'engineering-bay') return engineeringBayFeet(footprintBox, 'lift');
+  if (building.footLayout === 'industrial-blocks') return industrialBlockFeet(footprintBox, 'lift');
+  if (building.footLayout === 'science-four-thrusters') return scienceFourThrusters(footprintBox, 'lift');
+  if (building.footLayout === 'starport') return starportFeet(footprintBox, 'lift');
+  if (building.footLayout === 'starport-bottom-pads') return starportBottomPads(footprintBox, 'lift');
+  if (building.footLayout === 'starport-thrusters') return starportThrusters(footprintBox, 'lift');
+  return cornerLiftFeet(footprintBox, 'lift');
+}
+
+function detailMarkup(building, box) {
+  const cx = 32;
+  const cy = 32;
+  const x2 = box.x + box.width;
+  const y2 = box.y + box.height;
+  if (building.name === 'Command Center') {
+    return `
+        <circle class="line" data-part="command-ring" data-anim="core-pulse" cx="${cx}" cy="${cy}" r="10"/>`;
+  }
+  if (building.name === 'Supply Depot') {
+    return `
+        <circle class="line" data-part="left-fan" data-anim="fan-spin" cx="${cx - 8}" cy="${cy - 3}" r="5"/>
+        <line class="line" data-part="left-fan-horizontal" data-anim="fan-spin" x1="${cx - 12}" y1="${cy - 3}" x2="${cx - 4}" y2="${cy - 3}"/>
+        <line class="line" data-part="left-fan-vertical" data-anim="fan-spin" x1="${cx - 8}" y1="${cy - 7}" x2="${cx - 8}" y2="${cy + 1}"/>
+        <circle class="line" data-part="right-fan" data-anim="fan-spin" cx="${cx + 8}" cy="${cy - 3}" r="5"/>
+        <line class="line" data-part="right-fan-horizontal" data-anim="fan-spin" x1="${cx + 4}" y1="${cy - 3}" x2="${cx + 12}" y2="${cy - 3}"/>
+        <line class="line" data-part="right-fan-vertical" data-anim="fan-spin" x1="${cx + 8}" y1="${cy - 7}" x2="${cx + 8}" y2="${cy + 1}"/>
+        <rect class="light" data-part="south-light-bay" data-anim="storage-light" x="${cx - 12}" y="${y2 - 4}" width="24" height="3" rx="1.5"/>`;
+  }
+  if (building.name === 'Refinery') {
+    return `
+        <circle class="line" data-part="left-smoke-stack" data-anim="smoke-source" cx="${cx - 12}" cy="${cy}" r="8"/>
+        <circle class="line" data-part="center-smoke-stack" data-anim="smoke-source" cx="${cx}" cy="${cy - 2}" r="9"/>
+        <circle class="line" data-part="right-smoke-stack" data-anim="smoke-source" cx="${cx + 12}" cy="${cy}" r="8"/>`;
+  }
+  if (building.name === 'Barracks') {
+    return `
+        <line class="line" data-part="vertical-line-left" x1="${cx - 7}" y1="${box.y + 8}" x2="${cx - 7}" y2="${y2 - 8}"/>
+        <line class="line" data-part="vertical-line-right" x1="${cx + 7}" y1="${box.y + 8}" x2="${cx + 7}" y2="${y2 - 8}"/>`;
+  }
+  if (building.name === 'Engineering Bay') {
+    const insetBox = {
+      x: box.x + 6,
+      y: box.y + 5,
+      width: box.width - 12,
+      height: box.height - 10,
+    };
+    return `
+        <polygon class="line" data-part="inset-hull-line" data-anim="upgrade-pulse" points="${beveledPoints(insetBox, building)}"/>`;
+  }
+  if (building.name === 'Bunker') {
+    return `
+        <circle class="line" data-part="hatch" cx="${cx}" cy="${cy}" r="5"/>
+        <rect class="line" data-part="north-window-slit" x="${cx - 5}" y="${box.y + 3}" width="10" height="4" rx="0.5"/>
+        <rect class="line" data-part="south-window-slit" x="${cx - 5}" y="${y2 - 7}" width="10" height="4" rx="0.5"/>
+        <rect class="line" data-part="west-window-slit" x="${box.x + 3}" y="${cy - 5}" width="4" height="10" rx="0.5"/>
+        <rect class="line" data-part="east-window-slit" x="${x2 - 7}" y="${cy - 5}" width="4" height="10" rx="0.5"/>`;
+  }
+  if (building.name === 'Academy') {
+    return `
+        <circle class="line" data-part="main-dome" data-anim="research-pulse" cx="${box.x + 14}" cy="${cy}" r="7"/>
+        <circle class="line" data-part="tower-dome" data-anim="tower-blink" cx="${x2 - 9}" cy="${box.y + 8}" r="4"/>
+        <path class="line" data-part="courtyard-crescent" d="M ${x2 - 13} ${box.y + 15} Q ${x2 - 9} ${box.y + 18} ${x2 - 5} ${box.y + 15}"/>`;
+  }
+  if (building.name === 'Missile Turret') {
+    return `
+        <circle class="line" data-part="pivot" data-anim="turret-rotate" cx="${cx}" cy="${cy}" r="5"/>
+        <rect class="panel" data-part="left-launcher" data-anim="missile-source" data-emits="0 -1" x="${cx - 8}" y="${box.y + 4}" width="5" height="13" rx="1.5"/>
+        <rect class="panel" data-part="right-launcher" data-anim="missile-source" data-emits="0 -1" x="${cx + 3}" y="${box.y + 4}" width="5" height="13" rx="1.5"/>`;
+  }
+  if (building.name === 'Factory') {
+    const bevel = Math.max(3, Math.min(building.bevelMax ?? 10, Math.round(Math.min(box.width, box.height) * (building.bevel ?? 0.14))));
+    const fanCx = cx - 6;
+    const fanCy = cy;
+    const roofSquareSize = 9;
+    const squareX = cx + 3;
+    return `
+        <line class="line" data-part="upper-body-split" x1="${box.x}" y1="${box.y + bevel}" x2="${x2}" y2="${box.y + bevel}"/>
+        <line class="line" data-part="lower-body-split" x1="${box.x}" y1="${y2 - bevel}" x2="${x2}" y2="${y2 - bevel}"/>
+        <circle class="line" data-part="roof-fan" data-anim="fan-spin" cx="${fanCx}" cy="${fanCy}" r="4.5"/>
+        <line class="line" data-part="roof-fan-horizontal" data-anim="fan-spin" x1="${fanCx - 3.5}" y1="${fanCy}" x2="${fanCx + 3.5}" y2="${fanCy}"/>
+        <line class="line" data-part="roof-fan-vertical" data-anim="fan-spin" x1="${fanCx}" y1="${fanCy - 3.5}" x2="${fanCx}" y2="${fanCy + 3.5}"/>
+        <rect class="line" data-part="roof-square" x="${squareX}" y="${fanCy - roofSquareSize / 2}" width="${roofSquareSize}" height="${roofSquareSize}" rx="1.5"/>`;
+  }
+  if (building.name === 'Machine Shop') {
+    return `
+        ${gear(cx + 2, cy, 'upgrade-gear')}
+        <line class="line" data-part="vent-1" x1="${box.x + 6}" y1="${cy - 5}" x2="${cx - 7}" y2="${cy - 5}"/>
+        <line class="line" data-part="vent-2" x1="${box.x + 6}" y1="${cy}" x2="${cx - 7}" y2="${cy}"/>
+        <line class="line" data-part="vent-3" x1="${box.x + 6}" y1="${cy + 5}" x2="${cx - 7}" y2="${cy + 5}"/>
+        <line class="line" data-part="parent-connector" x1="${box.x}" y1="${cy}" x2="${box.x + 5}" y2="${cy}"/>`;
+  }
+  if (building.name === 'Starport') {
+    const padCx = cx - 3;
+    const pad = { x: padCx, y: cy };
+    const upperThruster = { x: box.x + 6, y: cy - 14 };
+    const lowerThruster = { x: box.x + 6, y: cy + 14 };
+    const rightThruster = { x: box.x + box.width - 3, y: cy };
+    const supportWidth = 9;
+    const supportLength = 22;
+    const upperAngle = Math.atan2(pad.y - upperThruster.y, pad.x - upperThruster.x) * 180 / Math.PI;
+    const lowerAngle = Math.atan2(pad.y - lowerThruster.y, pad.x - lowerThruster.x) * 180 / Math.PI;
+    const upperSupportCx = (upperThruster.x + pad.x) / 2;
+    const upperSupportCy = (upperThruster.y + pad.y) / 2;
+    const lowerSupportCx = (lowerThruster.x + pad.x) / 2;
+    const lowerSupportCy = (lowerThruster.y + pad.y) / 2;
+    const rightSupportCx = (rightThruster.x + pad.x) / 2;
+    const rightSupportCy = cy;
+    return `
+        <rect class="panel" data-part="upper-left-support" x="${upperSupportCx - supportLength / 2}" y="${upperSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="2" transform="rotate(${upperAngle.toFixed(2)} ${upperSupportCx.toFixed(2)} ${upperSupportCy.toFixed(2)})"/>
+        <rect class="panel" data-part="lower-left-support" x="${lowerSupportCx - supportLength / 2}" y="${lowerSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="2" transform="rotate(${lowerAngle.toFixed(2)} ${lowerSupportCx.toFixed(2)} ${lowerSupportCy.toFixed(2)})"/>
+        <rect class="panel" data-part="attached-facility" x="${rightSupportCx - supportLength / 2}" y="${rightSupportCy - supportWidth / 2}" width="${supportLength}" height="${supportWidth}" rx="3"/>
+        <line class="line" data-part="facility-centerline" x1="${rightSupportCx - 6}" y1="${cy}" x2="${rightSupportCx + 6}" y2="${cy}"/>
+        <circle class="panel" data-part="landing-pad" data-anim="landing-light" cx="${padCx}" cy="${cy}" r="16"/>
+        <circle class="line" data-part="inner-landing-ring" data-anim="landing-light" cx="${padCx}" cy="${cy}" r="10"/>`;
+  }
+  if (building.name === 'Control Tower') {
+    return `
+        <path class="line" data-part="dish-cup" data-anim="dish-sweep" d="M ${box.x + 7} ${cy} Q ${cx} ${cy + 10} ${x2 - 7} ${cy}"/>
+        <circle class="core" data-part="antenna-dot" data-anim="antenna-blink" cx="${cx}" cy="${cy - 5}" r="2.5"/>`;
+  }
+  if (building.name === 'Armory') {
+    return `
+        <line class="line" data-part="brace-horizontal" x1="${box.x + 6}" y1="${cy}" x2="${x2 - 6}" y2="${cy}"/>
+        <line class="line" data-part="brace-vertical" x1="${cx}" y1="${box.y + 5}" x2="${cx}" y2="${y2 - 5}"/>
+        <line class="line" data-part="brace-diagonal-a" x1="${box.x + 8}" y1="${box.y + 6}" x2="${x2 - 8}" y2="${y2 - 6}"/>
+        <line class="line" data-part="brace-diagonal-b" x1="${x2 - 8}" y1="${box.y + 6}" x2="${box.x + 8}" y2="${y2 - 6}"/>
+        <circle class="panel" data-part="central-hub" data-anim="upgrade-pulse" cx="${cx}" cy="${cy}" r="5"/>`;
+  }
+  if (building.name === 'Science Facility') {
+    return `
+        <circle class="panel" data-part="central-sphere" data-anim="sphere-pulse" cx="${cx}" cy="${cy - 4}" r="14"/>
+        <circle class="line" data-part="sphere-equator" cx="${cx}" cy="${cy - 4}" r="8"/>`;
+  }
+  if (building.name === 'Physics Lab') {
+    return `
+        <circle class="line" data-part="pivot" data-anim="research-pivot" cx="${cx}" cy="${cy + 4}" r="5"/>
+        <rect class="panel" data-part="instrument-capsule" data-anim="instrument-charge" x="${cx - 4}" y="${box.y + 5}" width="8" height="20" rx="4"/>
+        <circle class="core" data-part="instrument-nose" data-anim="instrument-charge" cx="${cx}" cy="${box.y + 6}" r="2.5"/>`;
+  }
+  if (building.name === 'Covert Ops') {
+    return `
+        ${rectLine(cx - 8, box.y + 6, 4, box.height - 12, 'left-roof-bar', 1.5)}
+        ${rectLine(cx + 4, box.y + 6, 4, box.height - 12, 'right-roof-bar', 1.5)}
+        <rect class="light" data-part="forward-visor" data-anim="visor-flicker" x="${cx - 9}" y="${box.y + 5}" width="18" height="3" rx="1.5"/>`;
+  }
+  if (building.name === 'Comsat Station') {
+    return `
+        <circle class="line" data-part="sonar-ring-outer" data-anim="scanner-sweep" cx="${cx}" cy="${cy}" r="10"/>
+        <circle class="line" data-part="sonar-ring-inner" data-anim="scanner-sweep" cx="${cx}" cy="${cy}" r="5"/>
+        <circle class="core" data-part="sonar-ping" data-anim="scanner-blink" cx="${cx}" cy="${cy}" r="2"/>
+        <line class="line" data-part="sonar-sweep-arm" data-anim="scanner-sweep" x1="${cx}" y1="${cy}" x2="${cx + 8}" y2="${cy - 5}"/>`;
+  }
+  if (building.name === 'Nuclear Silo') {
+    return `
+        <circle class="line" data-part="hatch-ring" data-anim="armed-pulse" cx="${cx}" cy="${cy}" r="10"/>
+        <circle class="core" data-part="missile-core" data-anim="armed-pulse" cx="${cx}" cy="${cy}" r="3"/>
+        <rect class="panel" data-part="left-clamp" data-anim="launch-clamp" x="${box.x + 4}" y="${cy - 4}" width="6" height="8" rx="1.5"/>
+        <rect class="panel" data-part="right-clamp" data-anim="launch-clamp" x="${x2 - 10}" y="${cy - 4}" width="6" height="8" rx="1.5"/>
+        <line class="line" data-part="hatch-seam" x1="${cx}" y1="${cy - 9}" x2="${cx}" y2="${cy + 9}"/>`;
+  }
+  return '';
+}
+
+function visibleBoxFor(building, box) {
+  return box;
+}
+
+function renderCard(building) {
+  const footprintBox = fitBox(building.footprint);
+  const box = bodyBoxFor(building, footprintBox);
+  const visible = visibleBoxFor(building, footprintBox);
+  const visibleBox = `${visible.x} ${visible.y} ${visible.width} ${visible.height}`;
+  const [pixelWidth, pixelHeight] = building.bounds;
+  const [footprintW, footprintH] = building.footprint.split(' ');
+  const article = document.createElement('article');
+  article.className = 'card';
+  article.innerHTML = `
+    <div class="art">
+      <svg class="sprite"
+        viewBox="0 0 64 64"
+        aria-label="${building.name}"
+        data-anchor="32 32"
+        data-visible-box="${visibleBox}"
+        data-footprint="${building.footprint}"
+        data-bwapi-pixel-bounds="${pixelWidth} ${pixelHeight}"
+        data-slug="${slug(building.name)}">
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        ${underlayMarkup(building, footprintBox)}
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        ${shellMarkup(building, box)}
+        ${detailMarkup(building, box)}
+      </svg>
+    </div>
+    <div class="name">${building.name}</div>
+    <div class="meta">footprint ${footprintW}x${footprintH}${building.addon ? ' add-on' : ''}</div>
+    <div class="recipe">${building.recipe ?? `BWAPI bounds ${pixelWidth}x${pixelHeight}`}</div>
+  `;
+  return article;
+}
+
+const sheet = document.getElementById('sheet');
+for (const building of buildings) sheet.append(renderCard(building));
+</script>
+</body>
+</html>

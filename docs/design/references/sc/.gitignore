@@ -1,0 +1,9 @@
+# Liquipedia/StarCraft reference media is local research material only.
+# Do not commit downloaded third-party images into the public game bundle.
+*.avif
+*.gif
+*.jpeg
+*.jpg
+*.png
+*.webp
+

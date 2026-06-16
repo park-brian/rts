@@ -12,6 +12,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   let pinchDist = 0;
   let panMid = { x: 0, y: 0 };
   let onMinimap = false; // dragging on the minimap to pan
+  let multiTouch = false; // once true, suppress tap/box until all pointers are up
   let lastTapT = 0;
   let lastTap = { x: 0, y: 0 };
 
@@ -26,9 +27,11 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     const p = local(e);
     pts.set(e.pointerId, p);
     if (pts.size === 1) {
+      multiTouch = false;
       start = p; moved = false; game.box = null;
       onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
     } else if (pts.size === 2) {
+      multiTouch = true;
       game.box = null; // cancel any box once a second finger lands
       const [a, b] = [...pts.values()];
       pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
@@ -42,6 +45,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     pts.set(e.pointerId, p);
 
     if (pts.size === 1) {
+      if (multiTouch) return; // remaining finger after a pinch/pan cannot become a tap/box
       if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
       if (Math.hypot(p.x - start.x, p.y - start.y) > TAP_SLOP) moved = true;
       if (moved) game.box = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
@@ -65,7 +69,9 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     const p = local(e);
     pts.delete(e.pointerId);
     if (wasOne) {
-      if (onMinimap) { onMinimap = false; }
+      if (multiTouch) {
+        multiTouch = false; onMinimap = false; game.box = null;
+      } else if (onMinimap) { onMinimap = false; }
       else if (!moved) {
         const now = performance.now();
         const dbl = now - lastTapT < 300 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 24;
@@ -75,6 +81,10 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
       } else if (game.box) {
         game.boxSelect(game.box.x0, game.box.y0, game.box.x1, game.box.y1);
       }
+      game.box = null;
+    } else if (pts.size === 0) {
+      multiTouch = false;
+      onMinimap = false;
       game.box = null;
     }
   };

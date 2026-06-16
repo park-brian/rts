@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Bunker" data-anchor="32 32" data-visible-box="13 19 39 26" data-footprint="3 2" data-bwapi-pixel-bounds="65 41" data-slug="bunker" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        <polygon class="panel shell" data-part="shell" points="20,19 45,19 52,26 52,38 45,45 20,45 13,38 13,26"></polygon>
+        
+        <circle class="line" data-part="hatch" cx="32" cy="32" r="5"></circle>
+        <rect class="line" data-part="north-window-slit" x="27" y="22" width="10" height="4" rx="0.5"></rect>
+        <rect class="line" data-part="south-window-slit" x="27" y="38" width="10" height="4" rx="0.5"></rect>
+        <rect class="line" data-part="west-window-slit" x="16" y="27" width="4" height="10" rx="0.5"></rect>
+        <rect class="line" data-part="east-window-slit" x="45" y="27" width="4" height="10" rx="0.5"></rect>
+      </svg>

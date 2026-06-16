@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
+import { parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
 import { generateMap } from '../src/procedural.ts';
 import { eid, ENTITY_COLUMNS, makeState, type State } from '../src/world.ts';
 import { sliceMap } from '../src/map.ts';
@@ -106,6 +106,21 @@ test('replay round-trips through JSON (the on-disk / on-wire form)', () => {
   const sim = new Sim({ map: generateMap(1, SEED), players: 2, seed: SEED, record: true });
   for (let t = 0; t < 200; t++) sim.step(batchFor(sim.fullState(), 2, t));
   const replay = toReplay(sim, SPEC);
-  const round = JSON.parse(JSON.stringify(replay));
+  const round = parseReplay(JSON.stringify(replay));
   assert.deepEqual(replayHashes(round), replayHashes(replay), 'JSON-serialized replay is faithful');
+});
+
+test('recording stores idle ticks as compact empty frames', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 4321, record: true });
+  sim.step([{ player: 0, cmds: [] }, { player: 1, cmds: [] }]);
+  sim.step([]);
+
+  assert.deepEqual(sim.frames, [[], []]);
+});
+
+test('replay parser rejects wrong versions and malformed commands', () => {
+  const good = toReplay(new Sim({ map: generateMap(1, SEED), players: 2, seed: SEED, record: true }), SPEC);
+  assert.throws(() => parseReplay(JSON.stringify({ ...good, version: 999 })), /unsupported version/);
+  assert.throws(() => parseReplay(JSON.stringify({ ...good, frames: [[{ player: 0, cmds: [{ t: 'warp', unit: 1 }] }]] })), /unknown command type/);
+  assert.throws(() => parseReplay('{nope'), /invalid JSON/);
 });

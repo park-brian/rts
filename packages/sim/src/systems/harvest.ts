@@ -18,7 +18,7 @@ import type { State } from '../world.ts';
 import { CAP, slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, MINE_RANGE, DEPOSIT_RANGE, MAX_PER_PATCH } from '../data.ts';
 import { isqrt } from '../fixed.ts';
-import { within } from './move.ts';
+import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
 
 // Per-tick scratch (transient; never hashed/cloned). mineLock[node] = the worker
@@ -112,6 +112,7 @@ export const harvest = (s: State): void => {
       // Returning: deliver to the nearest owned resource depot.
       const depot = nearestDepot(e.x[i]!, e.y[i]!, owner);
       if (depot === NONE) { e.order[i] = Order.Idle; continue; }
+      faceToward(e, i, e.x[depot]!, e.y[depot]!);
       if (within(e, i, e.x[depot]!, e.y[depot]!, DEPOSIT_RANGE)) {
         const pool = e.cargoType[i]! === ResourceType.Gas ? s.players.gas : s.players.minerals;
         pool[owner] = pool[owner]! + e.cargo[i]!;
@@ -134,6 +135,7 @@ export const harvest = (s: State): void => {
       e.target[i] = eid(e, np);
     }
     const node = slotOf(e.target[i]!);
+    faceToward(e, i, e.x[node]!, e.y[node]!);
     if (within(e, i, e.x[node]!, e.y[node]!, MINE_RANGE)) {
       if (e.timer[i]! > 0) {
         // We hold the patch (reserved): extract.

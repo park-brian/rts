@@ -25,6 +25,7 @@ export type Observation = {
 };
 
 export const observe = (s: State, player: number): Observation => {
+  if (!s.trackVision) throw new Error('observe: vision tracking is disabled for this State');
   const e = s.e; const m = s.map; const W = m.w;
   const v = s.vision[player]!;
   const entities: EntityView[] = [];
@@ -49,7 +50,7 @@ export const observe = (s: State, player: number): Observation => {
     gas: s.players.gas[player]!,
     supplyUsed: s.players.supplyUsed[player]!,
     supplyMax: s.players.supplyMax[player]!,
-    vision: v,
+    vision: v.slice(),
     entities,
   };
 };

@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Browser game: top-down WebGL2 instanced sprite renderer + mobile touch UI over @rts/sim.",
   "scripts": {
+    "start": "node build.mjs serve",
     "dev": "node build.mjs serve",
     "build": "node build.mjs"
   },

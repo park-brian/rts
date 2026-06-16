@@ -85,6 +85,8 @@ export type UnitDef = {
   sight: number; // tiles
   speed: number; // fixed-point px/tick (0 = immobile)
   radius: number; // fixed-point interaction radius
+  footprintW: number; // build-tile footprint width for placement/solidity
+  footprintH: number; // build-tile footprint height for placement/solidity
   minerals: number;
   gas: number;
   supply: number;
@@ -97,6 +99,7 @@ export type UnitDef = {
 
 const def = (d: Partial<UnitDef> & { name: string; roles: number }): UnitDef => ({
   size: Size.Small, hp: 0, armor: 0, sight: 0, speed: 0, radius: fx(8),
+  footprintW: 1, footprintH: 1,
   minerals: 0, gas: 0, supply: 0, buildTime: 0, provides: 0,
   resourceType: ResourceType.Minerals, weapon: null, produces: [],
   ...d,
@@ -118,29 +121,33 @@ export const Units: Record<number, UnitDef> = {
   [Kind.CommandCenter]: def({
     name: 'Command Center', roles: Role.Structure | Role.ResourceDepot | Role.Producer,
     size: Size.Large, hp: 1500, armor: 1, sight: 10, radius: fx(48),
-    minerals: 400, buildTime: sec(75.6), provides: 10, produces: [Kind.SCV],
+    footprintW: 4, footprintH: 3, minerals: 400, buildTime: sec(75.6), provides: 10, produces: [Kind.SCV],
   }),
   [Kind.SupplyDepot]: def({
     name: 'Supply Depot', roles: Role.Structure, size: Size.Large,
-    hp: 500, armor: 1, sight: 8, radius: fx(32), minerals: 100, buildTime: sec(25.2), provides: 8,
+    hp: 500, armor: 1, sight: 8, radius: fx(32), footprintW: 3, footprintH: 2,
+    minerals: 100, buildTime: sec(25.2), provides: 8,
   }),
   [Kind.Barracks]: def({
     name: 'Barracks', roles: Role.Structure | Role.Producer, size: Size.Large,
-    hp: 1000, armor: 1, sight: 10, radius: fx(40), minerals: 150, buildTime: sec(50.4),
+    hp: 1000, armor: 1, sight: 10, radius: fx(40), footprintW: 4, footprintH: 3,
+    minerals: 150, buildTime: sec(50.4),
     produces: [Kind.Marine],
   }),
   [Kind.Mineral]: def({
     name: 'Mineral Field', roles: Role.Resource, size: Size.Large,
-    radius: fx(16), resourceType: ResourceType.Minerals,
+    radius: fx(16), footprintW: 1, footprintH: 1, resourceType: ResourceType.Minerals,
   }),
   [Kind.Geyser]: def({
     // Inert marker (no roles): you build a Refinery on it to gather gas.
-    name: 'Vespene Geyser', roles: 0, size: Size.Large, radius: fx(32), resourceType: ResourceType.Gas,
+    name: 'Vespene Geyser', roles: 0, size: Size.Large, radius: fx(32),
+    footprintW: 3, footprintH: 2, resourceType: ResourceType.Gas,
   }),
   [Kind.Refinery]: def({
     // Structure + Resource: once built it holds gas and is harvested like a patch.
     name: 'Refinery', roles: Role.Structure | Role.Resource, size: Size.Large,
-    hp: 750, armor: 1, sight: 8, radius: fx(40), minerals: 75, buildTime: sec(30),
+    hp: 750, armor: 1, sight: 8, radius: fx(40), footprintW: 3, footprintH: 2,
+    minerals: 75, buildTime: sec(30),
     resourceType: ResourceType.Gas,
   }),
 };

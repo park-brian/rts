@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zerg Building Primitive Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #07050a; --panel: #0e0912; --ink: #f0d9ff; --muted: #9a729f;
+    --line: #341f3d; --accent: #b985ff; --dark: #120d13; --dark2: #070509;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(185, 133, 255, 0.04) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(255, 88, 88, 0.035) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 920px; }
+  .sheet { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 12px 12px; }
+  .art { height: 148px; display: grid; place-items: center; background: radial-gradient(86px 78px at 50% 48%, rgba(185,133,255,0.13), transparent 72%); color: var(--accent); }
+  svg.sprite { width: 124px; height: 124px; overflow: visible; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor); }
+  .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .core { fill: currentColor; stroke: none; }
+  .cut { fill: var(--dark2); stroke: none; }
+  .name { margin-top: 9px; text-align: center; color: #f8ebff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #c8a4d0; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Zerg Building Primitive Sprite Sheet</h1>
+  <p>Canonical 64x64 building rigs with authored visible boxes and footprints. Zerg structures are symmetrical spiky organs: paired roots, horns, mandibles, sacs, mouths.</p>
+</header>
+
+<main class="sheet" id="sheet"></main>
+
+<script>
+const buildings = [
+  ['Hatchery','4 3','7 12 50 44','brood mound, mandible roots, larva sacs',`
+    <path class="line" data-part="left-root-mandible" d="M21 40 Q9 43 8 55"/>
+    <path class="line" data-part="right-root-mandible" d="M43 40 Q55 43 56 55"/>
+    <ellipse class="panel" data-part="brood-mound" cx="32" cy="34" rx="22" ry="18"/>
+    <circle class="panel" data-part="left-larva-sac" cx="22" cy="31" r="5"/>
+    <circle class="panel" data-part="right-larva-sac" cx="42" cy="31" r="5"/>
+    <circle class="core" data-part="brood-core" cx="32" cy="39" r="5"/>
+  `],
+  ['Lair','4 3','6 9 52 47','hatchery plus jaw crown and side horns',`
+    <path class="line" data-part="left-horn" d="M23 25 Q11 12 13 35"/>
+    <path class="line" data-part="right-horn" d="M41 25 Q53 12 51 35"/>
+    <ellipse class="panel" data-part="lair-mound" cx="32" cy="35" rx="23" ry="18"/>
+    <path class="panel" data-part="jaw-crown" d="M20 27 Q32 9 44 27 L39 39 H25 Z"/>
+    <circle class="core" data-part="brood-core" cx="32" cy="37" r="5"/>
+  `],
+  ['Hive','4 3','4 7 56 50','huge crown mandibles, brood sacs',`
+    <path class="line" data-part="left-crown-mandible" d="M23 25 Q6 9 8 42"/>
+    <path class="line" data-part="right-crown-mandible" d="M41 25 Q58 9 56 42"/>
+    <ellipse class="panel" data-part="hive-mass" cx="32" cy="37" rx="24" ry="18"/>
+    <path class="panel" data-part="crown-head" d="M17 29 Q32 7 47 29 L42 42 H22 Z"/>
+    <circle class="panel" data-part="left-sac" cx="22" cy="43" r="5"/>
+    <circle class="panel" data-part="right-sac" cx="42" cy="43" r="5"/>
+    <circle class="core" data-part="hive-core" cx="32" cy="34" r="5"/>
+  `],
+  ['Creep Colony','2 2','13 13 38 42','rooted mound, stalk core',`
+    <path class="line" data-part="left-root" d="M25 41 Q14 45 13 56"/>
+    <path class="line" data-part="right-root" d="M39 41 Q50 45 51 56"/>
+    <ellipse class="panel" data-part="root-mound" cx="32" cy="40" rx="16" ry="12"/>
+    <path class="panel" data-part="central-stalk" d="M25 38 Q32 13 39 38"/>
+    <circle class="core" data-part="stalk-core" cx="32" cy="31" r="4"/>
+  `],
+  ['Sunken Colony','2 2','9 7 46 50','creep base, tall attack spine',`
+    <path class="line" data-part="left-root" d="M23 44 Q12 48 10 57"/>
+    <path class="line" data-part="right-root" d="M41 44 Q52 48 54 57"/>
+    <ellipse class="panel" data-part="root-base" cx="32" cy="45" rx="17" ry="10"/>
+    <path class="panel" data-part="attack-spine" data-anim="spine-thrust" data-emits="spike" data-emission-dir="0 -1" d="M27 42 L32 7 L37 42 Z"/>
+    <circle class="core" data-part="base-core" cx="32" cy="43" r="4"/>
+  `],
+  ['Spore Colony','2 2','10 9 44 47','bulb cap, spore pods, roots',`
+    <path class="line" data-part="left-root" d="M24 43 Q13 48 12 56"/>
+    <path class="line" data-part="right-root" d="M40 43 Q51 48 52 56"/>
+    <ellipse class="panel" data-part="base-mound" cx="32" cy="43" rx="17" ry="10"/>
+    <circle class="panel" data-part="bulb-cap" cx="32" cy="27" r="15"/>
+    <circle class="core" data-part="left-spore-pod" cx="24" cy="26" r="3"/>
+    <circle class="core" data-part="right-spore-pod" cx="40" cy="26" r="3"/>
+    <circle class="core" data-part="top-spore-pod" cx="32" cy="17" r="3"/>
+  `],
+  ['Spawning Pool','3 2','8 17 48 34','oval mouth pool, rim mandibles',`
+    <path class="line" data-part="left-rim-mandible" d="M22 29 Q12 21 10 35"/>
+    <path class="line" data-part="right-rim-mandible" d="M42 29 Q52 21 54 35"/>
+    <ellipse class="panel" data-part="pool-rim" cx="32" cy="37" rx="22" ry="13"/>
+    <ellipse class="cut" data-part="pool-mouth" data-anim="pool-ripple" cx="32" cy="37" rx="13" ry="7"/>
+    <circle class="core" data-part="pool-core" cx="32" cy="37" r="3"/>
+  `],
+  ['Evolution Chamber','3 2','10 12 44 41','mutation sac, lobes, mouth slit',`
+    <ellipse class="panel" data-part="mutation-sac" cx="32" cy="34" rx="17" ry="18"/>
+    <circle class="panel" data-part="left-lobe" cx="21" cy="35" r="6"/>
+    <circle class="panel" data-part="right-lobe" cx="43" cy="35" r="6"/>
+    <circle class="panel" data-part="top-lobe" cx="32" cy="20" r="6"/>
+    <path class="line" data-part="mouth-slit" d="M25 29 Q32 24 39 29"/>
+    <circle class="core" data-part="mutation-core" cx="32" cy="37" r="4"/>
+  `],
+  ['Hydralisk Den','3 2','6 11 52 43','jaw mound, side spine arcs',`
+    <path class="line" data-part="left-spine-arc" d="M24 31 Q9 18 8 41"/>
+    <path class="line" data-part="right-spine-arc" d="M40 31 Q55 18 56 41"/>
+    <ellipse class="panel" data-part="den-mound" cx="32" cy="39" rx="20" ry="13"/>
+    <path class="cut" data-part="den-mouth" d="M21 31 Q32 13 43 31 Q32 38 21 31 Z"/>
+    <circle class="core" data-part="den-core" cx="32" cy="32" r="4"/>
+  `],
+  ['Extractor','4 2','7 9 50 46','horn clamps, gas sac, tendrils',`
+    <path class="line" data-part="left-horn-clamp" d="M19 28 Q9 12 13 38"/>
+    <path class="line" data-part="right-horn-clamp" d="M45 28 Q55 12 51 38"/>
+    <circle class="panel" data-part="vent-ring" cx="32" cy="34" r="17"/>
+    <ellipse class="core" data-part="gas-sac" data-anim="gas-pulse" cx="32" cy="34" rx="8" ry="10"/>
+    <path class="line" data-part="left-tendril" d="M23 45 Q15 52 11 55"/>
+    <path class="line" data-part="right-tendril" d="M41 45 Q49 52 53 55"/>
+  `],
+  ['Spire','2 2','13 6 38 52','spiky spire core, root mandibles',`
+    <path class="line" data-part="left-root-mandible" d="M24 45 Q13 49 14 58"/>
+    <path class="line" data-part="right-root-mandible" d="M40 45 Q51 49 50 58"/>
+    <path class="panel" data-part="spire-core" d="M23 50 Q32 6 41 50 Z"/>
+    <path class="line" data-part="left-shell-arc" d="M26 30 Q14 20 18 10"/>
+    <path class="line" data-part="right-shell-arc" d="M38 30 Q50 20 46 10"/>
+    <circle class="core" data-part="air-core" cx="32" cy="37" r="4"/>
+  `],
+  ['Greater Spire','2 2','8 4 48 54','larger spire, crown wings',`
+    <path class="line" data-part="left-crown-wing" d="M27 28 Q8 12 10 44"/>
+    <path class="line" data-part="right-crown-wing" d="M37 28 Q56 12 54 44"/>
+    <path class="panel" data-part="greater-core-shell" d="M20 51 Q32 5 44 51 Z"/>
+    <circle class="panel" data-part="left-sac" cx="24" cy="44" r="5"/>
+    <circle class="panel" data-part="right-sac" cx="40" cy="44" r="5"/>
+    <circle class="core" data-part="greater-core" cx="32" cy="35" r="5"/>
+  `],
+  ["Queen's Nest",'3 2','8 12 48 42','nest bowl, mandible fan, egg sacs',`
+    <path class="line" data-part="left-mandible-fan" d="M23 27 Q10 18 9 37"/>
+    <path class="line" data-part="right-mandible-fan" d="M41 27 Q54 18 55 37"/>
+    <ellipse class="panel" data-part="nest-bowl" cx="32" cy="37" rx="21" ry="14"/>
+    <circle class="panel" data-part="left-egg-sac" cx="24" cy="37" r="5"/>
+    <circle class="panel" data-part="right-egg-sac" cx="40" cy="37" r="5"/>
+    <circle class="core" data-part="nest-core" cx="32" cy="34" r="4"/>
+  `],
+  ['Nydus Canal','2 2','8 11 48 43','open mouth, mandible braces, throat',`
+    <path class="line" data-part="left-mandible-brace" d="M21 35 Q8 24 11 48"/>
+    <path class="line" data-part="right-mandible-brace" d="M43 35 Q56 24 53 48"/>
+    <ellipse class="panel" data-part="mouth-ring" data-anim="mouth-pulse" cx="32" cy="34" rx="19" ry="16"/>
+    <ellipse class="cut" data-part="throat" cx="32" cy="34" rx="11" ry="9"/>
+    <circle class="core" data-part="throat-core" cx="32" cy="34" r="3"/>
+  `],
+  ['Ultralisk Cavern','3 2','4 10 56 44','horned cavern mouth, huge tusks',`
+    <path class="line" data-part="left-tusk" d="M24 30 Q4 31 5 54"/>
+    <path class="line" data-part="right-tusk" d="M40 30 Q60 31 59 54"/>
+    <ellipse class="panel" data-part="cavern-mound" cx="32" cy="40" rx="22" ry="13"/>
+    <path class="cut" data-part="cavern-mouth" d="M18 31 Q32 11 46 31 Q32 42 18 31 Z"/>
+    <circle class="core" data-part="cavern-core" cx="32" cy="33" r="4"/>
+  `],
+  ['Defiler Mound','4 2','8 14 48 39','low caster mound, spine tail, mandibles',`
+    <path class="line" data-part="left-spine-tail" d="M25 39 Q10 34 12 18"/>
+    <path class="line" data-part="right-spine-tail" d="M39 39 Q54 34 52 18"/>
+    <ellipse class="panel" data-part="caster-mound" cx="32" cy="39" rx="20" ry="12"/>
+    <path class="line" data-part="front-mandibles" d="M24 30 Q32 18 40 30"/>
+    <circle class="core" data-part="caster-core" cx="32" cy="36" r="4"/>
+  `],
+];
+
+const card = ([name, footprint, box, recipe, svg]) => `
+  <article class="card">
+    <div class="art"><svg class="sprite" viewBox="0 0 64 64" aria-label="${name}" data-anchor="32 32" data-visible-box="${box}" data-footprint="${footprint}">${svg}</svg></div>
+    <div class="name">${name}</div>
+    <div class="meta">footprint ${footprint}</div>
+    <div class="recipe">${recipe}</div>
+  </article>`;
+document.getElementById('sheet').innerHTML = buildings.map(card).join('');
+</script>
+</body>
+</html>

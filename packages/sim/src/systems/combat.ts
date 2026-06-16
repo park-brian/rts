@@ -7,7 +7,7 @@
 import type { State } from '../world.ts';
 import { slotOf, eid, kill, isAlive, isEnemy, NONE } from '../world.ts';
 import { Order, Units, computeDamage, tiles } from '../data.ts';
-import { within } from './move.ts';
+import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
 import { type Grid, nearestEnemy } from '../grid.ts';
 
@@ -46,6 +46,7 @@ export const combat = (s: State, grid: Grid): void => {
       continue;
     }
 
+    faceToward(e, i, e.x[tgt]!, e.y[tgt]!);
     if (within(e, i, e.x[tgt]!, e.y[tgt]!, def.weapon.range)) {
       if (e.wcd[i]! <= 0) {
         const td = Units[e.kind[tgt]!]!;

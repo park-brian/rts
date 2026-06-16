@@ -182,8 +182,9 @@ resolution.
 |---|---|---|
 | ![play](docs/screenshots/play-open.png) | ![battle](docs/screenshots/spectate-battle.png) | ![replay](docs/screenshots/replay-viewer.png) |
 
-Run it: `npm install && npm run build:app`, then serve `packages/app/dist/` (or `npm --workspace
-@rts/app run dev`). Headless throughput (single-threaded V8, one game, fog off): **~95k ticks/s**
+Run it: `npm install && npm start` to build/watch the app and serve `packages/app/dist/` via
+esbuild's local server. For a static bundle, run `npm run build:app`. Headless throughput
+(single-threaded V8, one game, fog off): **~95k ticks/s**
 for a 2-player economy and **~8k ticks/s** for a full AI-vs-AI 1v1 (the spatial grid keeps combat
 acquisition O(n·k), and building-aware pathing + collision add a per-tick cost that scales with
 unit count). Fog of war is opt-in, so training that doesn't need it keeps the fast path. A

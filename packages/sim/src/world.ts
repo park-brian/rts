@@ -29,11 +29,15 @@ export type Entities = {
   target: Int32Array; // EntityId or NONE (harvest node / attack target / depot)
   tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
+  faceX: Int32Array; // last intentional facing vector (fixed-point delta)
+  faceY: Int32Array;
   timer: Int32Array; // generic countdown (mining)
   wcd: Int32Array; // weapon cooldown (ticks)
   ctimer: Int32Array; // construction remaining (ticks)
   built: Uint8Array; // 1 once a structure is complete (0 while constructing)
   buildKind: Uint16Array; // for a worker en route to build: the structure kind
+  buildCostMinerals: Int32Array; // refundable cost ledger for pending/foundation builds
+  buildCostGas: Int32Array;
   cargo: Int32Array; // carried resources (workers) / remaining amount (nodes)
   cargoType: Uint8Array; // ResourceType currently carried by a worker
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
@@ -52,8 +56,9 @@ export type ColType = 'u8' | 'u16' | 'u32' | 'i32';
 export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> = [
   ['free', 'i32'], ['gen', 'u32'], ['alive', 'u8'], ['kind', 'u16'], ['owner', 'u8'],
   ['x', 'i32'], ['y', 'i32'], ['hp', 'i32'], ['flags', 'u16'], ['order', 'u8'],
-  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
-  ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['cargo', 'i32'],
+  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
+  ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['buildCostMinerals', 'i32'],
+  ['buildCostGas', 'i32'], ['cargo', 'i32'],
   ['cargoType', 'u8'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
   ['rallyX', 'i32'], ['rallyY', 'i32'], ['rallyTarget', 'i32'],
 ];
@@ -119,11 +124,15 @@ const makeEntities = (): Entities => {
     target: new Int32Array(CAP),
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
+    faceX: new Int32Array(CAP),
+    faceY: new Int32Array(CAP),
     timer: new Int32Array(CAP),
     wcd: new Int32Array(CAP),
     ctimer: new Int32Array(CAP),
     built: new Uint8Array(CAP),
     buildKind: new Uint16Array(CAP),
+    buildCostMinerals: new Int32Array(CAP),
+    buildCostGas: new Int32Array(CAP),
     cargo: new Int32Array(CAP),
     cargoType: new Uint8Array(CAP),
     prodKind: new Uint16Array(CAP),
@@ -184,18 +193,22 @@ export const spawn = (
   e.target[slot] = NONE;
   e.tx[slot] = 0;
   e.ty[slot] = 0;
+  e.faceX[slot] = 0;
+  e.faceY[slot] = -1;
   e.timer[slot] = 0;
   e.wcd[slot] = 0;
   e.ctimer[slot] = 0;
   e.built[slot] = 1; // complete by default; construction sets 0
   e.buildKind[slot] = 0;
+  e.buildCostMinerals[slot] = 0;
+  e.buildCostGas[slot] = 0;
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
-  e.rallyX[slot] = 0;
-  e.rallyY[slot] = 0;
+  e.rallyX[slot] = NONE;
+  e.rallyY[slot] = NONE;
   e.rallyTarget[slot] = NONE;
   return eid(e, slot);
 };
@@ -204,6 +217,16 @@ export const spawn = (
 export const kill = (s: State, slot: number): void => {
   const e = s.e;
   if (e.alive[slot] !== 1) return;
+  if (e.buildKind[slot] !== 0) {
+    const owner = e.owner[slot]!;
+    if (owner < s.players.minerals.length) {
+      s.players.minerals[owner] = s.players.minerals[owner]! + e.buildCostMinerals[slot]!;
+      s.players.gas[owner] = s.players.gas[owner]! + e.buildCostGas[slot]!;
+    }
+  }
+  e.buildCostMinerals[slot] = 0;
+  e.buildCostGas[slot] = 0;
+  e.buildKind[slot] = 0;
   e.alive[slot] = 0;
   e.gen[slot] = (e.gen[slot]! + 1) >>> 0;
   e.free[e.freeTop++] = slot;
@@ -277,12 +300,18 @@ export const hashState = (s: State): number => {
   h = fold(h, s.rng.s);
   h = fold(h, s.result.over ? 1 : 0);
   h = fold(h, s.result.winner);
+  h = fold(h, s.startTeams);
+  h = foldArray(h, s.teams, s.teams.length);
   const p = s.players;
   h = foldArray(h, p.minerals, p.minerals.length);
   h = foldArray(h, p.gas, p.gas.length);
   h = foldArray(h, p.supplyUsed, p.supplyUsed.length);
   h = foldArray(h, p.supplyMax, p.supplyMax.length);
   const e = s.e;
+  h = fold(h, e.hi);
+  h = fold(h, e.freeTop);
+  h = foldArray(h, e.gen, e.gen.length);
+  h = foldArray(h, e.free, e.freeTop);
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
     h = fold(h, i);
@@ -296,11 +325,15 @@ export const hashState = (s: State): number => {
     h = fold(h, e.target[i]!);
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
+    h = fold(h, e.faceX[i]!);
+    h = fold(h, e.faceY[i]!);
     h = fold(h, e.timer[i]!);
     h = fold(h, e.wcd[i]!);
     h = fold(h, e.ctimer[i]!);
     h = fold(h, e.built[i]!);
     h = fold(h, e.buildKind[i]!);
+    h = fold(h, e.buildCostMinerals[i]!);
+    h = fold(h, e.buildCostGas[i]!);
     h = fold(h, e.cargo[i]!);
     h = fold(h, e.cargoType[i]!);
     h = fold(h, e.prodKind[i]!);

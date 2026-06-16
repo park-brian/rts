@@ -3,6 +3,15 @@
 import type { Entities } from '../world.ts';
 import { isqrt } from '../fixed.ts';
 
+/** Face slot toward (tx,ty) if the target is not exactly its current position. */
+export const faceToward = (e: Entities, slot: number, tx: number, ty: number): void => {
+  const dx = tx - e.x[slot]!;
+  const dy = ty - e.y[slot]!;
+  if (dx === 0 && dy === 0) return;
+  e.faceX[slot] = dx;
+  e.faceY[slot] = dy;
+};
+
 /** Move slot toward (tx,ty) by `speed` fixed px. Returns true on arrival. */
 export const moveToward = (
   e: Entities,
@@ -14,6 +23,10 @@ export const moveToward = (
   const dx = tx - e.x[slot]!;
   const dy = ty - e.y[slot]!;
   const dist = isqrt(dx * dx + dy * dy);
+  if (dist > 0) {
+    e.faceX[slot] = dx;
+    e.faceY[slot] = dy;
+  }
   if (dist === 0 || dist <= speed) {
     e.x[slot] = tx;
     e.y[slot] = ty;

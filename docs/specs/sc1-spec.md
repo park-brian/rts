@@ -148,6 +148,8 @@ Spellcaster abilities/energy: see [spells reference](../research/sc1-spells-upgr
 
 ### Buildings
 
+Placement footprints and original pixel bounds are tracked in [BWAPI Unit Dimensions](./bwapi-unit-dimensions.md), sourced from BWAPI `UnitType` assertions. The Terran building subset is summarized in [StarCraft Building Footprints](./sc1-building-footprints.md).
+
 | Building | Min | Gas | Build | HP | Armor | Produces / Researches | Requires |
 |---|---|---|---|---|---|---|---|
 | **Command Center** | 400 | 0 | 75.6 | 1500 | 1 | SCVs; +10 supply; resource drop-off; can lift/land | — |

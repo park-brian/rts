@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Physics Lab" data-anchor="32 32" data-visible-box="19 19 26 26" data-footprint="2 2" data-bwapi-pixel-bounds="76 47" data-slug="physics-lab" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        <polygon class="panel shell" data-part="shell" points="23,19 41,19 45,23 45,41 41,45 23,45 19,41 19,23"></polygon>
+        
+        <circle class="line" data-part="pivot" data-anim="research-pivot" cx="32" cy="36" r="5"></circle>
+        <rect class="panel" data-part="instrument-capsule" data-anim="instrument-charge" x="28" y="24" width="8" height="20" rx="4"></rect>
+        <circle class="core" data-part="instrument-nose" data-anim="instrument-charge" cx="32" cy="25" r="2.5"></circle>
+      </svg>

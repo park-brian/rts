@@ -90,30 +90,36 @@ The core principle resolves the one real conflict on touch: **single-finger = se
 | **One-finger drag on the world** | **Box-select** units in the rectangle (the "highlight" gesture) |
 | **Two-finger drag** | Pan camera |
 | Pinch / spread | Zoom out / in |
-| Tap a unit | Select that unit |
-| Tap with a selection active | **Smart action** at the tap target (see below) |
-| Double-tap a unit | Select all of that type on screen |
+| Tap your own unit / building | Select it |
+| Tap with a selection active | **Smart action** at the tap target, unless the target is your own selectable entity (see below) |
+| Double-tap your own unit / building | Select all of that type on screen |
 | Long-press | Queue the command (shift-equivalent) / radial extras |
 | Tap a hotbar verb | Enter **target mode** for that verb |
 | Tap / drag the minimap | Jump / scrub the camera |
 | Two-finger tap | Ping / alert (teammates) |
 
-**Smart-tap default action** (with units selected, tap a target — the unit auto-approaches if
-out of range, then acts):
+**Smart-tap default action** (with a selection active, tap a target — units auto-approach if
+out of range, then act):
 
 | Tap target | Default action |
 |---|---|
+| Own unit / building | **Select** it |
 | Empty ground | **Move** |
 | Enemy unit / building | **Attack** |
 | Mineral patch / geyser (workers selected) | **Harvest** |
-| Damaged friendly biological unit (Medic selected) | **Heal** |
-| Damaged friendly building / mechanical (SCV selected) | **Repair** |
-| Own production building | Set **rally point** |
+| Empty ground / resource (production buildings selected) | Set **rally point** |
 
-**Target mode** (for explicit verbs from the hotbar — Attack-move, Patrol, Build, cast, etc.):
-tapping the verb puts the viewport into a clear one-tap "now tap where/what" mode, then
-auto-exits. This is how you attack-move a group: tap **A-move** → tap the destination. It avoids
-needing two simultaneous inputs. Tapping empty space or a Cancel affordance exits target mode.
+The non-negotiable ambiguity rule is: **your own selectable entities are selected in normal
+mode, never used as implicit command targets.** Friendly-target actions such as repair, heal,
+load, unload-to, spell-on-friendly, and rally-to-friendly are command-card verbs first, then the
+next world tap supplies the target. This keeps the common mobile loop cheap: SCVs selected +
+tap Command Center selects the Command Center, instead of sending the workers there.
+
+**Target mode** (for explicit verbs from the hotbar — Attack-move, Patrol, Build, Rally,
+repair/heal/load, cast, etc.): tapping the verb puts the viewport into a clear one-tap "now tap
+where/what" mode, then auto-exits. The target-mode tap is consumed by that verb even if it lands
+on your own unit or building. This is how you attack-move a group: tap **A-move** → tap the
+destination. It avoids needing two simultaneous inputs. A Cancel affordance exits target mode.
 
 ## 5. Control groups & selection without a keyboard
 

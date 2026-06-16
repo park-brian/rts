@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terran Primitive Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: #080d16;
+    --ink: #dcecff;
+    --muted: #6e7f94;
+    --line: #19324a;
+    --accent: #56d8ff;
+    --dark: #0d1119;
+    --dark2: #06080d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(86, 216, 255, 0.04) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(86, 216, 255, 0.04) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 880px; }
+  .sheet {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 12px 12px;
+  }
+  .art {
+    height: 132px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(72px 72px at 50% 46%, rgba(86,216,255,0.12), transparent 70%);
+    color: var(--accent);
+  }
+  svg.sprite {
+    width: 112px;
+    height: 112px;
+    overflow: visible;
+    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor);
+  }
+  .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .core { fill: currentColor; stroke: none; }
+  .cargo-dot { opacity: 0.42; }
+  .cut { fill: var(--dark2); stroke: none; }
+  .name { margin-top: 9px; text-align: center; color: #eef8ff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #9bb6d4; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Terran Primitive Sprite Sheet</h1>
+  <p>Direct SVG drafts only. Literal top-down shapes, no image generation, no game wiring. Facing up in source.</p>
+</header>
+
+<main class="sheet">
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="SCV" data-anchor="32 32" data-visible-box="9 15 46 32">
+        <!-- z-order: arms under side blocks under square head; animate arms independently. -->
+        <rect class="panel" data-part="left-arm" x="14" y="18" width="6" height="22" rx="1" transform="rotate(-28 17 29)"/>
+        <rect class="panel" data-part="right-arm" x="44" y="18" width="6" height="22" rx="1" transform="rotate(28 47 29)"/>
+        <rect class="panel" data-part="left-side-block" x="14" y="33" width="12" height="13" rx="2"/>
+        <rect class="panel" data-part="right-side-block" x="38" y="33" width="12" height="13" rx="2"/>
+        <rect class="panel" data-part="head-cabin" x="23" y="23" width="18" height="18" rx="2"/>
+      </svg>
+    </div>
+    <div class="name">SCV</div>
+    <div class="meta">radius 8 px</div>
+    <div class="recipe">square head, side blocks, V arms</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Marine" data-anchor="32 32" data-visible-box="11 15 43 34">
+        <!-- infantry baseline: shoulders animate for walk/run; firing stance offsets one shoulder forward. -->
+        <rect class="panel" data-part="gun" data-anim="aim-recoil" data-emits="bullet" data-emission-dir="0 -1" x="48" y="16" width="5" height="26" rx="1"/>
+        <circle class="panel" data-part="left-side-circle" data-anim="walk-shoulder firing-stance" cx="20" cy="40" r="8"/>
+        <circle class="panel" data-part="right-side-circle" data-anim="walk-shoulder firing-stance" cx="44" cy="40" r="8"/>
+        <circle class="panel" data-part="helmet" cx="32" cy="32" r="12"/>
+        <line class="line" data-part="visor" x1="24" y1="29" x2="40" y2="29"/>
+      </svg>
+    </div>
+    <div class="name">Marine</div>
+    <div class="meta">radius 8 px</div>
+    <div class="recipe">three circles, face split, gun rectangle</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Firebat" data-anchor="32 32" data-visible-box="7 16 50 35">
+        <!-- firebat body stays planted; only flame emitters animate while firing. -->
+        <rect class="panel" data-part="left-flame-nozzle" data-anim="flame-pulse" data-emits="flame" data-emission-dir="0 -1" x="14" y="17" width="8" height="25" rx="1"/>
+        <rect class="panel" data-part="right-flame-nozzle" data-anim="flame-pulse" data-emits="flame" data-emission-dir="0 -1" x="42" y="17" width="8" height="25" rx="1"/>
+        <circle class="panel" data-part="left-side-circle" data-anim="static-firing-stance" cx="18" cy="40" r="10"/>
+        <circle class="panel" data-part="right-side-circle" data-anim="static-firing-stance" cx="46" cy="40" r="10"/>
+        <circle class="panel" data-part="helmet" cx="32" cy="32" r="12"/>
+        <line class="line" data-part="visor" x1="24" y1="29" x2="40" y2="29"/>
+      </svg>
+    </div>
+    <div class="name">Firebat</div>
+    <div class="meta">radius 8 px provisional</div>
+    <div class="recipe">big side circles, twin flame rectangles</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Medic" data-anchor="32 32" data-visible-box="13 20 38 28">
+        <!-- infantry baseline with no weapon; cross belongs to helmet back and can pulse. -->
+        <circle class="panel" data-part="left-side-circle" cx="21" cy="40" r="7"/>
+        <circle class="panel" data-part="right-side-circle" cx="43" cy="40" r="7"/>
+        <circle class="panel" data-part="helmet" cx="32" cy="32" r="11"/>
+        <line class="line" data-part="visor" x1="25" y1="29" x2="39" y2="29"/>
+        <rect class="core" data-part="cross-vertical" x="31" y="34" width="2" height="7"/>
+        <rect class="core" data-part="cross-horizontal" x="28" y="37" width="8" height="2"/>
+      </svg>
+    </div>
+    <div class="name">Medic</div>
+    <div class="meta">radius 8 px provisional</div>
+    <div class="recipe">small circles, visor, cross on helmet back</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Ghost" data-anchor="32 32" data-visible-box="15 8 36 40">
+        <!-- sniper variant shares Marine firing stance: shoulder offset plus long-gun recoil. -->
+        <rect class="panel" data-part="long-gun" data-anim="aim-recoil" data-emits="bullet" data-emission-dir="0 -1" x="46" y="9" width="4" height="38" rx="1"/>
+        <circle class="panel" data-part="left-side-circle" data-anim="walk-shoulder firing-stance" cx="22" cy="40" r="6"/>
+        <circle class="panel" data-part="right-side-circle" data-anim="walk-shoulder firing-stance" cx="42" cy="40" r="6"/>
+        <circle class="panel" data-part="helmet" cx="32" cy="32" r="10"/>
+        <line class="line" data-part="visor" x1="25" y1="29" x2="39" y2="29"/>
+      </svg>
+    </div>
+    <div class="name">Ghost</div>
+    <div class="meta">radius 10 px provisional</div>
+    <div class="recipe">small circles, long held gun rectangle</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Vulture" data-anchor="32 32" data-visible-box="17 4 30 55">
+        <!-- dragster read: split nose wedges, rear body, paired thrusters tucked close. -->
+        <polygon class="panel" data-part="left-nose-wedge" points="31,5 18,48 31,48"/>
+        <polygon class="panel" data-part="right-nose-wedge" points="33,5 46,48 33,48"/>
+        <rect class="panel" data-part="rear-body" x="28" y="29" width="8" height="29" rx="2"/>
+        <rect class="panel" data-part="left-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="25" y="50" width="6" height="8" rx="1"/>
+        <rect class="panel" data-part="right-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="33" y="50" width="6" height="8" rx="1"/>
+      </svg>
+    </div>
+    <div class="name">Vulture</div>
+    <div class="meta">radius 8 px provisional</div>
+    <div class="recipe">split triangles, rear square body, twin thrusters</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank" data-anchor="32 32" data-visible-box="9 5 46 46">
+        <!-- base geometry must match siege mode exactly except supports and barrel length. -->
+        <rect class="panel" data-part="left-tread" x="10" y="14" width="10" height="36" rx="2"/>
+        <rect class="panel" data-part="right-tread" x="44" y="14" width="10" height="36" rx="2"/>
+        <rect class="panel" data-part="hull" x="20" y="20" width="24" height="24" rx="3"/>
+        <rect class="panel" data-part="barrel" data-anim="turret-aim recoil" data-emits="shell" data-emission-dir="0 -1" x="29" y="6" width="6" height="30" rx="1"/>
+        <rect class="panel" data-part="turret" data-anim="turret-aim" x="26" y="26" width="12" height="12" rx="2"/>
+      </svg>
+    </div>
+    <div class="name">Tank</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">treads, hull, turret, barrel</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank Siege Mode" data-anchor="32 32" data-visible-box="9 1 46 54">
+        <!-- supports are below the exact tank base; only barrel length differs from tank mode. -->
+        <rect class="panel" data-part="front-support" data-anim="deploy-slide" data-slide-dir="0 -1" x="27" y="10" width="10" height="12" rx="1"/>
+        <rect class="panel" data-part="rear-support" data-anim="deploy-slide" data-slide-dir="0 1" x="27" y="42" width="10" height="12" rx="1"/>
+        <rect class="panel" data-part="left-tread" x="10" y="14" width="10" height="36" rx="2"/>
+        <rect class="panel" data-part="right-tread" x="44" y="14" width="10" height="36" rx="2"/>
+        <rect class="panel" data-part="hull" x="20" y="20" width="24" height="24" rx="3"/>
+        <rect class="panel" data-part="barrel" data-anim="turret-aim recoil" data-emits="siege-shell" data-emission-dir="0 -1" x="29" y="2" width="6" height="34" rx="1"/>
+        <rect class="panel" data-part="turret" data-anim="turret-aim" x="26" y="26" width="12" height="12" rx="2"/>
+      </svg>
+    </div>
+    <div class="name">Siege Mode</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">same base, supports, longer barrel</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Goliath" data-anchor="32 32" data-visible-box="11 6 42 39">
+        <!-- machine infantry: square torso/head, square side blocks, twin cannons. -->
+        <rect class="panel" data-part="torso-head" x="23" y="25" width="18" height="18" rx="2"/>
+        <rect class="panel" data-part="left-side-block" x="12" y="31" width="13" height="13" rx="2"/>
+        <rect class="panel" data-part="right-side-block" x="39" y="31" width="13" height="13" rx="2"/>
+        <rect class="panel" data-part="left-cannon" data-anim="cannon-recoil" data-emits="bullet" data-emission-dir="0 -1" x="25" y="7" width="5" height="26" rx="1"/>
+        <rect class="panel" data-part="right-cannon" data-anim="cannon-recoil" data-emits="bullet" data-emission-dir="0 -1" x="34" y="7" width="5" height="26" rx="1"/>
+      </svg>
+    </div>
+    <div class="name">Goliath</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">square body, side blocks, twin cannons</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Wraith" data-anchor="32 32" data-visible-box="12 7 40 45">
+        <!-- lasers emit forward; thrusters emit rear light opposite the facing direction. -->
+        <rect class="panel" data-part="front-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="30" y="8" width="4" height="11" rx="1"/>
+        <rect class="panel" data-part="left-wing-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="13" y="27" width="4" height="12" rx="1"/>
+        <rect class="panel" data-part="right-wing-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="47" y="27" width="4" height="12" rx="1"/>
+        <polygon class="panel" data-part="left-wing" points="27,27 13,33 13,39 28,37"/>
+        <polygon class="panel" data-part="right-wing" points="37,27 51,33 51,39 36,37"/>
+        <path class="panel" data-part="fuselage" d="M27 45 H37 V27 L35 17 H29 L27 27 Z"/>
+        <rect class="panel" data-part="left-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="25" y="42" width="5" height="9" rx="1"/>
+        <rect class="panel" data-part="right-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="34" y="42" width="5" height="9" rx="1"/>
+      </svg>
+    </div>
+    <div class="name">Wraith</div>
+    <div class="meta">radius 12 px provisional</div>
+    <div class="recipe">narrow fuselage, stub wings, three lasers</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Dropship" data-anchor="32 32" data-visible-box="12 11 40 46">
+        <!-- wide transport body is intentional; center cargo dots light up as storage fills. -->
+        <polygon class="panel" data-part="body" points="22,12 42,12 48,20 48,48 16,48 16,20"/>
+        <rect class="panel" data-part="left-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="13" y="36" width="9" height="17" rx="2"/>
+        <rect class="panel" data-part="right-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="42" y="36" width="9" height="17" rx="2"/>
+        <polygon class="panel" data-part="tail-plate" points="25,48 39,48 35,56 29,56"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-1" data-anim="cargo-fill" cx="29" cy="25" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-2" data-anim="cargo-fill" cx="35" cy="25" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-3" data-anim="cargo-fill" cx="29" cy="30" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-4" data-anim="cargo-fill" cx="35" cy="30" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-5" data-anim="cargo-fill" cx="29" cy="35" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-6" data-anim="cargo-fill" cx="35" cy="35" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-7" data-anim="cargo-fill" cx="29" cy="40" r="1.6"/>
+        <circle class="core cargo-dot" data-part="cargo-dot-8" data-anim="cargo-fill" cx="35" cy="40" r="1.6"/>
+      </svg>
+    </div>
+    <div class="name">Dropship</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">wide cargo box, fill dots, rear thrusters</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Science Vessel" data-anchor="32 32" data-visible-box="7 7 50 50">
+        <!-- detector glyph: ring and three radial lines; dots sit between the line spokes. -->
+        <circle class="panel" data-part="outer-ring" cx="32" cy="32" r="24"/>
+        <line class="line" data-part="top-spoke" x1="32" y1="32" x2="32" y2="14"/>
+        <line class="line" data-part="lower-left-spoke" x1="32" y1="32" x2="17" y2="41"/>
+        <line class="line" data-part="lower-right-spoke" x1="32" y1="32" x2="47" y2="41"/>
+        <circle class="panel" data-part="upper-left-dot" cx="20" cy="25" r="4"/>
+        <circle class="panel" data-part="upper-right-dot" cx="44" cy="25" r="4"/>
+        <circle class="panel" data-part="bottom-dot" cx="32" cy="47" r="4"/>
+      </svg>
+    </div>
+    <div class="name">Science Vessel</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">ring, three lines, triangle-aligned dots</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Valkyrie" data-anchor="32 32" data-visible-box="5 9 54 46">
+        <!-- slimmer transport-fighter: long front bevels, bottom-aligned winglets, twin rear thrusters. -->
+        <polygon class="panel" data-part="body" points="25,10 39,10 46,30 46,48 18,48 18,30"/>
+        <polygon class="panel" data-part="left-winglet" points="6,43 18,39 18,48 6,48"/>
+        <polygon class="panel" data-part="right-winglet" points="58,43 46,39 46,48 58,48"/>
+        <rect class="panel" data-part="left-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="25" y="48" width="7" height="6" rx="1"/>
+        <rect class="panel" data-part="right-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="32" y="48" width="7" height="6" rx="1"/>
+      </svg>
+    </div>
+    <div class="name">Valkyrie</div>
+    <div class="meta">radius 14 px provisional</div>
+    <div class="recipe">low bevels, bottom winglets, twin thrusters</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Battlecruiser" data-anchor="32 32" data-visible-box="0 4 64 60">
+        <!-- capital H-frame: four trapezoid wings, huge wingtip lasers, square Yamato nose. -->
+        <polygon class="panel" data-part="front-left-wing" points="28,8 11,12 11,21 28,22"/>
+        <polygon class="panel" data-part="front-right-wing" points="36,8 53,12 53,21 36,22"/>
+        <polygon class="panel" data-part="rear-left-wing" points="29,42 5,45 5,58 29,60"/>
+        <polygon class="panel" data-part="rear-right-wing" points="35,42 59,45 59,58 35,60"/>
+        <rect class="panel" data-part="left-rear-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="1" y="34" width="7" height="30" rx="1"/>
+        <rect class="panel" data-part="right-rear-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="56" y="34" width="7" height="30" rx="1"/>
+        <rect class="panel" data-part="yamato-cannon" x="28" y="5" width="8" height="8" rx="1"/>
+        <rect class="panel" data-part="front-bridge" x="27" y="13" width="10" height="9" rx="1"/>
+        <rect class="panel" data-part="center-spine" x="27" y="20" width="10" height="24" rx="1"/>
+        <rect class="panel" data-part="rear-core" x="24" y="42" width="16" height="19" rx="2"/>
+        <circle class="core" data-part="left-thruster-core" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" cx="28" cy="61" r="2"/>
+        <circle class="core" data-part="right-thruster-core" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" cx="36" cy="61" r="2"/>
+        <line class="line" data-part="spine-line" x1="32" y1="31" x2="32" y2="57"/>
+      </svg>
+    </div>
+    <div class="name">Battlecruiser</div>
+    <div class="meta">radius 20 px provisional</div>
+    <div class="recipe">H shape, four trapezoid wings, Yamato cannon</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Spider Mine" data-anchor="32 32" data-visible-box="16 16 32 32">
+        <!-- mathematically centered mine: circular body, four legs, pulsing center dot. -->
+        <circle class="panel" data-part="body" cx="32" cy="32" r="8"/>
+        <line class="line" data-part="front-left-leg" x1="26" y1="26" x2="17" y2="17"/>
+        <line class="line" data-part="front-right-leg" x1="38" y1="26" x2="47" y2="17"/>
+        <line class="line" data-part="rear-left-leg" x1="26" y1="38" x2="17" y2="47"/>
+        <line class="line" data-part="rear-right-leg" x1="38" y1="38" x2="47" y2="47"/>
+        <circle class="core" data-part="core-dot" cx="32" cy="32" r="3"/>
+      </svg>
+    </div>
+    <div class="name">Spider Mine</div>
+    <div class="meta">radius 6 px provisional</div>
+    <div class="recipe">circle with legs, center dot</div>
+  </article>
+
+  <article class="card">
+    <div class="art">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Nuclear Missile" data-anchor="32 32" data-visible-box="16 4 32 55">
+        <!-- projectile/effect sprite: body, two fins, and center seam. -->
+        <polygon class="panel" data-part="missile-body" points="32,5 38,16 38,49 32,58 26,49 26,16"/>
+        <polygon class="panel" data-part="left-fin" points="26,43 17,54 26,52"/>
+        <polygon class="panel" data-part="right-fin" points="38,43 47,54 38,52"/>
+        <line class="line" data-part="center-seam" x1="32" y1="16" x2="32" y2="49"/>
+      </svg>
+    </div>
+    <div class="name">Nuclear Missile</div>
+    <div class="meta">radius n/a projectile</div>
+    <div class="recipe">missile capsule, nose, fins</div>
+  </article>
+</main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Command Center" data-anchor="32 32" data-visible-box="6 13 52 39" data-footprint="4 3" data-bwapi-pixel-bounds="117 83" data-slug="command-center" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+      .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .core { fill: currentColor; stroke: none; }
+      .light { fill: #eef8ff; stroke: none; }
+      .cut { fill: #06080d; stroke: none; }
+    </style>
+        <!-- Lift feet, when present, define the full footprint envelope and sit below the inset hull. -->
+        <circle class="panel" data-part="lift-upper-left-hq-pad" cx="12" cy="19" r="7"></circle><circle class="panel" data-part="lift-upper-right-hq-pad" cx="52" cy="19" r="7"></circle><circle class="panel" data-part="lift-lower-left-hq-pad" cx="12" cy="46" r="7"></circle><circle class="panel" data-part="lift-lower-right-hq-pad" cx="52" cy="46" r="7"></circle>
+        <!-- Base shell is footprint-proportioned for fixed buildings and inset for lift-capable buildings. -->
+        <polygon class="panel shell" data-part="shell" points="20,15 44,15 54,25 54,40 44,50 20,50 10,40 10,25"></polygon>
+        
+        <circle class="line" data-part="command-ring" data-anim="core-pulse" cx="32" cy="32" r="10"></circle>
+      </svg>

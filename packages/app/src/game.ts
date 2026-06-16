@@ -4,9 +4,10 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Kind, Units, Role,
-  slotOf, eid, isEnemy, isAlive, NEUTRAL, toReplay, mapFromSpec,
+  slotOf, eid, isEnemy, isAlive, NEUTRAL, toReplay, mapFromSpec, parseReplay,
+  canPlaceStructure,
   type MapDef, type Command, type PlayerCommands, type Controller,
-  type Replay, type MapSpec,
+  type Replay, type MapSpec, type State,
 } from './sim.ts';
 import { ui, type Mode } from './store.ts';
 
@@ -130,7 +131,7 @@ export class Game {
   }
 
   loadReplay(json: string): void {
-    this.startReplay(JSON.parse(json) as Replay);
+    this.startReplay(parseReplay(json));
   }
 
   resize(w: number, h: number): void {
@@ -252,27 +253,36 @@ export class Game {
     this.selection.clear();
     if (this.human < 0) return;
     const e = this.sim.fullState().e;
+    const buildings: number[] = [];
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.owner[i] !== this.human) continue;
-      if ((e.flags[i]! & Role.Structure) !== 0) continue; // box-select units, not buildings
       const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
-      if (x >= wx0 && x <= wx1 && y >= wy0 && y <= wy1) this.selection.add(eid(e, i));
+      if (x < wx0 || x > wx1 || y < wy0 || y > wy1) continue;
+      if ((e.flags[i]! & Role.Structure) !== 0) buildings.push(eid(e, i));
+      else this.selection.add(eid(e, i));
     }
+    if (this.selection.size === 0) for (const id of buildings) this.selection.add(id);
   }
 
-  /** A tap at screen (sx,sy): select own unit, place a building, or command. */
+  /** A tap at screen (sx,sy): target an armed verb, select own entities, or smart-command. */
   tap(sx: number, sy: number): void {
     const [wx, wy] = this.screenToWorld(sx, sy);
     if (this.human < 0) return;
     const e = this.sim.fullState().e;
+    const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
 
     // Build placement mode.
     if (ui.placement.value !== 0) {
       const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
       if (worker >= 0) {
-        this.queued.push({ t: 'build', unit: eid(e, worker), kind: ui.placement.value, x: (wx * ONE) | 0, y: (wy * ONE) | 0 });
+        const placement = canPlaceStructure(this.sim.fullState(), this.human, worker, ui.placement.value, tx, ty);
+        if (placement.ok) {
+          this.queued.push({ t: 'build', unit: eid(e, worker), kind: ui.placement.value, x: placement.x, y: placement.y });
+          ui.placement.value = 0;
+        }
+      } else {
+        ui.placement.value = 0;
       }
-      ui.placement.value = 0;
       return;
     }
 
@@ -280,39 +290,50 @@ export class Game {
     if (ui.rally.value) {
       for (const id of this.selection) {
         if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          this.queued.push({ t: 'rally', building: id, x: (wx * ONE) | 0, y: (wy * ONE) | 0 });
+          this.queued.push({ t: 'rally', building: id, x: tx, y: ty });
         }
       }
       ui.rally.value = false;
       return;
     }
 
+    // Attack-move is an explicit target mode: the next world tap is its destination,
+    // even if the tap lands on an owned selectable entity.
+    if (ui.amove.value) {
+      for (const id of this.mobileSelection(e)) this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
+      ui.amove.value = false;
+      return;
+    }
+
     const hit = this.hitTest(wx, wy);
-    // Tapping our own unit selects it.
-    if (hit >= 0 && e.owner[slotOf(hit)] === this.human && (e.flags[slotOf(hit)]! & Role.Structure) === 0) {
+    // Normal mode rule: tapping your own selectable thing selects it. Friendly
+    // target commands (repair/load/future spells) must be armed from the hotbar first.
+    if (this.isOwnedSelectable(e, hit)) {
       this.selection.clear(); this.selection.add(hit);
       ui.amove.value = false;
       return;
     }
+
     if (this.selection.size === 0) {
-      // No selection: tap a structure to select it (for production).
-      if (hit >= 0 && e.owner[slotOf(hit)] === this.human) { this.selection.clear(); this.selection.add(hit); }
       return;
     }
 
-    const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
-    const amove = ui.amove.value;
-    ui.amove.value = false;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
+    const mobile = this.mobileSelection(e);
+    if (mobile.length === 0) {
+      for (const id of this.selection) {
+        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
+          this.queued.push({ t: 'rally', building: id, x: tx, y: ty });
+        }
+      }
+      return;
+    }
+
+    for (const id of mobile) {
       const i = slotOf(id);
-      if ((e.flags[i]! & Role.Structure) !== 0) continue;
       if (hit >= 0 && isEnemy(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!)) {
         this.queued.push({ t: 'attack', unit: id, target: hit });
       } else if (hit >= 0 && (e.flags[slotOf(hit)]! & Role.Resource) !== 0 && (e.flags[i]! & Role.Worker) !== 0) {
         this.queued.push({ t: 'harvest', unit: id, patch: hit }); // minerals (neutral) or own refinery (gas)
-      } else if (amove) {
-        this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
       } else {
         this.queued.push({ t: 'move', unit: id, x: tx, y: ty });
       }
@@ -325,6 +346,20 @@ export class Game {
       if (isAlive(e, id) && pred(slotOf(id))) return slotOf(id);
     }
     return -1;
+  }
+
+  private mobileSelection(e: State['e']): number[] {
+    const ids: number[] = [];
+    for (const id of this.selection) {
+      if (!isAlive(e, id)) continue;
+      if ((e.flags[slotOf(id)]! & Role.Structure) === 0) ids.push(id);
+    }
+    return ids;
+  }
+
+  private isOwnedSelectable(e: State['e'], id: number): boolean {
+    if (id < 0 || this.human < 0) return false;
+    return isAlive(e, id) && e.owner[slotOf(id)] === this.human;
   }
 
   hitTest(wx: number, wy: number): number {
@@ -349,11 +384,17 @@ export class Game {
 
   trainSelected(kind: number): void {
     const e = this.sim.fullState().e;
+    let best = -1;
+    let bestLoad = Infinity;
     for (const id of this.selection) {
-      if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Producer) !== 0) {
-        this.queued.push({ t: 'train', building: id, kind });
-      }
+      if (!isAlive(e, id)) continue;
+      const slot = slotOf(id);
+      if ((e.flags[slot]! & Role.Producer) === 0 || !Units[e.kind[slot]!]!.produces.includes(kind)) continue;
+      const queued = e.prodKind[slot] === Kind.None ? 0 : 1 + e.prodQueued[slot]!;
+      const load = queued * 1_000_000 + e.prodTimer[slot]!;
+      if (load < bestLoad) { best = id; bestLoad = load; }
     }
+    if (best >= 0) this.queued.push({ t: 'train', building: best, kind });
   }
 
   deselect(): void {
@@ -361,7 +402,7 @@ export class Game {
     ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false;
   }
 
-  /** Double-tap: select every visible (on-screen) unit of the tapped unit's type. */
+  /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
   selectAllByType(sx: number, sy: number): void {
     if (this.human < 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
@@ -369,14 +410,13 @@ export class Game {
     const hit = this.hitTest(wx, wy);
     if (hit < 0) return;
     const hs = slotOf(hit);
-    if (e.owner[hs] !== this.human || (e.flags[hs]! & Role.Structure) !== 0) return;
+    if (e.owner[hs] !== this.human) return;
     const kind = e.kind[hs]!;
     const x0 = this.camX; const y0 = this.camY;
     const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
     this.selection.clear();
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
-      if ((e.flags[i]! & Role.Structure) !== 0) continue;
       const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
       if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
     }

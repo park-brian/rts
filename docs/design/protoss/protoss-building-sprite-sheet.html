@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Protoss Building Primitive Sprite Sheet</title>
+<style>
+  :root {
+    --bg: #06050d; --panel: #0c0a17; --ink: #fff4d5; --muted: #9b8b68;
+    --line: #3b2b16; --accent: #ffd15a; --dark: #111017; --dark2: #07060c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+    background-image:
+      linear-gradient(transparent 0 31px, rgba(255, 209, 90, 0.045) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(81, 232, 255, 0.035) 31px 32px);
+    background-size: 32px 32px;
+  }
+  header { max-width: 1180px; margin: 0 auto 22px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; }
+  p { margin: 8px 0 0; color: var(--muted); max-width: 920px; }
+  .sheet { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.22)), var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 12px 12px; }
+  .art { height: 148px; display: grid; place-items: center; background: radial-gradient(86px 78px at 50% 48%, rgba(81,232,255,0.14), transparent 72%); color: var(--accent); }
+  svg.sprite { width: 124px; height: 124px; overflow: visible; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor); }
+  .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .core { fill: #51e8ff; stroke: none; }
+  .cut { fill: var(--dark2); stroke: none; }
+  .name { margin-top: 9px; text-align: center; color: #fff8e8; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { margin-top: 2px; text-align: center; color: #d0bd83; font-size: 10px; }
+  .recipe { margin-top: 3px; text-align: center; color: var(--muted); font-size: 11px; min-height: 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Protoss Building Primitive Sprite Sheet</h1>
+  <p>Canonical 64x64 building rigs with authored visible boxes and footprints. Protoss buildings are alien industrial pads: trapezoid shells, tower heads, cyan inserts.</p>
+</header>
+
+<main class="sheet" id="sheet"></main>
+
+<script>
+const buildings = [
+  ['Nexus','4 3','5 8 54 49','trapezoid HQ, cyan grid, corner claws',`
+    <polygon class="panel" data-part="hq-pad" points="13,17 32,8 51,17 58,43 32,58 6,43"/>
+    <rect class="cut" data-part="warp-channel" x="24" y="21" width="16" height="28" rx="2"/>
+    <line class="line" data-part="grid-a" x1="25" y1="30" x2="39" y2="30"/>
+    <line class="line" data-part="grid-b" x1="25" y1="38" x2="39" y2="38"/>
+    <circle class="core" data-part="warp-core" data-anim="core-pulse" cx="32" cy="35" r="4"/>
+    <polygon class="panel" data-part="front-left-claw" points="11,44 20,41 18,54"/>
+    <polygon class="panel" data-part="front-right-claw" points="53,44 44,41 46,54"/>
+  `],
+  ['Pylon','2 2','14 4 36 56','blue crystal in red/gold cradle',`
+    <polygon class="core" data-part="power-crystal" data-anim="field-pulse" points="32,5 45,32 32,59 19,32"/>
+    <path class="panel" data-part="left-cradle" d="M18 22 Q11 34 20 48"/>
+    <path class="panel" data-part="right-cradle" d="M46 22 Q53 34 44 48"/>
+    <line class="line" data-part="field-ring" d="M16 43 Q32 53 48 43"/>
+  `],
+  ['Assimilator','4 2','9 10 46 44','gas capsule, side towers, cyan vent',`
+    <ellipse class="panel" data-part="gas-ring" cx="32" cy="34" rx="19" ry="16"/>
+    <rect class="panel" data-part="left-tower" x="12" y="16" width="10" height="29" rx="3"/>
+    <rect class="panel" data-part="right-tower" x="42" y="16" width="10" height="29" rx="3"/>
+    <ellipse class="core" data-part="gas-core" data-anim="gas-pulse" cx="32" cy="34" rx="8" ry="11"/>
+  `],
+  ['Gateway','4 3','9 10 46 43','flat pyramid, two rectangular bases',`
+    <polygon class="panel" data-part="flat-pyramid" points="32,10 50,44 14,44"/>
+    <path class="cut" data-part="gate-slot" data-anim="warp-pulse" d="M25 31 L32 20 L39 31 V42 H25 Z"/>
+    <rect class="panel" data-part="left-base-rect" x="9" y="43" width="19" height="9" rx="2"/>
+    <rect class="panel" data-part="right-base-rect" x="36" y="43" width="19" height="9" rx="2"/>
+    <circle class="core" data-part="portal-core" cx="32" cy="35" r="3"/>
+  `],
+  ['Forge','3 2','10 11 44 42','tech block, tower stacks, forge core',`
+    <rect class="panel" data-part="body" x="17" y="22" width="31" height="25" rx="5"/>
+    <rect class="panel" data-part="left-stack" x="12" y="15" width="10" height="29" rx="3"/>
+    <rect class="panel" data-part="rear-stack" x="28" y="11" width="10" height="19" rx="3"/>
+    <circle class="core" data-part="forge-core" data-anim="upgrade-pulse" cx="38" cy="34" r="5"/>
+  `],
+  ['Photon Cannon','2 2','12 12 40 40','three concentric circles',`
+    <circle class="panel" data-part="outer-ring" data-anim="turret-aim" cx="32" cy="32" r="20"/>
+    <circle class="line" data-part="middle-ring" data-anim="turret-aim" cx="32" cy="32" r="13"/>
+    <circle class="core" data-part="inner-core" data-anim="turret-aim" data-emits="photon" data-emission-dir="0 -1" cx="32" cy="32" r="5"/>
+  `],
+  ['Cybernetics Core','3 2','9 9 46 46','cyan node cluster, four pods',`
+    <circle class="panel" data-part="body-ring" cx="32" cy="32" r="18"/>
+    <circle class="panel" data-part="pod-n" cx="32" cy="14" r="5"/>
+    <circle class="panel" data-part="pod-s" cx="32" cy="50" r="5"/>
+    <circle class="panel" data-part="pod-w" cx="14" cy="32" r="5"/>
+    <circle class="panel" data-part="pod-e" cx="50" cy="32" r="5"/>
+    <circle class="core" data-part="tech-core" cx="32" cy="32" r="6"/>
+  `],
+  ['Shield Battery','3 2','8 8 48 48','cross battery, four appendages',`
+    <rect class="panel" data-part="north-appendage" data-anim="shield-pulse" x="27" y="8" width="10" height="19" rx="3"/>
+    <rect class="panel" data-part="south-appendage" data-anim="shield-pulse" x="27" y="37" width="10" height="19" rx="3"/>
+    <rect class="panel" data-part="west-appendage" data-anim="shield-pulse" x="8" y="27" width="19" height="10" rx="3"/>
+    <rect class="panel" data-part="east-appendage" data-anim="shield-pulse" x="37" y="27" width="19" height="10" rx="3"/>
+    <circle class="panel" data-part="battery-hub" cx="32" cy="32" r="11"/>
+    <circle class="core" data-part="battery-core" cx="32" cy="32" r="5"/>
+  `],
+  ['Robotics Facility','3 2','8 9 48 47','grid workshop, rear tower',`
+    <rect class="panel" data-part="portal-pad" x="10" y="24" width="44" height="27" rx="5"/>
+    <rect class="cut" data-part="grid-center" x="21" y="28" width="22" height="17" rx="2"/>
+    <polygon class="panel" data-part="tower-head" points="25,10 39,10 43,25 21,25"/>
+    <line class="line" data-part="grid-line-a" x1="24" y1="34" x2="40" y2="34"/>
+    <circle class="core" data-part="production-core" cx="32" cy="37" r="3"/>
+  `],
+  ['Stargate','4 3','8 15 48 34','two stacked flat ovals',`
+    <ellipse class="panel" data-part="upper-oval" data-anim="launch-pulse" cx="32" cy="25" rx="23" ry="9"/>
+    <ellipse class="panel" data-part="lower-oval" data-anim="launch-pulse" cx="32" cy="39" rx="23" ry="9"/>
+    <ellipse class="core" data-part="launch-core" data-anim="launch-pulse" cx="32" cy="32" rx="7" ry="4"/>
+  `],
+  ['Citadel of Adun','3 2','9 10 46 44','three blade arms, central core',`
+    <polygon class="panel" data-part="center-body" points="32,11 44,34 32,53 20,34"/>
+    <line class="line" data-part="left-blade-arm" x1="25" y1="35" x2="9" y2="19"/>
+    <line class="line" data-part="right-blade-arm" x1="39" y1="35" x2="55" y2="19"/>
+    <line class="line" data-part="rear-blade-arm" x1="32" y1="39" x2="32" y2="55"/>
+    <circle class="core" data-part="citadel-core" cx="32" cy="34" r="5"/>
+  `],
+  ['Templar Archives','3 2','12 9 40 46','archive block, side domes, cyan cap',`
+    <polygon class="panel" data-part="archive-body" points="24,10 40,10 50,32 42,53 22,53 14,32"/>
+    <circle class="panel" data-part="left-dome" cx="18" cy="43" r="6"/>
+    <circle class="panel" data-part="right-dome" cx="46" cy="43" r="6"/>
+    <ellipse class="core" data-part="archive-core" cx="32" cy="21" rx="6" ry="4"/>
+  `],
+  ['Robotics Support Bay','3 2','8 8 48 48','radial support pad, arm pods',`
+    <circle class="panel" data-part="support-pad" cx="32" cy="32" r="16"/>
+    <line class="line" data-part="arm-n" x1="32" y1="16" x2="32" y2="7"/>
+    <line class="line" data-part="arm-s" x1="32" y1="48" x2="32" y2="57"/>
+    <line class="line" data-part="arm-w" x1="16" y1="32" x2="7" y2="32"/>
+    <line class="line" data-part="arm-e" x1="48" y1="32" x2="57" y2="32"/>
+    <circle class="core" data-part="support-core" cx="32" cy="32" r="5"/>
+  `],
+  ['Observatory','3 2','10 13 44 38','U pad, three tower nodes, lens',`
+    <path class="panel" data-part="u-pad" d="M12 42 V22 H24 V38 H40 V22 H52 V42 Z"/>
+    <circle class="core" data-part="tower-a" cx="20" cy="20" r="3"/>
+    <circle class="core" data-part="tower-b" cx="44" cy="20" r="3"/>
+    <circle class="core" data-part="lens" data-anim="lens-scan" cx="32" cy="36" r="5"/>
+  `],
+  ['Fleet Beacon','3 2','7 7 50 50','dish, legs, cyan dome',`
+    <circle class="panel" data-part="dish" cx="32" cy="31" r="20"/>
+    <line class="line" data-part="leg-a" x1="19" y1="44" x2="10" y2="56"/>
+    <line class="line" data-part="leg-b" x1="45" y1="44" x2="54" y2="56"/>
+    <line class="line" data-part="leg-c" x1="32" y1="51" x2="32" y2="58"/>
+    <circle class="core" data-part="beacon-core" cx="32" cy="28" r="7"/>
+  `],
+  ['Arbiter Tribunal','3 2','8 9 48 45','low pad, rear pillars, side horns',`
+    <rect class="panel" data-part="tribunal-base" x="12" y="28" width="40" height="23" rx="5"/>
+    <rect class="core" data-part="pillar-a" data-anim="stasis-pulse" x="20" y="10" width="5" height="22" rx="2"/>
+    <rect class="core" data-part="pillar-b" data-anim="stasis-pulse" x="30" y="8" width="5" height="24" rx="2"/>
+    <rect class="core" data-part="pillar-c" data-anim="stasis-pulse" x="40" y="10" width="5" height="22" rx="2"/>
+    <path class="line" data-part="left-horn" d="M16 34 Q7 27 11 18"/>
+    <path class="line" data-part="right-horn" d="M48 34 Q57 27 53 18"/>
+  `],
+];
+
+const card = ([name, footprint, box, recipe, svg]) => `
+  <article class="card">
+    <div class="art"><svg class="sprite" viewBox="0 0 64 64" aria-label="${name}" data-anchor="32 32" data-visible-box="${box}" data-footprint="${footprint}">${svg}</svg></div>
+    <div class="name">${name}</div>
+    <div class="meta">footprint ${footprint}</div>
+    <div class="recipe">${recipe}</div>
+  </article>`;
+document.getElementById('sheet').innerHTML = buildings.map(card).join('');
+</script>
+</body>
+</html>

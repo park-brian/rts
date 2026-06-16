@@ -8,7 +8,9 @@ import { spawn, slotOf, eid, nearest, kill, NONE } from '../world.ts';
 import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, tiles } from '../data.ts';
 import { navigate } from '../pathing.ts';
 import { pickPatch } from './harvest.ts';
-import { within } from './move.ts';
+import { faceToward, within } from './move.ts';
+import { placementForStructure } from '../validation.ts';
+import { refundBuildCost, transferBuildCost } from '../build-cost.ts';
 
 export const construction = (s: State): void => {
   const e = s.e;
@@ -19,13 +21,23 @@ export const construction = (s: State): void => {
     const speed = Units[e.kind[i]!]!.speed;
     const dx = e.tx[i]! - e.x[i]!;
     const dy = e.ty[i]! - e.y[i]!;
+    faceToward(e, i, e.tx[i]!, e.ty[i]!);
     if (dx * dx + dy * dy <= BUILD_RANGE * BUILD_RANGE) {
       const kind = e.buildKind[i]!;
       const def = Units[kind]!;
-      const id = spawn(s, kind, e.owner[i]!, e.tx[i]!, e.ty[i]!, def.hp, def.roles);
+      const placement = placementForStructure(s, kind, e.tx[i]!, e.ty[i]!, i);
+      if (!placement.ok) {
+        refundBuildCost(s, i);
+        e.order[i] = Order.Idle;
+        e.buildKind[i] = 0;
+        e.target[i] = NONE;
+        continue;
+      }
+      const id = spawn(s, kind, e.owner[i]!, placement.x, placement.y, def.hp, def.roles);
       const st = slotOf(id);
       e.built[st] = 0;
       e.ctimer[st] = def.buildTime;
+      transferBuildCost(e, i, st);
       // Free the worker; auto-return to the nearest free resource.
       e.buildKind[i] = 0;
       const node = (e.flags[i]! & Role.Worker) !== 0

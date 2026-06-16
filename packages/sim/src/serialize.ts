@@ -2,14 +2,15 @@
 // `snapshot(): ArrayBuffer` / `restore(buf)`: a flat buffer that persists to disk,
 // crosses a Worker boundary cheaply, and round-trips bit-for-bit (verified by the
 // replay tests). Entity columns are driven by ENTITY_COLUMNS, so a new column is
-// picked up automatically. Vision is derived (recomputed by hosts) and omitted.
+// picked up automatically. Vision grids are included so a byte snapshot preserves
+// fair-observation memory as well as gameplay state.
 
 import type { State } from './world.ts';
 import { makeState, ENTITY_COLUMNS, type ColType } from './world.ts';
 import type { MapDef, StartLoc, ResourceSpawn } from './map.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'
-const VERSION = 1;
+const VERSION = 3;
 const BYTES: Record<ColType, number> = { u8: 1, u16: 2, u32: 4, i32: 4 };
 
 // ---- cursor over a DataView ----
@@ -62,8 +63,9 @@ const sizeOf = (s: State): number => {
   n += 4 + m.resources.length * 13; // resources (x,y,amount i32 ×3 + gas u8)
   n += 4 + m.teams.length * 4; // map teams
   const P = s.teams.length;
-  n += 4 + 4 + 4 + 1 + 4; // tick, rng, startTeams, over, winner
+  n += 4 + 4 + 4 + 1 + 4 + 1; // tick, rng, startTeams, over, winner, trackVision
   n += 4 + P * 4 * 4 + P * 4; // P + 4 player pools + state teams
+  n += P * m.w * m.h; // per-player vision grids
   n += 4 + 4; // hi, freeTop
   for (const [, t] of ENTITY_COLUMNS) n += cap * BYTES[t];
   return n;
@@ -86,13 +88,14 @@ export const serializeState = (s: State): ArrayBuffer => {
   for (const t of m.teams) w.i32(t);
   // state scalars
   w.i32(s.tick); w.u32(s.rng.s); w.i32(s.startTeams);
-  w.u8(s.result.over ? 1 : 0); w.i32(s.result.winner);
+  w.u8(s.result.over ? 1 : 0); w.i32(s.result.winner); w.u8(s.trackVision ? 1 : 0);
   // players
   const P = s.teams.length;
   w.u32(P);
   w.col(s.players.minerals, 'i32', P); w.col(s.players.gas, 'i32', P);
   w.col(s.players.supplyUsed, 'i32', P); w.col(s.players.supplyMax, 'i32', P);
   w.col(s.teams, 'i32', P);
+  for (let p = 0; p < P; p++) w.bytes(s.vision[p]!);
   // entities
   const e = s.e;
   w.i32(e.hi); w.i32(e.freeTop);
@@ -118,15 +121,16 @@ export const deserializeState = (buf: ArrayBuffer): State => {
   const map: MapDef = { name, w: mw, h: mh, walk, build, elev, starts, resources, teams: mapTeams };
   // state scalars
   const tick = r.i32(); const rng = r.u32(); const startTeams = r.i32();
-  const over = r.u8() === 1; const winner = r.i32();
+  const over = r.u8() === 1; const winner = r.i32(); const trackVision = r.u8() === 1;
   // players
   const P = r.u32();
   const s = makeState(map, P, rng); // fresh fast-shape state; columns overwritten below
-  s.tick = tick; s.rng.s = rng; s.startTeams = startTeams;
+  s.tick = tick; s.rng.s = rng; s.startTeams = startTeams; s.trackVision = trackVision;
   s.result.over = over; s.result.winner = winner;
   r.col(s.players.minerals, 'i32', P); r.col(s.players.gas, 'i32', P);
   r.col(s.players.supplyUsed, 'i32', P); r.col(s.players.supplyMax, 'i32', P);
   r.col(s.teams, 'i32', P);
+  for (let p = 0; p < P; p++) s.vision[p]!.set(r.bytes(mw * mh));
   // entities
   const e = s.e;
   e.hi = r.i32(); e.freeTop = r.i32();
