@@ -612,6 +612,9 @@ Completed:
 - Protoss scripted macro now queues a legal Robotics Support Bay after Robotics Facility through
   that same powered path, unlocking Reaver/Shuttle upgrade tech while preserving shared
   prerequisite, duplicate, pending, placement, and budget validation.
+- Protoss scripted macro now queues a legal Observatory after Robotics Facility through the same
+  powered path, unlocking Observer/detector tech while preserving shared prerequisite, duplicate,
+  pending, placement, and budget validation.
 - Protoss scripted macro now queues a legal Stargate from that same ordered tech-structure path
   after Cybernetics Core, preserving shared power, prerequisite, duplicate, and budget checks.
 - Protoss scripted macro now queues a legal Citadel of Adun through the ordered tech-structure path,

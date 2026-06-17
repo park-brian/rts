@@ -1378,6 +1378,89 @@ test('protoss bot respects robotics support bay prerequisite, power, duplicates,
   assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.RoboticsSupportBay), false);
 });
 
+test('protoss bot places a legal observatory after a completed robotics facility', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 464, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(s, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(s, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(s, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
+  spawnUnit(s, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(s, 0);
+  const build = findBuild(cmds, Kind.Observatory);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('protoss bot respects observatory prerequisite, power, duplicates, pending, and budget', () => {
+  const missingRobotics = new Sim({ map: sliceMap(), players: 2, seed: 465, factions: [Protoss, Zerg] });
+  const missingState = missingRobotics.fullState();
+  spawnUnit(missingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(missingState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(missingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(missingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.Observatory), false);
+
+  const unpowered = new Sim({ map: sliceMap(), players: 2, seed: 466, factions: [Protoss, Zerg] });
+  const unpoweredState = unpowered.fullState();
+  const pylon = slotOf(spawnUnit(unpoweredState, Kind.Pylon, 0, fx(1_200), fx(1_200)));
+  unpoweredState.e.built[pylon] = 0;
+  spawnUnit(unpoweredState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(unpoweredState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(unpoweredState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
+  spawnUnit(unpoweredState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  unpoweredState.players.minerals[0] = 1_000;
+  unpoweredState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(unpoweredState, 0), Kind.Observatory), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 467, factions: [Protoss, Zerg] });
+  const duplicateState = duplicate.fullState();
+  spawnUnit(duplicateState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(duplicateState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(duplicateState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(duplicateState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
+  spawnUnit(duplicateState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  spawnUnit(duplicateState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  duplicateState.players.minerals[0] = 1_000;
+  duplicateState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.Observatory), false);
+
+  const pending = new Sim({ map: sliceMap(), players: 2, seed: 468, factions: [Protoss, Zerg] });
+  const pendingState = pending.fullState();
+  spawnUnit(pendingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(pendingState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(pendingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(pendingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
+  spawnUnit(pendingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  const worker = slotOf(spawnUnit(pendingState, Kind.Probe, 0, fx(1_160), fx(1_160)));
+  pendingState.e.buildKind[worker] = Kind.Observatory;
+  pendingState.players.minerals[0] = 1_000;
+  pendingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.Observatory), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 469, factions: [Protoss, Zerg] });
+  const brokeState = broke.fullState();
+  spawnUnit(brokeState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(brokeState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  spawnUnit(brokeState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
+  spawnUnit(brokeState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
+  spawnUnit(brokeState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  brokeState.players.minerals[0] = Units[Kind.Observatory]!.minerals - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.Observatory), false);
+});
+
 test('protoss bot places a legal stargate after a completed cybernetics core', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 440, factions: [Protoss, Zerg] });
   const s = sim.fullState();
@@ -1386,6 +1469,7 @@ test('protoss bot places a legal stargate after a completed cybernetics core', (
   spawnUnit(s, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(s, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(s, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  spawnUnit(s, Kind.Observatory, 0, fx(1_400), fx(1_440));
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 
@@ -1426,7 +1510,8 @@ test('protoss bot respects stargate prerequisite, power, duplicates, and budget'
   spawnUnit(duplicateState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(duplicateState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(duplicateState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(duplicateState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   duplicateState.players.minerals[0] = 1_000;
   duplicateState.players.gas[0] = 1_000;
 
@@ -1439,6 +1524,7 @@ test('protoss bot respects stargate prerequisite, power, duplicates, and budget'
   spawnUnit(pendingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(pendingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(pendingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  spawnUnit(pendingState, Kind.Observatory, 0, fx(1_400), fx(1_440));
   const worker = slotOf(spawnUnit(pendingState, Kind.Probe, 0, fx(1_160), fx(1_160)));
   pendingState.e.buildKind[worker] = Kind.Stargate;
   pendingState.players.minerals[0] = 1_000;
@@ -1453,6 +1539,7 @@ test('protoss bot respects stargate prerequisite, power, duplicates, and budget'
   spawnUnit(brokeState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(brokeState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(brokeState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
+  spawnUnit(brokeState, Kind.Observatory, 0, fx(1_400), fx(1_440));
   brokeState.players.minerals[0] = Units[Kind.Stargate]!.minerals - 1;
   brokeState.players.gas[0] = 1_000;
 
@@ -1467,7 +1554,8 @@ test('protoss bot places a legal citadel of adun after a completed cybernetics c
   spawnUnit(s, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(s, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(s, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(s, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(s, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(s, Kind.Stargate, 0, fx(1_440), fx(1_480));
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 
@@ -1485,7 +1573,8 @@ test('protoss bot respects citadel prerequisite, power, duplicates, and budget',
   spawnUnit(missingState, Kind.Gateway, 0, fx(1_240), fx(1_280));
   spawnUnit(missingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(missingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(missingState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(missingState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(missingState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   missingState.players.minerals[0] = 1_000;
   missingState.players.gas[0] = 1_000;
 
@@ -1499,7 +1588,8 @@ test('protoss bot respects citadel prerequisite, power, duplicates, and budget',
   spawnUnit(unpoweredState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(unpoweredState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(unpoweredState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(unpoweredState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(unpoweredState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(unpoweredState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   unpoweredState.players.minerals[0] = 1_000;
   unpoweredState.players.gas[0] = 1_000;
 
@@ -1512,8 +1602,9 @@ test('protoss bot respects citadel prerequisite, power, duplicates, and budget',
   spawnUnit(duplicateState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(duplicateState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(duplicateState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(duplicateState, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
+  spawnUnit(duplicateState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(duplicateState, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
   duplicateState.players.minerals[0] = 1_000;
   duplicateState.players.gas[0] = 1_000;
 
@@ -1526,7 +1617,8 @@ test('protoss bot respects citadel prerequisite, power, duplicates, and budget',
   spawnUnit(pendingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(pendingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(pendingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(pendingState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(pendingState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(pendingState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   const worker = slotOf(spawnUnit(pendingState, Kind.Probe, 0, fx(1_160), fx(1_160)));
   pendingState.e.buildKind[worker] = Kind.CitadelOfAdun;
   pendingState.players.minerals[0] = 1_000;
@@ -1541,7 +1633,8 @@ test('protoss bot respects citadel prerequisite, power, duplicates, and budget',
   spawnUnit(brokeState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(brokeState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(brokeState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(brokeState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(brokeState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(brokeState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   brokeState.players.minerals[0] = Units[Kind.CitadelOfAdun]!.minerals - 1;
   brokeState.players.gas[0] = 1_000;
 
@@ -1556,8 +1649,9 @@ test('protoss bot places a legal templar archives after a completed citadel of a
   spawnUnit(s, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(s, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(s, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(s, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(s, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
+  spawnUnit(s, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(s, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(s, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 
@@ -1576,7 +1670,8 @@ test('protoss bot respects templar archives prerequisite, power, duplicates, pen
   spawnUnit(missingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(missingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(missingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(missingState, Kind.Stargate, 0, fx(1_400), fx(1_440));
+  spawnUnit(missingState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(missingState, Kind.Stargate, 0, fx(1_440), fx(1_480));
   missingState.players.minerals[0] = 1_000;
   missingState.players.gas[0] = 1_000;
 
@@ -1590,8 +1685,9 @@ test('protoss bot respects templar archives prerequisite, power, duplicates, pen
   spawnUnit(unpoweredState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(unpoweredState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(unpoweredState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(unpoweredState, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(unpoweredState, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
+  spawnUnit(unpoweredState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(unpoweredState, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(unpoweredState, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
   unpoweredState.players.minerals[0] = 1_000;
   unpoweredState.players.gas[0] = 1_000;
 
@@ -1604,9 +1700,10 @@ test('protoss bot respects templar archives prerequisite, power, duplicates, pen
   spawnUnit(duplicateState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(duplicateState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(duplicateState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(duplicateState, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
-  spawnUnit(duplicateState, Kind.TemplarArchives, 0, fx(1_480), fx(1_520));
+  spawnUnit(duplicateState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(duplicateState, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(duplicateState, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
+  spawnUnit(duplicateState, Kind.TemplarArchives, 0, fx(1_520), fx(1_560));
   duplicateState.players.minerals[0] = 1_000;
   duplicateState.players.gas[0] = 1_000;
 
@@ -1619,8 +1716,9 @@ test('protoss bot respects templar archives prerequisite, power, duplicates, pen
   spawnUnit(pendingState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(pendingState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(pendingState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(pendingState, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(pendingState, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
+  spawnUnit(pendingState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(pendingState, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(pendingState, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
   const worker = slotOf(spawnUnit(pendingState, Kind.Probe, 0, fx(1_160), fx(1_160)));
   pendingState.e.buildKind[worker] = Kind.TemplarArchives;
   pendingState.players.minerals[0] = 1_000;
@@ -1635,8 +1733,9 @@ test('protoss bot respects templar archives prerequisite, power, duplicates, pen
   spawnUnit(brokeState, Kind.CyberneticsCore, 0, fx(1_280), fx(1_320));
   spawnUnit(brokeState, Kind.RoboticsFacility, 0, fx(1_320), fx(1_360));
   spawnUnit(brokeState, Kind.RoboticsSupportBay, 0, fx(1_360), fx(1_400));
-  spawnUnit(brokeState, Kind.Stargate, 0, fx(1_400), fx(1_440));
-  spawnUnit(brokeState, Kind.CitadelOfAdun, 0, fx(1_440), fx(1_480));
+  spawnUnit(brokeState, Kind.Observatory, 0, fx(1_400), fx(1_440));
+  spawnUnit(brokeState, Kind.Stargate, 0, fx(1_440), fx(1_480));
+  spawnUnit(brokeState, Kind.CitadelOfAdun, 0, fx(1_480), fx(1_520));
   brokeState.players.minerals[0] = Units[Kind.TemplarArchives]!.minerals - 1;
   brokeState.players.gas[0] = 1_000;
 
