@@ -66,7 +66,7 @@ test('weapon upgrades affect typed damage against hallucinations before the doub
 
   applyWeaponDamage(s, target, Units[Kind.Dragoon]!.weapon!, slotOf(dragoon));
 
-  assert.equal(e.hp[target], hpBefore - 41);
+  assert.equal(e.hp[target], hpBefore - 43);
 });
 
 test('explosive splash sources use typed damage against hallucinations', () => {

@@ -53,7 +53,7 @@ const typedDamage = (weapon: Weapon, targetSize: number, bonus: number, damagePe
 export const applyWeaponDamage = (s: State, target: number, weapon: Weapon, attacker = -1, damagePercent = 100): void => {
   const e = s.e;
   if (e.stasisTimer[target]! > 0) return;
-  const bonus = attacker >= 0 ? weaponUpgradeBonus(s, attacker) : 0;
+  const bonus = attacker >= 0 ? weaponUpgradeBonus(s, attacker, weapon) : 0;
   const td = Units[e.kind[target]!]!;
   const armor = td.armor + (attacker >= 0 ? armorUpgradeBonus(s, target) : 0);
   const shieldArmor = attacker >= 0 ? shieldArmorBonus(s, target) : 0;

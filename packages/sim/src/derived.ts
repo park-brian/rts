@@ -15,20 +15,34 @@ const isTerranInfantry = (kind: number): boolean =>
 const isZergMelee = (kind: number): boolean =>
   kind === Kind.Zergling || kind === Kind.Ultralisk || kind === Kind.Broodling || kind === Kind.InfestedTerran;
 
-export const weaponUpgradeBonus = (s: State, attacker: number): number => {
+const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
+  [Kind.Dragoon]: 2,
+  [Kind.DarkTemplar]: 3,
+  [Kind.Archon]: 3,
+  [Kind.Lurker]: 2,
+  [Kind.Guardian]: 2,
+  [Kind.Devourer]: 2,
+  [Kind.Ultralisk]: 3,
+};
+
+const weaponUpgradeStep = (kind: number, _weapon?: Weapon): number =>
+  UPGRADE_DAMAGE_STEP[kind] ?? 1;
+
+export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon): number => {
   const e = s.e;
   const owner = e.owner[attacker]!;
   const kind = e.kind[attacker]!;
   const def = Units[kind]!;
+  const step = weaponUpgradeStep(kind, weapon);
   if (def.race === 'terran') {
-    if (isTerranInfantry(kind)) return level(s, owner, Tech.InfantryWeapons);
-    return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.ShipWeapons : Tech.VehicleWeapons);
+    if (isTerranInfantry(kind)) return level(s, owner, Tech.InfantryWeapons) * step;
+    return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.ShipWeapons : Tech.VehicleWeapons) * step;
   }
   if (kind === Kind.Reaver) return level(s, owner, Tech.ScarabDamage) > 0 ? 25 : 0;
-  if (def.race === 'protoss') return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.AirWeapons : Tech.GroundWeapons);
+  if (def.race === 'protoss') return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.AirWeapons : Tech.GroundWeapons) * step;
   if (def.race === 'zerg') {
-    if ((def.roles & Role.Air) !== 0) return level(s, owner, Tech.FlyerAttacks);
-    return level(s, owner, isZergMelee(kind) ? Tech.MeleeAttacks : Tech.MissileAttacks);
+    if ((def.roles & Role.Air) !== 0) return level(s, owner, Tech.FlyerAttacks) * step;
+    return level(s, owner, isZergMelee(kind) ? Tech.MeleeAttacks : Tech.MissileAttacks) * step;
   }
   return 0;
 };

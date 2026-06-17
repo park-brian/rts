@@ -8,6 +8,7 @@ import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/world.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { canDetect } from '../src/detection.ts';
+import { weaponUpgradeBonus } from '../src/derived.ts';
 
 const grant = (sim: Sim, player: number, tech: number, level = 1): void => setTechLevel(sim.fullState(), player, tech, level);
 
@@ -52,6 +53,33 @@ test('shield armor does not inflate overflow damage after shields break', () => 
 
   assert.equal(s.e.shield[z], 0);
   assert.equal(s.e.hp[z], Units[Kind.Zealot]!.hp - 4);
+});
+
+test('weapon upgrades use brood war per-unit damage increments', () => {
+  const cases = [
+    { kind: Kind.Zealot, tech: Tech.GroundWeapons, step: 1 },
+    { kind: Kind.Dragoon, tech: Tech.GroundWeapons, step: 2 },
+    { kind: Kind.DarkTemplar, tech: Tech.GroundWeapons, step: 3 },
+    { kind: Kind.Archon, tech: Tech.GroundWeapons, step: 3 },
+    { kind: Kind.Zergling, tech: Tech.MeleeAttacks, step: 1 },
+    { kind: Kind.Ultralisk, tech: Tech.MeleeAttacks, step: 3 },
+    { kind: Kind.Broodling, tech: Tech.MeleeAttacks, step: 1 },
+    { kind: Kind.Hydralisk, tech: Tech.MissileAttacks, step: 1 },
+    { kind: Kind.Lurker, tech: Tech.MissileAttacks, step: 2 },
+    { kind: Kind.Mutalisk, tech: Tech.FlyerAttacks, step: 1 },
+    { kind: Kind.Guardian, tech: Tech.FlyerAttacks, step: 2 },
+    { kind: Kind.Devourer, tech: Tech.FlyerAttacks, step: 2 },
+  ];
+
+  for (const c of cases) {
+    const sim = new Sim({ map: sliceMap(), players: 2, seed: 770 + c.kind });
+    const s = sim.fullState();
+    const unit = spawnUnit(s, c.kind, 0, fx(400), fx(400));
+    const weapon = Units[c.kind]!.weapon ?? Units[c.kind]!.airWeapon!;
+    grant(sim, 0, c.tech, 2);
+
+    assert.equal(weaponUpgradeBonus(s, slotOf(unit), weapon), c.step * 2, Units[c.kind]!.name);
+  }
 });
 
 test('range upgrades let units hit from upgraded distance', () => {

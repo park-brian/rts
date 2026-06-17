@@ -708,8 +708,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
 - Upgrade fidelity:
-  - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
-  - Broader per-weapon upgrade increments for multi-hit/special weapons.
+  - Audit any remaining multi-hit/special weapon upgrade exceptions against BW references.
 - Combat spatial rules:
   - More exact projectile/travel behavior for missiles, Valkyrie volleys, and nuke
     missile/presentation beyond the existing fog-safe warning affordance.
@@ -758,3 +757,6 @@ Completed:
 - Selected-entity HUD status now reports cloaked, burrowed, and viewer-detected state from the
   existing sim visibility/detection helpers, and ignores stale non-owned selections that are no
   longer visible so HUD state cannot leak hidden enemy entities.
+- Weapon damage upgrades now apply the documented BW per-unit increments for Protoss ground and
+  Zerg melee/missile/flyer weapons, including Dragoon +2, DT/Archon +3, Ultralisk +3, Lurker +2,
+  and Guardian/Devourer +2 per level.

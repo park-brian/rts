@@ -116,7 +116,7 @@ const fixedTile = (value: number): string => {
 const pxPerSecond = (value: number): string => ((value / ONE) * FPS).toFixed(1);
 
 const weaponDetails = (s: State, slot: number, weapon: Weapon): string => {
-  const bonus = weaponUpgradeBonus(s, slot);
+  const bonus = weaponUpgradeBonus(s, slot, weapon);
   const shots = weapon.shots && weapon.shots > 1 ? `x${weapon.shots}` : '';
   const dmg = bonus > 0 ? `${weapon.damage}+${bonus}` : String(weapon.damage);
   const range = fixedTile(upgradedRange(s, slot, weapon));
