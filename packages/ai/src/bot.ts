@@ -413,16 +413,27 @@ const maybeQueueNydusEndpoint = (
   if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
 
   const e = s.e;
-  let completed = 0;
+  const endpointRangeSq = UNLOAD_RANGE * UNLOAD_RANGE;
+  let completedOwnEndpoints = 0;
+  let hasEndpointNearFocus = false;
+  let hasPendingEndpoint = false;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (e.alive[i] !== 1) continue;
     if (e.kind[i] === Kind.NydusCanal) {
-      if (e.built[i] === 1) completed++;
-      else return false;
+      if (!sameTeam(s, player, e.owner[i]!)) continue;
+      if (e.built[i] === 1) {
+        if (e.owner[i] === player) completedOwnEndpoints++;
+        if (distanceSq(e.x[i]!, e.y[i]!, focusX, focusY) <= endpointRangeSq) hasEndpointNearFocus = true;
+      } else if (e.owner[i] === player) {
+        hasPendingEndpoint = true;
+      }
+      continue;
     }
-    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === Kind.NydusCanal) return false;
+    if (e.owner[i] === player && (e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === Kind.NydusCanal) {
+      hasPendingEndpoint = true;
+    }
   }
-  if (completed !== 1) return false;
+  if (completedOwnEndpoints < 1 || hasEndpointNearFocus || hasPendingEndpoint) return false;
 
   const spot = findSpot(s, player, worker, Kind.NydusCanal, focusX, focusY);
   if (!spot) return false;

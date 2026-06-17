@@ -513,6 +513,22 @@ test('zerg bot queues a second nydus endpoint near the attack target on owned cr
   );
 });
 
+test('zerg bot extends a completed nydus network to a new attack focus', () => {
+  const { sim, target, home } = readyZergNydusEndpointScenario(505);
+  const s = sim.fullState();
+  spawnUnit(s, Kind.NydusCanal, 0, home.x + fx(420), home.y + fx(96));
+
+  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(s, 0);
+  const build = findBuild(cmds, Kind.NydusCanal);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+  assert.ok(
+    (build.x - s.e.x[slotOf(target)]!) ** 2 + (build.y - s.e.y[slotOf(target)]!) ** 2 <
+    (home.x - s.e.x[slotOf(target)]!) ** 2 + (home.y - s.e.y[slotOf(target)]!) ** 2,
+  );
+});
+
 test('zerg bot respects nydus endpoint local network, duplicate, pending, and budget limits', () => {
   const noEntrance = readyZergNydusEndpointScenario(501);
   const noEntranceState = noEntrance.sim.fullState();
@@ -526,7 +542,7 @@ test('zerg bot respects nydus endpoint local network, duplicate, pending, and bu
 
   const duplicate = readyZergNydusEndpointScenario(502);
   const duplicateState = duplicate.sim.fullState();
-  spawnUnit(duplicateState, Kind.NydusCanal, 0, fx(1_320), fx(760));
+  spawnUnit(duplicateState, Kind.NydusCanal, 0, fx(1_380), fx(700));
 
   assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(duplicateState, 0), Kind.NydusCanal), false);
 

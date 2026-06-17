@@ -636,6 +636,9 @@ Completed:
 - Zerg scripted macro now queues one legal second Nydus endpoint near the current attack focus when
   a completed local Canal already exists and owned creep supports placement, using the shared build
   validator while respecting incomplete, duplicate, pending, and budget states.
+- Zerg scripted macro now extends an existing completed Nydus network to later attack fronts when
+  the current focus lacks a useful endpoint, still using shared placement validation and suppressing
+  duplicate or already-pending endpoint builds.
 
 Done when:
 
