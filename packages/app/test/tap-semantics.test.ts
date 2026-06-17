@@ -672,3 +672,15 @@ test('selection summary identifies known own hallucinations without real worker 
   assert.equal(ui.selCanHarvest.value, false);
   assert.equal(ui.selCanRepair.value, false);
 });
+
+test('selection summary hides real production commands for known own hallucinations', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(500), fx(500));
+  s.e.illusion[slotOf(carrier)] = 1;
+  select(g, [carrier]);
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Hallucination Carrier');
+  assert.equal(ui.selTrainOptions.value.length, 0);
+});

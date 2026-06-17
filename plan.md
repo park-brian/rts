@@ -237,9 +237,9 @@ Completed:
 - Known own/team/spectator Hallucinations now have shared app presentation: selection labels use
   the Hallucination prefix, GL and Math renderers tint/alpha them consistently, and enemy viewers
   still see ordinary units.
-- Hallucinated workers, casters, transports, burrowers, mine layers, and morph/merge units now
-  reject real utility or state-changing commands through shared validation, while retaining decoy
-  move/attack orders.
+- Hallucinated workers, producers, casters, transports, burrowers, mine layers, and morph/merge
+  units now reject real utility, production, or state-changing commands through shared validation,
+  while retaining decoy move/attack orders.
 - The command card hides worker utility affordances that are impossible because the selected worker
   is a Hallucination, and the screenshot harness captures the selected-Hallucination reference.
 

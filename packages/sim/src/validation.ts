@@ -243,6 +243,7 @@ export const validateCommand = (
     case 'train': {
       const slot = ownedSlot(s, c.building, player);
       if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
+      if (e.illusion[slot] === 1) return reject('missing-capability');
       if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('incomplete-producer');
       if (!isPowered(s, slot)) return reject('missing-capability');

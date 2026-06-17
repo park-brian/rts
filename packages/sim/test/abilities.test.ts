@@ -476,10 +476,16 @@ test('hallucinations cannot perform real utility commands or cast spells', () =>
   const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(520), fx(400));
   const marine = spawnUnit(s, Kind.Marine, 0, fx(550), fx(400));
   const dropship = spawnUnit(s, Kind.Dropship, 0, fx(580), fx(400));
+  const reaver = spawnUnit(s, Kind.Reaver, 0, fx(620), fx(400));
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(660), fx(400));
+  const larva = spawnUnit(s, Kind.Larva, 0, fx(700), fx(400));
 
   s.e.illusion[slotOf(scv)] = 1;
   s.e.illusion[slotOf(templar)] = 1;
   s.e.illusion[slotOf(dropship)] = 1;
+  s.e.illusion[slotOf(reaver)] = 1;
+  s.e.illusion[slotOf(carrier)] = 1;
+  s.e.illusion[slotOf(larva)] = 1;
   s.e.hp[slotOf(depot)] = Units[Kind.SupplyDepot]!.hp - 50;
   s.e.energy[slotOf(templar)] = 100;
   grant(sim, 0, Tech.Hallucination);
@@ -501,6 +507,18 @@ test('hallucinations cannot perform real utility commands or cast spells', () =>
     reason: 'missing-capability',
   });
   assert.deepEqual(validateCommand(s, 0, { t: 'load', transport: dropship, unit: marine }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: reaver, kind: Kind.Scarab }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: carrier, kind: Kind.Interceptor }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: larva, kind: Kind.Drone }), {
     ok: false,
     reason: 'missing-capability',
   });

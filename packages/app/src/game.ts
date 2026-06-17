@@ -1119,6 +1119,7 @@ export class Game {
       }
       for (const train of Units[k]!.produces) {
         const result = validateCommand(s, this.human, { t: 'train', building: id, kind: train });
+        if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
         const meta = k === Kind.NuclearSilo && train === Kind.NuclearMissile ? nukeTrainOptionMeta(s, slot) : {};
         addOption(trainOptions, train, result, meta);
       }
