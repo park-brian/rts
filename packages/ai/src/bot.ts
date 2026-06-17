@@ -5,11 +5,12 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Abilities, Ability, Role, Trait, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
+  Abilities, Ability, Role, Trait, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
-  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
+  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, nextTechLevel, productionCostCount, productionCount,
   activeAddonParentSlot, addonParentKind, hasAnyWeapon, hasReadyNuke, isAddonKind, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
+  techGas, techMinerals,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -33,6 +34,7 @@ const PROTOSS_STRUCTURE_MACRO = [
   Kind.TemplarArchives,
   Kind.ArbiterTribunal,
 ] as const;
+const PROTOSS_RESEARCH_MACRO = [Tech.LegEnhancements] as const;
 const ZERG_STRUCTURE_MACRO = [
   Kind.HydraliskDen,
   Kind.Spire,
@@ -289,6 +291,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
     minerals = budget.minerals;
 
+    if (faction.name === 'Protoss') {
+      maybeQueueProtossResearch(s, p, cmds, budget);
+      minerals = budget.minerals;
+    }
+
     // 4) Pump army from the faction's real producer.
     for (const b of armyProducer) {
       if (b === NONE || e.prodKind[b] !== Kind.None) continue;
@@ -371,6 +378,17 @@ const maybeQueueProtossTechStructures = (
   return false;
 };
 
+const maybeQueueProtossResearch = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+): void => {
+  for (const tech of PROTOSS_RESEARCH_MACRO) {
+    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
+  }
+};
+
 const maybeQueueZergTechStructures = (
   s: State,
   player: number,
@@ -383,6 +401,34 @@ const maybeQueueZergTechStructures = (
   if (faction.name !== 'Zerg') return false;
   for (const kind of ZERG_STRUCTURE_MACRO) {
     if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
+  }
+  return false;
+};
+
+const maybeQueueResearch = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+  tech: number,
+): boolean => {
+  const def = TechDefs[tech];
+  if (!def) return false;
+  if (getTechLevel(s, player, tech) >= def.maxLevel) return false;
+  const level = nextTechLevel(s, player, tech);
+  const minerals = techMinerals(def, level);
+  const gas = techGas(def, level);
+  if (budget.minerals < minerals || budget.gas < gas) return false;
+
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
+    const command: Command = { t: 'research', building: eid(e, i), tech };
+    if (!validateCommand(s, player, command).ok) continue;
+    cmds.push(command);
+    budget.minerals -= minerals;
+    budget.gas -= gas;
+    return true;
   }
   return false;
 };

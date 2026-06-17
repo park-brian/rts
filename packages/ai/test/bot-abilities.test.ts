@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
 
@@ -10,6 +10,10 @@ const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number)
   cmds.find((c): c is Extract<BotCommand, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findBuild(cmds, kind) !== undefined;
+const findResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): Extract<BotCommand, { t: 'research' }> | undefined =>
+  cmds.find((c): c is Extract<BotCommand, { t: 'research' }> => c.t === 'research' && c.tech === tech);
+const hasResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): boolean =>
+  findResearch(cmds, tech) !== undefined;
 const findTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'transform' }> | undefined =>
   cmds.find((c): c is Extract<BotCommand, { t: 'transform' }> => c.t === 'transform' && c.kind === kind);
 const hasTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
@@ -1975,6 +1979,69 @@ test('protoss bot respects arbiter tribunal prerequisites, power, duplicates, pe
   brokeState.players.gas[0] = 1_000;
 
   assert.equal(hasBuild(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.ArbiterTribunal), false);
+});
+
+const readyProtossLegResearchScenario = (seed: number): { sim: Sim; citadel: number; pylon: number } => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  const pylon = spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  const citadel = spawnUnit(s, Kind.CitadelOfAdun, 0, fx(1_260), fx(1_220));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  return { sim, citadel, pylon };
+};
+
+test('protoss bot researches leg enhancements from a completed powered citadel', () => {
+  const { sim } = readyProtossLegResearchScenario(483);
+  const s = sim.fullState();
+
+  const cmds = createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(s, 0);
+  const research = findResearch(cmds, Tech.LegEnhancements);
+
+  assert.ok(research);
+  assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+});
+
+test('protoss bot respects leg enhancements producer, power, duplicate, queue, and budget gates', () => {
+  const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: 484, factions: [Protoss, Zerg] });
+  const missingState = missingProducer.fullState();
+  spawnUnit(missingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(missingState, 0), Tech.LegEnhancements), false);
+
+  const unpowered = readyProtossLegResearchScenario(485);
+  const unpoweredState = unpowered.sim.fullState();
+  unpoweredState.e.built[slotOf(unpowered.pylon)] = 0;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(unpoweredState, 0), Tech.LegEnhancements), false);
+
+  const completed = readyProtossLegResearchScenario(486);
+  grant(completed.sim, 0, Tech.LegEnhancements);
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(completed.sim.fullState(), 0), Tech.LegEnhancements), false);
+
+  const inProgress = readyProtossLegResearchScenario(487);
+  const inProgressState = inProgress.sim.fullState();
+  inProgressState.e.researchKind[slotOf(inProgress.citadel)] = Tech.LegEnhancements;
+  inProgressState.e.researchTimer[slotOf(inProgress.citadel)] = 10;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(inProgressState, 0), Tech.LegEnhancements), false);
+
+  const busy = readyProtossLegResearchScenario(488);
+  const busyState = busy.sim.fullState();
+  busyState.e.researchKind[slotOf(busy.citadel)] = Tech.PsionicStorm;
+  busyState.e.researchTimer[slotOf(busy.citadel)] = 10;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(busyState, 0), Tech.LegEnhancements), false);
+
+  const broke = readyProtossLegResearchScenario(489);
+  const brokeState = broke.sim.fullState();
+  brokeState.players.minerals[0] = TechDefs[Tech.LegEnhancements]!.minerals[0]! - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(brokeState, 0), Tech.LegEnhancements), false);
 });
 
 test('bot unsieges tanks when the focus is inside minimum range', () => {
