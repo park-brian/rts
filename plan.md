@@ -593,6 +593,8 @@ Completed:
   add-on validation.
 - Terran scripted macro now queues legal Control Towers on idle completed Starports through the
   same prioritized add-on path, keeping Starport tech progression validator-backed.
+- Protoss scripted macro now searches from completed Pylon power anchors when placing powered
+  army structures, so Gateway expansion uses the same placement validation as human commands.
 
 Done when:
 

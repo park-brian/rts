@@ -9,6 +9,7 @@ import {
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
   addonParentKind, hasAnyWeapon, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  requiresPower,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -44,6 +45,19 @@ const findSpot = (s: State, player: number, worker: number, kind: number, bx: nu
     }
   }
   return null;
+};
+
+const findMacroSpot = (s: State, player: number, worker: number, kind: number, fallback: number): { x: number; y: number } | null => {
+  const e = s.e;
+  if (!requiresPower(kind)) return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1 || e.kind[i] !== Kind.Pylon) continue;
+    const spot = findSpot(s, player, worker, kind, e.x[i]!, e.y[i]!);
+    if (spot) return spot;
+  }
+
+  return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
 };
 
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
@@ -179,7 +193,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     // 3) Army structures.
     else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget &&
              minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE) {
-      const spot = findSpot(s, p, aWorker, faction.armyStructure, e.x[depot]!, e.y[depot]!);
+      const spot = findMacroSpot(s, p, aWorker, faction.armyStructure, depot);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
         spend(rax.minerals, rax.gas);

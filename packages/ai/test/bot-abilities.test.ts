@@ -262,6 +262,33 @@ test('bot respects control tower parent, duplicates, and gas budget', () => {
   assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ControlTower), false);
 });
 
+test('protoss bot places gateways from completed pylon power anchors', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Protoss, { barracksTarget: 1 })(s, 0);
+  const build = cmds.find((c) => c.t === 'build' && c.kind === Kind.Gateway);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('protoss bot avoids unpowered gateway placements', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 421, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  const pylon = slotOf(spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200)));
+  s.e.built[pylon] = 0;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Protoss, { barracksTarget: 1 })(s, 0);
+
+  assert.equal(cmds.some((c) => c.t === 'build' && c.kind === Kind.Gateway), false);
+});
+
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });
   const s = sim.fullState();
