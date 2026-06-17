@@ -20,6 +20,16 @@ const bar: Record<string, string> = {
 
 type CommandGroupId = 'placement' | 'production' | 'build' | 'tech' | 'abilities' | 'orders' | 'selection' | 'empty';
 type CommandItem = { group: CommandGroupId; key: string; node: VNode };
+type CommandLayoutMetrics = {
+  columns: number;
+  rows: number;
+  cellHeight: number;
+  bottomChrome: number;
+  minimapWidth: number;
+  selectionWidth: number;
+  showMinimap: boolean;
+  compactSelection: boolean;
+};
 
 const COMMAND_GROUP_ORDER: CommandGroupId[] = ['placement', 'production', 'build', 'tech', 'abilities', 'orders', 'selection', 'empty'];
 const COMMAND_GROUP_LABEL: Record<CommandGroupId, string> = {
@@ -33,7 +43,21 @@ const COMMAND_GROUP_LABEL: Record<CommandGroupId, string> = {
   empty: '',
 };
 
-const btn = (active = false, compact = false, disabled = false, dense = false): Record<string, string> => {
+const btn = (active = false, compact = false, disabled = false, dense = false, command = false): Record<string, string> => {
+  if (command) {
+    return {
+      width: '100%', height: '100%', minWidth: '0', maxWidth: 'none', minHeight: '0',
+      padding: '3px 4px', borderRadius: '6px', position: 'relative',
+      border: active ? '2px solid #ffe14e' : '1px solid #2a3340',
+      background: disabled ? '#131923' : active ? '#34507a' : '#1a2230',
+      color: disabled ? '#7d8795' : '#e6edf3',
+      fontSize: '10.5px', lineHeight: '11px', fontWeight: '700',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      whiteSpace: 'normal', overflow: 'hidden',
+      opacity: disabled ? '0.72' : '1', cursor: disabled ? 'default' : 'pointer',
+      flex: '1 1 auto',
+    };
+  }
   const desktop = ui.controlScheme.value === 'desktop';
   return {
     minWidth: dense ? '64px' : compact ? '0' : '58px', maxWidth: dense ? '98px' : compact ? 'none' : '104px',
@@ -79,18 +103,29 @@ const Btn = (p: {
   reason?: string;
   detail?: string;
   hotkeyAction?: HotkeyAction;
+  command?: boolean;
 }) => (
   <button disabled={p.disabled} title={p.detail ?? (p.reason ? reasonLabel(p.reason) : undefined)}
-    style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction), p.disabled, p.dense)}
+    style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction), p.disabled, p.dense, p.command)}
     onClick={p.disabled ? undefined : p.onClick}>
-    <span style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{p.label}</span>
-    {(p.detail || p.reason) && <span style={{ width: '100%', opacity: 0.86, fontSize: '10px', lineHeight: '11px',
-      overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+    <span style={p.command
+      ? { width: '100%', maxHeight: '23px', overflow: 'hidden', textAlign: 'center', overflowWrap: 'anywhere' }
+      : { width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+      {p.label}
+    </span>
+    {(p.detail || p.reason) && <span style={p.command
+      ? { position: 'absolute', left: '3px', right: '3px', bottom: '2px', opacity: 0.82, fontSize: '8.5px',
+        lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }
+      : { width: '100%', opacity: 0.86, fontSize: '10px', lineHeight: '11px',
+        overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
       {p.detail ?? reasonLabel(p.reason!)}
     </span>}
     {ui.controlScheme.value === 'desktop' && p.hotkeyAction && !p.reason && (
-      <span style={{ width: '100%', opacity: 0.75, fontSize: '11px', lineHeight: '11px', flex: '0 0 auto',
-        overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+      <span style={p.command
+        ? { position: 'absolute', top: '2px', right: '3px', opacity: 0.62, fontSize: '8.5px', lineHeight: '9px',
+          maxWidth: '20px', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }
+        : { width: '100%', opacity: 0.75, fontSize: '11px', lineHeight: '11px', flex: '0 0 auto',
+          overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
         {hotkeyLabelForAction(p.hotkeyAction)}
       </span>
     )}
@@ -117,10 +152,56 @@ const groupLabelStyle: Record<string, string> = {
   textTransform: 'uppercase', color: '#9fb1c7', opacity: '0.78',
 };
 
+const viewportWidth = (): number => Math.max(320, Math.floor(globalThis.innerWidth || 1024));
+const desktopBottomChrome = (width: number): number => (width < 760 ? 176 : width < 1080 ? 148 : 128);
+const mobileBottomChrome = (width: number): number => (width < 370 ? 120 : 124);
+
+const commandLayoutMetrics = (scheme: ControlScheme, width: number): CommandLayoutMetrics => {
+  const desktop = scheme === 'desktop';
+  const bottomChrome = desktop ? desktopBottomChrome(width) : mobileBottomChrome(width);
+  const showMinimap = desktop && width >= 680;
+  const minimapWidth = showMinimap ? (width < 900 ? 86 : 104) : 0;
+  const selectionWidth = desktop
+    ? width < 760 ? 122 : width < 1080 ? 172 : 220
+    : width < 370 ? 84 : 96;
+  const outerPadding = desktop ? 16 : 16;
+  const gaps = desktop ? (showMinimap ? 16 : 8) : 8;
+  const commandWidth = Math.max(132, width - outerPadding - gaps - minimapWidth - selectionWidth);
+  const cellWidth = desktop ? (width < 760 ? 56 : width < 1080 ? 66 : 74) : (width < 370 ? 50 : 58);
+  const cellHeight = desktop ? 36 : 42;
+  const gap = 4;
+  const columns = Math.max(2, Math.floor((commandWidth + gap) / (cellWidth + gap)));
+  const rows = desktop ? (width < 760 ? 4 : width < 1080 ? 3 : 2) : 2;
+  return {
+    columns,
+    rows,
+    cellHeight,
+    bottomChrome,
+    minimapWidth,
+    selectionWidth,
+    showMinimap,
+    compactSelection: !desktop || width < 1080,
+  };
+};
+
+const useViewportWidth = (): number => {
+  const [width, setWidth] = useState(viewportWidth());
+  useEffect(() => {
+    const onResize = (): void => {
+      setWidth(viewportWidth());
+      applyControlChrome(ui.controlScheme.value);
+    };
+    globalThis.addEventListener?.('resize', onResize);
+    return () => globalThis.removeEventListener?.('resize', onResize);
+  }, []);
+  return width;
+};
+
 const applyControlChrome = (scheme: ControlScheme): void => {
   const root = document.documentElement;
   root.style.setProperty('--top-chrome', scheme === 'desktop' ? '46px' : 'calc(76px + env(safe-area-inset-top))');
-  root.style.setProperty('--bottom-chrome', scheme === 'desktop' ? '112px' : 'calc(84px + env(safe-area-inset-bottom))');
+  const bottom = scheme === 'desktop' ? `${desktopBottomChrome(viewportWidth())}px` : `calc(${mobileBottomChrome(viewportWidth())}px + env(safe-area-inset-bottom))`;
+  root.style.setProperty('--bottom-chrome', bottom);
 };
 
 const resizePlayfield = (): void => {
@@ -297,41 +378,87 @@ const ProgressLine = () => {
   );
 };
 
-const StatChips = () => {
+const StatChips = (p: { compact?: boolean }) => {
   const stats = ui.selStatus.value.stats;
   if (ui.selCount.value <= 0 || stats.length === 0) return null;
+  const visible = stats.slice(0, p.compact ? 4 : 6);
+  const hidden = stats.length - visible.length;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '5px', overflow: 'hidden',
-      maxHeight: '38px' }}>
-      {stats.map((stat) => (
-        <span key={stat} style={{ flex: '0 0 auto', maxWidth: '100%', border: '1px solid #263241',
-          background: '#0b111a', padding: '1px 4px', fontSize: '10px', lineHeight: '13px',
+    <div style={{ display: 'grid', gridTemplateColumns: p.compact ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))',
+      gap: '3px', marginTop: '5px', overflow: 'hidden', maxHeight: p.compact ? '33px' : '36px' }}>
+      {visible.map((stat) => (
+        <span key={stat} style={{ minWidth: 0, border: '1px solid #263241',
+          background: '#0b111a', padding: '1px 3px', fontSize: '9.5px', lineHeight: '13px',
           color: '#cdd9e5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {stat}
         </span>
       ))}
+      {hidden > 0 && (
+        <span style={{ minWidth: 0, border: '1px solid #263241', background: '#0b111a',
+          padding: '1px 3px', fontSize: '9.5px', lineHeight: '13px', color: '#9fb1c7', textAlign: 'center' }}>
+          +{hidden}
+        </span>
+      )}
     </div>
   );
 };
 
-const SelectionPanel = () => {
+const groupKeyLabel = (index: number): string => index === 9 ? '0' : String(index + 1);
+
+const ControlGroups = (p: { game: Game; compact?: boolean }) => {
+  const counts = ui.controlGroupCounts.value;
+  const selected = ui.selCount.value > 0;
+  const activate = (index: number, e: MouseEvent): void => {
+    if (e.ctrlKey || e.metaKey || (counts[index] === 0 && selected)) p.game.assignControlGroup(index);
+    else p.game.recallControlGroup(index, e.shiftKey);
+  };
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: p.compact ? 'repeat(5, minmax(0, 1fr))' : 'repeat(10, minmax(0, 1fr))',
+      gap: '3px', marginTop: '5px', flex: '0 0 auto' }}>
+      {counts.map((count, index) => {
+        const canUse = count > 0 || selected;
+        const title = count > 0
+          ? `Group ${groupKeyLabel(index)}: ${count}. Click recall, Shift-click add, Ctrl-click bind.`
+          : selected
+            ? `Group ${groupKeyLabel(index)} empty. Click to bind current selection.`
+            : `Group ${groupKeyLabel(index)} empty. Select units to bind.`;
+        return (
+          <button key={index} disabled={!canUse} title={title}
+            onClick={(e) => activate(index, e as unknown as MouseEvent)}
+            style={{ minWidth: 0, height: p.compact ? '14px' : '18px', borderRadius: '4px',
+              border: count > 0 ? '1px solid #49d0c0' : '1px solid #263241',
+              background: count > 0 ? '#102331' : selected ? '#151d28' : '#0b111a',
+              color: canUse ? '#dce8f4' : '#596574', padding: '0 2px',
+              fontSize: p.compact ? '8.5px' : '10px', lineHeight: p.compact ? '12px' : '16px', fontVariantNumeric: 'tabular-nums',
+              cursor: canUse ? 'pointer' : 'default', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            {groupKeyLabel(index)}{count > 0 ? `:${count}` : ''}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const SelectionPanel = (p: { game: Game; compact?: boolean }) => {
   const status = ui.selStatus.value;
   const hasSelection = ui.selCount.value > 0;
   return (
-    <div style={{ border: '1px solid #2a3340', background: '#111923', padding: '7px 8px',
+    <div style={{ border: '1px solid #2a3340', background: '#111923', padding: p.compact ? '5px 6px' : '7px 8px',
       display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-      <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '16px' }}>
+      <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        lineHeight: p.compact ? '14px' : '16px', fontSize: p.compact ? '12px' : '14px' }}>
         {hasSelection ? ui.selKindName.value : 'No selection'}
       </b>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '2px',
-        fontSize: '11px', lineHeight: '13px', color: '#9fb1c7', minWidth: 0 }}>
+        fontSize: '10.5px', lineHeight: '12px', color: '#9fb1c7', minWidth: 0 }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {hasSelection ? [status.label, status.detail].filter(Boolean).join(': ') : 'Ctrl+1-0 assigns groups'}
         </span>
-        {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>Group {ui.selCount.value}</span>}
+        {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>×{ui.selCount.value}</span>}
       </div>
       <ProgressLine />
-      <StatChips />
+      <StatChips compact={p.compact} />
+      <ControlGroups game={p.game} compact={p.compact} />
     </div>
   );
 };
@@ -364,8 +491,42 @@ const ReplayBar = (p: { game: Game }) => {
   );
 };
 
+const CommandTable = (p: { sections: Array<{ id: CommandGroupId; items: CommandItem[] }>; metrics: CommandLayoutMetrics }) => {
+  const items = p.sections.flatMap((section) => section.items);
+  const capacity = Math.max(1, p.metrics.columns * p.metrics.rows);
+  const pageSize = items.length > capacity ? Math.max(1, capacity - 1) : capacity;
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    if (page >= pageCount) setPage(0);
+  }, [page, pageCount]);
+  const start = page * pageSize;
+  const visible = items.slice(start, start + pageSize);
+  const hidden = Math.max(0, items.length - visible.length);
+  return (
+    <div data-command-table="true" style={{ minWidth: 0, height: '100%', overflow: 'hidden',
+      display: 'grid', gridTemplateColumns: `repeat(${p.metrics.columns}, minmax(0, 1fr))`,
+      gridAutoRows: `${p.metrics.cellHeight}px`, gap: '4px', alignContent: 'start' }}>
+      {visible.map((item) => (
+        <div key={item.key} data-command-cell={item.group} style={{ minWidth: 0, minHeight: 0, display: 'flex' }}>
+          {item.node}
+        </div>
+      ))}
+      {pageCount > 1 && (
+        <div style={{ minWidth: 0, minHeight: 0, display: 'flex' }}>
+          <Btn command label="More" detail={`${page + 1}/${pageCount}`}
+            onClick={() => setPage((page + 1) % pageCount)}
+            active={hidden > 0} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Hotbar = (p: { game: Game }) => {
   const g = p.game;
+  const width = useViewportWidth();
+  const metrics = commandLayoutMetrics(ui.controlScheme.value, width);
   if (ui.mode.value !== 'play') return null;
   const place = ui.placement.value;
   const commands: CommandItem[] = [];
@@ -405,14 +566,14 @@ const Hotbar = (p: { game: Game }) => {
     onClick: () => void,
     active = false,
   ): void => {
-    addCommand(group, <Btn dense={ui.controlScheme.value !== 'desktop'} label={option.label ?? label}
+    addCommand(group, <Btn command dense={ui.controlScheme.value !== 'desktop'} label={option.label ?? label}
       hotkeyAction={hotkeyAction} active={active} disabled={!option.ok}
       reason={option.ok ? undefined : option.reason} detail={option.detail} onClick={onClick} />);
   };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
       fontSize: '12px', whiteSpace: 'nowrap' }}>{ui.land.value ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
-    addCommand('placement', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={clearTargets} />);
+    addCommand('placement', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={clearTargets} />);
   } else if (ui.selCount.value > 0) {
     for (const option of ui.selTrainOptions.value) {
       const kind = option.id;
@@ -437,13 +598,13 @@ const Hotbar = (p: { game: Game }) => {
       }
     }
     if (ui.selCanRally.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.rally.value} onClick={toggleRally} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.rally.value} onClick={toggleRally} />);
     }
     if (ui.selCanHarvest.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.targetMode.value === 'harvest'} onClick={() => toggleTarget('harvest')} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.targetMode.value === 'harvest'} onClick={() => toggleTarget('harvest')} />);
     }
     if (ui.selCanRepair.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
     }
     for (const option of ui.selResearchOptions.value) {
       const tech = option.id;
@@ -464,36 +625,36 @@ const Hotbar = (p: { game: Game }) => {
       addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), cast, active);
     }
     if (ui.selCanLoad.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
     }
     if (ui.selCanUnload.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
     }
     if (ui.selCanBurrow.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Burrow" hotkeyAction="burrow" onClick={() => g.burrowSelected(true)} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Burrow" hotkeyAction="burrow" onClick={() => g.burrowSelected(true)} />);
     }
     if (ui.selCanUnburrow.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Unburrow" hotkeyAction="unburrow" onClick={() => g.burrowSelected(false)} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unburrow" hotkeyAction="unburrow" onClick={() => g.burrowSelected(false)} />);
     }
     if (ui.selCanMine.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Lay Mine" hotkeyAction="mine" onClick={() => g.mineSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lay Mine" hotkeyAction="mine" onClick={() => g.mineSelected()} />);
     }
     if (ui.selCanLift.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
     }
     if (ui.selCanLand.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.land.value} onClick={() => g.armLandSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.land.value} onClick={() => g.armLandSelected()} />);
     }
     if (ui.selCanCancel.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
     }
     if (ui.selCanAttackMove.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.amove.value} onClick={toggleAmove} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.amove.value} onClick={toggleAmove} />);
     }
     if (ui.selCanStop.value) {
-      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
     }
-    addCommand('selection', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);
+    addCommand('selection', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);
   } else {
     addCommand('empty', <span style={{ opacity: 0.5, alignSelf: 'center' }}>No selection</span>);
   }
@@ -506,7 +667,7 @@ const Hotbar = (p: { game: Game }) => {
         display: 'grid', gridTemplateColumns: '112px minmax(260px, 320px) minmax(0, 1fr)',
         alignItems: 'stretch', gap: '8px' }}>
         <MinimapPanel game={g} />
-        <SelectionPanel />
+        <SelectionPanel game={g} />
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', overflowY: 'hidden',
           paddingRight: '2px', alignItems: 'stretch', minWidth: 0 }}>
           {sections.map((section) => (

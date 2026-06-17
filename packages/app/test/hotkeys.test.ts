@@ -108,10 +108,12 @@ test('desktop control groups assign, recall, and add live selections', () => {
   g.selection.clear();
   g.selection.add(marine);
   assert.equal(g.assignControlGroup(0), true);
+  assert.equal(ui.controlGroupCounts.value[0], 1);
 
   g.selection.clear();
   g.selection.add(firebat);
   assert.equal(g.assignControlGroup(1), true);
+  assert.deepEqual(ui.controlGroupCounts.value.slice(0, 2), [1, 1]);
 
   assert.equal(g.recallControlGroup(0), true);
   assert.deepEqual([...g.selection], [marine]);
@@ -119,4 +121,22 @@ test('desktop control groups assign, recall, and add live selections', () => {
   assert.equal(g.recallControlGroup(1, true), true);
   assert.equal(g.selection.has(marine), true);
   assert.equal(g.selection.has(firebat), true);
+});
+
+test('desktop control group counts prune dead members through HUD publishing', () => {
+  const g = new Game('play', 93);
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const firebat = spawnUnit(s, Kind.Firebat, 0, fx(430), fx(400));
+
+  g.selection.clear();
+  g.selection.add(marine);
+  g.selection.add(firebat);
+  assert.equal(g.assignControlGroup(0), true);
+  assert.equal(ui.controlGroupCounts.value[0], 2);
+
+  s.e.alive[slotOf(marine)] = 0;
+  g.fastForward(0);
+
+  assert.equal(ui.controlGroupCounts.value[0], 1);
 });

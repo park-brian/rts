@@ -218,6 +218,9 @@ const clearSelectionUi = (): void => {
   ui.selResearchOptions.value = [];
 };
 
+const sameCounts = (a: readonly number[], b: readonly number[]): boolean =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
 export class Game {
   sim!: Sim;
   map!: MapDef;
@@ -286,6 +289,7 @@ export class Game {
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selection.clear();
     for (const group of this.controlGroups) group.clear();
+    ui.controlGroupCounts.value = Array(CONTROL_GROUPS).fill(0);
     this.queued = [];
     this.placementGhost = null;
     this.visible = new Uint8Array(this.map.w * this.map.h);
@@ -737,6 +741,11 @@ export class Game {
     return live;
   }
 
+  private publishControlGroupCounts(): void {
+    const next = this.controlGroups.map((group) => this.liveGroup(group).length);
+    if (!sameCounts(ui.controlGroupCounts.value, next)) ui.controlGroupCounts.value = next;
+  }
+
   private centerOnSelection(): void {
     const e = this.sim.fullState().e;
     let x = 0;
@@ -755,6 +764,7 @@ export class Game {
   assignControlGroup(index: number): boolean {
     if (index < 0 || index >= CONTROL_GROUPS || this.selection.size === 0) return false;
     this.controlGroups[index] = new Set(this.liveGroup(this.selection));
+    this.publishControlGroupCounts();
     return this.controlGroups[index]!.size > 0;
   }
 
@@ -762,6 +772,7 @@ export class Game {
     if (index < 0 || index >= CONTROL_GROUPS) return false;
     const live = this.liveGroup(this.controlGroups[index]!);
     this.controlGroups[index] = new Set(live);
+    this.publishControlGroupCounts();
     if (live.length === 0) return false;
     if (!add) this.selection.clear();
     for (const id of live) this.selection.add(id);
@@ -1207,6 +1218,7 @@ export class Game {
     ui.over.value = s.result.over;
     ui.winner.value = s.result.winner;
     ui.hasReplay.value = this.mode !== 'replay' && s.result.over && this.sim.frames !== null;
+    this.publishControlGroupCounts();
 
     // selection summary
     const e = s.e;

@@ -186,6 +186,10 @@ Completed:
   construction, production, or research progress plus upgraded HP, armor, weapon, speed, and sight
   stats, derived from the same sim tables and upgrade helpers used by combat, movement, and
   validation.
+- Desktop control groups now have visible chips for `1`-`0` in the selected-entity panel. Chips
+  show live group counts, click/tap recalls assigned groups, empty chips bind the current
+  selection, Shift-click appends, and Ctrl/Cmd-click overwrites through the existing
+  `assignControlGroup` and `recallControlGroup` paths.
 
 Remaining:
 
@@ -712,7 +716,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - AI macro should continue filling race tech paths with validator-backed research/upgrade
     choices after the existing Protoss powered expansion and Zerg structure progression work.
 - UX/control:
-  - Control-group chips and explicit subgroup handling for large mixed selections.
+  - Explicit subgroup handling for large mixed selections.
 - Rendering/assets:
   - Richer construction/warp-in visual effects and sound cues after the refreshed asset pass.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.

@@ -41,6 +41,7 @@ export const ui = {
   selCount: signal(0),
   selKindName: signal(''),
   selStatus: signal<SelectionStatus>({ label: 'No selection', detail: '', progress: 0, stats: [] }),
+  controlGroupCounts: signal<number[]>(Array(10).fill(0)),
   selCanBuild: signal(false), // a worker is selected
   selCanRally: signal(false), // a structure is selected
   selBuildKinds: signal<number[]>([]),
