@@ -405,7 +405,6 @@ export const validateCommand = (
       if (isContained(s, slot)) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('missing-capability');
-      if (!activeAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
       const attacker = Units[e.kind[slot]!]!;
@@ -427,6 +426,7 @@ export const validateCommand = (
       if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('missing-capability');
+      if (!activeAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       const caster = Units[e.kind[slot]!]!;
       const ability = Abilities[c.ability];

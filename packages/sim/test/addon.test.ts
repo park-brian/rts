@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, isAlive, kill, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Tech, Units } from '../src/data.ts';
+import { Ability, Kind, Tech, Units } from '../src/data.ts';
 import { addonPosition } from '../src/addon.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
@@ -106,6 +106,41 @@ test('completed add-ons require a live linked landed parent for validation', () 
   assert.deepEqual(validateCommand(s, 0, { t: 'train', building: eid(e, spareFactory), kind: Kind.SiegeTank }), {
     ok: false,
     reason: 'missing-requirement',
+  });
+});
+
+test('comsat scanner sweep requires a live linked landed command center', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 134 });
+  const s = sim.fullState();
+  const e = s.e;
+  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(700), fx(700)));
+  spawnUnit(s, Kind.Academy, 0, fx(900), fx(700));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, commandCenter), kind: Kind.ComsatStation }] }]), [
+    { player: 0, index: 0, t: 'addon', ok: true },
+  ]);
+  const comsat = slotOf(e.target[commandCenter]!);
+  e.built[comsat] = 1;
+  e.ctimer[comsat] = 0;
+  e.energy[comsat] = 100;
+  const sweep = { t: 'ability' as const, unit: eid(e, comsat), ability: Ability.ScannerSweep, x: fx(900), y: fx(700) };
+
+  assert.deepEqual(validateCommand(s, 0, sweep), { ok: true });
+
+  const landedFlags = e.flags[commandCenter]!;
+  e.flags[commandCenter] = liftedStructureFlags(Kind.CommandCenter);
+  assert.deepEqual(validateCommand(s, 0, sweep), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+
+  e.flags[commandCenter] = landedFlags;
+  kill(s, commandCenter);
+  assert.deepEqual(validateCommand(s, 0, sweep), {
+    ok: false,
+    reason: 'missing-capability',
   });
 });
 
