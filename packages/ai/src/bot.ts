@@ -25,6 +25,7 @@ const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTo
 const PROTOSS_STRUCTURE_MACRO = [
   Kind.CyberneticsCore,
   Kind.RoboticsFacility,
+  Kind.RoboticsSupportBay,
   Kind.Stargate,
   Kind.CitadelOfAdun,
   Kind.TemplarArchives,
