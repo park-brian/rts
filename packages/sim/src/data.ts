@@ -1360,7 +1360,9 @@ export type FactionName = 'terran' | 'protoss' | 'zerg';
 
 // ---- economy / combat tunables (provisional) ----
 export const MINE_AMOUNT = 8;
-export const MINE_TICKS = sec(2);
+export const MINERAL_MINE_TICKS = 80;
+export const GAS_MINE_TICKS = 37;
+export const MINE_TICKS = MINERAL_MINE_TICKS;
 export const MINE_RANGE = bwRange(HarvestRangePx.Mine);
 export const MAX_PER_PATCH = 3; // ceiling for the timing-derived patch saturation cap
 export const DEPOSIT_RANGE = bwRange(HarvestRangePx.Deposit);

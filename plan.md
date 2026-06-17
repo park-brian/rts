@@ -1121,11 +1121,14 @@ Completed:
 - Updated `docs/specs/sc1-spec.md` and `docs/specs/maps.md` so the written contract matches the
   code: BW values are source constants; top-down geometry is runtime contact/reach truth.
 - Verified with `npm run typecheck` and the full `npm test` suite.
+- Added deterministic resource/depot docking targets so workers route to exact mineral, gas, and
+  depot contact points instead of center points; inner and outer mineral arc tests now prove mine
+  and deposit happen at physical contact.
+- Replaced the provisional two-second extraction timer with BW frame timings: minerals mine for
+  80 frames and gas mines for 37 frames before travel/deposit timing.
 
 Remaining:
 
-- Add explicit per-resource/depot docking point targets instead of navigating workers toward
-  centers and relying on pathing to adjust blocked goals.
 - Add the positive-only harvest timing calibration table: target BW-equivalent route frames,
   actual top-down route frames, deterministic wait frames, and invalid-too-long layout detection.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps

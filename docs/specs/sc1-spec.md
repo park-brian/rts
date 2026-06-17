@@ -59,9 +59,14 @@ real-time duration of each frame; per-frame logic is identical.
 | **Minerals** | 8 | **1500**/patch | Patch vanishes at 0 |
 | **Vespene Gas** | 8 | **5000**/geyser | Yields **2/trip** after exhaustion (refinery shows "depleted") |
 
-- **Optimal saturation:** **2 SCVs per mineral patch** (a 3rd adds ~half a worker via
-  queuing); **3 SCVs per gas geyser**. A standard main (~8 patches + 1 geyser) saturates at
-  ~16–24 mineral + 3 gas workers.
+- **Mining action time, before travel:** **80 frames** for minerals, **37 frames** for gas
+  ([Liquipedia Mining](https://liquipedia.net/starcraft/Mining)).
+- **Measured fastest-speed trip averages at <=1 worker/resource:** SCV **176.7** frames/trip
+  (**65.0 minerals/min**), Drone **171.2** (**67.1/min**), Probe **168.7** (**68.1/min**),
+  and gas **111** frames/trip (**103 gas/min**).
+- **Optimal saturation:** BW bases scale linearly through roughly one worker per patch, then more
+  slowly toward about **3 workers per mineral patch**; practical "full" saturation is commonly
+  two to three mineral workers per patch plus **3 workers per modern gas geyser**.
 - Resources are deducted **at the start** of an action; cancelling refunds **75%**.
 
 ### 4. Supply / Control / Psi

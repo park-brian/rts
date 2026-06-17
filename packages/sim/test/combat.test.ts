@@ -411,7 +411,7 @@ test('victory supports sparse team ids', () => {
 test('a worker constructs a supply depot, raising the supply cap', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 7 });
   const s = sim.fullState();
-  for (let t = 0; t < 400; t++) sim.step([]); // mine enough minerals
+  s.players.minerals[0] = Units[Kind.SupplyDepot]!.minerals;
 
   // Find an SCV and the command center position.
   let scv = -1;

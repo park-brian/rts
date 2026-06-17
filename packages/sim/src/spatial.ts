@@ -198,6 +198,14 @@ export type InteractionRect = {
   y1: number;
 };
 
+export type InteractionPoint = {
+  x: number;
+  y: number;
+};
+
+const clamp = (v: number, lo: number, hi: number): number =>
+  v < lo ? lo : v > hi ? hi : v;
+
 const bodyRect = (kind: number, x: number, y: number): InteractionRect => {
   const b = bodyBounds(kind);
   return { x0: x - b.left, y0: y - b.up, x1: x + b.right, y1: y + b.down };
@@ -216,6 +224,23 @@ const footprintRect = (kind: number, x: number, y: number): InteractionRect => {
 export const topDownInteractionRect = (kind: number, x: number, y: number, flags = Units[kind]?.roles ?? 0): InteractionRect => {
   if ((flags & Role.Structure) !== 0 && (flags & Role.Resource) === 0) return footprintRect(kind, x, y);
   return bodyRect(kind, x, y);
+};
+
+export const topDownDockingPoint = (
+  moverKind: number,
+  targetKind: number,
+  targetX: number,
+  targetY: number,
+  targetFlags: number,
+  approachX: number,
+  approachY: number,
+): InteractionPoint => {
+  const mover = bodyBounds(moverKind);
+  const target = topDownInteractionRect(targetKind, targetX, targetY, targetFlags);
+  return {
+    x: clamp(approachX, target.x0 - mover.right, target.x1 + mover.left),
+    y: clamp(approachY, target.y0 - mover.down, target.y1 + mover.up),
+  };
 };
 
 export const topDownEdgeDistanceSqBetween = (

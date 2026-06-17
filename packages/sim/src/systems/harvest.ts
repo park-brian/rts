@@ -6,23 +6,23 @@
 //    running). Only one worker extracts at a time; others at the same patch wait
 //    their turn — that rotation is the reservation, derived from state (no lock
 //    column to go stale), and deterministic via ascending-slot processing.
-//  - Saturation cap is *derived from timing*, not hardcoded: while one worker mines
-//    (occupying the patch for MINE_TICKS), others are in transit, so a patch keeps
-//    ~`1 + roundTrip/MINE_TICKS` workers busy without idling — ≈2 at default base
-//    distance, scaling with how far the patch is from the depot.
+//  - Saturation cap is *derived from timing*, not hardcoded: while one worker mines,
+//    others are in transit, so a patch keeps ~`1 + roundTrip/mineTicks` workers busy
+//    without idling — ≈2 at default base distance, scaling with how far the patch is
+//    from the depot.
 //  - Workers are assigned to the patch with the fewest miners (then nearest), so a
 //    base spreads one-per-patch first and only doubles up toward the cap once full.
 //  - If a worker's patch depletes or vanishes, it re-routes to the nearest free one.
 
 import type { State } from '../world.ts';
 import { CAP, slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
-import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
+import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
 import { faceToward } from './move.ts';
 import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
-import { fx } from '../fixed.ts';
-import { topDownEdgeDistance, withinTopDownEdgeRange } from '../spatial.ts';
+import { fx, isqrt } from '../fixed.ts';
+import { topDownDockingPoint, withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
 
 const HARVEST_DOCK_EPSILON = fx(1);
 
@@ -34,6 +34,40 @@ const depotList = new Int32Array(CAP);
 
 export const isResource = (e: State['e'], id: number): boolean =>
   isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Resource) !== 0;
+
+const resourceSlotFromTarget = (s: State, id: number): number => {
+  if (id === NONE) return NONE;
+  const slot = slotOf(id);
+  if (slot < 0 || slot >= s.e.hi) return NONE;
+  return (s.e.flags[slot]! & Role.Resource) !== 0 ? slot : NONE;
+};
+
+const dockingPoint = (
+  s: State,
+  worker: number,
+  target: number,
+  approachX: number,
+  approachY: number,
+): InteractionPoint => {
+  const e = s.e;
+  return topDownDockingPoint(e.kind[worker]!, e.kind[target]!, e.x[target]!, e.y[target]!, e.flags[target]!, approachX, approachY);
+};
+
+const atDockingPoint = (s: State, worker: number, target: number, p: InteractionPoint): boolean => {
+  const e = s.e;
+  const dx = e.x[worker]! - p.x;
+  const dy = e.y[worker]! - p.y;
+  return dx === 0 && dy === 0 && withinTopDownEdgeRange(s, worker, target, HARVEST_DOCK_EPSILON);
+};
+
+const dockDistance = (a: InteractionPoint, b: InteractionPoint): number => {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return isqrt(dx * dx + dy * dy);
+};
+
+const mineTicksFor = (s: State, node: number): number =>
+  Units[s.e.kind[node]!]!.resourceType === ResourceType.Gas ? GAS_MINE_TICKS : MINE_TICKS;
 
 /** Workers (excluding `except`) currently assigned to harvest node slot `node`. */
 const minersOn = (s: State, node: number, owner: number, except: number): number => {
@@ -48,13 +82,15 @@ const minersOn = (s: State, node: number, owner: number, except: number): number
 };
 
 /** Saturation cap of a patch, derived from its round-trip-to-depot vs mine time. */
-const patchCap = (s: State, node: number, owner: number, speed: number): number => {
+const patchCap = (s: State, worker: number, node: number, owner: number, speed: number): number => {
   const e = s.e;
   const depot = nearest(s, e.x[node]!, e.y[node]!, (sl) => (e.flags[sl]! & Role.ResourceDepot) !== 0 && e.owner[sl] === owner);
   if (depot === NONE || speed <= 0) return MAX_PER_PATCH;
-  const travel = topDownEdgeDistance(s, depot, node);
+  const mineDock = dockingPoint(s, worker, node, e.x[depot]!, e.y[depot]!);
+  const depotDock = dockingPoint(s, worker, depot, e.x[node]!, e.y[node]!);
+  const travel = dockDistance(mineDock, depotDock);
   const roundTrip = (2 * travel) / speed; // ticks (fixed-px / fixed-px-per-tick)
-  const cap = 1 + Math.round(roundTrip / MINE_TICKS);
+  const cap = 1 + Math.round(roundTrip / mineTicksFor(s, node));
   return Math.max(2, Math.min(MAX_PER_PATCH, cap));
 };
 
@@ -77,7 +113,7 @@ export const pickPatch = (
     const d = dx * dx + dy * dy;
     if (d < nearD) { nearD = d; near = i; }
     const count = minersOn(s, i, owner, slot);
-    if (count >= patchCap(s, i, owner, speed)) continue;
+    if (count >= patchCap(s, slot, i, owner, speed)) continue;
     if (count < bestCount || (count === bestCount && d < bestD)) { bestCount = count; bestD = d; best = i; }
   }
   return best !== NONE ? best : near;
@@ -118,8 +154,12 @@ export const harvest = (s: State): void => {
       // Returning: deliver to the nearest owned resource depot.
       const depot = nearestDepot(e.x[i]!, e.y[i]!, owner);
       if (depot === NONE) { e.order[i] = Order.Idle; continue; }
+      const source = resourceSlotFromTarget(s, e.target[i]!);
+      const approachX = source === NONE ? e.x[i]! : e.x[source]!;
+      const approachY = source === NONE ? e.y[i]! : e.y[source]!;
+      const dock = dockingPoint(s, i, depot, approachX, approachY);
       faceToward(e, i, e.x[depot]!, e.y[depot]!);
-      if (withinTopDownEdgeRange(s, i, depot, HARVEST_DOCK_EPSILON)) {
+      if (atDockingPoint(s, i, depot, dock)) {
         const pool = e.cargoType[i]! === ResourceType.Gas ? s.players.gas : s.players.minerals;
         pool[owner] = pool[owner]! + e.cargo[i]!;
         e.cargo[i] = 0;
@@ -129,7 +169,7 @@ export const harvest = (s: State): void => {
           e.target[i] = np === NONE ? NONE : eid(e, np);
         }
       } else {
-        navigate(s, i, e.x[depot]!, e.y[depot]!, speed);
+        navigate(s, i, dock.x, dock.y, speed);
       }
       continue;
     }
@@ -141,8 +181,12 @@ export const harvest = (s: State): void => {
       e.target[i] = eid(e, np);
     }
     const node = slotOf(e.target[i]!);
+    const depot = nearestDepot(e.x[node]!, e.y[node]!, owner);
+    const approachX = depot === NONE ? e.x[i]! : e.x[depot]!;
+    const approachY = depot === NONE ? e.y[i]! : e.y[depot]!;
+    const dock = dockingPoint(s, i, node, approachX, approachY);
     faceToward(e, i, e.x[node]!, e.y[node]!);
-    if (withinTopDownEdgeRange(s, i, node, HARVEST_DOCK_EPSILON)) {
+    if (atDockingPoint(s, i, node, dock)) {
       if (e.timer[i]! > 0) {
         // We hold the patch (reserved): extract.
         e.timer[i] = e.timer[i]! - 1;
@@ -155,11 +199,15 @@ export const harvest = (s: State): void => {
           if (e.cargo[node]! <= 0) kill(s, node);
         }
       } else if (mineLock[node] === -1) {
-        e.timer[i] = MINE_TICKS; mineLock[node] = i; // patch free → reserve it and begin mining
+        e.timer[i] = mineTicksFor(s, node); mineLock[node] = i; // patch free → reserve it and begin mining
       }
       // else: another worker is mining here — wait our turn (hold position).
     } else {
-      navigate(s, i, e.x[node]!, e.y[node]!, speed);
+      if (e.timer[i]! > 0) {
+        if (mineLock[node] === i) mineLock[node] = -1;
+        e.timer[i] = 0;
+      }
+      navigate(s, i, dock.x, dock.y, speed);
     }
   }
 };
