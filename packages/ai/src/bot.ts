@@ -71,6 +71,11 @@ const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
 const scienceFacilityAddon = (s: State, player: number): number =>
   hasCompletedKind(s, player, Kind.ControlTower) ? Kind.PhysicsLab : Kind.CovertOps;
 
+const terranAddonMacro = (s: State, player: number): readonly number[] =>
+  hasCompletedKind(s, player, Kind.CovertOps)
+    ? [Kind.NuclearSilo, Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower]
+    : TERRAN_ADDON_MACRO;
+
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
@@ -274,7 +279,7 @@ const maybeQueueTerranAddons = (
   budget: ResourceBudget,
 ): void => {
   if (faction.name !== 'Terran') return;
-  for (const kind of TERRAN_ADDON_MACRO) {
+  for (const kind of terranAddonMacro(s, player)) {
     if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
   }
   maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player));

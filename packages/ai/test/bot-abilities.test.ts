@@ -323,6 +323,54 @@ test('bot respects science facility add-on parent, duplicates, and gas budget', 
   assert.equal(brokeCommands.some((c) => c.t === 'addon' && (c.kind === Kind.PhysicsLab || c.kind === Kind.CovertOps)), false);
 });
 
+test('bot queues a legal nuclear silo after covert ops', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 427, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
+  const base = entityPos(sim, commandCenter);
+  spawnUnit(s, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === commandCenter && c.kind === Kind.NuclearSilo);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot respects nuclear silo prerequisites, add-on conflicts, and budget', () => {
+  const missingCovertOps = new Sim({ map: sliceMap(), players: 2, seed: 428, factions: [Terran, Zerg] });
+  const missingState = missingCovertOps.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(missingState, 0).some((c) => c.t === 'addon' && c.kind === Kind.NuclearSilo), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 429, factions: [Terran, Zerg] });
+  const dupState = duplicate.fullState();
+  const dupE = dupState.e;
+  const commandCenter = slotOf(findEntity(duplicate, Kind.CommandCenter, 0));
+  const base = entityPos(duplicate, eid(dupE, commandCenter));
+  spawnUnit(dupState, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  const comsat = slotOf(spawnUnit(dupState, Kind.ComsatStation, 0, base.x + fx(80), base.y));
+  dupE.target[commandCenter] = eid(dupE, comsat);
+  dupE.target[comsat] = eid(dupE, commandCenter);
+  dupState.players.minerals[0] = 1_000;
+  dupState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(dupState, 0).some((c) => c.t === 'addon' && c.kind === Kind.NuclearSilo), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 430, factions: [Terran, Zerg] });
+  const brokeState = broke.fullState();
+  const brokeBase = entityPos(broke, findEntity(broke, Kind.CommandCenter, 0));
+  spawnUnit(brokeState, Kind.CovertOps, 0, brokeBase.x - fx(160), brokeBase.y);
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = 0;
+
+  assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.NuclearSilo), false);
+});
+
 test('protoss bot places gateways from completed pylon power anchors', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
   const s = sim.fullState();

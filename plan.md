@@ -597,6 +597,8 @@ Completed:
   army structures, so Gateway expansion uses the same placement validation as human commands.
 - Terran scripted macro now queues legal Science Facility add-ons through shared add-on
   validation, choosing Physics Lab for the air-tech path and Covert Ops otherwise.
+- Terran scripted macro now queues legal Nuclear Silos on Command Centers after Covert Ops,
+  keeping late-game nuke tech on the same add-on validation path.
 
 Done when:
 
@@ -619,8 +621,8 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
 - Macro/tech tree:
-  - AI macro should use real race tech paths, including remaining Terran add-ons and Protoss
-    power-aware expansions.
+  - AI macro should use real race tech paths, including Protoss power-aware expansions beyond
+    Gateway.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
 - Rendering/assets:
