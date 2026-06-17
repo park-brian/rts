@@ -7,6 +7,7 @@ export type Mode = 'play' | 'spectate' | 'replay';
 export type TargetMode = 'none' | 'harvest' | 'repair';
 export type ControlScheme = 'mobile' | 'desktop';
 export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason; label?: string; detail?: string };
+export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
 
 const initialControlScheme = (): ControlScheme => {
   try {
@@ -39,6 +40,7 @@ export const ui = {
   playerRaces: signal<string[]>(['terran', 'terran']),
   selCount: signal(0),
   selKindName: signal(''),
+  selStatus: signal<SelectionStatus>({ label: 'No selection', detail: '', progress: 0, stats: [] }),
   selCanBuild: signal(false), // a worker is selected
   selCanRally: signal(false), // a structure is selected
   selBuildKinds: signal<number[]>([]),

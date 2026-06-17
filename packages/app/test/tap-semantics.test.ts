@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { ui } from '../src/store.ts';
-import { Ability, Kind, ONE, Role, Tech, TILE, canPlaceStructure, eid, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import { Ability, Kind, ONE, Role, Tech, TILE, Units, canPlaceStructure, eid, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 
 const freshGame = (): Game => {
   const g = new Game('play', 1234);
@@ -765,6 +765,33 @@ test('selection summary hides real production commands for known own hallucinati
 
   assert.equal(ui.selKindName.value, 'Hallucination Carrier');
   assert.equal(ui.selTrainOptions.value.length, 0);
+});
+
+test('selection status publishes compact progress and upgraded combat stats', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const barracks = spawnUnit(s, Kind.Barracks, 0, fx(520), fx(520));
+  const slot = slotOf(barracks);
+  s.e.prodKind[slot] = Kind.Marine;
+  s.e.prodTimer[slot] = Math.floor(Units[Kind.Marine]!.buildTime / 2);
+  s.e.prodQueued[slot] = 1;
+  setTechLevel(s, 0, Tech.InfantryWeapons, 1);
+  setTechLevel(s, 0, Tech.InfantryArmor, 1);
+  select(g, [barracks]);
+  g.fastForward(0);
+
+  assert.equal(ui.selStatus.value.label, 'Training');
+  assert.equal(ui.selStatus.value.detail, 'Marine +1');
+  assert.ok(ui.selStatus.value.progress > 0.45 && ui.selStatus.value.progress < 0.55);
+  assert.ok(ui.selStatus.value.stats.includes('HP 1000/1000'));
+
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(560), fx(520));
+  select(g, [marine]);
+  g.fastForward(0);
+
+  assert.equal(ui.selStatus.value.label, 'Idle');
+  assert.ok(ui.selStatus.value.stats.includes('Arm 0+1'));
+  assert.ok(ui.selStatus.value.stats.includes('G/A 6+1 R4 CD15'));
 });
 
 test('selected zerg combat morphs present as cancellable cocoons', () => {

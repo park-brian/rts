@@ -4,16 +4,20 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, TechDefs, Units, Role,
+  Order,
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
   addonParentKind,
   transformFor, transformTargetsFor, snapBuildAnchor, isLiftedStructureFlags,
+  weaponUpgradeBonus, armorUpgradeBonus, shieldArmorBonus,
+  upgradedRange, upgradedSpeed, upgradedCooldown, upgradedSight,
+  nextTechLevel, techTime,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
-  type CommandRejectReason, type CommandValidation,
+  type CommandRejectReason, type CommandValidation, type Weapon,
 } from './sim.ts';
-import { ui, type CommandOption, type Mode } from './store.ts';
+import { ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entitySelectionName } from './entity-presentation.ts';
@@ -45,6 +49,17 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
   'stale-entity': 16,
 };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
+const EMPTY_SELECTION_STATUS: SelectionStatus = { label: 'No selection', detail: '', progress: 0, stats: [] };
+const ORDER_LABELS: Record<number, string> = {
+  [Order.Idle]: 'Idle',
+  [Order.Move]: 'Moving',
+  [Order.Harvest]: 'Harvesting',
+  [Order.Attack]: 'Attacking',
+  [Order.AttackMove]: 'Attack-moving',
+  [Order.Build]: 'Building',
+  [Order.Cast]: 'Casting',
+  [Order.Repair]: 'Repairing',
+};
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
@@ -75,6 +90,132 @@ const nukeTrainOptionMeta = (s: State, slot: number): CommandOptionMeta => {
   if (e.specialAmmo[slot]! > 0) return { label: 'Nuke Ready', detail: 'Ready' };
   if (e.prodKind[slot] === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
   return { label: 'Arm Nuke' };
+};
+
+const clampProgress = (remaining: number, total: number): number =>
+  total <= 0 ? 0 : Math.max(0, Math.min(1, 1 - remaining / total));
+
+const constructionVerb = (kind: number): string => {
+  switch (Units[kind]?.buildMethod) {
+    case 'warp': return 'Warping';
+    case 'morph': return 'Morphing';
+    case 'merge': return 'Summoning';
+    case 'addon': return 'Adding';
+    default: return 'Building';
+  }
+};
+
+const orderLabel = (order: number): string => ORDER_LABELS[order] ?? 'Acting';
+
+const fixedTile = (value: number): string => {
+  const n = value / ONE / TILE;
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+};
+
+const pxPerSecond = (value: number): string => ((value / ONE) * FPS).toFixed(1);
+
+const weaponDetails = (s: State, slot: number, weapon: Weapon): string => {
+  const bonus = weaponUpgradeBonus(s, slot);
+  const shots = weapon.shots && weapon.shots > 1 ? `x${weapon.shots}` : '';
+  const dmg = bonus > 0 ? `${weapon.damage}+${bonus}` : String(weapon.damage);
+  const range = fixedTile(upgradedRange(s, slot, weapon));
+  const cd = upgradedCooldown(s, slot, weapon.cooldown);
+  return `${dmg}${shots} R${range} CD${cd}`;
+};
+
+const selectionStats = (s: State, slot: number): string[] => {
+  const e = s.e;
+  const def = Units[e.kind[slot]!]!;
+  const stats = [`HP ${e.hp[slot]}/${def.hp}`];
+  if (def.shields > 0) stats.push(`Sh ${e.shield[slot]}/${def.shields}`);
+  if (e.energyMax[slot]! > 0) stats.push(`E ${e.energy[slot]}/${e.energyMax[slot]}`);
+  const armor = armorUpgradeBonus(s, slot);
+  stats.push(`Arm ${def.armor}${armor > 0 ? `+${armor}` : ''}`);
+  const shieldArmor = shieldArmorBonus(s, slot);
+  if (shieldArmor > 0) stats.push(`ShArm +${shieldArmor}`);
+  if (def.weapon && def.airWeapon && def.weapon === def.airWeapon) {
+    stats.push(`G/A ${weaponDetails(s, slot, def.weapon)}`);
+  } else {
+    if (def.weapon) stats.push(`G ${weaponDetails(s, slot, def.weapon)}`);
+    if (def.airWeapon) stats.push(`A ${weaponDetails(s, slot, def.airWeapon)}`);
+  }
+  if (def.speed > 0) stats.push(`Spd ${pxPerSecond(upgradedSpeed(s, slot, def.speed))}`);
+  if (def.sight > 0) stats.push(`Sight ${upgradedSight(s, slot, def.sight)}`);
+  return stats;
+};
+
+const selectionStatus = (s: State, slot: number): SelectionStatus => {
+  const e = s.e;
+  const kind = e.kind[slot]!;
+  const def = Units[kind]!;
+  if (e.built[slot] !== 1) {
+    return {
+      label: constructionVerb(kind),
+      detail: def.name,
+      progress: clampProgress(e.ctimer[slot]!, def.buildTime),
+      stats: selectionStats(s, slot),
+    };
+  }
+  const prod = e.prodKind[slot]!;
+  if (prod !== Kind.None) {
+    const prodDef = Units[prod]!;
+    const queued = e.prodQueued[slot]!;
+    return {
+      label: prod === Kind.NuclearMissile ? 'Arming' : prodDef.buildMethod === 'morph' ? 'Morphing' : 'Training',
+      detail: `${prodDef.name}${queued > 0 ? ` +${queued}` : ''}`,
+      progress: clampProgress(e.prodTimer[slot]!, prodDef.buildTime),
+      stats: selectionStats(s, slot),
+    };
+  }
+  const tech = e.researchKind[slot]!;
+  if (tech !== Kind.None) {
+    const techDef = TechDefs[tech]!;
+    const level = nextTechLevel(s, e.owner[slot]!, tech);
+    return {
+      label: 'Researching',
+      detail: techDef.name,
+      progress: clampProgress(e.researchTimer[slot]!, techTime(techDef, level)),
+      stats: selectionStats(s, slot),
+    };
+  }
+  return {
+    label: isLiftedStructureFlags(e.flags[slot]!) ? 'Flying' : orderLabel(e.order[slot]!),
+    detail: '',
+    progress: 0,
+    stats: selectionStats(s, slot),
+  };
+};
+
+const clearSelectionUi = (): void => {
+  ui.selCount.value = 0;
+  ui.selKindName.value = '';
+  ui.selStatus.value = EMPTY_SELECTION_STATUS;
+  ui.selCanBuild.value = false;
+  ui.selCanRally.value = false;
+  ui.selCanLoad.value = false;
+  ui.selCanUnload.value = false;
+  ui.selCanHarvest.value = false;
+  ui.selCanRepair.value = false;
+  ui.selCanAttackMove.value = false;
+  ui.selCanStop.value = false;
+  ui.selCanBurrow.value = false;
+  ui.selCanUnburrow.value = false;
+  ui.selCanMine.value = false;
+  ui.selCanLift.value = false;
+  ui.selCanLand.value = false;
+  ui.selCanCancel.value = false;
+  ui.selBuildKinds.value = [];
+  ui.selAddonKinds.value = [];
+  ui.selTransformKinds.value = [];
+  ui.selTrainKinds.value = [];
+  ui.selAbilities.value = [];
+  ui.selResearchTechs.value = [];
+  ui.selBuildOptions.value = [];
+  ui.selAddonOptions.value = [];
+  ui.selTransformOptions.value = [];
+  ui.selTrainOptions.value = [];
+  ui.selAbilityOptions.value = [];
+  ui.selResearchOptions.value = [];
 };
 
 export class Game {
@@ -160,28 +301,7 @@ export class Game {
     ui.rally.value = false;
     ui.abilityTarget.value = 0;
     ui.targetMode.value = 'none';
-    ui.selCanBurrow.value = false;
-    ui.selCanUnburrow.value = false;
-    ui.selCanHarvest.value = false;
-    ui.selCanRepair.value = false;
-    ui.selCanAttackMove.value = false;
-    ui.selCanStop.value = false;
-    ui.selCanMine.value = false;
-    ui.selCanLift.value = false;
-    ui.selCanLand.value = false;
-    ui.selCanCancel.value = false;
-    ui.selBuildKinds.value = [];
-    ui.selAddonKinds.value = [];
-    ui.selTransformKinds.value = [];
-    ui.selTrainKinds.value = [];
-    ui.selAbilities.value = [];
-    ui.selResearchTechs.value = [];
-    ui.selBuildOptions.value = [];
-    ui.selAddonOptions.value = [];
-    ui.selTransformOptions.value = [];
-    ui.selTrainOptions.value = [];
-    ui.selAbilityOptions.value = [];
-    ui.selResearchOptions.value = [];
+    clearSelectionUi();
     ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
@@ -1025,13 +1145,7 @@ export class Game {
   deselect(): void {
     this.selection.clear();
     this.clearTargetModes();
-    ui.selCanBurrow.value = false; ui.selCanUnburrow.value = false;
-    ui.selCanHarvest.value = false; ui.selCanRepair.value = false; ui.selCanAttackMove.value = false;
-    ui.selCanStop.value = false; ui.selCanMine.value = false;
-    ui.selCanLift.value = false; ui.selCanLand.value = false;
-    ui.selCanCancel.value = false;
-    ui.selAddonKinds.value = [];
-    ui.selTransformKinds.value = [];
+    clearSelectionUi();
   }
 
   /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
@@ -1096,7 +1210,7 @@ export class Game {
 
     // selection summary
     const e = s.e;
-    let count = 0; let kindName = ''; let canRally = false;
+    let count = 0; let kindName = ''; let primarySlot = -1; let canRally = false;
     let canLoad = false; let canUnload = false; let canHarvest = false; let canRepair = false;
     let canAttackMove = false; let canStop = false;
     let canBurrow = false; let canUnburrow = false; let canMine = false;
@@ -1113,6 +1227,7 @@ export class Game {
       const slot = slotOf(id);
       const k = e.kind[slot]!;
       const completed = e.built[slot] === 1;
+      if (primarySlot < 0) primarySlot = slot;
       kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${entitySelectionName(s, slot)}`;
       const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
       if (nonStructure && validateCommand(s, this.human, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
@@ -1183,6 +1298,7 @@ export class Game {
     }
     ui.selCount.value = count;
     ui.selKindName.value = count > 1 ? `${kindName} ×${count}` : kindName;
+    ui.selStatus.value = primarySlot >= 0 ? selectionStatus(s, primarySlot) : EMPTY_SELECTION_STATUS;
     ui.selCanBuild.value = buildOptions.size > 0;
     ui.selCanRally.value = canRally;
     ui.selBuildOptions.value = sortedOptions(buildOptions);

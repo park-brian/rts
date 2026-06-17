@@ -26,3 +26,13 @@ test('hud bars are solid separate chrome, not glass overlays', () => {
   assert.doesNotMatch(ui, /backdropFilter/);
   assert.doesNotMatch(ui, /rgba\(11,\s*14,\s*19/);
 });
+
+test('desktop command console uses a reserved two-row command grid', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+
+  assert.match(ui, /--bottom-chrome', scheme === 'desktop' \? '112px'/);
+  assert.match(ui, /gridTemplateColumns:\s*'112px minmax\(260px, 320px\) minmax\(0, 1fr\)'/);
+  assert.match(ui, /gridTemplateRows:\s*'repeat\(2, 38px\)'/);
+  assert.match(ui, /build:\s*'Build Orders'/);
+  assert.doesNotMatch(ui, /`Build \$\{short/);
+});

@@ -156,8 +156,8 @@ Completed:
   reachable from the command card: worker structures, production, research/upgrades, spells,
   morphs/merges, Terran add-ons, and Terran lift/land. Command availability must continue to flow
   through shared validation rather than app-only prerequisites.
-- Screenshot review compacted desktop chrome to a 46px top bar and 76px bottom console, with
-  fixed command cells on the right so the playable viewport gets the reclaimed space.
+- Screenshot review compacted desktop chrome to a 46px top bar and a reserved fixed-height bottom
+  console, with fixed command cells on the right so the playable viewport is never occluded.
 - Lifted Terran structures now treat `land` as a landing move intent: they stay airborne, fly
   through the normal movement system, re-check the snapped footprint on arrival, then restore
   landed structure roles without per-tick landing scans.
@@ -178,6 +178,14 @@ Completed:
 - GL and Math renderers now draw selected bases from authoritative gameplay unit radius and
   building/resource footprint metadata, so the fallback renderer remains the exact footprint
   reference instead of following sprite art bounds.
+- Desktop command chrome now separates minimap, selected-entity status, and commands into fixed
+  columns; commands flow through a two-row grid before horizontal scrolling, so control-group text
+  and command buttons cannot overlap. Build command labels use the section label for the verb
+  instead of repeating `Build` on every building button.
+- The HUD publish pass now emits a compact selected-entity status snapshot with current
+  construction, production, or research progress plus upgraded HP, armor, weapon, speed, and sight
+  stats, derived from the same sim tables and upgrade helpers used by combat, movement, and
+  validation.
 
 Remaining:
 

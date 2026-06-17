@@ -25,7 +25,7 @@ const COMMAND_GROUP_ORDER: CommandGroupId[] = ['placement', 'production', 'build
 const COMMAND_GROUP_LABEL: Record<CommandGroupId, string> = {
   placement: 'Place',
   production: 'Train',
-  build: 'Build',
+  build: 'Build Orders',
   tech: 'Tech',
   abilities: 'Cast',
   orders: 'Orders',
@@ -120,7 +120,7 @@ const groupLabelStyle: Record<string, string> = {
 const applyControlChrome = (scheme: ControlScheme): void => {
   const root = document.documentElement;
   root.style.setProperty('--top-chrome', scheme === 'desktop' ? '46px' : 'calc(76px + env(safe-area-inset-top))');
-  root.style.setProperty('--bottom-chrome', scheme === 'desktop' ? '76px' : 'calc(84px + env(safe-area-inset-bottom))');
+  root.style.setProperty('--bottom-chrome', scheme === 'desktop' ? '112px' : 'calc(84px + env(safe-area-inset-bottom))');
 };
 
 const resizePlayfield = (): void => {
@@ -282,6 +282,60 @@ const MinimapPanel = (p: { game: Game }) => {
   );
 };
 
+const ProgressLine = () => {
+  const status = ui.selStatus.value;
+  if (ui.selCount.value <= 0 || status.progress <= 0 || status.progress >= 1) return null;
+  const pct = Math.round(status.progress * 100);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 34px', gap: '6px', alignItems: 'center',
+      marginTop: '5px' }}>
+      <div style={{ height: '5px', background: '#05070b', border: '1px solid #2a3340', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: '#49d0c0' }} />
+      </div>
+      <span style={{ fontSize: '10px', opacity: 0.72, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{pct}%</span>
+    </div>
+  );
+};
+
+const StatChips = () => {
+  const stats = ui.selStatus.value.stats;
+  if (ui.selCount.value <= 0 || stats.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '5px', overflow: 'hidden',
+      maxHeight: '38px' }}>
+      {stats.map((stat) => (
+        <span key={stat} style={{ flex: '0 0 auto', maxWidth: '100%', border: '1px solid #263241',
+          background: '#0b111a', padding: '1px 4px', fontSize: '10px', lineHeight: '13px',
+          color: '#cdd9e5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {stat}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const SelectionPanel = () => {
+  const status = ui.selStatus.value;
+  const hasSelection = ui.selCount.value > 0;
+  return (
+    <div style={{ border: '1px solid #2a3340', background: '#111923', padding: '7px 8px',
+      display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '16px' }}>
+        {hasSelection ? ui.selKindName.value : 'No selection'}
+      </b>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '2px',
+        fontSize: '11px', lineHeight: '13px', color: '#9fb1c7', minWidth: 0 }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {hasSelection ? [status.label, status.detail].filter(Boolean).join(': ') : 'Ctrl+1-0 assigns groups'}
+        </span>
+        {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>Group {ui.selCount.value}</span>}
+      </div>
+      <ProgressLine />
+      <StatChips />
+    </div>
+  );
+};
+
 // Replay scrubber + transport, shown only while watching a replay.
 const ReplayBar = (p: { game: Game }) => {
   if (ui.mode.value !== 'replay') return null;
@@ -367,7 +421,7 @@ const Hotbar = (p: { game: Game }) => {
     }
     for (const option of ui.selAddonOptions.value) {
       const kind = option.id;
-      addOptionButton('build', option, `Add ${short(Units[kind]?.name ?? 'Add-on')}`, actionKey.addon(kind),
+      addOptionButton('build', option, short(Units[kind]?.name ?? 'Add-on'), actionKey.addon(kind),
         () => { clearTargets(); g.addonSelected(kind); });
     }
     for (const option of ui.selTransformOptions.value) {
@@ -379,7 +433,7 @@ const Hotbar = (p: { game: Game }) => {
     if (ui.selCanBuild.value) {
       for (const option of ui.selBuildOptions.value) {
         const kind = option.id;
-        addOptionButton('build', option, `Build ${short(Units[kind]?.name ?? 'Building')}`, actionKey.build(kind), () => placeKind(kind));
+        addOptionButton('build', option, short(Units[kind]?.name ?? 'Building'), actionKey.build(kind), () => placeKind(kind));
       }
     }
     if (ui.selCanRally.value) {
@@ -449,26 +503,21 @@ const Hotbar = (p: { game: Game }) => {
       <div style={{ ...bar, bottom: '0', height: 'var(--bottom-chrome)', overflow: 'hidden',
         borderTop: '1px solid #1e2733',
         padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
-        display: 'grid', gridTemplateColumns: '112px 240px minmax(420px, 1fr)',
+        display: 'grid', gridTemplateColumns: '112px minmax(260px, 320px) minmax(0, 1fr)',
         alignItems: 'stretch', gap: '8px' }}>
         <MinimapPanel game={g} />
-        <div style={{ border: '1px solid #2a3340', background: '#111923', padding: '8px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-          <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {ui.selCount.value > 0 ? ui.selKindName.value : 'No selection'}
-          </b>
-          <span style={{ opacity: 0.72, marginTop: '3px', fontSize: '12px' }}>
-            {ui.selCount.value > 0 ? `Group ${ui.selCount.value}` : 'Ctrl+1-0 assigns groups'}
-          </span>
-        </div>
+        <SelectionPanel />
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', overflowY: 'hidden',
-          paddingRight: '2px', justifyContent: 'end', alignItems: 'stretch', minWidth: 0 }}>
+          paddingRight: '2px', alignItems: 'stretch', minWidth: 0 }}>
           {sections.map((section) => (
-            <div key={section.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '0 0 auto' }}>
+            <div key={section.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '0 0 auto',
+              minWidth: '0' }}>
               {sections.length > 1 && COMMAND_GROUP_LABEL[section.id] && (
                 <span style={groupLabelStyle}>{COMMAND_GROUP_LABEL[section.id]}</span>
               )}
-              <div style={{ display: 'flex', gap: '5px', alignItems: 'stretch' }}>
+              <div style={{ display: 'grid', gridTemplateRows: 'repeat(2, 38px)',
+                gridAutoFlow: 'column', gridAutoColumns: 'minmax(82px, 104px)',
+                gap: '5px', alignItems: 'stretch' }}>
                 {section.items.map((item) => <div key={item.key} style={{ display: 'flex' }}>{item.node}</div>)}
               </div>
             </div>
