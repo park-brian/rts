@@ -8,6 +8,7 @@ import { spawnUnit } from '../src/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
+import { validateCommand } from '../src/validation.ts';
 
 const zergSim = (): Sim => Sim.fromState(setupMatch(sliceMap(), 1, 1, [Zerg]));
 
@@ -199,6 +200,26 @@ test('zerg combat unit morphs are teched, inert while morphing, and cancel back 
   assert.equal(e.kind[hydra], Kind.Hydralisk);
   assert.equal(e.built[hydra], 1);
   assert.equal(e.morphFromKind[hydra], Kind.None);
+});
+
+test('zerg combat unit morphs require supply for larger target forms', () => {
+  const sim = zergSim();
+  const s = sim.fullState();
+  const e = s.e;
+  spawnUnit(s, Kind.HydraliskDen, 0, fx(700), fx(700));
+  const hydra = slotOf(spawnUnit(s, Kind.Hydralisk, 0, fx(420), fx(400)));
+  setTechLevel(s, 0, Tech.LurkerAspect, 1);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  s.players.supplyUsed[0] = s.players.supplyMax[0];
+  assert.deepEqual(validateCommand(s, 0, { t: 'transform', unit: eid(e, hydra), kind: Kind.Lurker }), {
+    ok: false,
+    reason: 'supply-blocked',
+  });
+
+  s.players.supplyUsed[0] -= Units[Kind.Lurker]!.supply - Units[Kind.Hydralisk]!.supply;
+  assert.deepEqual(validateCommand(s, 0, { t: 'transform', unit: eid(e, hydra), kind: Kind.Lurker }), { ok: true });
 });
 
 test('mutalisks morph into guardian or devourer only after greater spire', () => {

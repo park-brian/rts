@@ -91,6 +91,50 @@ test('bot attacks with already burrowed lurkers', () => {
   assert.ok(cmds.some((c) => c.t === 'attack' && c.unit === lurker && c.target === marine));
 });
 
+test('bot starts hatchery to lair morph when zerg tech and resources are legal', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 406, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = findEntity(sim, Kind.Hatchery, 0);
+  const base = entityPos(sim, hatchery);
+  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg)(s, 0);
+
+  assert.ok(cmds.some((c) => c.t === 'transform' && c.unit === hatchery && c.kind === Kind.Lair));
+});
+
+test('bot keeps using a completed lair as the zerg base anchor', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 407, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = findEntity(sim, Kind.Hatchery, 0);
+  s.e.kind[slotOf(hatchery)] = Kind.Lair;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg)(s, 0);
+
+  assert.ok(cmds.some((c) => c.t === 'train' && c.kind === Kind.Drone));
+});
+
+test('bot morphs hydralisks into lurkers through shared transform validation', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 408, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = findEntity(sim, Kind.Hatchery, 0);
+  const base = entityPos(sim, hatchery);
+  spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(120), base.y);
+  const hydra = spawnUnit(s, Kind.Hydralisk, 0, base.x + fx(32), base.y);
+  grant(sim, 0, Tech.LurkerAspect);
+  sim.step();
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg)(s, 0);
+
+  assert.ok(cmds.some((c) => c.t === 'transform' && c.unit === hydra && c.kind === Kind.Lurker));
+});
+
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });
   const s = sim.fullState();

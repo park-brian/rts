@@ -392,10 +392,14 @@ Completed:
 - Incomplete structures now reject `rally` through shared validation, so UI command cards,
   scripted controllers, and future RL action masks agree that rally belongs to completed
   structures only.
+- Scripted Zerg AI now recognizes completed Hatchery/Lair/Hive bases through the shared larva
+  source helper and emits validation-backed morph commands for Hatchery -> Lair and Hydralisk ->
+  Lurker when tech, resources, queues, and supply allow them.
 
 Remaining:
 
-- Fuller Zerg macro flow, especially AI use of structure/unit morphs.
+- Fuller Zerg macro flow beyond the first morph hooks, especially real tech-path planning toward
+  Hydralisk Den, Spire/Greater Spire, Hive tech, and late-game caster structures.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state

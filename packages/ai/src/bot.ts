@@ -8,7 +8,7 @@ import {
   Abilities, Ability, Role, Trait, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
-  hasAnyWeapon, hasReadyNuke, sameTeam, unloadAnchorSlot, unloadPassable, weaponForTarget,
+  hasAnyWeapon, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -20,6 +20,8 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
+
+type ResourceBudget = { minerals: number; gas: number };
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 
@@ -85,6 +87,8 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       } else if (k === faction.depot && e.built[i] === 1) {
         if (depot === NONE) depot = i;
         if (e.prodKind[i] === Kind.None) idleDepots.push(i);
+      } else if (faction.name === 'Zerg' && isLarvaSourceKind(k) && e.built[i] === 1) {
+        if (depot === NONE) depot = i;
       } else if (k === Kind.Larva && e.built[i] === 1) {
         idleLarvae.push(i);
       } else if (k === faction.armyStructure) {
@@ -98,7 +102,12 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
     if (depot === NONE) return cmds; // no base: nothing to do
 
-    let minerals = s.players.minerals[p]!;
+    const budget: ResourceBudget = { minerals: s.players.minerals[p]!, gas: s.players.gas[p]! };
+    let minerals = budget.minerals;
+    const spendMinerals = (amount: number): void => {
+      budget.minerals -= amount;
+      minerals = budget.minerals;
+    };
     let reservedSupply = s.players.supplyUsed[p]!;
     const cap = s.players.supplyMax[p]!;
     const room = (need: number): boolean => reservedSupply + need <= cap;
@@ -142,7 +151,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (minerals >= cost && room(workerDef.supply * n)) {
         cmds.push({ t: 'train', building: eid(e, d), kind: faction.worker });
         usedProducers.add(d);
-        minerals -= cost;
+        spendMinerals(cost);
         reservedSupply += workerDef.supply * n;
         workers += n;
       }
@@ -153,14 +162,14 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const larva = takeLarva();
       if (larva !== NONE) {
         cmds.push({ t: 'train', building: eid(e, larva), kind: faction.supplyStructure });
-        minerals -= supplyDef.minerals;
+        spendMinerals(supplyDef.minerals);
         pendingSupply++;
       }
     } else if (cap < SUPPLY_CAP && cap - reservedSupply <= supply(2) && pendingSupply === 0 && minerals >= supplyDef.minerals && aWorker !== NONE) {
       const spot = findSpot(s, p, aWorker, faction.supplyStructure, e.x[depot]!, e.y[depot]!);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
-        minerals -= supplyDef.minerals;
+        spendMinerals(supplyDef.minerals);
         pendingSupply++;
       }
     }
@@ -170,10 +179,13 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const spot = findSpot(s, p, aWorker, faction.armyStructure, e.x[depot]!, e.y[depot]!);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
-        minerals -= rax.minerals;
+        spendMinerals(rax.minerals);
         pendingBarracks++;
       }
     }
+
+    maybeQueueZergMorphs(s, p, faction, cmds, budget);
+    minerals = budget.minerals;
 
     // 4) Pump army from the faction's real producer.
     for (const b of armyProducer) {
@@ -184,7 +196,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (minerals >= cost && room(armyDef.supply * n)) {
         cmds.push({ t: 'train', building: eid(e, b), kind: faction.armyUnit });
         usedProducers.add(b);
-        minerals -= cost;
+        spendMinerals(cost);
         reservedSupply += armyDef.supply * n;
       }
     }
@@ -220,6 +232,44 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     return cmds;
   };
+};
+
+const maybeQueueTransform = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+  slot: number,
+  kind: number,
+): boolean => {
+  const def = Units[kind]!;
+  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
+  const command: Command = { t: 'transform', unit: eid(s.e, slot), kind };
+  if (!validateCommand(s, player, command).ok) return false;
+  cmds.push(command);
+  budget.minerals -= def.minerals;
+  budget.gas -= def.gas;
+  return true;
+};
+
+const maybeQueueZergMorphs = (
+  s: State,
+  player: number,
+  faction: Faction,
+  cmds: Command[],
+  budget: ResourceBudget,
+): void => {
+  if (faction.name !== 'Zerg') return;
+  const e = s.e;
+  let lairStarted = false;
+  let lurkerStarted = false;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || e.built[i] !== 1) continue;
+    const kind = e.kind[i]!;
+    if (!lairStarted && kind === Kind.Hatchery) lairStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lair);
+    else if (!lurkerStarted && kind === Kind.Hydralisk) lurkerStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lurker);
+    if (lairStarted && lurkerStarted) return;
+  }
 };
 
 const maybeStim = (s: State, cmds: Command[], slot: number): void => {
