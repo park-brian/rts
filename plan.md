@@ -219,7 +219,8 @@ Implementation:
 - Speed upgrades: Stim already exists; add Ion, Leg Enhancements, Hydralisk, Overlord, Shuttle,
   Observer, Scout, Ultralisk, and relevant Zergling upgrades.
 - Caster energy upgrades: raise max energy to 250 and preserve current energy.
-- Capacity upgrades: Carrier interceptors, Reaver scarabs, Reaver capacity, Overlord transport.
+- Capacity upgrades: Reaver scarabs, Reaver capacity, Overlord transport, and Carrier
+  Interceptors.
 
 Done when:
 
@@ -246,7 +247,7 @@ Completed:
 
 Remaining:
 
-- Capacity/ammo upgrades: Carrier interceptors and Overlord transport.
+- Capacity/ammo upgrades: Overlord transport.
 - Attack-speed upgrade fidelity beyond Stim, especially Adrenal Glands.
 - More exact per-weapon upgrade increments for multi-hit weapons and special attacks.
 - Broader all-race matrix tests once unit-specific combat mechanics are in place.
@@ -419,13 +420,15 @@ Completed:
 - Added Reaver scarabs as internal ammo built through the shared train/production queue: Reaver
   attacks require and consume scarabs, Reaver Capacity raises the ammo cap, Scarab Damage feeds
   the derived weapon bonus, and scarab splash uses the existing weapon splash metadata.
+- Added Carrier Interceptors as launched child combat actors with a serialized home link, attack
+  sortie, target orbit, leash/return behavior, ammo restoration, and idle target acquisition.
 
 Remaining:
 
 - More exact Reaver scarab projectile travel/pathing/falloff/presentation on top of the
   contained-unit primitive.
-- Carrier interceptor build, launch, return, leash, and damage loop on top of the contained-unit
-  primitive.
+- More exact Carrier Interceptor launch/dock presentation and any remaining Brood War movement
+  fidelity on top of the launched-child primitive.
 - More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
 
 ## Phase 7: Visibility, Terrain, And Fog Fidelity
@@ -489,7 +492,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
   - More exact Reaver scarab projectile travel/pathing/falloff/presentation.
-  - Carrier interceptor launch/return/leash behavior and interceptor targeting.
+  - More exact Carrier Interceptor launch/dock presentation and Brood War movement fidelity.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
 - Upgrade fidelity:

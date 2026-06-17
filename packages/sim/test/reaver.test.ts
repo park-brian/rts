@@ -3,14 +3,24 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { eid, slotOf } from '../src/world.ts';
+import { eid, kill, slotOf } from '../src/world.ts';
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
-  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, Units,
+  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, Units, tiles,
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
+
+const launchedInterceptors = (s: ReturnType<Sim['fullState']>, carrierSlot: number): number[] => {
+  const e = s.e;
+  const home = eid(e, carrierSlot);
+  const out: number[] = [];
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.kind[i] === Kind.Interceptor && e.home[i] === home) out.push(i);
+  }
+  return out;
+};
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 601 });
@@ -137,4 +147,54 @@ test('carrier capacity upgrade gates queued interceptors', () => {
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, c), kind: Kind.Interceptor }] }]), [
     { player: 0, index: 0, t: 'train', ok: true },
   ]);
+});
+
+test('carriers launch interceptors that orbit targets and return as ammo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 607 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(560), fx(400));
+  const c = slotOf(carrier);
+  const t = slotOf(target);
+  e.specialAmmo[c] = 1;
+  const hpBefore = e.hp[t]!;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'attack', unit: carrier, target }] }]), [
+    { player: 0, index: 0, t: 'attack', ok: true },
+  ]);
+  assert.equal(e.specialAmmo[c], 0);
+  assert.equal(launchedInterceptors(s, c).length, 1);
+
+  for (let i = 0; i < 70; i++) sim.step([]);
+
+  const launched = launchedInterceptors(s, c);
+  assert.equal(launched.length, 1);
+  const interceptor = launched[0]!;
+  assert.equal(e.target[interceptor], target);
+  const dx = e.x[interceptor]! - e.x[t]!;
+  const dy = e.y[interceptor]! - e.y[t]!;
+  assert.ok(dx * dx + dy * dy <= tiles(2) * tiles(2));
+  assert.ok(e.hp[t]! < hpBefore);
+
+  kill(s, t);
+  for (let i = 0; i < 120; i++) sim.step([]);
+
+  assert.equal(launchedInterceptors(s, c).length, 0);
+  assert.equal(e.specialAmmo[c], 1);
+});
+
+test('idle carriers auto-launch interceptors at visible enemies', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 608 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  spawnUnit(s, Kind.CommandCenter, 1, fx(500), fx(400));
+  const c = slotOf(carrier);
+  e.specialAmmo[c] = 1;
+
+  for (let i = 0; i < 3; i++) sim.step([]);
+
+  assert.equal(e.specialAmmo[c], 0);
+  assert.equal(launchedInterceptors(s, c).length, 1);
 });

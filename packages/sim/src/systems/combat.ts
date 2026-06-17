@@ -10,7 +10,7 @@ import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type We
 import { applyWeaponDamage } from '../damage.ts';
 import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
-import { type Grid, nearestAttackableEnemy } from '../grid.ts';
+import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../grid.ts';
 import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from './status.ts';
 import { coveredByEffect } from '../effects.ts';
 import { canDetect } from '../detection.ts';
@@ -19,6 +19,7 @@ import { isPowered } from '../power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { edgeDistanceSq, withinEdgeRange } from '../spatial.ts';
+import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
 
 const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = ax - bx;
@@ -180,8 +181,9 @@ export const combat = (s: State, grid: Grid): void => {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || isContained(s, i)) continue;
     const def = Units[e.kind[i]!];
     const isBunker = e.kind[i] === Kind.Bunker;
-    if (!def || (!hasAnyWeapon(def) && !isBunker)) continue;
-    if (!isBunker && !hasSpecialWeaponAmmo(s, i)) continue;
+    const isCarrier = e.kind[i] === Kind.Carrier;
+    if (!def || (!hasAnyWeapon(def) && !isBunker && !isCarrier)) continue;
+    if (!isBunker && !isCarrier && !hasSpecialWeaponAmmo(s, i)) continue;
     if (!isBunker && !canUseWeaponNow(s, i)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
     if (isDisabled(e, i)) continue;
@@ -203,10 +205,12 @@ export const combat = (s: State, grid: Grid): void => {
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
-          (isBunker ? bunkerCanAttack(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
+          (isBunker ? bunkerCanAttack(s, i, rs) : isCarrier ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     }
-    if (tgt === NONE && order !== Order.Attack) tgt = isBunker ? nearestBunkerTarget(s, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
+    if (tgt === NONE && order !== Order.Attack) {
+      tgt = isBunker ? nearestBunkerTarget(s, i, sight) : isCarrier ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
+    }
     if (tgt !== NONE) e.target[i] = eid(e, tgt); // remember for next tick
 
     if (tgt === NONE) {
@@ -219,6 +223,14 @@ export const combat = (s: State, grid: Grid): void => {
 
     if (isBunker) {
       bunkerFire(s, i, tgt);
+      continue;
+    }
+    if (isCarrier) {
+      if (withinEdgeRange(s, i, tgt, carrierLaunchRange())) {
+        if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorLaunchCooldown();
+      } else {
+        navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed));
+      }
       continue;
     }
 

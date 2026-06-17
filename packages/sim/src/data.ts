@@ -911,7 +911,7 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Carrier]: protoss('carrier', {
     name: 'Carrier', ...air(32), roles: Role.Mobile | Role.Air | Role.Producer, size: Size.Large,
     hp: 300, shields: 150, armor: 4, sight: 11, speed: fx(2), minerals: 350, gas: 250, supply: supply(6), buildTime: sec(86.4),
-    produces: [Kind.Interceptor], requires: [Kind.FleetBeacon], notes: ['interceptor-launch-not-implemented'],
+    produces: [Kind.Interceptor], requires: [Kind.FleetBeacon],
   }),
   [Kind.Interceptor]: protoss('interceptor', {
     name: 'Interceptor', ...air(8), size: Size.Small,

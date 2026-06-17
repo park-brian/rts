@@ -63,10 +63,11 @@ export type Entities = {
   morphFromKind: Uint16Array; // for in-place structure morphs: original kind to restore on cancel
   buildCostMinerals: Int32Array; // refundable cost ledger for pending/foundation builds
   buildCostGas: Int32Array;
-  specialAmmo: Uint8Array; // unit-specific charges/ammo (Spider Mines now; scarabs/interceptors later)
+  specialAmmo: Uint8Array; // unit-specific charges/ammo (Spider Mines, scarabs, interceptors)
   cargo: Int32Array; // carried resources (workers) / remaining amount (nodes)
   cargoType: Uint8Array; // ResourceType currently carried by a worker
   container: Int32Array; // EntityId of containing transport/garrison, or NONE
+  home: Int32Array; // EntityId of owning source for launched units, or NONE
   prodKind: Uint16Array; // structure: in-progress unit kind (0 = idle)
   prodTimer: Int32Array; // ticks remaining
   prodQueued: Int32Array; // additional queued units of prodKind
@@ -94,7 +95,7 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['morphFromKind', 'u16'], ['buildCostMinerals', 'i32'],
   ['buildCostGas', 'i32'], ['specialAmmo', 'u8'], ['cargo', 'i32'],
-  ['cargoType', 'u8'], ['container', 'i32'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
+  ['cargoType', 'u8'], ['container', 'i32'], ['home', 'i32'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
   ['researchKind', 'u16'], ['researchTimer', 'i32'],
   ['rallyX', 'i32'], ['rallyY', 'i32'], ['rallyTarget', 'i32'],
 ];
@@ -222,6 +223,7 @@ const makeEntities = (): Entities => {
     cargo: new Int32Array(CAP),
     cargoType: new Uint8Array(CAP),
     container: new Int32Array(CAP),
+    home: new Int32Array(CAP),
     prodKind: new Uint16Array(CAP),
     prodTimer: new Int32Array(CAP),
     prodQueued: new Int32Array(CAP),
@@ -341,6 +343,7 @@ export const spawn = (
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
   e.container[slot] = NONE;
+  e.home[slot] = NONE;
   e.prodKind[slot] = 0;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
@@ -409,6 +412,7 @@ export const kill = (s: State, slot: number): void => {
   e.buildKind[slot] = 0;
   e.morphFromKind[slot] = 0;
   e.container[slot] = NONE;
+  e.home[slot] = NONE;
   e.alive[slot] = 0;
   e.gen[slot] = (e.gen[slot]! + 1) >>> 0;
   e.free[e.freeTop++] = slot;
@@ -554,6 +558,7 @@ export const hashState = (s: State): number => {
     h = fold(h, e.cargo[i]!);
     h = fold(h, e.cargoType[i]!);
     h = fold(h, e.container[i]!);
+    h = fold(h, e.home[i]!);
     h = fold(h, e.prodKind[i]!);
     h = fold(h, e.prodTimer[i]!);
     h = fold(h, e.prodQueued[i]!);

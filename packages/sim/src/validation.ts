@@ -23,6 +23,7 @@ import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } 
 import { internalAmmoCapacity } from './derived.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
+import { carrierCanAttack } from './interceptor.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
   transportCapacity, unloadAnchorSlot, unloadPassable,
@@ -422,7 +423,8 @@ export const validateCommand = (
       if (!isPowered(s, slot)) return reject('missing-capability');
       if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
       const attacker = Units[e.kind[slot]!]!;
-      if (!hasAnyWeapon(attacker)) return reject('missing-capability');
+      const carrierAttack = e.kind[slot] === Kind.Carrier && isAlive(e, c.target) && carrierCanAttack(s, slot, slotOf(c.target));
+      if (!hasAnyWeapon(attacker) && !carrierAttack) return reject('missing-capability');
       if (!canUseWeaponNow(s, slot)) return reject('missing-capability');
       if (e.kind[slot] === Kind.Reaver && e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
       if (!isAlive(e, c.target)) return reject('target-not-found');
@@ -430,7 +432,7 @@ export const validateCommand = (
       if (isContained(s, target)) return reject('target-not-allowed');
       if (!isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
       if (!canDetect(s, player, target)) return reject('target-not-allowed');
-      if (!weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
+      if (!carrierAttack && !weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
       return { ok: true };
     }
     case 'ability': {
