@@ -3,15 +3,17 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Tech, Units } from '../src/data.ts';
+import { Kind, Protoss, Tech, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, slotOf } from '../src/world.ts';
 import { setTechLevel } from '../src/tech.ts';
 import {
   COMMAND_HEADS,
+  buildKindMask,
   commandForHead,
   commandHeadAllowed,
   commandHeadMask,
+  trainKindMask,
   type CommandMaskOptions,
 } from '../src/action-mask.ts';
 import { validateCommand } from '../src/validation.ts';
@@ -30,6 +32,36 @@ const assertMaskMatchesValidator = (
       validateCommand(s, player, commandForHead(s, actor, head, opts)).ok,
       head,
     );
+  }
+  return mask;
+};
+
+const assertTrainMaskMatchesValidator = (
+  sim: Sim,
+  player: number,
+  producer: number,
+  kinds: readonly number[],
+): Uint8Array => {
+  const s = sim.fullState();
+  const mask = trainKindMask(s, player, producer, kinds);
+  for (let i = 0; i < kinds.length; i++) {
+    assert.equal(mask[i], validateCommand(s, player, { t: 'train', building: producer, kind: kinds[i]! }).ok ? 1 : 0, `${kinds[i]}`);
+  }
+  return mask;
+};
+
+const assertBuildMaskMatchesValidator = (
+  sim: Sim,
+  player: number,
+  worker: number,
+  kinds: readonly number[],
+  x: number,
+  y: number,
+): Uint8Array => {
+  const s = sim.fullState();
+  const mask = buildKindMask(s, player, worker, { kinds, x, y });
+  for (let i = 0; i < kinds.length; i++) {
+    assert.equal(mask[i], validateCommand(s, player, { t: 'build', unit: worker, kind: kinds[i]!, x, y }).ok ? 1 : 0, `${kinds[i]}`);
   }
   return mask;
 };
@@ -139,4 +171,67 @@ test('command mask generation is deterministic and side-effect free', () => {
   const attack = commandForHead(s, marine, 'attack', { target: enemy });
   assert.equal(attack.t, 'attack');
   assert.equal(attack.target, eid(s.e, slotOf(enemy)));
+});
+
+test('train option mask follows larva requirements through shared validation', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 956, factions: [Zerg] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const larvaSlot = Array.from({ length: s.e.hi }, (_, i) => i)
+    .find((i) => s.e.alive[i] === 1 && s.e.kind[i] === Kind.Larva)!;
+  const larva = eid(s.e, larvaSlot);
+  const kinds = [Kind.Drone, Kind.Zergling] as const;
+
+  let mask = assertTrainMaskMatchesValidator(sim, 0, larva, kinds);
+  assert.deepEqual([...mask], [1, 0]);
+
+  spawnUnit(s, Kind.SpawningPool, 0, fx(700), fx(700));
+  mask = assertTrainMaskMatchesValidator(sim, 0, larva, kinds);
+  assert.deepEqual([...mask], [1, 1]);
+});
+
+test('build option mask follows creep-gated zerg placement through shared validation', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 957, factions: [Zerg] });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const drone = spawnUnit(s, Kind.Drone, 0, fx(900), fx(900));
+  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, fx(1_000), fx(1_000)));
+  const kinds = [Kind.CreepColony] as const;
+  const nearX = e.x[hatchery]! + fx(192);
+  const nearY = e.y[hatchery]!;
+
+  const near = assertBuildMaskMatchesValidator(sim, 0, drone, kinds, nearX, nearY);
+  assert.deepEqual([...near], [1]);
+
+  const far = assertBuildMaskMatchesValidator(sim, 0, drone, kinds, fx(1_900), fx(1_900));
+  assert.deepEqual([...far], [0]);
+});
+
+test('macro option masks follow protoss power placement and producer legality', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 958, factions: [Protoss] });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 20;
+  const probe = spawnUnit(s, Kind.Probe, 0, fx(900), fx(900));
+  const pylon = slotOf(spawnUnit(s, Kind.Pylon, 0, fx(1_000), fx(1_000)));
+  const gatewayKind = [Kind.Gateway] as const;
+  const nearX = e.x[pylon]! + fx(128);
+  const nearY = e.y[pylon]!;
+
+  const poweredPlacement = assertBuildMaskMatchesValidator(sim, 0, probe, gatewayKind, nearX, nearY);
+  assert.deepEqual([...poweredPlacement], [1]);
+
+  const unpoweredPlacement = assertBuildMaskMatchesValidator(sim, 0, probe, gatewayKind, fx(1_900), fx(1_900));
+  assert.deepEqual([...unpoweredPlacement], [0]);
+
+  const poweredGateway = spawnUnit(s, Kind.Gateway, 0, e.x[pylon]! + fx(64), e.y[pylon]!);
+  const unpoweredGateway = spawnUnit(s, Kind.Gateway, 0, fx(1_900), fx(1_900));
+  const zealotKind = [Kind.Zealot] as const;
+  assert.deepEqual([...assertTrainMaskMatchesValidator(sim, 0, poweredGateway, zealotKind)], [1]);
+  assert.deepEqual([...assertTrainMaskMatchesValidator(sim, 0, unpoweredGateway, zealotKind)], [0]);
 });

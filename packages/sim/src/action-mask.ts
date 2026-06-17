@@ -6,6 +6,7 @@ import type { Command } from './commands.ts';
 import type { State } from './world.ts';
 import { isAlive, NONE, slotOf } from './world.ts';
 import { validateCommand } from './validation.ts';
+import { Role, Units, workerBuildKindsFor } from './data.ts';
 
 export const COMMAND_HEADS = [
   'move',
@@ -25,6 +26,11 @@ export type CommandMaskOptions = {
   target?: number;
   x?: number;
   y?: number;
+};
+export type BuildMaskOptions = {
+  x: number;
+  y: number;
+  kinds?: readonly number[];
 };
 
 const COMMAND_HEAD_INDEX = Object.fromEntries(
@@ -87,6 +93,48 @@ export const commandHeadMask = (
   for (let i = 0; i < COMMAND_HEADS.length; i++) {
     const command = commandForHead(s, actor, COMMAND_HEADS[i]!, opts);
     mask[i] = validateCommand(s, player, command).ok ? 1 : 0;
+  }
+  return mask;
+};
+
+const actorKind = (s: State, actor: number): number => {
+  if (!isAlive(s.e, actor)) return 0;
+  return s.e.kind[slotOf(actor)]!;
+};
+
+export const trainKindCandidates = (s: State, producer: number): readonly number[] => {
+  const def = Units[actorKind(s, producer)];
+  return def?.produces ?? [];
+};
+
+export const buildKindCandidates = (s: State, worker: number): readonly number[] => {
+  const def = Units[actorKind(s, worker)];
+  return def && (def.roles & Role.Worker) !== 0 ? workerBuildKindsFor(def.race) : [];
+};
+
+export const trainKindMask = (
+  s: State,
+  player: number,
+  producer: number,
+  kinds: readonly number[] = trainKindCandidates(s, producer),
+): Uint8Array => {
+  const mask = new Uint8Array(kinds.length);
+  for (let i = 0; i < kinds.length; i++) {
+    mask[i] = validateCommand(s, player, { t: 'train', building: producer, kind: kinds[i]! }).ok ? 1 : 0;
+  }
+  return mask;
+};
+
+export const buildKindMask = (
+  s: State,
+  player: number,
+  worker: number,
+  opts: BuildMaskOptions,
+): Uint8Array => {
+  const kinds = opts.kinds ?? buildKindCandidates(s, worker);
+  const mask = new Uint8Array(kinds.length);
+  for (let i = 0; i < kinds.length; i++) {
+    mask[i] = validateCommand(s, player, { t: 'build', unit: worker, kind: kinds[i]!, x: opts.x, y: opts.y }).ok ? 1 : 0;
   }
   return mask;
 };
