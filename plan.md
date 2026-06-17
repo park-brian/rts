@@ -702,7 +702,7 @@ Done when:
 
 ## Phase 9: SC2-Style Movement, Clearance, And Local Avoidance
 
-Status: planned.
+Status: in progress.
 
 Purpose: replace "move into overlap, then shove apart" with a deterministic movement model that
 feels closer to StarCraft II: large units respect real body clearance, armies flow around each
@@ -797,7 +797,7 @@ Tests and proof:
 
 Rollout:
 
-1. Add clearance classes and masks, then wire pathing to them while keeping current collision.
+1. Completed: add clearance classes and masks, then wire pathing to them while keeping current collision.
 2. Add deterministic group slot assignment for same-target command batches.
 3. Add candidate-velocity local avoidance behind the existing movement systems.
 4. Add arrival damping/settle hysteresis and reduce collision push to cleanup.
@@ -809,6 +809,12 @@ Done when:
 - Large mixed groups ordered to one point settle into stable positions without endless jitter.
 - Moving units visibly flow around stationary/firing units before overlap occurs.
 - Replay hash determinism, serialization coverage, and headless movement benchmarks all pass.
+
+Completed:
+
+- Ground combat navigation now uses cached clearance masks derived from BW body bounds, so large
+  bodies cannot route through gaps that small infantry can use, while worker economy navigation
+  keeps its existing permissive mineral-line behavior.
 
 ## Current BW-Fidelity Missing Inventory
 
@@ -874,6 +880,3 @@ Completed:
 - Weapon damage upgrades now apply the documented BW per-unit increments for Protoss ground and
   Zerg melee/missile/flyer weapons, including Dragoon +2, DT/Archon +3, Ultralisk +3, Lurker +2,
   and Guardian/Devourer +2 per level.
-- Ground combat navigation now uses cached clearance masks derived from BW body bounds, so large
-  bodies cannot route through gaps that small infantry can use, while worker economy navigation
-  keeps its existing permissive mineral-line behavior.
