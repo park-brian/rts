@@ -671,6 +671,9 @@ Completed:
 - Zerg scripted macro now queues Lurker Aspect research from completed Hydralisk Dens through the
   shared research validation path, respecting producer completion, duplicate/in-progress research,
   busy queues, and mineral/gas budget gates.
+- Zerg scripted macro now queues Grooved Spines from completed Hydralisk Dens only after Lurker
+  Aspect is complete, keeping Hydralisk/Lurker range progression ordered while still using shared
+  research validation for producer, queue, duplicate, and budget gates.
 
 Done when:
 

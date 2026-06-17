@@ -1996,7 +1996,10 @@ const readyProtossResearchScenario = (
   return { sim, producer, pylon };
 };
 
-const readyZergResearchScenario = (seed: number): { sim: Sim; producer: number } => {
+const readyZergResearchScenario = (
+  seed: number,
+  completedBefore: readonly number[] = [],
+): { sim: Sim; producer: number } => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Zerg, Terran] });
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.Hatchery, 0));
@@ -2004,68 +2007,109 @@ const readyZergResearchScenario = (seed: number): { sim: Sim; producer: number }
   const producer = spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
+  for (const tech of completedBefore) grant(sim, 0, tech);
   return { sim, producer };
 };
 
-test('zerg bot researches lurker aspect from a completed hydralisk den', () => {
-  const { sim } = readyZergResearchScenario(506);
-  const s = sim.fullState();
+const testZergResearchMacro = ({
+  label,
+  tech,
+  busyTech,
+  firstSeed,
+  completedBefore = [],
+}: {
+  label: string;
+  tech: number;
+  busyTech: number;
+  firstSeed: number;
+  completedBefore?: readonly number[];
+}): void => {
+  const bot = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 });
+  const ready = (seed: number): ReturnType<typeof readyZergResearchScenario> =>
+    readyZergResearchScenario(seed, completedBefore);
 
-  const cmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(s, 0);
-  const research = findResearch(cmds, Tech.LurkerAspect);
+  test(`zerg bot researches ${label} from a completed hydralisk den`, () => {
+    const { sim } = ready(firstSeed);
+    const s = sim.fullState();
 
-  assert.ok(research);
-  assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+    const cmds = bot(s, 0);
+    const research = findResearch(cmds, tech);
+
+    assert.ok(research);
+    assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+  });
+
+  test(`zerg bot respects ${label} producer, duplicate, queue, and budget gates`, () => {
+    const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: firstSeed + 1, factions: [Zerg, Terran] });
+    const missingState = missingProducer.fullState();
+    missingState.players.minerals[0] = 1_000;
+    missingState.players.gas[0] = 1_000;
+    for (const prerequisite of completedBefore) grant(missingProducer, 0, prerequisite);
+
+    assert.equal(hasResearch(bot(missingState, 0), tech), false);
+
+    const incomplete = ready(firstSeed + 2);
+    const incompleteState = incomplete.sim.fullState();
+    incompleteState.e.built[slotOf(incomplete.producer)] = 0;
+
+    assert.equal(hasResearch(bot(incompleteState, 0), tech), false);
+
+    const completed = ready(firstSeed + 3);
+    grant(completed.sim, 0, tech);
+
+    assert.equal(hasResearch(bot(completed.sim.fullState(), 0), tech), false);
+
+    const inProgress = ready(firstSeed + 4);
+    const inProgressState = inProgress.sim.fullState();
+    inProgressState.e.researchKind[slotOf(inProgress.producer)] = tech;
+    inProgressState.e.researchTimer[slotOf(inProgress.producer)] = 10;
+
+    assert.equal(hasResearch(bot(inProgressState, 0), tech), false);
+
+    const busy = ready(firstSeed + 5);
+    const busyState = busy.sim.fullState();
+    busyState.e.researchKind[slotOf(busy.producer)] = busyTech;
+    busyState.e.researchTimer[slotOf(busy.producer)] = 10;
+
+    assert.equal(hasResearch(bot(busyState, 0), tech), false);
+
+    const broke = ready(firstSeed + 6);
+    const brokeState = broke.sim.fullState();
+    brokeState.players.minerals[0] = TechDefs[tech]!.minerals[0]! - 1;
+    brokeState.players.gas[0] = 1_000;
+
+    assert.equal(hasResearch(bot(brokeState, 0), tech), false);
+
+    const gasBroke = ready(firstSeed + 7);
+    const gasBrokeState = gasBroke.sim.fullState();
+    gasBrokeState.players.minerals[0] = 1_000;
+    gasBrokeState.players.gas[0] = TechDefs[tech]!.gas[0]! - 1;
+
+    assert.equal(hasResearch(bot(gasBrokeState, 0), tech), false);
+  });
+};
+
+testZergResearchMacro({
+  label: 'lurker aspect',
+  tech: Tech.LurkerAspect,
+  busyTech: Tech.GroovedSpines,
+  firstSeed: 506,
 });
 
-test('zerg bot respects lurker aspect producer, duplicate, queue, and budget gates', () => {
-  const bot = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 });
+test('zerg bot waits for lurker aspect before grooved spines', () => {
+  const { sim } = readyZergResearchScenario(514);
+  const cmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(sim.fullState(), 0);
 
-  const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: 507, factions: [Zerg, Terran] });
-  const missingState = missingProducer.fullState();
-  missingState.players.minerals[0] = 1_000;
-  missingState.players.gas[0] = 1_000;
+  assert.equal(hasResearch(cmds, Tech.GroovedSpines), false);
+  assert.equal(hasResearch(cmds, Tech.LurkerAspect), true);
+});
 
-  assert.equal(hasResearch(bot(missingState, 0), Tech.LurkerAspect), false);
-
-  const incomplete = readyZergResearchScenario(508);
-  const incompleteState = incomplete.sim.fullState();
-  incompleteState.e.built[slotOf(incomplete.producer)] = 0;
-
-  assert.equal(hasResearch(bot(incompleteState, 0), Tech.LurkerAspect), false);
-
-  const completed = readyZergResearchScenario(509);
-  grant(completed.sim, 0, Tech.LurkerAspect);
-
-  assert.equal(hasResearch(bot(completed.sim.fullState(), 0), Tech.LurkerAspect), false);
-
-  const inProgress = readyZergResearchScenario(510);
-  const inProgressState = inProgress.sim.fullState();
-  inProgressState.e.researchKind[slotOf(inProgress.producer)] = Tech.LurkerAspect;
-  inProgressState.e.researchTimer[slotOf(inProgress.producer)] = 10;
-
-  assert.equal(hasResearch(bot(inProgressState, 0), Tech.LurkerAspect), false);
-
-  const busy = readyZergResearchScenario(511);
-  const busyState = busy.sim.fullState();
-  busyState.e.researchKind[slotOf(busy.producer)] = Tech.GroovedSpines;
-  busyState.e.researchTimer[slotOf(busy.producer)] = 10;
-
-  assert.equal(hasResearch(bot(busyState, 0), Tech.LurkerAspect), false);
-
-  const broke = readyZergResearchScenario(512);
-  const brokeState = broke.sim.fullState();
-  brokeState.players.minerals[0] = TechDefs[Tech.LurkerAspect]!.minerals[0]! - 1;
-  brokeState.players.gas[0] = 1_000;
-
-  assert.equal(hasResearch(bot(brokeState, 0), Tech.LurkerAspect), false);
-
-  const gasBroke = readyZergResearchScenario(513);
-  const gasBrokeState = gasBroke.sim.fullState();
-  gasBrokeState.players.minerals[0] = 1_000;
-  gasBrokeState.players.gas[0] = TechDefs[Tech.LurkerAspect]!.gas[0]! - 1;
-
-  assert.equal(hasResearch(bot(gasBrokeState, 0), Tech.LurkerAspect), false);
+testZergResearchMacro({
+  label: 'grooved spines',
+  tech: Tech.GroovedSpines,
+  busyTech: Tech.MuscularAugments,
+  firstSeed: 515,
+  completedBefore: [Tech.LurkerAspect],
 });
 
 const testProtossResearchMacro = ({
