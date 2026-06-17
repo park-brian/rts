@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
+import { eid, kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { navPassableForKind } from '../src/flow.ts';
@@ -127,6 +127,51 @@ test('a group moving to one goal arrives and spreads (no perfect stacking)', () 
   assert.ok(a.arrived, 'every unit should reach the goal region');
   assert.ok(a.distinct > 1, 'separation must keep units off a single pixel');
   assert.equal(a.hash, b.hash, 'group movement + separation must be deterministic');
+});
+
+test('same-target move batches assign deterministic destination slots', () => {
+  const s = makeState(sliceMap(), 1, 16);
+  const targetX = tc(30);
+  const targetY = tc(30);
+  const slots: number[] = [];
+  for (let i = 0; i < 4; i++) slots.push(slotOf(spawnUnit(s, Kind.Marine, 0, tc(10 + i), tc(10))));
+
+  stepWorld(s, [{ player: 0, cmds: [
+    { t: 'move', unit: eid(s.e, slots[3]!), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, slots[1]!), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, slots[2]!), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, slots[0]!), x: targetX, y: targetY },
+  ] }]);
+
+  const destinations = slots.map((slot) => `${s.e.tx[slot]},${s.e.ty[slot]}`);
+  assert.equal(new Set(destinations).size, slots.length);
+  assert.equal(s.e.tx[slots[0]!], targetX);
+  assert.equal(s.e.ty[slots[0]!], targetY);
+  assert.equal(s.e.tx[slots[1]!], targetX);
+  assert.equal(s.e.ty[slots[1]!], targetY - fx(TILE));
+});
+
+test('same-target attack-move batches spread but worker move batches preserve exact points', () => {
+  const s = makeState(sliceMap(), 1, 17);
+  const targetX = tc(28);
+  const targetY = tc(28);
+  const a = slotOf(spawnUnit(s, Kind.Marine, 0, tc(10), tc(10)));
+  const b = slotOf(spawnUnit(s, Kind.Marine, 0, tc(11), tc(10)));
+  const w1 = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(10)));
+  const w2 = slotOf(spawnUnit(s, Kind.SCV, 0, tc(13), tc(10)));
+
+  stepWorld(s, [{ player: 0, cmds: [
+    { t: 'amove', unit: eid(s.e, b), x: targetX, y: targetY },
+    { t: 'amove', unit: eid(s.e, a), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, w1), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, w2), x: targetX, y: targetY },
+  ] }]);
+
+  assert.notEqual(`${s.e.tx[a]},${s.e.ty[a]}`, `${s.e.tx[b]},${s.e.ty[b]}`);
+  assert.equal(s.e.tx[w1], targetX);
+  assert.equal(s.e.ty[w1], targetY);
+  assert.equal(s.e.tx[w2], targetX);
+  assert.equal(s.e.ty[w2], targetY);
 });
 
 test('moving units face their current travel direction', () => {

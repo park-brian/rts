@@ -798,7 +798,7 @@ Tests and proof:
 Rollout:
 
 1. Completed: add clearance classes and masks, then wire pathing to them while keeping current collision.
-2. Add deterministic group slot assignment for same-target command batches.
+2. Completed: add deterministic group slot assignment for same-target command batches.
 3. Add candidate-velocity local avoidance behind the existing movement systems.
 4. Add arrival damping/settle hysteresis and reduce collision push to cleanup.
 5. Tune with screenshots/replays and benchmark data, then update `docs/specs/architecture.md`.
@@ -815,6 +815,9 @@ Completed:
 - Ground combat navigation now uses cached clearance masks derived from BW body bounds, so large
   bodies cannot route through gaps that small infantry can use, while worker economy navigation
   keeps its existing permissive mineral-line behavior.
+- Same-tick same-player ground combat move and attack-move batches now derive deterministic nearby
+  destination slots from the public per-unit commands, preserving replay shape while avoiding one
+  shared target pixel for whole groups.
 
 ## Current BW-Fidelity Missing Inventory
 
@@ -822,7 +825,6 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Pathing and movement fidelity:
-  - Stable group destination slots for same-target move/attack-move commands.
   - Predictive local avoidance and arrival settling so large armies stop jostling indefinitely.
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.

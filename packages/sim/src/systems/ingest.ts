@@ -4,9 +4,10 @@
 
 import type { State } from '../world.ts';
 import { eid, isAlive, kill, slotOf, NONE } from '../world.ts';
-import type { CommandResult, PlayerCommands } from '../commands.ts';
-import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
+import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
+import { Kind, Order, Role, TILE, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
+import { ONE } from '../fixed.ts';
 import { placementForStructure, snapRallyTarget, validateCommand } from '../validation.ts';
 import { addonPosition } from '../addon.ts';
 import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
@@ -18,6 +19,101 @@ import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 
 const EMPTY_RESULTS: CommandResult[] = [];
+const GROUP_SLOT_SPACING = TILE * ONE;
+
+type MoveGroupPlan = {
+  count: Map<string, number>;
+  rank: Map<string, number>;
+};
+
+const moveGroupKey = (player: number, c: Command): string =>
+  (c.t === 'move' || c.t === 'amove') ? `${player}:${c.t}:${c.x}:${c.y}` : '';
+
+const moveRankKey = (key: string, slot: number): string => `${key}:${slot}`;
+
+const groupOffset = (rank: number): { x: number; y: number } => {
+  if (rank <= 0) return { x: 0, y: 0 };
+  let ring = 1;
+  while ((2 * ring + 1) * (2 * ring + 1) <= rank) ring++;
+  const side = 2 * ring;
+  const pos = rank - (2 * ring - 1) * (2 * ring - 1);
+  let gx = 0;
+  let gy = 0;
+  if (pos < side) {
+    gx = -ring + 1 + pos;
+    gy = -ring;
+  } else if (pos < side * 2) {
+    gx = ring;
+    gy = -ring + 1 + (pos - side);
+  } else if (pos < side * 3) {
+    gx = ring - 1 - (pos - side * 2);
+    gy = ring;
+  } else {
+    gx = -ring;
+    gy = ring - 1 - (pos - side * 3);
+  }
+  return { x: gx * GROUP_SLOT_SPACING, y: gy * GROUP_SLOT_SPACING };
+};
+
+const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan => {
+  const rawCounts = new Map<string, number>();
+  for (const { player, cmds } of batch) {
+    for (const c of cmds) {
+      if (c.t !== 'move' && c.t !== 'amove') continue;
+      const key = moveGroupKey(player, c);
+      rawCounts.set(key, (rawCounts.get(key) ?? 0) + 1);
+    }
+  }
+  let hasGroup = false;
+  for (const n of rawCounts.values()) {
+    if (n > 1) {
+      hasGroup = true;
+      break;
+    }
+  }
+  if (!hasGroup) return { count: new Map(), rank: new Map() };
+
+  const groups = new Map<string, number[]>();
+  for (const { player, cmds } of batch) {
+    for (const c of cmds) {
+      if (c.t !== 'move' && c.t !== 'amove') continue;
+      const key = moveGroupKey(player, c);
+      if ((rawCounts.get(key) ?? 0) <= 1) continue;
+      const valid = validateCommand(s, player, c);
+      if (!valid.ok) continue;
+      const slot = slotOf(c.unit);
+      const flags = s.e.flags[slot]!;
+      if ((flags & (Role.Worker | Role.Air)) !== 0) continue;
+      let group = groups.get(key);
+      if (!group) {
+        group = [];
+        groups.set(key, group);
+      }
+      if (!group.includes(slot)) group.push(slot);
+    }
+  }
+  const plan: MoveGroupPlan = { count: new Map(), rank: new Map() };
+  for (const [key, slots] of groups) {
+    if (slots.length <= 1) continue;
+    slots.sort((a, b) => a - b);
+    plan.count.set(key, slots.length);
+    for (let i = 0; i < slots.length; i++) plan.rank.set(moveRankKey(key, slots[i]!), i);
+  }
+  return plan;
+};
+
+const groupDestination = (
+  c: Extract<Command, { t: 'move' | 'amove' }>,
+  slot: number,
+  player: number,
+  plan: MoveGroupPlan,
+): { x: number; y: number } => {
+  const key = moveGroupKey(player, c);
+  if ((plan.count.get(key) ?? 0) <= 1) return { x: c.x, y: c.y };
+  const rank = plan.rank.get(moveRankKey(key, slot)) ?? 0;
+  const offset = groupOffset(rank);
+  return { x: c.x + offset.x, y: c.y + offset.y };
+};
 
 const startProduction = (s: State, slot: number, kind: number, player: number): void => {
   const e = s.e;
@@ -278,6 +374,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
 
   const results: CommandResult[] = [];
   let reservedSupply: Int32Array | null = null;
+  const moveGroups = buildMoveGroupPlan(s, batch);
   for (const { player, cmds } of batch) {
     for (let index = 0; index < cmds.length; index++) {
       const c = cmds[index]!;
@@ -373,11 +470,12 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         }
         case 'move': {
           const slot = slotOf(c.unit);
+          const dest = groupDestination(c, slot, player, moveGroups);
           cancelPendingBeforeOrder(s, slot);
           e.order[slot] = Order.Move;
           e.target[slot] = NONE;
-          e.tx[slot] = c.x;
-          e.ty[slot] = c.y;
+          e.tx[slot] = dest.x;
+          e.ty[slot] = dest.y;
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
@@ -391,11 +489,12 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         }
         case 'amove': {
           const slot = slotOf(c.unit);
+          const dest = groupDestination(c, slot, player, moveGroups);
           cancelPendingBeforeOrder(s, slot);
           e.order[slot] = Order.AttackMove;
           e.target[slot] = NONE;
-          e.tx[slot] = c.x;
-          e.ty[slot] = c.y;
+          e.tx[slot] = dest.x;
+          e.ty[slot] = dest.y;
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
