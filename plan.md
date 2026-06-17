@@ -603,6 +603,8 @@ Completed:
   same Pylon-anchored placement and shared validation path as Gateway expansion.
 - Protoss scripted macro now queues a legal Robotics Facility after a completed Cybernetics Core,
   walking an ordered tech-structure list through shared placement validation.
+- Protoss scripted macro now queues a legal Stargate from that same ordered tech-structure path
+  after Cybernetics Core, preserving shared power, prerequisite, duplicate, and budget checks.
 
 Done when:
 
