@@ -3,20 +3,21 @@
 // No autodiff framework — just the explicit gradients, which is all we need for
 // a small flat policy and keeps the package dependency-free.
 
-const randn = (() => {
-  // deterministic-ish small init; seedable for reproducibility
-  let s = 12345 >>> 0;
+// Per-instance seeded Gaussian init so a net's weights depend ONLY on its seed,
+// never on global call order (reproducible regardless of how many nets exist).
+const makeRandn = (seed: number) => {
+  let s = (seed >>> 0) || 1;
   return () => {
     s = (s * 1664525 + 1013904223) >>> 0;
-    const u1 = (s >>> 0) / 0x100000000 || 1e-9;
+    const u1 = s / 0x100000000 || 1e-9;
     s = (s * 1664525 + 1013904223) >>> 0;
-    const u2 = (s >>> 0) / 0x100000000;
+    const u2 = s / 0x100000000;
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   };
-})();
+};
 
-const mat = (r: number, c: number, scale: number): number[][] =>
-  Array.from({ length: r }, () => Array.from({ length: c }, () => randn() * scale));
+const mat = (r: number, c: number, scale: number, rnd: () => number): number[][] =>
+  Array.from({ length: r }, () => Array.from({ length: c }, () => rnd() * scale));
 
 export type Forward = { h: number[]; logits: number[]; v: number };
 
@@ -40,16 +41,17 @@ export class ActorCritic {
   aWv: Adam[]; abv: Adam;
   t = 0;
 
-  constructor(obsDim: number, nActions: number, hidden = 64) {
+  constructor(obsDim: number, nActions: number, hidden = 64, seed = 12345) {
     this.obsDim = obsDim; this.hidden = hidden; this.nActions = nActions;
-    this.W1 = mat(hidden, obsDim, 1 / Math.sqrt(obsDim));
+    const rnd = makeRandn(seed);
+    this.W1 = mat(hidden, obsDim, 1 / Math.sqrt(obsDim), rnd);
     this.b1 = new Array(hidden).fill(0);
-    this.Wp = mat(nActions, hidden, 0.01); // small-init policy head (PPO best practice)
+    this.Wp = mat(nActions, hidden, 0.01, rnd); // small-init policy head (PPO best practice)
     this.bp = new Array(nActions).fill(0);
-    this.Wv = mat(1, hidden, 1 / Math.sqrt(hidden))[0]!;
+    this.Wv = mat(1, hidden, 1 / Math.sqrt(hidden), rnd)[0]!;
     this.bv = 0;
-    this.gW1 = mat(hidden, obsDim, 0); this.gb1 = new Array(hidden).fill(0);
-    this.gWp = mat(nActions, hidden, 0); this.gbp = new Array(nActions).fill(0);
+    this.gW1 = mat(hidden, obsDim, 0, rnd); this.gb1 = new Array(hidden).fill(0);
+    this.gWp = mat(nActions, hidden, 0, rnd); this.gbp = new Array(nActions).fill(0);
     this.gWv = new Array(hidden).fill(0); this.gbv = 0;
     this.aW1 = this.W1.map((r) => r.map(adam)); this.ab1 = this.b1.map(adam);
     this.aWp = this.Wp.map((r) => r.map(adam)); this.abp = this.bp.map(adam);

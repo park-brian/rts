@@ -40,7 +40,7 @@ export type TrainResult = { net: ActorCritic; returns: number[] };
 export const train = (makeEnv: () => Env, cfg: Partial<PPOConfig> = {}): TrainResult => {
   const c = { ...DEFAULTS, ...cfg };
   const env = makeEnv();
-  const net = new ActorCritic(env.obsDim, env.nActions, c.hidden);
+  const net = new ActorCritic(env.obsDim, env.nActions, c.hidden, c.seed);
   const rand = rng(c.seed);
 
   let cur = env.reset();
