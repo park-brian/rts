@@ -104,8 +104,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     const budget: ResourceBudget = { minerals: s.players.minerals[p]!, gas: s.players.gas[p]! };
     let minerals = budget.minerals;
-    const spendMinerals = (amount: number): void => {
-      budget.minerals -= amount;
+    const spend = (mineralsAmount: number, gasAmount = 0): void => {
+      budget.minerals -= mineralsAmount;
+      budget.gas -= gasAmount;
       minerals = budget.minerals;
     };
     let reservedSupply = s.players.supplyUsed[p]!;
@@ -151,7 +152,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (minerals >= cost && room(workerDef.supply * n)) {
         cmds.push({ t: 'train', building: eid(e, d), kind: faction.worker });
         usedProducers.add(d);
-        spendMinerals(cost);
+        spend(cost);
         reservedSupply += workerDef.supply * n;
         workers += n;
       }
@@ -162,27 +163,31 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const larva = takeLarva();
       if (larva !== NONE) {
         cmds.push({ t: 'train', building: eid(e, larva), kind: faction.supplyStructure });
-        spendMinerals(supplyDef.minerals);
+        spend(supplyDef.minerals);
         pendingSupply++;
       }
     } else if (cap < SUPPLY_CAP && cap - reservedSupply <= supply(2) && pendingSupply === 0 && minerals >= supplyDef.minerals && aWorker !== NONE) {
       const spot = findSpot(s, p, aWorker, faction.supplyStructure, e.x[depot]!, e.y[depot]!);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
-        spendMinerals(supplyDef.minerals);
+        spend(supplyDef.minerals);
         pendingSupply++;
       }
     }
 
     // 3) Army structures.
-    else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget && minerals >= rax.minerals && aWorker !== NONE) {
+    else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget &&
+             minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE) {
       const spot = findSpot(s, p, aWorker, faction.armyStructure, e.x[depot]!, e.y[depot]!);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
-        spendMinerals(rax.minerals);
+        spend(rax.minerals, rax.gas);
         pendingBarracks++;
       }
     }
+
+    maybeQueueTerranAddons(s, p, faction, cmds, budget);
+    minerals = budget.minerals;
 
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
     minerals = budget.minerals;
@@ -193,10 +198,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (usedProducers.has(b)) continue;
       const n = productionCount(faction.armyUnit);
       const cost = armyDef.minerals * productionCostCount(faction.armyUnit);
-      if (minerals >= cost && room(armyDef.supply * n)) {
+      const gasCost = armyDef.gas * productionCostCount(faction.armyUnit);
+      if (minerals >= cost && budget.gas >= gasCost && room(armyDef.supply * n)) {
         cmds.push({ t: 'train', building: eid(e, b), kind: faction.armyUnit });
         usedProducers.add(b);
-        spendMinerals(cost);
+        spend(cost, gasCost);
         reservedSupply += armyDef.supply * n;
       }
     }
@@ -232,6 +238,30 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     return cmds;
   };
+};
+
+const maybeQueueTerranAddons = (
+  s: State,
+  player: number,
+  faction: Faction,
+  cmds: Command[],
+  budget: ResourceBudget,
+): void => {
+  if (faction.name !== 'Terran') return;
+  const e = s.e;
+  const kind = Kind.MachineShop;
+  const def = Units[kind]!;
+  if (budget.minerals < def.minerals || budget.gas < def.gas) return;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== NONE || e.built[i] !== 1) continue;
+    if (e.kind[i] !== Kind.Factory) continue;
+    const command: Command = { t: 'addon', building: eid(e, i), kind };
+    if (!validateCommand(s, player, command).ok) continue;
+    cmds.push(command);
+    budget.minerals -= def.minerals;
+    budget.gas -= def.gas;
+    return;
+  }
 };
 
 const maybeQueueTransform = (

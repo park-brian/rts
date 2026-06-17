@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, eid, slotOf, fx, setTechLevel, NONE } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, eid, slotOf, fx, setTechLevel, NONE, validateCommand } from '@rts/sim';
 
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
 
@@ -133,6 +133,42 @@ test('bot morphs hydralisks into lurkers through shared transform validation', (
   const cmds = createBot(Zerg)(s, 0);
 
   assert.ok(cmds.some((c) => c.t === 'transform' && c.unit === hydra && c.kind === Kind.Lurker));
+});
+
+test('bot queues a legal machine shop on an idle completed factory', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 409, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const factory = spawnUnit(s, Kind.Factory, 0, fx(1_200), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === factory && c.kind === Kind.MachineShop);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot does not duplicate or unaffordably queue machine shop add-ons', () => {
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 410, factions: [Terran, Zerg] });
+  const dupState = duplicate.fullState();
+  const dupE = dupState.e;
+  const factory = slotOf(spawnUnit(dupState, Kind.Factory, 0, fx(1_200), fx(1_200)));
+  const shop = slotOf(spawnUnit(dupState, Kind.MachineShop, 0, fx(1_280), fx(1_200)));
+  dupE.target[factory] = eid(dupE, shop);
+  dupE.target[shop] = eid(dupE, factory);
+  dupState.players.minerals[0] = 1_000;
+  dupState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(dupState, 0).some((c) => c.t === 'addon' && c.kind === Kind.MachineShop), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 411, factions: [Terran, Zerg] });
+  const brokeState = broke.fullState();
+  spawnUnit(brokeState, Kind.Factory, 0, fx(1_200), fx(1_200));
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = 0;
+
+  assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.MachineShop), false);
 });
 
 test('bot unsieges tanks when the focus is inside minimum range', () => {

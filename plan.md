@@ -586,6 +586,8 @@ Completed:
   effect state.
 - `observe()` now exposes owned larva-source counts/timers plus fair-play creep and Pylon power
   provider coverage, sharing the same creep/power semantics as placement validation.
+- Terran scripted macro now queues legal Machine Shops on idle completed Factories through shared
+  add-on validation and budget checks, without duplicating add-on rules in AI code.
 
 Done when:
 
@@ -608,8 +610,8 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
 - Macro/tech tree:
-  - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
-    Protoss power-aware expansions.
+  - AI macro should use real race tech paths, including remaining Terran add-ons and Protoss
+    power-aware expansions.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
 - Rendering/assets:
