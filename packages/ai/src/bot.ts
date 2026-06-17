@@ -34,7 +34,7 @@ const PROTOSS_STRUCTURE_MACRO = [
   Kind.TemplarArchives,
   Kind.ArbiterTribunal,
 ] as const;
-const PROTOSS_RESEARCH_MACRO = [Tech.LegEnhancements, Tech.PsionicStorm] as const;
+const PROTOSS_RESEARCH_MACRO = [Tech.LegEnhancements, Tech.PsionicStorm, Tech.Hallucination] as const;
 const ZERG_STRUCTURE_MACRO = [
   Kind.HydraliskDen,
   Kind.Spire,
