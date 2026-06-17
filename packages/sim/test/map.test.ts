@@ -4,7 +4,15 @@ import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, TILE, bwRange } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { sliceMap, resourceSpawnCenterPx, resourceSpawnFootprint } from '../src/map.ts';
+import {
+  BASE_GAS_EDGE_PX,
+  BASE_MINERAL_EDGE_PX,
+  resourceFootprintsOverlap,
+  resourceSpawnCenterPx,
+  resourceSpawnFootprint,
+  sliceMap,
+  solveBaseCluster,
+} from '../src/map.ts';
 import { bwApproxEdgeDistance } from '../src/spatial.ts';
 import { placementForStructure } from '../src/validation.ts';
 
@@ -38,10 +46,21 @@ test('slice map start resources keep integer BW grid footprints and tight edge-d
     const minMineral = Math.min(...mineralDistances);
     const maxMineral = Math.max(...mineralDistances);
     assert.ok(maxMineral - minMineral <= bwRange(1), `mineral arc drifted by more than 1 px at start ${startIndex}`);
-    assert.ok(mineralDistances.every((d) => Math.abs(d - bwRange(115)) <= bwRange(1)));
-    assert.deepEqual(gasDistances, [bwRange(112)]);
+    assert.ok(mineralDistances.every((d) => Math.abs(d - bwRange(BASE_MINERAL_EDGE_PX)) <= bwRange(1)));
+    assert.deepEqual(gasDistances, [bwRange(BASE_GAS_EDGE_PX)]);
 
     const placement = placementForStructure(makeState(map, 1, 1), Kind.CommandCenter, tc(start.x), tc(start.y));
     assert.equal(placement.ok, true, 'start depot remains legal against its resource grid');
+  }
+});
+
+test('base cluster solver exposes exact depot and whole-cluster footprints', () => {
+  const cluster = solveBaseCluster({ x: 32, y: 82 }, -1);
+  assert.deepEqual(cluster.depotFootprint, { x0: 30, y0: 81, x1: 33, y1: 83 });
+  assert.equal(cluster.resources.length, 9);
+  assert.equal(cluster.resourceFootprints.length, 9);
+
+  for (const fp of [cluster.depotFootprint, ...cluster.resourceFootprints]) {
+    assert.equal(resourceFootprintsOverlap(cluster.reservation, fp), true);
   }
 });

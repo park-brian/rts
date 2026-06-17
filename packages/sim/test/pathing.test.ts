@@ -5,15 +5,17 @@ import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { navPassableForKind, pathY } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
-import { generateMap, mapConnected, mapResourcesValid } from '../src/procedural.ts';
+import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid } from '../src/procedural.ts';
 import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
 import { sliceMap } from '../src/map.ts';
 import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
+import { placementForStructure } from '../src/validation.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
+const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery] as const;
 
 const blankMap = (name: string, w: number, h: number): MapDef => ({
   name, w, h,
@@ -24,6 +26,16 @@ const blankMap = (name: string, w: number, h: number): MapDef => ({
 
 const positionKey = (s: ReturnType<typeof makeState>, slot: number): string =>
   `${s.e.x[slot]},${s.e.y[slot]}`;
+
+const assertBaseDepotAnchorsLegal = (m: MapDef): void => {
+  const s = makeState(m, Math.max(1, m.starts.length), 1);
+  for (const base of m.bases ?? []) {
+    for (const kind of depotKinds) {
+      const placement = placementForStructure(s, kind, tc(base.x), tc(base.y));
+      assert.equal(placement.ok, true, `${base.kind} base ${base.x},${base.y} is legal for depot kind ${kind}`);
+    }
+  }
+};
 
 const positionsStable = (s: ReturnType<typeof makeState>, slots: number[], ticks: number): boolean => {
   const before = slots.map((slot) => positionKey(s, slot));
@@ -110,7 +122,9 @@ test('procedural maps are connected and scale with team size', () => {
       assert.equal(m.starts.length, 2 * perTeam, `${perTeam}v${perTeam} start count`);
       assert.equal(m.w, 64 * perTeam, 'width scales with team size');
       assert.ok(mapConnected(m), `map ${perTeam}v${perTeam} #${seed} must be fully connected`);
+      assert.equal(mapBaseReservationsValid(m), true, `map ${perTeam}v${perTeam} #${seed} keeps whole base reservations clear`);
       assert.equal(mainBaseMineralRoutesValid(m), true, `map ${perTeam}v${perTeam} #${seed} keeps calibrated main minerals`);
+      assertBaseDepotAnchorsLegal(m);
       // Teams: first half south (team 0), interleaved south/north per lane.
       assert.equal(m.teams.length, m.starts.length);
     }
@@ -123,6 +137,8 @@ test('procedural maps use shared team plateaus, low-ground naturals, and empty m
   assert.equal(m.bases?.filter((base) => base.kind === 'main').length, 6);
   assert.equal(m.bases?.filter((base) => base.kind === 'natural').length, 6);
   assert.equal(mapResourcesValid(m), true);
+  assert.equal(mapBaseReservationsValid(m), true);
+  assertBaseDepotAnchorsLegal(m);
 
   const southStarts = m.starts.filter((_start, i) => m.teams[i] === 0);
   const northStarts = m.starts.filter((_start, i) => m.teams[i] === 1);
@@ -145,8 +161,24 @@ test('procedural midfield modules preserve connectivity and resource clearance',
     const m = generateMap(2, 77, { midfield });
     assert.equal(mapConnected(m), true, `${midfield} remains connected`);
     assert.equal(mapResourcesValid(m), true, `${midfield} keeps resources clear`);
+    assert.equal(mapBaseReservationsValid(m), true, `${midfield} keeps whole base reservations clear`);
     assert.equal(mainBaseMineralRoutesValid(m), true, `${midfield} keeps main mineral timing valid`);
+    assertBaseDepotAnchorsLegal(m);
   }
+});
+
+test('procedural base reservations reject overlapping whole-base clusters', () => {
+  const m = generateMap(1, 88);
+  assert.equal(mapBaseReservationsValid(m), true);
+  const bases = m.bases ?? [];
+  assert.ok(bases.length >= 2);
+  bases[1]!.reservation = { ...bases[0]!.reservation! };
+  assert.equal(mapBaseReservationsValid(m), false);
+
+  const stale = generateMap(1, 89);
+  const first = stale.bases![0]!;
+  first.depotFootprint = { ...first.depotFootprint!, x0: first.depotFootprint!.x0 + 1 };
+  assert.equal(mapBaseReservationsValid(stale), false);
 });
 
 test('a group moving to one goal arrives, spreads, and settles', () => {

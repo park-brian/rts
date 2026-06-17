@@ -75,18 +75,24 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   pixel center (`px`,`py`) for exact body-edge distance and harvest timing. Resource depots use
   BWAPI's resource-placement exclusion windows against the initial tile (`minerals: x -5..+6,
   y -4..+5; geysers: x -7..+6, y -5..+5`, strict comparisons). Starting bases should solve the
-  mineral line as a resource arc around the depot edge, not as a straight row. BW approximate
-  distance may seed the layout target, but workers must still visibly dock using top-down physical
-  contact. Route timing calibration is exposed as a positive-only table: target BW-equivalent route
-  frames, actual top-down dock-to-dock route frames, deterministic wait frames when the route is
-  shorter, and an invalid flag when the top-down route is too long to compensate without detached
-  mining. Main-base mineral waits are applied at the depot before deposit, so calibration changes
-  trip cadence without changing movement speed or permitting detached mining. Procedural map
-  generation rejects main-base mineral layouts with invalid routes or excessive route asymmetry.
+  mineral line as a resource arc around the depot edge, not as a straight row. Base/resource
+  generation works in reusable cluster footprints: exact depot anchor, depot build footprint,
+  resource footprints, and an enclosing reservation footprint used by procedural generation before
+  terrain or other features are stamped. BW approximate distance may seed the layout target, but
+  workers must still visibly dock using top-down physical contact. Equal route distance is the
+  first-order economy target: with a shared movement speed model, equal distance preserves relative
+  trip timing across SCVs, Drones, and Probes without per-unit placement hacks. Route timing
+  calibration is exposed as a positive-only table: target BW-equivalent route frames, actual
+  top-down dock-to-dock route frames, deterministic wait frames when the route is shorter, and an
+  invalid flag when the top-down route is too long to compensate without detached mining. Main-base
+  mineral waits are applied at the depot before deposit, so calibration changes trip cadence without
+  changing movement speed or permitting detached mining. Procedural map generation rejects
+  main-base mineral layouts with invalid routes or excessive route asymmetry.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
 - **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
-  etc. A base site stores team/owner intent, depot center, resource direction, ramp association,
-  and timing profile without requiring a depot to exist there yet.
+  etc. A base site stores team/owner intent, depot center, depot footprint, whole-cluster
+  reservation footprint, resource direction, ramp association, and timing profile without requiring
+  a depot to exist there yet.
 - **Metadata** — name, max players, symmetry, recommended modes.
 
 The renderer derives cliff-edge/shadow/ramp visuals from the `elevation` field of adjacent tiles

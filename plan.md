@@ -941,6 +941,9 @@ Design target:
 - Preserve economy timing with a positive-only calibration model:
   - solve resource positions and docking sides first so the top-down route length is at or below
     the BW-equivalent target within a tight band;
+  - make equal route distance the first-order target for symmetric mineral clusters; if movement
+    speed is shared, equal calculated distance gives equal relative trip time across SCVs, Drones,
+    and Probes without worker-specific placement hacks;
   - if a route is slightly shorter than target, add deterministic wait frames at the dock or
     depot to match the calibrated trip;
   - if a route is longer than target, the layout is invalid and must move resources or fail
@@ -1016,10 +1019,15 @@ Implementation:
     - `kind`: main, natural, third, center, island, fortress;
     - `team` and optional owner slot;
     - depot center;
+    - depot build footprint and whole-cluster reservation footprint;
     - resource direction;
     - ramp association;
     - timing profile id.
   - Keep `ResourceSpawn.x/y` as initial build-tile footprint and `px/py` as top-down pixel center.
+  - Treat a base/resource cluster as the reusable generator primitive: exact depot anchor, 8-patch
+    mineral arc, standard-distance gas, resource footprints, and an enclosing reservation footprint
+    so expansions can be placed without overlapping terrain modules, other bases, or future
+    generated features.
   - Extend resource solving so every candidate must pass:
     - build-tile footprint in bounds;
     - resource footprint not overlapping any other resource;
@@ -1135,6 +1143,9 @@ Completed:
   docking and replay-hashed state.
 - Added main-base mineral route-quality validation and wired procedural generation to reject maps
   with missing, invalid, or overly asymmetric calibrated mineral routes.
+- Replaced procedural base-site resource stamping with reusable base-cluster solver results that
+  expose exact depot anchors, depot footprints, standard mineral/gas geometry, and whole-cluster
+  reservation footprints for mains and naturals.
 
 Remaining:
 

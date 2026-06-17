@@ -18,10 +18,22 @@ export type BaseSite = {
   owner?: number;
   x: number;
   y: number;
+  depotFootprint?: ResourceFootprint;
+  reservation?: ResourceFootprint;
   resourceDir: -1 | 1;
   rampX?: number;
   rampY?: number;
   timingProfile?: string;
+};
+
+export type BaseCluster = {
+  x: number;
+  y: number;
+  resourceDir: -1 | 1;
+  depotFootprint: ResourceFootprint;
+  resourceFootprints: ResourceFootprint[];
+  reservation: ResourceFootprint;
+  resources: ResourceSpawn[];
 };
 
 export type MapDef = {
@@ -45,8 +57,10 @@ export const walkable = (m: MapDef, tx: number, ty: number): boolean =>
 export const buildable = (m: MapDef, tx: number, ty: number): boolean =>
   inBounds(m, tx, ty) && m.build[ty * m.w + tx] === 1;
 
-const START_MINERAL_EDGE_PX = 115;
-const START_GAS_EDGE_PX = 112;
+export const BASE_MINERAL_EDGE_PX = 115;
+export const BASE_GAS_EDGE_PX = 112;
+export const BASE_CLUSTER_RESERVATION_MARGIN_TILES = 1;
+
 const MINERAL_ARC_X_OFFSETS = [-6, -5, -3, -1, 1, 3, 5, 6] as const;
 const GAS_X_OFFSET = 7;
 const START_RESOURCE_X_SEARCH_PX = 16;
@@ -92,7 +106,7 @@ const footprintFromTile = (tile: { x: number; y: number }, gas: boolean): Resour
   y1: tile.y + (gas ? 2 : 1) - 1,
 });
 
-const resourceFootprintsOverlap = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
+export const resourceFootprintsOverlap = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
   a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0;
 
 const resourceInitialTile = (kind: number, px: number, py: number): { x: number; y: number } => {
@@ -106,12 +120,29 @@ const resourceInitialTile = (kind: number, px: number, py: number): { x: number;
 const depotResourceDistance = (resourceKind: number, sx: number, sy: number, px: number, py: number): number =>
   bwApproxEdgeDistanceBetween(Kind.CommandCenter, fx(tileCenterPx(sx)), fx(tileCenterPx(sy)), resourceKind, fx(px), fx(py));
 
-const depotStartFootprint = (start: StartLoc): ResourceFootprint => ({
+export const baseDepotFootprint = (start: StartLoc): ResourceFootprint => ({
   x0: start.x - 2,
   y0: start.y - 1,
   x1: start.x + 1,
   y1: start.y + 1,
 });
+
+export const expandResourceFootprint = (fp: ResourceFootprint, margin: number): ResourceFootprint => ({
+  x0: fp.x0 - margin,
+  y0: fp.y0 - margin,
+  x1: fp.x1 + margin,
+  y1: fp.y1 + margin,
+});
+
+export const resourceFootprintBounds = (fps: ResourceFootprint[]): ResourceFootprint => {
+  if (fps.length === 0) throw new Error('resourceFootprintBounds: empty footprint list');
+  return {
+    x0: Math.min(...fps.map((fp) => fp.x0)),
+    y0: Math.min(...fps.map((fp) => fp.y0)),
+    x1: Math.max(...fps.map((fp) => fp.x1)),
+    y1: Math.max(...fps.map((fp) => fp.y1)),
+  };
+};
 
 const legalStartResourceTile = (depot: ResourceFootprint, tile: { x: number; y: number }, gas: boolean): boolean => {
   if (gas) {
@@ -147,7 +178,7 @@ const solveResourceCandidates = (
   const nominalX = tileCenterPx(start.x) + dxTiles * TILE;
   const minDelta = minAbsTiles * TILE;
   const maxDelta = minDelta + START_RESOURCE_Y_SEARCH_PX;
-  const depot = depotStartFootprint(start);
+  const depot = baseDepotFootprint(start);
   const targetEdge = fx(targetEdgePx);
   const candidates = new Map<string, ResourceCandidate>();
 
@@ -226,16 +257,22 @@ const toResourceSpawn = (candidate: ResourceCandidate, amount: number, gas: bool
   gas,
 });
 
-const solveStartingResourceLayout = (start: StartLoc, frontDir: number): ResourceSpawn[] => {
+const clusterReservation = (depot: ResourceFootprint, resources: ResourceSpawn[]): ResourceFootprint =>
+  expandResourceFootprint(
+    resourceFootprintBounds([depot, ...resources.map(resourceSpawnFootprint)]),
+    BASE_CLUSTER_RESERVATION_MARGIN_TILES,
+  );
+
+export const solveBaseCluster = (start: StartLoc, frontDir: -1 | 1): BaseCluster => {
   const gasDx = GAS_X_OFFSET * (frontDir < 0 ? 1 : -1);
-  const gasCandidates = solveResourceCandidates(Kind.Geyser, start, gasDx, frontDir, 2, START_GAS_EDGE_PX, true, []);
+  const gasCandidates = solveResourceCandidates(Kind.Geyser, start, gasDx, frontDir, 2, BASE_GAS_EDGE_PX, true, []);
   let bestScore = Number.POSITIVE_INFINITY;
   let bestMinerals: ResourceCandidate[] | null = null;
   let bestGas: ResourceCandidate | null = null;
 
   for (const gas of gasCandidates) {
     const mineralSets = MINERAL_ARC_X_OFFSETS.map((dx) =>
-      solveResourceCandidates(Kind.Mineral, start, dx, frontDir, 4, START_MINERAL_EDGE_PX, false, [gas.footprint]),
+      solveResourceCandidates(Kind.Mineral, start, dx, frontDir, 4, BASE_MINERAL_EDGE_PX, false, [gas.footprint]),
     );
     if (mineralSets.some((candidates) => candidates.length === 0)) continue;
 
@@ -249,12 +286,31 @@ const solveStartingResourceLayout = (start: StartLoc, frontDir: number): Resourc
     }
   }
 
-  if (bestMinerals === null || bestGas === null) throw new Error('sliceMap: no legal resource arc position');
-  return [...bestMinerals.map((candidate) => toResourceSpawn(candidate, PATCH_AMOUNT, false)), toResourceSpawn(bestGas, 0, true)];
+  if (bestMinerals === null || bestGas === null) throw new Error('solveBaseCluster: no legal resource arc position');
+  const resources = [
+    ...bestMinerals.map((candidate) => toResourceSpawn(candidate, PATCH_AMOUNT, false)),
+    toResourceSpawn(bestGas, 0, true),
+  ];
+  const depotFootprint = baseDepotFootprint(start);
+  return {
+    x: start.x,
+    y: start.y,
+    resourceDir: frontDir,
+    depotFootprint,
+    resourceFootprints: resources.map(resourceSpawnFootprint),
+    reservation: clusterReservation(depotFootprint, resources),
+    resources,
+  };
 };
 
-export const addStartingResources = (out: ResourceSpawn[], start: StartLoc, frontDir: number): void => {
-  out.push(...solveStartingResourceLayout(start, frontDir));
+export const addBaseClusterResources = (out: ResourceSpawn[], start: StartLoc, frontDir: -1 | 1): BaseCluster => {
+  const cluster = solveBaseCluster(start, frontDir);
+  out.push(...cluster.resources);
+  return cluster;
+};
+
+export const addStartingResources = (out: ResourceSpawn[], start: StartLoc, frontDir: -1 | 1): BaseCluster => {
+  return addBaseClusterResources(out, start, frontDir);
 };
 
 /** A small, symmetric, open vertical-major 1v1 slice map (no obstacles). */

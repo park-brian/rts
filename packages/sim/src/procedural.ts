@@ -5,8 +5,8 @@
 // midfield. Optional midfield modules can add blockers/chokes later without
 // changing the base/economy contract.
 
-import type { BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
-import { addStartingResources, resourceSpawnFootprint } from './map.ts';
+import type { BaseCluster, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
+import { addBaseClusterResources, baseDepotFootprint, resourceFootprintsOverlap, resourceSpawnFootprint } from './map.ts';
 import { makeRng, range, type Rng } from './rng.ts';
 import { mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
@@ -87,17 +87,15 @@ class MapBuilder {
 
 const laneCenter = (i: number): number => i * LANE_W + (LANE_W >> 1);
 
-const addBaseResources = (m: MapDef, base: StartLoc, dir: -1 | 1): void => {
-  addStartingResources(m.resources, base, dir);
+const addBaseResources = (m: MapDef, base: StartLoc, dir: -1 | 1): BaseCluster => {
+  return addBaseClusterResources(m.resources, base, dir);
 };
 
 const addBaseSite = (
   m: MapDef,
   kind: BaseSite['kind'],
   team: number,
-  x: number,
-  y: number,
-  resourceDir: -1 | 1,
+  cluster: BaseCluster,
   owner?: number,
   rampX?: number,
   rampY?: number,
@@ -106,9 +104,11 @@ const addBaseSite = (
   m.bases.push({
     kind,
     team,
-    x,
-    y,
-    resourceDir,
+    x: cluster.x,
+    y: cluster.y,
+    depotFootprint: cluster.depotFootprint,
+    reservation: cluster.reservation,
+    resourceDir: cluster.resourceDir,
     ...(owner === undefined ? {} : { owner }),
     ...(rampX === undefined ? {} : { rampX }),
     ...(rampY === undefined ? {} : { rampY }),
@@ -135,25 +135,20 @@ const stampTeamPlateaus = (b: MapBuilder): void => {
     const northRampY = northPlateau.y1 + 1;
     const southNatural: StartLoc = { x, y: southRampY - NATURAL_OFFSET };
     const northNatural: StartLoc = { x, y: northRampY + NATURAL_OFFSET };
+    const southCluster = addBaseResources(m, south, -1);
+    const northCluster = addBaseResources(m, north, 1);
+    const southNaturalCluster = addBaseResources(m, southNatural, -1);
+    const northNaturalCluster = addBaseResources(m, northNatural, 1);
 
     m.starts.push(south);
     m.teams.push(0);
     m.starts.push(north);
     m.teams.push(1);
 
-    addBaseSite(m, 'main', 0, south.x, south.y, -1, i * 2, south.x, southRampY);
-    addBaseSite(m, 'main', 1, north.x, north.y, 1, i * 2 + 1, north.x, northRampY);
-    addBaseSite(m, 'natural', 0, southNatural.x, southNatural.y, -1, undefined, south.x, southRampY);
-    addBaseSite(m, 'natural', 1, northNatural.x, northNatural.y, 1, undefined, north.x, northRampY);
-
-    addBaseResources(m, south, -1);
-    addBaseResources(m, north, 1);
-    addBaseResources(m, southNatural, -1);
-    addBaseResources(m, northNatural, 1);
-  }
-
-  for (const base of m.bases ?? []) {
-    b.reserveNoBuild({ x0: base.x - 5, x1: base.x + 5, y0: base.y - 4, y1: base.y + 5 });
+    addBaseSite(m, 'main', 0, southCluster, i * 2, south.x, southRampY);
+    addBaseSite(m, 'main', 1, northCluster, i * 2 + 1, north.x, northRampY);
+    addBaseSite(m, 'natural', 0, southNaturalCluster, undefined, south.x, southRampY);
+    addBaseSite(m, 'natural', 1, northNaturalCluster, undefined, north.x, northRampY);
   }
 };
 
@@ -248,9 +243,6 @@ const resourceFootprintClear = (m: MapDef, r: ResourceSpawn, margin: number): bo
   return true;
 };
 
-const resourceFootprintsOverlap = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
-  a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0;
-
 export const mapResourcesValid = (m: MapDef): boolean => {
   const seen: ResourceFootprint[] = [];
   for (const r of m.resources) {
@@ -258,6 +250,34 @@ export const mapResourcesValid = (m: MapDef): boolean => {
     const fp = resourceSpawnFootprint(r);
     if (seen.some((other) => resourceFootprintsOverlap(fp, other))) return false;
     seen.push(fp);
+  }
+  return true;
+};
+
+const footprintWalkable = (m: MapDef, fp: ResourceFootprint): boolean => {
+  if (fp.x0 < 0 || fp.y0 < 0 || fp.x1 >= m.w || fp.y1 >= m.h) return false;
+  for (let y = fp.y0; y <= fp.y1; y++) {
+    for (let x = fp.x0; x <= fp.x1; x++) {
+      if (m.walk[y * m.w + x] !== 1) return false;
+    }
+  }
+  return true;
+};
+
+const sameFootprint = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
+  a.x0 === b.x0 && a.y0 === b.y0 && a.x1 === b.x1 && a.y1 === b.y1;
+
+export const mapBaseReservationsValid = (m: MapDef): boolean => {
+  const seen: ResourceFootprint[] = [];
+  for (const base of m.bases ?? []) {
+    const depotFootprint = base.depotFootprint;
+    const reservation = base.reservation;
+    if (depotFootprint === undefined || reservation === undefined) return false;
+    if (!sameFootprint(depotFootprint, baseDepotFootprint(base))) return false;
+    if (!footprintWalkable(m, depotFootprint)) return false;
+    if (!footprintWalkable(m, reservation)) return false;
+    if (seen.some((other) => resourceFootprintsOverlap(reservation, other))) return false;
+    seen.push(reservation);
   }
   return true;
 };
@@ -284,7 +304,7 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
 };
 
 const generatedMapValid = (m: MapDef): boolean =>
-  mapConnected(m) && mapResourcesValid(m) && mainBaseMineralRoutesValid(m);
+  mapConnected(m) && mapResourcesValid(m) && mapBaseReservationsValid(m) && mainBaseMineralRoutesValid(m);
 
 /**
  * Generate a symmetric NvN map. `perTeam` players share each side's plateau
