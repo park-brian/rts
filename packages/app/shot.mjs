@@ -37,7 +37,8 @@ if (!targetUrl) {
 }
 mkdirSync('shots', { recursive: true });
 const ONE = 4096;
-const KIND = { Nexus: 66, Pylon: 67, Hatchery: 116, CreepColony: 119 };
+const CAP = 4096;
+const KIND = { CommandCenter: 2, Nexus: 66, Pylon: 67, Hatchery: 116, CreepColony: 119 };
 
 // SwiftShader gives headless Chromium a working WebGL2 stack so screenshots
 // capture the real GL renderer (gl/renderer.ts), not the Canvas2D fallback.
@@ -87,7 +88,27 @@ try {
   await page.waitForTimeout(200);
   await page.screenshot({ path: 'shots/play-selected.png' });
 
-  // 4) Placement field overlays: candidate Pylon power and Zerg creep.
+  // 4) Disabled command-card reasons.
+  await page.evaluate(({ ONE, CAP, KIND }) => {
+    const g = window.__game;
+    g.restart('play', 24066, 1, ['terran', 'protoss']);
+    const s = g.sim.fullState();
+    const e = s.e;
+    let cc = 0;
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.CommandCenter) cc = i;
+    s.players.minerals[g.human] = 0;
+    g.selection.clear();
+    g.selection.add(cc + e.gen[cc] * CAP);
+    g.zoom = 3.2;
+    g.camX = e.x[cc] / ONE - g.viewW / g.zoom / 2;
+    g.camY = e.y[cc] / ONE - g.viewH / g.zoom / 2;
+    g.clampCamera();
+    g.fastForward(0);
+  }, { ONE, CAP, KIND });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/command-disabled.png' });
+
+  // 5) Placement field overlays: candidate Pylon power and Zerg creep.
   await page.evaluate(({ ONE, KIND }) => {
     const g = window.__game;
     g.restart('play', 24067, 1, ['protoss', 'terran']);
@@ -117,14 +138,14 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/placement-creep-overlay.png' });
 
-  // 5) Spectate a fast-forwarded battle (both AIs).
+  // 6) Spectate a fast-forwarded battle (both AIs).
   await page.getByRole('button', { name: '▶ Play' }).click();
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(4500)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-battle.png' });
 
-  // 6) A 2v2 (twice as wide), fast-forwarded.
+  // 7) A 2v2 (twice as wide), fast-forwarded.
   await page.evaluate('window.__game.restart("spectate", 12345, 2)');
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(5000)');

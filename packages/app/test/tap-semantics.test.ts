@@ -502,6 +502,7 @@ test('mineSelected queues mine commands for selected charged vultures', () => {
 test('selected race workers publish their race build palette', () => {
   const g = freshGame();
   g.restart('play', 2222, 1, ['protoss', 'zerg'], 0);
+  g.sim.fullState().players.minerals[0] = 1_000;
   const probe = findEntity(g, Kind.Probe, 0);
   select(g, [probe]);
 
@@ -515,6 +516,7 @@ test('selected race workers publish their race build palette', () => {
 test('zerg worker command card hides lair-gated buildings until tech exists', () => {
   const g = freshGame();
   g.restart('play', 3333, 1, ['zerg', 'terran'], 0);
+  g.sim.fullState().players.minerals[0] = 1_000;
   const drone = findEntity(g, Kind.Drone, 0);
   select(g, [drone]);
 
@@ -524,9 +526,12 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
   assert.ok(ui.selBuildKinds.value.includes(Kind.EvolutionChamber));
   assert.ok(!ui.selBuildKinds.value.includes(Kind.Spire));
   assert.ok(!ui.selBuildKinds.value.includes(Kind.QueensNest));
+  assert.equal(ui.selBuildOptions.value.find((o) => o.id === Kind.Spire)?.reason, 'missing-requirement');
 
   const s = g.sim.fullState();
   spawnUnit(s, Kind.Lair, 0, fx(700), fx(700));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
   g.fastForward(0);
 
   assert.ok(ui.selBuildKinds.value.includes(Kind.Spire));
@@ -582,4 +587,30 @@ test('selected carriers publish interceptor build commands', () => {
   g.fastForward(0);
 
   assert.ok(ui.selTrainKinds.value.includes(Kind.Interceptor));
+});
+
+test('command card publishes disabled train and ability reasons', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const cc = findEntity(g, Kind.CommandCenter, 0);
+  s.players.minerals[0] = 0;
+  select(g, [cc]);
+  g.fastForward(0);
+
+  assert.ok(!ui.selTrainKinds.value.includes(Kind.SCV));
+  assert.equal(ui.selTrainOptions.value.find((o) => o.id === Kind.SCV)?.reason, 'not-affordable');
+
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(500), fx(500));
+  const slot = slotOf(templar);
+  s.e.energy[slot] = 200;
+  select(g, [templar]);
+  g.fastForward(0);
+
+  assert.ok(!ui.selAbilities.value.includes(Ability.PsionicStorm));
+  assert.equal(ui.selAbilityOptions.value.find((o) => o.id === Ability.PsionicStorm)?.reason, 'missing-requirement');
+
+  setTechLevel(s, 0, Tech.PsionicStorm, 1);
+  g.fastForward(0);
+
+  assert.ok(ui.selAbilities.value.includes(Ability.PsionicStorm));
 });

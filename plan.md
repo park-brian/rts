@@ -165,11 +165,13 @@ Completed:
   including candidate provider rings for Creep-spreading Zerg structures and new Pylons.
 - The app screenshot harness now captures dedicated placement-overlay reference shots for Pylon
   power and Zerg creep.
+- Command-card options now include unavailable but relevant build/train/research/add-on/transform
+  and ability actions, with short disabled reasons derived from shared validation results.
+- The screenshot harness now captures a disabled command-card reference state.
 
 Remaining:
 
 - Better visual grouping/capacity management when many train/research/spell buttons are valid.
-- Disabled/tooltip states instead of hiding unaffordable commands.
 
 ## Phase 3: Remaining Spell Families
 

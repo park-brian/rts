@@ -5,13 +5,14 @@
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Kind, TechDefs, Units, Role,
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
-  canPlaceStructure, validateCommand, getTechLevel, transportCapacity, unloadAnchorSlot,
+  canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
   transformFor, transformTargetsFor, snapBuildAnchor, isLiftedStructureFlags,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
+  type CommandRejectReason, type CommandValidation,
 } from './sim.ts';
-import { ui, type Mode } from './store.ts';
+import { ui, type CommandOption, type Mode } from './store.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -20,12 +21,49 @@ const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
 const EDGE_PAN_MARGIN = 24;
 const EDGE_PAN_SPEED = 560; // screen px/sec; converted to world px by zoom
 const CONTROL_GROUPS = 10;
+const REASON_PRIORITY: Record<CommandRejectReason, number> = {
+  'missing-requirement': 0,
+  'not-affordable': 1,
+  'supply-blocked': 2,
+  'queue-full': 3,
+  'incomplete-producer': 4,
+  'not-enough-energy': 5,
+  'not-enough-hit-points': 6,
+  'placement-requires-geyser': 7,
+  'placement-off-map': 8,
+  'placement-blocked': 9,
+  'target-not-found': 10,
+  'target-out-of-range': 11,
+  'target-not-allowed': 12,
+  'missing-capability': 13,
+  'invalid-ability': 14,
+  'wrong-owner': 15,
+  'stale-entity': 16,
+};
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
 
 const defaultRaceNames = (players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
+
+const addOption = (options: Map<number, CommandOption>, id: number, result: CommandValidation): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    options.set(id, { id, ok: true });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || REASON_PRIORITY[result.reason] < REASON_PRIORITY[current.reason!]) {
+    options.set(id, { id, ok: false, reason: result.reason });
+  }
+};
+
+const optionKinds = (options: Map<number, CommandOption>): number[] =>
+  [...options.values()].filter((o) => o.ok).map((o) => o.id).sort((a, b) => a - b);
+
+const sortedOptions = (options: Map<number, CommandOption>): CommandOption[] =>
+  [...options.values()].sort((a, b) => a.id - b.id);
 
 export class Game {
   sim!: Sim;
@@ -119,8 +157,18 @@ export class Game {
     ui.selCanMine.value = false;
     ui.selCanLift.value = false;
     ui.selCanLand.value = false;
+    ui.selBuildKinds.value = [];
     ui.selAddonKinds.value = [];
     ui.selTransformKinds.value = [];
+    ui.selTrainKinds.value = [];
+    ui.selAbilities.value = [];
+    ui.selResearchTechs.value = [];
+    ui.selBuildOptions.value = [];
+    ui.selAddonOptions.value = [];
+    ui.selTransformOptions.value = [];
+    ui.selTrainOptions.value = [];
+    ui.selAbilityOptions.value = [];
+    ui.selResearchOptions.value = [];
     ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
@@ -1022,12 +1070,12 @@ export class Game {
     let canAttackMove = false; let canStop = false;
     let canBurrow = false; let canUnburrow = false; let canMine = false;
     let canLift = false; let canLand = false;
-    const buildKinds = new Set<number>();
-    const addonKinds = new Set<number>();
-    const transformKinds = new Set<number>();
-    const trainKinds = new Set<number>();
-    const abilityIds = new Set<number>();
-    const researchTechs = new Set<number>();
+    const buildOptions = new Map<number, CommandOption>();
+    const addonOptions = new Map<number, CommandOption>();
+    const transformOptions = new Map<number, CommandOption>();
+    const trainOptions = new Map<number, CommandOption>();
+    const abilityOptions = new Map<number, CommandOption>();
+    const researchOptions = new Map<number, CommandOption>();
     for (const id of this.selection) {
       if (!isAlive(e, id)) continue;
       count++;
@@ -1040,26 +1088,37 @@ export class Game {
       if ((e.flags[slot]! & Role.Worker) !== 0) {
         canHarvest = true;
         for (const build of workerBuildKindsFor(Units[k]!.race)) {
-          if (canWorkerStartStructure(s, this.human, slot, build).ok) buildKinds.add(build);
+          const starter = canWorkerStartStructure(s, this.human, slot, build);
+          if (!starter.ok) addOption(buildOptions, build, starter);
+          else {
+            const def = Units[build]!;
+            addOption(buildOptions, build, s.players.minerals[this.human]! < def.minerals || s.players.gas[this.human]! < def.gas
+              ? { ok: false, reason: 'not-affordable' }
+              : { ok: true });
+          }
         }
       }
       if (e.kind[slot] === Kind.SCV) canRepair = true;
       if ((e.flags[slot]! & Role.Structure) !== 0) canRally = true;
       for (const addon of ADDON_IDS) {
-        if (validateCommand(s, this.human, { t: 'addon', building: id, kind: addon }).ok) addonKinds.add(addon);
+        const result = validateCommand(s, this.human, { t: 'addon', building: id, kind: addon });
+        if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
       }
       for (const train of Units[k]!.produces) {
-        if (validateCommand(s, this.human, { t: 'train', building: id, kind: train }).ok) trainKinds.add(train);
+        addOption(trainOptions, train, validateCommand(s, this.human, { t: 'train', building: id, kind: train }));
       }
       for (const target of transformTargetsFor(k)) {
-        if (validateCommand(s, this.human, { t: 'transform', unit: id, kind: target }).ok) transformKinds.add(target);
+        addOption(transformOptions, target, validateCommand(s, this.human, { t: 'transform', unit: id, kind: target }));
       }
       for (const ability of Units[k]!.abilities) {
-        if (this.canOfferAbility(s, slot, ability)) abilityIds.add(ability);
+        addOption(abilityOptions, ability, this.abilityAvailability(s, slot, ability));
       }
       for (const tech of TECH_IDS) {
         const c: Command = { t: 'research', building: id, tech };
-        if (validateCommand(s, this.human, c).ok) researchTechs.add(tech);
+        const def = TechDefs[tech];
+        if (!def?.producers.includes(k)) continue;
+        const result = validateCommand(s, this.human, c);
+        if (result.ok || result.reason !== 'target-not-allowed') addOption(researchOptions, tech, result);
       }
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: true }).ok) canBurrow = true;
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: false }).ok) canUnburrow = true;
@@ -1081,14 +1140,20 @@ export class Game {
     }
     ui.selCount.value = count;
     ui.selKindName.value = count > 1 ? `${kindName} ×${count}` : kindName;
-    ui.selCanBuild.value = buildKinds.size > 0;
+    ui.selCanBuild.value = buildOptions.size > 0;
     ui.selCanRally.value = canRally;
-    ui.selBuildKinds.value = [...buildKinds].sort((a, b) => a - b);
-    ui.selAddonKinds.value = [...addonKinds].sort((a, b) => a - b);
-    ui.selTransformKinds.value = [...transformKinds].sort((a, b) => a - b);
-    ui.selTrainKinds.value = [...trainKinds].sort((a, b) => a - b);
-    ui.selAbilities.value = [...abilityIds].sort((a, b) => a - b);
-    ui.selResearchTechs.value = [...researchTechs].sort((a, b) => a - b);
+    ui.selBuildOptions.value = sortedOptions(buildOptions);
+    ui.selAddonOptions.value = sortedOptions(addonOptions);
+    ui.selTransformOptions.value = sortedOptions(transformOptions);
+    ui.selTrainOptions.value = sortedOptions(trainOptions);
+    ui.selAbilityOptions.value = sortedOptions(abilityOptions);
+    ui.selResearchOptions.value = sortedOptions(researchOptions);
+    ui.selBuildKinds.value = optionKinds(buildOptions);
+    ui.selAddonKinds.value = optionKinds(addonOptions);
+    ui.selTransformKinds.value = optionKinds(transformOptions);
+    ui.selTrainKinds.value = optionKinds(trainOptions);
+    ui.selAbilities.value = optionKinds(abilityOptions);
+    ui.selResearchTechs.value = optionKinds(researchOptions);
     ui.selCanLoad.value = canLoad;
     ui.selCanUnload.value = canUnload;
     ui.selCanHarvest.value = canHarvest;
@@ -1102,14 +1167,14 @@ export class Game {
     ui.selCanLand.value = canLand;
   }
 
-  private canOfferAbility(s: State, slot: number, abilityId: number): boolean {
+  private abilityAvailability(s: State, slot: number, abilityId: number): CommandValidation {
     const e = s.e;
     const ability = Abilities[abilityId];
-    if (!ability) return false;
-    if (ability.tech !== undefined && getTechLevel(s, this.human, ability.tech) <= 0) return false;
-    if (ability.target === 'self') return validateCommand(s, this.human, { t: 'ability', unit: eid(e, slot), ability: abilityId }).ok;
-    if (e.energy[slot]! < ability.energyCost || e.hp[slot]! <= ability.hpCost) return false;
-    return true;
+    if (!ability) return { ok: false, reason: 'invalid-ability' };
+    const result = validateCommand(s, this.human, { t: 'ability', unit: eid(e, slot), ability: abilityId });
+    if (result.ok) return result;
+    if (ability.target !== 'self' && result.reason === 'target-not-found') return { ok: true };
+    return result;
   }
 }
 

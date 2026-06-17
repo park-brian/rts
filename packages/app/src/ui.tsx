@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { ui } from './store.ts';
 import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
 import type { Game } from './game.ts';
-import type { ControlScheme, Mode } from './store.ts';
+import type { CommandOption, ControlScheme, Mode } from './store.ts';
 import {
   HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, resetHotkeys, setHotkey, type HotkeyAction,
 } from './hotkeys.ts';
@@ -16,24 +16,61 @@ const bar: Record<string, string> = {
   background: 'rgba(11,14,19,0.78)', backdropFilter: 'blur(6px)', fontSize: '14px',
 };
 
-const btn = (active = false, compact = false): Record<string, string> => {
+const btn = (active = false, compact = false, disabled = false): Record<string, string> => {
   const desktop = ui.controlScheme.value === 'desktop';
   return {
     minWidth: compact ? '0' : '58px', maxWidth: compact ? 'none' : '104px', minHeight: compact ? '34px' : '40px',
     padding: compact ? '4px 7px' : '5px 9px', borderRadius: '8px',
     border: active ? '2px solid #ffe14e' : '1px solid #2a3340',
-    background: active ? '#34507a' : '#1a2230', color: '#e6edf3', fontSize: compact ? '12px' : '12px',
-    fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: disabled ? '#131923' : active ? '#34507a' : '#1a2230',
+    color: disabled ? '#7d8795' : '#e6edf3', fontSize: compact ? '12px' : '12px',
+    fontWeight: '600', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    flex: compact && !desktop ? '1 1 0' : '0 1 auto',
+    opacity: disabled ? '0.72' : '1', cursor: disabled ? 'default' : 'pointer',
+    flex: compact && !desktop ? '1 1 0' : '0 0 auto',
   };
 };
 
-const Btn = (p: { label: string; onClick: () => void; active?: boolean; compact?: boolean; hotkeyAction?: HotkeyAction }) => (
-  <button style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction))} onClick={p.onClick}>
-    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.label}</span>
-    {ui.controlScheme.value === 'desktop' && p.hotkeyAction && (
-      <span style={{ marginLeft: '6px', opacity: 0.75, fontSize: '11px', flex: '0 0 auto' }}>
+const reasonLabel = (reason: string): string => ({
+  'missing-requirement': 'Tech',
+  'not-affordable': 'Resources',
+  'supply-blocked': 'Supply',
+  'queue-full': 'Busy',
+  'incomplete-producer': 'Incomplete',
+  'not-enough-energy': 'Energy',
+  'not-enough-hit-points': 'HP',
+  'placement-requires-geyser': 'Geyser',
+  'placement-off-map': 'Map',
+  'placement-blocked': 'Blocked',
+  'target-not-found': 'Target',
+  'target-out-of-range': 'Range',
+  'target-not-allowed': 'Target',
+  'missing-capability': 'Unavailable',
+  'invalid-ability': 'Unavailable',
+  'wrong-owner': 'Owner',
+  'stale-entity': 'Gone',
+}[reason] ?? 'Unavailable');
+
+const Btn = (p: {
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  compact?: boolean;
+  disabled?: boolean;
+  reason?: string;
+  hotkeyAction?: HotkeyAction;
+}) => (
+  <button disabled={p.disabled} title={p.reason ? reasonLabel(p.reason) : undefined}
+    style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction), p.disabled)}
+    onClick={p.disabled ? undefined : p.onClick}>
+    <span style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{p.label}</span>
+    {p.reason && <span style={{ width: '100%', opacity: 0.86, fontSize: '10px', lineHeight: '11px',
+      overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+      {reasonLabel(p.reason)}
+    </span>}
+    {ui.controlScheme.value === 'desktop' && p.hotkeyAction && !p.reason && (
+      <span style={{ width: '100%', opacity: 0.75, fontSize: '11px', lineHeight: '11px', flex: '0 0 auto',
+        overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
         {hotkeyLabelForAction(p.hotkeyAction)}
       </span>
     )}
@@ -253,26 +290,40 @@ const Hotbar = (p: { game: Game }) => {
     clearTargets();
     ui.abilityTarget.value = active ? ability : 0;
   };
+  const addOptionButton = (
+    option: CommandOption,
+    label: string,
+    hotkeyAction: HotkeyAction,
+    onClick: () => void,
+    active = false,
+  ): void => {
+    buttons.push(<Btn label={label} hotkeyAction={hotkeyAction} active={active}
+      disabled={!option.ok} reason={option.ok ? undefined : option.reason} onClick={onClick} />);
+  };
   if (place !== 0) {
     buttons.push(<span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto' }}>{ui.land.value ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
     buttons.push(<Btn label="Cancel" onClick={clearTargets} />);
   } else if (ui.selCount.value > 0) {
-    for (const kind of ui.selTrainKinds.value) {
-      buttons.push(<Btn label={`Train ${short(Units[kind]?.name ?? 'Unit')}`} hotkeyAction={actionKey.train(kind)}
-        onClick={() => { clearTargets(); g.trainSelected(kind); }} />);
+    for (const option of ui.selTrainOptions.value) {
+      const kind = option.id;
+      addOptionButton(option, `Train ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.train(kind),
+        () => { clearTargets(); g.trainSelected(kind); });
     }
-    for (const kind of ui.selAddonKinds.value) {
-      buttons.push(<Btn label={`Add ${short(Units[kind]?.name ?? 'Add-on')}`} hotkeyAction={actionKey.addon(kind)}
-        onClick={() => { clearTargets(); g.addonSelected(kind); }} />);
+    for (const option of ui.selAddonOptions.value) {
+      const kind = option.id;
+      addOptionButton(option, `Add ${short(Units[kind]?.name ?? 'Add-on')}`, actionKey.addon(kind),
+        () => { clearTargets(); g.addonSelected(kind); });
     }
-    for (const kind of ui.selTransformKinds.value) {
+    for (const option of ui.selTransformOptions.value) {
+      const kind = option.id;
       const verb = kind === Kind.Archon || kind === Kind.DarkArchon ? 'Merge' : 'Morph';
-      buttons.push(<Btn label={`${verb} ${short(Units[kind]?.name ?? 'Unit')}`} hotkeyAction={actionKey.transform(kind)}
-        onClick={() => { clearTargets(); g.transformSelected(kind); }} />);
+      addOptionButton(option, `${verb} ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.transform(kind),
+        () => { clearTargets(); g.transformSelected(kind); });
     }
     if (ui.selCanBuild.value) {
-      for (const kind of ui.selBuildKinds.value) {
-        buttons.push(<Btn label={`Build ${short(Units[kind]?.name ?? 'Building')}`} hotkeyAction={actionKey.build(kind)} onClick={() => placeKind(kind)} />);
+      for (const option of ui.selBuildOptions.value) {
+        const kind = option.id;
+        addOptionButton(option, `Build ${short(Units[kind]?.name ?? 'Building')}`, actionKey.build(kind), () => placeKind(kind));
       }
     }
     if (ui.selCanRally.value) {
@@ -284,11 +335,13 @@ const Hotbar = (p: { game: Game }) => {
     if (ui.selCanRepair.value) {
       buttons.push(<Btn label="Repair" hotkeyAction="repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
     }
-    for (const tech of ui.selResearchTechs.value) {
-      buttons.push(<Btn label={short(TechDefs[tech]?.name ?? 'Research')} hotkeyAction={actionKey.research(tech)}
-        onClick={() => { clearTargets(); g.researchSelected(tech); }} />);
+    for (const option of ui.selResearchOptions.value) {
+      const tech = option.id;
+      addOptionButton(option, short(TechDefs[tech]?.name ?? 'Research'), actionKey.research(tech),
+        () => { clearTargets(); g.researchSelected(tech); });
     }
-    for (const ability of ui.selAbilities.value) {
+    for (const option of ui.selAbilityOptions.value) {
+      const ability = option.id;
       const def = Abilities[ability]!;
       const active = ui.abilityTarget.value === ability;
       const cast = (): void => {
@@ -298,7 +351,7 @@ const Hotbar = (p: { game: Game }) => {
         }
         else toggleAbility(ability);
       };
-      buttons.push(<Btn label={short(def.name)} hotkeyAction={actionKey.ability(ability)} active={active} onClick={cast} />);
+      addOptionButton(option, short(def.name), actionKey.ability(ability), cast, active);
     }
     if (ui.selCanLoad.value) {
       buttons.push(<Btn label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
