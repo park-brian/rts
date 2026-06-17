@@ -14,7 +14,8 @@ import {
 const bar: Record<string, string> = {
   position: 'absolute', left: '0', right: '0', display: 'flex', gap: '8px',
   alignItems: 'center', padding: '8px 12px',
-  background: 'rgba(11,14,19,0.78)', backdropFilter: 'blur(6px)', fontSize: '14px',
+  background: '#0b0e13', fontSize: '14px',
+  borderColor: '#1e2733',
 };
 
 type CommandGroupId = 'placement' | 'production' | 'build' | 'tech' | 'abilities' | 'orders' | 'selection' | 'empty';
@@ -160,6 +161,7 @@ const TopBar = (p: { game: Game }) => {
   if (ui.controlScheme.value === 'desktop') {
     return (
       <div style={{ ...bar, top: '0', height: 'var(--top-chrome)', overflow: 'hidden',
+        borderBottom: '1px solid #1e2733',
         padding: '4px 8px', flexWrap: 'nowrap', alignItems: 'center' }}>
         {resources}
         {buttons}
@@ -168,6 +170,7 @@ const TopBar = (p: { game: Game }) => {
   }
   return (
     <div style={{ ...bar, top: '0', padding: '6px 8px 8px', paddingTop: 'max(6px, env(safe-area-inset-top))',
+      borderBottom: '1px solid #1e2733',
       flexWrap: 'wrap', alignItems: 'stretch', height: 'var(--top-chrome)', overflow: 'hidden' }}>
       <div style={{ width: '100%' }}>{resources}</div>
       <div style={{ width: '100%' }}>{buttons}</div>
@@ -437,6 +440,7 @@ const Hotbar = (p: { game: Game }) => {
   if (ui.controlScheme.value === 'desktop') {
     return (
       <div style={{ ...bar, bottom: '0', height: 'var(--bottom-chrome)', overflow: 'hidden',
+        borderTop: '1px solid #1e2733',
         padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
         display: 'grid', gridTemplateColumns: '112px 240px minmax(420px, 1fr)',
         alignItems: 'stretch', gap: '8px' }}>
@@ -469,6 +473,7 @@ const Hotbar = (p: { game: Game }) => {
   return (
     <div style={{ ...bar, bottom: '0', flexDirection: 'column', gap: '4px', alignItems: 'stretch',
       height: 'var(--bottom-chrome)', overflow: 'hidden',
+      borderTop: '1px solid #1e2733',
       padding: '6px 8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
       {ui.selCount.value > 0 && <span style={{ height: '16px', textAlign: 'center', opacity: 0.82, fontSize: '12px',
         lineHeight: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui.selKindName.value}</span>}
