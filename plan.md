@@ -400,7 +400,7 @@ Completed:
 Remaining:
 
 - Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially real
-  tech-path planning toward late-game caster structures unlocked by Hive.
+  tech-path planning toward the remaining Hive tech structures.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -619,6 +619,9 @@ Completed:
 - Zerg scripted macro now morphs a legal Greater Spire from a completed Spire after Hive through
   that same unique-tech morph path, preserving prerequisite, duplicate/pending, queue, and budget
   checks.
+- Zerg scripted macro now queues a legal Defiler Mound after Hive through the ordered structure
+  path, unlocking Defiler production while preserving placement, prerequisite, duplicate, pending,
+  and gas-budget checks.
 
 Done when:
 

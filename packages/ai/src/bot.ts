@@ -23,7 +23,7 @@ const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThre
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const PROTOSS_STRUCTURE_MACRO = [Kind.CyberneticsCore, Kind.RoboticsFacility, Kind.Stargate, Kind.CitadelOfAdun] as const;
-const ZERG_STRUCTURE_MACRO = [Kind.HydraliskDen, Kind.Spire, Kind.QueensNest] as const;
+const ZERG_STRUCTURE_MACRO = [Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
   { from: Kind.Lair, to: Kind.Hive, satisfiedBy: [Kind.Hive] },
