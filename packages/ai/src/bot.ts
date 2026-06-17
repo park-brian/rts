@@ -309,6 +309,10 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       let tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
       if (tgt === NONE) tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!));
       if (tgt !== NONE) {
+        if (!builderUsed) {
+          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, e.x[tgt]!, e.y[tgt]!);
+          minerals = budget.minerals;
+        }
         castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
         for (const a of idleArmy) {
           if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) continue;
@@ -386,6 +390,41 @@ const maybeQueueStructure = (
   const spot = findMacroSpot(s, player, worker, kind, anchor);
   if (!spot) return false;
   const command: Command = { t: 'build', unit: eid(s.e, worker), kind, x: spot.x, y: spot.y };
+  if (!validateCommand(s, player, command).ok) return false;
+  cmds.push(command);
+  budget.minerals -= def.minerals;
+  budget.gas -= def.gas;
+  return true;
+};
+
+const maybeQueueNydusEndpoint = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  focusX: number,
+  focusY: number,
+): boolean => {
+  if (worker === NONE) return false;
+  const def = Units[Kind.NydusCanal]!;
+  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
+
+  const e = s.e;
+  let completed = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (e.kind[i] === Kind.NydusCanal) {
+      if (e.built[i] === 1) completed++;
+      else return false;
+    }
+    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === Kind.NydusCanal) return false;
+  }
+  if (completed !== 1) return false;
+
+  const spot = findSpot(s, player, worker, Kind.NydusCanal, focusX, focusY);
+  if (!spot) return false;
+  const command: Command = { t: 'build', unit: eid(e, worker), kind: Kind.NydusCanal, x: spot.x, y: spot.y };
   if (!validateCommand(s, player, command).ok) return false;
   cmds.push(command);
   budget.minerals -= def.minerals;

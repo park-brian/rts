@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
 
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
-const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number) =>
-  cmds.find((c) => c.t === 'build' && c.kind === kind);
+const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'build' }> | undefined =>
+  cmds.find((c): c is Extract<BotCommand, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findBuild(cmds, kind) !== undefined;
 const findTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'transform' }> | undefined =>
@@ -466,6 +466,76 @@ test('zerg bot respects nydus canal prerequisite, placement, duplicates, and bud
   brokeState.players.gas[0] = 1_000;
 
   assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.NydusCanal), false);
+});
+
+const readyZergNydusEndpointScenario = (seed: number): { sim: Sim; target: number; home: { x: number; y: number } } => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = slotOf(findEntity(sim, Kind.Hatchery, 0));
+  const home = entityPos(sim, eid(s.e, hatchery));
+  s.e.kind[hatchery] = Kind.Lair;
+  const worker = slotOf(findEntity(sim, Kind.Drone, 0));
+  s.e.order[worker] = Order.Harvest;
+  spawnUnit(s, Kind.SpawningPool, 0, home.x + fx(120), home.y);
+  spawnUnit(s, Kind.HydraliskDen, 0, home.x + fx(160), home.y);
+  spawnUnit(s, Kind.Spire, 0, home.x + fx(200), home.y);
+  spawnUnit(s, Kind.GreaterSpire, 0, home.x + fx(230), home.y);
+  spawnUnit(s, Kind.QueensNest, 0, home.x + fx(260), home.y);
+  spawnUnit(s, Kind.NydusCanal, 0, home.x + fx(300), home.y);
+  spawnUnit(s, Kind.DefilerMound, 0, home.x + fx(340), home.y);
+  spawnUnit(s, Kind.UltraliskCavern, 0, home.x + fx(380), home.y);
+  spawnUnit(s, Kind.CreepColony, 0, fx(1_320), fx(700));
+  spawnUnit(s, Kind.Zergling, 0, home.x + fx(32), home.y);
+  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(1_420), fx(700));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  return { sim, target, home };
+};
+
+test('zerg bot queues a second nydus endpoint near the attack target on owned creep', () => {
+  const { sim, target, home } = readyZergNydusEndpointScenario(500);
+  const s = sim.fullState();
+
+  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(s, 0);
+  const build = findBuild(cmds, Kind.NydusCanal);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+  assert.ok(
+    (build.x - s.e.x[slotOf(target)]!) ** 2 + (build.y - s.e.y[slotOf(target)]!) ** 2 <
+    (home.x - s.e.x[slotOf(target)]!) ** 2 + (home.y - s.e.y[slotOf(target)]!) ** 2,
+  );
+});
+
+test('zerg bot respects nydus endpoint local network, duplicate, pending, and budget limits', () => {
+  const noEntrance = readyZergNydusEndpointScenario(501);
+  const noEntranceState = noEntrance.sim.fullState();
+  for (let i = 0; i < noEntranceState.e.hi; i++) {
+    if (noEntranceState.e.alive[i] === 1 && noEntranceState.e.owner[i] === 0 && noEntranceState.e.kind[i] === Kind.NydusCanal) {
+      noEntranceState.e.built[i] = 0;
+    }
+  }
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(noEntranceState, 0), Kind.NydusCanal), false);
+
+  const duplicate = readyZergNydusEndpointScenario(502);
+  const duplicateState = duplicate.sim.fullState();
+  spawnUnit(duplicateState, Kind.NydusCanal, 0, fx(1_320), fx(760));
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(duplicateState, 0), Kind.NydusCanal), false);
+
+  const pending = readyZergNydusEndpointScenario(503);
+  const pendingState = pending.sim.fullState();
+  const pendingWorker = slotOf(findEntity(pending.sim, Kind.Drone, 0));
+  pendingState.e.buildKind[pendingWorker] = Kind.NydusCanal;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(pendingState, 0), Kind.NydusCanal), false);
+
+  const broke = readyZergNydusEndpointScenario(504);
+  const brokeState = broke.sim.fullState();
+  brokeState.players.minerals[0] = Units[Kind.NydusCanal]!.minerals - 1;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 })(brokeState, 0), Kind.NydusCanal), false);
 });
 
 test('zerg bot places a legal defiler mound after a completed hive', () => {

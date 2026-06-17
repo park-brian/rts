@@ -399,8 +399,8 @@ Completed:
 
 Remaining:
 
-- Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially
-  strategic Nydus endpoint planning beyond first legal local Canal construction.
+- Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially richer
+  multi-endpoint Nydus placement heuristics beyond the first attack-focused second endpoint.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -628,6 +628,9 @@ Completed:
 - Zerg scripted macro now queues a legal Nydus Canal at Lair tier before Hive-only structures,
   preserving placement, prerequisite, duplicate, pending, and mineral-budget checks while leaving
   strategic second-endpoint planning as a separate mobility slice.
+- Zerg scripted macro now queues one legal second Nydus endpoint near the current attack focus when
+  a completed local Canal already exists and owned creep supports placement, using the shared build
+  validator while respecting incomplete, duplicate, pending, and budget states.
 
 Done when:
 
