@@ -12,13 +12,14 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, resolveRallyEndpoint, type MapDef } from '../sim.ts';
+import { TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, isCloaked, resolveRallyEndpoint, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
 import { spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
+import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -170,6 +171,7 @@ export class GlRenderer {
   private prevY = new Int32Array(CAP);
   private prevKind = new Uint16Array(CAP);
   private workScratch: WorkActivity[] = [];
+  private visibilityScratch: VisibilityAffordance[] = [];
   private last = 0; // wall-clock seconds of the previous frame
 
   constructor(core: Gl, atlas: Atlas) {
@@ -264,6 +266,7 @@ export class GlRenderer {
     this.cullAndShadows(game); // → sprites (shadows), fills drawn/rr/wx/wy caches
     this.bodies(game); // → sprites (bodies) + fx (ambient glows)
     this.workSparks(game);
+    this.visibilityAffordances(game);
     this.events(game); // spawn particles from fired/died diffs; updates prev caches
     this.particles.update(dt);
     const glow = this.atlas.uv.glow!;
@@ -340,7 +343,7 @@ export class GlRenderer {
         const dy = e.faceY[i]!;
         if (dx !== 0 || dy !== 0) rot = Math.atan2(dx, -dy);
       }
-      const alpha = isStruct && e.built[i] !== 1 ? 0.55 : 1;
+      const alpha = (isStruct && e.built[i] !== 1 ? 0.55 : 1) * (isCloaked(game.sim.fullState(), i) ? 0.5 : 1);
       const [tr, tg, tb] = teamColor(e.owner[i]!);
       const c = Math.cos(rot);
       const s = Math.sin(rot);
@@ -392,6 +395,26 @@ export class GlRenderer {
           0,
           0,
         );
+      }
+    }
+  }
+
+  private visibilityAffordances(game: Game): void {
+    const s = game.sim.fullState();
+    const ring = this.atlas.uv.ring!;
+    const glow = this.atlas.uv.glow!;
+    const zoom = game.zoom;
+    for (const a of visibilityAffordances(game, this.visibilityScratch)) {
+      const phase = ((s.tick + a.timer) % 24) / 24;
+      if (a.kind === 'scan') {
+        const d = a.radius * 2;
+        this.sprites.push(a.x, a.y, d, d, 0, ring, 0.42, 0.86, 1, 0.78, 0, 0, 0);
+        this.fx.push(a.x, a.y, d * (0.95 + phase * 0.08), d * (0.95 + phase * 0.08), 0, glow, 0.3, 0.75, 1, 0.11, 0, 0, 0);
+      } else {
+        const d = a.radius * 2 * (0.94 + phase * 0.08);
+        this.sprites.push(a.x, a.y, d, d, 0, ring, 1, 0.22, 0.18, 0.95, 0, 0, 0);
+        this.sprites.push(a.x, a.y, a.radius * 0.8, 2 / zoom, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
+        this.sprites.push(a.x, a.y, 2 / zoom, a.radius * 0.8, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
       }
     }
   }

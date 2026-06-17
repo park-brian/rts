@@ -7,6 +7,7 @@ import {
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
+import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -22,6 +23,7 @@ const footprintColor = (owner: number, alpha: number): string => {
 let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
 const workScratch: WorkActivity[] = [];
+const affordanceScratch: VisibilityAffordance[] = [];
 
 const buildTerrain = (m: MapDef): HTMLCanvasElement => {
   const c = document.createElement('canvas');
@@ -151,6 +153,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   }
 
   drawWorkSparks(ctx, game);
+  drawVisibilityAffordances(ctx, game);
 
   // Rally lines for selected structures.
   for (const id of game.selection) {
@@ -215,6 +218,40 @@ const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {
     ctx.beginPath();
     ctx.arc(x, y, Math.max(1.2, 2.1 / game.zoom), 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+};
+
+const drawVisibilityAffordances = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const s = game.sim.fullState();
+  ctx.save();
+  for (const a of visibilityAffordances(game, affordanceScratch)) {
+    const phase = ((s.tick + a.timer) % 24) / 24;
+    if (a.kind === 'scan') {
+      ctx.strokeStyle = 'rgba(100,210,255,0.78)';
+      ctx.lineWidth = 1.8 / game.zoom;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(100,210,255,0.24)';
+      ctx.lineWidth = 6 / game.zoom;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.radius * (0.92 + phase * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      const r = a.radius * (0.94 + phase * 0.08);
+      ctx.strokeStyle = 'rgba(255,80,70,0.9)';
+      ctx.lineWidth = 2.2 / game.zoom;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(a.x - r * 0.35, a.y);
+      ctx.lineTo(a.x + r * 0.35, a.y);
+      ctx.moveTo(a.x, a.y - r * 0.35);
+      ctx.lineTo(a.x, a.y + r * 0.35);
+      ctx.stroke();
+    }
   }
   ctx.restore();
 };

@@ -460,10 +460,12 @@ Completed:
   WebGL rendering, and minimap drawing all use a shared visible-and-detectable entity rule.
 - Map elevation now affects fair-play vision, and low-ground ground attacks against high-ground
   ground targets use a deterministic serialized-RNG miss roll.
+- The app now renders fair scanner-sweep and nuclear-warning affordances from sim effects, using
+  shared fog knowledge so hidden enemy scans do not leak.
 
 Remaining:
 
-- App rendering should show scan/warning/fog affordances for the new fair-play visibility state.
+- Further fog/last-known presentation polish for the new fair-play visibility state.
 - Future action masks should consume this same visible-and-detectable observation rule.
 
 ## Phase 8: AI And RL Interface Completion
@@ -502,8 +504,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - More exact projectile/travel behavior for missiles, scarabs, interceptors, Valkyrie volleys,
     and nuke warning/presentation.
 - Visibility and UI presentation:
-  - App-side Scanner Sweep, nuclear warning, spell fields, cloaking/detection, and last-known/fog
-    affordances.
+  - App-side spell fields, cloaking/detection, and last-known/fog affordances.
   - Observation/action-mask planes for tech, queues, effects, statuses, cargo, larva, creep, power,
     and production state.
 - Macro/tech tree:
