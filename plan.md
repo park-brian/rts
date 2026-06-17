@@ -398,8 +398,8 @@ Completed:
 
 Remaining:
 
-- Fuller Zerg macro flow beyond the first morph hooks, especially real tech-path planning toward
-  Hydralisk Den, Spire/Greater Spire, Hive tech, and late-game caster structures.
+- Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially real
+  tech-path planning toward Greater Spire, Hive tech, and late-game caster structures.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -611,6 +611,8 @@ Completed:
   shared structure placement helper, preserving creep, prerequisite, duplicate, and budget checks.
 - Zerg scripted macro now queues a legal Spire after a completed Lair from the same ordered
   structure path, preserving placement, prerequisite, duplicate, and gas-budget validation.
+- Zerg scripted macro now queues a legal Queen's Nest after a completed Lair through the same
+  structure path, setting up Hive tech while preserving validation-backed legality checks.
 
 Done when:
 
