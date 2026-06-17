@@ -7,6 +7,9 @@ import { spawnUnit } from '../src/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
+import { CREEP_RADIUS } from '../src/creep.ts';
+import { LARVA_MAX } from '../src/larva.ts';
+import { POWER_RADIUS } from '../src/power.ts';
 
 const tileCenter = (w: number, idx: number): { x: number; y: number } => {
   const tx = idx % w;
@@ -190,6 +193,54 @@ test('observe returns fair-play active effects without leaking hidden enemy effe
     sim.observe(0).effects.find((v) => v.id === exploredNuke)!.timer,
     50,
     'mutating observation effect does not mutate sim effect'
+  );
+});
+
+test('observe returns larva counts and fair-play creep and power coverage', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 213, vision: true });
+  const s = sim.fullState();
+  const e = s.e;
+  const vision = s.vision[0]!;
+  const visibleIdx = vision.findIndex((v) => v === 2);
+  const hiddenIdx = vision.findIndex((v) => v === 0);
+  assert.notEqual(visibleIdx, -1);
+  assert.notEqual(hiddenIdx, -1);
+  const visible = tileCenter(s.map.w, visibleIdx);
+  const hidden = tileCenter(s.map.w, hiddenIdx);
+
+  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, hidden.x, hidden.y));
+  e.timer[hatchery] = 42;
+  spawnUnit(s, Kind.Larva, 0, hidden.x + fx(8), hidden.y);
+  spawnUnit(s, Kind.Larva, 0, hidden.x - fx(8), hidden.y);
+  const enemyHatchery = slotOf(spawnUnit(s, Kind.Hatchery, 1, visible.x, visible.y));
+  spawnUnit(s, Kind.Larva, 1, visible.x, visible.y + fx(8));
+  const ownPylon = spawnUnit(s, Kind.Pylon, 0, hidden.x, hidden.y);
+  const visibleEnemyPylon = spawnUnit(s, Kind.Pylon, 1, visible.x, visible.y);
+  const hiddenEnemyPylon = spawnUnit(s, Kind.Pylon, 1, hidden.x, hidden.y);
+  const visibleEnemyCreep = spawnUnit(s, Kind.CreepColony, 1, visible.x, visible.y);
+  const hiddenEnemyCreep = spawnUnit(s, Kind.CreepColony, 1, hidden.x, hidden.y);
+
+  const obs = sim.observe(0);
+  assert.deepEqual(obs.larva, [{ id: eid(e, hatchery), count: 2, max: LARVA_MAX, timer: 42 }]);
+  assert.equal(obs.larva.some((v) => v.id === eid(e, enemyHatchery)), false);
+
+  const creepIds = new Set(obs.creep.map((v) => v.id));
+  assert.equal(creepIds.has(eid(e, hatchery)), true, 'own creep providers are known off-screen');
+  assert.equal(creepIds.has(visibleEnemyCreep), true, 'visible enemy creep providers are observable');
+  assert.equal(creepIds.has(hiddenEnemyCreep), false, 'hidden enemy creep providers do not leak');
+  assert.equal(obs.creep.find((v) => v.id === eid(e, hatchery))!.radius, CREEP_RADIUS);
+
+  const powerIds = new Set(obs.power.map((v) => v.id));
+  assert.equal(powerIds.has(ownPylon), true, 'own Pylon power is known off-screen');
+  assert.equal(powerIds.has(visibleEnemyPylon), true, 'visible enemy Pylon power is observable');
+  assert.equal(powerIds.has(hiddenEnemyPylon), false, 'hidden enemy Pylon power does not leak');
+  assert.equal(obs.power.find((v) => v.id === ownPylon)!.radius, POWER_RADIUS);
+
+  obs.power.find((v) => v.id === ownPylon)!.radius = 0;
+  assert.equal(
+    sim.observe(0).power.find((v) => v.id === ownPylon)!.radius,
+    POWER_RADIUS,
+    'mutating observation coverage does not mutate sim coverage'
   );
 });
 

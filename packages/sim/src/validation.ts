@@ -8,7 +8,7 @@ import { buildable, inBounds } from './map.ts';
 import { fx } from './fixed.ts';
 import {
   Ability, Abilities, Kind, MAX_QUEUE, Order, ResourceType, Role, TECH_CAP, Tech, TechDefs, TILE, Units,
-  hasAnyWeapon, isLarvaSourceKind, productionCostCount, productionCount, tiles, unitTraits, weaponForTarget,
+  hasAnyWeapon, productionCostCount, productionCount, unitTraits, weaponForTarget,
   workerBuildKindsFor,
 } from './data.ts';
 import { addonParentKind, addonPosition, isAddonKind } from './addon.ts';
@@ -16,6 +16,7 @@ import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint 
 import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
 import { hasPowerAt, isPowered, requiresPower } from './power.ts';
+import { hasCreepAt, requiresCreep } from './creep.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
 import { isDisabled } from './systems/status.ts';
 import { commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
@@ -45,7 +46,6 @@ export type ValidationContext = {
 };
 
 const RALLY_SNAP = fx(2 * TILE);
-export const CREEP_RADIUS = tiles(10);
 
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
 
@@ -118,25 +118,6 @@ const canBuildWithWorker = (workerKind: number, structureKind: number): boolean 
   const structure = Units[structureKind];
   if (!worker || worker.race !== structure.race) return false;
   return workerBuildKindsFor(worker.race).includes(structureKind);
-};
-
-export const providesCreep = (kind: number): boolean => {
-  const def = Units[kind];
-  return !!def && def.race === 'zerg' && (def.roles & Role.Structure) !== 0 && kind !== Kind.Extractor;
-};
-
-export const requiresCreep = (kind: number): boolean => {
-  const def = Units[kind];
-  return !!def && def.race === 'zerg' && (def.roles & Role.Structure) !== 0 && !isLarvaSourceKind(kind) && kind !== Kind.Extractor;
-};
-
-export const hasCreepAt = (s: State, player: number, x: number, y: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1 || !providesCreep(e.kind[i]!)) continue;
-    if (distSq(e.x[i]!, e.y[i]!, x, y) <= CREEP_RADIUS * CREEP_RADIUS) return true;
-  }
-  return false;
 };
 
 export const placementForStructure = (

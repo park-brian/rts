@@ -14,10 +14,10 @@ import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { internalAmmoCapacity } from '../derived.ts';
 import { resolveRallyEndpoint } from '../rally.ts';
+import { LARVA_MAX, countLarvae } from '../larva.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
-const LARVA_MAX = 3;
 const LARVA_OFFSETS: readonly [number, number][] = [
   [-32, 28], [0, 36], [32, 28],
 ];
@@ -75,16 +75,6 @@ const finishEgg = (s: State, slot: number, kind: number): void => {
     const extra = slotOf(id);
     if (rally !== NONE) applyRally(s, rally, extra, owner, isWorker, effectiveSpeed(s, e, extra, def.speed));
   }
-};
-
-const countLarvae = (s: State, hatch: number): number => {
-  const e = s.e;
-  let count = 0;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== e.owner[hatch] || e.kind[i] !== Kind.Larva) continue;
-    if (nearestProducerForRally(s, i, e.owner[hatch]!) === hatch) count++;
-  }
-  return count;
 };
 
 const spawnLarva = (s: State, hatch: number, index: number): void => {

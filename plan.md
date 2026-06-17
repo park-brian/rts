@@ -581,6 +581,8 @@ Completed:
 - `observe()` now exposes fair-play active spatial effect records for spell fields and nuke
   warnings, using sim-side visibility rules without leaking hidden enemy effects or aliasing mutable
   effect state.
+- `observe()` now exposes owned larva-source counts/timers plus fair-play creep and Pylon power
+  provider coverage, sharing the same creep/power semantics as placement validation.
 
 Done when:
 
@@ -602,7 +604,7 @@ approximated, or absent. Keep this list honest as mechanics land.
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
-  - Observation/action-mask planes for larva, creep, and power.
+  - Action-mask coverage for larva, creep, and power-sensitive commands.
 - Macro/tech tree:
   - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
     Protoss power-aware expansions.
