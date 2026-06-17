@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
+import { navPassableForKind } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapConnected } from '../src/procedural.ts';
 import { sliceMap } from '../src/map.ts';
@@ -35,6 +36,54 @@ test('a unit paths around a wall to reach its goal', () => {
   for (let t = 0; t < 4000 && !arrived; t++) arrived = navigate(s, slot, gx, gy, fx(2));
   assert.ok(arrived, 'unit should reach the far side by going around');
   assert.ok(Math.abs(s.e.x[slot]! - gx) < fx(2) && Math.abs(s.e.y[slot]! - gy) < fx(2));
+});
+
+test('clearance-aware pathing lets small units through gaps large bodies cannot fit', () => {
+  const w = 9;
+  const h = 7;
+  const walk = new Uint8Array(w * h).fill(1);
+  for (let x = 0; x < w; x++) if (x !== 4) walk[3 * w + x] = 0;
+  const map: MapDef = {
+    name: 'one-tile-doorway', w, h, walk, build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+
+  const small = makeState(map, 1, 13);
+  const marine = slotOf(spawnUnit(small, Kind.Marine, 0, tc(4), tc(1)));
+  assert.equal(navPassableForKind(small, Kind.Marine, 4, 3), true);
+
+  let smallArrived = false;
+  for (let t = 0; t < 240 && !smallArrived; t++) smallArrived = navigate(small, marine, tc(4), tc(5), fx(2));
+  assert.equal(smallArrived, true, 'marine should pass through the one-tile doorway');
+
+  const large = makeState(map, 1, 14);
+  const ultra = slotOf(spawnUnit(large, Kind.Ultralisk, 0, tc(4), tc(1)));
+  assert.equal(navPassableForKind(large, Kind.Ultralisk, 4, 3), false);
+
+  let largeArrived = false;
+  for (let t = 0; t < 240 && !largeArrived; t++) largeArrived = navigate(large, ultra, tc(4), tc(5), fx(2));
+  assert.equal(largeArrived, false, 'ultralisk should not path through a doorway narrower than its body');
+  assert.ok(tileY(large.e.y[ultra]!) < 3, 'ultralisk should stay on the near side of the doorway');
+});
+
+test('clearance-aware pathing preserves diagonal no-corner-cutting', () => {
+  const w = 3;
+  const h = 3;
+  const walk = new Uint8Array(w * h).fill(1);
+  walk[1] = 0;
+  walk[w] = 0;
+  const map: MapDef = {
+    name: 'blocked-corner', w, h, walk, build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+  const s = makeState(map, 1, 15);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, tc(0), tc(0)));
+
+  let arrived = false;
+  for (let t = 0; t < 80 && !arrived; t++) arrived = navigate(s, marine, tc(1), tc(1), fx(2));
+
+  assert.equal(arrived, false, 'unit should not cut diagonally through two blocked corner tiles');
+  assert.notEqual(`${tileX(s.e.x[marine]!)},${tileY(s.e.y[marine]!)}`, '1,1');
 });
 
 test('procedural maps are connected and scale with team size', () => {

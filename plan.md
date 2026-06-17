@@ -816,7 +816,6 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Pathing and movement fidelity:
-  - Clearance-aware ground pathing by unit body size.
   - Stable group destination slots for same-target move/attack-move commands.
   - Predictive local avoidance and arrival settling so large armies stop jostling indefinitely.
 - Unit production specials:
@@ -875,3 +874,6 @@ Completed:
 - Weapon damage upgrades now apply the documented BW per-unit increments for Protoss ground and
   Zerg melee/missile/flyer weapons, including Dragoon +2, DT/Archon +3, Ultralisk +3, Lurker +2,
   and Guardian/Devourer +2 per level.
+- Ground combat navigation now uses cached clearance masks derived from BW body bounds, so large
+  bodies cannot route through gaps that small infantry can use, while worker economy navigation
+  keeps its existing permissive mineral-line behavior.

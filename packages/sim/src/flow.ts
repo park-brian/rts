@@ -19,21 +19,72 @@ import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './hash.ts';
 import { structureFootprint } from './footprint.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
+import { bodyBounds } from './spatial.ts';
 
 export const INF = 0x7fffffff;
 const LIMIT = 24; // cached fields per State (LRU by insertion order)
+const CLEARANCE_CLASSES = 4;
+const TILE_FX = TILE * ONE;
+const HALF_TILE_FX = TILE_FX >> 1;
+type Dilation = { left: number; right: number; up: number; down: number };
+const DILATIONS: readonly Dilation[] = [
+  { left: 0, right: 0, up: 0, down: 0 },
+  { left: 1, right: 1, up: 0, down: 0 },
+  { left: 0, right: 0, up: 0, down: 1 },
+  { left: 1, right: 1, up: 1, down: 1 },
+];
 type Nav = {
   sig: number;
   solid: Uint8Array;
+  clearanceSolid: Uint8Array[];
   fields: Map<number, Int32Array>;
-  unitTick: number;
-  unitSolid: Uint8Array;
-  unitTiles: Int32Array;
-  unitTileCount: number;
-  unitHasSolid: boolean;
+  unitTick: number[];
+  unitSolid: Uint8Array[];
+  unitTiles: Int32Array[];
+  unitTileCount: number[];
+  unitHasSolid: boolean[];
 };
 const navByState = new WeakMap<State, Nav>();
-const TILE_FX = TILE * ONE;
+
+const newMasks = (count: number, size: number): Uint8Array[] =>
+  Array.from({ length: count }, () => new Uint8Array(size));
+
+const newTileLists = (count: number, size: number): Int32Array[] =>
+  Array.from({ length: count }, () => new Int32Array(size));
+
+const extraTiles = (extent: number): number => Math.max(0, Math.ceil((extent - HALF_TILE_FX) / TILE_FX));
+
+export const navClearanceClass = (kind: number): number => {
+  const b = bodyBounds(kind);
+  const left = extraTiles(b.left);
+  const right = extraTiles(b.right);
+  const up = extraTiles(b.up);
+  const down = extraTiles(b.down);
+  if (left === 0 && right === 0 && up === 0 && down === 0) return 0;
+  if (left <= 1 && right <= 1 && up === 0 && down === 0) return 1;
+  if (left === 0 && right === 0 && up === 0 && down <= 1) return 2;
+  return 3;
+};
+
+const stampDilated = (
+  m: State['map'],
+  mask: Uint8Array,
+  tx: number,
+  ty: number,
+  d: Dilation,
+  touched?: Int32Array,
+  count = 0,
+): number => {
+  for (let y = Math.max(0, ty - d.down); y <= Math.min(m.h - 1, ty + d.up); y++) {
+    for (let x = Math.max(0, tx - d.right); x <= Math.min(m.w - 1, tx + d.left); x++) {
+      const tile = y * m.w + x;
+      if (mask[tile] === 1) continue;
+      mask[tile] = 1;
+      if (touched) touched[count++] = tile;
+    }
+  }
+  return count;
+};
 
 /** Solid = grounded structures that aren't resources (a refinery on a geyser stays walkable). */
 const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & (Role.Resource | Role.Air)) === 0;
@@ -62,6 +113,19 @@ const stampSolid = (s: State, solid: Uint8Array): void => {
   }
 };
 
+const stampClearanceSolids = (s: State, nav: Nav): void => {
+  const m = s.map;
+  for (const mask of nav.clearanceSolid) mask.fill(0);
+  for (let tile = 0; tile < m.walk.length; tile++) {
+    if (m.walk[tile] === 1 && nav.solid[tile] === 0) continue;
+    const tx = tile % m.w;
+    const ty = (tile - tx) / m.w;
+    for (let cls = 0; cls < CLEARANCE_CLASSES; cls++) {
+      stampDilated(m, nav.clearanceSolid[cls]!, tx, ty, DILATIONS[cls]!);
+    }
+  }
+};
+
 /** Refresh a State's pathing context; rebuild the solid grid + drop stale fields if buildings changed. */
 export const prepareNav = (s: State): Nav => {
   let nav = navByState.get(s);
@@ -69,17 +133,23 @@ export const prepareNav = (s: State): Nav => {
     nav = {
       sig: -1,
       solid: new Uint8Array(s.map.w * s.map.h),
+      clearanceSolid: newMasks(CLEARANCE_CLASSES, s.map.w * s.map.h),
       fields: new Map(),
-      unitTick: -1,
-      unitSolid: new Uint8Array(s.map.w * s.map.h),
-      unitTiles: new Int32Array(s.e.alive.length),
-      unitTileCount: 0,
-      unitHasSolid: false,
+      unitTick: Array(CLEARANCE_CLASSES).fill(-1),
+      unitSolid: newMasks(CLEARANCE_CLASSES, s.map.w * s.map.h),
+      unitTiles: newTileLists(CLEARANCE_CLASSES, s.map.w * s.map.h),
+      unitTileCount: Array(CLEARANCE_CLASSES).fill(0),
+      unitHasSolid: Array(CLEARANCE_CLASSES).fill(false),
     };
     navByState.set(s, nav);
   }
   const sig = buildSig(s);
-  if (sig !== nav.sig) { nav.sig = sig; stampSolid(s, nav.solid); nav.fields.clear(); }
+  if (sig !== nav.sig) {
+    nav.sig = sig;
+    stampSolid(s, nav.solid);
+    stampClearanceSolids(s, nav);
+    nav.fields.clear();
+  }
   return nav;
 };
 
@@ -97,45 +167,51 @@ export const navSolid = (s: State): Uint8Array => {
   return memoSolid;
 };
 
+export const navClearanceSolid = (s: State, cls: number): Uint8Array => navOf(s).clearanceSolid[cls]!;
+
 /** Walkable terrain AND free of a building footprint, given a fetched solid grid. */
 export const open = (m: State['map'], solid: Uint8Array, tx: number, ty: number): boolean =>
   tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.walk[ty * m.w + tx] === 1 && solid[ty * m.w + tx] === 0;
 
+const openClearance = (m: State['map'], solid: Uint8Array, tx: number, ty: number): boolean =>
+  tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && solid[ty * m.w + tx] === 0;
+
 /** Single-tile passability check (does its own lookup; for occasional callers). */
 export const navPassable = (s: State, tx: number, ty: number): boolean => open(s.map, navOf(s).solid, tx, ty);
 
-const refreshUnitSolid = (s: State): Nav => {
+export const navPassableForKind = (s: State, kind: number, tx: number, ty: number): boolean =>
+  openClearance(s.map, navClearanceSolid(s, navClearanceClass(kind)), tx, ty);
+
+const refreshUnitSolid = (s: State, cls: number): Nav => {
   const nav = navOf(s);
-  if (nav.unitTick === s.tick) return nav;
-  nav.unitTick = s.tick;
-  for (let i = 0; i < nav.unitTileCount; i++) nav.unitSolid[nav.unitTiles[i]!] = 0;
-  nav.unitTileCount = 0;
-  nav.unitHasSolid = false;
+  if (nav.unitTick[cls] === s.tick) return nav;
+  nav.unitTick[cls] = s.tick;
+  const tiles = nav.unitTiles[cls]!;
+  const solid = nav.unitSolid[cls]!;
+  for (let i = 0; i < nav.unitTileCount[cls]!; i++) solid[tiles[i]!] = 0;
+  nav.unitTileCount[cls] = 0;
+  nav.unitHasSolid[cls] = false;
   const e = s.e; const m = s.map;
   for (let i = 0; i < e.hi; i++) {
     if (!isPathingAnchor(s, i)) continue;
     const tx = Math.floor(e.x[i]! / TILE_FX);
     const ty = Math.floor(e.y[i]! / TILE_FX);
     if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) continue;
-    const tile = ty * m.w + tx;
-    if (nav.unitSolid[tile] === 0) {
-      nav.unitSolid[tile] = 1;
-      nav.unitTiles[nav.unitTileCount++] = tile;
-    }
-    nav.unitHasSolid = true;
+    nav.unitTileCount[cls] = stampDilated(m, solid, tx, ty, DILATIONS[cls]!, tiles, nav.unitTileCount[cls]!);
+    nav.unitHasSolid[cls] = true;
   }
   return nav;
 };
 
-export const navUnitSolid = (s: State): Uint8Array => refreshUnitSolid(s).unitSolid;
-export const navHasUnitSolid = (s: State): boolean => refreshUnitSolid(s).unitHasSolid;
+export const navUnitSolid = (s: State, cls = 0): Uint8Array => refreshUnitSolid(s, cls).unitSolid[cls]!;
+export const navHasUnitSolid = (s: State, cls = 0): boolean => refreshUnitSolid(s, cls).unitHasSolid[cls]!;
 
 /** Integer Dijkstra from `goal` over combined terrain+building passability. */
 const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
   const m = s.map; const W = m.w;
   const dist = new Int32Array(W * m.h).fill(INF);
   const gx = goal % W; const gy = (goal - gx) / W;
-  if (!open(m, solid, gx, gy)) return dist;
+  if (!openClearance(m, solid, gx, gy)) return dist;
 
   const heapT: number[] = []; const heapK: number[] = [];
   const swap = (a: number, b: number): void => {
@@ -171,8 +247,8 @@ const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
         const nx = ux + dx; const ny = uy + dy;
-        if (!open(m, solid, nx, ny)) continue;
-        if (dx !== 0 && dy !== 0 && (!open(m, solid, ux + dx, uy) || !open(m, solid, ux, uy + dy))) continue;
+        if (!openClearance(m, solid, nx, ny)) continue;
+        if (dx !== 0 && dy !== 0 && (!openClearance(m, solid, ux + dx, uy) || !openClearance(m, solid, ux, uy + dy))) continue;
         const v = ny * W + nx;
         const nd = dist[u]! + (dx !== 0 && dy !== 0 ? 14 : 10);
         if (nd < dist[v]!) { dist[v] = nd; push(v, nd); }
@@ -183,12 +259,13 @@ const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
 };
 
 /** Distance field to `goalTile` for State `s`, cached until the building layout changes. */
-export const flowField = (s: State, goalTile: number): Int32Array => {
+export const flowField = (s: State, goalTile: number, cls = 0): Int32Array => {
   const nav = navOf(s);
-  const hit = nav.fields.get(goalTile);
+  const key = goalTile * CLEARANCE_CLASSES + cls;
+  const hit = nav.fields.get(key);
   if (hit) return hit;
-  const field = compute(s, nav.solid, goalTile);
-  nav.fields.set(goalTile, field);
+  const field = compute(s, nav.clearanceSolid[cls]!, goalTile);
+  nav.fields.set(key, field);
   if (nav.fields.size > LIMIT) nav.fields.delete(nav.fields.keys().next().value!);
   return field;
 };
@@ -210,9 +287,9 @@ export const downhill = (
     for (let dx = -1; dx <= 1; dx++) {
       if (dx === 0 && dy === 0) continue;
       const nx = tx + dx; const ny = ty + dy;
-      if (!open(m, solid, nx, ny)) continue;
+      if (!openClearance(m, solid, nx, ny)) continue;
       if (unitSolid !== null && unitSolid[ny * W + nx] === 1) continue;
-      if (dx !== 0 && dy !== 0 && (!open(m, solid, tx + dx, ty) || !open(m, solid, tx, ty + dy))) continue;
+      if (dx !== 0 && dy !== 0 && (!openClearance(m, solid, tx + dx, ty) || !openClearance(m, solid, tx, ty + dy))) continue;
       const v = ny * W + nx;
       if (field[v]! < bestD) { bestD = field[v]!; best = v; }
     }
