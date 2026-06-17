@@ -66,34 +66,56 @@ It exposes:
    (optimal play draws), yet a best-responder beats *each* deterministic archetype
    (value `−1`). That gap is what self-play has to close.
 
+## The mechanical layer (see [`spec.md`](./spec.md))
+
+The macro kernel above models *timing*. A second track models *combat* and *composition*
+through a **deterministic, faithful, symmetric mechanical layer** — the rule that lets the
+strategic layer be learned cleanly (a reward tracks the decision, not mechanical noise).
+
+- **`fight.ts`** — `resolveFight(forceA, forceB, ctx)`: pure, integer, no RNG. Models
+  damage-type × size counters, focus fire (→ square-law tipping), an army-scale opening
+  volley for the longer-ranged side, and a frontage cap for terrain (chokes/ramps).
+- **`compose.ts`** — the smallest strategic layer on top: pick an army under a budget, the
+  resolver fills the payoff matrix, the existing zero-sum solver returns the optimal (mixed)
+  army. *What beats what becomes a queryable oracle.* Demo: open-field comp RPS
+  (Marine/Vulture/Tank 33% each) collapses to one comp at a choke.
+- **`econfight.ts`** — the integration (spec §7): economy + production wired on top of the
+  resolver, behind the same small interface (harvest / train worker / produce unit / commit).
+  Scripted build orders form a **timing × composition** cycle
+  (vultureRush > zealotPush > tankTech > vultureRush). Forward-simulatable, not exactly
+  oracle-solvable — ground truth here is scripted payoff matrices + the composition oracle.
+
 ## Files
 
 | file | what |
 |---|---|
-| `types.ts` | `Params`, `State`, `Action`, `Raid` |
-| `params.ts` | `TINY` (instant oracle), `TINY_MARCH` (movement oracle, ~1.5 s), `SMALL` (sim, non-transitive regime) |
-| `game.ts` | rules: legal actions, simultaneous `step`, focus-fire combat, raids, terminal test, canonical key |
-| `matrixgame.ts` | exact zero-sum matrix-game solver (LP + saddle/dominance) |
-| `oracle.ts` | backward-induction solver + best-response/exploitability |
-| `policies.ts` | scripted archetypes (cheese / macro / turtle / harasser / greedy) |
-| `arena.ts` | play policies forward; round-robin payoff matrix; cycle counter |
-| `main.ts` | demo CLI tying it together |
+| `types.ts`, `params.ts`, `game.ts` | macro kernel: state/rules, simultaneous `step`, raids, presets |
+| `matrixgame.ts` | exact zero-sum matrix-game solver (LP + saddle/dominance) — shared by both tracks |
+| `oracle.ts`, `policies.ts`, `arena.ts`, `main.ts` | macro oracle, archetypes, round-robin, demo |
+| `units.ts`, `fight.ts` | unit roster + the deterministic fight resolver |
+| `compose.ts`, `fightdemo.ts` | composition game (oracle over army choice) + demo |
+| `econfight.ts`, `econpolicies.ts`, `econarena.ts`, `econdemo.ts` | economy+production game on the resolver |
+| `spec.md` | the mechanical-layer spec + acceptance criteria |
 | `*.test.ts` | `node --test minigame/*.test.ts` |
 
 ## Run
 
 ```bash
-node minigame/main.ts                                   # demo
-node --test minigame/game.test.ts minigame/matrixgame.test.ts \
-            minigame/oracle.test.ts minigame/arena.test.ts   # tests (~6s)
+node minigame/main.ts        # macro oracle: non-transitivity + exploitability
+node minigame/fightdemo.ts   # composition oracle: counters + terrain flip
+node minigame/econdemo.ts    # economy+production: build-order metagame
+node --test minigame/game.test.ts minigame/matrixgame.test.ts minigame/oracle.test.ts \
+  minigame/arena.test.ts minigame/fight.test.ts minigame/compose.test.ts \
+  minigame/econfight.test.ts                                        # 41 tests (~7s)
 ```
 
 ## Scope & next levers
 
-This is **v1**: no 2D, single raid in flight, free retreat (only the *approach* costs
-time), full observability. The deliberate next steps, each adding one ML-relevant
-phenomenon:
+This is **v1**: no 2D, single raid/attack in flight, free retreat (only the *approach*
+costs time), full observability, and a fight resolver without splash/spellcasters. The
+deliberate next steps, each adding one ML-relevant phenomenon:
 - **paid scouting / hidden opponent state** → a true POMDP and forced mixed strategies;
-- **multiple simultaneous raids + retreat cost** → richer commitment dynamics;
-- **behavior-cloning** the archetypes into a conditioned policy, then PPO, then a PFSP
-  league — each validated against the oracle's exploitability numbers.
+- **thicken `resolveFight`** (splash, spellcasters, positions) — same interface, more fidelity;
+- **a learned strategic policy** over the econ+composition interface, graded by the
+  composition oracle and the scripted payoff matrices;
+- **behavior-cloning** the archetypes/build-orders, then PPO, then a PFSP league.

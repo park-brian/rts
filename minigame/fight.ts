@@ -42,6 +42,8 @@ export const makeForce = (comp: Record<string, number>): Force => {
 
 export const forceValue = (f: Force): number => f.reduce((s, u) => s + u.type.cost, 0);
 export const forceCount = (f: Force): number => f.length;
+/** Total per-round damage output of a force (used to chip a base after a won fight). */
+export const forceDamage = (f: Force): number => f.reduce((s, u) => s + u.type.damage, 0);
 
 const maxRange = (f: Force): number => f.reduce((m, u) => Math.max(m, u.type.range), 0);
 const maxSpeed = (f: Force): number => f.reduce((m, u) => Math.max(m, u.type.speed), 0);
