@@ -631,6 +631,9 @@ Completed:
 - Protoss scripted macro now queues Leg Enhancements research from completed powered Citadels
   through shared research validation, respecting producer, power, completed, in-progress, busy
   queue, and budget gates.
+- Protoss scripted macro now queues Psionic Storm research from completed powered Templar
+  Archives through the same shared research path, unlocking its existing tactical caster logic
+  while respecting producer, power, completion, queue, and budget gates.
 - Zerg scripted macro now queues a legal Hydralisk Den after a completed Spawning Pool through the
   shared structure placement helper, preserving creep, prerequisite, duplicate, and budget checks.
 - Zerg scripted macro now queues a legal Spire after a completed Lair from the same ordered

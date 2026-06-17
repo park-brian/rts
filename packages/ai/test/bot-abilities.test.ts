@@ -2044,6 +2044,75 @@ test('protoss bot respects leg enhancements producer, power, duplicate, queue, a
   assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(brokeState, 0), Tech.LegEnhancements), false);
 });
 
+const readyProtossStormResearchScenario = (seed: number): { sim: Sim; archives: number; pylon: number } => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  const pylon = spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  const archives = spawnUnit(s, Kind.TemplarArchives, 0, fx(1_260), fx(1_220));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  return { sim, archives, pylon };
+};
+
+test('protoss bot researches psionic storm from a completed powered templar archives', () => {
+  const { sim } = readyProtossStormResearchScenario(490);
+  const s = sim.fullState();
+
+  const cmds = createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(s, 0);
+  const research = findResearch(cmds, Tech.PsionicStorm);
+
+  assert.ok(research);
+  assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+});
+
+test('protoss bot respects psionic storm producer, power, duplicate, queue, and budget gates', () => {
+  const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: 491, factions: [Protoss, Zerg] });
+  const missingState = missingProducer.fullState();
+  spawnUnit(missingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(missingState, 0), Tech.PsionicStorm), false);
+
+  const unpowered = readyProtossStormResearchScenario(492);
+  const unpoweredState = unpowered.sim.fullState();
+  unpoweredState.e.built[slotOf(unpowered.pylon)] = 0;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(unpoweredState, 0), Tech.PsionicStorm), false);
+
+  const incomplete = readyProtossStormResearchScenario(493);
+  const incompleteState = incomplete.sim.fullState();
+  incompleteState.e.built[slotOf(incomplete.archives)] = 0;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(incompleteState, 0), Tech.PsionicStorm), false);
+
+  const completed = readyProtossStormResearchScenario(494);
+  grant(completed.sim, 0, Tech.PsionicStorm);
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(completed.sim.fullState(), 0), Tech.PsionicStorm), false);
+
+  const inProgress = readyProtossStormResearchScenario(495);
+  const inProgressState = inProgress.sim.fullState();
+  inProgressState.e.researchKind[slotOf(inProgress.archives)] = Tech.PsionicStorm;
+  inProgressState.e.researchTimer[slotOf(inProgress.archives)] = 10;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(inProgressState, 0), Tech.PsionicStorm), false);
+
+  const busy = readyProtossStormResearchScenario(496);
+  const busyState = busy.sim.fullState();
+  busyState.e.researchKind[slotOf(busy.archives)] = Tech.Hallucination;
+  busyState.e.researchTimer[slotOf(busy.archives)] = 10;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(busyState, 0), Tech.PsionicStorm), false);
+
+  const broke = readyProtossStormResearchScenario(497);
+  const brokeState = broke.sim.fullState();
+  brokeState.players.minerals[0] = TechDefs[Tech.PsionicStorm]!.minerals[0]! - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(brokeState, 0), Tech.PsionicStorm), false);
+});
+
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });
   const s = sim.fullState();
