@@ -8,6 +8,7 @@ import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { canDetect } from '../src/detection.ts';
+import { validateCommand } from '../src/validation.ts';
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
 
@@ -461,6 +462,48 @@ test('hallucination creates timed harmless copies', () => {
   const enemy = spawnUnit(s, Kind.Marine, 1, fx(450), fx(400));
   sim.step([{ player: 1, cmds: [{ t: 'attack', unit: enemy, target: eid(s.e, illusions[0]!) }] }]);
   assert.equal(s.e.hp[illusions[0]!], Units[Kind.Marine]!.hp - 12);
+});
+
+test('hallucinations cannot perform real utility commands or cast spells', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 3921 });
+  const s = sim.fullState();
+  s.players.minerals[0] = 500;
+  s.players.gas[0] = 500;
+
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const mineral = spawnUnit(s, Kind.Mineral, -1, fx(430), fx(400));
+  const depot = spawnUnit(s, Kind.SupplyDepot, 0, fx(460), fx(400));
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(520), fx(400));
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(550), fx(400));
+  const dropship = spawnUnit(s, Kind.Dropship, 0, fx(580), fx(400));
+
+  s.e.illusion[slotOf(scv)] = 1;
+  s.e.illusion[slotOf(templar)] = 1;
+  s.e.illusion[slotOf(dropship)] = 1;
+  s.e.hp[slotOf(depot)] = Units[Kind.SupplyDepot]!.hp - 50;
+  s.e.energy[slotOf(templar)] = 100;
+  grant(sim, 0, Tech.Hallucination);
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'build', unit: scv, kind: Kind.SupplyDepot, x: fx(400), y: fx(480) }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: mineral }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'repair', unit: scv, target: depot }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'ability', unit: templar, ability: Ability.Hallucination, target: marine }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'load', transport: dropship, unit: marine }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
 });
 
 test('broodlings from spawn broodling expire after their timed life', () => {

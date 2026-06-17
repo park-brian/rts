@@ -20,6 +20,7 @@ import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
+import { illusionPresentation } from '../illusion-presentation.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -320,7 +321,8 @@ export class GlRenderer {
   }
 
   private bodies(game: Game): void {
-    const e = game.sim.fullState().e;
+    const state = game.sim.fullState();
+    const e = state.e;
     const uv = this.atlas.uv;
     const glow = uv.glow!;
     for (let i = 0; i < e.hi; i++) {
@@ -343,13 +345,15 @@ export class GlRenderer {
         const dy = e.faceY[i]!;
         if (dx !== 0 || dy !== 0) rot = Math.atan2(dx, -dy);
       }
-      const alpha = (isStruct && e.built[i] !== 1 ? 0.55 : 1) * (isCloaked(game.sim.fullState(), i) ? 0.5 : 1);
+      const illusion = illusionPresentation(state, game.human, i);
+      const alpha = (isStruct && e.built[i] !== 1 ? 0.55 : 1) * (isCloaked(state, i) ? 0.5 : 1) * illusion.alpha;
       const [tr, tg, tb] = teamColor(e.owner[i]!);
       const c = Math.cos(rot);
       const s = Math.sin(rot);
       const drawX = wx + (p.offsetX * c - p.offsetY * s) * mul;
       const drawY = wy + (p.offsetX * s + p.offsetY * c) * mul;
-      this.sprites.push(drawX, drawY, p.width * mul, p.height * mul, rot, sprite, 1, 1, 1, alpha, tr, tg, tb);
+      this.sprites.push(drawX, drawY, p.width * mul, p.height * mul, rot, sprite,
+        illusion.tint[0], illusion.tint[1], illusion.tint[2], alpha, tr, tg, tb);
 
       // Ambient light: a soft glow that grounds the entity (additive, subtle).
       const baseX = wx + p.baseOffsetX * mul;
@@ -475,7 +479,9 @@ export class GlRenderer {
       const selected = game.selection.has(id);
       if (selected) {
         const sr = r + 3 / zoom;
-        this.sprites.push(wx, wy, sr * 2, sr * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
+        const illusion = illusionPresentation(s, game.human, i);
+        const ringColor = illusion.known ? [0.49, 0.75, 1] : [1, 0.88, 0.3];
+        this.sprites.push(wx, wy, sr * 2, sr * 2, 0, ring, ringColor[0]!, ringColor[1]!, ringColor[2]!, 1, 0, 0, 0);
       }
       const maxLife = def.hp + def.shields;
       const life = e.hp[i]! + e.shield[i]!;

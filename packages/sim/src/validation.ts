@@ -206,7 +206,7 @@ export const canPlaceStructure = (
   const e = s.e;
   if (workerSlot < 0 || workerSlot >= e.hi || e.alive[workerSlot] !== 1) return rejectPlace('stale-entity');
   if (e.owner[workerSlot] !== player) return rejectPlace('wrong-owner');
-  if ((e.flags[workerSlot]! & Role.Worker) === 0) return rejectPlace('missing-capability');
+  if (e.illusion[workerSlot] === 1 || (e.flags[workerSlot]! & Role.Worker) === 0) return rejectPlace('missing-capability');
   return placementForStructure(s, kind, x, y, workerSlot, player);
 };
 
@@ -220,7 +220,7 @@ export const canWorkerStartStructure = (
   const e = s.e;
   if (workerSlot < 0 || workerSlot >= e.hi || e.alive[workerSlot] !== 1) return reject('stale-entity');
   if (e.owner[workerSlot] !== player) return reject('wrong-owner');
-  if (isContained(s, workerSlot) || e.burrowed[workerSlot] === 1) return reject('missing-capability');
+  if (isContained(s, workerSlot) || e.burrowed[workerSlot] === 1 || e.illusion[workerSlot] === 1) return reject('missing-capability');
   const def = Units[kind];
   if (!def || (def.roles & Role.Structure) === 0 || (e.flags[workerSlot]! & Role.Worker) === 0 ||
       !canBuildWithWorker(e.kind[workerSlot]!, kind)) {
@@ -325,7 +325,7 @@ export const validateCommand = (
     case 'transform': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
+      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot) || e.built[slot] !== 1) return reject('missing-capability');
       const transform = transformFor(e.kind[slot]!, c.kind);
       if (!transform) return reject('target-not-allowed');
@@ -344,7 +344,7 @@ export const validateCommand = (
     case 'burrow': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || isDisabled(e, slot)) return reject('missing-capability');
+      if (isContained(s, slot) || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
       if (!canBurrowSlot(s, slot)) return reject('missing-capability');
       if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
       if ((e.burrowed[slot] === 1) === c.active) return reject('target-not-allowed');
@@ -353,7 +353,7 @@ export const validateCommand = (
     case 'mine': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot)) return reject('missing-capability');
+      if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
       if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
       if (getTechLevel(s, player, Tech.SpiderMines) <= 0) return reject('missing-requirement');
       if (e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
@@ -366,7 +366,7 @@ export const validateCommand = (
       if (unit === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
       if (transport === unit || isContained(s, transport)) return reject('target-not-allowed');
       const capacity = transportCapacity(s, transport);
-      if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport)) return reject('missing-capability');
+      if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport) || e.illusion[transport] === 1) return reject('missing-capability');
       if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
       const unitSize = Units[e.kind[unit]!]!.cargoSize;
       if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
@@ -431,7 +431,7 @@ export const validateCommand = (
     case 'ability': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
+      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
@@ -479,7 +479,7 @@ export const validateCommand = (
     case 'harvest': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
+      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if ((e.flags[slot]! & Role.Worker) === 0) return reject('missing-capability');
       if (!isAlive(e, c.patch)) return reject('target-not-found');
@@ -492,7 +492,7 @@ export const validateCommand = (
     case 'repair': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
+      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
       if (!isAlive(e, c.target)) return reject('target-not-found');
       const target = slotOf(c.target);

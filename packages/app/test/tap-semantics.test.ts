@@ -658,3 +658,17 @@ test('nuclear command card surfaces silo missile state', () => {
   assert.equal(ability?.ok, false);
   assert.equal(ability?.detail, 'No Nuke');
 });
+
+test('selection summary identifies known own hallucinations without real worker utility commands', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(500), fx(500));
+  s.e.illusion[slotOf(scv)] = 1;
+  select(g, [scv]);
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Hallucination SCV');
+  assert.equal(ui.selBuildOptions.value.length, 0);
+  assert.equal(ui.selCanHarvest.value, false);
+  assert.equal(ui.selCanRepair.value, false);
+});

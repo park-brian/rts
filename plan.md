@@ -234,11 +234,19 @@ Completed:
   Nuclear Strike validation consumes that silo ammo, and the command card surfaces `Arm Nuke`,
   `Arming Nuke`, `Nuke Ready`, and `No Nuke` states without app-only command rules.
 - The app screenshot harness now captures a Nuclear Silo ready-missile command-card reference.
+- Known own/team/spectator Hallucinations now have shared app presentation: selection labels use
+  the Hallucination prefix, GL and Math renderers tint/alpha them consistently, and enemy viewers
+  still see ordinary units.
+- Hallucinated workers, casters, transports, burrowers, mine layers, and morph/merge units now
+  reject real utility or state-changing commands through shared validation, while retaining decoy
+  move/attack orders.
+- The command card hides worker utility affordances that are impossible because the selected worker
+  is a Hallucination, and the screenshot harness captures the selected-Hallucination reference.
 
 Remaining:
 
-- More exact Hallucination presentation rules such as detection/selection treatment and source-type
-  damage fidelity beyond the current shared double-damage model.
+- More exact Hallucination source-type damage fidelity beyond the current shared double-damage
+  model.
 - More exact attack animation lockout windows; current pathing treats ground units with an active
   weapon cooldown and target as rooted pathing anchors so moving units route around them instead of
   shoving them aside.

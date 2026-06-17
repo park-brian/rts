@@ -9,6 +9,7 @@ import {
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
+import { illusionPresentation } from './illusion-presentation.ts';
 import { ui } from './store.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -120,7 +121,8 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const isRes = (def.roles & Role.Resource) !== 0;
     const isFootprint = isStruct || isRes || kind === Kind.Geyser;
     if (!game.canSeeEntity(i)) continue;
-    const alpha = isCloaked(s, i) ? 0.5 : 1;
+    const illusion = illusionPresentation(s, game.human, i);
+    const alpha = (isCloaked(s, i) ? 0.5 : 1) * illusion.alpha;
 
     let overlayX = wx;
     let overlayY = wy;
@@ -148,7 +150,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       overlayW = r * 2;
       overlayH = r * 2;
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = footprintColor(e.owner[i]!, 0.26);
+      ctx.fillStyle = illusion.known ? 'rgba(125,190,255,0.18)' : footprintColor(e.owner[i]!, 0.26);
       ctx.strokeStyle = color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
       ctx.beginPath();
@@ -177,7 +179,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const selected = game.selection.has(eid(e, i));
     // selection ring
     if (selected) {
-      ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 2 / game.zoom;
+      ctx.strokeStyle = illusion.known ? '#7dbeff' : '#ffe14e'; ctx.lineWidth = 2 / game.zoom;
       ctx.strokeRect(overlayX - overlayW / 2 - 2, overlayY - overlayH / 2 - 2, overlayW + 4, overlayH + 4);
     }
     // Health/progress bar, anchored above the visible body.

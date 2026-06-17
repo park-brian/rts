@@ -14,6 +14,7 @@ import {
   type CommandRejectReason, type CommandValidation,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
+import { illusionPresentation } from './illusion-presentation.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -1090,15 +1091,17 @@ export class Game {
       count++;
       const slot = slotOf(id);
       const k = e.kind[slot]!;
-      kindName = Units[k]!.name;
+      kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${Units[k]!.name}`;
       const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
       if (nonStructure && validateCommand(s, this.human, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
       if (validateCommand(s, this.human, { t: 'stop', unit: id }).ok) canStop = true;
       if ((e.flags[slot]! & Role.Worker) !== 0) {
-        canHarvest = true;
+        if (e.illusion[slot] !== 1) canHarvest = true;
         for (const build of workerBuildKindsFor(Units[k]!.race)) {
           const starter = canWorkerStartStructure(s, this.human, slot, build);
-          if (!starter.ok) addOption(buildOptions, build, starter);
+          if (!starter.ok) {
+            if (starter.reason !== 'missing-capability') addOption(buildOptions, build, starter);
+          }
           else {
             const def = Units[build]!;
             addOption(buildOptions, build, s.players.minerals[this.human]! < def.minerals || s.players.gas[this.human]! < def.gas
@@ -1107,7 +1110,7 @@ export class Game {
           }
         }
       }
-      if (e.kind[slot] === Kind.SCV) canRepair = true;
+      if (e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
       if ((e.flags[slot]! & Role.Structure) !== 0) canRally = true;
       for (const addon of ADDON_IDS) {
         if (addonParentKind(addon) !== k) continue;
