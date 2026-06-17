@@ -23,6 +23,7 @@ const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThre
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const PROTOSS_STRUCTURE_MACRO = [Kind.CyberneticsCore, Kind.RoboticsFacility, Kind.Stargate, Kind.CitadelOfAdun] as const;
+const ZERG_STRUCTURE_MACRO = [Kind.HydraliskDen] as const;
 
 type ResourceBudget = { minerals: number; gas: number };
 
@@ -236,6 +237,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       minerals = budget.minerals;
     }
 
+    if (!builderUsed) {
+      builderUsed = maybeQueueZergTechStructures(s, p, faction, cmds, budget, aWorker, depot);
+      minerals = budget.minerals;
+    }
+
     maybeQueueTerranAddons(s, p, faction, cmds, budget);
     minerals = budget.minerals;
 
@@ -315,6 +321,22 @@ const maybeQueueProtossTechStructures = (
 ): boolean => {
   if (faction.name !== 'Protoss') return false;
   for (const kind of PROTOSS_STRUCTURE_MACRO) {
+    if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
+  }
+  return false;
+};
+
+const maybeQueueZergTechStructures = (
+  s: State,
+  player: number,
+  faction: Faction,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  anchor: number,
+): boolean => {
+  if (faction.name !== 'Zerg') return false;
+  for (const kind of ZERG_STRUCTURE_MACRO) {
     if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
   }
   return false;

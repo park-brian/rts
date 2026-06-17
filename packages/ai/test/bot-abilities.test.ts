@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, eid, slotOf, fx, setTechLevel, NONE, validateCommand } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand } from '@rts/sim';
 
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
 const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number) =>
@@ -27,6 +27,17 @@ const hasAbility = (cmds: ReturnType<ReturnType<typeof createBot>>, unit: number
   cmds.some((c) => c.t === 'ability' && c.unit === unit && c.ability === ability);
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
+
+const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): void => {
+  const map = sim.fullState().map;
+  const cx = tileX(x);
+  const cy = tileY(y);
+  for (let ty = Math.max(0, cy - radius); ty <= Math.min(map.h - 1, cy + radius); ty++) {
+    for (let tx = Math.max(0, cx - radius); tx <= Math.min(map.w - 1, cx + radius); tx++) {
+      map.build[ty * map.w + tx] = 0;
+    }
+  }
+};
 
 test('bot uses Stim when committing idle bio to defend', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 40 });
@@ -120,6 +131,71 @@ test('bot keeps using a completed lair as the zerg base anchor', () => {
   const cmds = createBot(Zerg)(s, 0);
 
   assert.ok(cmds.some((c) => c.t === 'train' && c.kind === Kind.Drone));
+});
+
+test('zerg bot places a legal hydralisk den after a completed spawning pool', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 452, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = findEntity(sim, Kind.Hatchery, 0);
+  const base = entityPos(sim, hatchery);
+  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(s, 0);
+  const build = findBuild(cmds, Kind.HydraliskDen);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('zerg bot respects hydralisk den prerequisite, placement, duplicates, and budget', () => {
+  const missingPool = new Sim({ map: sliceMap(), players: 2, seed: 453, factions: [Zerg, Terran] });
+  const missingState = missingPool.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.HydraliskDen), false);
+
+  const blocked = new Sim({ map: sliceMap(), players: 2, seed: 454, factions: [Zerg, Terran] });
+  const blockedState = blocked.fullState();
+  const blockedBase = entityPos(blocked, findEntity(blocked, Kind.Hatchery, 0));
+  spawnUnit(blockedState, Kind.SpawningPool, 0, blockedBase.x + fx(120), blockedBase.y);
+  blockBuildTilesAround(blocked, blockedBase.x, blockedBase.y, 18);
+  blockedState.players.minerals[0] = 1_000;
+  blockedState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(blockedState, 0), Kind.HydraliskDen), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 455, factions: [Zerg, Terran] });
+  const duplicateState = duplicate.fullState();
+  const duplicateBase = entityPos(duplicate, findEntity(duplicate, Kind.Hatchery, 0));
+  spawnUnit(duplicateState, Kind.SpawningPool, 0, duplicateBase.x + fx(120), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.HydraliskDen, 0, duplicateBase.x + fx(160), duplicateBase.y);
+  duplicateState.players.minerals[0] = 1_000;
+  duplicateState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.HydraliskDen), false);
+
+  const pending = new Sim({ map: sliceMap(), players: 2, seed: 456, factions: [Zerg, Terran] });
+  const pendingState = pending.fullState();
+  const pendingBase = entityPos(pending, findEntity(pending, Kind.Hatchery, 0));
+  spawnUnit(pendingState, Kind.SpawningPool, 0, pendingBase.x + fx(120), pendingBase.y);
+  const worker = slotOf(spawnUnit(pendingState, Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pendingState.e.buildKind[worker] = Kind.HydraliskDen;
+  pendingState.players.minerals[0] = 1_000;
+  pendingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.HydraliskDen), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 457, factions: [Zerg, Terran] });
+  const brokeState = broke.fullState();
+  const brokeBase = entityPos(broke, findEntity(broke, Kind.Hatchery, 0));
+  spawnUnit(brokeState, Kind.SpawningPool, 0, brokeBase.x + fx(120), brokeBase.y);
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = Units[Kind.HydraliskDen]!.gas - 1;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.HydraliskDen), false);
 });
 
 test('bot morphs hydralisks into lurkers through shared transform validation', () => {

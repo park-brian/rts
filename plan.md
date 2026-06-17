@@ -607,6 +607,8 @@ Completed:
   after Cybernetics Core, preserving shared power, prerequisite, duplicate, and budget checks.
 - Protoss scripted macro now queues a legal Citadel of Adun through the ordered tech-structure path,
   unlocking the templar branch while preserving the same validation-backed legality checks.
+- Zerg scripted macro now queues a legal Hydralisk Den after a completed Spawning Pool through the
+  shared structure placement helper, preserving creep, prerequisite, duplicate, and budget checks.
 
 Done when:
 
