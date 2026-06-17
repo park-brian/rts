@@ -486,13 +486,16 @@ Completed:
 - Zerg combat unit morphs now present as target-sized cocoons in both renderers while keeping the
   authoritative target unit footprint/radius, publish `Morphing <target>` selection labels, and
   expose the shared validated cancel command through the command card.
+- Protoss Archon and Dark Archon merge summons now present as unfinished summons rather than
+  completed combat units: selection reads `Summoning <target>`, both renderers add a lightweight
+  energy-summon affordance, and the command card correctly omits cancel because Brood War does
+  not expose Archon merge cancellation.
 
 Remaining:
 
 - Further Carrier Interceptor attack-pass cadence polish only if source references reveal a
   material mismatch beyond the current launch, orbit, return, and bay-docking primitive.
-- More exact Archon/Dark Archon merge presentation and any remaining Zerg structure morph cocoon
-  polish.
+- Any remaining Zerg structure morph cocoon polish and broader construction/warp-in presentation.
 
 ## Phase 7: Visibility, Terrain, And Fog Fidelity
 
@@ -563,8 +566,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
-  - More exact Archon/Dark Archon merge presentation and any remaining Zerg structure morph cocoon
-    polish.
+  - Any remaining Zerg structure morph cocoon polish and broader construction/warp-in presentation.
 - Upgrade fidelity:
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.

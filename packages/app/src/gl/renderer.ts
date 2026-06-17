@@ -22,7 +22,7 @@ import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
 import { illusionPresentation } from '../illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from '../child-actors.ts';
-import { morphPresentationKind } from '../morph-presentation.ts';
+import { isProtossMergeSummon, morphPresentationKind } from '../morph-presentation.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -350,7 +350,9 @@ export class GlRenderer {
         if (dx !== 0 || dy !== 0) rot = Math.atan2(dx, -dy);
       }
       const illusion = illusionPresentation(state, game.human, i);
-      const alpha = (isStruct && e.built[i] !== 1 ? 0.55 : 1) * (isCloaked(state, i) ? 0.5 : 1) * illusion.alpha;
+      const mergeSummon = isProtossMergeSummon(state, i);
+      const alpha = ((isStruct && e.built[i] !== 1) || mergeSummon ? 0.68 : 1) *
+        (isCloaked(state, i) ? 0.5 : 1) * illusion.alpha;
       const [tr, tg, tb] = teamColor(e.owner[i]!);
       const c = Math.cos(rot);
       const s = Math.sin(rot);
@@ -364,6 +366,10 @@ export class GlRenderer {
       const baseY = wy + p.baseOffsetY * mul;
       if (isStruct && e.built[i] === 1) {
         this.fx.push(baseX, baseY, r * 3.2, r * 3.2, 0, glow, tr, tg, tb, 0.12, 0, 0, 0);
+      } else if (mergeSummon) {
+        const dark = kind === Kind.DarkArchon;
+        this.fx.push(wx, wy, r * 4, r * 4, 0, glow,
+          dark ? 0.65 : 0.35, dark ? 0.35 : 0.65, 1, 0.26, 0, 0, 0);
       } else if (kind === Kind.Mineral) {
         this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
       } else if (isGeyser || def.resourceType === ResourceType.Gas) {

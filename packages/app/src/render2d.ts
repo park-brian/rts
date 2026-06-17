@@ -11,7 +11,7 @@ import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
-import { isZergCombatMorph } from './morph-presentation.ts';
+import { isProtossMergeSummon, isZergCombatMorph } from './morph-presentation.ts';
 import { ui } from './store.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -125,6 +125,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     if (!game.canSeeEntity(i)) continue;
     const illusion = illusionPresentation(s, game.human, i);
     const morphingCocoon = isZergCombatMorph(s, i);
+    const mergeSummon = isProtossMergeSummon(s, i);
     const alpha = (isCloaked(s, i) ? 0.5 : 1) * illusion.alpha;
 
     let overlayX = wx;
@@ -163,10 +164,12 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.globalAlpha = alpha;
       ctx.fillStyle = morphingCocoon
         ? 'rgba(100,230,135,0.22)'
+        : mergeSummon
+        ? 'rgba(125,150,255,0.22)'
         : isProjectilePresentationKind(kind)
         ? 'rgba(255,225,120,0.58)'
         : illusion.known ? 'rgba(125,190,255,0.18)' : footprintColor(e.owner[i]!, 0.26);
-      ctx.strokeStyle = morphingCocoon ? '#8cff92' : isProjectilePresentationKind(kind) ? '#fff1a8' : color(e.owner[i]!);
+      ctx.strokeStyle = morphingCocoon ? '#8cff92' : mergeSummon ? '#a9bcff' : isProjectilePresentationKind(kind) ? '#fff1a8' : color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
       ctx.beginPath();
       ctx.arc(wx, wy, r, 0, Math.PI * 2);
@@ -181,6 +184,16 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
         ctx.stroke();
       }
 
+      if (mergeSummon) {
+        ctx.strokeStyle = kind === Kind.DarkArchon ? 'rgba(190,120,255,0.72)' : 'rgba(120,210,255,0.72)';
+        ctx.lineWidth = 1.2 / game.zoom;
+        for (const scale of [0.55, 0.85]) {
+          ctx.beginPath();
+          ctx.arc(wx, wy, r * scale, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
       const b = bodyBounds(kind);
       ctx.strokeStyle = 'rgba(255,255,255,0.45)';
       ctx.lineWidth = 1 / game.zoom;
@@ -188,7 +201,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
 
       const dx = e.faceX[i]!;
       const dy = e.faceY[i]!;
-      if (dx !== 0 || dy !== 0) {
+      if (!mergeSummon && (dx !== 0 || dy !== 0)) {
         const len = Math.hypot(dx, dy) || 1;
         ctx.strokeStyle = '#ffffffb0';
         ctx.beginPath();

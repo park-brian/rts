@@ -33,6 +33,9 @@ test('templar merge consumes a nearby partner and creates an unfinished archon',
   const inert = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: eid(e, slot), target: spawnUnit(s, Kind.Marine, 1, fx(450), fx(400)) }] }]);
   assert.deepEqual(inert, [{ player: 0, index: 0, t: 'attack', ok: false, reason: 'missing-capability' }]);
 
+  const cancel = sim.step([{ player: 0, cmds: [{ t: 'cancelBuild', building: eid(e, slot) }] }]);
+  assert.deepEqual(cancel, [{ player: 0, index: 0, t: 'cancelBuild', ok: false, reason: 'target-not-allowed' }]);
+
   for (let guard = 0; Number(e.built[slot]) !== 1 && guard < Units[Kind.Archon]!.buildTime + 5; guard++) sim.step([]);
 
   assert.equal(e.kind[slot], Kind.Archon);

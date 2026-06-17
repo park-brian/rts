@@ -580,6 +580,29 @@ test('group-selected templars queue paired merge commands', () => {
   ]);
 });
 
+test('selected protoss merge summons are inert and not cancellable', () => {
+  const g = freshGame();
+  g.restart('play', 5656, 1, ['protoss', 'terran'], 0);
+  g.controllers = [null, null];
+  const s = g.sim.fullState();
+  const a = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
+  const b = spawnUnit(s, Kind.HighTemplar, 0, fx(432), fx(400));
+
+  const started = g.sim.step([{ player: 0, cmds: [{ t: 'transform', unit: a, kind: Kind.Archon, target: b }] }]);
+  assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
+  select(g, [a]);
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Summoning Archon');
+  assert.equal(ui.selCanCancel.value, false);
+  assert.equal(ui.selCanAttackMove.value, false);
+  assert.equal(ui.selCanStop.value, false);
+
+  g.cancelSelectedBuild();
+
+  assert.deepEqual(g.queued, []);
+});
+
 test('selected carriers publish interceptor build commands', () => {
   const g = freshGame();
   const carrier = spawnUnit(g.sim.fullState(), Kind.Carrier, 0, fx(400), fx(400));
