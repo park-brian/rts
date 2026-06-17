@@ -15,7 +15,7 @@ import { Kind, TILE } from '../src/data.ts';
 import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { topDownEdgeDistance } from '../src/spatial.ts';
 
-test('main-base mineral calibration exposes positive-only BW route timing data', () => {
+test('main-base mineral diagnostics expose positive-only BW route slack data', () => {
   const map = sliceMap();
   const profile = mineralTimingProfile(Kind.SCV, Kind.CommandCenter);
   const entries = mainBaseMineralRouteCalibrations(map, profile);
@@ -27,8 +27,8 @@ test('main-base mineral calibration exposes positive-only BW route timing data',
     assert.equal(entry.mineFrames, 80);
     assert.equal(entry.targetRouteFrames, 97);
     assert.equal(entry.actualRouteFrames <= entry.targetRouteFrames, true);
-    assert.equal(entry.waitFrames, entry.targetRouteFrames - entry.actualRouteFrames);
-    assert.equal(entry.waitFrames >= 0, true);
+    assert.equal(entry.slackFrames, entry.targetRouteFrames - entry.actualRouteFrames);
+    assert.equal(entry.slackFrames >= 0, true);
     assert.equal(entry.valid, true);
     assert.equal(entry.routeDistanceFx > 0, true);
   }
@@ -96,7 +96,7 @@ test('calibration dock points are physical contact points, not detached BW range
   }
 });
 
-test('routes longer than the BW target are invalid instead of receiving negative wait frames', () => {
+test('routes longer than the BW target are invalid instead of receiving negative slack', () => {
   const map = sliceMap();
   const start = map.starts[0]!;
   const base: HarvestCalibrationBase = {
@@ -118,5 +118,5 @@ test('routes longer than the BW target are invalid instead of receiving negative
   assert.equal(center.y < start.y * TILE, true);
   assert.equal(entry.actualRouteFrames > entry.targetRouteFrames + entry.toleranceFrames, true);
   assert.equal(entry.valid, false);
-  assert.equal(entry.waitFrames, 0);
+  assert.equal(entry.slackFrames, 0);
 });

@@ -50,7 +50,7 @@ export type MineralRouteCalibration = {
   mineFrames: number;
   targetRouteFrames: number;
   actualRouteFrames: number;
-  waitFrames: number;
+  slackFrames: number;
   toleranceFrames: number;
   valid: boolean;
   routeDistanceFx: number;
@@ -204,7 +204,7 @@ export const calibrateMineralRoute = (
   const routeDistanceFx = isqrt(dx * dx + dy * dy);
   const actualRouteFrames = ceilDiv(2 * routeDistanceFx, Units[profile.workerKind]!.speed);
   const target = targetRouteFrames(profile);
-  const waitFrames = Math.max(0, target - actualRouteFrames);
+  const slackFrames = Math.max(0, target - actualRouteFrames);
   const valid = actualRouteFrames <= target + profile.toleranceFrames;
 
   return {
@@ -218,7 +218,7 @@ export const calibrateMineralRoute = (
     mineFrames: profile.mineFrames,
     targetRouteFrames: target,
     actualRouteFrames,
-    waitFrames,
+    slackFrames,
     toleranceFrames: profile.toleranceFrames,
     valid,
     routeDistanceFx,
@@ -241,27 +241,6 @@ export const mainBaseMineralRouteCalibrations = (
     }
   }
   return out;
-};
-
-export const findMainBaseMineralRouteCalibration = (
-  m: MapDef,
-  profile: HarvestTimingProfile,
-  depotX: number,
-  depotY: number,
-  resourceX: number,
-  resourceY: number,
-): MineralRouteCalibration | null => {
-  for (const entry of mainBaseMineralRouteCalibrations(m, profile)) {
-    if (
-      entry.depotCenter.x === depotX &&
-      entry.depotCenter.y === depotY &&
-      entry.resourceCenter.x === resourceX &&
-      entry.resourceCenter.y === resourceY
-    ) {
-      return entry;
-    }
-  }
-  return null;
 };
 
 export const mainBaseMineralRouteQuality = (

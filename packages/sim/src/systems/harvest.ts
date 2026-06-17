@@ -23,7 +23,6 @@ import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { topDownDockingPoint, withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
-import { findMainBaseMineralRouteCalibration, mineralTimingProfile } from '../harvest-calibration.ts';
 
 const HARVEST_DOCK_EPSILON = fx(1);
 
@@ -69,27 +68,6 @@ const dockDistance = (a: InteractionPoint, b: InteractionPoint): number => {
 
 const mineTicksFor = (s: State, node: number): number =>
   Units[s.e.kind[node]!]!.resourceType === ResourceType.Gas ? GAS_MINE_TICKS : MINE_TICKS;
-
-const depositWaitFrames = (s: State, worker: number, depot: number, source: number): number => {
-  const e = s.e;
-  if (source === NONE || e.cargoType[worker] !== ResourceType.Minerals) return 0;
-  if (Units[e.kind[source]!]!.resourceType !== ResourceType.Minerals) return 0;
-  let profile: ReturnType<typeof mineralTimingProfile>;
-  try {
-    profile = mineralTimingProfile(e.kind[worker]!, e.kind[depot]!);
-  } catch {
-    return 0;
-  }
-  const entry = findMainBaseMineralRouteCalibration(
-    s.map,
-    profile,
-    e.x[depot]!,
-    e.y[depot]!,
-    e.x[source]!,
-    e.y[source]!,
-  );
-  return entry !== null && entry.valid ? entry.waitFrames : 0;
-};
 
 /** Workers (excluding `except`) currently assigned to harvest node slot `node`. */
 const minersOn = (s: State, node: number, owner: number, except: number): number => {
@@ -182,13 +160,6 @@ export const harvest = (s: State): void => {
       const dock = dockingPoint(s, i, depot, approachX, approachY);
       faceToward(e, i, e.x[depot]!, e.y[depot]!);
       if (atDockingPoint(s, i, depot, dock)) {
-        if (e.timer[i]! < 0) {
-          e.timer[i] = e.timer[i]! + 1;
-          if (e.timer[i]! < 0) continue;
-        } else {
-          const waitFrames = depositWaitFrames(s, i, depot, source);
-          if (waitFrames > 0) { e.timer[i] = -waitFrames; continue; }
-        }
         const pool = e.cargoType[i]! === ResourceType.Gas ? s.players.gas : s.players.minerals;
         pool[owner] = pool[owner]! + e.cargo[i]!;
         e.cargo[i] = 0;
@@ -198,7 +169,6 @@ export const harvest = (s: State): void => {
           e.target[i] = np === NONE ? NONE : eid(e, np);
         }
       } else {
-        if (e.timer[i]! < 0) e.timer[i] = 0;
         navigate(s, i, dock.x, dock.y, speed);
       }
       continue;

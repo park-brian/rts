@@ -908,8 +908,9 @@ Design target:
     and upgrade deltas. These remain data and stay easy to audit against BW references.
   - **Interaction geometry layer:** top-down gameplay hulls used for final reach/contact checks.
     This layer answers "are these two things actually touching or in range in our view?"
-  - **Timing calibration layer:** per-route or per-layout targets that preserve BW-equivalent
-    economy timing when top-down geometry and tile/grid discreteness cannot hit the target exactly.
+  - **Economy placement diagnostics:** per-route or per-layout measurements that tell the map/base
+    solver how close it is to the intended top-down saturation distances. Runtime harvesting does
+    not wait, stretch range, or alter speed to compensate for a bad layout.
 - Lock the coordinate contract before touching more systems:
   - one build tile is 32px, and the canonical BW walk-cell target remains 8px even if the first
     navigation implementation keeps a 16px path lattice for performance;
@@ -938,17 +939,17 @@ Design target:
   - mining/deposit begins only at physical contact or a tiny named docking epsilon;
   - corner/near-corner mineral patches must be physically touched, not harvested through a legacy
     approximate-distance shortcut.
-- Preserve economy timing with a positive-only calibration model:
-  - solve resource positions and docking sides first so the top-down route length is at or below
-    the BW-equivalent target within a tight band;
-  - make equal route distance the first-order target for symmetric mineral clusters; if movement
-    speed is shared, equal calculated distance gives equal relative trip time across SCVs, Drones,
-    and Probes without worker-specific placement hacks;
-  - if a route is slightly shorter than target, add deterministic wait frames at the dock or
-    depot to match the calibrated trip;
-  - if a route is longer than target, the layout is invalid and must move resources or fail
-    generation. Do not compensate by making the worker mine before contact or by silently speeding
-    it up.
+- Preserve economy behavior with the simplest top-down approximation:
+  - workers physically dock, mine for BW action frames, travel at normal speed, and deposit
+    immediately on depot contact;
+  - make dock-to-dock distance the placement target instead of adding hidden wait frames;
+  - for three-worker mineral saturation, target the top-down dock distance band where
+    `cycle = mineFrames + 2 * distance / speed` is between two and three concurrent workers;
+  - for gas, target the shorter three-worker refinery cadence directly instead of using mineral
+    layout math;
+  - if a route is too long or too asymmetric, the layout is invalid and must move resources or fail
+    generation. Do not compensate by making the worker mine before contact, waiting at the depot,
+    or silently changing speed.
 - Procedural maps should be assembled from explicit, validated terrain components:
   - first preset: full-width shared team main plateaus at the north and south edges;
   - player start sites distributed across each team plateau;
@@ -997,23 +998,22 @@ Implementation:
       route;
     - depot docking point is the nearest legal point on the depot hull from the mineral-side route;
     - gas uses geyser/refinery hull contact and may need a separate three-worker cadence target.
-  - Treat the BW-equivalent target as a frame count or route-time contract, not as permission to
-    keep BW's approximate visual distance. Source BW distance constants seed the solver, but the
-    pass/fail result is "top-down path plus waits matches target frames."
-  - Store no per-worker path history beyond deterministic order state unless a small route timer
-    field is required for calibration.
+  - Treat BW-equivalent timings as placement diagnostics, not as permission to keep BW's approximate
+    visual distance. Source BW distance constants can seed the solver, but the runtime result is
+    "top-down path plus BW action frames."
+  - Store no per-worker path history beyond deterministic order state.
   - Navigate to the docking point, not the resource center.
   - Start mining/deposit only after docking.
   - Compute actual leg length as path/top-down distance between docking points. For the first
     implementation, straight-line top-down length is acceptable only if pathing is unobstructed;
     once ramps/obstacles affect workers, use the path lattice route cost.
-  - Build a calibration table for main-base mineral patches:
+  - Build a route diagnostic table for main-base mineral patches:
     - target route time from the BW-equivalent model;
     - actual top-down route time;
-    - positive wait frames needed to match target;
+    - positive slack when the route is shorter than the target;
     - invalid flag when actual route exceeds target by more than tolerance.
-  - Keep the timing compensation deterministic and visible in tests. It should be an economy
-    timing shim, not a movement distortion.
+  - Keep the diagnostics deterministic and visible in tests. They should guide placement, not
+    distort movement or deposits.
 - Resource/base layout:
   - Introduce `BaseSite` metadata if needed:
     - `kind`: main, natural, third, center, island, fortress;
@@ -1134,13 +1134,11 @@ Completed:
   and deposit happen at physical contact.
 - Replaced the provisional two-second extraction timer with BW frame timings: minerals mine for
   80 frames and gas mines for 37 frames before travel/deposit timing.
-- Added the first positive-only harvest calibration table for main-base mineral routes. It exposes
-  BW target trip frames, target route frames, actual top-down dock-to-dock route frames,
-  deterministic wait frames, and invalid-too-long flags without letting calibration bypass
-  physical docking.
-- Consumed valid main-base mineral calibration rows in the harvest cycle: workers returning
-  minerals hold at the depot for the deterministic wait frames before deposit, preserving physical
-  docking and replay-hashed state.
+- Added the first route diagnostic table for main-base mineral routes. It exposes BW target trip
+  frames, target route frames, actual top-down dock-to-dock route frames, positive slack, and
+  invalid-too-long flags without letting diagnostics bypass physical docking.
+- Simplified harvest deposit timing: workers returning minerals or gas now deposit immediately at
+  physical depot contact. Route slack is diagnostic only; runtime no longer adds hidden depot waits.
 - Added main-base mineral route-quality validation and wired procedural generation to reject maps
   with missing, invalid, or overly asymmetric calibrated mineral routes.
 - Replaced procedural base-site resource stamping with reusable base-cluster solver results that
@@ -1152,8 +1150,10 @@ Completed:
 
 Remaining:
 
+- Replace BW-approx resource placement with direct top-down mineral/gas dock-distance targets for
+  cheap saturation-equivalent economy behavior.
 - Broaden base/resource repair from local depot-anchor retry into resource-geometry adjustment when
-  a cluster's mineral routes are intrinsically too long or too asymmetric.
+  a cluster's mineral routes are intrinsically too long, too short, or too asymmetric.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add gas-specific cadence validation for three-worker refinery saturation.
@@ -1169,8 +1169,8 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Movement-stress benchmark comparisons and visual review to decide whether the 16px path
     lattice needs true BW-style 8px cells.
 - Top-down spatial semantics:
-  - Build the remaining harvest timing calibration layer on top of the new contact-only top-down
-    docking behavior.
+  - Replace remaining BW-approx harvest placement with direct top-down mineral/gas dock-distance
+    targets and keep route slack as diagnostics only.
   - Audit ability target ranges separately; combat/repair/harvest/scarab final reach checks now
     use named top-down edge metrics, while ability validation still intentionally uses caster/point
     center ranges until each spell gets its own geometry decision.

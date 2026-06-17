@@ -190,10 +190,10 @@ test('harvest timers use BW mineral and gas action frames', () => {
   assert.equal(e.timer[gasWorker], GAS_MINE_TICKS);
 });
 
-test('calibrated main-base mineral routes wait at the depot before deposit', () => {
+test('workers deposit immediately at depot docks even when a route has calibration slack', () => {
   const map = sliceMap();
-  const entry = mainBaseMineralRouteCalibrations(map).find((row) => row.waitFrames > 0)!;
-  assert.ok(entry.waitFrames > 1);
+  const entry = mainBaseMineralRouteCalibrations(map).find((row) => row.slackFrames > 0)!;
+  assert.ok(entry.slackFrames > 1);
   const s = makeState(map, 1, 1);
   const e = s.e;
   const depot = slotOf(spawnUnit(s, entry.depotKind, 0, entry.depotCenter.x, entry.depotCenter.y));
@@ -206,16 +206,7 @@ test('calibrated main-base mineral routes wait at the depot before deposit', () 
 
   const before = s.players.minerals[0]!;
   stepWorld(s, []);
-  assert.equal(e.timer[worker], -entry.waitFrames);
-  assert.equal(s.players.minerals[0], before);
-  assert.equal(topDownEdgeDistance(s, worker, depot), 0);
 
-  for (let t = 1; t < entry.waitFrames; t++) {
-    stepWorld(s, []);
-    assert.equal(s.players.minerals[0], before, `deposit waits through frame ${t}`);
-  }
-
-  stepWorld(s, []);
   assert.equal(e.timer[worker], 0);
   assert.equal(s.players.minerals[0], before + MINE_AMOUNT);
   assert.equal(e.cargo[worker], 0);
