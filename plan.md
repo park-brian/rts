@@ -399,8 +399,8 @@ Completed:
 
 Remaining:
 
-- Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially real
-  tech-path planning toward the remaining Hive tech structures.
+- Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially
+  Lair-gated mobility support such as Nydus Canal planning.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -622,6 +622,9 @@ Completed:
 - Zerg scripted macro now queues a legal Defiler Mound after Hive through the ordered structure
   path, unlocking Defiler production while preserving placement, prerequisite, duplicate, pending,
   and gas-budget checks.
+- Zerg scripted macro now queues a legal Ultralisk Cavern after Hive through that same ordered
+  structure path, unlocking Ultralisk production and upgrades while preserving placement,
+  prerequisite, duplicate, pending, and gas-budget checks.
 
 Done when:
 
