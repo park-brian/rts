@@ -588,6 +588,9 @@ Completed:
   provider coverage, sharing the same creep/power semantics as placement validation.
 - Terran scripted macro now queues legal Machine Shops on idle completed Factories through shared
   add-on validation and budget checks, without duplicating add-on rules in AI code.
+- Terran scripted macro now prioritizes legal Comsat Stations on idle completed Command Centers,
+  respecting Academy prerequisites, existing add-ons, placement, and gas budget through shared
+  add-on validation.
 
 Done when:
 

@@ -8,7 +8,7 @@ import {
   Abilities, Ability, Role, Trait, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
-  hasAnyWeapon, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  addonParentKind, hasAnyWeapon, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -20,6 +20,7 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
+const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop] as const;
 
 type ResourceBudget = { minerals: number; gas: number };
 
@@ -248,20 +249,33 @@ const maybeQueueTerranAddons = (
   budget: ResourceBudget,
 ): void => {
   if (faction.name !== 'Terran') return;
+  for (const kind of TERRAN_ADDON_MACRO) {
+    if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
+  }
+};
+
+const maybeQueueAddon = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+  kind: number,
+): boolean => {
   const e = s.e;
-  const kind = Kind.MachineShop;
   const def = Units[kind]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return;
+  const parentKind = addonParentKind(kind);
+  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== NONE || e.built[i] !== 1) continue;
-    if (e.kind[i] !== Kind.Factory) continue;
+    if (e.kind[i] !== parentKind) continue;
     const command: Command = { t: 'addon', building: eid(e, i), kind };
     if (!validateCommand(s, player, command).ok) continue;
     cmds.push(command);
     budget.minerals -= def.minerals;
     budget.gas -= def.gas;
-    return;
+    return true;
   }
+  return false;
 };
 
 const maybeQueueTransform = (

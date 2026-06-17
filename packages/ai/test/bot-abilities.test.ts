@@ -171,6 +171,54 @@ test('bot does not duplicate or unaffordably queue machine shop add-ons', () => 
   assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.MachineShop), false);
 });
 
+test('bot queues a legal comsat station on an idle completed command center', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 412, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
+  const base = entityPos(sim, commandCenter);
+  spawnUnit(s, Kind.Academy, 0, base.x - fx(160), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === commandCenter && c.kind === Kind.ComsatStation);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot respects comsat add-on prerequisites, duplicates, and gas budget', () => {
+  const missingAcademy = new Sim({ map: sliceMap(), players: 2, seed: 413, factions: [Terran, Zerg] });
+  const missingState = missingAcademy.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(missingState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ComsatStation), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 414, factions: [Terran, Zerg] });
+  const dupState = duplicate.fullState();
+  const dupE = dupState.e;
+  const commandCenter = slotOf(findEntity(duplicate, Kind.CommandCenter, 0));
+  const base = entityPos(duplicate, eid(dupE, commandCenter));
+  spawnUnit(dupState, Kind.Academy, 0, base.x - fx(160), base.y);
+  const comsat = slotOf(spawnUnit(dupState, Kind.ComsatStation, 0, base.x + fx(80), base.y));
+  dupE.target[commandCenter] = eid(dupE, comsat);
+  dupE.target[comsat] = eid(dupE, commandCenter);
+  dupState.players.minerals[0] = 1_000;
+  dupState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(dupState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ComsatStation), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 415, factions: [Terran, Zerg] });
+  const brokeState = broke.fullState();
+  const brokeBase = entityPos(broke, findEntity(broke, Kind.CommandCenter, 0));
+  spawnUnit(brokeState, Kind.Academy, 0, brokeBase.x - fx(160), brokeBase.y);
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = 0;
+
+  assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ComsatStation), false);
+});
+
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });
   const s = sim.fullState();
