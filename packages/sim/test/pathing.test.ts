@@ -6,6 +6,7 @@ import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { navPassableForKind, pathY } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapConnected, mapResourcesValid } from '../src/procedural.ts';
+import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
 import { sliceMap } from '../src/map.ts';
 import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
@@ -109,6 +110,7 @@ test('procedural maps are connected and scale with team size', () => {
       assert.equal(m.starts.length, 2 * perTeam, `${perTeam}v${perTeam} start count`);
       assert.equal(m.w, 64 * perTeam, 'width scales with team size');
       assert.ok(mapConnected(m), `map ${perTeam}v${perTeam} #${seed} must be fully connected`);
+      assert.equal(mainBaseMineralRoutesValid(m), true, `map ${perTeam}v${perTeam} #${seed} keeps calibrated main minerals`);
       // Teams: first half south (team 0), interleaved south/north per lane.
       assert.equal(m.teams.length, m.starts.length);
     }
@@ -143,6 +145,7 @@ test('procedural midfield modules preserve connectivity and resource clearance',
     const m = generateMap(2, 77, { midfield });
     assert.equal(mapConnected(m), true, `${midfield} remains connected`);
     assert.equal(mapResourcesValid(m), true, `${midfield} keeps resources clear`);
+    assert.equal(mainBaseMineralRoutesValid(m), true, `${midfield} keeps main mineral timing valid`);
   }
 });
 

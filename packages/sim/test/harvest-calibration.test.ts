@@ -4,7 +4,9 @@ import { generateMap } from '../src/procedural.ts';
 import { spawnUnit } from '../src/factory.ts';
 import {
   calibrateMineralRoute,
+  mainBaseMineralRouteQuality,
   mainBaseMineralRouteCalibrations,
+  mainBaseMineralRoutesValid,
   mineralTimingProfile,
   type HarvestCalibrationBase,
 } from '../src/harvest-calibration.ts';
@@ -44,9 +46,33 @@ test('generated main bases produce calibration rows for every main mineral patch
   assert.equal(mainBases.length, 4);
   assert.equal(entries.length, mainBases.length * 8);
   assert.equal(entries.every((entry) => entry.valid), true);
+  assert.equal(mainBaseMineralRoutesValid(map), true);
   for (const base of mainBases.keys()) {
     assert.equal(entries.filter((entry) => entry.baseIndex === base).length, 8);
   }
+});
+
+test('main-base route quality reports invalid and overly asymmetric layouts', () => {
+  const invalid = sliceMap();
+  invalid.resources = invalid.resources.map((resource, index) =>
+    index === 0
+      ? { ...resource, px: invalid.starts[0]!.x * TILE + (TILE >> 1), py: (invalid.starts[0]!.y - 6) * TILE + (TILE >> 1) }
+      : resource,
+  );
+  const invalidQuality = mainBaseMineralRouteQuality(invalid);
+  assert.equal(invalidQuality.ok, false);
+  assert.equal(invalidQuality.issues.some((issue) => issue.kind === 'invalid-route'), true);
+
+  const asymmetric = sliceMap();
+  asymmetric.resources = asymmetric.resources.map((resource, index) =>
+    index === 0
+      ? { ...resource, px: asymmetric.starts[0]!.x * TILE + (TILE >> 1), py: (asymmetric.starts[0]!.y - 4) * TILE + (TILE >> 1) }
+      : resource,
+  );
+  const asymmetricQuality = mainBaseMineralRouteQuality(asymmetric);
+  assert.equal(asymmetricQuality.ok, false);
+  assert.equal(asymmetricQuality.issues.some((issue) => issue.kind === 'base-route-spread'), true);
+  assert.equal(asymmetricQuality.issues.some((issue) => issue.kind === 'resource-order-route-spread'), true);
 });
 
 test('calibration dock points are physical contact points, not detached BW range', () => {

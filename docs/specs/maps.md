@@ -81,7 +81,8 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   frames, actual top-down dock-to-dock route frames, deterministic wait frames when the route is
   shorter, and an invalid flag when the top-down route is too long to compensate without detached
   mining. Main-base mineral waits are applied at the depot before deposit, so calibration changes
-  trip cadence without changing movement speed or permitting detached mining.
+  trip cadence without changing movement speed or permitting detached mining. Procedural map
+  generation rejects main-base mineral layouts with invalid routes or excessive route asymmetry.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
 - **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
   etc. A base site stores team/owner intent, depot center, resource direction, ramp association,

@@ -1133,11 +1133,13 @@ Completed:
 - Consumed valid main-base mineral calibration rows in the harvest cycle: workers returning
   minerals hold at the depot for the deterministic wait frames before deposit, preserving physical
   docking and replay-hashed state.
+- Added main-base mineral route-quality validation and wired procedural generation to reject maps
+  with missing, invalid, or overly asymmetric calibrated mineral routes.
 
 Remaining:
 
-- Make the map/base solver re-position or reject routes that are too long or too asymmetric for
-  the timing profile instead of merely reporting them.
+- Teach the base/resource solver to re-position invalid or overly asymmetric routes instead of
+  rejecting the whole generated layout.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add gas-specific cadence validation for three-worker refinery saturation.

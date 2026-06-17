@@ -12,6 +12,8 @@ import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint
 const MAIN_BASE_MINERAL_COUNT = 8;
 const BASE_RESOURCE_EDGE_LIMIT_PX = 192;
 const DEFAULT_ROUTE_TOLERANCE_FRAMES = 1;
+const DEFAULT_BASE_ROUTE_SPREAD_FRAMES = 32;
+const DEFAULT_ORDER_ROUTE_SPREAD_FRAMES = 4;
 
 export const BW_MINERAL_TRIP_FRAMES_TENTHS: Partial<Record<number, number>> = {
   [Kind.SCV]: 1767,
@@ -56,6 +58,30 @@ export type MineralRouteCalibration = {
   resourceCenter: InteractionPoint;
   depotDock: InteractionPoint;
   mineralDock: InteractionPoint;
+};
+
+export type MineralRouteQualityIssue = {
+  kind: 'missing-main-minerals' | 'invalid-route' | 'base-route-spread' | 'resource-order-route-spread';
+  baseIndex?: number;
+  resourceIndex?: number;
+  resourceOrder?: number;
+  expected?: number;
+  actual?: number;
+  spread?: number;
+  limit?: number;
+};
+
+export type MineralRouteQualityOptions = {
+  profile?: HarvestTimingProfile;
+  expectedMineralsPerBase?: number;
+  maxBaseRouteSpreadFrames?: number;
+  maxResourceOrderRouteSpreadFrames?: number;
+};
+
+export type MineralRouteQuality = {
+  ok: boolean;
+  entries: MineralRouteCalibration[];
+  issues: MineralRouteQualityIssue[];
 };
 
 type IndexedMineral = {
@@ -237,3 +263,57 @@ export const findMainBaseMineralRouteCalibration = (
   }
   return null;
 };
+
+export const mainBaseMineralRouteQuality = (
+  m: MapDef,
+  options: MineralRouteQualityOptions = {},
+): MineralRouteQuality => {
+  const profile = options.profile ?? mineralTimingProfile(Kind.SCV, Kind.CommandCenter);
+  const expected = options.expectedMineralsPerBase ?? MAIN_BASE_MINERAL_COUNT;
+  const maxBaseSpread = options.maxBaseRouteSpreadFrames ?? DEFAULT_BASE_ROUTE_SPREAD_FRAMES;
+  const maxOrderSpread = options.maxResourceOrderRouteSpreadFrames ?? DEFAULT_ORDER_ROUTE_SPREAD_FRAMES;
+  const bases = mainBases(m);
+  const entries = mainBaseMineralRouteCalibrations(m, profile);
+  const issues: MineralRouteQualityIssue[] = [];
+
+  for (let baseIndex = 0; baseIndex < bases.length; baseIndex++) {
+    const rows = entries.filter((entry) => entry.baseIndex === baseIndex);
+    if (rows.length !== expected) {
+      issues.push({ kind: 'missing-main-minerals', baseIndex, expected, actual: rows.length });
+    }
+    for (const row of rows) {
+      if (!row.valid) {
+        issues.push({
+          kind: 'invalid-route',
+          baseIndex,
+          resourceIndex: row.resourceIndex,
+          resourceOrder: row.resourceOrder,
+          actual: row.actualRouteFrames,
+          limit: row.targetRouteFrames + row.toleranceFrames,
+        });
+      }
+    }
+    if (rows.length > 1) {
+      const actuals = rows.map((row) => row.actualRouteFrames);
+      const spread = Math.max(...actuals) - Math.min(...actuals);
+      if (spread > maxBaseSpread) {
+        issues.push({ kind: 'base-route-spread', baseIndex, spread, limit: maxBaseSpread });
+      }
+    }
+  }
+
+  for (let resourceOrder = 0; resourceOrder < expected; resourceOrder++) {
+    const rows = entries.filter((entry) => entry.resourceOrder === resourceOrder);
+    if (rows.length <= 1) continue;
+    const actuals = rows.map((row) => row.actualRouteFrames);
+    const spread = Math.max(...actuals) - Math.min(...actuals);
+    if (spread > maxOrderSpread) {
+      issues.push({ kind: 'resource-order-route-spread', resourceOrder, spread, limit: maxOrderSpread });
+    }
+  }
+
+  return { ok: issues.length === 0, entries, issues };
+};
+
+export const mainBaseMineralRoutesValid = (m: MapDef, options: MineralRouteQualityOptions = {}): boolean =>
+  mainBaseMineralRouteQuality(m, options).ok;

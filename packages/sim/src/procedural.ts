@@ -8,6 +8,7 @@
 import type { BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
 import { addStartingResources, resourceSpawnFootprint } from './map.ts';
 import { makeRng, range, type Rng } from './rng.ts';
+import { mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
 export type MapPreset = 'teamPlateaus';
@@ -282,6 +283,9 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
   return builder.map;
 };
 
+const generatedMapValid = (m: MapDef): boolean =>
+  mapConnected(m) && mapResourcesValid(m) && mainBaseMineralRoutesValid(m);
+
 /**
  * Generate a symmetric NvN map. `perTeam` players share each side's plateau
  * (1 = 1v1, 2 = 2v2, ...). The default midfield is empty by design so movement,
@@ -291,10 +295,10 @@ export const generateMap = (perTeam: number, seed: number, options: GenerateMapO
   const preset = options.preset ?? 'teamPlateaus';
   const midfield = options.midfield ?? 'empty';
   const m = buildMap(perTeam, seed, preset, midfield);
-  if (mapConnected(m) && mapResourcesValid(m)) return m;
+  if (generatedMapValid(m)) return m;
   if (midfield !== 'empty') {
     const fallback = buildMap(perTeam, seed, preset, 'empty');
-    if (mapConnected(fallback) && mapResourcesValid(fallback)) return fallback;
+    if (generatedMapValid(fallback)) return fallback;
   }
   throw new Error(`generateMap: invalid ${perTeam}v${perTeam} map for seed ${seed}`);
 };
