@@ -1146,11 +1146,14 @@ Completed:
 - Replaced procedural base-site resource stamping with reusable base-cluster solver results that
   expose exact depot anchors, depot footprints, standard mineral/gas geometry, and whole-cluster
   reservation footprints for mains and naturals.
+- Added deterministic local base-anchor retry before procedural resource stamping. Candidate
+  clusters must satisfy depot buildability, whole-reservation walkability/overlap, resource
+  clearance, and main-base mineral route quality before they are committed to the map.
 
 Remaining:
 
-- Teach the base/resource solver to re-position invalid or overly asymmetric routes instead of
-  rejecting the whole generated layout.
+- Broaden base/resource repair from local depot-anchor retry into resource-geometry adjustment when
+  a cluster's mineral routes are intrinsically too long or too asymmetric.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add gas-specific cadence validation for three-worker refinery saturation.

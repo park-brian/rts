@@ -5,9 +5,9 @@ import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { navPassableForKind, pathY } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
-import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid } from '../src/procedural.ts';
+import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
 import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
-import { sliceMap } from '../src/map.ts';
+import { resourceFootprintsOverlap, sliceMap, solveBaseCluster } from '../src/map.ts';
 import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
@@ -179,6 +179,25 @@ test('procedural base reservations reject overlapping whole-base clusters', () =
   const first = stale.bases![0]!;
   first.depotFootprint = { ...first.depotFootprint!, x0: first.depotFootprint!.x0 + 1 };
   assert.equal(mapBaseReservationsValid(stale), false);
+});
+
+test('base cluster selection retries local anchors before stamping resources', () => {
+  const m = blankMap('base-retry', 96, 96);
+  const anchor = { x: 48, y: 80 };
+  const nominal = solveBaseCluster(anchor, -1);
+  const blockedTile = {
+    x0: nominal.depotFootprint.x0,
+    y0: nominal.depotFootprint.y0,
+    x1: nominal.depotFootprint.x0,
+    y1: nominal.depotFootprint.y0,
+  };
+  m.build[blockedTile.y0 * m.w + blockedTile.x0] = 0;
+
+  const chosen = selectBaseCluster(m, anchor, -1, [], { kind: 'main' });
+  assert.notEqual(chosen, null);
+  assert.notDeepEqual({ x: chosen!.x, y: chosen!.y }, anchor);
+  assert.equal(resourceFootprintsOverlap(chosen!.depotFootprint, blockedTile), false);
+  assert.equal(m.resources.length, 0, 'candidate selection is side-effect free');
 });
 
 test('a group moving to one goal arrives, spreads, and settles', () => {

@@ -87,7 +87,8 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   invalid flag when the top-down route is too long to compensate without detached mining. Main-base
   mineral waits are applied at the depot before deposit, so calibration changes trip cadence without
   changing movement speed or permitting detached mining. Procedural map generation rejects
-  main-base mineral layouts with invalid routes or excessive route asymmetry.
+  main-base mineral layouts with invalid routes or excessive route asymmetry, and base placement
+  retries deterministic local depot-anchor candidates before stamping resources.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
 - **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
   etc. A base site stores team/owner intent, depot center, depot footprint, whole-cluster

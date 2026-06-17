@@ -6,7 +6,12 @@
 // changing the base/economy contract.
 
 import type { BaseCluster, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
-import { addBaseClusterResources, baseDepotFootprint, resourceFootprintsOverlap, resourceSpawnFootprint } from './map.ts';
+import {
+  baseDepotFootprint,
+  resourceFootprintsOverlap,
+  resourceSpawnFootprint,
+  solveBaseCluster,
+} from './map.ts';
 import { makeRng, range, type Rng } from './rng.ts';
 import { mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
@@ -23,8 +28,13 @@ const EDGE_PAD = 4;
 const PLATEAU_H = 20;
 const RAMP_HALF_W = 3;
 const NATURAL_OFFSET = 10;
+const BASE_ANCHOR_RETRY_RADIUS_TILES = 4;
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
+export type BaseClusterSelectionOptions = {
+  kind?: BaseSite['kind'];
+  maxOffsetTiles?: number;
+};
 
 const fillRect = (g: Uint8Array, w: number, x0: number, y0: number, x1: number, y1: number, v: number): void => {
   for (let y = Math.max(0, y0); y <= y1; y++) {
@@ -87,8 +97,22 @@ class MapBuilder {
 
 const laneCenter = (i: number): number => i * LANE_W + (LANE_W >> 1);
 
-const addBaseResources = (m: MapDef, base: StartLoc, dir: -1 | 1): BaseCluster => {
-  return addBaseClusterResources(m.resources, base, dir);
+const anchorCandidates = (anchor: StartLoc, maxOffsetTiles: number): StartLoc[] => {
+  const candidates: Array<StartLoc & { score: number; absX: number; absY: number }> = [];
+  for (let dy = -maxOffsetTiles; dy <= maxOffsetTiles; dy++) {
+    for (let dx = -maxOffsetTiles; dx <= maxOffsetTiles; dx++) {
+      candidates.push({
+        x: anchor.x + dx,
+        y: anchor.y + dy,
+        score: dx * dx + dy * dy,
+        absX: Math.abs(dx),
+        absY: Math.abs(dy),
+      });
+    }
+  }
+  return candidates
+    .sort((a, b) => a.score - b.score || a.absY - b.absY || a.absX - b.absX || a.y - b.y || a.x - b.x)
+    .map(({ x, y }) => ({ x, y }));
 };
 
 const addBaseSite = (
@@ -116,8 +140,112 @@ const addBaseSite = (
   });
 };
 
+const footprintClear = (m: MapDef, fp: ResourceFootprint, tileOk: (x: number, y: number) => boolean): boolean => {
+  if (fp.x0 < 0 || fp.y0 < 0 || fp.x1 >= m.w || fp.y1 >= m.h) return false;
+  for (let y = fp.y0; y <= fp.y1; y++) {
+    for (let x = fp.x0; x <= fp.x1; x++) {
+      if (!tileOk(x, y)) return false;
+    }
+  }
+  return true;
+};
+
+const footprintWalkable = (m: MapDef, fp: ResourceFootprint): boolean =>
+  footprintClear(m, fp, (x, y) => m.walk[y * m.w + x] === 1);
+
+const footprintBuildable = (m: MapDef, fp: ResourceFootprint): boolean =>
+  footprintClear(m, fp, (x, y) => m.build[y * m.w + x] === 1);
+
+const resourceFootprintClear = (m: MapDef, r: ResourceSpawn, margin: number): boolean => {
+  const fp = resourceSpawnFootprint(r);
+  return footprintWalkable(m, {
+    x0: fp.x0 - margin,
+    y0: fp.y0 - margin,
+    x1: fp.x1 + margin,
+    y1: fp.y1 + margin,
+  });
+};
+
+const clusterResourcesClear = (m: MapDef, cluster: BaseCluster): boolean => {
+  const existing = m.resources.map(resourceSpawnFootprint);
+  for (const r of cluster.resources) {
+    if (!resourceFootprintClear(m, r, 1)) return false;
+    const fp = resourceSpawnFootprint(r);
+    if (existing.some((other) => resourceFootprintsOverlap(fp, other))) return false;
+  }
+  return true;
+};
+
+const mainClusterRouteQualityValid = (m: MapDef, kind: BaseSite['kind'], cluster: BaseCluster): boolean => {
+  if (kind !== 'main') return true;
+  const probe: MapDef = {
+    ...m,
+    starts: [{ x: cluster.x, y: cluster.y }],
+    teams: [0],
+    resources: cluster.resources,
+    bases: [{
+      kind: 'main',
+      team: 0,
+      x: cluster.x,
+      y: cluster.y,
+      depotFootprint: cluster.depotFootprint,
+      reservation: cluster.reservation,
+      resourceDir: cluster.resourceDir,
+    }],
+  };
+  return mainBaseMineralRoutesValid(probe);
+};
+
+const clusterFits = (
+  m: MapDef,
+  cluster: BaseCluster,
+  blockedReservations: readonly ResourceFootprint[],
+  kind: BaseSite['kind'],
+): boolean =>
+  footprintBuildable(m, cluster.depotFootprint) &&
+  footprintWalkable(m, cluster.reservation) &&
+  blockedReservations.every((reservation) => !resourceFootprintsOverlap(cluster.reservation, reservation)) &&
+  clusterResourcesClear(m, cluster) &&
+  mainClusterRouteQualityValid(m, kind, cluster);
+
+export const selectBaseCluster = (
+  m: MapDef,
+  anchor: StartLoc,
+  dir: -1 | 1,
+  blockedReservations: readonly ResourceFootprint[] = [],
+  options: BaseClusterSelectionOptions = {},
+): BaseCluster | null => {
+  const kind = options.kind ?? 'natural';
+  const maxOffsetTiles = options.maxOffsetTiles ?? BASE_ANCHOR_RETRY_RADIUS_TILES;
+  for (const candidate of anchorCandidates(anchor, maxOffsetTiles)) {
+    let cluster: BaseCluster;
+    try {
+      cluster = solveBaseCluster(candidate, dir);
+    } catch {
+      continue;
+    }
+    if (clusterFits(m, cluster, blockedReservations, kind)) return cluster;
+  }
+  return null;
+};
+
+const stampBaseCluster = (
+  m: MapDef,
+  anchor: StartLoc,
+  dir: -1 | 1,
+  kind: BaseSite['kind'],
+  blockedReservations: ResourceFootprint[],
+): BaseCluster => {
+  const cluster = selectBaseCluster(m, anchor, dir, blockedReservations, { kind });
+  if (cluster === null) throw new Error(`generateMap: no legal ${kind} base cluster near ${anchor.x},${anchor.y}`);
+  m.resources.push(...cluster.resources);
+  blockedReservations.push(cluster.reservation);
+  return cluster;
+};
+
 const stampTeamPlateaus = (b: MapBuilder): void => {
   const m = b.map;
+  const blockedReservations: ResourceFootprint[] = [];
   const centers = Array.from({ length: b.perTeam }, (_, i) => laneCenter(i));
   const northPlateau: Rect = { x0: 0, x1: m.w - 1, y0: EDGE_PAD, y1: EDGE_PAD + PLATEAU_H - 1 };
   const southPlateau: Rect = { x0: 0, x1: m.w - 1, y0: m.h - EDGE_PAD - PLATEAU_H, y1: m.h - EDGE_PAD - 1 };
@@ -135,14 +263,14 @@ const stampTeamPlateaus = (b: MapBuilder): void => {
     const northRampY = northPlateau.y1 + 1;
     const southNatural: StartLoc = { x, y: southRampY - NATURAL_OFFSET };
     const northNatural: StartLoc = { x, y: northRampY + NATURAL_OFFSET };
-    const southCluster = addBaseResources(m, south, -1);
-    const northCluster = addBaseResources(m, north, 1);
-    const southNaturalCluster = addBaseResources(m, southNatural, -1);
-    const northNaturalCluster = addBaseResources(m, northNatural, 1);
+    const southCluster = stampBaseCluster(m, south, -1, 'main', blockedReservations);
+    const northCluster = stampBaseCluster(m, north, 1, 'main', blockedReservations);
+    const southNaturalCluster = stampBaseCluster(m, southNatural, -1, 'natural', blockedReservations);
+    const northNaturalCluster = stampBaseCluster(m, northNatural, 1, 'natural', blockedReservations);
 
-    m.starts.push(south);
+    m.starts.push({ x: southCluster.x, y: southCluster.y });
     m.teams.push(0);
-    m.starts.push(north);
+    m.starts.push({ x: northCluster.x, y: northCluster.y });
     m.teams.push(1);
 
     addBaseSite(m, 'main', 0, southCluster, i * 2, south.x, southRampY);
@@ -228,21 +356,6 @@ const reachableFrom = (m: MapDef, sx: number, sy: number): Uint8Array => {
   return seen;
 };
 
-const resourceFootprintClear = (m: MapDef, r: ResourceSpawn, margin: number): boolean => {
-  const fp = resourceSpawnFootprint(r);
-  const x0 = fp.x0 - margin;
-  const y0 = fp.y0 - margin;
-  const x1 = fp.x1 + margin;
-  const y1 = fp.y1 + margin;
-  if (x0 < 0 || y0 < 0 || x1 >= m.w || y1 >= m.h) return false;
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (m.walk[y * m.w + x] !== 1) return false;
-    }
-  }
-  return true;
-};
-
 export const mapResourcesValid = (m: MapDef): boolean => {
   const seen: ResourceFootprint[] = [];
   for (const r of m.resources) {
@@ -250,16 +363,6 @@ export const mapResourcesValid = (m: MapDef): boolean => {
     const fp = resourceSpawnFootprint(r);
     if (seen.some((other) => resourceFootprintsOverlap(fp, other))) return false;
     seen.push(fp);
-  }
-  return true;
-};
-
-const footprintWalkable = (m: MapDef, fp: ResourceFootprint): boolean => {
-  if (fp.x0 < 0 || fp.y0 < 0 || fp.x1 >= m.w || fp.y1 >= m.h) return false;
-  for (let y = fp.y0; y <= fp.y1; y++) {
-    for (let x = fp.x0; x <= fp.x1; x++) {
-      if (m.walk[y * m.w + x] !== 1) return false;
-    }
   }
   return true;
 };
@@ -274,7 +377,7 @@ export const mapBaseReservationsValid = (m: MapDef): boolean => {
     const reservation = base.reservation;
     if (depotFootprint === undefined || reservation === undefined) return false;
     if (!sameFootprint(depotFootprint, baseDepotFootprint(base))) return false;
-    if (!footprintWalkable(m, depotFootprint)) return false;
+    if (!footprintBuildable(m, depotFootprint)) return false;
     if (!footprintWalkable(m, reservation)) return false;
     if (seen.some((other) => resourceFootprintsOverlap(reservation, other))) return false;
     seen.push(reservation);
