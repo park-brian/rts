@@ -609,6 +609,8 @@ Completed:
   unlocking the templar branch while preserving the same validation-backed legality checks.
 - Zerg scripted macro now queues a legal Hydralisk Den after a completed Spawning Pool through the
   shared structure placement helper, preserving creep, prerequisite, duplicate, and budget checks.
+- Zerg scripted macro now queues a legal Spire after a completed Lair from the same ordered
+  structure path, preserving placement, prerequisite, duplicate, and gas-budget validation.
 
 Done when:
 
