@@ -12,7 +12,7 @@ import { pickPatch, isResource } from './harvest.ts';
 import { effectiveSpeed } from './status.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
-import { reaverScarabCapacity } from '../derived.ts';
+import { internalAmmoCapacity } from '../derived.ts';
 import { resolveRallyEndpoint } from '../rally.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
@@ -110,11 +110,12 @@ const larvae = (s: State): void => {
 
 const finishInternalAmmo = (s: State, producer: number, kind: number): boolean => {
   const e = s.e;
-  if (e.kind[producer] !== Kind.Reaver || kind !== Kind.Scarab) return false;
-  e.specialAmmo[producer] = Math.min(reaverScarabCapacity(s, producer), e.specialAmmo[producer]! + 1);
+  const capacity = internalAmmoCapacity(s, producer, kind);
+  if (capacity <= 0) return false;
+  e.specialAmmo[producer] = Math.min(capacity, e.specialAmmo[producer]! + 1);
   if (e.prodQueued[producer]! > 0) {
     e.prodQueued[producer] = e.prodQueued[producer]! - 1;
-    e.prodTimer[producer] = Units[Kind.Scarab]!.buildTime;
+    e.prodTimer[producer] = Units[kind]!.buildTime;
   } else {
     e.prodKind[producer] = Kind.None;
     e.prodTimer[producer] = 0;

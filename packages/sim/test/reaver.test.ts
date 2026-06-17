@@ -4,10 +4,13 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, slotOf } from '../src/world.ts';
-import { Kind, REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, Units } from '../src/data.ts';
+import {
+  CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
+  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, Units,
+} from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
-import { reaverScarabCapacity } from '../src/derived.ts';
+import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 601 });
@@ -88,6 +91,50 @@ test('reaver scarab capacity gates queued internal ammo', () => {
 
   setTechLevel(s, 0, Tech.ReaverCapacity, 1);
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, r), kind: Kind.Scarab }] }]), [
+    { player: 0, index: 0, t: 'train', ok: true },
+  ]);
+});
+
+test('carriers build interceptors as internal ammo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 605 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const c = slotOf(carrier);
+  s.players.minerals[0] = 100;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: carrier, kind: Kind.Interceptor }] }]), [
+    { player: 0, index: 0, t: 'train', ok: true },
+  ]);
+  assert.equal(s.players.minerals[0], 100 - Units[Kind.Interceptor]!.minerals);
+  assert.equal(e.prodKind[c], Kind.Interceptor);
+
+  for (let t = 0; t < Units[Kind.Interceptor]!.buildTime; t++) sim.step([]);
+
+  assert.equal(e.specialAmmo[c], 1);
+  assert.equal(e.prodKind[c], Kind.None);
+});
+
+test('carrier capacity upgrade gates queued interceptors', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 606 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const c = slotOf(carrier);
+  s.players.minerals[0] = 1_000;
+  e.specialAmmo[c] = CARRIER_INTERCEPTOR_CAPACITY - 1;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [
+    { t: 'train', building: eid(e, c), kind: Kind.Interceptor },
+    { t: 'train', building: eid(e, c), kind: Kind.Interceptor },
+  ] }]), [
+    { player: 0, index: 0, t: 'train', ok: true },
+    { player: 0, index: 1, t: 'train', ok: false, reason: 'queue-full' },
+  ]);
+
+  setTechLevel(s, 0, Tech.CarrierCapacity, 1);
+  assert.equal(carrierInterceptorCapacity(s, c), CARRIER_INTERCEPTOR_UPGRADED_CAPACITY);
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, c), kind: Kind.Interceptor }] }]), [
     { player: 0, index: 0, t: 'train', ok: true },
   ]);
 });

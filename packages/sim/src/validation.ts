@@ -20,7 +20,7 @@ import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost 
 import { isDisabled } from './systems/status.ts';
 import { commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
-import { reaverScarabCapacity } from './derived.ts';
+import { internalAmmoCapacity } from './derived.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
 import {
@@ -257,7 +257,8 @@ export const validateCommand = (
       if (!def || !building || !building.produces.includes(c.kind)) return reject('target-not-allowed');
       if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
       const queued = e.prodKind[slot] === Kind.None ? 0 : 1 + e.prodQueued[slot]!;
-      if (e.kind[slot] === Kind.Reaver && c.kind === Kind.Scarab && e.specialAmmo[slot]! + queued >= reaverScarabCapacity(s, slot)) {
+      const internalCapacity = internalAmmoCapacity(s, slot, c.kind);
+      if (internalCapacity > 0 && e.specialAmmo[slot]! + queued >= internalCapacity) {
         return reject('queue-full');
       }
       if (queued >= MAX_QUEUE) return reject('queue-full');

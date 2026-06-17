@@ -909,9 +909,9 @@ export const Units: Record<number, UnitDef> = {
     weapon: W(8, DamageType.Normal, 30, 4), airWeapon: W(14, DamageType.Explosive, 22, 4, 2),
   }),
   [Kind.Carrier]: protoss('carrier', {
-    name: 'Carrier', ...air(32), size: Size.Large,
+    name: 'Carrier', ...air(32), roles: Role.Mobile | Role.Air | Role.Producer, size: Size.Large,
     hp: 300, shields: 150, armor: 4, sight: 11, speed: fx(2), minerals: 350, gas: 250, supply: supply(6), buildTime: sec(86.4),
-    requires: [Kind.FleetBeacon], notes: ['interceptor-launch-not-implemented'],
+    produces: [Kind.Interceptor], requires: [Kind.FleetBeacon], notes: ['interceptor-launch-not-implemented'],
   }),
   [Kind.Interceptor]: protoss('interceptor', {
     name: 'Interceptor', ...air(8), size: Size.Small,
@@ -1271,6 +1271,8 @@ export const MAX_QUEUE = 5;
 export const SPIDER_MINE_CHARGES = 3;
 export const REAVER_SCARAB_CAPACITY = 5;
 export const REAVER_SCARAB_UPGRADED_CAPACITY = 10;
+export const CARRIER_INTERCEPTOR_CAPACITY = 4;
+export const CARRIER_INTERCEPTOR_UPGRADED_CAPACITY = 8;
 export const SUPPLY_CAP = 200 * SUPPLY_SCALE;
 export const PATCH_AMOUNT = 1500;
 export const GAS_AMOUNT = 5000; // gas a refinery-style structure yields once built

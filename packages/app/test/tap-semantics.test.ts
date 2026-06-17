@@ -523,3 +523,13 @@ test('group-selected templars queue paired merge commands', () => {
     { t: 'transform', unit: c, kind: Kind.Archon, target: d },
   ]);
 });
+
+test('selected carriers publish interceptor build commands', () => {
+  const g = freshGame();
+  const carrier = spawnUnit(g.sim.fullState(), Kind.Carrier, 0, fx(400), fx(400));
+  select(g, [carrier]);
+
+  g.fastForward(0);
+
+  assert.ok(ui.selTrainKinds.value.includes(Kind.Interceptor));
+});

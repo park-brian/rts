@@ -135,6 +135,8 @@ Completed:
   opacity while keeping selection and health affordances readable.
 - Worker build and repair activity now renders localized sparks in both the GL renderer and the
   Math renderer, derived from existing worker orders and target state without adding sim state.
+- Carriers can now build Interceptors as internal ammo through the shared producer queue, with
+  base and Carrier Capacity-upgraded limits enforced by shared validation.
 
 Remaining:
 
@@ -487,13 +489,11 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
   - More exact Reaver scarab projectile travel/pathing/falloff/presentation.
-  - Carrier interceptor build queue, launch/return/leash behavior, interceptor targeting, and
-    Carrier Capacity.
+  - Carrier interceptor launch/return/leash behavior and interceptor targeting.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
 - Upgrade fidelity:
-  - Carrier Capacity, Overlord capacity interactions, and exact Adrenal Glands attack-speed
-    behavior.
+  - Overlord capacity interactions and exact Adrenal Glands attack-speed behavior.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
   - Terrain elevation, high-ground vision, and deterministic low-to-high miss chance.

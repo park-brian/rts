@@ -1,5 +1,7 @@
 import {
-  Kind, REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Role, Tech, Units, tiles, unitTraits, Trait, type Weapon,
+  CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
+  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Role, Tech, Units, tiles,
+  unitTraits, Trait, type Weapon,
 } from './data.ts';
 import type { State } from './world.ts';
 import { getTechLevel } from './tech.ts';
@@ -109,3 +111,13 @@ export const upgradedEnergyMax = (s: State, slot: number, baseMax: number): numb
 
 export const reaverScarabCapacity = (s: State, slot: number): number =>
   level(s, s.e.owner[slot]!, Tech.ReaverCapacity) > 0 ? REAVER_SCARAB_UPGRADED_CAPACITY : REAVER_SCARAB_CAPACITY;
+
+export const carrierInterceptorCapacity = (s: State, slot: number): number =>
+  level(s, s.e.owner[slot]!, Tech.CarrierCapacity) > 0 ? CARRIER_INTERCEPTOR_UPGRADED_CAPACITY : CARRIER_INTERCEPTOR_CAPACITY;
+
+export const internalAmmoCapacity = (s: State, producer: number, kind: number): number => {
+  const producerKind = s.e.kind[producer]!;
+  if (producerKind === Kind.Reaver && kind === Kind.Scarab) return reaverScarabCapacity(s, producer);
+  if (producerKind === Kind.Carrier && kind === Kind.Interceptor) return carrierInterceptorCapacity(s, producer);
+  return 0;
+};
