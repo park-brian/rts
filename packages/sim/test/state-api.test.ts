@@ -63,6 +63,39 @@ test('observe returns active own queues without leaking enemy queues', () => {
   assert.equal(sim.observe(0).queues[0]!.prodKind, Kind.Marine, 'mutating observation queue does not mutate sim queue');
 });
 
+test('observe returns usable own cargo without leaking enemy cargo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 3, seed: 210, vision: true });
+  const s = sim.fullState();
+  s.teams[1] = s.teams[0]!;
+  const e = s.e;
+  const bunker = slotOf(spawnUnit(s, Kind.Bunker, 0, fx(700), fx(700)));
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(710), fx(700)));
+  const allyNydus = slotOf(spawnUnit(s, Kind.NydusCanal, 1, fx(740), fx(700)));
+  const drone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(750), fx(700)));
+  const enemyBunker = slotOf(spawnUnit(s, Kind.Bunker, 2, fx(780), fx(700)));
+  const enemyMarine = slotOf(spawnUnit(s, Kind.Marine, 2, fx(790), fx(700)));
+  e.container[marine] = eid(e, bunker);
+  e.container[drone] = eid(e, allyNydus);
+  e.container[enemyMarine] = eid(e, enemyBunker);
+
+  const obs = sim.observe(0);
+  assert.deepEqual(obs.cargo, [
+    { container: eid(e, bunker), units: [eid(e, marine)] },
+    { container: eid(e, allyNydus), units: [eid(e, drone)] },
+  ]);
+
+  const cargoUnits: number[] = obs.cargo[0]!.units;
+  cargoUnits.push(eid(e, enemyMarine));
+  assert.deepEqual(
+    sim.observe(0).cargo,
+    [
+      { container: eid(e, bunker), units: [eid(e, marine)] },
+      { container: eid(e, allyNydus), units: [eid(e, drone)] },
+    ],
+    'mutating observation cargo does not mutate sim cargo'
+  );
+});
+
 test('byte serialization preserves vision tracking and fog memory', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 203, vision: true });
   for (let t = 0; t < 10; t++) sim.step([]);

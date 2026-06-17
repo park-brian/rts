@@ -551,7 +551,7 @@ Remaining:
 
 ## Phase 8: AI And RL Interface Completion
 
-Status: planned.
+Status: partial.
 
 Purpose: keep the game useful as a training environment while the ruleset grows.
 
@@ -571,6 +571,9 @@ Completed:
   levels, keeping RL policy inputs sim-owned while avoiding enemy tech leakage.
 - `observe()` now exposes compact own-player active production/research queue records derived
   from owned producers, giving RL clients queue intent without leaking enemy queues or aliasing
+  mutable sim state.
+- `observe()` now exposes compact own-player cargo records grouped by usable transport/garrison
+  (including same-team Nydus), giving RL clients load state without leaking enemy cargo or aliasing
   mutable sim state.
 
 Done when:
@@ -593,7 +596,7 @@ approximated, or absent. Keep this list honest as mechanics land.
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
-  - Observation/action-mask planes for effects, statuses, cargo, larva, creep, and power.
+  - Observation/action-mask planes for effects, statuses, larva, creep, and power.
 - Macro/tech tree:
   - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
     Protoss power-aware expansions.
