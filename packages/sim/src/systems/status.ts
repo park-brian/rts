@@ -1,6 +1,6 @@
 import type { Entities } from '../world.ts';
 import type { State } from '../world.ts';
-import { upgradedSight, upgradedSpeed } from '../derived.ts';
+import { upgradedCooldown, upgradedSight, upgradedSpeed } from '../derived.ts';
 import { Units, sec } from '../data.ts';
 
 export const isDisabled = (e: Entities, slot: number): boolean =>
@@ -18,8 +18,10 @@ export const effectiveSpeed = (s: State, e: Entities, slot: number, baseSpeed: n
   return Math.max(1, Math.trunc(boosted * (e.ensnareTimer[slot]! > 0 ? 50 : 100) / 100));
 };
 
-export const effectiveCooldown = (e: Entities, slot: number, baseCooldown: number): number =>
-  e.stimTimer[slot]! > 0 ? Math.max(1, Math.trunc((baseCooldown * 2) / 3)) : baseCooldown;
+export const effectiveCooldown = (s: State, e: Entities, slot: number, baseCooldown: number): number => {
+  const cooldown = upgradedCooldown(s, slot, baseCooldown);
+  return e.stimTimer[slot]! > 0 ? Math.max(1, Math.trunc((cooldown * 2) / 3)) : cooldown;
+};
 
 const tick = (a: Int32Array, i: number): void => {
   if (a[i]! > 0) a[i] = a[i]! - 1;

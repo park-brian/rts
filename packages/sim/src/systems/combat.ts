@@ -168,7 +168,7 @@ const bunkerFire = (s: State, bunker: number, target: number): void => {
     if (!withinEdgeRange(s, bunker, target, range)) continue;
     if ((e.flags[target]! & Role.Air) === 0 && coveredByEffect(s, target, EffectKind.DarkSwarm) && range > tiles(2)) continue;
     if (e.illusion[i] !== 1) applyWeaponHit(s, target, weapon, i);
-    e.wcd[i] = effectiveCooldown(e, i, weapon.cooldown);
+    e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
   }
 };
 
@@ -253,7 +253,7 @@ export const combat = (s: State, grid: Grid): void => {
           }
           if (isSuicideAttacker(e.kind[i]!) && e.alive[i] === 1) kill(s, i);
         }
-        e.wcd[i] = effectiveCooldown(e, i, weapon.cooldown);
+        e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
       }
     } else {
       navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed)); // approach

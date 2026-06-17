@@ -219,8 +219,7 @@ Implementation:
 - Speed upgrades: Stim already exists; add Ion, Leg Enhancements, Hydralisk, Overlord, Shuttle,
   Observer, Scout, Ultralisk, and relevant Zergling upgrades.
 - Caster energy upgrades: raise max energy to 250 and preserve current energy.
-- Capacity upgrades: Reaver scarabs, Reaver capacity, Overlord transport, and Carrier
-  Interceptors.
+- Capacity upgrades: Reaver scarabs, Reaver capacity, and Carrier Interceptors.
 
 Done when:
 
@@ -244,11 +243,11 @@ Completed:
   caps at spawn.
 - Added focused upgrade tests for damage, armor, shield overflow, range, speed, sight/detection,
   and energy-cap behavior.
+- Adrenal Glands now feeds exact Zergling attack cooldown through the shared cooldown derivation.
 
 Remaining:
 
-- Capacity/ammo upgrades: Overlord transport.
-- Attack-speed upgrade fidelity beyond Stim, especially Adrenal Glands.
+- Attack-speed upgrade fidelity beyond Stim for any remaining non-Zergling cases.
 - More exact per-weapon upgrade increments for multi-hit weapons and special attacks.
 - Broader all-race matrix tests once unit-specific combat mechanics are in place.
 
@@ -496,7 +495,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
 - Upgrade fidelity:
-  - Overlord capacity interactions and exact Adrenal Glands attack-speed behavior.
+  - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
   - Terrain elevation, high-ground vision, and deterministic low-to-high miss chance.

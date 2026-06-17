@@ -79,6 +79,12 @@ export const upgradedSpeed = (s: State, slot: number, baseSpeed: number): number
   }
 };
 
+export const upgradedCooldown = (s: State, slot: number, baseCooldown: number): number => {
+  const owner = s.e.owner[slot]!;
+  if (s.e.kind[slot] === Kind.Zergling && level(s, owner, Tech.AdrenalGlands) > 0) return 6;
+  return baseCooldown;
+};
+
 export const upgradedSight = (s: State, slot: number, baseSight: number): number => {
   const owner = s.e.owner[slot]!;
   switch (s.e.kind[slot]!) {
