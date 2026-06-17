@@ -2,11 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
-import { eid, kill, slotOf } from '../src/world.ts';
+import { eid, kill, slotOf, spawnEffect } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Ability, Kind, Tech } from '../src/data.ts';
+import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
+
+const tileCenter = (w: number, idx: number): { x: number; y: number } => {
+  const tx = idx % w;
+  const ty = Math.floor(idx / w);
+  return { x: fx((tx + 0.5) * TILE), y: fx((ty + 0.5) * TILE) };
+};
 
 test('observe requires vision tracking and returns a defensive vision copy', () => {
   const noVision = new Sim({ map: sliceMap(), players: 1, seed: 201 });
@@ -142,6 +148,48 @@ test('observe returns sparse own energy and status records without leaking enemy
     sim.observe(0).statuses.find((v) => v.id === eid(e, medic))!.energy,
     77,
     'mutating observation status does not mutate sim status'
+  );
+});
+
+test('observe returns fair-play active effects without leaking hidden enemy effects', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 212, vision: true });
+  const s = sim.fullState();
+  const vision = s.vision[0]!;
+  const visibleIdx = vision.findIndex((v) => v === 2);
+  const hiddenIdx = vision.findIndex((v) => v === 0);
+  assert.notEqual(visibleIdx, -1);
+  assert.notEqual(hiddenIdx, -1);
+  const exploredIdx = hiddenIdx;
+  vision[exploredIdx] = 1;
+  const visible = tileCenter(s.map.w, visibleIdx);
+  const explored = tileCenter(s.map.w, exploredIdx);
+  const hidden = tileCenter(s.map.w, vision.findIndex((v) => v === 0));
+
+  const ownStorm = spawnEffect(s, EffectKind.PsionicStorm, 0, hidden.x, hidden.y, fx(48), 10, 2, 14);
+  const visibleSwarm = spawnEffect(s, EffectKind.DarkSwarm, 1, visible.x, visible.y, fx(32), 20, 0, 0);
+  const hiddenWeb = spawnEffect(s, EffectKind.DisruptionWeb, 1, hidden.x, hidden.y, fx(32), 30, 0, 0);
+  const exploredScan = spawnEffect(s, EffectKind.ScannerSweep, 1, explored.x, explored.y, fx(64), 40, 0, 0);
+  const exploredNuke = spawnEffect(s, EffectKind.NuclearStrike, 1, explored.x, explored.y, fx(96), 50, 0, 500);
+
+  const obs = sim.observe(0);
+  const effectIds = new Set(obs.effects.map((v) => v.id));
+  assert.equal(effectIds.has(ownStorm), true, 'own effects are known even off-screen');
+  assert.equal(effectIds.has(visibleSwarm), true, 'visible enemy spatial effects are observable');
+  assert.equal(effectIds.has(exploredNuke), true, 'nuke warnings remain observable on explored ground');
+  assert.equal(effectIds.has(hiddenWeb), false, 'hidden enemy spatial effects are not leaked');
+  assert.equal(effectIds.has(exploredScan), false, 'enemy scanner sweep requires current visibility');
+
+  const nuke = obs.effects.find((v) => v.id === exploredNuke)!;
+  assert.equal(nuke.kind, EffectKind.NuclearStrike);
+  assert.equal(nuke.owner, 1);
+  assert.equal(nuke.timer, 50);
+  assert.equal(nuke.damage, 500);
+
+  nuke.timer = 0;
+  assert.equal(
+    sim.observe(0).effects.find((v) => v.id === exploredNuke)!.timer,
+    50,
+    'mutating observation effect does not mutate sim effect'
   );
 });
 

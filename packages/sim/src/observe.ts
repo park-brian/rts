@@ -5,7 +5,7 @@
 
 import type { State } from './world.ts';
 import { eid, isAlive, NEUTRAL, NONE, slotOf } from './world.ts';
-import { Kind, TECH_CAP, Units, TILE } from './data.ts';
+import { EffectKind, Kind, TECH_CAP, Units, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';
 import { isContained, sameTeam } from './cargo.ts';
@@ -54,6 +54,19 @@ export type StatusView = {
   burrowed: number;
 };
 
+export type EffectView = {
+  id: number;
+  kind: number;
+  owner: number;
+  x: number;
+  y: number;
+  radius: number;
+  timer: number;
+  period: number;
+  nextTick: number;
+  damage: number;
+};
+
 export type Observation = {
   tick: number;
   player: number;
@@ -65,6 +78,7 @@ export type Observation = {
   queues: QueueView[]; // own active production/research queues
   cargo: CargoView[]; // own contained units grouped by usable transport/garrison
   statuses: StatusView[]; // sparse own energy/status records
+  effects: EffectView[]; // fair-play active spatial effects
   vision: Uint8Array; // 0 unseen, 1 explored, 2 visible (per tile)
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
@@ -115,6 +129,34 @@ const statusView = (e: State['e'], i: number): StatusView => ({
   burrowed: e.burrowed[i]!,
 });
 
+const effectVisibility = (s: State, player: number, i: number): number => {
+  const fx = s.effects;
+  if (fx.owner[i] === player) return 2;
+  const tx = Math.floor(fx.x[i]! / ONE / TILE);
+  const ty = Math.floor(fx.y[i]! / ONE / TILE);
+  const visible = tx >= 0 && ty >= 0 && tx < s.map.w && ty < s.map.h
+    ? s.vision[player]![ty * s.map.w + tx]!
+    : 0;
+  if (fx.kind[i] === EffectKind.NuclearStrike) return visible;
+  return visible === 2 ? 2 : 0;
+};
+
+const effectView = (s: State, i: number): EffectView => {
+  const fx = s.effects;
+  return {
+    id: i,
+    kind: fx.kind[i]!,
+    owner: fx.owner[i]!,
+    x: fx.x[i]!,
+    y: fx.y[i]!,
+    radius: fx.radius[i]!,
+    timer: fx.timer[i]!,
+    period: fx.period[i]!,
+    nextTick: fx.nextTick[i]!,
+    damage: fx.damage[i]!,
+  };
+};
+
 export const observe = (s: State, player: number): Observation => {
   if (!s.trackVision) throw new Error('observe: vision tracking is disabled for this State');
   const e = s.e; const m = s.map; const W = m.w;
@@ -122,7 +164,11 @@ export const observe = (s: State, player: number): Observation => {
   const entities: EntityView[] = [];
   const queues: QueueView[] = [];
   const statuses: StatusView[] = [];
+  const effects: EffectView[] = [];
   const cargoByContainer = new Map<number, number[]>();
+  for (let i = 0; i < s.effects.hi; i++) {
+    if (s.effects.alive[i] === 1 && effectVisibility(s, player, i) > 0) effects.push(effectView(s, i));
+  }
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
     const own = e.owner[i] === player;
@@ -174,6 +220,7 @@ export const observe = (s: State, player: number): Observation => {
     queues,
     cargo: [...cargoByContainer].map(([container, units]) => ({ container, units })),
     statuses,
+    effects,
     vision: v.slice(),
     entities,
   };

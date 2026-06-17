@@ -578,6 +578,9 @@ Completed:
 - `observe()` now exposes sparse own-player energy/status records for casters and active status
   effects, giving AI/RL clients tactical cooldown/disable/cloak state without leaking enemy status
   or aliasing mutable sim state.
+- `observe()` now exposes fair-play active spatial effect records for spell fields and nuke
+  warnings, using sim-side visibility rules without leaking hidden enemy effects or aliasing mutable
+  effect state.
 
 Done when:
 
@@ -599,7 +602,7 @@ approximated, or absent. Keep this list honest as mechanics land.
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
-  - Observation/action-mask planes for effects, larva, creep, and power.
+  - Observation/action-mask planes for larva, creep, and power.
 - Macro/tech tree:
   - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
     Protoss power-aware expansions.
