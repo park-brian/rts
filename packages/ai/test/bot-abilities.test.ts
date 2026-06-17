@@ -1996,6 +1996,78 @@ const readyProtossResearchScenario = (
   return { sim, producer, pylon };
 };
 
+const readyZergResearchScenario = (seed: number): { sim: Sim; producer: number } => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.Hatchery, 0));
+  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  const producer = spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  return { sim, producer };
+};
+
+test('zerg bot researches lurker aspect from a completed hydralisk den', () => {
+  const { sim } = readyZergResearchScenario(506);
+  const s = sim.fullState();
+
+  const cmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(s, 0);
+  const research = findResearch(cmds, Tech.LurkerAspect);
+
+  assert.ok(research);
+  assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+});
+
+test('zerg bot respects lurker aspect producer, duplicate, queue, and budget gates', () => {
+  const bot = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 });
+
+  const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: 507, factions: [Zerg, Terran] });
+  const missingState = missingProducer.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(bot(missingState, 0), Tech.LurkerAspect), false);
+
+  const incomplete = readyZergResearchScenario(508);
+  const incompleteState = incomplete.sim.fullState();
+  incompleteState.e.built[slotOf(incomplete.producer)] = 0;
+
+  assert.equal(hasResearch(bot(incompleteState, 0), Tech.LurkerAspect), false);
+
+  const completed = readyZergResearchScenario(509);
+  grant(completed.sim, 0, Tech.LurkerAspect);
+
+  assert.equal(hasResearch(bot(completed.sim.fullState(), 0), Tech.LurkerAspect), false);
+
+  const inProgress = readyZergResearchScenario(510);
+  const inProgressState = inProgress.sim.fullState();
+  inProgressState.e.researchKind[slotOf(inProgress.producer)] = Tech.LurkerAspect;
+  inProgressState.e.researchTimer[slotOf(inProgress.producer)] = 10;
+
+  assert.equal(hasResearch(bot(inProgressState, 0), Tech.LurkerAspect), false);
+
+  const busy = readyZergResearchScenario(511);
+  const busyState = busy.sim.fullState();
+  busyState.e.researchKind[slotOf(busy.producer)] = Tech.GroovedSpines;
+  busyState.e.researchTimer[slotOf(busy.producer)] = 10;
+
+  assert.equal(hasResearch(bot(busyState, 0), Tech.LurkerAspect), false);
+
+  const broke = readyZergResearchScenario(512);
+  const brokeState = broke.sim.fullState();
+  brokeState.players.minerals[0] = TechDefs[Tech.LurkerAspect]!.minerals[0]! - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(hasResearch(bot(brokeState, 0), Tech.LurkerAspect), false);
+
+  const gasBroke = readyZergResearchScenario(513);
+  const gasBrokeState = gasBroke.sim.fullState();
+  gasBrokeState.players.minerals[0] = 1_000;
+  gasBrokeState.players.gas[0] = TechDefs[Tech.LurkerAspect]!.gas[0]! - 1;
+
+  assert.equal(hasResearch(bot(gasBrokeState, 0), Tech.LurkerAspect), false);
+});
+
 const testProtossResearchMacro = ({
   label,
   tech,

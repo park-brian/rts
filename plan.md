@@ -172,6 +172,12 @@ Completed:
   sections, keeps mobile and desktop panels fixed-height, and uses horizontal capacity instead of
   adding modal drill-down.
 - The screenshot harness now captures crowded mobile and desktop command-card reference states.
+- Desktop edge panning now uses the visible viewport edges instead of stale canvas-local bounds,
+  desktop middle-button drag pans the camera, control-scheme changes resize the playfield, and
+  the game canvas is explicitly sized between reserved top and bottom chrome.
+- GL and Math renderers now draw selected bases from authoritative gameplay unit radius and
+  building/resource footprint metadata, so the fallback renderer remains the exact footprint
+  reference instead of following sprite art bounds.
 
 Remaining:
 
@@ -662,6 +668,9 @@ Completed:
 - Zerg scripted macro now extends an existing completed Nydus network to later attack fronts when
   the current focus lacks a useful endpoint, still using shared placement validation and suppressing
   duplicate or already-pending endpoint builds.
+- Zerg scripted macro now queues Lurker Aspect research from completed Hydralisk Dens through the
+  shared research validation path, respecting producer completion, duplicate/in-progress research,
+  busy queues, and mineral/gas budget gates.
 
 Done when:
 
@@ -684,8 +693,8 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
 - Macro/tech tree:
-  - AI macro should use real race tech paths, including Protoss power-aware expansions beyond
-    Gateway.
+  - AI macro should continue filling race tech paths with validator-backed research/upgrade
+    choices after the existing Protoss powered expansion and Zerg structure progression work.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
 - Rendering/assets:

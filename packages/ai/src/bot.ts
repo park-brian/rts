@@ -43,6 +43,7 @@ const ZERG_STRUCTURE_MACRO = [
   Kind.DefilerMound,
   Kind.UltraliskCavern,
 ] as const;
+const ZERG_RESEARCH_MACRO = [Tech.LurkerAspect] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
   { from: Kind.Lair, to: Kind.Hive, satisfiedBy: [Kind.Hive] },
@@ -294,6 +295,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     if (faction.name === 'Protoss') {
       maybeQueueProtossResearch(s, p, cmds, budget);
       minerals = budget.minerals;
+    } else if (faction.name === 'Zerg') {
+      maybeQueueZergResearch(s, p, cmds, budget);
+      minerals = budget.minerals;
     }
 
     // 4) Pump army from the faction's real producer.
@@ -385,6 +389,17 @@ const maybeQueueProtossResearch = (
   budget: ResourceBudget,
 ): void => {
   for (const tech of PROTOSS_RESEARCH_MACRO) {
+    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
+  }
+};
+
+const maybeQueueZergResearch = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+): void => {
+  for (const tech of ZERG_RESEARCH_MACRO) {
     if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
   }
 };
