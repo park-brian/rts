@@ -13,6 +13,7 @@ import { abilities } from './systems/abilities.ts';
 import { repair } from './systems/repair.ts';
 import { mines } from './systems/mines.ts';
 import { combat } from './systems/combat.ts';
+import { scarabs } from './systems/scarabs.ts';
 import { interceptors } from './systems/interceptors.ts';
 import { movement } from './systems/movement.ts';
 import { cargo } from './systems/cargo.ts';
@@ -38,6 +39,7 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] =>
   const grid = buildGrid(s); // spatial index for target acquisition + collision
   mines(s);
   combat(s, grid);
+  scarabs(s);
   interceptors(s);
   movement(s);
   cargo(s);

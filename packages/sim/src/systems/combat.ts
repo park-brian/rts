@@ -20,8 +20,8 @@ import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { edgeDistanceSq, withinEdgeRange } from '../spatial.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
-import { isLowGroundAttackingHigh } from '../terrain.ts';
-import { range } from '../rng.ts';
+import { applyWeaponHit } from './weapon-hit.ts';
+import { launchScarab } from './scarabs.ts';
 
 const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = ax - bx;
@@ -31,11 +31,6 @@ const distSq = (ax: number, ay: number, bx: number, by: number): number => {
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && edgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
-
-const LOW_TO_HIGH_MISS_PERCENT = 53;
-
-const missesLowToHigh = (s: State, attacker: number, target: number): boolean =>
-  isLowGroundAttackingHigh(s, attacker, target) && range(s.rng, 100) < LOW_TO_HIGH_MISS_PERCENT;
 
 const isSuicideAttacker = (kind: number): boolean =>
   kind === Kind.Scourge || kind === Kind.InfestedTerran || kind === Kind.SpiderMine;
@@ -88,23 +83,6 @@ const applyMutaliskBounce = (s: State, attacker: number, first: number, weapon: 
   applyWeaponDamage(s, second, bounceWeapon(weapon, Math.max(1, Math.trunc(weapon.damage / 3))), attacker);
   const third = nearestBounceTarget(s, owner, second, first, second, range);
   if (third !== NONE) applyWeaponDamage(s, third, bounceWeapon(weapon, Math.max(1, Math.trunc(weapon.damage / 9))), attacker);
-};
-
-const applyWeaponHit = (s: State, target: number, weapon: Weapon, attacker: number): boolean => {
-  if (missesLowToHigh(s, attacker, target)) return false;
-  applyWeaponDamage(s, target, weapon, attacker);
-  if (weapon.splashRadius === undefined || weapon.splashRadius <= 0) return true;
-  const e = s.e;
-  const x = e.x[target]!;
-  const y = e.y[target]!;
-  const r2 = weapon.splashRadius * weapon.splashRadius;
-  const targetIsAir = (e.flags[target]! & Role.Air) !== 0;
-  for (let i = 0; i < e.hi; i++) {
-    if (i === target || e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Resource) !== 0) continue;
-    if (((e.flags[i]! & Role.Air) !== 0) !== targetIsAir) continue;
-    if (distSq(e.x[i]!, e.y[i]!, x, y) <= r2) applyWeaponDamage(s, i, weapon, attacker);
-  }
-  return true;
 };
 
 const distSqToSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
@@ -188,13 +166,14 @@ export const combat = (s: State, grid: Grid): void => {
   }
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || isContained(s, i)) continue;
+    if (e.kind[i] === Kind.Scarab) continue;
     const def = Units[e.kind[i]!];
     const isBunker = e.kind[i] === Kind.Bunker;
     const isCarrier = e.kind[i] === Kind.Carrier;
     if (!def || (!hasAnyWeapon(def) && !isBunker && !isCarrier)) continue;
+    if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
     if (!isBunker && !isCarrier && !hasSpecialWeaponAmmo(s, i)) continue;
     if (!isBunker && !canUseWeaponNow(s, i)) continue;
-    if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
     if (isDisabled(e, i)) continue;
     if (!isPowered(s, i)) continue;
     if ((e.flags[i]! & Role.Air) === 0 && coveredByEffect(s, i, EffectKind.DisruptionWeb)) continue;
@@ -254,7 +233,9 @@ export const combat = (s: State, grid: Grid): void => {
       if (e.wcd[i]! <= 0) {
         if ((e.flags[tgt]! & Role.Air) !== 0 || !coveredByEffect(s, tgt, EffectKind.DarkSwarm) || range <= tiles(2)) {
           if (e.illusion[i] !== 1) {
-            const hit = applyWeaponHit(s, tgt, weapon, i);
+            let hit = true;
+            if (e.kind[i] === Kind.Reaver) launchScarab(s, i, tgt);
+            else hit = applyWeaponHit(s, tgt, weapon, i);
             consumeSpecialWeaponAmmo(s, i);
             if (hit) {
               if (e.kind[i] === Kind.Lurker) applyLurkerLineSplash(s, i, tgt, weapon);

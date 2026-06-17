@@ -890,7 +890,7 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.Scarab]: protoss('scarab', {
     name: 'Scarab', ...mobile(3), size: Size.Small,
-    hp: 1, minerals: 15, buildTime: sec(4), weapon: W(100, DamageType.Normal, 1, 0.5),
+    hp: 1, minerals: 15, buildTime: sec(4), speed: fx(4), weapon: W(100, DamageType.Normal, 1, 0.5),
     buildMethod: 'internal',
   }),
   [Kind.Observer]: protoss('observer', {

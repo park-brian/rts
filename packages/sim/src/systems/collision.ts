@@ -4,8 +4,9 @@
 // apply) so pushes are symmetric and order-independent; integer math, clamped to
 // walkable tiles. Deterministic.
 //
-// Scope: Mobile, non-Structure units that are neither Workers nor Air. Workers are
-// excluded so mineral bunching/mining ranges work; Air units fly over everything.
+// Scope: Mobile, non-Structure units that are neither Workers, Air, nor projectile
+// actors. Workers are excluded so mineral bunching/mining ranges work; Air units
+// fly over everything.
 //
 // Performance: collision uses its OWN one-tile grid (not the coarse combat grid).
 // The interaction radius (≈ sum of two unit radii) is well under a tile, so a 3×3
@@ -16,7 +17,7 @@
 
 import type { State } from '../world.ts';
 import { CAP } from '../world.ts';
-import { Role, Units, TILE } from '../data.ts';
+import { Kind, Role, Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { navSolid, open } from '../flow.ts';
 import { isContained } from '../cargo.ts';
@@ -32,7 +33,8 @@ const list = new Int32Array(CAP); // solid slots this tick (reused)
 const next = new Int32Array(CAP); // intrusive linked list within a grid cell
 let head = new Int32Array(0); // one cell per tile; grown to the largest map seen
 
-const isSolid = (fl: number): boolean =>
+const isSolid = (kind: number, fl: number): boolean =>
+  kind !== Kind.Scarab &&
   (fl & Role.Mobile) !== 0 && (fl & Role.Structure) === 0 &&
   (fl & Role.Worker) === 0 && (fl & Role.Air) === 0;
 
@@ -44,7 +46,7 @@ export const collide = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     ndx[i] = 0; ndy[i] = 0;
     anchored[i] = isPathingAnchor(s, i) ? 1 : 0;
-    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isSolid(e.flags[i]!)) list[nl++] = i;
+    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isSolid(e.kind[i]!, e.flags[i]!)) list[nl++] = i;
   }
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
 

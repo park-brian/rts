@@ -467,13 +467,15 @@ Completed:
 - Added Reaver scarabs as internal ammo built through the shared train/production queue: Reaver
   attacks require and consume scarabs, Reaver Capacity raises the ammo cap, Scarab Damage feeds
   the derived weapon bonus, and scarab splash uses the existing weapon splash metadata.
+- Reaver attacks now launch deterministic Scarab child actors with serialized home/target links:
+  Scarabs path to ground targets through shared movement, resolve existing splash/damage rules on
+  impact, and dud cleanly if the Reaver or target becomes invalid before impact.
 - Added Carrier Interceptors as launched child combat actors with a serialized home link, attack
   sortie, target orbit, leash/return behavior, ammo restoration, and idle target acquisition.
 
 Remaining:
 
-- More exact Reaver scarab projectile travel/pathing/falloff/presentation on top of the
-  contained-unit primitive.
+- More exact Reaver scarab falloff/presentation on top of the projectile primitive.
 - More exact Carrier Interceptor launch/dock presentation and any remaining Brood War movement
   fidelity on top of the launched-child primitive.
 - More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
@@ -546,7 +548,7 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
-  - More exact Reaver scarab projectile travel/pathing/falloff/presentation.
+  - More exact Reaver scarab falloff/presentation.
   - More exact Carrier Interceptor launch/dock presentation and Brood War movement fidelity.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
