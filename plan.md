@@ -625,6 +625,9 @@ Completed:
 - Protoss scripted macro now queues a legal Templar Archives after Citadel of Adun through that
   same powered structure path, opening templar tech while preserving prerequisite, duplicate,
   pending, placement, and budget validation.
+- Protoss scripted macro now queues a legal Arbiter Tribunal after Stargate and Templar Archives
+  through the same powered path, unlocking Arbiter tech while preserving shared prerequisite,
+  duplicate, pending, placement, and budget validation.
 - Zerg scripted macro now queues a legal Hydralisk Den after a completed Spawning Pool through the
   shared structure placement helper, preserving creep, prerequisite, duplicate, and budget checks.
 - Zerg scripted macro now queues a legal Spire after a completed Lair from the same ordered

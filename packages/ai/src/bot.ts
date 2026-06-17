@@ -31,6 +31,7 @@ const PROTOSS_STRUCTURE_MACRO = [
   Kind.FleetBeacon,
   Kind.CitadelOfAdun,
   Kind.TemplarArchives,
+  Kind.ArbiterTribunal,
 ] as const;
 const ZERG_STRUCTURE_MACRO = [
   Kind.HydraliskDen,
