@@ -400,7 +400,7 @@ Completed:
 Remaining:
 
 - Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially
-  Lair-gated mobility support such as Nydus Canal planning.
+  strategic Nydus endpoint planning beyond first legal local Canal construction.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -625,6 +625,9 @@ Completed:
 - Zerg scripted macro now queues a legal Ultralisk Cavern after Hive through that same ordered
   structure path, unlocking Ultralisk production and upgrades while preserving placement,
   prerequisite, duplicate, pending, and gas-budget checks.
+- Zerg scripted macro now queues a legal Nydus Canal at Lair tier before Hive-only structures,
+  preserving placement, prerequisite, duplicate, pending, and mineral-budget checks while leaving
+  strategic second-endpoint planning as a separate mobility slice.
 
 Done when:
 

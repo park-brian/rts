@@ -374,6 +374,100 @@ test('zerg bot respects queen nest prerequisite, placement, duplicates, and budg
   assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.QueensNest), false);
 });
 
+test('zerg bot places a legal nydus canal after a completed lair', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 494, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const hatchery = slotOf(findEntity(sim, Kind.Hatchery, 0));
+  const base = entityPos(sim, eid(s.e, hatchery));
+  s.e.kind[hatchery] = Kind.Lair;
+  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  spawnUnit(s, Kind.Spire, 0, base.x + fx(200), base.y);
+  spawnUnit(s, Kind.QueensNest, 0, base.x + fx(240), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(s, 0);
+  const build = findBuild(cmds, Kind.NydusCanal);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('zerg bot respects nydus canal prerequisite, placement, duplicates, and budget', () => {
+  const missingLair = new Sim({ map: sliceMap(), players: 2, seed: 495, factions: [Zerg, Terran] });
+  const missingState = missingLair.fullState();
+  const missingBase = entityPos(missingLair, findEntity(missingLair, Kind.Hatchery, 0));
+  spawnUnit(missingState, Kind.SpawningPool, 0, missingBase.x + fx(120), missingBase.y);
+  spawnUnit(missingState, Kind.HydraliskDen, 0, missingBase.x + fx(160), missingBase.y);
+  spawnUnit(missingState, Kind.Spire, 0, missingBase.x + fx(200), missingBase.y);
+  spawnUnit(missingState, Kind.QueensNest, 0, missingBase.x + fx(240), missingBase.y);
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.NydusCanal), false);
+
+  const blocked = new Sim({ map: sliceMap(), players: 2, seed: 496, factions: [Zerg, Terran] });
+  const blockedState = blocked.fullState();
+  const blockedHatchery = slotOf(findEntity(blocked, Kind.Hatchery, 0));
+  const blockedBase = entityPos(blocked, eid(blockedState.e, blockedHatchery));
+  blockedState.e.kind[blockedHatchery] = Kind.Lair;
+  spawnUnit(blockedState, Kind.SpawningPool, 0, blockedBase.x + fx(120), blockedBase.y);
+  spawnUnit(blockedState, Kind.HydraliskDen, 0, blockedBase.x + fx(160), blockedBase.y);
+  spawnUnit(blockedState, Kind.Spire, 0, blockedBase.x + fx(200), blockedBase.y);
+  spawnUnit(blockedState, Kind.QueensNest, 0, blockedBase.x + fx(240), blockedBase.y);
+  blockBuildTilesAround(blocked, blockedBase.x, blockedBase.y, 18);
+  blockedState.players.minerals[0] = 1_000;
+  blockedState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(blockedState, 0), Kind.NydusCanal), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 497, factions: [Zerg, Terran] });
+  const duplicateState = duplicate.fullState();
+  const duplicateHatchery = slotOf(findEntity(duplicate, Kind.Hatchery, 0));
+  const duplicateBase = entityPos(duplicate, eid(duplicateState.e, duplicateHatchery));
+  duplicateState.e.kind[duplicateHatchery] = Kind.Lair;
+  spawnUnit(duplicateState, Kind.SpawningPool, 0, duplicateBase.x + fx(120), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.HydraliskDen, 0, duplicateBase.x + fx(160), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.Spire, 0, duplicateBase.x + fx(200), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.QueensNest, 0, duplicateBase.x + fx(240), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.NydusCanal, 0, duplicateBase.x + fx(280), duplicateBase.y);
+  duplicateState.players.minerals[0] = 1_000;
+  duplicateState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.NydusCanal), false);
+
+  const pending = new Sim({ map: sliceMap(), players: 2, seed: 498, factions: [Zerg, Terran] });
+  const pendingState = pending.fullState();
+  const pendingHatchery = slotOf(findEntity(pending, Kind.Hatchery, 0));
+  const pendingBase = entityPos(pending, eid(pendingState.e, pendingHatchery));
+  pendingState.e.kind[pendingHatchery] = Kind.Lair;
+  spawnUnit(pendingState, Kind.SpawningPool, 0, pendingBase.x + fx(120), pendingBase.y);
+  spawnUnit(pendingState, Kind.HydraliskDen, 0, pendingBase.x + fx(160), pendingBase.y);
+  spawnUnit(pendingState, Kind.Spire, 0, pendingBase.x + fx(200), pendingBase.y);
+  spawnUnit(pendingState, Kind.QueensNest, 0, pendingBase.x + fx(240), pendingBase.y);
+  const worker = slotOf(spawnUnit(pendingState, Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pendingState.e.buildKind[worker] = Kind.NydusCanal;
+  pendingState.players.minerals[0] = 1_000;
+  pendingState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.NydusCanal), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 499, factions: [Zerg, Terran] });
+  const brokeState = broke.fullState();
+  const brokeHatchery = slotOf(findEntity(broke, Kind.Hatchery, 0));
+  const brokeBase = entityPos(broke, eid(brokeState.e, brokeHatchery));
+  brokeState.e.kind[brokeHatchery] = Kind.Lair;
+  spawnUnit(brokeState, Kind.SpawningPool, 0, brokeBase.x + fx(120), brokeBase.y);
+  spawnUnit(brokeState, Kind.HydraliskDen, 0, brokeBase.x + fx(160), brokeBase.y);
+  spawnUnit(brokeState, Kind.Spire, 0, brokeBase.x + fx(200), brokeBase.y);
+  spawnUnit(brokeState, Kind.QueensNest, 0, brokeBase.x + fx(240), brokeBase.y);
+  brokeState.players.minerals[0] = Units[Kind.NydusCanal]!.minerals - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.NydusCanal), false);
+});
+
 test('zerg bot places a legal defiler mound after a completed hive', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 482, factions: [Zerg, Terran] });
   const s = sim.fullState();
