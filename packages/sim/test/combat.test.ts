@@ -4,8 +4,9 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { count, eid, kill, slotOf } from '../src/world.ts';
-import { Kind, Units, computeDamage } from '../src/data.ts';
+import { Kind, Units, computeDamage, tiles } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
+import { edgeDistanceSq } from '../src/spatial.ts';
 
 test('two enemy marines fight and at least one dies', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 5 });
@@ -34,6 +35,39 @@ test('damage respects type/size/armor', () => {
   assert.equal(computeDamage(conc, 0 /*Small*/, 0), 20);
 });
 
+test('weapon range is measured edge-to-edge against large buildings', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 22 });
+  const s = sim.fullState();
+  const e = s.e;
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const cc = spawnUnit(s, Kind.CommandCenter, 1, fx(590), fx(400));
+  const target = slotOf(cc);
+  const hpBefore = e.hp[target]!;
+
+  assert.ok(fx(190) > Units[Kind.Marine]!.weapon!.range, 'center distance is outside Marine range');
+  assert.ok(edgeDistanceSq(s, slotOf(marine), target) <= Units[Kind.Marine]!.weapon!.range ** 2);
+
+  sim.step([{ player: 0, cmds: [{ t: 'attack', unit: marine, target: cc }] }]);
+
+  assert.ok(e.hp[target]! < hpBefore);
+});
+
+test('attack-move acquisition uses body edges for large targets', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 23 });
+  const s = sim.fullState();
+  const e = s.e;
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const cc = spawnUnit(s, Kind.CommandCenter, 1, fx(590), fx(400));
+  const target = slotOf(cc);
+  const hpBefore = e.hp[target]!;
+
+  sim.step([{ player: 0, cmds: [{ t: 'amove', unit: marine, x: fx(900), y: fx(400) }] }]);
+
+  assert.ok(e.hp[target]! < hpBefore);
+  assert.equal(e.target[slotOf(marine)], cc);
+  assert.ok(edgeDistanceSq(s, slotOf(marine), target) <= tiles(4) ** 2);
+});
+
 test('attacking units face their current target', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8 });
   const s = sim.fullState();
@@ -45,6 +79,186 @@ test('attacking units face their current target', () => {
   const e = sim.fullState().e;
   assert.ok(e.faceX[slotOf(a)]! > 0, 'attacker faces east toward the target');
   assert.equal(e.faceY[slotOf(a)], 0);
+});
+
+test('ground-only attackers cannot target air units', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 10 });
+  const s = sim.fullState();
+  const firebat = spawnUnit(s, Kind.Firebat, 0, fx(400), fx(400));
+  const wraith = spawnUnit(s, Kind.Wraith, 1, fx(430), fx(400));
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: firebat, target: wraith }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: false, reason: 'target-not-allowed' }]);
+});
+
+test('scourge deals air damage and dies on a successful attack', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 13 });
+  const s = sim.fullState();
+  const e = s.e;
+  const scourge = spawnUnit(s, Kind.Scourge, 0, fx(400), fx(400));
+  const wraith = spawnUnit(s, Kind.Wraith, 1, fx(404), fx(400));
+  const hpBefore = e.hp[slotOf(wraith)]!;
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: scourge, target: wraith }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.equal(e.alive[slotOf(scourge)], 0);
+  assert.ok(e.hp[slotOf(wraith)]! < hpBefore);
+});
+
+test('infested terran suicide attack deals ground splash with friendly fire', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 14 });
+  const s = sim.fullState();
+  const e = s.e;
+  const infested = spawnUnit(s, Kind.InfestedTerran, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.SiegeTank, 1, fx(404), fx(400));
+  const enemySplash = spawnUnit(s, Kind.SiegeTank, 1, fx(440), fx(400));
+  const friendlySplash = spawnUnit(s, Kind.SiegeTank, 0, fx(440), fx(410));
+  const enemySplashHp = e.hp[slotOf(enemySplash)]!;
+  const friendlySplashHp = e.hp[slotOf(friendlySplash)]!;
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: infested, target }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.equal(e.alive[slotOf(infested)], 0);
+  assert.equal(e.alive[slotOf(target)], 0);
+  assert.ok(e.hp[slotOf(enemySplash)]! < enemySplashHp);
+  assert.ok(e.hp[slotOf(friendlySplash)]! < friendlySplashHp);
+});
+
+test('mutalisk attacks bounce to two nearby enemies with reduced damage', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 15 });
+  const s = sim.fullState();
+  const e = s.e;
+  const mutalisk = spawnUnit(s, Kind.Mutalisk, 0, fx(400), fx(400));
+  const first = spawnUnit(s, Kind.Marine, 1, fx(450), fx(400));
+  const second = spawnUnit(s, Kind.Marine, 1, fx(482), fx(400));
+  const third = spawnUnit(s, Kind.Marine, 1, fx(514), fx(400));
+  const far = spawnUnit(s, Kind.Marine, 1, fx(700), fx(400));
+  const firstHp = e.hp[slotOf(first)]!;
+  const secondHp = e.hp[slotOf(second)]!;
+  const thirdHp = e.hp[slotOf(third)]!;
+  const farHp = e.hp[slotOf(far)]!;
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: mutalisk, target: first }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.ok(e.hp[slotOf(first)]! < firstHp);
+  assert.ok(e.hp[slotOf(second)]! < secondHp);
+  assert.ok(e.hp[slotOf(third)]! < thirdHp);
+  assert.equal(e.hp[slotOf(far)], farHp);
+  assert.ok(firstHp - e.hp[slotOf(first)]! > secondHp - e.hp[slotOf(second)]!);
+  assert.ok(secondHp - e.hp[slotOf(second)]! > thirdHp - e.hp[slotOf(third)]!);
+});
+
+test('corsair air splash damages nearby air units but not ground units', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 16 });
+  const s = sim.fullState();
+  const e = s.e;
+  const corsair = spawnUnit(s, Kind.Corsair, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.Mutalisk, 1, fx(450), fx(400));
+  const splashAir = spawnUnit(s, Kind.Mutalisk, 1, fx(480), fx(400));
+  const splashGround = spawnUnit(s, Kind.Marine, 1, fx(480), fx(400));
+  const airHp = e.hp[slotOf(splashAir)]!;
+  const groundHp = e.hp[slotOf(splashGround)]!;
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: corsair, target }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.ok(e.hp[slotOf(splashAir)]! < airHp);
+  assert.equal(e.hp[slotOf(splashGround)], groundHp);
+});
+
+test('valkyrie multi-missile air splash damages nearby air units', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 17 });
+  const s = sim.fullState();
+  const e = s.e;
+  const valkyrie = spawnUnit(s, Kind.Valkyrie, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.Mutalisk, 1, fx(450), fx(400));
+  const splashAir = spawnUnit(s, Kind.Mutalisk, 1, fx(480), fx(400));
+  const airHp = e.hp[slotOf(splashAir)]!;
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: valkyrie, target }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.ok(e.hp[slotOf(splashAir)]! < airHp);
+});
+
+test('devourer attacks apply acid spores that amplify later damage', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 18 });
+  const s = sim.fullState();
+  const e = s.e;
+  const devourer = spawnUnit(s, Kind.Devourer, 0, fx(400), fx(400));
+  const mutalisk = spawnUnit(s, Kind.Mutalisk, 1, fx(450), fx(400));
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: devourer, target: mutalisk }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.equal(e.acidSporeCount[slotOf(mutalisk)], 1);
+  assert.ok(e.acidSporeTimer[slotOf(mutalisk)]! > 0);
+
+  const normal = new Sim({ map: sliceMap(), players: 2, seed: 19 });
+  const normalWraith = spawnUnit(normal.fullState(), Kind.Wraith, 0, fx(400), fx(400));
+  const normalTarget = spawnUnit(normal.fullState(), Kind.Mutalisk, 1, fx(450), fx(400));
+  const normalHp = normal.fullState().e.hp[slotOf(normalTarget)]!;
+  normal.step([{ player: 0, cmds: [{ t: 'attack', unit: normalWraith, target: normalTarget }] }]);
+  const normalDamage = normalHp - normal.fullState().e.hp[slotOf(normalTarget)]!;
+
+  const acid = new Sim({ map: sliceMap(), players: 2, seed: 20 });
+  const acidWraith = spawnUnit(acid.fullState(), Kind.Wraith, 0, fx(400), fx(400));
+  const acidTarget = spawnUnit(acid.fullState(), Kind.Mutalisk, 1, fx(450), fx(400));
+  acid.fullState().e.acidSporeCount[slotOf(acidTarget)] = 3;
+  acid.fullState().e.acidSporeTimer[slotOf(acidTarget)] = 100;
+  const acidHp = acid.fullState().e.hp[slotOf(acidTarget)]!;
+  acid.step([{ player: 0, cmds: [{ t: 'attack', unit: acidWraith, target: acidTarget }] }]);
+  const acidDamage = acidHp - acid.fullState().e.hp[slotOf(acidTarget)]!;
+
+  assert.ok(acidDamage > normalDamage);
+});
+
+test('acid spores expire through status ticking', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 21 });
+  const s = sim.fullState();
+  const mutalisk = slotOf(spawnUnit(s, Kind.Mutalisk, 0, fx(400), fx(400)));
+  s.e.acidSporeCount[mutalisk] = 4;
+  s.e.acidSporeTimer[mutalisk] = 1;
+
+  sim.step([]);
+
+  assert.equal(s.e.acidSporeCount[mutalisk], 0);
+  assert.equal(s.e.acidSporeTimer[mutalisk], 0);
+});
+
+test('shields absorb weapon damage before hit points', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 11 });
+  const s = sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(430), fx(400));
+  const z = slotOf(zealot);
+  const hpBefore = s.e.hp[z]!;
+  const shieldBefore = s.e.shield[z]!;
+
+  sim.step([{ player: 0, cmds: [{ t: 'attack', unit: marine, target: zealot }] }]);
+  for (let t = 0; t < Units[Kind.Marine]!.weapon!.cooldown + 1; t++) sim.step([]);
+
+  assert.equal(s.e.hp[z], hpBefore, 'HP stays intact while shields remain');
+  assert.ok(s.e.shield[z]! < shieldBefore, 'shield took the hit');
+});
+
+test('shield overflow applies armor only to damage that reaches hit points', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 12 });
+  const s = sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(430), fx(400));
+  const z = slotOf(zealot);
+  s.e.shield[z] = 1;
+  const hpBefore = s.e.hp[z]!;
+
+  sim.step([{ player: 0, cmds: [{ t: 'attack', unit: marine, target: zealot }] }]);
+
+  assert.equal(s.e.shield[z], 0);
+  assert.equal(s.e.hp[z], hpBefore - 4);
 });
 
 test('destroying a team\'s last structure ends the game', () => {

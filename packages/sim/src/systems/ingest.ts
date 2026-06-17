@@ -3,11 +3,19 @@
 // unaffordable, illegal target) are ignored.
 
 import type { State } from '../world.ts';
-import { kill, slotOf, NONE } from '../world.ts';
+import { eid, isAlive, kill, slotOf, NONE } from '../world.ts';
 import type { CommandResult, PlayerCommands } from '../commands.ts';
-import { Kind, Order, Units } from '../data.ts';
+import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
+import { TechDefs } from '../data.ts';
 import { placementForStructure, snapRallyTarget, validateCommand } from '../validation.ts';
+import { addonPosition } from '../addon.ts';
+import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
 import { cancelPendingBuild, hasPendingBuild, refundBuildCost } from '../build-cost.ts';
+import { castAbility } from './abilities.ts';
+import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
+import { spawnUnit } from '../factory.ts';
+import { canContinueConstructionKind } from '../repair.ts';
+import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 
 const EMPTY_RESULTS: CommandResult[] = [];
 
@@ -15,14 +23,40 @@ const startProduction = (s: State, slot: number, kind: number, player: number): 
   const e = s.e;
   const def = Units[kind];
   if (!def) return;
-  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
-  s.players.gas[player] = s.players.gas[player]! - def.gas;
+  const costCount = productionCostCount(kind);
+  s.players.minerals[player] = s.players.minerals[player]! - def.minerals * costCount;
+  s.players.gas[player] = s.players.gas[player]! - def.gas * costCount;
+  if (e.kind[slot] === Kind.Larva) {
+    const egg = Units[Kind.Egg]!;
+    e.kind[slot] = Kind.Egg;
+    e.hp[slot] = egg.hp;
+    e.shield[slot] = egg.shields;
+    e.energy[slot] = egg.startEnergy;
+    e.energyMax[slot] = egg.energyMax;
+    e.flags[slot] = egg.roles;
+    e.order[slot] = Order.Idle;
+    e.target[slot] = NONE;
+    e.prodKind[slot] = kind;
+    e.prodTimer[slot] = def.buildTime;
+    e.prodQueued[slot] = 0;
+    return;
+  }
   if (e.prodKind[slot] === Kind.None) {
     e.prodKind[slot] = kind;
     e.prodTimer[slot] = def.buildTime;
   } else {
     e.prodQueued[slot] = e.prodQueued[slot]! + 1;
   }
+};
+
+const startResearch = (s: State, slot: number, tech: number, player: number): void => {
+  const def = TechDefs[tech];
+  if (!def) return;
+  const level = nextTechLevel(s, player, tech);
+  s.players.minerals[player] = s.players.minerals[player]! - techMinerals(def, level);
+  s.players.gas[player] = s.players.gas[player]! - techGas(def, level);
+  s.e.researchKind[slot] = tech;
+  s.e.researchTimer[slot] = techTime(def, level);
 };
 
 const startBuild = (s: State, slot: number, kind: number, x: number, y: number, player: number): void => {
@@ -40,13 +74,201 @@ const startBuild = (s: State, slot: number, kind: number, x: number, y: number, 
   e.ty[slot] = y;
 };
 
+const startAddon = (s: State, parent: number, kind: number, player: number): void => {
+  const e = s.e;
+  const def = Units[kind]!;
+  const pos = addonPosition(s, parent, kind);
+  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
+  s.players.gas[player] = s.players.gas[player]! - def.gas;
+  const addon = slotOf(spawnUnit(s, kind, player, pos.x, pos.y));
+  e.built[addon] = 0;
+  e.ctimer[addon] = def.buildTime;
+  e.target[addon] = eid(e, parent);
+  e.target[parent] = eid(e, addon);
+  e.buildCostMinerals[addon] = def.minerals;
+  e.buildCostGas[addon] = def.gas;
+};
+
+const liftBuilding = (s: State, slot: number): void => {
+  const e = s.e;
+  e.flags[slot] = liftedStructureFlags(e.kind[slot]!);
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
+
+const landBuilding = (s: State, slot: number, x: number, y: number): void => {
+  const e = s.e;
+  e.x[slot] = x;
+  e.y[slot] = y;
+  e.flags[slot] = landedStructureFlags(e.kind[slot]!);
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
+
+const setEntityKind = (s: State, slot: number, kind: number): void => {
+  const def = Units[kind]!;
+  const e = s.e;
+  e.kind[slot] = kind;
+  e.flags[slot] = def.roles;
+  e.hp[slot] = Math.min(e.hp[slot]!, def.hp);
+  e.shield[slot] = Math.min(e.shield[slot]!, def.shields);
+  e.energyMax[slot] = def.energyMax;
+  e.energy[slot] = Math.min(e.energy[slot]!, def.energyMax);
+};
+
+const setEntityKindFull = (s: State, slot: number, kind: number): void => {
+  const def = Units[kind]!;
+  const e = s.e;
+  e.kind[slot] = kind;
+  e.flags[slot] = def.roles;
+  e.hp[slot] = def.hp;
+  e.shield[slot] = def.shields;
+  e.energyMax[slot] = def.energyMax;
+  e.energy[slot] = def.startEnergy;
+};
+
+const transformUnit = (s: State, slot: number, kind: number): void => {
+  const e = s.e;
+  setEntityKind(s, slot, kind);
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
+
+const startMorph = (s: State, slot: number, kind: number): void => {
+  const e = s.e;
+  const def = Units[kind]!;
+  const player = e.owner[slot]!;
+  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
+  s.players.gas[player] = s.players.gas[player]! - def.gas;
+  e.morphFromKind[slot] = e.kind[slot]!;
+  setEntityKind(s, slot, kind);
+  e.built[slot] = 0;
+  e.ctimer[slot] = def.buildTime;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+  e.prodKind[slot] = Kind.None;
+  e.prodTimer[slot] = 0;
+  e.prodQueued[slot] = 0;
+  e.researchKind[slot] = Kind.None;
+  e.researchTimer[slot] = 0;
+  e.buildCostMinerals[slot] = def.minerals;
+  e.buildCostGas[slot] = def.gas;
+};
+
+const startMerge = (s: State, slot: number, kind: number, partner: number): void => {
+  const e = s.e;
+  const def = Units[kind]!;
+  const x = Math.trunc((e.x[slot]! + e.x[partner]!) / 2);
+  const y = Math.trunc((e.y[slot]! + e.y[partner]!) / 2);
+  kill(s, partner);
+  setEntityKindFull(s, slot, kind);
+  e.x[slot] = x;
+  e.y[slot] = y;
+  e.built[slot] = 0;
+  e.ctimer[slot] = def.buildTime;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+  e.prodKind[slot] = Kind.None;
+  e.prodTimer[slot] = 0;
+  e.prodQueued[slot] = 0;
+  e.researchKind[slot] = Kind.None;
+  e.researchTimer[slot] = 0;
+};
+
+const applyTransform = (s: State, slot: number, kind: number, target = NONE): void => {
+  const transform = transformFor(s.e.kind[slot]!, kind);
+  if (transform?.mode === 'merge') {
+    const partner = mergePartnerFor(s, slot, kind, target);
+    if (partner !== NONE) startMerge(s, slot, kind, partner);
+  } else if (transform?.mode === 'morph') startMorph(s, slot, kind);
+  else transformUnit(s, slot, kind);
+};
+
+const burrowUnit = (s: State, slot: number, active: boolean): void => {
+  const e = s.e;
+  e.burrowed[slot] = active ? 1 : 0;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
+
+const laySpiderMine = (s: State, vulture: number): void => {
+  const e = s.e;
+  e.specialAmmo[vulture] = e.specialAmmo[vulture]! - 1;
+  const mine = slotOf(spawnUnit(s, Kind.SpiderMine, e.owner[vulture]!, e.x[vulture]!, e.y[vulture]!));
+  e.burrowed[mine] = 1;
+  e.order[mine] = Order.Idle;
+  e.target[mine] = NONE;
+};
+
+const loadUnit = (s: State, transport: number, unit: number): void => {
+  const e = s.e;
+  e.container[unit] = eid(e, transport);
+  e.x[unit] = e.x[transport]!;
+  e.y[unit] = e.y[transport]!;
+  e.order[unit] = Order.Idle;
+  e.target[unit] = NONE;
+};
+
+const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
+  const e = s.e;
+  e.container[unit] = NONE;
+  e.x[unit] = x;
+  e.y[unit] = y;
+  e.order[unit] = Order.Idle;
+  e.target[unit] = NONE;
+};
+
 const cancelFoundation = (s: State, slot: number): void => {
+  const e = s.e;
+  if (e.morphFromKind[slot] !== Kind.None) {
+    const original = e.morphFromKind[slot]!;
+    refundBuildCost(s, slot, 3, 4);
+    setEntityKind(s, slot, original);
+    e.built[slot] = 1;
+    e.ctimer[slot] = 0;
+    e.morphFromKind[slot] = Kind.None;
+    e.order[slot] = Order.Idle;
+    e.target[slot] = NONE;
+    return;
+  }
+  const workerId = e.target[slot]!;
+  if (workerId !== NONE && isAlive(e, workerId)) {
+    const worker = slotOf(workerId);
+    if (e.order[worker] === Order.Build && e.target[worker] === eid(e, slot)) {
+      e.order[worker] = Order.Idle;
+      e.target[worker] = NONE;
+    }
+  }
+  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) {
+    const parent = slotOf(e.target[slot]!);
+    if (e.target[parent] === eid(e, slot)) e.target[parent] = NONE;
+  }
   refundBuildCost(s, slot, 3, 4);
   kill(s, slot);
 };
 
 const cancelPendingBeforeOrder = (s: State, slot: number): void => {
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
+};
+
+const resumeConstruction = (s: State, worker: number, foundation: number): void => {
+  const e = s.e;
+  const foundationId = eid(e, foundation);
+  const old = e.target[foundation]!;
+  if (old !== NONE && isAlive(e, old)) {
+    const oldWorker = slotOf(old);
+    if (e.order[oldWorker] === Order.Build && e.target[oldWorker] === foundationId) {
+      e.order[oldWorker] = Order.Idle;
+      e.target[oldWorker] = NONE;
+    }
+  }
+  e.order[worker] = Order.Build;
+  e.buildKind[worker] = Kind.None;
+  e.target[worker] = foundationId;
+  e.target[foundation] = eid(e, worker);
+  e.tx[worker] = e.x[foundation]!;
+  e.ty[worker] = e.y[foundation]!;
+  e.timer[worker] = 0;
 };
 
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
@@ -75,7 +297,13 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'train': {
           const slot = slotOf(c.building);
           startProduction(s, slot, c.kind, player);
-          reservedSupply![player] = reservedSupply![player]! + Units[c.kind]!.supply;
+          reservedSupply![player] = reservedSupply![player]! + Units[c.kind]!.supply * productionCount(c.kind);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'research': {
+          const slot = slotOf(c.building);
+          startResearch(s, slot, c.tech, player);
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
@@ -88,6 +316,54 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           }
           cancelPendingBeforeOrder(s, slot);
           startBuild(s, slot, c.kind, placement.x, placement.y, player);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'addon': {
+          startAddon(s, slotOf(c.building), c.kind, player);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'lift': {
+          liftBuilding(s, slotOf(c.building));
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'land': {
+          const slot = slotOf(c.building);
+          const placement = placementForStructure(s, e.kind[slot]!, c.x, c.y, slot, player);
+          if (!placement.ok) {
+            results.push({ player, index, t: c.t, ok: false, reason: placement.reason });
+            break;
+          }
+          landBuilding(s, slot, placement.x, placement.y);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'transform': {
+          const slot = slotOf(c.unit);
+          cancelPendingBeforeOrder(s, slot);
+          applyTransform(s, slot, c.kind, c.target ?? NONE);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'burrow': {
+          burrowUnit(s, slotOf(c.unit), c.active);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'mine': {
+          laySpiderMine(s, slotOf(c.unit));
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'load': {
+          loadUnit(s, slotOf(c.transport), slotOf(c.unit));
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
+        case 'unload': {
+          unloadUnit(s, slotOf(c.unit), c.x, c.y);
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
@@ -124,6 +400,11 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
+        case 'ability': {
+          castAbility(s, slotOf(c.unit), c);
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
         case 'harvest': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
@@ -133,12 +414,32 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
+        case 'repair': {
+          const slot = slotOf(c.unit);
+          cancelPendingBeforeOrder(s, slot);
+          const target = slotOf(c.target);
+          if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
+            resumeConstruction(s, slot, target);
+          } else {
+            e.order[slot] = Order.Repair;
+            e.target[slot] = c.target;
+            e.timer[slot] = 0;
+          }
+          results.push({ player, index, t: c.t, ok: true });
+          break;
+        }
         case 'rally': {
           const slot = slotOf(c.building);
-          e.rallyX[slot] = c.x;
-          e.rallyY[slot] = c.y;
-          // A tap on (near) a resource means "rally to harvest"; else a ground point.
-          e.rallyTarget[slot] = snapRallyTarget(s, c.x, c.y);
+          const target = c.target ?? snapRallyTarget(s, player, c.x, c.y, slot);
+          e.rallyTarget[slot] = target;
+          if (target !== NONE && isAlive(e, target)) {
+            const t = slotOf(target);
+            e.rallyX[slot] = e.x[t]!;
+            e.rallyY[slot] = e.y[t]!;
+          } else {
+            e.rallyX[slot] = c.x;
+            e.rallyY[slot] = c.y;
+          }
           results.push({ player, index, t: c.t, ok: true });
           break;
         }

@@ -9,6 +9,7 @@ import { render2d, drawMinimap, drawDragBox } from './render2d.ts';
 import { GlRenderer } from './gl/renderer.ts';
 import { Gl } from './gl/gl.ts';
 import { buildAtlas } from './gl/atlas.ts';
+import { ui } from './store.ts';
 
 export class Renderer {
   private gl: GlRenderer | null = null;
@@ -30,7 +31,7 @@ export class Renderer {
   }
 
   render(game: Game, dpr: number): void {
-    if (this.gl) {
+    if (this.gl && !ui.mathRenderer.value) {
       this.gl.render(game, dpr);
       // overlay: clear + screen-space chrome only.
       this.overlay.setTransform(dpr, 0, 0, dpr, 0, 0);

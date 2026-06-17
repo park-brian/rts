@@ -2,6 +2,9 @@
 
 This is the active design sheet for hand-authored Terran building SVG rigs. Buildings use the same rigging contract as units: canonical 64x64 coordinates, no geometry scaling, visible bounds via `data-visible-box`, and build placement via `data-footprint`.
 
+Animation and effect hooks for the Terran building parts are tracked in
+`terran-building-animation-parts.md`.
+
 Footprints and pixel bounds come from `docs/specs/bwapi-unit-dimensions.md`, sourced from BWAPI.
 
 Current pass:

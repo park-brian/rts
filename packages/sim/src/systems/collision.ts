@@ -19,6 +19,7 @@ import { CAP } from '../world.ts';
 import { Role, Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { navSolid, open } from '../flow.ts';
+import { isContained } from '../cargo.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable
 const TILE_FX = TILE * ONE;
@@ -40,7 +41,7 @@ export const collide = (s: State): void => {
   let nl = 0;
   for (let i = 0; i < e.hi; i++) {
     ndx[i] = 0; ndy[i] = 0;
-    if (e.alive[i] === 1 && isSolid(e.flags[i]!)) list[nl++] = i;
+    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isSolid(e.flags[i]!)) list[nl++] = i;
   }
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
 

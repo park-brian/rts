@@ -10,8 +10,11 @@
 
 import type { State } from './world.ts';
 import { CAP, NONE, isEnemy } from './world.ts';
-import { TILE } from './data.ts';
+import { TILE, Units, weaponForTarget } from './data.ts';
 import { ONE } from './fixed.ts';
+import { canDetect } from './detection.ts';
+import { isContained } from './cargo.ts';
+import { MAX_BODY_REACH, bodyBounds, edgeDistanceSq } from './spatial.ts';
 
 const CELL_TILES = 4;
 const CELL_FX = CELL_TILES * TILE * ONE; // cell size in fixed px
@@ -39,7 +42,7 @@ export const buildGrid = (s: State): Grid => {
   const e = s.e;
   // Scan slots descending and head-insert, so per-cell traversal yields ascending slots.
   for (let i = e.hi - 1; i >= 0; i--) {
-    if (e.alive[i] !== 1) continue;
+    if (e.alive[i] !== 1 || isContained(s, i)) continue;
     const c = cell(e.y[i]!, rows) * cols + cell(e.x[i]!, cols);
     sNext[i] = sHead[c]!;
     sHead[c] = i;
@@ -60,9 +63,35 @@ export const nearestEnemy = (s: State, g: Grid, i: number, range: number): numbe
     const row = gy * g.cols;
     for (let gx = x0; gx <= x1; gx++) {
       for (let j = g.head[row + gx]!; j >= 0; j = g.next[j]!) {
-        if (j === i || !isEnemy(s, owner, e.owner[j]!)) continue;
+        if (j === i || isContained(s, j) || !isEnemy(s, owner, e.owner[j]!) || !canDetect(s, owner, j)) continue;
         const dx = e.x[j]! - ox; const dy = e.y[j]! - oy;
         const d = dx * dx + dy * dy;
+        if (d <= r2 && (d < bestD || (d === bestD && j < best))) { bestD = d; best = j; }
+      }
+    }
+  }
+  return best;
+};
+
+/** Nearest enemy this slot can actually attack within `range` fixed px. */
+export const nearestAttackableEnemy = (s: State, g: Grid, i: number, range: number): number => {
+  const e = s.e;
+  const ox = e.x[i]!; const oy = e.y[i]!; const owner = e.owner[i]!;
+  const attacker = Units[e.kind[i]!]!;
+  const r2 = range * range;
+  const attackerBounds = bodyBounds(e.kind[i]!);
+  const attackerReach = Math.max(attackerBounds.left, attackerBounds.up, attackerBounds.right, attackerBounds.down);
+  const span = Math.ceil((range + attackerReach + MAX_BODY_REACH) / CELL_FX);
+  const cx = cell(ox, g.cols); const cy = cell(oy, g.rows);
+  const x0 = Math.max(0, cx - span); const x1 = Math.min(g.cols - 1, cx + span);
+  let best = NONE; let bestD = r2 + 1;
+  for (let gy = Math.max(0, cy - span); gy <= Math.min(g.rows - 1, cy + span); gy++) {
+    const row = gy * g.cols;
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let j = g.head[row + gx]!; j >= 0; j = g.next[j]!) {
+        if (j === i || isContained(s, j) || !isEnemy(s, owner, e.owner[j]!) || !canDetect(s, owner, j)) continue;
+        if (!weaponForTarget(attacker, Units[e.kind[j]!]!)) continue;
+        const d = edgeDistanceSq(s, i, j);
         if (d <= r2 && (d < bestD || (d === bestD && j < best))) { bestD = d; best = j; }
       }
     }

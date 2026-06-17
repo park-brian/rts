@@ -4,10 +4,12 @@
 import type { State } from '../world.ts';
 import { Role } from '../data.ts';
 
+const aliveScratch: number[] = [];
+
 export const victory = (s: State): void => {
   if (s.result.over) return;
   const e = s.e;
-  const alive = new Set<number>();
+  aliveScratch.length = 0;
   let last = -1;
 
   for (let i = 0; i < e.hi; i++) {
@@ -15,13 +17,13 @@ export const victory = (s: State): void => {
     const owner = e.owner[i]!;
     if (owner >= s.teams.length) continue;
     const team = s.teams[owner]!;
-    if (!alive.has(team)) {
-      alive.add(team);
+    if (!aliveScratch.includes(team)) {
+      aliveScratch.push(team);
       last = team;
     }
   }
 
-  const aliveTeams = alive.size;
+  const aliveTeams = aliveScratch.length;
   if (s.startTeams >= 2 && aliveTeams <= 1) {
     s.result.over = true;
     s.result.winner = aliveTeams === 1 ? last : -1;

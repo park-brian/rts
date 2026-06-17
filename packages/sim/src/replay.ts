@@ -6,6 +6,7 @@
 
 import { Sim } from './sim.ts';
 import type { Command, PlayerCommands } from './commands.ts';
+import { Factions, factionNameOf, type FactionName } from './data.ts';
 import { sliceMap, type MapDef } from './map.ts';
 import { generateMap } from './procedural.ts';
 
@@ -24,6 +25,7 @@ export type Replay = {
   map: MapSpec;
   players: number;
   seed: number;
+  factions?: FactionName[];
   frames: PlayerCommands[][]; // frames[t] = the command batch applied at tick t
 };
 
@@ -58,6 +60,11 @@ const readPositiveInt = (x: unknown, msg: string): number => {
   return fail(msg);
 };
 
+const readBool = (x: unknown, msg: string): boolean => {
+  if (typeof x === 'boolean') return x;
+  return fail(msg);
+};
+
 const readArray = (x: unknown, msg: string): unknown[] => {
   if (Array.isArray(x)) return x;
   return fail(msg);
@@ -75,6 +82,11 @@ const validateMapSpec = (x: unknown): MapSpec => {
   return fail('unknown map spec');
 };
 
+const validateFactionName = (x: unknown): FactionName => {
+  if (x === 'terran' || x === 'protoss' || x === 'zerg') return x;
+  return fail('unknown faction');
+};
+
 const validateCommand = (x: unknown): Command => {
   const r = asRecord(x, 'command must be an object with type');
   const t = r.t;
@@ -90,6 +102,13 @@ const validateCommand = (x: unknown): Command => {
       const trainKind = readPositiveInt(kind, 'invalid train command');
       return { t: 'train', building: trainBuilding, kind: trainKind };
     }
+    case 'research': {
+      return {
+        t: 'research',
+        building: readNonNegativeInt(building, 'invalid research command'),
+        tech: readPositiveInt(r.tech, 'invalid research command'),
+      };
+    }
     case 'build': {
       return {
         t: 'build',
@@ -97,6 +116,59 @@ const validateCommand = (x: unknown): Command => {
         kind: readPositiveInt(kind, 'invalid build command'),
         x: readInt(xPos, 'invalid build command'),
         y: readInt(yPos, 'invalid build command'),
+      };
+    }
+    case 'addon': {
+      return {
+        t: 'addon',
+        building: readNonNegativeInt(building, 'invalid addon command'),
+        kind: readPositiveInt(kind, 'invalid addon command'),
+      };
+    }
+    case 'lift': {
+      return { t: 'lift', building: readNonNegativeInt(building, 'invalid lift command') };
+    }
+    case 'land': {
+      return {
+        t: 'land',
+        building: readNonNegativeInt(building, 'invalid land command'),
+        x: readInt(xPos, 'invalid land command'),
+        y: readInt(yPos, 'invalid land command'),
+      };
+    }
+    case 'transform': {
+      const cmd: Command = {
+        t: 'transform',
+        unit: readNonNegativeInt(unit, 'invalid transform command'),
+        kind: readPositiveInt(kind, 'invalid transform command'),
+      };
+      if (r.target !== undefined) cmd.target = readNonNegativeInt(r.target, 'invalid transform command');
+      return cmd;
+    }
+    case 'burrow': {
+      return {
+        t: 'burrow',
+        unit: readNonNegativeInt(unit, 'invalid burrow command'),
+        active: readBool(r.active, 'invalid burrow command'),
+      };
+    }
+    case 'mine': {
+      return { t: 'mine', unit: readNonNegativeInt(unit, 'invalid mine command') };
+    }
+    case 'load': {
+      return {
+        t: 'load',
+        transport: readNonNegativeInt(r.transport, 'invalid load command'),
+        unit: readNonNegativeInt(unit, 'invalid load command'),
+      };
+    }
+    case 'unload': {
+      return {
+        t: 'unload',
+        transport: readNonNegativeInt(r.transport, 'invalid unload command'),
+        unit: readNonNegativeInt(unit, 'invalid unload command'),
+        x: readInt(xPos, 'invalid unload command'),
+        y: readInt(yPos, 'invalid unload command'),
       };
     }
     case 'cancelBuild': {
@@ -125,6 +197,17 @@ const validateCommand = (x: unknown): Command => {
         y: readInt(yPos, 'invalid amove command'),
       };
     }
+    case 'ability': {
+      const cmd: Command = {
+        t: 'ability',
+        unit: readNonNegativeInt(unit, 'invalid ability command'),
+        ability: readPositiveInt(r.ability, 'invalid ability command'),
+      };
+      if (r.target !== undefined) cmd.target = readNonNegativeInt(r.target, 'invalid ability command');
+      if (xPos !== undefined) cmd.x = readInt(xPos, 'invalid ability command');
+      if (yPos !== undefined) cmd.y = readInt(yPos, 'invalid ability command');
+      return cmd;
+    }
     case 'harvest': {
       return {
         t: 'harvest',
@@ -132,13 +215,22 @@ const validateCommand = (x: unknown): Command => {
         patch: readNonNegativeInt(r.patch, 'invalid harvest command'),
       };
     }
-    case 'rally': {
+    case 'repair': {
       return {
+        t: 'repair',
+        unit: readNonNegativeInt(unit, 'invalid repair command'),
+        target: readNonNegativeInt(r.target, 'invalid repair command'),
+      };
+    }
+    case 'rally': {
+      const cmd: Command = {
         t: 'rally',
         building: readNonNegativeInt(building, 'invalid rally command'),
         x: readInt(xPos, 'invalid rally command'),
         y: readInt(yPos, 'invalid rally command'),
       };
+      if (r.target !== undefined) return { ...cmd, target: readNonNegativeInt(r.target, 'invalid rally command') };
+      return cmd;
     }
     case 'stop': {
       return { t: 'stop', unit: readNonNegativeInt(unit, 'invalid stop command') };
@@ -161,12 +253,15 @@ export const validateReplay = (x: unknown): Replay => {
   if (version !== REPLAY_VERSION) fail(`unsupported version ${String(version)}`);
   const players = readPositiveInt(r.players, 'players must be a positive integer');
   const seed = readInt(r.seed, 'seed must be an integer');
+  const factions = r.factions === undefined ? undefined : readArray(r.factions, 'factions must be an array').map(validateFactionName);
+  if (factions !== undefined && factions.length !== players) fail('factions length must match players');
   const frames = readArray(r.frames, 'frames must be an array');
   return {
     version: REPLAY_VERSION,
     map: validateMapSpec(r.map),
     players,
     seed,
+    ...(factions ? { factions } : {}),
     frames: frames.map((frame: unknown) => {
       const frameBatch = readArray(frame, 'each frame must be an array');
       return frameBatch.map(validatePlayerCommands);
@@ -190,12 +285,14 @@ export const toReplay = (sim: Sim, map: MapSpec): Replay => ({
   map,
   players: sim.fullState().teams.length,
   seed: sim.seed,
+  factions: sim.factions.length ? sim.factions.map(factionNameOf) : undefined,
   frames: sim.frames ?? [],
 });
 
 const simForReplay = (r: Replay): Sim => {
   const replay = validateReplay(r);
-  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed });
+  const factions = replay.factions?.map((name) => Factions[name]);
+  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed, factions });
 };
 
 /** Re-simulate a replay to completion; returns the final Sim. */

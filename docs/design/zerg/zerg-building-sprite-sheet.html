@@ -28,6 +28,7 @@
   svg.sprite { width: 124px; height: 124px; overflow: visible; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor); }
   .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .aura { fill: none; stroke: currentColor; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.72; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 6px currentColor); }
   .core { fill: currentColor; stroke: none; }
   .cut { fill: var(--dark2); stroke: none; }
   .name { margin-top: 9px; text-align: center; color: #f8ebff; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -44,134 +45,137 @@
 <main class="sheet" id="sheet"></main>
 
 <script>
+// Renderer contract for every building below:
+// - 64x64 local rig; data-footprint is build-tile placement metadata.
+// - data-visible-box is the visible ink fit box inside the footprint-sized world slot.
+// - data-part/data-anim/data-emits survive export; comments do not.
 const buildings = [
-  ['Hatchery','4 3','7 12 50 44','brood mound, mandible roots, larva sacs',`
-    <path class="line" data-part="left-root-mandible" d="M21 40 Q9 43 8 55"/>
-    <path class="line" data-part="right-root-mandible" d="M43 40 Q55 43 56 55"/>
-    <ellipse class="panel" data-part="brood-mound" cx="32" cy="34" rx="22" ry="18"/>
-    <circle class="panel" data-part="left-larva-sac" cx="22" cy="31" r="5"/>
-    <circle class="panel" data-part="right-larva-sac" cx="42" cy="31" r="5"/>
-    <circle class="core" data-part="brood-core" cx="32" cy="39" r="5"/>
+  ['Hatchery','4 3','8 14 48 36','brood mound contained in 4x3 footprint',`
+    <path class="line" data-part="left-root-mandible" d="M20 43 Q12 45 9 49"/>
+    <path class="line" data-part="right-root-mandible" d="M44 43 Q52 45 55 49"/>
+    <path class="panel" data-part="brood-mound" d="M9 38 C9 26 18 19 32 19 C46 19 55 26 55 38 C52 47 43 50 32 50 C21 50 12 47 9 38 Z"/>
+    <path class="panel" data-part="center-brood-mound" d="M21 42 C21 31 27 18 32 14 C37 18 43 31 43 42 Z"/>
+    <circle class="core" data-part="brood-core" cx="32" cy="30" r="3"/>
   `],
-  ['Lair','4 3','6 9 52 47','hatchery plus jaw crown and side horns',`
-    <path class="line" data-part="left-horn" d="M23 25 Q11 12 13 35"/>
-    <path class="line" data-part="right-horn" d="M41 25 Q53 12 51 35"/>
-    <ellipse class="panel" data-part="lair-mound" cx="32" cy="35" rx="23" ry="18"/>
-    <path class="panel" data-part="jaw-crown" d="M20 27 Q32 9 44 27 L39 39 H25 Z"/>
-    <circle class="core" data-part="brood-core" cx="32" cy="37" r="5"/>
+  ['Lair','4 3','8 14 48 36','hatchery base, centered mound, flipped spine triangle',`
+    <path class="line" data-part="left-root-mandible" d="M20 43 Q12 45 9 49"/>
+    <path class="line" data-part="right-root-mandible" d="M44 43 Q52 45 55 49"/>
+    <path class="panel" data-part="lair-base" d="M9 38 C9 26 18 19 32 19 C46 19 55 26 55 38 C52 47 43 50 32 50 C21 50 12 47 9 38 Z"/>
+    <path class="panel" data-part="under-spine-mound" data-anim="lair-pulse" d="M18 22 C28 23 36 23 46 22 C42 33 37 43 32 48 C27 43 22 33 18 22 Z"/>
+    <path class="panel" data-part="center-brood-mound" d="M21 42 C21 31 27 18 32 14 C37 18 43 31 43 42 Z"/>
+    <circle class="core" data-part="brood-core" cx="32" cy="30" r="4"/>
   `],
-  ['Hive','4 3','4 7 56 50','huge crown mandibles, brood sacs',`
-    <path class="line" data-part="left-crown-mandible" d="M23 25 Q6 9 8 42"/>
-    <path class="line" data-part="right-crown-mandible" d="M41 25 Q58 9 56 42"/>
-    <ellipse class="panel" data-part="hive-mass" cx="32" cy="37" rx="24" ry="18"/>
-    <path class="panel" data-part="crown-head" d="M17 29 Q32 7 47 29 L42 42 H22 Z"/>
-    <circle class="panel" data-part="left-sac" cx="22" cy="43" r="5"/>
-    <circle class="panel" data-part="right-sac" cx="42" cy="43" r="5"/>
-    <circle class="core" data-part="hive-core" cx="32" cy="34" r="5"/>
+  ['Hive','4 3','8 14 48 36','hatchery base, centered mound, edge-reaching spine triangle',`
+    <path class="line" data-part="left-root-mandible" d="M20 43 Q12 45 9 49"/>
+    <path class="line" data-part="right-root-mandible" d="M44 43 Q52 45 55 49"/>
+    <path class="panel" data-part="hive-base" d="M9 38 C9 26 18 19 32 19 C46 19 55 26 55 38 C52 47 43 50 32 50 C21 50 12 47 9 38 Z"/>
+    <path class="panel" data-part="upper-left-spike" data-anim="hive-pulse" d="M29 35 Q15 26 8 14 Q20 20 33 37 Z"/>
+    <path class="panel" data-part="upper-right-spike" data-anim="hive-pulse" d="M35 35 Q49 26 56 14 Q44 20 31 37 Z"/>
+    <path class="panel" data-part="lower-left-spike" data-anim="hive-pulse" d="M29 38 Q15 45 8 50 Q21 48 33 36 Z"/>
+    <path class="panel" data-part="lower-right-spike" data-anim="hive-pulse" d="M35 38 Q49 45 56 50 Q43 48 31 36 Z"/>
+    <path class="panel" data-part="center-brood-mound" d="M20 43 C20 31 27 17 32 14 C37 17 44 31 44 43 Z"/>
+    <circle class="core" data-part="hive-core" cx="32" cy="29" r="4"/>
   `],
-  ['Creep Colony','2 2','13 13 38 42','rooted mound, stalk core',`
-    <path class="line" data-part="left-root" d="M25 41 Q14 45 13 56"/>
-    <path class="line" data-part="right-root" d="M39 41 Q50 45 51 56"/>
-    <ellipse class="panel" data-part="root-mound" cx="32" cy="40" rx="16" ry="12"/>
-    <path class="panel" data-part="central-stalk" d="M25 38 Q32 13 39 38"/>
-    <circle class="core" data-part="stalk-core" cx="32" cy="31" r="4"/>
+  ['Creep Colony','2 2','20 20 24 24','rooted mound contained in 2x2 footprint',`
+    <path class="line" data-part="left-root" d="M27 39 Q22 41 21 43"/>
+    <path class="line" data-part="right-root" d="M37 39 Q42 41 43 43"/>
+    <ellipse class="panel" data-part="root-mound" cx="32" cy="38" rx="11" ry="6"/>
+    <path class="aura" data-part="central-stalk-exposed-aura" d="M28.9 32.2 C29.3 29.7 30.6 27.2 32 26 C33.4 27.2 34.7 29.7 35.1 32.2"/>
+    <path class="panel" data-part="central-stalk" d="M27 40 C27 34 29 28 32 26 C35 28 37 34 37 40 Z"/>
+    <circle class="core" data-part="stalk-core" cx="32" cy="34" r="2.4"/>
   `],
-  ['Sunken Colony','2 2','9 7 46 50','creep base, tall attack spine',`
-    <path class="line" data-part="left-root" d="M23 44 Q12 48 10 57"/>
-    <path class="line" data-part="right-root" d="M41 44 Q52 48 54 57"/>
-    <ellipse class="panel" data-part="root-base" cx="32" cy="45" rx="17" ry="10"/>
-    <path class="panel" data-part="attack-spine" data-anim="spine-thrust" data-emits="spike" data-emission-dir="0 -1" d="M27 42 L32 7 L37 42 Z"/>
-    <circle class="core" data-part="base-core" cx="32" cy="43" r="4"/>
+  ['Sunken Colony','2 2','20 20 24 24','creep base, contained attack spine',`
+    <path class="line" data-part="left-root" d="M26 40 Q22 42 21 43"/>
+    <path class="line" data-part="right-root" d="M38 40 Q42 42 43 43"/>
+    <ellipse class="panel" data-part="root-base" cx="32" cy="38.5" rx="11" ry="4.5"/>
+    <path class="panel" data-part="attack-spine" data-anim="spine-thrust" data-emits="spike" data-emission-dir="0 -1" d="M27 41 L32 21 L37 41 Z"/>
+    <circle class="core" data-part="base-core" cx="32" cy="39" r="3"/>
   `],
-  ['Spore Colony','2 2','10 9 44 47','bulb cap, spore pods, roots',`
-    <path class="line" data-part="left-root" d="M24 43 Q13 48 12 56"/>
-    <path class="line" data-part="right-root" d="M40 43 Q51 48 52 56"/>
-    <ellipse class="panel" data-part="base-mound" cx="32" cy="43" rx="17" ry="10"/>
-    <circle class="panel" data-part="bulb-cap" cx="32" cy="27" r="15"/>
-    <circle class="core" data-part="left-spore-pod" cx="24" cy="26" r="3"/>
-    <circle class="core" data-part="right-spore-pod" cx="40" cy="26" r="3"/>
-    <circle class="core" data-part="top-spore-pod" cx="32" cy="17" r="3"/>
+  ['Spore Colony','2 2','20 20 24 24','bulb cap, pods, contained roots',`
+    <path class="line" data-part="left-root" d="M27 40 Q23 42 22 43"/>
+    <path class="line" data-part="right-root" d="M37 40 Q41 42 42 43"/>
+    <ellipse class="panel" data-part="base-mound" cx="32" cy="38.5" rx="11" ry="4.5"/>
+    <circle class="panel" data-part="bulb-cap" cx="32" cy="31" r="10.5"/>
+    <circle class="core" data-part="left-spore-pod" cx="27" cy="30" r="2"/>
+    <circle class="core" data-part="right-spore-pod" cx="37" cy="30" r="2"/>
+    <circle class="core" data-part="top-spore-pod" cx="32" cy="25" r="2"/>
   `],
-  ['Spawning Pool','3 2','8 17 48 34','oval mouth pool, rim mandibles',`
-    <path class="line" data-part="left-rim-mandible" d="M22 29 Q12 21 10 35"/>
-    <path class="line" data-part="right-rim-mandible" d="M42 29 Q52 21 54 35"/>
-    <ellipse class="panel" data-part="pool-rim" cx="32" cy="37" rx="22" ry="13"/>
-    <ellipse class="cut" data-part="pool-mouth" data-anim="pool-ripple" cx="32" cy="37" rx="13" ry="7"/>
-    <circle class="core" data-part="pool-core" cx="32" cy="37" r="3"/>
+  ['Spawning Pool','3 2','14 20 36 24','oval mouth pool contained in 3x2 footprint',`
+    <path class="line" data-part="left-rim-mandible" d="M21 31 Q15 24 15 39"/>
+    <path class="line" data-part="right-rim-mandible" d="M43 31 Q49 24 49 39"/>
+    <ellipse class="panel" data-part="pool-rim" cx="32" cy="34" rx="16.5" ry="9"/>
+    <ellipse class="cut" data-part="pool-mouth" data-anim="pool-ripple" cx="32" cy="34" rx="11" ry="5.5"/>
+    <circle class="core" data-part="pool-core" cx="32" cy="34" r="2.5"/>
   `],
-  ['Evolution Chamber','3 2','10 12 44 41','mutation sac, lobes, mouth slit',`
-    <ellipse class="panel" data-part="mutation-sac" cx="32" cy="34" rx="17" ry="18"/>
-    <circle class="panel" data-part="left-lobe" cx="21" cy="35" r="6"/>
-    <circle class="panel" data-part="right-lobe" cx="43" cy="35" r="6"/>
-    <circle class="panel" data-part="top-lobe" cx="32" cy="20" r="6"/>
-    <path class="line" data-part="mouth-slit" d="M25 29 Q32 24 39 29"/>
-    <circle class="core" data-part="mutation-core" cx="32" cy="37" r="4"/>
+  ['Evolution Chamber','3 2','14 20 36 24','horizontal oval, central eye, three equidistant dots',`
+    <ellipse class="panel" data-part="mutation-sac" cx="32" cy="34" rx="17" ry="9"/>
+    <circle class="core" data-part="mutation-core" cx="32" cy="34" r="2.8"/>
+    <circle class="cut" data-part="mutation-node-top-eye" cx="32" cy="27.5" r="3.6"/>
+    <circle class="core" data-part="mutation-node-top" data-anim="upgrade-pulse" cx="32" cy="27.5" r="1.8"/>
+    <circle class="core" data-part="mutation-node-left" data-anim="upgrade-pulse" cx="26.37" cy="37.25" r="1.8"/>
+    <circle class="core" data-part="mutation-node-right" data-anim="upgrade-pulse" cx="37.63" cy="37.25" r="1.8"/>
   `],
-  ['Hydralisk Den','3 2','6 11 52 43','jaw mound, side spine arcs',`
-    <path class="line" data-part="left-spine-arc" d="M24 31 Q9 18 8 41"/>
-    <path class="line" data-part="right-spine-arc" d="M40 31 Q55 18 56 41"/>
-    <ellipse class="panel" data-part="den-mound" cx="32" cy="39" rx="20" ry="13"/>
-    <path class="cut" data-part="den-mouth" d="M21 31 Q32 13 43 31 Q32 38 21 31 Z"/>
-    <circle class="core" data-part="den-core" cx="32" cy="32" r="4"/>
+  ['Hydralisk Den','3 2','14 20 36 24','jaw mound and side arcs inside footprint',`
+    <path class="line" data-part="left-spine-arc" d="M23 35 Q15 26 15 43"/>
+    <path class="line" data-part="right-spine-arc" d="M41 35 Q49 26 49 43"/>
+    <ellipse class="panel" data-part="den-mound" cx="32" cy="35" rx="16.5" ry="8.5"/>
+    <path class="aura" data-part="den-eye-exposed-aura" d="M27.3 26.9 L32 21 L36.7 26.9"/>
+    <polygon class="cut" data-part="den-eye" points="32,21 40,31 24,31"/>
+    <circle class="core" data-part="den-core" cx="32" cy="27.5" r="2.5"/>
   `],
-  ['Extractor','4 2','7 9 50 46','horn clamps, gas sac, tendrils',`
-    <path class="line" data-part="left-horn-clamp" d="M19 28 Q9 12 13 38"/>
-    <path class="line" data-part="right-horn-clamp" d="M45 28 Q55 12 51 38"/>
-    <circle class="panel" data-part="vent-ring" cx="32" cy="34" r="17"/>
-    <ellipse class="core" data-part="gas-sac" data-anim="gas-pulse" cx="32" cy="34" rx="8" ry="10"/>
-    <path class="line" data-part="left-tendril" d="M23 45 Q15 52 11 55"/>
-    <path class="line" data-part="right-tendril" d="M41 45 Q49 52 53 55"/>
+  ['Extractor','4 2','8 20 48 24','simple gas ring and central sac',`
+    <path class="line" data-part="left-horn-clamp" d="M19 31 Q10 22 10 40"/>
+    <path class="line" data-part="right-horn-clamp" d="M45 31 Q54 22 54 40"/>
+    <ellipse class="panel" data-part="vent-ring" cx="32" cy="33" rx="21.5" ry="10"/>
+    <ellipse class="core" data-part="gas-sac" data-anim="gas-pulse" cx="32" cy="33" rx="7" ry="8.5"/>
   `],
-  ['Spire','2 2','13 6 38 52','spiky spire core, root mandibles',`
-    <path class="line" data-part="left-root-mandible" d="M24 45 Q13 49 14 58"/>
-    <path class="line" data-part="right-root-mandible" d="M40 45 Q51 49 50 58"/>
-    <path class="panel" data-part="spire-core" d="M23 50 Q32 6 41 50 Z"/>
-    <path class="line" data-part="left-shell-arc" d="M26 30 Q14 20 18 10"/>
-    <path class="line" data-part="right-shell-arc" d="M38 30 Q50 20 46 10"/>
-    <circle class="core" data-part="air-core" cx="32" cy="37" r="4"/>
+  ['Spire','2 2','20 20 24 24','triangular stalk with top eye',`
+    <path class="panel" data-part="spire-stalk" d="M22 43 C26 34 29 27 32 22 C35 27 38 34 42 43 Z"/>
+    <path class="aura" data-part="spire-eye-exposed-aura" d="M28 28 C26.4 25.5 27 22.4 29.2 20.9 C31.1 19.6 32.9 19.6 34.8 20.9 C37 22.4 37.6 25.5 36 28"/>
+    <circle class="cut" data-part="spire-eye" cx="32" cy="25" r="5"/>
+    <circle class="core" data-part="air-core" cx="32" cy="25" r="2.4"/>
   `],
-  ['Greater Spire','2 2','8 4 48 54','larger spire, crown wings',`
-    <path class="line" data-part="left-crown-wing" d="M27 28 Q8 12 10 44"/>
-    <path class="line" data-part="right-crown-wing" d="M37 28 Q56 12 54 44"/>
-    <path class="panel" data-part="greater-core-shell" d="M20 51 Q32 5 44 51 Z"/>
-    <circle class="panel" data-part="left-sac" cx="24" cy="44" r="5"/>
-    <circle class="panel" data-part="right-sac" cx="40" cy="44" r="5"/>
-    <circle class="core" data-part="greater-core" cx="32" cy="35" r="5"/>
+  ['Greater Spire','2 2','20 20 24 24','larger triangular stalk with clustered top eyes',`
+    <path class="panel" data-part="greater-spire-stalk" d="M21 43 C25 33 29 26 32 21 C35 26 39 33 43 43 Z"/>
+    <path class="aura" data-part="greater-eye-cluster-exposed-aura" d="M24.5 32.5 C22.4 29.6 23.6 26.2 26.5 25.3 C27.2 21.8 29.3 19 32 19 C34.7 19 36.8 21.8 37.5 25.3 C40.4 26.2 41.6 29.6 39.5 32.5"/>
+    <circle class="cut" data-part="left-side-eye" cx="27" cy="29.5" r="4.4"/>
+    <circle class="cut" data-part="right-side-eye" cx="37" cy="29.5" r="4.4"/>
+    <circle class="core" data-part="left-side-core" data-anim="greater-pulse" cx="27" cy="29.5" r="1.9"/>
+    <circle class="core" data-part="right-side-core" data-anim="greater-pulse" cx="37" cy="29.5" r="1.9"/>
+    <circle class="cut" data-part="greater-main-eye" cx="32" cy="25" r="6"/>
+    <circle class="core" data-part="greater-core" data-anim="greater-pulse" cx="32" cy="25" r="2.8"/>
   `],
-  ["Queen's Nest",'3 2','8 12 48 42','nest bowl, mandible fan, egg sacs',`
-    <path class="line" data-part="left-mandible-fan" d="M23 27 Q10 18 9 37"/>
-    <path class="line" data-part="right-mandible-fan" d="M41 27 Q54 18 55 37"/>
-    <ellipse class="panel" data-part="nest-bowl" cx="32" cy="37" rx="21" ry="14"/>
-    <circle class="panel" data-part="left-egg-sac" cx="24" cy="37" r="5"/>
-    <circle class="panel" data-part="right-egg-sac" cx="40" cy="37" r="5"/>
-    <circle class="core" data-part="nest-core" cx="32" cy="34" r="4"/>
+  ["Queen's Nest",'3 2','14 20 36 24','footprint oval, central dot, four radial spokes',`
+    <ellipse class="panel" data-part="nest-bowl" cx="32" cy="32" rx="17" ry="11"/>
+    <line class="line" data-part="northwest-spoke" data-anim="nest-pulse" x1="23.5" y1="26.5" x2="26" y2="28"/>
+    <line class="line" data-part="northeast-spoke" data-anim="nest-pulse" x1="40.5" y1="26.5" x2="38" y2="28"/>
+    <line class="line" data-part="southeast-spoke" data-anim="nest-pulse" x1="40.5" y1="37.5" x2="38" y2="36"/>
+    <line class="line" data-part="southwest-spoke" data-anim="nest-pulse" x1="23.5" y1="37.5" x2="26" y2="36"/>
+    <circle class="core" data-part="nest-core" cx="32" cy="32" r="3"/>
   `],
-  ['Nydus Canal','2 2','8 11 48 43','open mouth, mandible braces, throat',`
-    <path class="line" data-part="left-mandible-brace" d="M21 35 Q8 24 11 48"/>
-    <path class="line" data-part="right-mandible-brace" d="M43 35 Q56 24 53 48"/>
-    <ellipse class="panel" data-part="mouth-ring" data-anim="mouth-pulse" cx="32" cy="34" rx="19" ry="16"/>
-    <ellipse class="cut" data-part="throat" cx="32" cy="34" rx="11" ry="9"/>
-    <circle class="core" data-part="throat-core" cx="32" cy="34" r="3"/>
+  ['Nydus Canal','2 2','20 20 24 24','open mouth contained in 2x2 footprint',`
+    <path class="line" data-part="left-mandible-brace" d="M25 36 Q21 27 21 43"/>
+    <path class="line" data-part="right-mandible-brace" d="M39 36 Q43 27 43 43"/>
+    <circle class="panel" data-part="mouth-ring" data-anim="mouth-pulse" cx="32" cy="32" r="10.5"/>
+    <ellipse class="cut" data-part="throat" cx="32" cy="32" rx="7.5" ry="6.5"/>
+    <circle class="core" data-part="throat-core" cx="32" cy="33" r="2.2"/>
   `],
-  ['Ultralisk Cavern','3 2','4 10 56 44','horned cavern mouth, huge tusks',`
-    <path class="line" data-part="left-tusk" d="M24 30 Q4 31 5 54"/>
-    <path class="line" data-part="right-tusk" d="M40 30 Q60 31 59 54"/>
-    <ellipse class="panel" data-part="cavern-mound" cx="32" cy="40" rx="22" ry="13"/>
-    <path class="cut" data-part="cavern-mouth" d="M18 31 Q32 11 46 31 Q32 42 18 31 Z"/>
-    <circle class="core" data-part="cavern-core" cx="32" cy="33" r="4"/>
+  ['Ultralisk Cavern','3 2','14 20 36 24','horned cavern mouth contained in 3x2 footprint',`
+    <path class="panel" data-part="left-front-tusk" data-anim="cavern-pulse" d="M27 33 Q17 27 15 21 Q22 28 31 30 Z"/>
+    <path class="panel" data-part="right-front-tusk" data-anim="cavern-pulse" d="M37 33 Q47 27 49 21 Q42 28 33 30 Z"/>
+    <ellipse class="panel" data-part="cavern-mound" cx="32" cy="35.5" rx="17" ry="7.5"/>
+    <circle class="cut" data-part="cavern-eye" cx="32" cy="31" r="7"/>
+    <circle class="core" data-part="cavern-core" cx="32" cy="31" r="3.2"/>
   `],
-  ['Defiler Mound','4 2','8 14 48 39','low caster mound, spine tail, mandibles',`
-    <path class="line" data-part="left-spine-tail" d="M25 39 Q10 34 12 18"/>
-    <path class="line" data-part="right-spine-tail" d="M39 39 Q54 34 52 18"/>
-    <ellipse class="panel" data-part="caster-mound" cx="32" cy="39" rx="20" ry="12"/>
-    <path class="line" data-part="front-mandibles" d="M24 30 Q32 18 40 30"/>
-    <circle class="core" data-part="caster-core" cx="32" cy="36" r="4"/>
+  ['Defiler Mound','4 2','8 20 48 24','low caster mound with vertical slit',`
+    <ellipse class="panel" data-part="caster-mound" cx="32" cy="35" rx="21.5" ry="8"/>
+    <path class="core" data-part="caster-slit" data-anim="caster-pulse" d="M32 29 C34 32 34 38 32 41 C30 38 30 32 32 29 Z"/>
   `],
 ];
 
 const card = ([name, footprint, box, recipe, svg]) => `
   <article class="card">
-    <div class="art"><svg class="sprite" viewBox="0 0 64 64" aria-label="${name}" data-anchor="32 32" data-visible-box="${box}" data-footprint="${footprint}">${svg}</svg></div>
+    <div class="art"><svg class="sprite" viewBox="0 0 64 64" aria-label="${name}" data-anchor="32 32" data-visible-box="${box}" data-footprint="${footprint}" data-forward="0 -1" data-fit="visible-box" data-scale-role="building-footprint">${svg}</svg></div>
     <div class="name">${name}</div>
     <div class="meta">footprint ${footprint}</div>
     <div class="recipe">${recipe}</div>

@@ -1,10 +1,11 @@
+import { GENERATED_SVG_SPRITES, GENERATED_SVG_SPRITE_META, type GeneratedSpriteMeta } from './generated-sprites.ts';
+
 // Self-drawn SVG sprite art (100% in-house → CC0-clean for the Pages deploy, per
 // docs/specs/assets.md §1), in a neon "tron" treatment: a near-black chassis with
 // glowing, team-colored edges and a bright power core. The full three-race showcase
 // (Terran/Protoss/Zerg, canonical to docs/specs/sc1-spec.md) lives in
-// packages/app/units.html; the engine currently has Terran kinds only, so the Terran
-// subset is what bakes into the atlas here. Protoss/Zerg art is ready in the showcase
-// and ports in the moment their Kinds land in the sim.
+// packages/app/units.html; the generated docs sprites now cover the Terran,
+// Protoss, and Zerg unit/building rosters used by the sim.
 //
 // Pipeline (gl/atlas.ts): each sprite rasterizes two layers that share one UV cell:
 //   • `body` — full-color art. The dark chassis is a fixed near-black (never tinted).
@@ -71,6 +72,7 @@ export type SpriteDef = {
   body: string; // inner SVG markup, full color
   mask?: string; // inner SVG markup, team region white / chassis transparent
   scale?: number; // world-size multiplier vs. the unit's interaction radius (default 1)
+  meta?: GeneratedSpriteMeta; // renderer-facing anchor/visible-box/footprint metadata from docs/design
 };
 
 const sprite = (t: Tron): SpriteDef => {
@@ -78,7 +80,34 @@ const sprite = (t: Tron): SpriteDef => {
   return { body: bodyOf(t), ...(m ? { mask: m } : {}), scale: t.scale ?? 1 };
 };
 
-// ---- Terran roster + neutral resources (the engine's current Kinds). ----
+const DOC_STYLE = `
+  <style>
+    .panel { fill: ${DARK}; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .core, .light { fill: currentColor; stroke: none; }
+    .dark-core { fill: ${DARK2}; stroke: currentColor; stroke-width: 2; }
+    .cut { fill: ${DARK2}; stroke: none; }
+    .cargo-dot { opacity: 0.48; }
+  </style>`;
+
+const DOC_MASK_STYLE = `
+  <style>
+    .panel { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .core, .light { fill: currentColor; stroke: none; }
+    .dark-core { fill: none; stroke: currentColor; stroke-width: 2; }
+    .cut { fill: none; stroke: none; }
+    .cargo-dot { opacity: 0.48; }
+  </style>`;
+
+const docSprite = (inner: string, meta?: GeneratedSpriteMeta): SpriteDef => ({
+  body: `${DOC_STYLE}<g color="${NEON}">${inner}</g>`,
+  mask: `${DOC_MASK_STYLE}<g color="#fff">${inner}</g>`,
+  scale: 1,
+  ...(meta ? { meta } : {}),
+});
+
+// ---- Legacy generated resources plus a few hand-authored fallbacks. ----
 const TRON: Record<string, Tron> = {
   // SCV: hex hauler, side treads, forward claw, central core.
   scv: {
@@ -155,20 +184,40 @@ const TRON: Record<string, Tron> = {
     lines: `<line x1="27" y1="18" x2="27" y2="48"/><line x1="45" y1="15" x2="42" y2="48"/><line x1="34" y1="34" x2="34" y2="48"/>`,
     cores: `<polygon points="27,18 31,27 24,28"/><polygon points="45,15 49,26 41,26"/>`,
   },
-  // Vespene geyser: dark vent with rising green gas (neutral).
+  // Vespene geyser: wide ground vent fitted to the 4x2 build footprint.
   geyser: {
     sw: 2, scale: 1.0, color: '#54f08a',
-    panels: `<polygon points="32,30 50,40 50,52 32,60 14,52 14,40"/>`,
-    insets: `<ellipse cx="32" cy="40" rx="13" ry="6"/>`,
-    lines: `<path d="M28 36 Q24 26 30 18 Q34 12 30 6"/><path d="M38 38 Q42 30 38 22"/>`,
-    cores: `<circle cx="29" cy="14" r="2"/>`,
+    panels:
+      `<polygon points="8,32 15,23 30,20 49,23 58,32 53,43 36,48 16,44"/>` +
+      `<ellipse cx="32" cy="34" rx="22" ry="10"/>`,
+    insets: `<ellipse cx="32" cy="34" rx="13" ry="5"/>`,
+    lines:
+      `<path d="M18 32 Q25 27 32 30 Q40 27 47 32"/>` +
+      `<path d="M23 39 Q32 43 42 39"/>`,
+    cores: `<ellipse cx="32" cy="34" rx="5" ry="2.5"/>`,
   },
 };
 
-export const SPRITES: Record<string, SpriteDef> = Object.fromEntries(
-  Object.entries(TRON).map(([k, t]) => [k, sprite(t)]),
+const GEYSER_META: GeneratedSpriteMeta = {
+  anchor: [32, 34],
+  visibleBox: [4, 20, 56, 28],
+  footprint: [4, 2],
+  forward: [0, -1],
+  fit: 'visible-box',
+  scaleRole: 'building-footprint',
+  bwapiPixelBounds: [128, 64],
+};
+
+const DOC_SPRITES: Record<string, SpriteDef> = Object.fromEntries(
+  Object.entries(GENERATED_SVG_SPRITES).map(([k, v]) => [k, docSprite(v, GENERATED_SVG_SPRITE_META[k])]),
 );
 
+export const SPRITES: Record<string, SpriteDef> = {
+  ...Object.fromEntries(Object.entries(TRON).map(([k, t]) => [k, sprite(t)])),
+  geyser: { ...sprite(TRON.geyser), meta: GEYSER_META },
+  ...DOC_SPRITES,
+};
+
 /** Wrap inner markup into a standalone, sized SVG document for rasterization. */
-export const svgDoc = (inner: string): string =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${inner}</svg>`;
+export const svgDoc = (inner: string, rasterSize = 64): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${rasterSize}" height="${rasterSize}" viewBox="0 0 64 64">${inner}</svg>`;

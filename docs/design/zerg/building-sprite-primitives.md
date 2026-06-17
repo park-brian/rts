@@ -5,6 +5,9 @@ This is the design sheet for hand-authored Zerg building SVG rigs. Buildings use
 Rules:
 
 - Literal top-down footprint first.
+- Building footprints stay in `data-footprint` metadata; the final preview does not render the development footprint guide.
+- Start each structure from its largest biological hull, then add smaller identity parts. As a rule of thumb, use about 90-95% of footprint width for the main mass and 80-90% of footprint height, leaving stroke/glow clearance inside the guide.
+- Aura geometry is explicit and exposed-only: draw short `aura` edge paths where a black eye, triangle, or mound protrudes from the parent hull instead of glowing the buried full shape.
 - Zerg structures are living mounds and organs: sacs, mouths, mandibles, roots, spines, vents, tendrils, horns, and carapace shells.
 - Each structure should have one strong mound/sac silhouette plus one gameplay identity feature.
 - Morph families should share visible ancestry: Hatchery -> Lair -> Hive; Creep Colony -> Sunken/Spore; Spire -> Greater Spire.
@@ -16,19 +19,19 @@ Rules:
 
 | Building | Primitive recipe | Footprint |
 |---|---|---:|
-| Hatchery | Low brood mound, front mandible roots, larva sacs, central brood core. | 4x3 |
-| Lair | Hatchery mound plus taller jaw crown, side horn arcs, deeper core. | 4x3 |
-| Hive | Largest mound, huge crown mandibles/horns, multiple brood sacs, heavy core. | 4x3 |
-| Creep Colony | Small rooted mound, central stalk/core, two front mandible roots. | 2x2 |
+| Hatchery | Low brood mound, front mandible roots, small centered delta mound and core. | 4x3 |
+| Lair | Hatchery base and centered mound over an inverted delta-mound spine layer. | 4x3 |
+| Hive | Hatchery base and centered mound over four narrow footprint-reaching spine wedges. | 4x3 |
+| Creep Colony | Small rooted mound, central stalk/core with exposed cap aura, two front mandible roots. | 2x2 |
 | Sunken Colony | Creep base with one tall attack spine, side mandible roots, rear brace. | 2x2 |
 | Spore Colony | Creep base with bulb cap, spore pod ring, horn/antenna dots. | 2x2 |
 | Spawning Pool | Low oval mouth-pool, dark inner pit, rim mandibles/teeth as large shapes only. | 3x2 |
-| Evolution Chamber | Round mutation sac, three lobe nodes, front mouth slit, rib seams. | 3x2 |
-| Hydralisk Den | Jaw-shaped mound, two big side mandibles/spine arcs, central den mouth. | 3x2 |
-| Extractor | Living gas ring over vent, horned side clamps, three gripping tendrils, gas sac. | 4x2 |
-| Spire | Tall organic spire core, wing/shell arcs, root mandibles around base. | 2x2 |
-| Greater Spire | Spire plus larger crown wings/mandibles and heavier central sac. | 2x2 |
-| Queen's Nest | Rounded nest bowl, front mandible fan, egg sacs, side wing-like plates. | 3x2 |
+| Evolution Chamber | Horizontal mutation sac, central eye dot, three equidistant smaller nodes, top node backed by a black eye circle. | 3x2 |
+| Hydralisk Den | Spawning Pool-style oval hull, two side spine arcs, triangular ranged eye with exposed cap aura. | 3x2 |
+| Extractor | Simplified living gas ring over vent, horned side clamps, central gas sac; no bottom tendril line. | 4x2 |
+| Spire | Eiffel-tower triangular stalk with a black top eye, exposed eye aura, and bright center dot. | 2x2 |
+| Greater Spire | Larger triangular stalk with a bigger main top eye and smaller side eyes underneath, using one exposed cluster-outline aura. | 2x2 |
+| Queen's Nest | Footprint-filling oval, central eye dot, four short diagonal midpoint spokes. | 3x2 |
 | Nydus Canal | Large open mouth/tunnel ring, mandible braces, dark throat. | 2x2 |
-| Ultralisk Cavern | Massive horned cavern mouth, huge tusk arcs, heavy body mound. | 3x2 |
-| Defiler Mound | Low caster mound, curved mandible/spine tail motif, small caster core. | 4x2 |
+| Ultralisk Cavern | Heavy body mound over two front tusks, massive black eye with centered bright dot. | 3x2 |
+| Defiler Mound | Low caster mound with one vertical caster slit. | 4x2 |

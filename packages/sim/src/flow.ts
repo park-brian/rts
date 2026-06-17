@@ -13,7 +13,7 @@
 // hot per-tile checks — a per-tile WeakMap lookup in line-of-sight scans (every
 // unit, every tick) was a real throughput sink.
 
-import type { State } from './world.ts';
+import { NONE, type State } from './world.ts';
 import { Role } from './data.ts';
 import { fold, FNV_OFFSET } from './hash.ts';
 import { structureFootprint } from './footprint.ts';
@@ -23,15 +23,15 @@ const LIMIT = 24; // cached fields per State (LRU by insertion order)
 type Nav = { sig: number; solid: Uint8Array; fields: Map<number, Int32Array> };
 const navByState = new WeakMap<State, Nav>();
 
-/** Solid = structures that aren't also resources (a refinery on a geyser stays walkable). */
-const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & Role.Resource) === 0;
+/** Solid = grounded structures that aren't resources (a refinery on a geyser stays walkable). */
+const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & (Role.Resource | Role.Air)) === 0;
 
 /** A cheap, deterministic fingerprint of the building layout (slot order). */
 const buildSig = (s: State): number => {
   const e = s.e;
   let h = FNV_OFFSET;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || !blocks(e.flags[i]!)) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !blocks(e.flags[i]!)) continue;
     h = fold(h, i); h = fold(h, e.gen[i]!); h = fold(h, e.kind[i]!); h = fold(h, e.x[i]!); h = fold(h, e.y[i]!);
   }
   return h >>> 0;
@@ -42,7 +42,7 @@ const stampSolid = (s: State, solid: Uint8Array): void => {
   solid.fill(0);
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || !blocks(e.flags[i]!)) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !blocks(e.flags[i]!)) continue;
     const fp = structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!);
     for (let ty = Math.max(0, fp.y0); ty <= Math.min(m.h - 1, fp.y1); ty++) {
       for (let tx = Math.max(0, fp.x0); tx <= Math.min(m.w - 1, fp.x1); tx++) solid[ty * m.w + tx] = 1;

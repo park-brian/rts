@@ -16,6 +16,9 @@
     "typecheck": "tsc -p tsconfig.json",
     "demo": "node packages/headless/src/demo.ts",
     "build:app": "npm run build -w @rts/app",
+    "assets:app-sprites": "node docs/design/export-app-sprites.mjs",
+    "shot:app": "npm run shot -w @rts/app",
+    "shot:units": "npm run shot:units -w @rts/app",
     "shot:terran-units": "node docs/design/shot-terran-sprite-sheet.mjs",
     "shot:terran-buildings": "node docs/design/shot-terran-building-sprite-sheet.mjs"
   },

@@ -57,6 +57,7 @@
   .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .core { fill: currentColor; stroke: none; }
+  .light { fill: #fff; stroke: none; }
   .cut { fill: var(--dark2); stroke: none; }
   .name { margin-top: 9px; text-align: center; color: #f8ebff; letter-spacing: 0.08em; text-transform: uppercase; }
   .meta { margin-top: 2px; text-align: center; color: #c8a4d0; font-size: 10px; }
@@ -72,15 +73,19 @@
 <main class="sheet" id="sheet"></main>
 
 <script>
+// Renderer contract for every unit below:
+// - 64x64 local rig, source forward is 0 -1.
+// - The generated root <svg> adds data-anchor="32 32" and each unit's data-visible-box.
+// - data-part/data-anim/data-emits survive export; comments do not.
 const units = [
   {
-    name: 'Larva', meta: 'tiny morph rig', box: '22 24 20 24',
-    recipe: 'curled grub, head nub, segments',
+    name: 'Larva', meta: 'tiny morph rig', box: '18 18 28 31',
+    recipe: 'tiny scourge body, antennae',
     svg: `
-      <path class="panel" data-part="curled-body" data-anim="wriggle" d="M41 28 Q28 22 23 33 Q21 44 35 47 Q27 39 33 34 Q37 31 41 28 Z"/>
-      <path class="line" data-part="segment-a" d="M28 31 Q34 33 38 29"/>
-      <path class="line" data-part="segment-b" d="M25 37 Q31 40 36 37"/>
-      <circle class="core" data-part="head-dot" cx="39" cy="28" r="2"/>
+      <path class="line" data-part="left-antenna" d="M29 25 Q23 18 18 21"/>
+      <path class="line" data-part="right-antenna" d="M35 25 Q41 18 46 21"/>
+      <path class="panel" data-part="tiny-scourge-body" data-anim="wriggle" d="M32 22 Q39 33 32 49 Q25 33 32 22 Z"/>
+      <circle class="core" data-part="head-dot" cx="32" cy="30" r="1.7"/>
     `,
   },
   {
@@ -91,69 +96,77 @@ const units = [
     `,
   },
   {
-    name: 'Drone', meta: 'worker rig', box: '11 13 42 38',
-    recipe: 'fat delta body, rear wing deltas, small mandibles',
+    name: 'Drone', meta: 'worker rig', box: '10 15 44 35',
+    recipe: 'flat organic leaf body, animated grab jaws',
     svg: `
-      <path class="line" data-part="left-mandible" d="M29 24 Q25 17 21 21"/>
-      <path class="line" data-part="right-mandible" d="M35 24 Q39 17 43 21"/>
-      <path class="panel" data-part="left-rear-wing-delta" data-anim="wing-bob" d="M27 34 L13 44 L29 47 Z"/>
-      <path class="panel" data-part="right-rear-wing-delta" data-anim="wing-bob" d="M37 34 L51 44 L35 47 Z"/>
-      <path class="panel" data-part="fat-delta-body" d="M32 15 L44 50 H20 Z"/>
-      <circle class="core" data-part="head-core" cx="32" cy="24" r="3"/>
+      <path class="line" data-part="left-grab-jaw" data-anim="jaw-grab" d="M29 24 Q27 16 30 10"/>
+      <path class="line" data-part="right-grab-jaw" data-anim="jaw-grab" d="M35 24 Q37 16 34 10"/>
+      <path class="panel" data-part="left-side-leaf" data-anim="wing-bob" d="M28 27 Q14 29 10 41 Q14 51 28 50 Q24 39 28 27 Z"/>
+      <path class="panel" data-part="right-side-leaf" data-anim="wing-bob" d="M36 27 Q50 29 54 41 Q50 51 36 50 Q40 39 36 27 Z"/>
+      <path class="panel" data-part="flat-leaf-body" d="M32 16 Q45 29 39 50 Q32 54 25 50 Q19 29 32 16 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="25" r="3"/>
     `,
   },
   {
-    name: 'Overlord', meta: 'supply air rig', box: '10 8 44 52',
-    recipe: 'bloated sac, horn mandibles, tentacles',
+    name: 'Overlord', meta: 'supply air rig', box: '10 10 44 52',
+    recipe: 'perfect radial storage sac, horn mandibles, tentacles',
     svg: `
-      <path class="line" data-part="left-horn-mandible" d="M24 19 Q13 11 16 29"/>
-      <path class="line" data-part="right-horn-mandible" d="M40 19 Q51 11 48 29"/>
-      <ellipse class="panel" data-part="bloated-sac" cx="32" cy="29" rx="19" ry="20"/>
-      <path class="line" data-part="tentacle-a" d="M25 47 Q22 55 26 60"/>
-      <path class="line" data-part="tentacle-b" d="M32 49 Q32 56 31 62"/>
-      <path class="line" data-part="tentacle-c" d="M39 47 Q42 55 38 60"/>
+      <path class="line" data-part="left-horn-mandible" d="M24 20 Q14 12 14 30"/>
+      <path class="line" data-part="right-horn-mandible" d="M40 20 Q50 12 50 30"/>
+      <circle class="panel" data-part="bloated-sac" cx="32" cy="31" r="20"/>
+      <path class="line" data-part="tentacle-a" d="M25 49 Q22 56 26 62"/>
+      <path class="line" data-part="tentacle-b" d="M32 51 Q32 57 32 62"/>
+      <path class="line" data-part="tentacle-c" d="M39 49 Q42 56 38 62"/>
       <circle class="core" data-part="eye-core" data-anim="core-pulse" cx="32" cy="31" r="4"/>
+      <circle class="light" data-part="storage-marker-n" cx="32" cy="21" r="1.35"/>
+      <circle class="light" data-part="storage-marker-ne" cx="39.07" cy="23.93" r="1.35"/>
+      <circle class="light" data-part="storage-marker-e" cx="42" cy="31" r="1.35"/>
+      <circle class="light" data-part="storage-marker-se" cx="39.07" cy="38.07" r="1.35"/>
+      <circle class="light" data-part="storage-marker-s" cx="32" cy="41" r="1.35"/>
+      <circle class="light" data-part="storage-marker-sw" cx="24.93" cy="38.07" r="1.35"/>
+      <circle class="light" data-part="storage-marker-w" cx="22" cy="31" r="1.35"/>
+      <circle class="light" data-part="storage-marker-nw" cx="24.93" cy="23.93" r="1.35"/>
     `,
   },
   {
-    name: 'Zergling', meta: 'melee rig', box: '9 13 46 42',
-    recipe: 'open pentagon body, triangle head, front jaws, four limbs',
+    name: 'Zergling', meta: 'melee rig', box: '11 8 42 49',
+    recipe: 'narrow smooth hull, triangle head, split jaws',
     svg: `
-      <path class="line" data-part="left-front-jaw" data-anim="jaw-snap" d="M28 23 L20 14"/>
-      <path class="line" data-part="right-front-jaw" data-anim="jaw-snap" d="M36 23 L44 14"/>
-      <path class="line" data-part="left-front-limb" data-anim="claw-swing" d="M26 35 L10 27"/>
-      <path class="line" data-part="right-front-limb" data-anim="claw-swing" d="M38 35 L54 27"/>
-      <path class="line" data-part="left-rear-limb" data-anim="claw-swing" d="M28 45 L17 54"/>
-      <path class="line" data-part="right-rear-limb" data-anim="claw-swing" d="M36 45 L47 54"/>
-      <polygon class="panel" data-part="triangle-head" points="32,14 42,29 22,29"/>
-      <path class="panel" data-part="open-pentagon-body" d="M22 31 L42 31 L38 48 L32 54 L26 48 Z"/>
-      <circle class="core" data-part="eye-core" cx="32" cy="24" r="2.6"/>
+      <polygon class="panel" data-part="left-front-triangle-limb" data-anim="limb-step" points="25,35 11,23 20,39"/>
+      <polygon class="panel" data-part="right-front-triangle-limb" data-anim="limb-step" points="39,35 53,23 44,39"/>
+      <polygon class="panel" data-part="left-rear-triangle-limb" data-anim="limb-step" points="28,47 20,57 25,42"/>
+      <polygon class="panel" data-part="right-rear-triangle-limb" data-anim="limb-step" points="36,47 44,57 39,42"/>
+      <path class="panel" data-part="smooth-hull-body" d="M27 34 Q32 19 37 34 Q37 50 32 58 Q27 50 27 34 Z"/>
+      <polygon class="panel" data-part="left-split-jaw" data-anim="jaw-snap" points="23.34,30 28,16 28,30"/>
+      <polygon class="panel" data-part="right-split-jaw" data-anim="jaw-snap" points="36,16 40.66,30 36,30"/>
+      <polygon class="panel" data-part="head-triangle" points="32,15 40.66,30 23.34,30"/>
+      <circle class="core" data-part="eye-spot" cx="32" cy="24" r="2.4"/>
     `,
   },
   {
-    name: 'Hydralisk', meta: 'ranged rig', box: '10 8 44 47',
-    recipe: 'mandible head, long body, spine shoulders',
+    name: 'Hydralisk', meta: 'ranged rig', box: '10 18 44 31',
+    recipe: 'zergling head, mini ultra fangs',
     svg: `
-      <path class="line" data-part="left-spine-arc" d="M26 28 Q12 20 13 9"/>
-      <path class="line" data-part="right-spine-arc" d="M38 28 Q52 20 51 9"/>
-      <polygon class="panel" data-part="mandible-head" points="22,15 32,8 42,15 39,28 32,24 25,28"/>
-      <path class="panel" data-part="tapered-torso" d="M24 29 Q32 24 40 29 L36 55 H28 Z"/>
-      <line class="line" data-part="rib-line" x1="32" y1="30" x2="32" y2="51"/>
-      <circle class="core" data-part="head-core" data-emits="spine-shot" data-emission-dir="0 -1" cx="32" cy="24" r="3"/>
+      <g transform="translate(0 10)">
+        <path class="panel" data-part="left-mini-tusk" data-anim="tusk-swing" d="M28 28 Q16 20 12 8 Q22 19 31 25 Z"/>
+        <path class="panel" data-part="right-mini-tusk" data-anim="tusk-swing" d="M36 28 Q48 20 52 8 Q42 19 33 25 Z"/>
+        <polygon class="panel" data-part="triangle-head" points="32,10 40.66,25 23.34,25"/>
+        <circle class="core" data-part="head-core" data-emits="spine-shot" data-emission-dir="0 -1" cx="32" cy="19" r="2.2"/>
+      </g>
     `,
   },
   {
-    name: 'Lurker', meta: 'burrow siege rig', box: '5 18 54 34',
-    recipe: 'flat body, front mandibles, side spikes',
+    name: 'Lurker', meta: 'burrow siege rig', box: '4 13 56 43',
+    recipe: 'perfect circle body, long triangle limbs, central eye',
     svg: `
-      <path class="line" data-part="left-spike-a" d="M23 35 L5 23"/>
-      <path class="line" data-part="left-spike-b" d="M23 41 L7 51"/>
-      <path class="line" data-part="right-spike-a" d="M41 35 L59 23"/>
-      <path class="line" data-part="right-spike-b" d="M41 41 L57 51"/>
-      <path class="line" data-part="front-mandibles" d="M25 27 Q32 18 39 27"/>
-      <ellipse class="panel" data-part="flat-body" cx="32" cy="39" rx="19" ry="11"/>
-      <line class="line" data-part="center-ridge" x1="32" y1="29" x2="32" y2="49"/>
-      <circle class="core" data-part="head-core" cx="32" cy="32" r="3"/>
+      <polygon class="panel" data-part="left-front-spike-limb" data-anim="leg-step" points="20,29 4,16 13,37"/>
+      <polygon class="panel" data-part="right-front-spike-limb" data-anim="leg-step" points="44,29 60,16 51,37"/>
+      <polygon class="panel" data-part="left-rear-spike-limb" data-anim="leg-step" points="20,43 4,56 13,35"/>
+      <polygon class="panel" data-part="right-rear-spike-limb" data-anim="leg-step" points="44,43 60,56 51,35"/>
+      <polygon class="panel" data-part="left-split-mandible" data-anim="jaw-snap" points="31,29 23,15 29,34"/>
+      <polygon class="panel" data-part="right-split-mandible" data-anim="jaw-snap" points="33,29 41,15 35,34"/>
+      <circle class="panel" data-part="circle-body" cx="32" cy="36" r="17"/>
+      <circle class="core" data-part="central-eye" cx="32" cy="36" r="3"/>
     `,
   },
   {
@@ -170,96 +183,94 @@ const units = [
     `,
   },
   {
-    name: 'Scourge', meta: 'suicide air rig', box: '17 18 30 32',
-    recipe: 'tiny wing dart, mandibles, split tail',
+    name: 'Scourge', meta: 'suicide air rig', box: '17 19 30 28',
+    recipe: 'tiny wing dart, small eye',
     svg: `
-      <path class="panel" data-part="left-wing" d="M30 28 Q20 23 18 32 Q24 31 29 36"/>
-      <path class="panel" data-part="right-wing" d="M34 28 Q44 23 46 32 Q40 31 35 36"/>
-      <path class="line" data-part="mandibles" d="M28 25 Q32 19 36 25"/>
-      <path class="panel" data-part="body" d="M32 22 Q38 33 32 45 Q26 33 32 22 Z"/>
-      <path class="line" data-part="split-tail" d="M32 45 L28 51 M32 45 L36 51"/>
-      <circle class="core" data-part="core" cx="32" cy="31" r="2.4"/>
+      <path class="panel" data-part="left-wing" d="M30 31 Q20 28 18 37 Q24 36 29 41"/>
+      <path class="panel" data-part="right-wing" d="M34 31 Q44 28 46 37 Q40 36 35 41"/>
+      <path class="panel" data-part="body" d="M32 22 Q38 32 32 45 Q26 32 32 22 Z"/>
+      <circle class="core" data-part="core" cx="32" cy="31" r="1.5"/>
     `,
   },
   {
-    name: 'Guardian', meta: 'heavy air rig', box: '4 12 56 44',
-    recipe: 'heavy abdomen, crab claw wings',
+    name: 'Guardian', meta: 'heavy air rig', box: '5 13 54 39',
+    recipe: 'wide smooth manta shape, front mandibles',
     svg: `
-      <path class="panel" data-part="left-claw-wing" d="M28 30 Q11 12 5 31 Q15 45 27 38 Z"/>
-      <path class="panel" data-part="right-claw-wing" d="M36 30 Q53 12 59 31 Q49 45 37 38 Z"/>
-      <path class="line" data-part="mandibles" d="M26 23 Q32 14 38 23"/>
-      <ellipse class="panel" data-part="heavy-abdomen" cx="32" cy="38" rx="15" ry="17"/>
-      <circle class="core" data-part="head-core" data-emits="acid-spore" data-emission-dir="0 -1" cx="32" cy="27" r="3"/>
+      <path class="panel" data-part="left-front-mandible" data-anim="jaw-snap" d="M27 31 Q17 22 16 13 Q23 23 31 29 Z"/>
+      <path class="panel" data-part="right-front-mandible" data-anim="jaw-snap" d="M37 31 Q47 22 48 13 Q41 23 33 29 Z"/>
+      <path class="panel" data-part="smooth-manta-body" data-anim="wing-bob" d="M32 14 Q48 19 58 37 Q44 36 37 50 Q32 43 27 50 Q20 36 6 37 Q16 19 32 14 Z"/>
+      <circle class="core" data-part="head-core" data-emits="acid-spore" data-emission-dir="0 -1" cx="32" cy="26" r="4"/>
     `,
   },
   {
-    name: 'Devourer', meta: 'heavy air rig', box: '7 9 50 48',
-    recipe: 'fat shell, huge maw, side fins',
+    name: 'Devourer', meta: 'heavy air rig', box: '12 9 40 48',
+    recipe: 'slim shell, mini ultra fangs, delta wings',
     svg: `
-      <polygon class="panel" data-part="left-fin" points="18,35 7,45 22,48"/>
-      <polygon class="panel" data-part="right-fin" points="46,35 57,45 42,48"/>
-      <ellipse class="panel" data-part="armored-shell" cx="32" cy="34" rx="21" ry="22"/>
+      <path class="panel" data-part="left-mini-tusk" data-anim="jaw-snap" d="M28 28 Q18 18 17 8 Q24 19 31 25 Z"/>
+      <path class="panel" data-part="right-mini-tusk" data-anim="jaw-snap" d="M36 28 Q46 18 47 8 Q40 19 33 25 Z"/>
+      <polygon class="panel" data-part="left-delta-wing" points="19,34 5,48 25,53"/>
+      <polygon class="panel" data-part="right-delta-wing" points="45,34 59,48 39,53"/>
+      <ellipse class="panel" data-part="armored-shell" cx="32" cy="34" rx="16" ry="22"/>
       <path class="cut" data-part="maw" data-anim="maw-open" d="M22 22 Q32 10 42 22 Q32 30 22 22 Z"/>
-      <path class="line" data-part="left-mandible" d="M27 22 Q17 15 14 25"/>
-      <path class="line" data-part="right-mandible" d="M37 22 Q47 15 50 25"/>
       <circle class="core" data-part="acid-core" data-emits="acid" data-emission-dir="0 -1" cx="32" cy="23" r="3"/>
+      <path class="line" data-part="center-ridge" d="M32 28 V54"/>
     `,
   },
   {
-    name: 'Queen', meta: 'caster air rig', box: '8 8 48 50',
-    recipe: 'caster head, claw wings, long tail',
+    name: 'Queen', meta: 'caster air rig', box: '6 12 52 38',
+    recipe: 'north-facing trident, stubby base eye',
     svg: `
-      <path class="line" data-part="left-claw-wing" d="M25 31 Q11 20 8 36"/>
-      <path class="line" data-part="right-claw-wing" d="M39 31 Q53 20 56 36"/>
-      <path class="line" data-part="mandibles" d="M26 21 Q32 8 38 21"/>
-      <ellipse class="panel" data-part="thorax" cx="32" cy="30" rx="13" ry="14"/>
-      <path class="panel" data-part="tail" d="M26 40 Q32 58 38 40"/>
-      <circle class="core" data-part="caster-core" cx="32" cy="27" r="4"/>
+      <path class="panel" data-part="trident-hull" data-anim="wing-bob" d="M12 40 Q17 25 24 16 Q25 28 29 35 Q31 22 32 12 Q33 22 35 35 Q39 28 40 16 Q47 25 52 40 Q43 34 37 41 Q34 46 32 49 Q30 46 27 41 Q21 34 12 40 Z"/>
+      <circle class="core" data-part="caster-core" cx="32" cy="39" r="2.6"/>
     `,
   },
   {
-    name: 'Defiler', meta: 'ground caster rig', box: '9 14 46 42',
-    recipe: 'low body, mandible head, spine tail',
+    name: 'Defiler', meta: 'ground caster rig', box: '16 8 34 53',
+    recipe: 'long scorpion caster, pincers, curled tail',
     svg: `
-      <path class="line" data-part="spine-tail" data-anim="crawl-spine" d="M24 45 Q12 35 18 20"/>
-      <path class="line" data-part="root-tentacle" d="M40 45 Q52 36 46 26"/>
-      <path class="line" data-part="mandibles" d="M26 23 Q32 14 38 23"/>
-      <path class="panel" data-part="low-body" d="M18 37 Q32 22 46 37 Q42 54 22 54 Z"/>
-      <circle class="core" data-part="caster-core" cx="32" cy="33" r="4"/>
+      <path class="panel" data-part="left-pincer" data-anim="pincer-twitch" d="M29 27 Q18 18 16 5 L26 16 Z"/>
+      <path class="panel" data-part="right-pincer" data-anim="pincer-twitch" d="M35 27 Q46 18 48 5 L38 16 Z"/>
+      <path class="panel" data-part="scorpion-body" d="M26 27 Q32 11 38 27 Q38 49 32 61 Q26 49 26 27 Z"/>
+      <path class="line" data-part="segmented-tail" data-anim="crawl-spine" d="M32 61 Q42 61 48 53"/>
+      <path class="line" data-part="tail-stinger" d="M48 53 L53 45"/>
+      <circle class="core" data-part="caster-core" cx="32" cy="31" r="2.8"/>
     `,
   },
   {
-    name: 'Ultralisk', meta: 'massive melee rig', box: '4 8 56 49',
-    recipe: 'huge body, broad head, tusks',
+    name: 'Ultralisk', meta: 'massive melee rig', box: '5 10 54 45',
+    recipe: 'central hex body, four legs, massive front tusks',
     svg: `
-      <path class="line" data-part="left-tusk" data-anim="tusk-swing" d="M26 25 Q7 26 5 52"/>
-      <path class="line" data-part="right-tusk" data-anim="tusk-swing" d="M38 25 Q57 26 59 52"/>
-      <ellipse class="panel" data-part="body-mass" cx="32" cy="39" rx="21" ry="16"/>
-      <path class="panel" data-part="mandible-head" d="M18 28 Q32 8 46 28 L40 39 H24 Z"/>
-      <circle class="core" data-part="head-core" cx="32" cy="30" r="4"/>
+      <path class="panel" data-part="left-tusk" data-anim="tusk-swing" d="M27 29 Q12 18 11 5 Q20 18 31 25 Z"/>
+      <path class="panel" data-part="right-tusk" data-anim="tusk-swing" d="M37 29 Q52 18 53 5 Q44 18 33 25 Z"/>
+      <polygon class="panel" data-part="left-front-leg" data-anim="leg-step" points="22,34 5,30 18,47"/>
+      <polygon class="panel" data-part="right-front-leg" data-anim="leg-step" points="42,34 59,30 46,47"/>
+      <polygon class="panel" data-part="left-rear-leg" data-anim="leg-step" points="24,48 10,58 18,39"/>
+      <polygon class="panel" data-part="right-rear-leg" data-anim="leg-step" points="40,48 54,58 46,39"/>
+      <path class="panel" data-part="wide-smooth-hull" d="M15 31 Q32 11 49 31 Q48 50 32 58 Q16 50 15 31 Z"/>
+      <circle class="core" data-part="head-core" cx="32" cy="29" r="4"/>
     `,
   },
   {
-    name: 'Infested Terran', meta: 'suicide rig', box: '18 15 28 38',
-    recipe: 'infected infantry, belly sac, mandible head',
+    name: 'Infested Terran', meta: 'suicide rig', box: '11 15 43 35',
+    recipe: 'marine silhouette, purple infection dot',
     svg: `
-      <path class="line" data-part="left-limb" d="M24 37 Q15 39 18 47"/>
-      <path class="line" data-part="right-limb" d="M40 37 Q49 39 46 47"/>
-      <path class="line" data-part="mandibles" d="M27 24 Q32 16 37 24"/>
-      <circle class="panel" data-part="belly-sac" data-anim="sac-pulse" cx="32" cy="39" r="11"/>
-      <circle class="panel" data-part="head" cx="32" cy="25" r="6"/>
-      <circle class="core" data-part="explosive-core" cx="32" cy="39" r="4"/>
+      <rect class="panel" data-part="rifle" x="48" y="17" width="5" height="25" rx="1"/>
+      <circle class="panel" data-part="left-pauldron" cx="20" cy="40" r="8"/>
+      <circle class="panel" data-part="right-pauldron" cx="44" cy="40" r="8"/>
+      <path class="panel" data-part="torso" d="M23 36 H41 L38 50 H26 Z"/>
+      <circle class="panel" data-part="helmet" cx="32" cy="29" r="12"/>
+      <circle class="core" data-part="infection-dot" data-anim="sac-pulse" cx="32" cy="28" r="3.4"/>
     `,
   },
   {
-    name: 'Broodling', meta: 'tiny melee rig', box: '20 18 24 31',
-    recipe: 'tiny body, mandibles, two claws',
+    name: 'Broodling', meta: 'tiny melee rig', box: '18 14 28 39',
+    recipe: 'mini-zergling, no back legs',
     svg: `
-      <path class="line" data-part="left-claw" d="M28 31 Q20 28 20 20"/>
-      <path class="line" data-part="right-claw" d="M36 31 Q44 28 44 20"/>
-      <path class="line" data-part="mandibles" d="M28 25 Q32 18 36 25"/>
-      <path class="panel" data-part="tiny-body" d="M26 28 Q32 22 38 28 L35 49 H29 Z"/>
-      <circle class="core" data-part="head-core" cx="32" cy="27" r="2.4"/>
+      <polygon class="panel" data-part="left-front-triangle-limb" data-anim="limb-step" points="27,35 18,32 25,39"/>
+      <polygon class="panel" data-part="right-front-triangle-limb" data-anim="limb-step" points="37,35 46,32 39,39"/>
+      <path class="panel" data-part="smooth-hull-body" data-anim="scuttle" d="M28 33 Q32 22 36 33 Q36 47 32 53 Q28 47 28 33 Z"/>
+      <polygon class="panel" data-part="head-triangle" points="32,17 38,29 26,29"/>
+      <circle class="core" data-part="eye-spot" cx="32" cy="25" r="1.9"/>
     `,
   },
 ];
@@ -267,7 +278,7 @@ const units = [
 const card = (u) => `
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         ${u.svg}
       </svg>
     </div>

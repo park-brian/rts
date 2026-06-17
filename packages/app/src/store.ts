@@ -3,6 +3,7 @@
 import { signal } from '@preact/signals';
 
 export type Mode = 'play' | 'spectate' | 'replay';
+export type TargetMode = 'none' | 'harvest' | 'repair';
 
 export const ui = {
   minerals: signal(0),
@@ -20,11 +21,31 @@ export const ui = {
   replaySpeed: signal(1),
   paused: signal(false),
   hasReplay: signal(false), // a finished game is available to watch
+  setupOpen: signal(true),
+  mathRenderer: signal(false),
+  humanPlayer: signal(0),
+  playerRaces: signal<string[]>(['terran', 'terran']),
   selCount: signal(0),
   selKindName: signal(''),
   selCanBuild: signal(false), // a worker is selected
-  selProducer: signal(0), // producer kind if a producer is selected (else 0)
+  selCanRally: signal(false), // a structure is selected
+  selBuildKinds: signal<number[]>([]),
+  selTransformKinds: signal<number[]>([]),
+  selTrainKinds: signal<number[]>([]),
+  selAbilities: signal<number[]>([]),
+  selResearchTechs: signal<number[]>([]),
+  selCanLoad: signal(false),
+  selCanUnload: signal(false),
+  selCanHarvest: signal(false),
+  selCanRepair: signal(false),
+  selCanAttackMove: signal(false),
+  selCanStop: signal(false),
+  selCanBurrow: signal(false),
+  selCanUnburrow: signal(false),
+  selCanMine: signal(false),
   placement: signal(0), // build-placement kind in progress (0 = none)
   amove: signal(false), // attack-move targeting armed
   rally: signal(false), // set-rally-point targeting armed
+  abilityTarget: signal(0), // ability id whose target is armed (0 = none)
+  targetMode: signal<TargetMode>('none'), // explicit friendly/resource target verb
 };

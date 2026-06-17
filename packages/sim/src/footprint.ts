@@ -11,6 +11,11 @@ export type Footprint = { x0: number; y0: number; x1: number; y1: number };
 const tileX = (xfx: number): number => Math.floor(xfx / TILE_FX);
 const tileY = (yfx: number): number => Math.floor(yfx / TILE_FX);
 
+export const snapBuildAnchor = (x: number, y: number): { x: number; y: number } => ({
+  x: tileX(x) * TILE_FX + TILE_FX / 2,
+  y: tileY(y) * TILE_FX + TILE_FX / 2,
+});
+
 export const structureFootprint = (kind: number, x: number, y: number): Footprint => {
   const def = Units[kind]!;
   const tx = tileX(x);

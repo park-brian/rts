@@ -22,8 +22,8 @@ export type Atlas = {
   size: number; // square atlas dimension (px)
 };
 
-const CELL = 128; // rasterization resolution per sprite (crisp to ~zoom 4 × dpr 2)
-const PAD = 6; // gutter px between cells
+const CELL = 352; // keeps the 100-sprite atlas under 4096px while giving zoomed buildings more source pixels
+const PAD = 16; // gutter px between cells
 
 const rasterize = (svg: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -55,8 +55,8 @@ export const buildAtlas = async (): Promise<Atlas> => {
   const imgs = await Promise.all(
     names.map(async (n) => ({
       n,
-      body: await rasterize(svgDoc(SPRITES[n]!.body)),
-      mask: SPRITES[n]!.mask ? await rasterize(svgDoc(SPRITES[n]!.mask!)) : null,
+      body: await rasterize(svgDoc(SPRITES[n]!.body, inner)),
+      mask: SPRITES[n]!.mask ? await rasterize(svgDoc(SPRITES[n]!.mask!, inner)) : null,
     })),
   );
 

@@ -6,11 +6,12 @@
 // fair-observation memory as well as gameplay state.
 
 import type { State } from './world.ts';
-import { makeState, ENTITY_COLUMNS, type ColType } from './world.ts';
+import { TECH_CAP } from './data.ts';
+import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from './world.ts';
 import type { MapDef, StartLoc, ResourceSpawn } from './map.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'
-const VERSION = 3;
+const VERSION = 16;
 const BYTES: Record<ColType, number> = { u8: 1, u16: 2, u32: 4, i32: 4 };
 
 // ---- cursor over a DataView ----
@@ -64,10 +65,13 @@ const sizeOf = (s: State): number => {
   n += 4 + m.teams.length * 4; // map teams
   const P = s.teams.length;
   n += 4 + 4 + 4 + 1 + 4 + 1; // tick, rng, startTeams, over, winner, trackVision
-  n += 4 + P * 4 * 4 + P * 4; // P + 4 player pools + state teams
+  n += 4 + P * 4 * 4 + P * TECH_CAP + P * 4; // P + 4 player pools + tech + state teams
   n += P * m.w * m.h; // per-player vision grids
   n += 4 + 4; // hi, freeTop
   for (const [, t] of ENTITY_COLUMNS) n += cap * BYTES[t];
+  n += 4; // effect hi
+  const effectCap = s.effects.alive.length;
+  for (const [, t] of EFFECT_COLUMNS) n += effectCap * BYTES[t];
   return n;
 };
 
@@ -94,6 +98,7 @@ export const serializeState = (s: State): ArrayBuffer => {
   w.u32(P);
   w.col(s.players.minerals, 'i32', P); w.col(s.players.gas, 'i32', P);
   w.col(s.players.supplyUsed, 'i32', P); w.col(s.players.supplyMax, 'i32', P);
+  w.bytes(s.players.tech);
   w.col(s.teams, 'i32', P);
   for (let p = 0; p < P; p++) w.bytes(s.vision[p]!);
   // entities
@@ -101,6 +106,10 @@ export const serializeState = (s: State): ArrayBuffer => {
   w.i32(e.hi); w.i32(e.freeTop);
   const cap = e.alive.length;
   for (const [k, t] of ENTITY_COLUMNS) w.col(e[k] as ArrayLike<number>, t, cap);
+  // effects
+  w.i32(s.effects.hi);
+  const effectCap = s.effects.alive.length;
+  for (const [k, t] of EFFECT_COLUMNS) w.col(s.effects[k] as ArrayLike<number>, t, effectCap);
   return w.buf;
 };
 
@@ -129,6 +138,7 @@ export const deserializeState = (buf: ArrayBuffer): State => {
   s.result.over = over; s.result.winner = winner;
   r.col(s.players.minerals, 'i32', P); r.col(s.players.gas, 'i32', P);
   r.col(s.players.supplyUsed, 'i32', P); r.col(s.players.supplyMax, 'i32', P);
+  s.players.tech.set(r.bytes(P * TECH_CAP));
   r.col(s.teams, 'i32', P);
   for (let p = 0; p < P; p++) s.vision[p]!.set(r.bytes(mw * mh));
   // entities
@@ -136,5 +146,9 @@ export const deserializeState = (buf: ArrayBuffer): State => {
   e.hi = r.i32(); e.freeTop = r.i32();
   const cap = e.alive.length;
   for (const [k, t] of ENTITY_COLUMNS) r.col(e[k] as { [i: number]: number }, t, cap);
+  // effects
+  s.effects.hi = r.i32();
+  const effectCap = s.effects.alive.length;
+  for (const [k, t] of EFFECT_COLUMNS) r.col(s.effects[k] as { [i: number]: number }, t, effectCap);
   return s;
 };

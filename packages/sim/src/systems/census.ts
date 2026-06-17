@@ -4,7 +4,7 @@
 // over-queueing past the cap), matching SC1.
 
 import type { State } from '../world.ts';
-import { Units, Kind, SUPPLY_CAP } from '../data.ts';
+import { Units, Kind, SUPPLY_CAP, productionCount } from '../data.ts';
 
 export const census = (s: State): void => {
   const p = s.players;
@@ -19,11 +19,11 @@ export const census = (s: State): void => {
     if (owner >= n) continue; // neutral
     const d = Units[e.kind[i]!];
     if (!d) continue;
-    p.supplyUsed[owner] = p.supplyUsed[owner]! + d.supply;
-    if (e.built[i] === 1) p.supplyMax[owner] = p.supplyMax[owner]! + d.provides;
+    if (e.illusion[i] !== 1) p.supplyUsed[owner] = p.supplyUsed[owner]! + d.supply;
+    if (e.built[i] === 1 && e.illusion[i] !== 1) p.supplyMax[owner] = p.supplyMax[owner]! + d.provides;
     if (e.prodKind[i] !== Kind.None) {
       const pd = Units[e.prodKind[i]!];
-      if (pd) p.supplyUsed[owner] = p.supplyUsed[owner]! + pd.supply * (1 + e.prodQueued[i]!);
+      if (pd) p.supplyUsed[owner] = p.supplyUsed[owner]! + pd.supply * productionCount(e.prodKind[i]!) * (1 + e.prodQueued[i]!);
     }
   }
   for (let j = 0; j < n; j++) {

@@ -6,7 +6,7 @@
 
 import type { State } from './world.ts';
 import type { MapDef } from './map.ts';
-import { TILE } from './data.ts';
+import { Role, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
 import { moveToward } from './systems/move.ts';
 import { flowField, downhill, navSolid } from './flow.ts';
@@ -52,6 +52,7 @@ export const lineClear = (m: MapDef, x0: number, y0: number, x1: number, y1: num
  */
 export const navigate = (s: State, slot: number, gx: number, gy: number, speed: number): boolean => {
   const e = s.e;
+  if ((e.flags[slot]! & Role.Air) !== 0) return moveToward(e, slot, gx, gy, speed);
   const m = s.map;
   const solid = navSolid(s); // fetch once; reused by the per-tile checks below
   const stx = tileX(e.x[slot]!); const sty = tileY(e.y[slot]!);

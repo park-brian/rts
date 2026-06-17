@@ -1,13 +1,22 @@
-// Canvas2D renderer — the fallback when WebGL2 is unavailable, and the source of
-// the screen-space chrome (minimap + drag box) reused by the GL path's 2D overlay.
-// Draws cached terrain, fog of war, resources, units/buildings, selection, minimap.
+// Canvas2D math renderer — the fallback when WebGL2 is unavailable and the
+// explicit footprint/debug view. It draws gameplay truth, not sprite art.
 
-import { TILE, ONE, Units, Role, Kind, eid, slotOf, isAlive, type MapDef } from './sim.ts';
+import {
+  TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
+  structureFootprint, bodyBounds, type MapDef,
+} from './sim.ts';
 import type { Game } from './game.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
 const color = (owner: number): string => OWN[owner] ?? NEUTRAL_COL;
+const footprintColor = (owner: number, alpha: number): string => {
+  const hex = color(owner);
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
@@ -61,61 +70,78 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
 
   // Entities.
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
     const wx = e.x[i]! / ONE; const wy = e.y[i]! / ONE;
-    const ttx = Math.floor(wx / TILE); const tty = Math.floor(wy / TILE);
-    const vis = game.tileVisible(ttx, tty);
-    const def = Units[e.kind[i]!]!;
+    const kind = e.kind[i]!;
+    const def = Units[kind]!;
     const isStruct = (def.roles & Role.Structure) !== 0;
     const isRes = (def.roles & Role.Resource) !== 0;
-    const isGeyser = e.kind[i] === Kind.Geyser;
-    const own = e.owner[i] === game.human;
-    if (!own && !isRes && !isGeyser && vis !== 2) continue; // hide unseen enemies
-    if ((isRes || isGeyser) && vis === 0) continue; // hide unexplored resources
-    const baseR = def.radius / ONE;
-    const r = isStruct || isRes || isGeyser ? baseR : Math.max(baseR, 5 / game.zoom); // keep units visible when zoomed out
+    const isFootprint = isStruct || isRes || kind === Kind.Geyser;
+    if (!game.canSeeEntity(i)) continue;
 
-    if (isGeyser) {
-      ctx.fillStyle = '#56d364'; // vespene green marker
-      ctx.beginPath(); ctx.arc(wx, wy, r, 0, Math.PI * 2); ctx.fill();
-    } else if (isStruct) {
+    let overlayX = wx;
+    let overlayY = wy;
+    let overlayW = Math.max(2, def.radius / ONE * 2);
+    let overlayH = overlayW;
+    if (isFootprint) {
+      const fp = structureFootprint(kind, e.x[i]!, e.y[i]!);
+      const x = fp.x0 * TILE;
+      const y = fp.y0 * TILE;
+      const w = (fp.x1 - fp.x0 + 1) * TILE;
+      const h = (fp.y1 - fp.y0 + 1) * TILE;
+      overlayX = x + w / 2;
+      overlayY = y + h / 2;
+      overlayW = w;
+      overlayH = h;
       ctx.globalAlpha = e.built[i] === 1 ? 1 : 0.55;
-      ctx.fillStyle = e.kind[i] === Kind.Refinery ? '#3fae57' : color(e.owner[i]!); // gas building tinted green
-      ctx.fillRect(wx - r, wy - r, r * 2, r * 2);
+      ctx.fillStyle = isRes || kind === Kind.Geyser ? 'rgba(73,208,192,0.22)' : footprintColor(e.owner[i]!, 0.22);
+      ctx.strokeStyle = isRes || kind === Kind.Geyser ? NEUTRAL_COL : color(e.owner[i]!);
+      ctx.lineWidth = 1.5 / game.zoom;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeRect(x, y, w, h);
       ctx.globalAlpha = 1;
-    } else if (isRes) {
-      const frac = Math.max(0.3, Math.min(1, e.cargo[i]! / 1500));
-      ctx.fillStyle = NEUTRAL_COL;
-      ctx.fillRect(wx - r, wy - r * frac, r * 2, r * 2 * frac);
     } else {
-      ctx.fillStyle = color(e.owner[i]!);
+      const r = def.radius / ONE;
+      overlayW = r * 2;
+      overlayH = r * 2;
+      ctx.fillStyle = footprintColor(e.owner[i]!, 0.26);
+      ctx.strokeStyle = color(e.owner[i]!);
+      ctx.lineWidth = 1.5 / game.zoom;
+      ctx.beginPath();
+      ctx.arc(wx, wy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      const b = bodyBounds(kind);
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1 / game.zoom;
+      ctx.strokeRect(wx - b.left / ONE, wy - b.up / ONE, (b.left + b.right) / ONE, (b.up + b.down) / ONE);
+
       const dx = e.faceX[i]!;
       const dy = e.faceY[i]!;
-      const rot = dx !== 0 || dy !== 0 ? Math.atan2(dy, dx) : -Math.PI / 2;
-      ctx.save();
-      ctx.translate(wx, wy);
-      ctx.rotate(rot);
-      ctx.beginPath();
-      ctx.moveTo(r, 0);
-      ctx.lineTo(-r * 0.75, -r * 0.65);
-      ctx.lineTo(-r * 0.4, 0);
-      ctx.lineTo(-r * 0.75, r * 0.65);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy) || 1;
+        ctx.strokeStyle = '#ffffffb0';
+        ctx.beginPath();
+        ctx.moveTo(wx, wy);
+        ctx.lineTo(wx + (dx / len) * r, wy + (dy / len) * r);
+        ctx.stroke();
+      }
     }
 
     // selection ring
     if (game.selection.has(eid(e, i))) {
       ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 2 / game.zoom;
-      ctx.strokeRect(wx - r - 2, wy - r - 2, r * 2 + 4, r * 2 + 4);
+      ctx.strokeRect(overlayX - overlayW / 2 - 2, overlayY - overlayH / 2 - 2, overlayW + 4, overlayH + 4);
     }
     // hp bar
-    if (e.hp[i]! < def.hp && def.hp > 0) {
-      const w = r * 2; const frac = Math.max(0, e.hp[i]! / def.hp);
-      ctx.fillStyle = '#000'; ctx.fillRect(wx - r, wy - r - 5, w, 3);
+    const maxLife = def.hp + def.shields;
+    const life = e.hp[i]! + e.shield[i]!;
+    if (life < maxLife && maxLife > 0) {
+      const w = overlayW; const frac = Math.max(0, life / maxLife);
+      ctx.fillStyle = '#000'; ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w, 3);
       ctx.fillStyle = frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
-      ctx.fillRect(wx - r, wy - r - 5, w * frac, 3);
+      ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w * frac, 3);
     }
   }
 
@@ -124,12 +150,18 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     if (!isAlive(e, id)) continue;
     const i = slotOf(id);
     if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
+    const rally = resolveRallyEndpoint(s, i);
+    if (!rally) continue;
     const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
-    const rx = e.rallyX[i]! / ONE; const ry = e.rallyY[i]! / ONE;
+    const rx = rally.x / ONE;
+    const ry = rally.y / ONE;
     ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 1.5 / game.zoom;
     ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(rx, ry); ctx.stroke();
-    ctx.fillStyle = '#ffe14e';
-    ctx.beginPath(); ctx.arc(rx, ry, 4 / game.zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffe14e';
+    ctx.lineWidth = 2 / game.zoom;
+    const targetDef = rally.target >= 0 ? Units[e.kind[rally.target]!] : undefined;
+    const r = targetDef ? Math.max(6 / game.zoom, targetDef.radius / ONE + 5 / game.zoom) : 4 / game.zoom;
+    ctx.beginPath(); ctx.arc(rx, ry, r, 0, Math.PI * 2); ctx.stroke();
   }
 
   // Fog overlay (only non-fully-visible tiles, within view).
@@ -178,9 +210,9 @@ export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => 
   }
   const e = game.sim.fullState().e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
     const tx = Math.floor(e.x[i]! / ONE / TILE); const ty = Math.floor(e.y[i]! / ONE / TILE);
-    if (e.owner[i] !== game.human && game.tileVisible(tx, ty) !== 2 && (Units[e.kind[i]!]!.roles & Role.Resource) === 0) continue;
+    if (!game.canSeeEntity(i)) continue;
     ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? NEUTRAL_COL : color(e.owner[i]!);
     ctx.fillRect(ox + tx * scale, oy + ty * scale, 2, 2);
   }

@@ -12,10 +12,10 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, CAP, eid, slotOf, isAlive, type MapDef } from '../sim.ts';
+import { TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, resolveRallyEndpoint, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
-import { SPRITES } from '../art/sprites.ts';
+import { spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 
@@ -31,19 +31,13 @@ const TEAM_RGB = OWN_HEX.map(rgb);
 const NEUTRAL_RGB = rgb(NEUTRAL_HEX);
 const teamColor = (owner: number): [number, number, number] => TEAM_RGB[owner] ?? NEUTRAL_RGB;
 
-const SPRITE_OF: Record<number, string> = {
-  [Kind.SCV]: 'scv',
-  [Kind.Marine]: 'marine',
-  [Kind.CommandCenter]: 'commandCenter',
-  [Kind.SupplyDepot]: 'supplyDepot',
-  [Kind.Barracks]: 'barracks',
-  [Kind.Refinery]: 'refinery',
-  [Kind.Mineral]: 'mineral',
-  [Kind.Geyser]: 'geyser',
+const spriteOf = (kind: number): string => Units[kind]?.sprite ?? '';
+
+const mobileZoomMul = (kind: number, zoom: number): number => {
+  const def = Units[kind]!;
+  if ((def.roles & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser) return 1;
+  return Math.max(1, (5 / zoom) / (def.radius / ONE));
 };
-const scaleOf = (kind: number): number => SPRITES[SPRITE_OF[kind] ?? '']?.scale ?? 1;
-/** Drawn footprint radius (world px) for a kind, before zoom min-size clamping. */
-const radiusOf = (kind: number): number => (Units[kind]!.radius / ONE) * scaleOf(kind);
 
 const FLOATS = 16; // floats per instance (pos2,size2,rot1,uv4,color4,team3)
 const FOG_COLOR = new Float32Array([4 / 255, 6 / 255, 10 / 255]);
@@ -302,24 +296,20 @@ export class GlRenderer {
     const zoom = game.zoom;
     for (let i = 0; i < e.hi; i++) {
       this.drawn[i] = 0;
-      if (e.alive[i] !== 1) continue;
+      if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
       const wx = e.x[i]! / ONE; const wy = e.y[i]! / ONE;
-      const ttx = Math.floor(wx / TILE); const tty = Math.floor(wy / TILE);
-      const vis = game.tileVisible(ttx, tty);
       const kind = e.kind[i]!;
-      const def = Units[kind]!;
-      const isRes = (def.roles & Role.Resource) !== 0;
-      const isGeyser = kind === Kind.Geyser;
-      const own = e.owner[i] === game.human;
-      if (!own && !isRes && !isGeyser && vis !== 2) continue; // hide unseen enemies
-      if ((isRes || isGeyser) && vis === 0) continue; // hide unexplored resources
+      if (!game.canSeeEntity(i)) continue;
 
-      const isMobile = (def.roles & (Role.Structure | Role.Resource)) === 0 && !isGeyser;
-      const r = (isMobile ? Math.max(def.radius / ONE, 5 / zoom) : def.radius / ONE) * scaleOf(kind);
+      const p = spritePlacement(kind);
+      const mul = mobileZoomMul(kind, zoom);
+      const r = p.radius * mul;
       this.drawn[i] = 1; this.rr[i] = r; this.wxA[i] = wx; this.wyA[i] = wy;
+      const shadowX = wx + p.baseOffsetX * mul;
+      const shadowY = wy + p.baseOffsetY * mul;
 
       // Contact shadow: a squashed dark glow, offset down-right (light from top-left).
-      this.sprites.push(wx + r * 0.18, wy + r * 0.34, r * 3, r * 2.1, 0, glow, 0, 0, 0, 0.32, 0, 0, 0);
+      this.sprites.push(shadowX + r * 0.18, shadowY + r * 0.34, p.visibleWidth * mul * 1.15, p.visibleHeight * mul * 0.72, 0, glow, 0, 0, 0, 0.32, 0, 0, 0);
     }
   }
 
@@ -335,7 +325,9 @@ export class GlRenderer {
       const isGeyser = kind === Kind.Geyser;
       const wx = this.wxA[i]!; const wy = this.wyA[i]!;
       const r = this.rr[i]!;
-      const sprite = uv[SPRITE_OF[kind] ?? ''] ?? uv.white!;
+      const p = spritePlacement(kind);
+      const mul = mobileZoomMul(kind, game.zoom);
+      const sprite = uv[spriteOf(kind)] ?? uv.white!;
 
       // Facing: rotate mobile units from deterministic sim state ("up" art = -y).
       let rot = 0;
@@ -347,15 +339,21 @@ export class GlRenderer {
       }
       const alpha = isStruct && e.built[i] !== 1 ? 0.55 : 1;
       const [tr, tg, tb] = teamColor(e.owner[i]!);
-      this.sprites.push(wx, wy, r * 2, r * 2, rot, sprite, 1, 1, 1, alpha, tr, tg, tb);
+      const c = Math.cos(rot);
+      const s = Math.sin(rot);
+      const drawX = wx + (p.offsetX * c - p.offsetY * s) * mul;
+      const drawY = wy + (p.offsetX * s + p.offsetY * c) * mul;
+      this.sprites.push(drawX, drawY, p.width * mul, p.height * mul, rot, sprite, 1, 1, 1, alpha, tr, tg, tb);
 
       // Ambient light: a soft glow that grounds the entity (additive, subtle).
+      const baseX = wx + p.baseOffsetX * mul;
+      const baseY = wy + p.baseOffsetY * mul;
       if (isStruct && e.built[i] === 1) {
-        this.fx.push(wx, wy, r * 3.2, r * 3.2, 0, glow, tr, tg, tb, 0.12, 0, 0, 0);
+        this.fx.push(baseX, baseY, r * 3.2, r * 3.2, 0, glow, tr, tg, tb, 0.12, 0, 0, 0);
       } else if (kind === Kind.Mineral) {
         this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
-      } else if (isGeyser || kind === Kind.Refinery) {
-        this.fx.push(wx, wy - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
+      } else if (isGeyser || def.resourceType === ResourceType.Gas) {
+        this.fx.push(baseX, baseY - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
       }
     }
   }
@@ -368,7 +366,7 @@ export class GlRenderer {
       // Death: an entity we were drawing last frame is gone → explosion at its
       // last-known spot (use prev caches; the slot may already be reused).
       if (this.prevDrawn[i] === 1 && !aliveNow) {
-        this.particles.emitExplosion(this.prevX[i]! / ONE, this.prevY[i]! / ONE, Math.max(6, radiusOf(this.prevKind[i]!)));
+        this.particles.emitExplosion(this.prevX[i]! / ONE, this.prevY[i]! / ONE, Math.max(6, visualRadius(this.prevKind[i]!)));
       }
       // Fire: weapon cooldown jumped up (only reset on a shot) on a drawn unit.
       if (aliveNow && this.drawn[i] === 1 && this.prevAlive[i] === 1 && e.wcd[i]! > this.prevWcd[i]!) {
@@ -392,7 +390,8 @@ export class GlRenderer {
   }
 
   private overlays(game: Game): void {
-    const e = game.sim.fullState().e;
+    const s = game.sim.fullState();
+    const e = s.e;
     const uv = this.atlas.uv;
     const white = uv.white!;
     const ring = uv.ring!;
@@ -401,21 +400,29 @@ export class GlRenderer {
     for (let i = 0; i < e.hi; i++) {
       if (this.drawn[i] !== 1) continue;
       const id = eid(e, i);
-      const def = Units[e.kind[i]!]!;
-      const wx = this.wxA[i]!; const wy = this.wyA[i]!; const r = this.rr[i]!;
+      const kind = e.kind[i]!;
+      const def = Units[kind]!;
+      const p = spritePlacement(kind);
+      const mul = mobileZoomMul(kind, zoom);
+      const footprintArt = p.role === 'building-footprint';
+      const wx = this.wxA[i]! + (footprintArt ? p.baseOffsetX * mul : 0);
+      const wy = this.wyA[i]! + (footprintArt ? p.baseOffsetY * mul : 0);
+      const r = footprintArt ? Math.max(p.visibleWidth, p.visibleHeight) * mul / 2 : this.rr[i]!;
+      const hpWidth = footprintArt ? p.visibleWidth * mul : r * 1.8;
+      const hpTop = wy - (footprintArt ? p.visibleHeight * mul / 2 : r) - 5 / zoom;
 
       if (game.selection.has(id)) {
         const sr = r + 3 / zoom;
         this.sprites.push(wx, wy, sr * 2, sr * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
       }
-      if (e.hp[i]! < def.hp && def.hp > 0) {
-        const bw = r * 1.8;
-        const top = wy - r - 5 / zoom;
+      const maxLife = def.hp + def.shields;
+      const life = e.hp[i]! + e.shield[i]!;
+      if (life < maxLife && maxLife > 0) {
         const th = 3 / zoom;
-        const frac = Math.max(0, e.hp[i]! / def.hp);
-        this.sprites.push(wx, top, bw, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
+        const frac = Math.max(0, life / maxLife);
+        this.sprites.push(wx, hpTop, hpWidth, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
         const col = frac > 0.5 ? [0.35, 1, 0.48] : frac > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
-        this.sprites.push(wx - bw / 2 + (bw * frac) / 2, top, bw * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
+        this.sprites.push(wx - hpWidth / 2 + (hpWidth * frac) / 2, hpTop, hpWidth * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
       }
     }
 
@@ -424,14 +431,18 @@ export class GlRenderer {
       if (!isAlive(e, id)) continue;
       const i = slotOf(id);
       if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
-      const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
-      const rx = e.rallyX[i]! / ONE; const ry = e.rallyY[i]! / ONE;
+      const rally = resolveRallyEndpoint(s, i);
+      if (!rally) continue;
+      const p = spritePlacement(e.kind[i]!);
+      const bx = e.x[i]! / ONE + p.baseOffsetX; const by = e.y[i]! / ONE + p.baseOffsetY;
+      const rx = rally.x / ONE;
+      const ry = rally.y / ONE;
       const dx = rx - bx; const dy = ry - by;
       const len = Math.hypot(dx, dy);
       if (len < 1) continue;
       this.sprites.push((bx + rx) / 2, (by + ry) / 2, len, 1.5 / zoom, Math.atan2(dy, dx), white, 1, 0.88, 0.3, 0.85, 0, 0, 0);
-      const dot = 4 / zoom;
-      this.sprites.push(rx, ry, dot * 2, dot * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
+      const r = rally.target >= 0 ? Math.max(spritePlacement(e.kind[rally.target]!).visibleWidth, spritePlacement(e.kind[rally.target]!).visibleHeight) / 2 + 5 / zoom : 4 / zoom;
+      this.sprites.push(rx, ry, r * 2, r * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
     }
   }
 }

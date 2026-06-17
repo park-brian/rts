@@ -7,6 +7,8 @@ import type { State } from './world.ts';
 import { eid } from './world.ts';
 import { Units, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
+import { canDetect } from './detection.ts';
+import { isContained } from './cargo.ts';
 
 export type EntityView = {
   id: number; kind: number; owner: number;
@@ -33,10 +35,12 @@ export const observe = (s: State, player: number): Observation => {
     if (e.alive[i] !== 1) continue;
     const own = e.owner[i] === player;
     if (!own) {
+      if (isContained(s, i)) continue;
       const tx = Math.floor(e.x[i]! / ONE / TILE);
       const ty = Math.floor(e.y[i]! / ONE / TILE);
       const visible = tx >= 0 && ty >= 0 && tx < W && ty < m.h && v[ty * W + tx] === 2;
       if (!visible) continue; // hidden by fog
+      if (!canDetect(s, player, i)) continue; // visible cloak shimmer is not a targetable observation
     }
     entities.push({
       id: eid(e, i), kind: e.kind[i]!, owner: e.owner[i]!,

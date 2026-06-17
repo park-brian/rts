@@ -12,6 +12,11 @@ export type CommandRejectReason =
   | 'missing-capability'
   | 'target-not-found'
   | 'target-not-allowed'
+  | 'missing-requirement'
+  | 'invalid-ability'
+  | 'not-enough-energy'
+  | 'not-enough-hit-points'
+  | 'target-out-of-range'
   | 'not-affordable'
   | 'supply-blocked'
   | 'queue-full'
@@ -22,13 +27,24 @@ export type CommandRejectReason =
 
 export type Command =
   | { t: 'train'; building: number; kind: number }
+  | { t: 'research'; building: number; tech: number }
   | { t: 'build'; unit: number; kind: number; x: number; y: number }
+  | { t: 'addon'; building: number; kind: number }
+  | { t: 'lift'; building: number }
+  | { t: 'land'; building: number; x: number; y: number }
+  | { t: 'transform'; unit: number; kind: number; target?: number }
+  | { t: 'burrow'; unit: number; active: boolean }
+  | { t: 'mine'; unit: number }
+  | { t: 'load'; transport: number; unit: number }
+  | { t: 'unload'; transport: number; unit: number; x: number; y: number }
   | { t: 'cancelBuild'; building: number }
   | { t: 'move'; unit: number; x: number; y: number }
   | { t: 'attack'; unit: number; target: number } // attack a specific entity
   | { t: 'amove'; unit: number; x: number; y: number } // attack-move to a point
+  | { t: 'ability'; unit: number; ability: number; target?: number; x?: number; y?: number }
   | { t: 'harvest'; unit: number; patch: number }
-  | { t: 'rally'; building: number; x: number; y: number } // set a structure's rally point
+  | { t: 'repair'; unit: number; target: number }
+  | { t: 'rally'; building: number; x: number; y: number; target?: number } // set a structure's rally point/target
   | { t: 'stop'; unit: number };
 
 export type PlayerCommands = { player: number; cmds: Command[] };

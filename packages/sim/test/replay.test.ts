@@ -5,7 +5,7 @@ import { parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/
 import { generateMap } from '../src/procedural.ts';
 import { eid, ENTITY_COLUMNS, makeState, type State } from '../src/world.ts';
 import { sliceMap } from '../src/map.ts';
-import { Kind, Role, Units } from '../src/data.ts';
+import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands.ts';
 
@@ -108,6 +108,23 @@ test('replay round-trips through JSON (the on-disk / on-wire form)', () => {
   const replay = toReplay(sim, SPEC);
   const round = parseReplay(JSON.stringify(replay));
   assert.deepEqual(replayHashes(round), replayHashes(replay), 'JSON-serialized replay is faithful');
+});
+
+test('replay preserves selected player factions', () => {
+  const sim = new Sim({ map: generateMap(1, SEED), players: 2, seed: SEED, record: true, factions: [Protoss, Zerg] });
+  const replay = parseReplay(JSON.stringify(toReplay(sim, SPEC)));
+  const restored = play(replay).fullState().e;
+
+  assert.equal(replay.factions?.[0], 'protoss');
+  assert.equal(replay.factions?.[1], 'zerg');
+  let nexus = 0;
+  let hatchery = 0;
+  for (let i = 0; i < restored.hi; i++) {
+    if (restored.alive[i] === 1 && restored.owner[i] === 0 && restored.kind[i] === Kind.Nexus) nexus++;
+    if (restored.alive[i] === 1 && restored.owner[i] === 1 && restored.kind[i] === Kind.Hatchery) hatchery++;
+  }
+  assert.equal(nexus, 1);
+  assert.equal(hatchery, 1);
 });
 
 test('recording stores idle ticks as compact empty frames', () => {

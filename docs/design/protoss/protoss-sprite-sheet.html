@@ -57,6 +57,7 @@
   .panel { fill: var(--dark); stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .core { fill: #51e8ff; stroke: none; }
+  .light { fill: #fff8e8; stroke: none; }
   .cargo-dot { opacity: 0.48; }
   .dark-core { fill: var(--dark2); stroke: currentColor; stroke-width: 2; }
   .cut { fill: var(--dark2); stroke: none; }
@@ -74,25 +75,29 @@
 <main class="sheet" id="sheet"></main>
 
 <script>
+// Renderer contract for every unit below:
+// - 64x64 local rig, source forward is 0 -1.
+// - The generated root <svg> adds data-anchor="32 32" and each unit's data-visible-box.
+// - data-part/data-anim/data-emits survive export; comments do not.
 const units = [
   {
     name: 'Probe', meta: 'tiny worker rig', box: '6 6 52 48',
-    recipe: 'aggressive boomerang shell, cyan core',
+    recipe: 'small wide arbiter shell, worker core',
     svg: `
-      <path class="panel" data-part="boomerang-shell" data-anim="hover-bob" d="M7 42 Q32 4 57 42 L45 54 Q32 26 19 54 Z"/>
-      <circle class="core" data-part="worker-core" data-anim="core-pulse" cx="32" cy="31" r="3"/>
+      <path class="panel" data-part="wide-arbiter-shell" data-anim="hover-bob" d="M32 18 C43 22 52 33 56 43 C45 41 38 36 32 33 C26 36 19 41 8 43 C12 33 21 22 32 18 Z"/>
+      <circle class="core" data-part="worker-core" data-anim="core-pulse" cx="32" cy="27" r="3"/>
     `,
   },
   {
     name: 'Zealot', meta: 'infantry rig', box: '11 15 43 34',
-    recipe: 'Marine circles, trapezoid head, twin blades',
+    recipe: 'oval head, oval shoulders, twin pauldron blades',
     svg: `
-      <path class="line" data-part="left-psi-blade" data-anim="blade-swing" d="M17 34 L11 15"/>
-      <path class="line" data-part="right-psi-blade" data-anim="blade-swing" d="M47 34 L53 15"/>
-      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="walk-shoulder blade-stance" points="13,43 22,31 29,45"/>
-      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="walk-shoulder blade-stance" points="51,43 42,31 35,45"/>
-      <polygon class="panel" data-part="trapezoid-helmet" points="32,19 43,30 39,41 25,41 21,30"/>
-      <circle class="core" data-part="helmet-eye" data-anim="core-pulse" cx="32" cy="28" r="2.5"/>
+      <path class="line" data-part="left-psi-blade" data-anim="blade-swing" d="M22 36 L14 16"/>
+      <path class="line" data-part="right-psi-blade" data-anim="blade-swing" d="M42 36 L50 16"/>
+      <ellipse class="panel" data-part="left-pauldron-leaf" data-anim="walk-shoulder blade-stance" cx="22" cy="39" rx="4" ry="9" transform="rotate(-18 22 39)"/>
+      <ellipse class="panel" data-part="right-pauldron-leaf" data-anim="walk-shoulder blade-stance" cx="42" cy="39" rx="4" ry="9" transform="rotate(18 42 39)"/>
+      <ellipse class="panel" data-part="helmet-oval" cx="32" cy="30" rx="7" ry="11"/>
+      <circle class="light" data-part="face-eye" data-anim="core-pulse" cx="32" cy="27" r="3"/>
     `,
   },
   {
@@ -117,24 +122,25 @@ const units = [
   },
   {
     name: 'High Templar', meta: 'caster rig', box: '14 18 36 36',
-    recipe: 'Medic circles, trapezoid hood, caster core',
+    recipe: 'oval caster head, small shoulders, hand orbs',
     svg: `
-      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="caster-drift" points="15,44 23,33 29,46"/>
-      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="caster-drift" points="49,44 41,33 35,46"/>
-      <polygon class="panel" data-part="trapezoid-hood" points="32,19 42,30 38,41 26,41 22,30"/>
-      <path class="line" data-part="inner-hood-arc" data-anim="caster-drift" d="M26 32 Q32 27 38 32"/>
-      <circle class="core" data-part="helmet-eye" data-anim="core-pulse" cx="32" cy="28" r="3.5"/>
+      <ellipse class="panel" data-part="left-pauldron-small" data-anim="caster-drift" cx="23" cy="39" rx="4.5" ry="6.5" transform="rotate(-18 23 39)"/>
+      <ellipse class="panel" data-part="right-pauldron-small" data-anim="caster-drift" cx="41" cy="39" rx="4.5" ry="6.5" transform="rotate(18 41 39)"/>
+      <circle class="core" data-part="left-hand-orb" data-anim="caster-pulse" data-emits="spell" data-emission-dir="0 -1" cx="19" cy="31" r="3"/>
+      <circle class="core" data-part="right-hand-orb" data-anim="caster-pulse" data-emits="spell" data-emission-dir="0 -1" cx="45" cy="31" r="3"/>
+      <ellipse class="panel" data-part="helmet-oval" cx="32" cy="30" rx="7" ry="11"/>
+      <circle class="light" data-part="face-eye" data-anim="core-pulse" cx="32" cy="27" r="3"/>
     `,
   },
   {
     name: 'Dark Templar', meta: 'stealth melee rig', box: '14 10 39 43',
-    recipe: 'Ghost circles, trapezoid hood, one blade',
+    recipe: 'oval stealth head, small shoulders, one blade',
     svg: `
-      <path class="line" data-part="warp-blade" data-anim="blade-swing" d="M46 16 Q56 31 47 49"/>
-      <polygon class="panel" data-part="left-pauldron-triangle" data-anim="walk-shoulder cloak-pulse" points="16,43 23,34 29,45"/>
-      <polygon class="panel" data-part="right-pauldron-triangle" data-anim="walk-shoulder cloak-pulse" points="48,43 41,34 35,45"/>
-      <polygon class="panel" data-part="trapezoid-hood" points="32,16 42,29 38,39 26,39 22,29"/>
-      <circle class="core" data-part="helmet-eye" data-anim="cloak-pulse" cx="32" cy="27" r="2.4"/>
+      <path class="line" data-part="warp-blade" data-anim="blade-swing" d="M42 38 C47 29 50 20 49 10"/>
+      <ellipse class="panel" data-part="left-pauldron-small" data-anim="walk-shoulder cloak-pulse" cx="23" cy="39" rx="4.5" ry="6.5" transform="rotate(-18 23 39)"/>
+      <ellipse class="panel" data-part="right-pauldron-small" data-anim="walk-shoulder cloak-pulse" cx="41" cy="39" rx="4.5" ry="6.5" transform="rotate(18 41 39)"/>
+      <ellipse class="panel" data-part="helmet-oval" cx="32" cy="29" rx="7" ry="11"/>
+      <circle class="light" data-part="face-eye" data-anim="cloak-pulse" cx="32" cy="26" r="2.8"/>
     `,
   },
   {
@@ -157,12 +163,12 @@ const units = [
   },
   {
     name: 'Reaver', meta: 'siege rig', box: '16 8 32 48',
-    recipe: 'long shell, mouth launcher',
+    recipe: 'long shell, circular launcher head',
     svg: `
       <ellipse class="panel" data-part="long-shell" cx="32" cy="34" rx="15" ry="24"/>
-      <polygon class="panel" data-part="launcher-mouth" data-anim="mouth-open" data-emits="scarab" data-emission-dir="0 -1" points="24,12 40,12 43,25 21,25"/>
-      <line class="line" data-part="shell-spine" x1="32" y1="26" x2="32" y2="54"/>
-      <circle class="core" data-part="launcher-core" cx="32" cy="19" r="3"/>
+      <circle class="panel" data-part="launcher-head" data-anim="mouth-open" data-emits="scarab" data-emission-dir="0 -1" cx="32" cy="24" r="8"/>
+      <line class="line" data-part="shell-spine" x1="32" y1="32" x2="32" y2="54"/>
+      <circle class="light" data-part="launcher-eye" cx="32" cy="24" r="3"/>
     `,
   },
   {
@@ -180,36 +186,41 @@ const units = [
       <polygon class="panel" data-part="left-fin" points="18,33 28,27 28,39"/>
       <polygon class="panel" data-part="right-fin" points="46,33 36,27 36,39"/>
       <ellipse class="panel" data-part="lens-body" cx="32" cy="33" rx="12" ry="9"/>
-      <circle class="core" data-part="detector-lens" data-anim="lens-scan" cx="32" cy="33" r="4"/>
+      <circle class="light" data-part="detector-lens" data-anim="lens-scan" cx="32" cy="33" r="4"/>
     `,
   },
   {
     name: 'Shuttle', meta: 'transport rig', box: '7 9 50 38',
-    recipe: 'wide delta shell, cargo dot bay',
+    recipe: 'smooth delta transport, raised cargo bay',
     svg: `
-      <path class="panel" data-part="delta-shell" d="M32 10 C48 15 57 29 56 42 C44 40 37 36 32 29 C27 36 20 40 8 42 C7 29 16 15 32 10 Z"/>
-      <path class="cut" data-part="open-cargo-bay" d="M20 29 H44 V43 H20 Z"/>
-      <circle class="core" data-part="forward-core" cx="32" cy="18" r="3"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-1" data-anim="cargo-fill" cx="23" cy="33" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-2" data-anim="cargo-fill" cx="29" cy="33" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-3" data-anim="cargo-fill" cx="35" cy="33" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-4" data-anim="cargo-fill" cx="41" cy="33" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-5" data-anim="cargo-fill" cx="23" cy="39" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-6" data-anim="cargo-fill" cx="29" cy="39" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-7" data-anim="cargo-fill" cx="35" cy="39" r="1.6"/>
-      <circle class="core cargo-dot" data-part="cargo-dot-8" data-anim="cargo-fill" cx="41" cy="39" r="1.6"/>
+      <path class="panel" data-part="delta-shell" d="M32 10 C46 15 53 30 51 40 C43 42 38 43 32 42 C26 43 21 42 13 40 C11 30 18 15 32 10 Z"/>
+      <path class="cut" data-part="open-cargo-bay" d="M20 26 H44 V40 H20 Z"/>
+      <circle class="core" data-part="forward-eye" data-anim="core-pulse" cx="32" cy="18" r="3"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-1" data-anim="cargo-fill" cx="23" cy="28" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-2" data-anim="cargo-fill" cx="29" cy="28" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-3" data-anim="cargo-fill" cx="35" cy="28" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-4" data-anim="cargo-fill" cx="41" cy="28" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-5" data-anim="cargo-fill" cx="23" cy="34" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-6" data-anim="cargo-fill" cx="29" cy="34" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-7" data-anim="cargo-fill" cx="35" cy="34" r="1.5"/>
+      <circle class="core cargo-dot" data-part="cargo-dot-8" data-anim="cargo-fill" cx="41" cy="34" r="1.5"/>
+      <circle class="light" data-part="left-rear-thruster" data-anim="engine-pulse" cx="26" cy="42" r="1.8"/>
+      <circle class="light" data-part="center-rear-thruster" data-anim="engine-pulse" cx="32" cy="42" r="2.4"/>
+      <circle class="light" data-part="right-rear-thruster" data-anim="engine-pulse" cx="38" cy="42" r="1.8"/>
     `,
   },
   {
     name: 'Scout', meta: 'fighter rig', box: '8 7 48 50',
-    recipe: 'smooth jet fuselage, rear delta wings',
+    recipe: 'smooth fuselage, rear delta wings, oval engines',
     svg: `
-      <path class="panel" data-part="left-rear-wing" d="M28 39 C21 40 14 45 9 51 C19 51 26 48 31 44 Z"/>
-      <path class="panel" data-part="right-rear-wing" d="M36 39 C43 40 50 45 55 51 C45 51 38 48 33 44 Z"/>
-      <path class="panel" data-part="fuselage" d="M32 8 C40 22 39 43 32 57 C25 43 24 22 32 8 Z"/>
-      <circle class="core" data-part="cockpit-core" cx="32" cy="22" r="3.4"/>
-      <circle class="core" data-part="left-tip" data-emits="plasma" data-emission-dir="0 -1" cx="18" cy="48" r="2"/>
-      <circle class="core" data-part="right-tip" data-emits="plasma" data-emission-dir="0 -1" cx="46" cy="48" r="2"/>
+      <ellipse class="panel" data-part="left-wing-engine" data-emits="plasma" data-emission-dir="0 -1" cx="20" cy="45" rx="3.5" ry="12"/>
+      <ellipse class="panel" data-part="right-wing-engine" data-emits="plasma" data-emission-dir="0 -1" cx="44" cy="45" rx="3.5" ry="12"/>
+      <path class="panel" data-part="left-rear-delta-wing" d="M29 36 C22 39 14 45 8 53 C19 53 28 49 32 43 Z"/>
+      <path class="panel" data-part="right-rear-delta-wing" d="M35 36 C42 39 50 45 56 53 C45 53 36 49 32 43 Z"/>
+      <path class="panel" data-part="fuselage" d="M32 8 C38 17 39 36 35 51 C34 55 30 55 29 51 C25 36 26 17 32 8 Z"/>
+      <circle class="core" data-part="cockpit-core" cx="32" cy="20" r="2.6"/>
+      <circle class="light" data-part="left-rear-thruster" data-anim="engine-pulse" cx="29" cy="53" r="2.4"/>
+      <circle class="light" data-part="right-rear-thruster" data-anim="engine-pulse" cx="35" cy="53" r="2.4"/>
     `,
   },
   {
@@ -234,24 +245,19 @@ const units = [
   },
   {
     name: 'Arbiter', meta: 'caster air rig', box: '9 7 46 45',
-    recipe: 'sleek shuttle, stasis core',
+    recipe: 'layered sleek shuttle, high stasis core',
     svg: `
+      <path class="panel" data-part="lower-delta-shell" data-anim="hover-bob" d="M32 27 C40 34 45 44 46 52 C39 50 35 45 32 39 C29 45 25 50 18 52 C19 44 24 34 32 27 Z"/>
       <path class="panel" data-part="sleek-delta-shell" data-anim="hover-bob" d="M32 8 C44 19 51 35 53 48 C42 45 36 36 32 26 C28 36 22 45 11 48 C13 35 20 19 32 8 Z"/>
-      <circle class="core" data-part="caster-core" data-anim="core-pulse" cx="32" cy="24" r="5"/>
+      <circle class="core" data-part="caster-core" data-anim="core-pulse" cx="32" cy="19" r="5"/>
     `,
   },
   {
     name: 'Corsair', meta: 'catamaran fighter rig', box: '8 12 48 37',
-    recipe: 'swept body, twin front engine spikes, side fins',
+    recipe: 'Queen trident hull, compact engine core',
     svg: `
-      <polygon class="panel" data-part="left-side-fin" points="21,38 9,43 22,47"/>
-      <polygon class="panel" data-part="right-side-fin" points="43,38 55,43 42,47"/>
-      <path class="panel" data-part="integrated-body" d="M18 39 Q22 29 27 27 L30 34 L32 24 L34 34 L37 27 Q42 29 46 39 L40 47 Q32 43 24 47 Z"/>
-      <polygon class="panel" data-part="left-front-engine-spike" data-anim="engine-pulse" points="24,31 27,13 32,34"/>
-      <polygon class="panel" data-part="right-front-engine-spike" data-anim="engine-pulse" points="40,31 37,13 32,34"/>
-      <circle class="core" data-part="left-engine-tip" data-anim="engine-pulse" cx="27" cy="15" r="2.3"/>
-      <circle class="core" data-part="right-engine-tip" data-anim="engine-pulse" cx="37" cy="15" r="2.3"/>
-      <circle class="core" data-part="engine-core" data-anim="core-pulse" cx="32" cy="38" r="3.2"/>
+      <path class="panel" data-part="corsair-trident-hull" data-anim="wing-bob" d="M12 40 Q17 25 24 16 Q25 28 29 35 Q31 22 32 12 Q33 22 35 35 Q39 28 40 16 Q47 25 52 40 Q43 34 37 41 Q34 46 32 49 Q30 46 27 41 Q21 34 12 40 Z"/>
+      <circle class="core" data-part="engine-core" data-anim="core-pulse" data-emits="disruption" data-emission-dir="0 -1" cx="32" cy="39" r="2.6"/>
     `,
   },
 ];
@@ -259,7 +265,7 @@ const units = [
 const card = (u) => `
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="${u.name}" data-anchor="32 32" data-visible-box="${u.box}" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         ${u.svg}
       </svg>
     </div>

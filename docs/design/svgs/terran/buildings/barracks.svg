@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg class="sprite" viewBox="0 0 64 64" aria-label="Barracks" data-anchor="32 32" data-visible-box="6 13 52 39" data-footprint="4 3" data-bwapi-pixel-bounds="105 73" data-slug="barracks" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
+<svg class="sprite" viewBox="0 0 64 64" aria-label="Barracks" data-anchor="32 32" data-visible-box="6 13 52 39" data-footprint="4 3" data-forward="0 -1" data-fit="visible-box" data-scale-role="building-footprint" data-bwapi-pixel-bounds="105 73" data-slug="barracks" xmlns="http://www.w3.org/2000/svg" width="256" height="256" color="#56d8ff" style="filter: none;"><style>
       .panel { fill: #0d1119; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
       .line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
       .core { fill: currentColor; stroke: none; }

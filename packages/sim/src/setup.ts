@@ -6,7 +6,7 @@ import type { MapDef } from './map.ts';
 import type { State } from './world.ts';
 import { makeState, slotOf, eid, nearest, NEUTRAL, NONE } from './world.ts';
 import { spawnUnit } from './factory.ts';
-import { Kind, Order, Role, TILE, START_MINERALS, Terran, Units, type Faction } from './data.ts';
+import { Kind, Order, Role, TILE, START_MINERALS, Terran, Units, isLarvaSourceKind, type Faction } from './data.ts';
 import { census } from './systems/census.ts';
 import { pickPatch } from './systems/harvest.ts';
 import { fx } from './fixed.ts';
@@ -46,6 +46,11 @@ export const setupMatch = (
       e.rallyTarget[depot] = eid(e, line);
       e.rallyX[depot] = e.x[line]!;
       e.rallyY[depot] = e.y[line]!;
+    }
+
+    if (isLarvaSourceKind(faction.depot)) {
+      spawnUnit(s, faction.supplyStructure, p, cx + fx(80), cy - fx(80));
+      for (const dx of [-32, 0, 32]) spawnUnit(s, Kind.Larva, p, cx + fx(dx), cy + fx(28 + (dx === 0 ? 8 : 0)));
     }
 
     const speed = Units[faction.worker]!.speed;

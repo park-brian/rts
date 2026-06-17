@@ -6,19 +6,19 @@ Protoss building rigs follow the shared metadata contract in `../sprite-rigging-
 
 | Building | Moving/state parts | Emission parts |
 |---|---|---|
-| Nexus | `power-node-*` and `warp-core` pulse; `outer-ring` stays rigid. | production warp from `warp-core` |
-| Pylon | `power-core` pulses; `field-ring` expands as a power-field read. | power-field from `power-core` |
-| Assimilator | `gas-core` pulses; `prong-*` stay rigid around the geyser. | gas glow from `gas-core` |
-| Gateway | `gate-slot` and `portal-core` pulse during production; `flat-pyramid` and base rectangles stay rigid. | warp-in from `gate-slot` |
-| Forge | `forge-core` and `node-*` pulse while upgrading. | upgrade glow from `forge-core` |
+| Nexus | `pyramid-base`, `pyramid-face-edges`, and `apex-cap` are the hull; `warp-eye` pulses lower on the pyramid face. | production warp from `warp-eye` |
+| Pylon | `power-crystal` pulses; `left-cradle`, `right-cradle`, and `field-ring` expand as a power-field read. | power-field from `power-crystal` |
+| Assimilator | `gas-core`, `left-side-eye`, and `right-side-eye` pulse inside the wide `gas-ring`. | gas glow from `gas-core` |
+| Gateway | `left-pyramid-half` and `right-pyramid-half` stay split; `portal-ring` and `portal-core` pulse during production. | warp-in from `portal-core` |
+| Forge | `forge-core` pulses inside `forge-circle`; `right-square` and `square-cap` stay rigid. | upgrade glow from `forge-core` |
 | Photon Cannon | The three rings can rotate or pulse together from center; `inner-core` is the firing part. | photon shot from `inner-core`, `0 -1` |
-| Cybernetics Core | `node-*` pulse in sequence around `tech-core`. | upgrade glow from `tech-core` |
-| Shield Battery | Four appendages pulse like a cross; `battery-core` drains/fills. | shield effect from `battery-core` |
-| Robotics Facility | `production-mouth` opens; `gear-node-*` pulse while producing. | unit warp/rollout from `production-mouth` |
-| Stargate | `upper-oval`, `lower-oval`, and `launch-core` pulse as a stacked launch gate. | air warp from `launch-core` |
-| Citadel of Adun | `blade-arc-*` pulse; `shrine-core` glows during research. | upgrade glow from `shrine-core` |
-| Templar Archives | `psi-halo` pulses; `memory-node-*` blink. | research glow from `archive-core` |
-| Robotics Support Bay | `gear-node-*` pulse; `connector` stays aligned to parent. | upgrade glow from gear nodes |
-| Observatory | `lens` scans; `antenna-arc-*` pulse. | detector scan from `lens` |
-| Fleet Beacon | `signal-ring` expands; `beacon-core` pulses. | fleet tech aura from `beacon-core` |
-| Arbiter Tribunal | `stasis-ring` pulses; `crescent-shell` stays rigid. | stasis/tech glow from `tribunal-core` |
+| Cybernetics Core | `upper-under-node`, `lower-under-node`, and their core eyes pulse under `main-core-circle`; `central-eye-dot` is the main tech read. | upgrade glow from `central-eye-dot` |
+| Shield Battery | `north-appendage`, `south-appendage`, `west-appendage`, and `east-appendage` pulse like narrow charge arms; `battery-core` drains/fills. | shield effect from `battery-core` |
+| Robotics Facility | `facility-oval` stays rigid; horizontal bisectors sit behind `iris-ring` and `pupil`. | unit production/rollout from `pupil` |
+| Stargate | `upper-launch-hull`, `lower-launch-hull`, and their inner arcs pulse as a side-facing gate; `launch-core` marks the center. | air warp from `launch-core` |
+| Citadel of Adun | `left-block`, `right-tall-bar`, and `joining-circle` stay locked; `citadel-core` glows during research. | upgrade glow from `citadel-core` |
+| Templar Archives | `archive-leaf` stays rigid; `archive-center-circle` and `right-end-dot` pulse. | research glow from `archive-center-circle` / `right-end-dot` |
+| Robotics Support Bay | `support-bay-oval` and `support-hub` sit under the four `*-arm` parts; arms pulse above the bay. | upgrade glow from `support-core` |
+| Observatory | `quarter-arc` and three `arc-node-*` parts pulse; spoke lines meet the lower `lens`. | detector scan from `lens` |
+| Fleet Beacon | `delta-insignia` pulses behind `beacon-eye`; `beacon-pupil` is the central signal read. | fleet tech aura from `beacon-pupil` |
+| Arbiter Tribunal | Four `*-pointed-ray` parts pulse under `tribunal-circle`; `tribunal-core` is the tech glow. | stasis/tech glow from `tribunal-core` |

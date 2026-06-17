@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { count, eid, kill, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Order, Units } from '../src/data.ts';
+import { Kind, Order, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 
 const findSlot = (sim: Sim, pred: (slot: number) => boolean): number => {
@@ -12,6 +12,8 @@ const findSlot = (sim: Sim, pred: (slot: number) => boolean): number => {
   for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && pred(i)) return i;
   throw new Error('slot not found');
 };
+
+const snapped = (px: number): number => fx(Math.floor(px / TILE) * TILE + TILE / 2);
 
 test('invalid commands do not mutate incompatible recipients', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 101 });
@@ -71,6 +73,45 @@ test('refinery placement snaps to a nearby geyser and rejects non-geyser placeme
   assert.equal(s.e.ty[scv], s.e.y[geyser], 'build target snapped to geyser y');
 });
 
+test('build placement snaps raw cursor coordinates to the build grid anchor', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 116 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  const scv = findSlot(sim, (i) => e.kind[i] === Kind.SCV && e.owner[i] === 0);
+
+  const rawX = 901;
+  const rawY = 923;
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, scv), kind: Kind.SupplyDepot, x: fx(rawX), y: fx(rawY) },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'build', ok: true }]);
+  assert.equal(e.tx[scv], snapped(rawX));
+  assert.equal(e.ty[scv], snapped(rawY));
+});
+
+test('land placement snaps raw cursor coordinates to the build grid anchor', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 117 });
+  const s = sim.fullState();
+  const e = s.e;
+  const cc = findSlot(sim, (i) => e.kind[i] === Kind.CommandCenter && e.owner[i] === 0);
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'lift', building: eid(e, cc) }] }]), [
+    { player: 0, index: 0, t: 'lift', ok: true },
+  ]);
+
+  const rawX = 901;
+  const rawY = 923;
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'land', building: eid(e, cc), x: fx(rawX), y: fx(rawY) },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'land', ok: true }]);
+  assert.equal(e.x[cc], snapped(rawX));
+  assert.equal(e.y[cc], snapped(rawY));
+});
+
 test('same-tick production reserves supply across multiple producers', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 104 });
   const s = sim.fullState();
@@ -87,6 +128,70 @@ test('same-tick production reserves supply across multiple producers', () => {
 
   const queued = (e.prodKind[b1] === Kind.Marine ? 1 : 0) + (e.prodKind[b2] === Kind.Marine ? 1 : 0);
   assert.equal(queued, 1, 'only one marine can be queued with one free supply');
+});
+
+test('tech requirements gate production even when the producer can make the unit', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 111 });
+  const s = sim.fullState();
+  const e = s.e;
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(700), fx(700)));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const blocked = sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, barracks), kind: Kind.Firebat }] }]);
+  assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'train', ok: false, reason: 'missing-requirement' }]);
+  assert.equal(e.prodKind[barracks], Kind.None);
+
+  spawnUnit(s, Kind.Academy, 0, fx(820), fx(700));
+  const allowed = sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, barracks), kind: Kind.Firebat }] }]);
+  assert.deepEqual(allowed, [{ player: 0, index: 0, t: 'train', ok: true }]);
+  assert.equal(e.prodKind[barracks], Kind.Firebat);
+});
+
+test('tech requirements gate new structures', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 112 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const scv = findSlot(sim, (i) => e.kind[i] === Kind.SCV && e.owner[i] === 0);
+
+  const blocked = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, scv), kind: Kind.Factory, x: fx(900), y: fx(900) },
+  ] }]);
+
+  assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'build', ok: false, reason: 'missing-requirement' }]);
+  assert.equal(e.buildKind[scv], Kind.None);
+});
+
+test('zerg worker builds respect completed tech tree and exclude structure morph upgrades', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 113 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+  const drone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(760), fx(700)));
+  spawnUnit(s, Kind.Hatchery, 0, fx(700), fx(700));
+  spawnUnit(s, Kind.SpawningPool, 0, fx(700), fx(860));
+
+  const earlySpire = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, drone), kind: Kind.Spire, x: fx(900), y: fx(700) },
+  ] }]);
+  assert.deepEqual(earlySpire, [{ player: 0, index: 0, t: 'build', ok: false, reason: 'missing-requirement' }]);
+  assert.equal(e.buildKind[drone], Kind.None);
+
+  const illegalLair = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, drone), kind: Kind.Lair, x: fx(900), y: fx(700) },
+  ] }]);
+  assert.deepEqual(illegalLair, [{ player: 0, index: 0, t: 'build', ok: false, reason: 'missing-capability' }]);
+  assert.equal(e.buildKind[drone], Kind.None);
+
+  spawnUnit(s, Kind.Lair, 0, fx(700), fx(540));
+  const allowedSpire = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, drone), kind: Kind.Spire, x: fx(900), y: fx(700) },
+  ] }]);
+  assert.deepEqual(allowedSpire, [{ player: 0, index: 0, t: 'build', ok: true }]);
+  assert.equal(e.buildKind[drone], Kind.Spire);
 });
 
 test('stopping a pending worker build refunds the full cost', () => {
@@ -130,7 +235,7 @@ test('retargeting a pending build refunds the old ledger before spending the new
 
   assert.equal(s.players.minerals[0], 0, 'old cost was refunded before the replacement spent');
   assert.equal(e.buildKind[scv], Kind.SupplyDepot);
-  assert.equal(e.tx[scv], fx(1_050));
+  assert.equal(e.tx[scv], snapped(1_050));
   assert.equal(e.buildCostMinerals[scv], Units[Kind.SupplyDepot]!.minerals);
 });
 
@@ -178,6 +283,86 @@ test('canceling an unfinished foundation refunds 75 percent and removes it', () 
     { player: 0, index: 0, t: 'cancelBuild', ok: true },
     { player: 0, index: 1, t: 'cancelBuild', ok: false, reason: 'stale-entity' },
   ]);
+});
+
+test('terran SCVs stay committed and paused foundations need their builder', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 113 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, fx(900), fx(900)));
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, scv), kind: Kind.SupplyDepot, x: fx(912), y: fx(900) },
+  ] }]);
+
+  const depot = findSlot(sim, (i) => e.kind[i] === Kind.SupplyDepot && e.owner[i] === 0 && e.built[i] === 0);
+  assert.equal(e.order[scv], Order.Build);
+  assert.equal(e.target[scv], eid(e, depot));
+
+  const before = e.ctimer[depot]!;
+  sim.step([{ player: 0, cmds: [{ t: 'stop', unit: eid(e, scv) }] }]);
+  for (let i = 0; i < 5; i++) sim.step([]);
+
+  assert.equal(e.ctimer[depot], before, 'foundation pauses without its SCV');
+});
+
+test('terran SCVs are released when their structure completes', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 114 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, fx(900), fx(900)));
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, scv), kind: Kind.SupplyDepot, x: fx(912), y: fx(900) },
+  ] }]);
+  const depot = findSlot(sim, (i) => e.kind[i] === Kind.SupplyDepot && e.owner[i] === 0 && e.built[i] === 0);
+  e.ctimer[depot] = 1;
+  sim.step([]);
+
+  assert.equal(e.built[depot], 1);
+  assert.notEqual(e.order[scv], Order.Build);
+  assert.equal(e.target[depot], -1);
+  assert.equal(e.buildCostMinerals[depot], 0);
+});
+
+test('another SCV can resume a paused Terran foundation', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 115 });
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  const builder = slotOf(spawnUnit(s, Kind.SCV, 0, fx(900), fx(900)));
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, builder), kind: Kind.Barracks, x: fx(940), y: fx(900) },
+  ] }]);
+  let barracks = -1;
+  for (let t = 0; t < 80 && barracks < 0; t++) {
+    sim.step([]);
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] === 1 && e.kind[i] === Kind.Barracks && e.owner[i] === 0 && e.built[i] === 0) barracks = i;
+    }
+  }
+  assert.notEqual(barracks, -1, 'foundation was placed');
+  sim.step([{ player: 0, cmds: [{ t: 'stop', unit: eid(e, builder) }] }]);
+  const pausedAt = e.ctimer[barracks]!;
+  for (let i = 0; i < 5; i++) sim.step([]);
+  assert.equal(e.ctimer[barracks], pausedAt, 'foundation is paused without an active SCV');
+
+  const replacement = slotOf(spawnUnit(s, Kind.SCV, 0, fx(980), fx(900)));
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'repair', unit: eid(e, replacement), target: eid(e, barracks) },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'repair', ok: true }]);
+  assert.equal(e.order[replacement], Order.Build);
+  assert.equal(e.target[replacement], eid(e, barracks));
+  assert.equal(e.target[barracks], eid(e, replacement));
+  assert.equal(e.order[builder], Order.Idle);
+
+  for (let i = 0; i < 5; i++) sim.step([]);
+  assert.ok(e.ctimer[barracks]! < pausedAt, 'replacement SCV advances construction');
 });
 
 test('pending build footprints reserve space before foundations are placed', () => {

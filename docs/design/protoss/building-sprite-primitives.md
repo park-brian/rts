@@ -15,19 +15,19 @@ Rules:
 
 | Building | Primitive recipe | Footprint |
 |---|---|---:|
-| Nexus | Broad trapezoid HQ pad, central cyan channel/grid, four corner claw/tower posts. | 4x3 |
-| Pylon | Tall blue crystal, red/gold cradle, two side shell clamps. | 2x2 |
-| Assimilator | Mechanical gas capsule/ring, side towers, large cyan vent core. | 4x2 |
-| Gateway | Flat pyramid wedge with two rectangular base blocks and a small dark gate slot. | 4x3 |
-| Forge | Lumpy tech block: two tower stacks, side cylinder, cyan forge core. | 3x2 |
-| Photon Cannon | Three concentric circles: outer ring, middle ring, inner firing core. | 2x2 |
-| Cybernetics Core | Round cyan node cluster with four red/gold base pods. | 3x2 |
-| Shield Battery | Cross silhouette: four extended appendages around a round capacitor hub. | 3x2 |
-| Robotics Facility | Rectangular portal/workshop pad, cyan grid center, rear tower head. | 3x2 |
-| Stargate | Two elegant stacked flat ovals with a small launch core between them. | 4x3 |
-| Citadel of Adun | Tri-leg temple rig: central cyan core, three blade/tower arms. | 3x2 |
-| Templar Archives | Tall trapezoid archive block, side domes, cyan front cap. | 3x2 |
-| Robotics Support Bay | Radial support pad with six small arm pods and central star/core. | 3x2 |
-| Observatory | Low U-shaped detector pad, three cyan tower nodes, lens body. | 3x2 |
-| Fleet Beacon | Large circular beacon dish, three support legs, cyan dome and side nodes. | 3x2 |
-| Arbiter Tribunal | Low tribunal pad with three rear blue pillars, side horns, central red/gold base. | 3x2 |
+| Nexus | Rectangular pyramid base as real hull, closed glowing triangle face, filled glowing rectangular half-square top cap whose bottom corners meet the triangle edges, and low centered bright eye. | 4x3 |
+| Pylon | Diamond crystal centered inside the 2x2 footprint, small cradle arcs and field ring. | 2x2 |
+| Assimilator | Wide, narrow gas capsule flush to the 4x2 footprint, small white side eyes on the main oval, tall narrow cyan vent. | 4x2 |
+| Gateway | Two physically separated pyramid halves, centered portal circle, all flush inside the 4x3 footprint. | 4x3 |
+| Forge | Circle over a right square with a taller side cap, vertically centered in the 3x2 footprint. | 3x2 |
+| Photon Cannon | Three concentric circles contained inside the 2x2 footprint. | 2x2 |
+| Cybernetics Core | Taller left backing rectangle under a shifted main circle, central dot, and two round right-edge circles underneath. | 3x2 |
+| Shield Battery | Thin cross battery with narrow arms and a small inner core, contained inside the 3x2 footprint. | 3x2 |
+| Robotics Facility | Eye shape: long outer oval bisected through the center behind a round iris/pupil. | 3x2 |
+| Stargate | Side-facing carrier-like hull halves with graceful inner arcs, separated at center and flush to the 4x3 footprint. | 4x3 |
+| Citadel of Adun | Long skinny left block reaching rightward, right tall block, and right-shifted joining circle, contained in the 3x2 footprint. | 3x2 |
+| Templar Archives | Organic right-pointing leaf shape with a center circle and small dot near the right tip. | 3x2 |
+| Robotics Support Bay | Oval bay with a center circle underneath four overlaid rectangular arms. | 3x2 |
+| Observatory | Quarter-wheel arc with three spoke nodes and a lower lens, contained in the 3x2 footprint. | 3x2 |
+| Fleet Beacon | Starfleet-style delta insignia spanning the footprint, with a small centered eye on top. | 3x2 |
+| Arbiter Tribunal | Smaller central circle over four pointed cardinal rays. | 3x2 |

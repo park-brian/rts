@@ -1,7 +1,7 @@
 // Headless demo: a full AI-vs-AI 1v1 on a procedural map, played to completion,
 // then a throughput benchmark. Run with: `npm run demo`.
 
-import { Sim, generateMap, count, Kind, Terran, toReplay, play, type MapSpec, type PlayerCommands } from '@rts/sim';
+import { Sim, generateMap, count, Kind, Terran, shownSupply, toReplay, play, type MapSpec, type PlayerCommands } from '@rts/sim';
 import { createBot } from '@rts/ai';
 
 const SEED = 2026;
@@ -20,7 +20,7 @@ const line = (sim: Sim): string => {
       `P${p}: ${String(s.players.minerals[p]).padStart(4)}m ` +
         `scv=${count(s, Kind.SCV, p)} rax=${count(s, Kind.Barracks, p)} ` +
         `marine=${String(count(s, Kind.Marine, p)).padStart(2)} ` +
-        `sup=${s.players.supplyUsed[p]}/${s.players.supplyMax[p]}`,
+        `sup=${shownSupply(s.players.supplyUsed[p]!)}/${shownSupply(s.players.supplyMax[p]!)}`,
     );
   }
   return parts.join('  |  ');

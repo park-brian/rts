@@ -16,22 +16,22 @@ Rules:
 
 | Unit | Primitive recipe | Rig status |
 |---|---|---|
-| Larva | Tiny curled grub body, small head nub/mandible point, two segment arcs. | recipe locked |
+| Larva | Tiny Scourge-like body with two antennae and a small head dot. | recipe locked |
 | Egg | Small oval cocoon. | recipe locked |
-| Drone | Fat delta body with two rear/side delta wings behind it, small front mandibles, small head core. | recipe locked |
-| Overlord | Large bloated sac, two horn/mandible tusks at front, three tentacle strokes, central eye/core. | recipe locked |
-| Zergling | Near-pentagon body with missing/open front, triangle head, front jaws, four limbs, tiny eye/core. | recipe locked |
-| Hydralisk | Head mandible wedge, long tapered torso, mirrored forward-raking spine shoulder arcs. | recipe locked |
-| Lurker | Flattened wide body plate, front mandible head, mirrored long lateral spike strokes, center ridge. | recipe locked |
+| Drone | Flat organic leaf body with two soft side leaflets behind it, animated forward-facing grab jaws, small head core. | recipe locked |
+| Overlord | Mathematically centered round sac, two mirrored horn/mandible tusks, three tentacle strokes, central eye/core, eight white storage marker dots on a true radius. | recipe locked |
+| Zergling | Narrow smooth hull body with an equilateral triangle head, one centered eye spot, two split right-triangle jaw halves under the head with a center gap, and simple triangle limbs. | recipe locked |
+| Hydralisk | Centered Zergling-style equilateral triangle head with a small centered eye and two mini Ultra-style upward fangs. | recipe locked |
+| Lurker | Mathematically perfect circle body with a central eye, Zergling-style triangle mandibles tucked under the top, and four long spiked triangle limbs. | recipe locked |
 | Mutalisk | Two mirrored spiky bat wing membranes, narrow body, visible head mandibles, tail/stinger stroke. | recipe locked |
-| Scourge | Tiny winged dart with small head mandibles, wing pair, split tail/stinger. | recipe locked |
-| Guardian | Heavy central abdomen, front head/mandibles, two large crab-like claw/wings. | recipe locked |
-| Devourer | Bulky armored shell, large front maw/mandibles, side fins, acidic mouth core. | recipe locked |
-| Queen | Oval thorax, long tail teardrop, side claw wings, front caster head/mandibles. | recipe locked |
-| Defiler | Low caster body, visible small head/mandibles, curved spine/tail strokes, caster core. | recipe locked |
-| Ultralisk | Largest ground rig: huge body oval, broad mandible head, two oversized tusk/scythe arcs. | recipe locked |
-| Infested Terran | Small infected infantry base, swollen explosive belly sac, tiny mandible head, uneven limb strokes. | recipe locked |
-| Broodling | Tiny teardrop body and mandible head with two small claw arcs; simpler than Zergling. | recipe locked |
+| Scourge | Tiny winged dart with a small eye; no Mutalisk tail or extra top arc. | recipe locked |
+| Guardian | Wide smooth manta body with two forward mandibles around the front wing and a central head/core. | recipe locked |
+| Devourer | Slim armored shell, large front maw/core, mini Ultra-style fangs, larger delta wings, and a center ridge starting below the eye spot. | recipe locked |
+| Queen | Literal north-facing trident with three prongs, smooth joins, stubby base, and caster core in the base. | recipe locked |
+| Defiler | Thin long vertical scorpion-like caster: two aggressive front pincers, narrow body, rear tail starting at the body end, small caster core. | recipe locked |
+| Ultralisk | Wide smooth hull body with four bigger stubby triangle legs and two massive upward front tusks. | recipe locked |
+| Infested Terran | Terran Marine silhouette with rifle, helmet, pauldrons, and a purple infection dot instead of a visor. | recipe locked |
+| Broodling | Mini-Zergling: slim smooth hull body, small triangle head, front triangle limbs only, no mandibles. | recipe locked |
 
 ## Primitive Analogues
 
@@ -39,15 +39,16 @@ Use these comparisons before drawing. Zerg analogues translate the same gameplay
 
 | Zerg unit | Simplify from | What changes |
 |---|---|---|
-| Drone | SCV | Worker body becomes a fat delta shell; side blocks become rear delta wings; arms become small mandibles. |
-| Zergling | Zealot / Firebat | Infantry body becomes an open pentagon; head becomes a triangle; blades become front jaws and four limbs. |
-| Hydralisk | Marine | Helmet/shoulders become mandible head and spine shoulders; gun becomes head projectile. |
-| Lurker | Siege Tank | Low siege body; barrel becomes forward burrow-spike line and side spines. |
+| Drone | SCV | Worker body becomes a flat leaf shell; side blocks become soft organic leaflets; arms become animated forward grab jaws. |
+| Zergling | Zealot / Firebat | Infantry mass becomes a narrow smooth hull body; head becomes an equilateral triangle; front limbs rake upward; mandibles become two separated right-triangle halves under the head. |
+| Hydralisk | Marine | Helmet becomes centered Zergling-style triangle head; arms are replaced by scaled-down Ultra-style fangs. |
+| Lurker | Spider / Siege Tank | Low siege body becomes a centered circle; side spines become four long triangle limb plates; front gets fang strokes. |
 | Mutalisk | Wraith | Fighter skeleton; wings become bat membranes; nose gets mandibles. |
-| Scourge | Interceptor | Tiny dart; nose gets mandibles and split tail. |
-| Guardian | Dropship / heavy air | Broad air body; side pods become crab-claw wings. |
-| Devourer | Battlecruiser / heavy air | Large mass; nose becomes huge maw/mandibles. |
-| Queen | Science Vessel / caster air | Caster core remains; body gets tail and front mandibles. |
-| Defiler | High Templar / caster | Small caster body becomes low, tailed, mandible-headed mound. |
-| Ultralisk | Firebat / melee brute | Huge shoulders and blades become body mass plus oversized tusks. |
-| Broodling | Zergling | Same mandible/claw read, fewer and smaller parts. |
+| Scourge | Interceptor | Tiny dart; nose gets mandibles, eye is small, and tail is removed. |
+| Guardian | Drone / heavy air | Drone air grammar smooths into a wide manta silhouette with no separate triangle body. |
+| Devourer | Battlecruiser / heavy air | Large mass gets mini Ultra-style fangs, central ridge, larger delta wings, and front maw/core. |
+| Queen | Science Vessel / caster air | Caster core sits in the stubby base; body becomes a literal north-facing trident. |
+| Defiler | High Templar / caster | Small caster body becomes a long vertical scorpion with aggressive front pincers and a curled spell tail. |
+| Ultralisk | Siege Tank / melee brute | Vehicle-like bulk becomes a wide smooth hull with four legs and oversized tusks that sweep upward/front. |
+| Infested Terran | Marine | Copy the Marine rig language; replace the visor with an infection dot. |
+| Broodling | Zergling | Same smooth-hull/head grammar, reduced with rear legs and mandibles removed. |

@@ -15,22 +15,22 @@ Rules:
 
 | Unit | Primitive recipe | Rig status |
 |---|---|---|
-| Probe | Very aggressive boomerang worker: one sharp crescent shell with long pointed tips wrapped around a tiny cyan worker core. | recipe locked |
-| Zealot | Marine-sized skeleton: two triangular pauldrons, one weird trapezoid helmet/head with eye at the top/front, two simple forward psi blades instead of gun/flame rectangles. | recipe locked |
+| Probe | Small fat Arbiter-like top shell with no lower nested hull, wrapped around a centered cyan worker core. | recipe locked |
+| Zealot | Marine-sized skeleton: one tall oval face/head, two narrow angled leaf pauldrons, and two forward psi blades emerging from behind the pauldrons. | recipe locked |
 | Dragoon | Orb walker: one central orb/shell body, four jointed legs with visible knee pivots, one plasma core. | recipe locked |
-| High Templar | Medic-like humanoid: triangular pauldrons, trapezoid hood/head with eye at the top/front, inner hood arc, bright caster core. | recipe locked |
-| Dark Templar | Ghost-like humanoid: triangular pauldrons, trapezoid hood/head with eye at the top/front, one long asymmetric warp-blade. | recipe locked |
+| High Templar | Zealot-family caster: tall oval face/head, smaller round pauldrons, no weapons, and two separated glowing hand orbs above the shoulders. | recipe locked |
+| Dark Templar | Zealot-family stealth melee: tall oval face/head, smaller round pauldrons, and one long subtle scimitar-like warp-blade arcing inward from the right pauldron. | recipe locked |
 | Archon | Large team-color aura orb with a smaller fixed blue inner core; no humanoid body. | recipe locked |
 | Dark Archon | Large team-color aura orb around a fixed dark center disk/core; no body. | recipe locked |
-| Reaver | Long slug shell, front launcher mouth, center spine, no feet or rollers. | recipe locked |
+| Reaver | Long slug shell, circular launcher head with centered white eye, center spine starting at the head edge, no feet or rollers. | recipe locked |
 | Scarab | Tiny bright orb or pellet with a dark backing circle; projectile scale. | recipe locked |
-| Observer | Small football/oval detector body, central lens/core, two small side fins. | recipe locked |
-| Shuttle | Wide smooth delta transport with open cargo bay, eight animated cargo dots, and a small forward core. | recipe locked |
-| Scout | Simple smooth fighter jet: long curved fuselage, two medium rear delta wings, wing-tip cores. | recipe locked |
+| Observer | Small football/oval detector body, central white circular lens dot, two small side fins. | recipe locked |
+| Shuttle | Wide smooth delta transport with top eye, raised open cargo bay, eight animated cargo dots, and three rear white thruster dots on the bottom wing. | recipe locked |
+| Scout | Smooth fighter jet: one rounded curved fuselage, two medium rear delta wings, long vertical oval engines drawn under and forward of the wings, and two small rear white thruster dots. | recipe locked |
 | Carrier | Largest Protoss air rig: three aligned front-to-back oval hulls; narrow center hull is visually above two close side/lower ovals whose feet touch, front bridge/core. | recipe locked |
 | Interceptor | Tiny diamond dart with two side fins and a tiny center core. | recipe locked |
-| Arbiter | Sleeker Shuttle: rounded smooth delta shell and forward caster core. | recipe locked |
-| Corsair | Stubby Scout catamaran: swept integrated body, two forward engine spikes with blue tips, small low side fins, compact blue engine/core. | recipe locked |
+| Arbiter | Layered sleeker Shuttle: smaller lower delta shell behind the main body, rounded main delta shell, and a high forward caster core. | recipe locked |
+| Corsair | Queen-derived trident flyer: one smooth north-facing trident hull with a compact blue engine/core at the base. | recipe locked |
 
 ## Primitive Analogues
 
@@ -39,7 +39,7 @@ Use these comparisons before drawing.
 | Protoss unit | Simplify from | What changes |
 |---|---|---|
 | Probe | Spider Mine / tiny aircraft | Boomerang/crescent shell around one worker core. |
-| Zealot | Marine / Firebat | Infantry footprint stays; side circles become triangular pauldrons; gun/flame rectangles become psi blades; helmet becomes trapezoid/weird. |
+| Zealot | Marine / Firebat | Infantry footprint stays; head becomes a tall oval Protoss face; shoulder circles become narrow angled leaf pauldrons; gun/flame rectangles become psi blades. |
 | Dragoon | Science Vessel / orb drone | Orb stays central; add four jointed legs as animation parts. |
 | High Templar | Medic | Shoulder circles become triangular pauldrons; odd head and caster eye replace cross. |
 | Dark Templar | Ghost | Shoulder circles become triangular pauldrons; odd head; rifle becomes one long warp blade. |
@@ -49,4 +49,4 @@ Use these comparisons before drawing.
 | Scout | Wraith | Fighter skeleton becomes a simple smooth jet with a long fuselage and two medium rear delta wings. |
 | Carrier | Battlecruiser | Capital mass stays; H-frame becomes a clean triad of aligned ovals, with the center hull layered over the two close side hulls. |
 | Arbiter | Shuttle / Science Vessel | Shuttle delta language becomes sleeker, sharper, and caster-focused. |
-| Corsair | Scout / Wraith | Scout skeleton is shortened into one swept integrated body with two forward engine spikes and small low side fins. |
+| Corsair | Queen | Zerg trident silhouette becomes a clean Protoss flyer hull; keep the single compact base engine/core. |

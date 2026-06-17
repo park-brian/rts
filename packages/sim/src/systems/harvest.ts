@@ -20,6 +20,8 @@ import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, MINE_RANGE, 
 import { isqrt } from '../fixed.ts';
 import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
+import { effectiveSpeed, isDisabled } from './status.ts';
+import { isContained } from '../cargo.ts';
 
 // Per-tick scratch (transient; never hashed/cloned). mineLock[node] = the worker
 // mid-extraction there (or -1); depotList = drop-off points. Both let the per-worker
@@ -35,7 +37,7 @@ const minersOn = (s: State, node: number, owner: number, except: number): number
   const e = s.e;
   let n = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (i === except || e.alive[i] !== 1 || e.owner[i] !== owner) continue;
+    if (i === except || e.alive[i] !== 1 || isContained(s, i) || e.owner[i] !== owner) continue;
     if ((e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
     if (isResource(e, e.target[i]!) && slotOf(e.target[i]!) === node) n++;
   }
@@ -67,7 +69,7 @@ export const pickPatch = (
   let near = NONE; let nearD = Infinity;
   for (let i = 0; i < e.hi; i++) {
     // Auto-mining considers mineral patches only; gas (geysers/refineries) is assigned by command.
-    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0 || Units[e.kind[i]!]!.resourceType !== ResourceType.Minerals) continue;
+    if (e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Resource) === 0 || Units[e.kind[i]!]!.resourceType !== ResourceType.Minerals) continue;
     const dx = e.x[i]! - fromX; const dy = e.y[i]! - fromY;
     const d = dx * dx + dy * dy;
     if (d < nearD) { nearD = d; near = i; }
@@ -86,7 +88,7 @@ export const harvest = (s: State): void => {
   mineLock.fill(-1, 0, e.hi);
   let nDepots = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1) continue;
+    if (e.alive[i] !== 1 || isContained(s, i)) continue;
     if ((e.flags[i]! & Role.ResourceDepot) !== 0) depotList[nDepots++] = i;
     if ((e.flags[i]! & Role.Worker) !== 0 && e.order[i] === Order.Harvest && e.timer[i]! > 0 && isResource(e, e.target[i]!)) {
       mineLock[slotOf(e.target[i]!)] = i;
@@ -104,9 +106,10 @@ export const harvest = (s: State): void => {
   };
 
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
+    if (e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
+    if (isDisabled(e, i)) continue;
     const owner = e.owner[i]!;
-    const speed = Units[e.kind[i]!]!.speed;
+    const speed = effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed);
 
     if (e.cargo[i]! > 0) {
       // Returning: deliver to the nearest owned resource depot.

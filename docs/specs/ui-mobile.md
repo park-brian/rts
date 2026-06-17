@@ -70,12 +70,11 @@ Zones, top to bottom:
   Tap to recenter camera; drag to scrub. Shows fog, units, alerts.
 - **Selection tray** — compact representation of the current selection (portrait +
   count, or a grouped icon list for mixed selections). Tap a sub-group to narrow.
-- **Command hotbar** — the heart of touch RTS: a prominent bottom row of large,
-  context-sensitive **verb** buttons for the current selection (Attack-move, Stop, Hold,
-  Patrol, Build, Train, abilities…). Tapping a verb enters target mode (§4). It complements
-  the **smart-tap default action** (tap a target to do the obvious thing) — the hotbar is for
-  the explicit verbs that aren't the default. Build/train open a sub-grid; smart-cast for
-  abilities. This replaces PC hotkeys.
+- **Command hotbar** — the heart of touch RTS: a fixed-height bottom command rail with
+  compact, horizontally scrollable **verb** buttons for the current selection. It must not
+  grow upward into the viewport as the tech tree expands. Tapping a verb enters target mode
+  (§4). Build/train/research/abilities share the same rail; overflow scrolls sideways instead
+  of covering more map.
 
 The map zone can expand to (near) full-screen with a tap, collapsing the chrome into
 edge handles for an immersive view; controls slide back on demand.
@@ -104,16 +103,21 @@ out of range, then act):
 | Tap target | Default action |
 |---|---|
 | Own unit / building | **Select** it |
-| Empty ground | **Move** |
+| Empty ground | **Move** for selected mobile units |
 | Enemy unit / building | **Attack** |
 | Mineral patch / geyser (workers selected) | **Harvest** |
 | Empty ground / resource (production buildings selected) | Set **rally point** |
 
 The non-negotiable ambiguity rule is: **your own selectable entities are selected in normal
-mode, never used as implicit command targets.** Friendly-target actions such as repair, heal,
-load, unload-to, spell-on-friendly, and rally-to-friendly are command-card verbs first, then the
-next world tap supplies the target. This keeps the common mobile loop cheap: SCVs selected +
-tap Command Center selects the Command Center, instead of sending the workers there.
+mode, never used as implicit command targets.** Friendly-target actions such as harvest owned
+gas, repair, resume construction, heal, load, unload-to, spell-on-friendly, and rally-to-friendly
+are command-card verbs first, then the next world tap supplies the target. This keeps the common
+mobile loop cheap: SCVs selected + tap Command Center selects the Command Center, instead of
+sending the workers there.
+
+The default empty-ground command for mobile selections is plain move. Attack-move is an explicit
+hotbar verb and target mode. This keeps normal map navigation predictable and leaves combat intent
+visible in the command stream instead of hiding it behind every ground tap.
 
 **Target mode** (for explicit verbs from the hotbar — Attack-move, Patrol, Build, Rally,
 repair/heal/load, cast, etc.): tapping the verb puts the viewport into a clear one-tap "now tap

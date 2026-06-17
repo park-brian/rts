@@ -71,9 +71,10 @@
 </header>
 
 <main class="sheet">
+  <!-- Renderer contract: every unit is a 64x64 local rig facing 0 -1. data-anchor/data-visible-box/data-part/data-anim/data-emits are the runtime-facing contract; comments are review notes and are stripped by export. -->
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="SCV" data-anchor="32 32" data-visible-box="9 15 46 32">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="SCV" data-anchor="32 32" data-visible-box="9 15 46 32" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- z-order: arms under side blocks under square head; animate arms independently. -->
         <rect class="panel" data-part="left-arm" x="14" y="18" width="6" height="22" rx="1" transform="rotate(-28 17 29)"/>
         <rect class="panel" data-part="right-arm" x="44" y="18" width="6" height="22" rx="1" transform="rotate(28 47 29)"/>
@@ -89,7 +90,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Marine" data-anchor="32 32" data-visible-box="11 15 43 34">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Marine" data-anchor="32 32" data-visible-box="11 15 43 34" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- infantry baseline: shoulders animate for walk/run; firing stance offsets one shoulder forward. -->
         <rect class="panel" data-part="gun" data-anim="aim-recoil" data-emits="bullet" data-emission-dir="0 -1" x="48" y="16" width="5" height="26" rx="1"/>
         <circle class="panel" data-part="left-side-circle" data-anim="walk-shoulder firing-stance" cx="20" cy="40" r="8"/>
@@ -105,7 +106,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Firebat" data-anchor="32 32" data-visible-box="7 16 50 35">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Firebat" data-anchor="32 32" data-visible-box="7 16 50 35" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- firebat body stays planted; only flame emitters animate while firing. -->
         <rect class="panel" data-part="left-flame-nozzle" data-anim="flame-pulse" data-emits="flame" data-emission-dir="0 -1" x="14" y="17" width="8" height="25" rx="1"/>
         <rect class="panel" data-part="right-flame-nozzle" data-anim="flame-pulse" data-emits="flame" data-emission-dir="0 -1" x="42" y="17" width="8" height="25" rx="1"/>
@@ -122,7 +123,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Medic" data-anchor="32 32" data-visible-box="13 20 38 28">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Medic" data-anchor="32 32" data-visible-box="13 20 38 28" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- infantry baseline with no weapon; cross belongs to helmet back and can pulse. -->
         <circle class="panel" data-part="left-side-circle" cx="21" cy="40" r="7"/>
         <circle class="panel" data-part="right-side-circle" cx="43" cy="40" r="7"/>
@@ -139,7 +140,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Ghost" data-anchor="32 32" data-visible-box="15 8 36 40">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Ghost" data-anchor="32 32" data-visible-box="15 8 36 40" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- sniper variant shares Marine firing stance: shoulder offset plus long-gun recoil. -->
         <rect class="panel" data-part="long-gun" data-anim="aim-recoil" data-emits="bullet" data-emission-dir="0 -1" x="46" y="9" width="4" height="38" rx="1"/>
         <circle class="panel" data-part="left-side-circle" data-anim="walk-shoulder firing-stance" cx="22" cy="40" r="6"/>
@@ -155,7 +156,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Vulture" data-anchor="32 32" data-visible-box="17 4 30 55">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Vulture" data-anchor="32 32" data-visible-box="17 4 30 55" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- dragster read: split nose wedges, rear body, paired thrusters tucked close. -->
         <polygon class="panel" data-part="left-nose-wedge" points="31,5 18,48 31,48"/>
         <polygon class="panel" data-part="right-nose-wedge" points="33,5 46,48 33,48"/>
@@ -171,7 +172,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank" data-anchor="32 32" data-visible-box="9 5 46 46">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank" data-anchor="32 32" data-visible-box="9 5 46 46" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- base geometry must match siege mode exactly except supports and barrel length. -->
         <rect class="panel" data-part="left-tread" x="10" y="14" width="10" height="36" rx="2"/>
         <rect class="panel" data-part="right-tread" x="44" y="14" width="10" height="36" rx="2"/>
@@ -187,7 +188,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank Siege Mode" data-anchor="32 32" data-visible-box="9 1 46 54">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Siege Tank Siege Mode" data-anchor="32 32" data-visible-box="9 1 46 54" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- supports are below the exact tank base; only barrel length differs from tank mode. -->
         <rect class="panel" data-part="front-support" data-anim="deploy-slide" data-slide-dir="0 -1" x="27" y="10" width="10" height="12" rx="1"/>
         <rect class="panel" data-part="rear-support" data-anim="deploy-slide" data-slide-dir="0 1" x="27" y="42" width="10" height="12" rx="1"/>
@@ -205,7 +206,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Goliath" data-anchor="32 32" data-visible-box="11 6 42 39">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Goliath" data-anchor="32 32" data-visible-box="11 6 42 39" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- machine infantry: square torso/head, square side blocks, twin cannons. -->
         <rect class="panel" data-part="torso-head" x="23" y="25" width="18" height="18" rx="2"/>
         <rect class="panel" data-part="left-side-block" x="12" y="31" width="13" height="13" rx="2"/>
@@ -221,7 +222,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Wraith" data-anchor="32 32" data-visible-box="12 7 40 45">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Wraith" data-anchor="32 32" data-visible-box="12 7 40 45" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- lasers emit forward; thrusters emit rear light opposite the facing direction. -->
         <rect class="panel" data-part="front-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="30" y="8" width="4" height="11" rx="1"/>
         <rect class="panel" data-part="left-wing-laser" data-anim="laser-pulse" data-emits="laser" data-emission-dir="0 -1" x="13" y="27" width="4" height="12" rx="1"/>
@@ -240,7 +241,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Dropship" data-anchor="32 32" data-visible-box="12 11 40 46">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Dropship" data-anchor="32 32" data-visible-box="12 11 40 46" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- wide transport body is intentional; center cargo dots light up as storage fills. -->
         <polygon class="panel" data-part="body" points="22,12 42,12 48,20 48,48 16,48 16,20"/>
         <rect class="panel" data-part="left-thruster" data-anim="engine-glow" data-emits="thruster-light" data-emission-dir="0 1" x="13" y="36" width="9" height="17" rx="2"/>
@@ -263,7 +264,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Science Vessel" data-anchor="32 32" data-visible-box="7 7 50 50">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Science Vessel" data-anchor="32 32" data-visible-box="7 7 50 50" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- detector glyph: ring and three radial lines; dots sit between the line spokes. -->
         <circle class="panel" data-part="outer-ring" cx="32" cy="32" r="24"/>
         <line class="line" data-part="top-spoke" x1="32" y1="32" x2="32" y2="14"/>
@@ -281,7 +282,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Valkyrie" data-anchor="32 32" data-visible-box="5 9 54 46">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Valkyrie" data-anchor="32 32" data-visible-box="5 9 54 46" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- slimmer transport-fighter: long front bevels, bottom-aligned winglets, twin rear thrusters. -->
         <polygon class="panel" data-part="body" points="25,10 39,10 46,30 46,48 18,48 18,30"/>
         <polygon class="panel" data-part="left-winglet" points="6,43 18,39 18,48 6,48"/>
@@ -297,7 +298,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Battlecruiser" data-anchor="32 32" data-visible-box="0 4 64 60">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Battlecruiser" data-anchor="32 32" data-visible-box="0 4 64 60" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- capital H-frame: four trapezoid wings, huge wingtip lasers, square Yamato nose. -->
         <polygon class="panel" data-part="front-left-wing" points="28,8 11,12 11,21 28,22"/>
         <polygon class="panel" data-part="front-right-wing" points="36,8 53,12 53,21 36,22"/>
@@ -321,7 +322,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Spider Mine" data-anchor="32 32" data-visible-box="16 16 32 32">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Spider Mine" data-anchor="32 32" data-visible-box="16 16 32 32" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- mathematically centered mine: circular body, four legs, pulsing center dot. -->
         <circle class="panel" data-part="body" cx="32" cy="32" r="8"/>
         <line class="line" data-part="front-left-leg" x1="26" y1="26" x2="17" y2="17"/>
@@ -338,7 +339,7 @@
 
   <article class="card">
     <div class="art">
-      <svg class="sprite" viewBox="0 0 64 64" aria-label="Nuclear Missile" data-anchor="32 32" data-visible-box="16 4 32 55">
+      <svg class="sprite" viewBox="0 0 64 64" aria-label="Nuclear Missile" data-anchor="32 32" data-visible-box="16 4 32 55" data-forward="0 -1" data-fit="visible-box" data-scale-role="unit-radius">
         <!-- projectile/effect sprite: body, two fins, and center seam. -->
         <polygon class="panel" data-part="missile-body" points="32,5 38,16 38,49 32,58 26,49 26,16"/>
         <polygon class="panel" data-part="left-fin" points="26,43 17,54 26,52"/>

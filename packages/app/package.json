@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node build.mjs serve",
     "dev": "node build.mjs serve",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "shot": "node shot.mjs",
+    "shot:units": "node shot-units.mjs"
   },
   "dependencies": {
     "@rts/sim": "*",
