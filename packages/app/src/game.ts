@@ -282,12 +282,16 @@ export class Game {
   }
 
   setEdgePanPointer(sx: number, sy: number): void {
-    if (sx < 0 || sy < 0 || sx > this.viewW || sy > this.viewH) {
+    this.setEdgePanPointerInRect(sx, sy, this.viewW, this.viewH);
+  }
+
+  setEdgePanPointerInRect(sx: number, sy: number, w: number, h: number): void {
+    if (sx < 0 || sy < 0 || sx > w || sy > h) {
       this.clearEdgePan();
       return;
     }
-    this.edgePanX = sx <= EDGE_PAN_MARGIN ? -1 : sx >= this.viewW - EDGE_PAN_MARGIN ? 1 : 0;
-    this.edgePanY = sy <= EDGE_PAN_MARGIN ? -1 : sy >= this.viewH - EDGE_PAN_MARGIN ? 1 : 0;
+    this.edgePanX = sx <= EDGE_PAN_MARGIN ? -1 : sx >= w - EDGE_PAN_MARGIN ? 1 : 0;
+    this.edgePanY = sy <= EDGE_PAN_MARGIN ? -1 : sy >= h - EDGE_PAN_MARGIN ? 1 : 0;
   }
 
   clearEdgePan(): void {

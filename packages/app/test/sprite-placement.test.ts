@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Kind, ONE, TILE, Units, structureFootprint, fx } from '../src/sim.ts';
-import { spritePlacement } from '../src/art/placement.ts';
+import { selectionBase, spritePlacement } from '../src/art/placement.ts';
 import { SPRITES } from '../src/art/sprites.ts';
 import type { GeneratedSpriteMeta } from '../src/art/generated-sprites.ts';
 
@@ -136,4 +136,32 @@ test('combat morph cocoons borrow egg art while keeping target unit radius', () 
   close(p.radius, radius, 'Lurker cocoon selection radius stays target-sized');
   assert.ok(p.visibleWidth <= radius * 2, 'Lurker cocoon width fits target circle');
   assert.ok(p.visibleHeight <= radius * 2, 'Lurker cocoon height fits target circle');
+});
+
+test('selection bases match gameplay unit radius and build footprints', () => {
+  const marine = selectionBase(Kind.Marine);
+  assert.equal(marine.shape, 'circle');
+  if (marine.shape === 'circle') {
+    close(marine.radius, Units[Kind.Marine]!.radius / ONE, 'Marine selection circle uses unit radius');
+    close(marine.offsetX, 0, 'Marine selection circle x offset');
+    close(marine.offsetY, 0, 'Marine selection circle y offset');
+  }
+
+  const commandCenter = selectionBase(Kind.CommandCenter);
+  assert.equal(commandCenter.shape, 'rect');
+  if (commandCenter.shape === 'rect') {
+    close(commandCenter.width, Units[Kind.CommandCenter]!.footprintW * TILE, 'Command Center selection base width');
+    close(commandCenter.height, Units[Kind.CommandCenter]!.footprintH * TILE, 'Command Center selection base height');
+    close(commandCenter.offsetX, -TILE / 2, 'Command Center selection base x offset');
+    close(commandCenter.offsetY, 0, 'Command Center selection base y offset');
+  }
+
+  const geyser = selectionBase(Kind.Geyser);
+  assert.equal(geyser.shape, 'rect');
+  if (geyser.shape === 'rect') {
+    close(geyser.width, 4 * TILE, 'Geyser selection base width');
+    close(geyser.height, 2 * TILE, 'Geyser selection base height');
+    close(geyser.offsetX, -TILE / 2, 'Geyser selection base x offset');
+    close(geyser.offsetY, -TILE / 2, 'Geyser selection base y offset');
+  }
 });

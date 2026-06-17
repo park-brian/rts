@@ -24,3 +24,19 @@ test('desktop edge pan moves the camera while the cursor rests near a screen edg
 
   assert.equal(g.camX, x);
 });
+
+test('desktop edge pan can use viewport edges instead of stale playfield bounds', () => {
+  const g = new Game('play', 92);
+  g.resize(800, 420);
+  g.camX = 1000;
+  g.camY = 1000;
+  g.zoom = 1;
+  ui.controlScheme.value = 'desktop';
+
+  g.setEdgePanPointerInRect(960, 350, 960, 540);
+  g.update(1000);
+  g.update(1100);
+
+  assert.ok(g.camX > 1000, 'right window edge pans camera right');
+  assert.equal(g.camY, 1000);
+});

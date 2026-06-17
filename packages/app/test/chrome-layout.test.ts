@@ -11,7 +11,8 @@ test('game canvas is laid out between reserved top and bottom chrome', () => {
   const html = readFileSync(resolve(appRoot, 'index.html'), 'utf8');
 
   assert.match(html, /#game, #overlay\s*{[^}]*top:\s*var\(--top-chrome\);/s);
-  assert.match(html, /#game, #overlay\s*{[^}]*bottom:\s*var\(--bottom-chrome\);/s);
+  assert.match(html, /#game, #overlay\s*{[^}]*height:\s*calc\(100dvh - var\(--top-chrome\) - var\(--bottom-chrome\)\);/s);
+  assert.doesNotMatch(html, /#game, #overlay\s*{[^}]*height:\s*auto;/s);
   assert.match(html, /--top-chrome:/);
   assert.match(html, /--bottom-chrome:/);
 });

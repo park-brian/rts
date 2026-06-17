@@ -19,6 +19,8 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   let lastTapT = 0;
   let lastTap = { x: 0, y: 0 };
   let placing = false;
+  let middlePanId = -1;
+  let middlePanLast = { x: 0, y: 0 };
 
   const rect = (): DOMRect => canvas.getBoundingClientRect();
   const localPoint = (clientX: number, clientY: number): { x: number; y: number } => {
@@ -28,22 +30,38 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   const local = (e: PointerEvent): { x: number; y: number } => localPoint(e.clientX, e.clientY);
   const isDesktop = (): boolean => ui.controlScheme.value === 'desktop';
   const buttonOf = (e: PointerEvent): number => typeof e.button === 'number' ? e.button : 0;
+  const viewportEdgePan = (clientX: number, clientY: number): void => {
+    const r = rect();
+    const w = typeof globalThis.innerWidth === 'number' ? globalThis.innerWidth : typeof r.width === 'number' ? r.width : game.viewW;
+    const h = typeof globalThis.innerHeight === 'number' ? globalThis.innerHeight : typeof r.height === 'number' ? r.height : game.viewH;
+    game.setEdgePanPointerInRect(clientX, clientY, Math.max(1, w), Math.max(1, h));
+  };
 
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
     const p = local(e);
-    if (isDesktop()) game.setEdgePanPointer(p.x, p.y);
+    const desktop = isDesktop();
+    const button = buttonOf(e);
+    if (desktop) viewportEdgePan(e.clientX, e.clientY);
     pts.set(e.pointerId, p);
-    buttons.set(e.pointerId, buttonOf(e));
+    buttons.set(e.pointerId, button);
     if (pts.size === 1) {
       multiTouch = false;
       start = p; moved = false; game.box = null;
+      if (desktop && button === 1) {
+        middlePanId = e.pointerId;
+        middlePanLast = p;
+        placing = false;
+        onMinimap = false;
+        game.cancelPlacementGhost();
+        return;
+      }
       placing = ui.placement.value !== 0;
       if (placing) {
         onMinimap = false;
         game.updatePlacementGhost(p.x, p.y);
-      } else if (!isDesktop() || buttonOf(e) === 0) {
+      } else if (!desktop || button === 0) {
         onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
       } else {
         onMinimap = false;
@@ -62,11 +80,19 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return;
     const p = local(e);
-    if (isDesktop()) game.setEdgePanPointer(p.x, p.y);
+    if (isDesktop()) viewportEdgePan(e.clientX, e.clientY);
     pts.set(e.pointerId, p);
 
     if (pts.size === 1) {
       if (multiTouch) return; // remaining finger after a pinch/pan cannot become a tap/box
+      if (middlePanId === e.pointerId) {
+        game.camX -= (p.x - middlePanLast.x) / game.zoom;
+        game.camY -= (p.y - middlePanLast.y) / game.zoom;
+        middlePanLast = p;
+        moved = true;
+        game.clampCamera();
+        return;
+      }
       if (placing) { game.updatePlacementGhost(p.x, p.y); return; }
       if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
       if (isDesktop() && (buttons.get(e.pointerId) ?? 0) !== 0) return;
@@ -94,7 +120,9 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     pts.delete(e.pointerId);
     buttons.delete(e.pointerId);
     if (wasOne) {
-      if (multiTouch) {
+      if (middlePanId === e.pointerId) {
+        middlePanId = -1; onMinimap = false; placing = false; game.box = null;
+      } else if (multiTouch) {
         multiTouch = false; onMinimap = false; placing = false; game.cancelPlacementGhost(); game.box = null;
       } else if (placing) {
         game.updatePlacementGhost(p.x, p.y);
@@ -117,6 +145,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
       game.box = null;
     } else if (pts.size === 0) {
       multiTouch = false;
+      middlePanId = -1;
       onMinimap = false;
       placing = false;
       game.cancelPlacementGhost();
@@ -128,10 +157,14 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('mousemove', (e) => {
     if (!isDesktop()) return;
-    const p = localPoint(e.clientX, e.clientY);
-    game.setEdgePanPointer(p.x, p.y);
+    viewportEdgePan(e.clientX, e.clientY);
   });
   canvas.addEventListener('mouseleave', () => game.clearEdgePan());
+  globalThis.addEventListener?.('mousemove', (e) => {
+    if (!isDesktop()) return;
+    viewportEdgePan(e.clientX, e.clientY);
+  });
+  globalThis.addEventListener?.('blur', () => game.clearEdgePan());
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();

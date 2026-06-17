@@ -15,7 +15,7 @@
 import { TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, isCloaked, resolveRallyEndpoint, type MapDef } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
-import { spritePlacement, visualRadius } from '../art/placement.ts';
+import { selectionBase, spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
@@ -496,10 +496,33 @@ export class GlRenderer {
 
       const selected = game.selection.has(id);
       if (selected) {
-        const sr = r + 3 / zoom;
         const illusion = illusionPresentation(s, game.human, i);
         const ringColor = illusion.known ? [0.49, 0.75, 1] : [1, 0.88, 0.3];
-        this.sprites.push(wx, wy, sr * 2, sr * 2, 0, ring, ringColor[0]!, ringColor[1]!, ringColor[2]!, 1, 0, 0, 0);
+        const base = selectionBase(kind);
+        const pad = 3 / zoom;
+        if (base.shape === 'circle') {
+          const sr = base.radius + pad;
+          this.sprites.push(
+            this.wxA[i]! + base.offsetX,
+            this.wyA[i]! + base.offsetY,
+            sr * 2,
+            sr * 2,
+            0,
+            ring,
+            ringColor[0]!, ringColor[1]!, ringColor[2]!, 1,
+            0, 0, 0,
+          );
+        } else {
+          this.rectOutline(
+            this.wxA[i]! + base.offsetX,
+            this.wyA[i]! + base.offsetY,
+            base.width + pad * 2,
+            base.height + pad * 2,
+            2 / zoom,
+            white,
+            ringColor[0]!, ringColor[1]!, ringColor[2]!,
+          );
+        }
       }
       const maxLife = def.hp + def.shields;
       const life = e.hp[i]! + e.shield[i]!;
@@ -535,6 +558,23 @@ export class GlRenderer {
       const r = rally.target >= 0 ? Math.max(spritePlacement(e.kind[rally.target]!).visibleWidth, spritePlacement(e.kind[rally.target]!).visibleHeight) / 2 + 5 / zoom : 4 / zoom;
       this.sprites.push(rx, ry, r * 2, r * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
     }
+  }
+
+  private rectOutline(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    thickness: number,
+    uv: UV,
+    r: number,
+    g: number,
+    b: number,
+  ): void {
+    this.sprites.push(x, y - h / 2, w, thickness, 0, uv, r, g, b, 1, 0, 0, 0);
+    this.sprites.push(x, y + h / 2, w, thickness, 0, uv, r, g, b, 1, 0, 0, 0);
+    this.sprites.push(x - w / 2, y, thickness, h, 0, uv, r, g, b, 1, 0, 0, 0);
+    this.sprites.push(x + w / 2, y, thickness, h, 0, uv, r, g, b, 1, 0, 0, 0);
   }
 }
 

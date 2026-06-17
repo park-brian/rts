@@ -123,9 +123,16 @@ const applyControlChrome = (scheme: ControlScheme): void => {
   root.style.setProperty('--bottom-chrome', scheme === 'desktop' ? '76px' : 'calc(84px + env(safe-area-inset-bottom))');
 };
 
+const resizePlayfield = (): void => {
+  const fire = (): void => globalThis.dispatchEvent?.(new Event('resize'));
+  if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(fire);
+  else fire();
+};
+
 const setControlScheme = (scheme: ControlScheme): void => {
   ui.controlScheme.value = scheme;
   applyControlChrome(scheme);
+  resizePlayfield();
   try {
     globalThis.localStorage?.setItem('rts.controlScheme', scheme);
   } catch {

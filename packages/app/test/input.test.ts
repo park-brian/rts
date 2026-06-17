@@ -7,7 +7,9 @@ type Listener = (e: any) => void;
 
 class FakeCanvas {
   listeners = new Map<string, Listener[]>();
-  getBoundingClientRect(): { left: number; top: number } { return { left: 0, top: 0 }; }
+  getBoundingClientRect(): { left: number; top: number; width: number; height: number } {
+    return { left: 0, top: 0, width: 800, height: 600 };
+  }
   setPointerCapture(): void {}
   addEventListener(type: string, fn: Listener): void {
     const list = this.listeners.get(type) ?? [];
@@ -32,6 +34,8 @@ const makeGame = (): {
     camX: 0,
     camY: 0,
     zoom: 1,
+    viewW: 800,
+    viewH: 600,
     screenToWorld: (x: number, y: number): [number, number] => [x, y],
     clampCamera: () => {},
     minimapPan: () => { calls.minimap++; return false; },
@@ -39,6 +43,7 @@ const makeGame = (): {
     desktopSelectTap: () => { calls.desktopTap++; },
     desktopSmartTap: () => { calls.smart++; },
     setEdgePanPointer: () => { calls.edge++; },
+    setEdgePanPointerInRect: () => { calls.edge++; },
     clearEdgePan: () => { calls.clearEdge++; },
     updatePlacementGhost: () => {},
     commitPlacementGhost: () => false,
@@ -143,4 +148,21 @@ test('desktop mouse hover tracks screen-edge panning and clears on leave', () =>
 
   assert.equal(calls.edge, 1);
   assert.equal(calls.clearEdge, 1);
+});
+
+test('desktop middle button drags the camera instead of selecting', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 80, 80, { button: 1 }));
+  canvas.fire('pointermove', pointer(1, 110, 120, { button: 1 }));
+  canvas.fire('pointerup', pointer(1, 110, 120, { button: 1 }));
+
+  assert.equal(game.camX, -30);
+  assert.equal(game.camY, -40);
+  assert.equal(calls.desktopTap, 0);
+  assert.equal(calls.smart, 0);
+  assert.equal(calls.box, 0);
 });

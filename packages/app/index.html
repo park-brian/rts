@@ -20,11 +20,9 @@
       #game, #overlay {
         position: fixed;
         left: 0;
-        right: 0;
         top: var(--top-chrome);
-        bottom: var(--bottom-chrome);
-        width: 100%;
-        height: auto;
+        width: 100vw;
+        height: calc(100dvh - var(--top-chrome) - var(--bottom-chrome));
         display: block;
       }
       #overlay { pointer-events: none; } /* world is GL; this layer is screen-space chrome */

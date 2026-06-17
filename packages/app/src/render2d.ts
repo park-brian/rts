@@ -13,6 +13,7 @@ import { illusionPresentation } from './illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
 import { entityPresentationState, isZergCombatMorph } from './entity-presentation.ts';
 import { ui } from './store.ts';
+import { selectionBase } from './art/placement.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -231,10 +232,24 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     }
 
     const selected = game.selection.has(eid(e, i));
-    // selection ring
+    // Selection base: gameplay footprint, not sprite bounds.
     if (selected) {
-      ctx.strokeStyle = illusion.known ? '#7dbeff' : '#ffe14e'; ctx.lineWidth = 2 / game.zoom;
-      ctx.strokeRect(overlayX - overlayW / 2 - 2, overlayY - overlayH / 2 - 2, overlayW + 4, overlayH + 4);
+      const base = selectionBase(kind);
+      const pad = 2 / game.zoom;
+      ctx.strokeStyle = illusion.known ? '#7dbeff' : '#ffe14e';
+      ctx.lineWidth = 2 / game.zoom;
+      if (base.shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(wx + base.offsetX, wy + base.offsetY, base.radius + pad, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(
+          wx + base.offsetX - base.width / 2 - pad,
+          wy + base.offsetY - base.height / 2 - pad,
+          base.width + pad * 2,
+          base.height + pad * 2,
+        );
+      }
     }
     // Health/progress bar, anchored above the visible body.
     const maxLife = def.hp + def.shields;
