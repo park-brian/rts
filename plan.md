@@ -247,8 +247,8 @@ Completed:
 
 Remaining:
 
-- Attack-speed upgrade fidelity beyond Stim for any remaining non-Zergling cases.
-- More exact per-weapon upgrade increments for multi-hit weapons and special attacks.
+- Future attack-speed discoveries and per-weapon upgrade increments for multi-hit/special attacks
+  stay in the missing-inventory list until those mechanics need deeper fidelity.
 - Broader all-race matrix tests once unit-specific combat mechanics are in place.
 
 ## Phase 5: Race Macro Identity
@@ -458,10 +458,11 @@ Completed:
 - Added observation tests for undetected cloaked enemies and scan-revealed cloaked enemies.
 - Burrow now feeds the same cloak/detection predicate, and app hit-testing, Canvas rendering,
   WebGL rendering, and minimap drawing all use a shared visible-and-detectable entity rule.
+- Map elevation now affects fair-play vision, and low-ground ground attacks against high-ground
+  ground targets use a deterministic serialized-RNG miss roll.
 
 Remaining:
 
-- High-ground vision rules and low-to-high miss chance.
 - App rendering should show scan/warning/fog affordances for the new fair-play visibility state.
 - Future action masks should consume this same visible-and-detectable observation rule.
 
@@ -498,7 +499,6 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
-  - Terrain elevation, high-ground vision, and deterministic low-to-high miss chance.
   - More exact projectile/travel behavior for missiles, scarabs, interceptors, Valkyrie volleys,
     and nuke warning/presentation.
 - Visibility and UI presentation:

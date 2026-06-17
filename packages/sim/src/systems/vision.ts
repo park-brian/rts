@@ -9,14 +9,24 @@
 // lists live in a WeakMap (transient); a fork rebuilds them from its vision grid.
 
 import type { State } from '../world.ts';
-import { EffectKind, Units, TILE } from '../data.ts';
+import { EffectKind, Role, Units, TILE } from '../data.ts';
 import { ONE } from '../fixed.ts';
 import { effectiveSight } from './status.ts';
 import { isContained } from '../cargo.ts';
+import { elevationAtTile, slotElevation } from '../terrain.ts';
 
 const seenByState = new WeakMap<State, number[][]>();
 
-const revealCircle = (s: State, player: number, x: number, y: number, sight: number, list: number[]): void => {
+const revealCircle = (
+  s: State,
+  player: number,
+  x: number,
+  y: number,
+  sight: number,
+  sourceElevation: number,
+  ignoreElevation: boolean,
+  list: number[],
+): void => {
   const m = s.map;
   const W = m.w;
   const v = s.vision[player]!;
@@ -28,6 +38,7 @@ const revealCircle = (s: State, player: number, x: number, y: number, sight: num
     for (let dx = -sight; dx <= sight; dx++) {
       const xx = tx + dx; if (xx < 0 || xx >= W) continue;
       if (dx * dx + dy * dy > r2) continue;
+      if (!ignoreElevation && elevationAtTile(s, xx, yy) > sourceElevation) continue;
       const t = yy * W + xx;
       if (v[t] !== 2) { v[t] = 2; list.push(t); }
     }
@@ -62,7 +73,7 @@ export const vision = (s: State): void => {
     if (owner >= np) continue; // neutrals grant no vision
     const sight = effectiveSight(s, e, i, Units[e.kind[i]!]?.sight ?? 0);
     if (sight <= 0) continue;
-    revealCircle(s, owner, e.x[i]!, e.y[i]!, sight, lists[owner]!);
+    revealCircle(s, owner, e.x[i]!, e.y[i]!, sight, slotElevation(s, i), (e.flags[i]! & Role.Air) !== 0, lists[owner]!);
   }
 
   for (let i = 0; i < e.hi; i++) {
@@ -70,7 +81,7 @@ export const vision = (s: State): void => {
     const owner = e.parasiteOwner[i]!;
     if (owner >= np) continue;
     const sight = effectiveSight(s, e, i, Units[e.kind[i]!]?.sight ?? 0);
-    if (sight > 0) revealCircle(s, owner, e.x[i]!, e.y[i]!, sight, lists[owner]!);
+    if (sight > 0) revealCircle(s, owner, e.x[i]!, e.y[i]!, sight, slotElevation(s, i), (e.flags[i]! & Role.Air) !== 0, lists[owner]!);
   }
 
   const fx = s.effects;
@@ -78,7 +89,7 @@ export const vision = (s: State): void => {
     if (fx.alive[i] !== 1 || fx.kind[i] !== EffectKind.ScannerSweep || fx.owner[i] >= np) continue;
     const radiusTiles = Math.ceil(fx.radius[i]! / (TILE * ONE));
     if (radiusTiles > 0) {
-      revealCircle(s, fx.owner[i]!, fx.x[i]!, fx.y[i]!, radiusTiles, lists[fx.owner[i]!]!);
+      revealCircle(s, fx.owner[i]!, fx.x[i]!, fx.y[i]!, radiusTiles, 0, true, lists[fx.owner[i]!]!);
     }
   }
 };
