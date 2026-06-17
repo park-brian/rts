@@ -385,12 +385,21 @@ Completed:
   original flags after legal landing.
 - Added focused lift/land tests for movement, production gating, occupied landing rejection,
   non-liftable/add-on-linked rejection, and replay parsing.
+- Added shared unfinished-entity presentation for Zerg structure morphs, Protoss warp-ins, Terran
+  construction, Zerg combat cocoons, and Protoss merge summons. Selection labels, cancel/stop/rally
+  affordances, GL/Math renderer treatment, and the screenshot harness now distinguish those states
+  without adding serialized presentation state.
+- Incomplete structures now reject `rally` through shared validation, so UI command cards,
+  scripted controllers, and future RL action masks agree that rally belongs to completed
+  structures only.
 
 Remaining:
 
-- Fuller Zerg macro flow, especially AI use of structure/unit morphs and clearer app-side morph
-  progress presentation.
-- More explicit Protoss warp-in presentation and any remaining power-field UI affordances.
+- Fuller Zerg macro flow, especially AI use of structure/unit morphs.
+- Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
+  desired visual language.
+- Any remaining power-field UI affordances beyond the current placement overlay and powered-state
+  validation.
 - Deeper Terran add-on ownership behavior such as dependency on landed parent state.
 
 ## Phase 6: Unit-Specific Combat Mechanics
@@ -495,7 +504,8 @@ Remaining:
 
 - Further Carrier Interceptor attack-pass cadence polish only if source references reveal a
   material mismatch beyond the current launch, orbit, return, and bay-docking primitive.
-- Any remaining Zerg structure morph cocoon polish and broader construction/warp-in presentation.
+- Richer construction/warp-in visual effects once the refreshed asset pass defines exact art
+  direction.
 
 ## Phase 7: Visibility, Terrain, And Fog Fidelity
 
@@ -566,7 +576,6 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
-  - Any remaining Zerg structure morph cocoon polish and broader construction/warp-in presentation.
 - Upgrade fidelity:
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
@@ -583,7 +592,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
 - Rendering/assets:
-  - Progress/cocoon/warp-in/building-under-construction presentation.
+  - Richer construction/warp-in visual effects and sound cues after the refreshed asset pass.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.
 - Maintenance/performance:
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.

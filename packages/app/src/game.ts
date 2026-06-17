@@ -16,7 +16,7 @@ import {
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
-import { morphSelectionName } from './morph-presentation.ts';
+import { entitySelectionName } from './entity-presentation.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -1108,11 +1108,12 @@ export class Game {
       count++;
       const slot = slotOf(id);
       const k = e.kind[slot]!;
-      kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${morphSelectionName(s, slot)}`;
+      const completed = e.built[slot] === 1;
+      kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${entitySelectionName(s, slot)}`;
       const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
       if (nonStructure && validateCommand(s, this.human, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
-      if (e.built[slot] === 1 && validateCommand(s, this.human, { t: 'stop', unit: id }).ok) canStop = true;
-      if ((e.flags[slot]! & Role.Worker) !== 0) {
+      if (completed && validateCommand(s, this.human, { t: 'stop', unit: id }).ok) canStop = true;
+      if (completed && (e.flags[slot]! & Role.Worker) !== 0) {
         if (e.illusion[slot] !== 1) canHarvest = true;
         for (const build of workerBuildKindsFor(Units[k]!.race)) {
           const starter = canWorkerStartStructure(s, this.human, slot, build);
@@ -1127,33 +1128,35 @@ export class Game {
           }
         }
       }
-      if (e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
-      if ((e.flags[slot]! & Role.Structure) !== 0) canRally = true;
-      for (const addon of ADDON_IDS) {
-        if (addonParentKind(addon) !== k) continue;
-        const result = validateCommand(s, this.human, { t: 'addon', building: id, kind: addon });
-        if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
-      }
-      for (const train of Units[k]!.produces) {
-        const result = validateCommand(s, this.human, { t: 'train', building: id, kind: train });
-        if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
-        const meta = k === Kind.NuclearSilo && train === Kind.NuclearMissile ? nukeTrainOptionMeta(s, slot) : {};
-        addOption(trainOptions, train, result, meta);
-      }
-      for (const target of transformTargetsFor(k)) {
-        addOption(transformOptions, target, validateCommand(s, this.human, { t: 'transform', unit: id, kind: target }));
-      }
-      for (const ability of Units[k]!.abilities) {
-        const result = this.abilityAvailability(s, slot, ability);
-        addOption(abilityOptions, ability, result,
-          ability === Ability.NuclearStrike && !result.ok && result.reason === 'missing-requirement' ? { detail: 'No Nuke' } : {});
-      }
-      for (const tech of TECH_IDS) {
-        const c: Command = { t: 'research', building: id, tech };
-        const def = TechDefs[tech];
-        if (!def?.producers.includes(k)) continue;
-        const result = validateCommand(s, this.human, c);
-        if (result.ok || result.reason !== 'target-not-allowed') addOption(researchOptions, tech, result);
+      if (completed && e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
+      if ((e.flags[slot]! & Role.Structure) !== 0 && completed) canRally = true;
+      if (completed) {
+        for (const addon of ADDON_IDS) {
+          if (addonParentKind(addon) !== k) continue;
+          const result = validateCommand(s, this.human, { t: 'addon', building: id, kind: addon });
+          if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
+        }
+        for (const train of Units[k]!.produces) {
+          const result = validateCommand(s, this.human, { t: 'train', building: id, kind: train });
+          if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
+          const meta = k === Kind.NuclearSilo && train === Kind.NuclearMissile ? nukeTrainOptionMeta(s, slot) : {};
+          addOption(trainOptions, train, result, meta);
+        }
+        for (const target of transformTargetsFor(k)) {
+          addOption(transformOptions, target, validateCommand(s, this.human, { t: 'transform', unit: id, kind: target }));
+        }
+        for (const ability of Units[k]!.abilities) {
+          const result = this.abilityAvailability(s, slot, ability);
+          addOption(abilityOptions, ability, result,
+            ability === Ability.NuclearStrike && !result.ok && result.reason === 'missing-requirement' ? { detail: 'No Nuke' } : {});
+        }
+        for (const tech of TECH_IDS) {
+          const c: Command = { t: 'research', building: id, tech };
+          const def = TechDefs[tech];
+          if (!def?.producers.includes(k)) continue;
+          const result = validateCommand(s, this.human, c);
+          if (result.ok || result.reason !== 'target-not-allowed') addOption(researchOptions, tech, result);
+        }
       }
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: true }).ok) canBurrow = true;
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: false }).ok) canUnburrow = true;

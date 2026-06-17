@@ -563,6 +563,62 @@ test('zerg structure morph commands are only offered once prerequisites and reso
   assert.deepEqual(g.queued, [{ t: 'transform', unit: hatchery, kind: Kind.Lair }]);
 });
 
+test('selected zerg structure morphs publish morphing label and cancel only', () => {
+  const g = freshGame();
+  g.restart('play', 4545, 1, ['zerg', 'terran'], 0);
+  g.controllers = [null, null];
+  const s = g.sim.fullState();
+  const hatchery = findEntity(g, Kind.Hatchery, 0);
+  const h = slotOf(hatchery);
+  spawnUnit(s, Kind.SpawningPool, 0, s.e.x[h]! + fx(160), s.e.y[h]!);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const started = g.sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hatchery, kind: Kind.Lair }] }]);
+  assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
+  select(g, [hatchery]);
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Morphing Lair');
+  assert.equal(ui.selCanCancel.value, true);
+  assert.equal(ui.selCanRally.value, false);
+  assert.equal(ui.selCanStop.value, false);
+  assert.equal(ui.selTrainOptions.value.length, 0);
+  assert.equal(ui.selResearchOptions.value.length, 0);
+  assert.equal(ui.selTransformOptions.value.length, 0);
+
+  g.cancelSelectedBuild();
+
+  assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: hatchery }]);
+});
+
+test('selected protoss warp-ins publish warping label and cancel only', () => {
+  const g = freshGame();
+  g.restart('play', 4646, 1, ['protoss', 'terran'], 0);
+  const s = g.sim.fullState();
+  const e = s.e;
+  const gateway = spawnUnit(s, Kind.Gateway, 0, fx(500), fx(500));
+  const slot = slotOf(gateway);
+  e.built[slot] = 0;
+  e.ctimer[slot] = 100;
+  e.buildCostMinerals[slot] = 150;
+  select(g, [gateway]);
+
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Warping Gateway');
+  assert.equal(ui.selCanCancel.value, true);
+  assert.equal(ui.selCanRally.value, false);
+  assert.equal(ui.selCanStop.value, false);
+  assert.equal(ui.selTrainOptions.value.length, 0);
+  assert.equal(ui.selResearchOptions.value.length, 0);
+  assert.equal(ui.selTransformOptions.value.length, 0);
+
+  g.cancelSelectedBuild();
+
+  assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: gateway }]);
+});
+
 test('group-selected templars queue paired merge commands', () => {
   const g = freshGame();
   const s = g.sim.fullState();

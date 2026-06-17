@@ -510,6 +510,7 @@ export const validateCommand = (
       const slot = ownedSlot(s, c.building, player);
       if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
       if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
+      if (e.built[slot] !== 1) return reject('incomplete-producer');
       if (c.target !== undefined) {
         if (!isAlive(e, c.target)) return reject('target-not-found');
         if (!canRallyToSlot(s, player, slot, slotOf(c.target))) return reject('target-not-allowed');

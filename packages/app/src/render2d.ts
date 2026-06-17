@@ -11,7 +11,7 @@ import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
-import { isProtossMergeSummon, isZergCombatMorph } from './morph-presentation.ts';
+import { entityPresentationState, isZergCombatMorph } from './entity-presentation.ts';
 import { ui } from './store.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -125,7 +125,8 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     if (!game.canSeeEntity(i)) continue;
     const illusion = illusionPresentation(s, game.human, i);
     const morphingCocoon = isZergCombatMorph(s, i);
-    const mergeSummon = isProtossMergeSummon(s, i);
+    const presentation = entityPresentationState(s, i);
+    const mergeSummon = presentation === 'protoss-merge-summon';
     const alpha = (isCloaked(s, i) ? 0.5 : 1) * illusion.alpha;
 
     let overlayX = wx;
@@ -143,11 +144,28 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       overlayW = w;
       overlayH = h;
       ctx.globalAlpha = alpha * (e.built[i] === 1 ? 1 : 0.55);
-      ctx.fillStyle = isRes || kind === Kind.Geyser ? 'rgba(73,208,192,0.22)' : footprintColor(e.owner[i]!, 0.22);
-      ctx.strokeStyle = isRes || kind === Kind.Geyser ? NEUTRAL_COL : color(e.owner[i]!);
+      ctx.fillStyle = isRes || kind === Kind.Geyser
+        ? 'rgba(73,208,192,0.22)'
+        : presentation === 'protoss-warp-in'
+        ? 'rgba(88,150,255,0.18)'
+        : presentation === 'zerg-structure-morph'
+        ? 'rgba(100,230,135,0.18)'
+        : footprintColor(e.owner[i]!, 0.22);
+      ctx.strokeStyle = isRes || kind === Kind.Geyser
+        ? NEUTRAL_COL
+        : presentation === 'protoss-warp-in'
+        ? '#8fb6ff'
+        : presentation === 'zerg-structure-morph'
+        ? '#8cff92'
+        : color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
       ctx.fillRect(x, y, w, h);
       ctx.strokeRect(x, y, w, h);
+      if (presentation === 'protoss-warp-in' || presentation === 'zerg-structure-morph') {
+        ctx.strokeStyle = presentation === 'protoss-warp-in' ? 'rgba(120,210,255,0.65)' : 'rgba(190,255,170,0.6)';
+        ctx.lineWidth = 1 / game.zoom;
+        ctx.strokeRect(x + 4 / game.zoom, y + 4 / game.zoom, w - 8 / game.zoom, h - 8 / game.zoom);
+      }
       ctx.globalAlpha = 1;
     } else {
       const r = def.radius / ONE;

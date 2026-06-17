@@ -39,7 +39,8 @@ mkdirSync('shots', { recursive: true });
 const ONE = 4096;
 const CAP = 4096;
 const KIND = {
-  CommandCenter: 2, SCV: 3, Marine: 6, HighTemplar: 53, Archon: 55, Nexus: 66, Pylon: 67, Drone: 102, Hatchery: 116,
+  CommandCenter: 2, SCV: 3, Marine: 6, HighTemplar: 53, Archon: 55, Nexus: 66, Pylon: 67, Gateway: 69,
+  Drone: 102, Hatchery: 116, Lair: 117,
   CreepColony: 119, NuclearSilo: 36, Carrier: 62, Interceptor: 63, Scarab: 58,
   Hydralisk: 105, Lurker: 106,
 };
@@ -239,7 +240,50 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/protoss-merge-summon.png' });
 
-  // 8) Disabled command-card reasons.
+  // 8) Unfinished structure presentation: Zerg morph and Protoss warp-in.
+  await page.evaluate(({ CAP, KIND, ONE, ROLE }) => {
+    const g = window.__game;
+    g.restart('play', 24076, 1, ['zerg', 'terran']);
+    const s = g.sim.fullState();
+    const e = s.e;
+    let hatchery = 0;
+    let gateway = -1;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Hatchery) hatchery = i;
+      if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Drone && gateway === -1) gateway = i;
+    }
+    e.kind[hatchery] = KIND.Lair;
+    e.built[hatchery] = 0;
+    e.ctimer[hatchery] = 650;
+    e.morphFromKind[hatchery] = KIND.Hatchery;
+    e.buildCostMinerals[hatchery] = 150;
+    e.buildCostGas[hatchery] = 100;
+    e.hp[hatchery] = 1800;
+    e.shield[hatchery] = 0;
+
+    e.kind[gateway] = KIND.Gateway;
+    e.flags[gateway] = ROLE.Structure | ROLE.Producer;
+    e.built[gateway] = 0;
+    e.ctimer[gateway] = 520;
+    e.buildCostMinerals[gateway] = 150;
+    e.buildCostGas[gateway] = 0;
+    e.hp[gateway] = 500;
+    e.shield[gateway] = 500;
+    e.x[gateway] = e.x[hatchery] + ONE * 150;
+    e.y[gateway] = e.y[hatchery] + ONE * 8;
+
+    g.selection.clear();
+    g.selection.add(gateway + e.gen[gateway] * CAP);
+    g.zoom = 2.8;
+    g.camX = e.x[hatchery] / ONE + 70 - g.viewW / g.zoom / 2;
+    g.camY = e.y[hatchery] / ONE - g.viewH / g.zoom / 2;
+    g.clampCamera();
+    g.fastForward(0);
+  }, { CAP, KIND, ONE, ROLE });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/unfinished-structures.png' });
+
+  // 9) Disabled command-card reasons.
   await page.evaluate(({ ONE, CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24066, 1, ['terran', 'protoss']);
@@ -259,7 +303,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-disabled.png' });
 
-  // 9) Nuclear Silo missile state: ready internal ammo shown as a command-card status.
+  // 10) Nuclear Silo missile state: ready internal ammo shown as a command-card status.
   await page.evaluate(({ CAP, KIND, ROLE }) => {
     const g = window.__game;
     g.restart('play', 24070, 1, ['terran', 'protoss']);
@@ -278,7 +322,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/nuclear-silo-ready.png' });
 
-  // 10) Known own Hallucination presentation.
+  // 11) Known own Hallucination presentation.
   await page.evaluate(({ CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24071, 1, ['terran', 'protoss']);
@@ -295,7 +339,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/hallucination-selected.png' });
 
-  // 11) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
+  // 12) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
   await page.evaluate(({ CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24068, 1, ['zerg', 'terran']);
@@ -312,7 +356,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-groups.png' });
 
-  // 12) Placement field overlays: candidate Pylon power and Zerg creep.
+  // 13) Placement field overlays: candidate Pylon power and Zerg creep.
   await page.evaluate(({ ONE, KIND }) => {
     const g = window.__game;
     g.restart('play', 24067, 1, ['protoss', 'terran']);
@@ -342,21 +386,21 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/placement-creep-overlay.png' });
 
-  // 13) Spectate a fast-forwarded battle (both AIs).
+  // 14) Spectate a fast-forwarded battle (both AIs).
   await page.getByRole('button', { name: '▶ Play' }).click();
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(4500)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-battle.png' });
 
-  // 14) A 2v2 (twice as wide), fast-forwarded.
+  // 15) A 2v2 (twice as wide), fast-forwarded.
   await page.evaluate('window.__game.restart("spectate", 12345, 2)');
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(5000)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-2v2.png' });
 
-  // 15) Desktop command console layout: minimap, selection panel, grouped command grid.
+  // 16) Desktop command console layout: minimap, selection panel, grouped command grid.
   const desktopCtx = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,

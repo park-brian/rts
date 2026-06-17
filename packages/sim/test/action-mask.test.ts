@@ -72,6 +72,7 @@ test('worker command mask follows harvest and repair validation', () => {
 test('structure command mask allows rally without mobile commands', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 953 });
   const s = sim.fullState();
+  const e = s.e;
   const cc = spawnUnit(s, Kind.CommandCenter, 0, fx(400), fx(400));
   const mineral = spawnUnit(s, Kind.Mineral, -1, fx(460), fx(400));
 
@@ -81,6 +82,14 @@ test('structure command mask allows rally without mobile commands', () => {
   assert.equal(commandHeadAllowed(mask, 'move'), false);
   assert.equal(commandHeadAllowed(mask, 'amove'), false);
   assert.equal(commandHeadAllowed(mask, 'stop'), false);
+
+  e.built[slotOf(cc)] = 0;
+  const unfinished = assertMaskMatchesValidator(sim, 0, cc, { target: mineral, x: fx(460), y: fx(400) });
+  assert.equal(commandHeadAllowed(unfinished, 'rally'), false);
+  assert.deepEqual(validateCommand(s, 0, { t: 'rally', building: cc, x: fx(460), y: fx(400), target: mineral }), {
+    ok: false,
+    reason: 'incomplete-producer',
+  });
 });
 
 test('special command mask bits are controlled by tech and unit state', () => {
