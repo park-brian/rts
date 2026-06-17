@@ -567,6 +567,8 @@ Completed:
 
 - Added a minimal sim-owned command-head mask API backed directly by `validateCommand`, so UI,
   AI, and future RL clients can ask for core legal actions without duplicating command rules.
+- `observe()` now exposes a defensive copy of the observing player's completed tech/upgrade
+  levels, keeping RL policy inputs sim-owned while avoiding enemy tech leakage.
 
 Done when:
 
@@ -588,8 +590,8 @@ approximated, or absent. Keep this list honest as mechanics land.
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
-  - Observation/action-mask planes for tech, queues, effects, statuses, cargo, larva, creep, power,
-    and production state.
+  - Observation/action-mask planes for queues, effects, statuses, cargo, larva, creep, power, and
+    production state.
 - Macro/tech tree:
   - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
     Protoss power-aware expansions.

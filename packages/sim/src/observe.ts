@@ -5,7 +5,7 @@
 
 import type { State } from './world.ts';
 import { eid } from './world.ts';
-import { Units, TILE } from './data.ts';
+import { TECH_CAP, Units, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';
 import { isContained } from './cargo.ts';
@@ -22,6 +22,7 @@ export type Observation = {
   gas: number;
   supplyUsed: number;
   supplyMax: number;
+  tech: Uint8Array; // completed tech/upgrade levels for this player only
   vision: Uint8Array; // 0 unseen, 1 explored, 2 visible (per tile)
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
@@ -54,6 +55,7 @@ export const observe = (s: State, player: number): Observation => {
     gas: s.players.gas[player]!,
     supplyUsed: s.players.supplyUsed[player]!,
     supplyMax: s.players.supplyMax[player]!,
+    tech: s.players.tech.slice(player * TECH_CAP, (player + 1) * TECH_CAP),
     vision: v.slice(),
     entities,
   };

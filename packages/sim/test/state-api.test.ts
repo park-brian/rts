@@ -4,8 +4,9 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, kill, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Ability, Kind } from '../src/data.ts';
+import { Ability, Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
+import { setTechLevel } from '../src/tech.ts';
 
 test('observe requires vision tracking and returns a defensive vision copy', () => {
   const noVision = new Sim({ map: sliceMap(), players: 1, seed: 201 });
@@ -16,6 +17,20 @@ test('observe requires vision tracking and returns a defensive vision copy', () 
   assert.ok(obs.vision.some((v) => v === 2), 'initial vision is computed before the first tick');
   obs.vision.fill(0);
   assert.ok(sim.observe(0).vision.some((v) => v === 2), 'mutating observation does not mutate sim fog');
+});
+
+test('observe returns a defensive own-player tech vector', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 208, vision: true });
+  const s = sim.fullState();
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  setTechLevel(s, 1, Tech.YamatoCannon, 1);
+
+  const obs = sim.observe(0);
+  assert.equal(obs.tech[Tech.StimPack], 1);
+  assert.equal(obs.tech[Tech.YamatoCannon], 0);
+
+  obs.tech[Tech.StimPack] = 0;
+  assert.equal(sim.observe(0).tech[Tech.StimPack], 1, 'mutating observation does not mutate player tech');
 });
 
 test('byte serialization preserves vision tracking and fog memory', () => {
