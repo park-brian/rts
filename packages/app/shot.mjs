@@ -36,6 +36,8 @@ if (!targetUrl) {
   targetUrl = 'http://127.0.0.1:8099/';
 }
 mkdirSync('shots', { recursive: true });
+const ONE = 4096;
+const KIND = { Nexus: 66, Pylon: 67, Hatchery: 116, CreepColony: 119 };
 
 // SwiftShader gives headless Chromium a working WebGL2 stack so screenshots
 // capture the real GL renderer (gl/renderer.ts), not the Canvas2D fallback.
@@ -85,14 +87,44 @@ try {
   await page.waitForTimeout(200);
   await page.screenshot({ path: 'shots/play-selected.png' });
 
-  // 4) Spectate a fast-forwarded battle (both AIs).
+  // 4) Placement field overlays: candidate Pylon power and Zerg creep.
+  await page.evaluate(({ ONE, KIND }) => {
+    const g = window.__game;
+    g.restart('play', 24067, 1, ['protoss', 'terran']);
+    const e = g.sim.fullState().e;
+    let nexus = 0;
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Nexus) nexus = i;
+    g.zoom = 2.2;
+    g.placementGhost = { kind: KIND.Pylon, x: e.x[nexus] - ONE * 160, y: e.y[nexus], ok: true };
+    g.camX = g.placementGhost.x / ONE - g.viewW / g.zoom / 2;
+    g.camY = g.placementGhost.y / ONE - g.viewH / g.zoom / 2;
+    g.clampCamera();
+  }, { ONE, KIND });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/placement-power-overlay.png' });
+  await page.evaluate(({ ONE, KIND }) => {
+    const g = window.__game;
+    g.restart('play', 24068, 1, ['zerg', 'terran']);
+    const e = g.sim.fullState().e;
+    let hatchery = 0;
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Hatchery) hatchery = i;
+    g.zoom = 2.2;
+    g.placementGhost = { kind: KIND.CreepColony, x: e.x[hatchery] + ONE * 96, y: e.y[hatchery], ok: true };
+    g.camX = g.placementGhost.x / ONE - g.viewW / g.zoom / 2;
+    g.camY = g.placementGhost.y / ONE - g.viewH / g.zoom / 2;
+    g.clampCamera();
+  }, { ONE, KIND });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/placement-creep-overlay.png' });
+
+  // 5) Spectate a fast-forwarded battle (both AIs).
   await page.getByRole('button', { name: '▶ Play' }).click();
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(4500)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-battle.png' });
 
-  // 5) A 2v2 (twice as wide), fast-forwarded.
+  // 6) A 2v2 (twice as wide), fast-forwarded.
   await page.evaluate('window.__game.restart("spectate", 12345, 2)');
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(5000)');

@@ -161,13 +161,15 @@ Completed:
 - Lifted Terran structures now treat `land` as a landing move intent: they stay airborne, fly
   through the normal movement system, re-check the snapped footprint on arrival, then restore
   landed structure roles without per-tick landing scans.
+- Build placement now renders shared Creep and Pylon power field overlays from sim helpers,
+  including candidate provider rings for Creep-spreading Zerg structures and new Pylons.
+- The app screenshot harness now captures dedicated placement-overlay reference shots for Pylon
+  power and Zerg creep.
 
 Remaining:
 
 - Better visual grouping/capacity management when many train/research/spell buttons are valid.
 - Disabled/tooltip states instead of hiding unaffordable commands.
-- Creep and Pylon power field overlays during placement, so players can see why an otherwise
-  valid building site is accepted or rejected before releasing the pointer.
 
 ## Phase 3: Remaining Spell Families
 

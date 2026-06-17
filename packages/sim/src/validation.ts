@@ -44,7 +44,7 @@ export type ValidationContext = {
 };
 
 const RALLY_SNAP = fx(2 * TILE);
-const CREEP_RADIUS = tiles(10);
+export const CREEP_RADIUS = tiles(10);
 
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
 
@@ -127,17 +127,17 @@ const canBuildWithWorker = (workerKind: number, structureKind: number): boolean 
   return workerBuildKindsFor(worker.race).includes(structureKind);
 };
 
-const providesCreep = (kind: number): boolean => {
+export const providesCreep = (kind: number): boolean => {
   const def = Units[kind];
   return !!def && def.race === 'zerg' && (def.roles & Role.Structure) !== 0 && kind !== Kind.Extractor;
 };
 
-const requiresCreep = (kind: number): boolean => {
+export const requiresCreep = (kind: number): boolean => {
   const def = Units[kind];
   return !!def && def.race === 'zerg' && (def.roles & Role.Structure) !== 0 && !isLarvaSourceKind(kind) && kind !== Kind.Extractor;
 };
 
-const hasCreepAt = (s: State, player: number, x: number, y: number): boolean => {
+export const hasCreepAt = (s: State, player: number, x: number, y: number): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1 || !providesCreep(e.kind[i]!)) continue;

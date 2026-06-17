@@ -3,7 +3,8 @@
 
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
-  structureFootprint, bodyBounds, isCloaked, type MapDef,
+  structureFootprint, bodyBounds, isCloaked, POWER_RADIUS, CREEP_RADIUS,
+  requiresPower, requiresCreep, providesCreep, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -25,6 +26,42 @@ let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
 const workScratch: WorkActivity[] = [];
 const affordanceScratch: VisibilityAffordance[] = [];
+const placementFieldScratch: PlacementFieldOverlay[] = [];
+
+export type PlacementFieldOverlay = {
+  kind: 'creep' | 'power';
+  x: number;
+  y: number;
+  radius: number;
+  source: 'existing' | 'candidate';
+};
+
+export const placementFieldOverlays = (game: Game, out: PlacementFieldOverlay[] = []): PlacementFieldOverlay[] => {
+  out.length = 0;
+  const ghost = game.placementGhost;
+  if (!ghost || game.human < 0) return out;
+  const e = game.sim.fullState().e;
+  const showCreep = requiresCreep(ghost.kind) || providesCreep(ghost.kind);
+  const showPower = requiresPower(ghost.kind) || ghost.kind === Kind.Pylon;
+  if (showCreep || showPower) {
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.owner[i] !== game.human || e.built[i] !== 1) continue;
+      if (showCreep && providesCreep(e.kind[i]!)) {
+        out.push({ kind: 'creep', x: e.x[i]!, y: e.y[i]!, radius: CREEP_RADIUS, source: 'existing' });
+      }
+      if (showPower && e.kind[i] === Kind.Pylon) {
+        out.push({ kind: 'power', x: e.x[i]!, y: e.y[i]!, radius: POWER_RADIUS, source: 'existing' });
+      }
+    }
+  }
+  if (showCreep) {
+    if (providesCreep(ghost.kind)) out.push({ kind: 'creep', x: ghost.x, y: ghost.y, radius: CREEP_RADIUS, source: 'candidate' });
+  }
+  if (showPower) {
+    if (ghost.kind === Kind.Pylon) out.push({ kind: 'power', x: ghost.x, y: ghost.y, radius: POWER_RADIUS, source: 'candidate' });
+  }
+  return out;
+};
 
 const buildTerrain = (m: MapDef): HTMLCanvasElement => {
   const c = document.createElement('canvas');
@@ -276,12 +313,28 @@ export const drawDragBox = (ctx: CanvasRenderingContext2D, game: Game): void => 
 export const drawPlacementGhost = (ctx: CanvasRenderingContext2D, game: Game): void => {
   const ghost = game.placementGhost;
   if (!ghost) return;
+  const fields = placementFieldOverlays(game, placementFieldScratch);
   const fp = structureFootprint(ghost.kind, ghost.x, ghost.y);
   const x = (fp.x0 * TILE - game.camX) * game.zoom;
   const y = (fp.y0 * TILE - game.camY) * game.zoom;
   const w = (fp.x1 - fp.x0 + 1) * TILE * game.zoom;
   const h = (fp.y1 - fp.y0 + 1) * TILE * game.zoom;
   ctx.save();
+  for (const field of fields) {
+    const cx = (field.x / ONE - game.camX) * game.zoom;
+    const cy = (field.y / ONE - game.camY) * game.zoom;
+    const r = (field.radius / ONE) * game.zoom;
+    const creep = field.kind === 'creep';
+    ctx.setLineDash(field.source === 'candidate' ? [8, 8] : []);
+    ctx.fillStyle = creep ? 'rgba(93,255,135,0.055)' : 'rgba(94,170,255,0.055)';
+    ctx.strokeStyle = creep ? 'rgba(93,255,135,0.38)' : 'rgba(104,190,255,0.42)';
+    ctx.lineWidth = field.source === 'candidate' ? 1.5 : 1.25;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
   ctx.fillStyle = ghost.ok ? 'rgba(90,255,122,0.20)' : 'rgba(255,90,90,0.22)';
   ctx.strokeStyle = ghost.ok ? '#5aff7a' : '#ff5a5a';
   ctx.lineWidth = 2;
