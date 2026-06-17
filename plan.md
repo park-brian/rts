@@ -393,13 +393,14 @@ Completed:
   scripted controllers, and future RL action masks agree that rally belongs to completed
   structures only.
 - Scripted Zerg AI now recognizes completed Hatchery/Lair/Hive bases through the shared larva
-  source helper and emits validation-backed morph commands for Hatchery -> Lair and Hydralisk ->
-  Lurker when tech, resources, queues, and supply allow them.
+  source helper and emits validation-backed morph commands for Hatchery -> Lair, Lair -> Hive,
+  Spire -> Greater Spire, and Hydralisk -> Lurker when tech, resources, queues, and supply allow
+  them.
 
 Remaining:
 
 - Fuller Zerg macro flow beyond the first Hydralisk Den and basic Spire hooks, especially real
-  tech-path planning toward Greater Spire and late-game caster structures unlocked by Hive.
+  tech-path planning toward late-game caster structures unlocked by Hive.
 - Richer construction/warp-in art and sound-effect polish once the refreshed assets define the
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
@@ -615,6 +616,9 @@ Completed:
   structure path, setting up Hive tech while preserving validation-backed legality checks.
 - Zerg scripted macro now morphs a legal Hive from a completed Lair after Queen's Nest through the
   shared transform path, preserving prerequisite, duplicate/pending, queue, and gas-budget checks.
+- Zerg scripted macro now morphs a legal Greater Spire from a completed Spire after Hive through
+  that same unique-tech morph path, preserving prerequisite, duplicate/pending, queue, and budget
+  checks.
 
 Done when:
 

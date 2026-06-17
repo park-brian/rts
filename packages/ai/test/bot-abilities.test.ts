@@ -453,6 +453,79 @@ test('zerg bot respects hive prerequisite, duplicates, pending morph, queue, and
   assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(brokeState, 0), Kind.Hive), false);
 });
 
+test('zerg bot morphs a legal greater spire from a completed spire after hive', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 476, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.Hatchery, 0));
+  spawnUnit(s, Kind.Hive, 0, base.x + fx(180), base.y);
+  const spire = spawnUnit(s, Kind.Spire, 0, base.x + fx(260), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg, { workerTarget: 0 })(s, 0);
+  const morph = findTransform(cmds, Kind.GreaterSpire);
+
+  assert.ok(morph);
+  assert.equal(morph.unit, spire);
+  assert.deepEqual(validateCommand(s, 0, morph), { ok: true });
+});
+
+test('zerg bot respects greater spire prerequisite, duplicates, pending morph, queue, and budget', () => {
+  const missingHive = new Sim({ map: sliceMap(), players: 2, seed: 477, factions: [Zerg, Terran] });
+  const missingState = missingHive.fullState();
+  const missingBase = entityPos(missingHive, findEntity(missingHive, Kind.Hatchery, 0));
+  spawnUnit(missingState, Kind.Spire, 0, missingBase.x + fx(260), missingBase.y);
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(missingState, 0), Kind.GreaterSpire), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 478, factions: [Zerg, Terran] });
+  const duplicateState = duplicate.fullState();
+  const duplicateBase = entityPos(duplicate, findEntity(duplicate, Kind.Hatchery, 0));
+  spawnUnit(duplicateState, Kind.Hive, 0, duplicateBase.x + fx(180), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.Spire, 0, duplicateBase.x + fx(260), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.GreaterSpire, 0, duplicateBase.x + fx(320), duplicateBase.y);
+  duplicateState.players.minerals[0] = 1_000;
+  duplicateState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(duplicateState, 0), Kind.GreaterSpire), false);
+
+  const pending = new Sim({ map: sliceMap(), players: 2, seed: 479, factions: [Zerg, Terran] });
+  const pendingState = pending.fullState();
+  const pendingBase = entityPos(pending, findEntity(pending, Kind.Hatchery, 0));
+  spawnUnit(pendingState, Kind.Hive, 0, pendingBase.x + fx(180), pendingBase.y);
+  spawnUnit(pendingState, Kind.Spire, 0, pendingBase.x + fx(260), pendingBase.y);
+  const pendingGreater = slotOf(spawnUnit(pendingState, Kind.GreaterSpire, 0, pendingBase.x + fx(320), pendingBase.y));
+  pendingState.e.built[pendingGreater] = 0;
+  pendingState.e.morphFromKind[pendingGreater] = Kind.Spire;
+  pendingState.players.minerals[0] = 1_000;
+  pendingState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(pendingState, 0), Kind.GreaterSpire), false);
+
+  const queued = new Sim({ map: sliceMap(), players: 2, seed: 480, factions: [Zerg, Terran] });
+  const queuedState = queued.fullState();
+  const queuedBase = entityPos(queued, findEntity(queued, Kind.Hatchery, 0));
+  spawnUnit(queuedState, Kind.Hive, 0, queuedBase.x + fx(180), queuedBase.y);
+  const queuedSpire = slotOf(spawnUnit(queuedState, Kind.Spire, 0, queuedBase.x + fx(260), queuedBase.y));
+  queuedState.e.prodKind[queuedSpire] = Kind.Mutalisk;
+  queuedState.players.minerals[0] = 1_000;
+  queuedState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(queuedState, 0), Kind.GreaterSpire), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 481, factions: [Zerg, Terran] });
+  const brokeState = broke.fullState();
+  const brokeBase = entityPos(broke, findEntity(broke, Kind.Hatchery, 0));
+  spawnUnit(brokeState, Kind.Hive, 0, brokeBase.x + fx(180), brokeBase.y);
+  spawnUnit(brokeState, Kind.Spire, 0, brokeBase.x + fx(260), brokeBase.y);
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = Units[Kind.GreaterSpire]!.gas - 1;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(brokeState, 0), Kind.GreaterSpire), false);
+});
+
 test('bot morphs hydralisks into lurkers through shared transform validation', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 408, factions: [Zerg, Terran] });
   const s = sim.fullState();

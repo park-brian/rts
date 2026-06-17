@@ -24,6 +24,15 @@ const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously m
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const PROTOSS_STRUCTURE_MACRO = [Kind.CyberneticsCore, Kind.RoboticsFacility, Kind.Stargate, Kind.CitadelOfAdun] as const;
 const ZERG_STRUCTURE_MACRO = [Kind.HydraliskDen, Kind.Spire, Kind.QueensNest] as const;
+const ZERG_UNIQUE_MORPH_MACRO = [
+  { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
+  { from: Kind.Lair, to: Kind.Hive, satisfiedBy: [Kind.Hive] },
+  { from: Kind.Spire, to: Kind.GreaterSpire, satisfiedBy: [Kind.GreaterSpire] },
+] as const;
+const ZERG_REPEATABLE_MORPH_MACRO = [
+  { from: Kind.Hydralisk, to: Kind.Lurker },
+] as const;
+const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 type ResourceBudget = { minerals: number; gas: number };
 
@@ -78,6 +87,19 @@ const hasOwnedOrPendingStructure = (s: State, player: number, kind: number): boo
     if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === kind) return true;
   }
   return false;
+};
+
+const zergUniqueMorphMask = (kind: number): number => {
+  let mask = 0;
+  for (let i = 0; i < ZERG_UNIQUE_MORPH_MACRO.length; i++) {
+    for (const satisfiedKind of ZERG_UNIQUE_MORPH_MACRO[i]!.satisfiedBy) {
+      if (kind === satisfiedKind) {
+        mask |= 1 << i;
+        break;
+      }
+    }
+  }
+  return mask;
 };
 
 const scienceFacilityAddon = (s: State, player: number): number =>
@@ -415,24 +437,28 @@ const maybeQueueZergMorphs = (
 ): void => {
   if (faction.name !== 'Zerg') return;
   const e = s.e;
-  let lairStarted = false;
-  let hiveStarted = false;
-  let lurkerStarted = false;
+  let uniqueMorphs = 0;
+  let repeatableMorphStarted = false;
 
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player) continue;
-    const kind = e.kind[i]!;
-    if (kind === Kind.Lair || kind === Kind.Hive) lairStarted = true;
-    if (kind === Kind.Hive) hiveStarted = true;
+    uniqueMorphs |= zergUniqueMorphMask(e.kind[i]!);
   }
 
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || e.built[i] !== 1) continue;
     const kind = e.kind[i]!;
-    if (!hiveStarted && kind === Kind.Lair) hiveStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Hive);
-    else if (!lairStarted && kind === Kind.Hatchery) lairStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lair);
-    else if (!lurkerStarted && kind === Kind.Hydralisk) lurkerStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lurker);
-    if (lairStarted && hiveStarted && lurkerStarted) return;
+    for (let m = 0; m < ZERG_UNIQUE_MORPH_MACRO.length; m++) {
+      const morph = ZERG_UNIQUE_MORPH_MACRO[m]!;
+      if ((uniqueMorphs & (1 << m)) !== 0 || kind !== morph.from) continue;
+      if (maybeQueueTransform(s, player, cmds, budget, i, morph.to)) uniqueMorphs |= zergUniqueMorphMask(morph.to);
+      break;
+    }
+    for (const morph of ZERG_REPEATABLE_MORPH_MACRO) {
+      if (repeatableMorphStarted || kind !== morph.from) continue;
+      repeatableMorphStarted = maybeQueueTransform(s, player, cmds, budget, i, morph.to);
+    }
+    if (uniqueMorphs === ALL_ZERG_UNIQUE_MORPHS && repeatableMorphStarted) return;
   }
 };
 
