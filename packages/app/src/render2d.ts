@@ -3,7 +3,7 @@
 
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
-  structureFootprint, bodyBounds, type MapDef,
+  structureFootprint, bodyBounds, isCloaked, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 
@@ -78,6 +78,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const isRes = (def.roles & Role.Resource) !== 0;
     const isFootprint = isStruct || isRes || kind === Kind.Geyser;
     if (!game.canSeeEntity(i)) continue;
+    const alpha = isCloaked(s, i) ? 0.5 : 1;
 
     let overlayX = wx;
     let overlayY = wy;
@@ -93,7 +94,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       overlayY = y + h / 2;
       overlayW = w;
       overlayH = h;
-      ctx.globalAlpha = e.built[i] === 1 ? 1 : 0.55;
+      ctx.globalAlpha = alpha * (e.built[i] === 1 ? 1 : 0.55);
       ctx.fillStyle = isRes || kind === Kind.Geyser ? 'rgba(73,208,192,0.22)' : footprintColor(e.owner[i]!, 0.22);
       ctx.strokeStyle = isRes || kind === Kind.Geyser ? NEUTRAL_COL : color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
@@ -104,6 +105,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       const r = def.radius / ONE;
       overlayW = r * 2;
       overlayH = r * 2;
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = footprintColor(e.owner[i]!, 0.26);
       ctx.strokeStyle = color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
@@ -127,6 +129,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
         ctx.lineTo(wx + (dx / len) * r, wy + (dy / len) * r);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
     }
 
     // selection ring
@@ -182,12 +185,30 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
 
 /** Live selection drag box (screen px). Shared by the GL overlay. */
 export const drawDragBox = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  drawPlacementGhost(ctx, game);
   if (!game.box) return;
   const b = game.box;
   ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 1;
   ctx.strokeRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
   ctx.fillStyle = 'rgba(255,225,78,0.12)';
   ctx.fillRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+};
+
+export const drawPlacementGhost = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const ghost = game.placementGhost;
+  if (!ghost) return;
+  const fp = structureFootprint(ghost.kind, ghost.x, ghost.y);
+  const x = (fp.x0 * TILE - game.camX) * game.zoom;
+  const y = (fp.y0 * TILE - game.camY) * game.zoom;
+  const w = (fp.x1 - fp.x0 + 1) * TILE * game.zoom;
+  const h = (fp.y1 - fp.y0 + 1) * TILE * game.zoom;
+  ctx.save();
+  ctx.fillStyle = ghost.ok ? 'rgba(90,255,122,0.20)' : 'rgba(255,90,90,0.22)';
+  ctx.strokeStyle = ghost.ok ? '#5aff7a' : '#ff5a5a';
+  ctx.lineWidth = 2;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
 };
 
 export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => {

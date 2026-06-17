@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { ui } from '../src/store.ts';
-import { Ability, Kind, ONE, Role, Tech, eid, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import { Ability, Kind, ONE, Role, Tech, TILE, canPlaceStructure, eid, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 
 const freshGame = (): Game => {
   const g = new Game('play', 1234);
@@ -136,6 +136,78 @@ test('production buildings set rally on a normal ground tap', () => {
     x: ((g.camX + (g.viewW / 2 + 80) / g.zoom) * ONE) | 0,
     y: ((g.camY + (g.viewH / 2 + 80) / g.zoom) * ONE) | 0,
   });
+});
+
+test('build placement ghost previews shared placement and commits on release', () => {
+  const g = freshGame();
+  const worker = findOwnedWorkers(g)[0]!;
+  const s = g.sim.fullState();
+  const w = slotOf(worker);
+  select(g, [worker]);
+  ui.placement.value = Kind.SupplyDepot;
+
+  let candidate: { x: number; y: number } | null = null;
+  for (let ty = 2; ty < g.map.h - 2 && !candidate; ty++) {
+    for (let tx = 2; tx < g.map.w - 2; tx++) {
+      const x = fx(tx * TILE + TILE / 2);
+      const y = fx(ty * TILE + TILE / 2);
+      if (canPlaceStructure(s, 0, w, Kind.SupplyDepot, x, y).ok) {
+        candidate = { x, y };
+        break;
+      }
+    }
+  }
+  assert.ok(candidate, 'expected a valid depot placement');
+  g.centerOn(candidate.x / ONE, candidate.y / ONE);
+
+  g.updatePlacementGhost(g.viewW / 2, g.viewH / 2);
+
+  assert.ok(g.placementGhost?.ok);
+  assert.equal(g.placementGhost?.kind, Kind.SupplyDepot);
+  const ghost = g.placementGhost!;
+
+  const committed = g.commitPlacementGhost();
+
+  assert.equal(committed, true);
+  assert.equal(ui.placement.value, 0);
+  assert.equal(g.placementGhost, null);
+  assert.equal(g.queued.length, 1);
+  const command = g.queued[0]!;
+  assert.equal(command.t, 'build');
+  if (command.t !== 'build') throw new Error('expected build command');
+  assert.equal(command.unit, worker);
+  assert.equal(command.kind, Kind.SupplyDepot);
+  assert.equal(command.x, ghost.x);
+  assert.equal(command.y, ghost.y);
+});
+
+test('normal tap no longer commits build placement blindly', () => {
+  const g = freshGame();
+  const worker = findOwnedWorkers(g)[0]!;
+  select(g, [worker]);
+  ui.placement.value = Kind.SupplyDepot;
+
+  g.tap(g.viewW / 2, g.viewH / 2);
+
+  assert.deepEqual(g.queued, []);
+  assert.equal(ui.placement.value, Kind.SupplyDepot);
+});
+
+test('invalid build placement ghost does not commit or exit placement mode', () => {
+  const g = freshGame();
+  const worker = findOwnedWorkers(g)[0]!;
+  const cc = findEntity(g, Kind.CommandCenter, 0);
+  select(g, [worker]);
+  ui.placement.value = Kind.SupplyDepot;
+  centerOnEntity(g, cc);
+
+  const p = screenOf(g, cc);
+  g.updatePlacementGhost(p.x, p.y);
+
+  assert.equal(g.placementGhost?.ok, false);
+  assert.equal(g.commitPlacementGhost(), false);
+  assert.deepEqual(g.queued, []);
+  assert.equal(ui.placement.value, Kind.SupplyDepot);
 });
 
 test('selected buildings do not publish mobile attack-move or stop commands', () => {

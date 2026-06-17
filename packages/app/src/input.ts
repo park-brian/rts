@@ -2,6 +2,7 @@
 // = pan + pinch-zoom; wheel = zoom (desktop). Maps to the model in docs/specs/ui-mobile.md.
 
 import type { Game } from './game.ts';
+import { ui } from './store.ts';
 
 const TAP_SLOP = 8; // px movement under which a press counts as a tap
 
@@ -15,6 +16,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   let multiTouch = false; // once true, suppress tap/box until all pointers are up
   let lastTapT = 0;
   let lastTap = { x: 0, y: 0 };
+  let placing = false;
 
   const rect = (): DOMRect => canvas.getBoundingClientRect();
   const local = (e: PointerEvent): { x: number; y: number } => {
@@ -29,9 +31,17 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     if (pts.size === 1) {
       multiTouch = false;
       start = p; moved = false; game.box = null;
-      onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
+      placing = ui.placement.value !== 0;
+      if (placing) {
+        onMinimap = false;
+        game.updatePlacementGhost(p.x, p.y);
+      } else {
+        onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
+      }
     } else if (pts.size === 2) {
       multiTouch = true;
+      placing = false;
+      game.cancelPlacementGhost();
       game.box = null; // cancel any box once a second finger lands
       const [a, b] = [...pts.values()];
       pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
@@ -46,6 +56,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
 
     if (pts.size === 1) {
       if (multiTouch) return; // remaining finger after a pinch/pan cannot become a tap/box
+      if (placing) { game.updatePlacementGhost(p.x, p.y); return; }
       if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
       if (Math.hypot(p.x - start.x, p.y - start.y) > TAP_SLOP) moved = true;
       if (moved) game.box = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
@@ -70,7 +81,11 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     pts.delete(e.pointerId);
     if (wasOne) {
       if (multiTouch) {
-        multiTouch = false; onMinimap = false; game.box = null;
+        multiTouch = false; onMinimap = false; placing = false; game.cancelPlacementGhost(); game.box = null;
+      } else if (placing) {
+        game.updatePlacementGhost(p.x, p.y);
+        game.commitPlacementGhost();
+        placing = false;
       } else if (onMinimap) { onMinimap = false; }
       else if (!moved) {
         const now = performance.now();
@@ -85,6 +100,8 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     } else if (pts.size === 0) {
       multiTouch = false;
       onMinimap = false;
+      placing = false;
+      game.cancelPlacementGhost();
       game.box = null;
     }
   };

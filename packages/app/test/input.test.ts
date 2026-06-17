@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { attachInput } from '../src/input.ts';
+import { ui } from '../src/store.ts';
 
 type Listener = (e: Record<string, number | (() => void)>) => void;
 
@@ -35,6 +36,9 @@ const makeGame = (): {
     clampCamera: () => {},
     minimapPan: () => { calls.minimap++; return false; },
     tap: () => { calls.tap++; },
+    updatePlacementGhost: () => {},
+    commitPlacementGhost: () => false,
+    cancelPlacementGhost: () => {},
     selectAllByType: () => {},
     boxSelect: () => { calls.box++; },
   };
@@ -64,6 +68,27 @@ test('single pointer drag emits box select', () => {
 
   assert.equal(calls.tap, 0);
   assert.equal(calls.box, 1);
+});
+
+test('build placement drag updates ghost and commits on pointer up', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  const updates: Array<[number, number]> = [];
+  let commits = 0;
+  game.updatePlacementGhost = (x: number, y: number): void => { updates.push([x, y]); };
+  game.commitPlacementGhost = (): boolean => { commits++; return true; };
+  attachInput(canvas as any, game);
+
+  ui.placement.value = 1;
+  canvas.fire('pointerdown', pointer(1, 20, 20));
+  canvas.fire('pointermove', pointer(1, 60, 60));
+  canvas.fire('pointerup', pointer(1, 70, 70));
+  ui.placement.value = 0;
+
+  assert.deepEqual(updates, [[20, 20], [60, 60], [70, 70]]);
+  assert.equal(commits, 1);
+  assert.equal(calls.tap, 0);
+  assert.equal(calls.box, 0);
 });
 
 test('two-finger camera gesture suppresses remaining-finger tap and box', () => {

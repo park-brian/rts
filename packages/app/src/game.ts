@@ -7,7 +7,7 @@ import {
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, getTechLevel, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
-  transformFor, transformTargetsFor,
+  transformFor, transformTargetsFor, snapBuildAnchor,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
@@ -40,6 +40,7 @@ export class Game {
   selection = new Set<number>();
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
+  placementGhost: { kind: number; x: number; y: number; ok: boolean } | null = null;
 
   // replay viewer state (mode === 'replay')
   replay: Replay | null = null;
@@ -85,6 +86,7 @@ export class Game {
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selection.clear();
     this.queued = [];
+    this.placementGhost = null;
     this.visible = new Uint8Array(this.map.w * this.map.h);
     this.explored = new Uint8Array(this.map.w * this.map.h);
     this.visibleEntityTick = -1;
@@ -343,22 +345,7 @@ export class Game {
     const e = this.sim.fullState().e;
     const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
 
-    // Build placement mode.
-    if (ui.placement.value !== 0) {
-      const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
-      if (worker >= 0) {
-        const placement = canPlaceStructure(this.sim.fullState(), this.human, worker, ui.placement.value, tx, ty);
-        if (placement.ok) {
-          this.queued.push({ t: 'build', unit: eid(e, worker), kind: ui.placement.value, x: placement.x, y: placement.y });
-          ui.placement.value = 0;
-          ui.abilityTarget.value = 0;
-          ui.targetMode.value = 'none';
-        }
-      } else {
-        ui.placement.value = 0;
-      }
-      return;
-    }
+    if (ui.placement.value !== 0) return;
 
     if (ui.abilityTarget.value !== 0) {
       const ability = Abilities[ui.abilityTarget.value]!;
@@ -449,6 +436,46 @@ export class Game {
       if (isAlive(e, id) && pred(slotOf(id))) return slotOf(id);
     }
     return -1;
+  }
+
+  updatePlacementGhost(sx: number, sy: number): void {
+    if (this.human < 0 || ui.placement.value === 0) {
+      this.placementGhost = null;
+      return;
+    }
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const e = this.sim.fullState().e;
+    const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
+    if (worker < 0) {
+      this.placementGhost = null;
+      return;
+    }
+    const kind = ui.placement.value;
+    const tx = (wx * ONE) | 0;
+    const ty = (wy * ONE) | 0;
+    const placement = canPlaceStructure(this.sim.fullState(), this.human, worker, kind, tx, ty);
+    if (placement.ok) this.placementGhost = { kind, x: placement.x, y: placement.y, ok: true };
+    else {
+      const snapped = snapBuildAnchor(tx, ty);
+      this.placementGhost = { kind, x: snapped.x, y: snapped.y, ok: false };
+    }
+  }
+
+  commitPlacementGhost(): boolean {
+    const ghost = this.placementGhost;
+    const e = this.sim.fullState().e;
+    const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
+    if (!ghost || !ghost.ok || worker < 0 || ui.placement.value === 0) return false;
+    this.queued.push({ t: 'build', unit: eid(e, worker), kind: ghost.kind, x: ghost.x, y: ghost.y });
+    ui.placement.value = 0;
+    ui.abilityTarget.value = 0;
+    ui.targetMode.value = 'none';
+    this.placementGhost = null;
+    return true;
+  }
+
+  cancelPlacementGhost(): void {
+    this.placementGhost = null;
   }
 
   private mobileSelection(e: State['e']): number[] {

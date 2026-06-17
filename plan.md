@@ -128,6 +128,11 @@ Completed:
 - Added a top-bar Math renderer toggle that forces the Canvas2D footprint-reference renderer,
   drawing exact structure/resource tile footprints, unit interaction-radius circles, and BW body
   boxes without depending on SVG art metadata.
+- Build placement now uses a pointer-down / drag / pointer-up ghost flow backed by shared
+  placement validation, so a build command is only queued on release when the snapped footprint is
+  valid.
+- The Math renderer draws that placement footprint ghost and dims cloaked entities to 50 percent
+  opacity while keeping selection and health affordances readable.
 
 Remaining:
 
@@ -504,14 +509,10 @@ approximated, or absent. Keep this list honest as mechanics land.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
   - Better command grouping once full spell/upgrade/morph/production rosters crowd the bottom bar.
-  - Building placement should use a pointer-down / drag / pointer-up flow that previews a ghost
-    footprint before committing the build command, instead of committing from a single blind tap.
 - Rendering/assets:
   - Progress/cocoon/warp-in/building-under-construction presentation.
   - Worker build and repair activity should render localized sparks/arc effects at the target
     structure while work is actively progressing.
-  - Building placement preview should render valid/invalid ghost art snapped to the exact sim
-    footprint during drag, using shared placement validation before pointer-up commits.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.
 - Maintenance/performance:
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.

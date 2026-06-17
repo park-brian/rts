@@ -84,7 +84,7 @@ const usableTransportSlot = (s: State, id: number, player: number): number | nul
   return e.kind[slot] === Kind.NydusCanal && sameTeam(s, player, e.owner[slot]!) ? slot : null;
 };
 
-export { structureFootprint, type Footprint };
+export { snapBuildAnchor, structureFootprint, type Footprint };
 
 const placementBlockingKind = (s: State, slot: number): boolean => {
   const e = s.e;
