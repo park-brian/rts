@@ -4,7 +4,7 @@
 // seam the RL env interface (docs/specs/ai-training.md) builds on.
 
 import type { State } from './world.ts';
-import { eid, isAlive, NONE, slotOf } from './world.ts';
+import { eid, isAlive, NEUTRAL, NONE, slotOf } from './world.ts';
 import { Kind, TECH_CAP, Units, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';
@@ -29,6 +29,31 @@ export type CargoView = {
   units: number[];
 };
 
+export type StatusView = {
+  id: number;
+  energy: number;
+  energyMax: number;
+  stimTimer: number;
+  matrixHp: number;
+  matrixTimer: number;
+  irradiateTimer: number;
+  plagueTimer: number;
+  ensnareTimer: number;
+  lockdownTimer: number;
+  stasisTimer: number;
+  maelstromTimer: number;
+  acidSporeCount: number;
+  acidSporeTimer: number;
+  opticalFlare: number;
+  parasiteOwner: number;
+  illusion: number;
+  lifeTimer: number;
+  cloakActive: number;
+  cloakTimer: number;
+  cloakAura: number;
+  burrowed: number;
+};
+
 export type Observation = {
   tick: number;
   player: number;
@@ -39,9 +64,56 @@ export type Observation = {
   tech: Uint8Array; // completed tech/upgrade levels for this player only
   queues: QueueView[]; // own active production/research queues
   cargo: CargoView[]; // own contained units grouped by usable transport/garrison
+  statuses: StatusView[]; // sparse own energy/status records
   vision: Uint8Array; // 0 unseen, 1 explored, 2 visible (per tile)
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
+
+const hasStatus = (e: State['e'], i: number): boolean =>
+  e.energyMax[i]! > 0 ||
+  e.stimTimer[i]! > 0 ||
+  e.matrixTimer[i]! > 0 ||
+  e.irradiateTimer[i]! > 0 ||
+  e.plagueTimer[i]! > 0 ||
+  e.ensnareTimer[i]! > 0 ||
+  e.lockdownTimer[i]! > 0 ||
+  e.stasisTimer[i]! > 0 ||
+  e.maelstromTimer[i]! > 0 ||
+  e.acidSporeCount[i]! > 0 ||
+  e.acidSporeTimer[i]! > 0 ||
+  e.opticalFlare[i]! > 0 ||
+  e.parasiteOwner[i]! !== NEUTRAL ||
+  e.illusion[i]! > 0 ||
+  e.lifeTimer[i]! > 0 ||
+  e.cloakActive[i]! > 0 ||
+  e.cloakTimer[i]! > 0 ||
+  e.cloakAura[i]! > 0 ||
+  e.burrowed[i]! > 0;
+
+const statusView = (e: State['e'], i: number): StatusView => ({
+  id: eid(e, i),
+  energy: e.energy[i]!,
+  energyMax: e.energyMax[i]!,
+  stimTimer: e.stimTimer[i]!,
+  matrixHp: e.matrixHp[i]!,
+  matrixTimer: e.matrixTimer[i]!,
+  irradiateTimer: e.irradiateTimer[i]!,
+  plagueTimer: e.plagueTimer[i]!,
+  ensnareTimer: e.ensnareTimer[i]!,
+  lockdownTimer: e.lockdownTimer[i]!,
+  stasisTimer: e.stasisTimer[i]!,
+  maelstromTimer: e.maelstromTimer[i]!,
+  acidSporeCount: e.acidSporeCount[i]!,
+  acidSporeTimer: e.acidSporeTimer[i]!,
+  opticalFlare: e.opticalFlare[i]!,
+  parasiteOwner: e.parasiteOwner[i]!,
+  illusion: e.illusion[i]!,
+  lifeTimer: e.lifeTimer[i]!,
+  cloakActive: e.cloakActive[i]!,
+  cloakTimer: e.cloakTimer[i]!,
+  cloakAura: e.cloakAura[i]!,
+  burrowed: e.burrowed[i]!,
+});
 
 export const observe = (s: State, player: number): Observation => {
   if (!s.trackVision) throw new Error('observe: vision tracking is disabled for this State');
@@ -49,6 +121,7 @@ export const observe = (s: State, player: number): Observation => {
   const v = s.vision[player]!;
   const entities: EntityView[] = [];
   const queues: QueueView[] = [];
+  const statuses: StatusView[] = [];
   const cargoByContainer = new Map<number, number[]>();
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
@@ -66,6 +139,7 @@ export const observe = (s: State, player: number): Observation => {
         else cargoByContainer.set(containerId, [unitId]);
       }
     }
+    if (own && hasStatus(e, i)) statuses.push(statusView(e, i));
     if (own && (e.prodKind[i] !== 0 || e.researchKind[i] !== 0)) {
       queues.push({
         id: eid(e, i),
@@ -99,6 +173,7 @@ export const observe = (s: State, player: number): Observation => {
     tech: s.players.tech.slice(player * TECH_CAP, (player + 1) * TECH_CAP),
     queues,
     cargo: [...cargoByContainer].map(([container, units]) => ({ container, units })),
+    statuses,
     vision: v.slice(),
     entities,
   };

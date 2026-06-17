@@ -96,6 +96,55 @@ test('observe returns usable own cargo without leaking enemy cargo', () => {
   );
 });
 
+test('observe returns sparse own energy and status records without leaking enemy status', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 211, vision: true });
+  const s = sim.fullState();
+  const e = s.e;
+  const medic = slotOf(spawnUnit(s, Kind.Medic, 0, fx(700), fx(700)));
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(730), fx(700)));
+  const enemyQueen = slotOf(spawnUnit(s, Kind.Queen, 1, fx(760), fx(700)));
+  e.energy[medic] = 77;
+  e.energyMax[medic] = 250;
+  e.stimTimer[marine] = 9;
+  e.matrixHp[marine] = 120;
+  e.matrixTimer[marine] = 20;
+  e.ensnareTimer[marine] = 30;
+  e.acidSporeCount[marine] = 2;
+  e.acidSporeTimer[marine] = 40;
+  e.parasiteOwner[marine] = 1;
+  e.burrowed[marine] = 1;
+  e.energy[enemyQueen] = 88;
+  e.energyMax[enemyQueen] = 200;
+  e.plagueTimer[enemyQueen] = 99;
+
+  const obs = sim.observe(0);
+  assert.equal(obs.statuses.some((v) => v.id === eid(e, enemyQueen)), false);
+
+  const medicStatus = obs.statuses.find((v) => v.id === eid(e, medic));
+  assert.ok(medicStatus);
+  assert.equal(medicStatus.energy, 77);
+  assert.equal(medicStatus.energyMax, 250);
+
+  const marineStatus = obs.statuses.find((v) => v.id === eid(e, marine));
+  assert.ok(marineStatus);
+  assert.equal(marineStatus.stimTimer, 9);
+  assert.equal(marineStatus.matrixHp, 120);
+  assert.equal(marineStatus.matrixTimer, 20);
+  assert.equal(marineStatus.ensnareTimer, 30);
+  assert.equal(marineStatus.acidSporeCount, 2);
+  assert.equal(marineStatus.acidSporeTimer, 40);
+  assert.equal(marineStatus.parasiteOwner, 1);
+  assert.equal(marineStatus.burrowed, 1);
+
+  const mutableStatus: { energy: number } = medicStatus;
+  mutableStatus.energy = 0;
+  assert.equal(
+    sim.observe(0).statuses.find((v) => v.id === eid(e, medic))!.energy,
+    77,
+    'mutating observation status does not mutate sim status'
+  );
+});
+
 test('byte serialization preserves vision tracking and fog memory', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 203, vision: true });
   for (let t = 0; t < 10; t++) sim.step([]);
