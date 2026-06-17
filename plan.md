@@ -1130,12 +1130,14 @@ Completed:
   BW target trip frames, target route frames, actual top-down dock-to-dock route frames,
   deterministic wait frames, and invalid-too-long flags without letting calibration bypass
   physical docking.
+- Consumed valid main-base mineral calibration rows in the harvest cycle: workers returning
+  minerals hold at the depot for the deterministic wait frames before deposit, preserving physical
+  docking and replay-hashed state.
 
 Remaining:
 
-- Consume the calibration table in the harvest cycle with deterministic wait frames, and make the
-  map/base solver re-position or reject routes that are too long or too asymmetric for the timing
-  profile instead of merely reporting them.
+- Make the map/base solver re-position or reject routes that are too long or too asymmetric for
+  the timing profile instead of merely reporting them.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add gas-specific cadence validation for three-worker refinery saturation.

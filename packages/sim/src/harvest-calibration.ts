@@ -216,3 +216,24 @@ export const mainBaseMineralRouteCalibrations = (
   }
   return out;
 };
+
+export const findMainBaseMineralRouteCalibration = (
+  m: MapDef,
+  profile: HarvestTimingProfile,
+  depotX: number,
+  depotY: number,
+  resourceX: number,
+  resourceY: number,
+): MineralRouteCalibration | null => {
+  for (const entry of mainBaseMineralRouteCalibrations(m, profile)) {
+    if (
+      entry.depotCenter.x === depotX &&
+      entry.depotCenter.y === depotY &&
+      entry.resourceCenter.x === resourceX &&
+      entry.resourceCenter.y === resourceY
+    ) {
+      return entry;
+    }
+  }
+  return null;
+};

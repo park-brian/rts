@@ -10,6 +10,7 @@ import {
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
+import { mainBaseMineralRouteCalibrations } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
@@ -187,6 +188,38 @@ test('harvest timers use BW mineral and gas action frames', () => {
 
   assert.equal(e.timer[mineralWorker], MINE_TICKS);
   assert.equal(e.timer[gasWorker], GAS_MINE_TICKS);
+});
+
+test('calibrated main-base mineral routes wait at the depot before deposit', () => {
+  const map = sliceMap();
+  const entry = mainBaseMineralRouteCalibrations(map).find((row) => row.waitFrames > 0)!;
+  assert.ok(entry.waitFrames > 1);
+  const s = makeState(map, 1, 1);
+  const e = s.e;
+  const depot = slotOf(spawnUnit(s, entry.depotKind, 0, entry.depotCenter.x, entry.depotCenter.y));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, entry.resourceCenter.x, entry.resourceCenter.y));
+  const worker = slotOf(spawnUnit(s, entry.workerKind, 0, entry.depotDock.x, entry.depotDock.y));
+  e.order[worker] = Order.Harvest;
+  e.target[worker] = eid(e, mineral);
+  e.cargo[worker] = MINE_AMOUNT;
+  e.cargoType[worker] = ResourceType.Minerals;
+
+  const before = s.players.minerals[0]!;
+  stepWorld(s, []);
+  assert.equal(e.timer[worker], -entry.waitFrames);
+  assert.equal(s.players.minerals[0], before);
+  assert.equal(topDownEdgeDistance(s, worker, depot), 0);
+
+  for (let t = 1; t < entry.waitFrames; t++) {
+    stepWorld(s, []);
+    assert.equal(s.players.minerals[0], before, `deposit waits through frame ${t}`);
+  }
+
+  stepWorld(s, []);
+  assert.equal(e.timer[worker], 0);
+  assert.equal(s.players.minerals[0], before + MINE_AMOUNT);
+  assert.equal(e.cargo[worker], 0);
+  assert.equal(topDownEdgeDistance(s, worker, depot), 0);
 });
 
 test('a patch is reserved while mined — at most one worker extracts at a time', () => {
