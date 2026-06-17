@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { eid, kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
-import { navPassableForKind } from '../src/flow.ts';
+import { navPassableForKind, pathY } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
-import { generateMap, mapConnected } from '../src/procedural.ts';
+import { generateMap, mapConnected, mapResourcesValid } from '../src/procedural.ts';
 import { sliceMap } from '../src/map.ts';
 import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
@@ -13,6 +13,22 @@ import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
+
+const blankMap = (name: string, w: number, h: number): MapDef => ({
+  name, w, h,
+  walk: new Uint8Array(w * h).fill(1),
+  build: new Uint8Array(w * h).fill(1),
+  elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+});
+
+const positionKey = (s: ReturnType<typeof makeState>, slot: number): string =>
+  `${s.e.x[slot]},${s.e.y[slot]}`;
+
+const positionsStable = (s: ReturnType<typeof makeState>, slots: number[], ticks: number): boolean => {
+  const before = slots.map((slot) => positionKey(s, slot));
+  for (let t = 0; t < ticks; t++) stepWorld(s, []);
+  return slots.every((slot, i) => positionKey(s, slot) === before[i]);
+};
 
 test('a unit paths around a wall to reach its goal', () => {
   const w = 20;
@@ -99,8 +115,39 @@ test('procedural maps are connected and scale with team size', () => {
   }
 });
 
-test('a group moving to one goal arrives and spreads (no perfect stacking)', () => {
-  const run = (): { hash: number; distinct: number; arrived: boolean } => {
+test('procedural maps use shared team plateaus, low-ground naturals, and empty midfield by default', () => {
+  const m = generateMap(3, 123);
+  assert.equal(m.starts.length, 6);
+  assert.equal(m.bases?.filter((base) => base.kind === 'main').length, 6);
+  assert.equal(m.bases?.filter((base) => base.kind === 'natural').length, 6);
+  assert.equal(mapResourcesValid(m), true);
+
+  const southStarts = m.starts.filter((_start, i) => m.teams[i] === 0);
+  const northStarts = m.starts.filter((_start, i) => m.teams[i] === 1);
+  assert.equal(southStarts.length, 3);
+  assert.equal(northStarts.length, 3);
+  for (const start of [...southStarts, ...northStarts]) {
+    assert.equal(m.elev[start.y * m.w + start.x], 1, 'starts are on shared high-ground plateaus');
+  }
+  for (const natural of m.bases?.filter((base) => base.kind === 'natural') ?? []) {
+    assert.equal(m.elev[natural.y * m.w + natural.x], 0, 'naturals are low ground below the ramp');
+  }
+
+  for (let y = 38; y <= 57; y++) {
+    for (let x = 0; x < m.w; x++) assert.equal(m.walk[y * m.w + x], 1, 'empty midfield stays clear');
+  }
+});
+
+test('procedural midfield modules preserve connectivity and resource clearance', () => {
+  for (const midfield of ['blocks', 'dualChoke', 'arena', 'raisedCenter'] as const) {
+    const m = generateMap(2, 77, { midfield });
+    assert.equal(mapConnected(m), true, `${midfield} remains connected`);
+    assert.equal(mapResourcesValid(m), true, `${midfield} keeps resources clear`);
+  }
+});
+
+test('a group moving to one goal arrives, spreads, and settles', () => {
+  const run = (): { hash: number; distinct: number; arrived: boolean; settled: boolean; stable: boolean } => {
     const map = sliceMap();
     const s = makeState(map, 1, 777);
     const gx = tc(32); const gy = tc(32);
@@ -108,25 +155,163 @@ test('a group moving to one goal arrives and spreads (no perfect stacking)', () 
     for (let i = 0; i < 12; i++) {
       const id = spawnUnit(s, Kind.Marine, 0, tc(20) + fx((i % 4) * 6), tc(70) + fx(((i / 4) | 0) * 6));
       const sl = slotOf(id);
-      s.e.order[sl] = Order.Move; s.e.tx[sl] = gx; s.e.ty[sl] = gy;
       slots.push(sl);
     }
+    stepWorld(s, [{ player: 0, cmds: slots.map((sl) => ({ t: 'move' as const, unit: eid(s.e, sl), x: gx, y: gy })) }]);
     for (let t = 0; t < 900; t++) stepWorld(s, []);
     // All reached the goal region (within a few tiles, since separation fans them out).
     let arrived = true;
+    let settled = true;
     const pos = new Set<string>();
     for (const sl of slots) {
       const dx = s.e.x[sl]! - gx; const dy = s.e.y[sl]! - gy;
       if (dx * dx + dy * dy > fx(5 * TILE) * fx(5 * TILE)) arrived = false;
+      if (s.e.order[sl] !== Order.Idle || s.e.settled[sl] !== 1) settled = false;
       pos.add(`${s.e.x[sl]},${s.e.y[sl]}`);
     }
-    return { hash: hashState(s), distinct: pos.size, arrived };
+    const before = slots.map((sl) => `${s.e.x[sl]},${s.e.y[sl]}`);
+    for (let t = 0; t < 60; t++) stepWorld(s, []);
+    const stable = slots.every((sl, i) => `${s.e.x[sl]},${s.e.y[sl]}` === before[i]);
+    return { hash: hashState(s), distinct: pos.size, arrived, settled, stable };
   };
   const a = run();
   const b = run();
   assert.ok(a.arrived, 'every unit should reach the goal region');
+  assert.ok(a.settled, 'every unit should transition to settled idle after collision cleanup');
+  assert.ok(a.stable, 'settled units should not keep drifting after arrival');
   assert.ok(a.distinct > 1, 'separation must keep units off a single pixel');
   assert.equal(a.hash, b.hash, 'group movement + separation must be deterministic');
+});
+
+test('a mixed ground deathball settles into stable space', () => {
+  const run = (): { hash: number; settled: number; stable: boolean; distinct: number } => {
+    const s = makeState(blankMap('mixed-deathball', 80, 80), 1, 778);
+    const goalX = tc(48);
+    const goalY = tc(28);
+    const kinds = [
+      Kind.Marine, Kind.Firebat, Kind.Zealot, Kind.Hydralisk,
+      Kind.Goliath, Kind.Dragoon, Kind.SiegeTank, Kind.Ultralisk,
+    ];
+    const slots: number[] = [];
+    for (let i = 0; i < 24; i++) {
+      const x = tc(18 + (i % 6) * 2);
+      const y = tc(60 + ((i / 6) | 0) * 2);
+      slots.push(slotOf(spawnUnit(s, kinds[i % kinds.length]!, 0, x, y)));
+    }
+
+    stepWorld(s, [{ player: 0, cmds: slots.map((slot) => ({
+      t: 'move' as const, unit: eid(s.e, slot), x: goalX, y: goalY,
+    })) }]);
+    for (let t = 0; t < 1_600; t++) stepWorld(s, []);
+
+    let settled = 0;
+    const pos = new Set<string>();
+    for (const slot of slots) {
+      const dx = s.e.x[slot]! - goalX;
+      const dy = s.e.y[slot]! - goalY;
+      assert.ok(dx * dx + dy * dy <= fx(8 * TILE) * fx(8 * TILE), 'unit should join the settled army body');
+      if (s.e.order[slot] === Order.Idle && s.e.settled[slot] === 1) settled++;
+      pos.add(positionKey(s, slot));
+    }
+    const stable = positionsStable(s, slots, 90);
+    return { hash: hashState(s), settled, stable, distinct: pos.size };
+  };
+
+  const a = run();
+  const b = run();
+  assert.equal(a.settled, 24);
+  assert.equal(a.stable, true);
+  assert.ok(a.distinct > 18, 'large mixed armies should not collapse into a few occupied pixels');
+  assert.equal(a.hash, b.hash, 'mixed deathball settling must remain deterministic');
+});
+
+test('opposing ground groups pass through a shared choke without permanent jamming', () => {
+  const map = blankMap('opposing-choke', 36, 24);
+  for (let y = 0; y < map.h; y++) {
+    if (y >= 10 && y <= 13) continue;
+    map.walk[y * map.w + 18] = 0;
+    map.build[y * map.w + 18] = 0;
+  }
+  const s = makeState(map, 1, 779);
+  const left: number[] = [];
+  const right: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    left.push(slotOf(spawnUnit(s, Kind.Marine, 0, tc(7 + (i % 2)), tc(7 + i))));
+    right.push(slotOf(spawnUnit(s, Kind.Marine, 0, tc(28 - (i % 2)), tc(7 + i))));
+  }
+
+  stepWorld(s, [{ player: 0, cmds: [
+    ...left.map((slot) => ({ t: 'move' as const, unit: eid(s.e, slot), x: tc(28), y: s.e.y[slot]! })),
+    ...right.map((slot) => ({ t: 'move' as const, unit: eid(s.e, slot), x: tc(7), y: s.e.y[slot]! })),
+  ] }]);
+  for (let t = 0; t < 900; t++) stepWorld(s, []);
+
+  assert.equal(left.filter((slot) => s.e.x[slot]! > tc(22)).length, left.length, 'left group should clear the choke');
+  assert.equal(right.filter((slot) => s.e.x[slot]! < tc(13)).length, right.length, 'right group should clear the choke');
+  assert.equal([...left, ...right].filter((slot) => s.e.order[slot] === Order.Idle && s.e.settled[slot] === 1).length, 20);
+  assert.equal(positionsStable(s, [...left, ...right], 60), true);
+});
+
+test('ground groups exit procedural base ramps and settle in the midfield', () => {
+  const map = generateMap(1, 31);
+  const s = makeState(map, 1, 780);
+  const start = map.starts[0]!;
+  const goalX = tc(start.x);
+  const goalY = tc(map.h >> 1);
+  const slots: number[] = [];
+  for (let i = 0; i < 12; i++) {
+    slots.push(slotOf(spawnUnit(s, Kind.Marine, 0, tc(start.x - 3 + (i % 4) * 2), tc(start.y - 3 + ((i / 4) | 0) * 2))));
+  }
+
+  stepWorld(s, [{ player: 0, cmds: slots.map((slot) => ({
+    t: 'move' as const, unit: eid(s.e, slot), x: goalX, y: goalY,
+  })) }]);
+  for (let t = 0; t < 900; t++) stepWorld(s, []);
+
+  assert.equal(slots.filter((slot) => s.e.y[slot]! < tc(start.y - 20)).length, slots.length, 'all units should leave the base plateau');
+  assert.equal(slots.filter((slot) => s.e.order[slot] === Order.Idle && s.e.settled[slot] === 1).length, slots.length);
+  assert.equal(positionsStable(s, slots, 60), true);
+});
+
+test('ground movement steers around nearby bodies before collision cleanup', () => {
+  const w = 10;
+  const h = 5;
+  const map: MapDef = {
+    name: 'local-avoidance', w, h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+  const s = makeState(map, 1, 18);
+  const mover = slotOf(spawnUnit(s, Kind.Marine, 0, tc(2), tc(2)));
+  const blockerX = tc(2) + fx(16);
+  const blocker = slotOf(spawnUnit(s, Kind.Marine, 0, blockerX, tc(2)));
+  const x0 = s.e.x[mover]!;
+  const y0 = s.e.y[mover]!;
+
+  const arrived = navigate(s, mover, tc(7), tc(2), fx(4));
+
+  assert.equal(arrived, false);
+  assert.ok(s.e.x[mover]! > x0, 'mover still makes forward progress');
+  assert.notEqual(s.e.y[mover], y0, 'mover should sidestep before collision cleanup runs');
+  assert.equal(s.e.x[blocker], blockerX, 'avoidance does not move the nearby body');
+});
+
+test('settled ground units keep newly issued non-move orders', () => {
+  const s = makeState(sliceMap(), 2, 19);
+  const marineId = spawnUnit(s, Kind.Marine, 0, tc(20), tc(20));
+  const marine = slotOf(marineId);
+
+  stepWorld(s, [{ player: 0, cmds: [{ t: 'move', unit: marineId, x: s.e.x[marine]!, y: s.e.y[marine]! }] }]);
+  assert.equal(s.e.order[marine], Order.Idle);
+  assert.equal(s.e.settled[marine], 1);
+
+  const targetId = spawnUnit(s, Kind.Marine, 1, tc(35), tc(20));
+  stepWorld(s, [{ player: 0, cmds: [{ t: 'attack', unit: marineId, target: targetId }] }]);
+
+  assert.equal(s.e.order[marine], Order.Attack);
+  assert.equal(s.e.target[marine], targetId);
+  assert.equal(s.e.settled[marine], 0);
 });
 
 test('same-target move batches assign deterministic destination slots', () => {
@@ -149,6 +334,24 @@ test('same-target move batches assign deterministic destination slots', () => {
   assert.equal(s.e.ty[slots[0]!], targetY);
   assert.equal(s.e.tx[slots[1]!], targetX);
   assert.equal(s.e.ty[slots[1]!], targetY - fx(TILE));
+});
+
+test('same-target batches widen formation slots for large bodies', () => {
+  const s = makeState(sliceMap(), 1, 161);
+  const targetX = tc(30);
+  const targetY = tc(30);
+  const a = slotOf(spawnUnit(s, Kind.Ultralisk, 0, tc(10), tc(10)));
+  const b = slotOf(spawnUnit(s, Kind.Ultralisk, 0, tc(12), tc(10)));
+
+  stepWorld(s, [{ player: 0, cmds: [
+    { t: 'move', unit: eid(s.e, b), x: targetX, y: targetY },
+    { t: 'move', unit: eid(s.e, a), x: targetX, y: targetY },
+  ] }]);
+
+  assert.equal(s.e.tx[a], targetX);
+  assert.equal(s.e.ty[a], targetY);
+  assert.equal(s.e.tx[b], targetX);
+  assert.ok(targetY - s.e.ty[b]! > fx(TILE), 'large bodies should reserve more than infantry spacing');
 });
 
 test('same-target attack-move batches spread but worker move batches preserve exact points', () => {
@@ -212,6 +415,7 @@ test('moving ground units path around rooted firing units without shoving them',
   e.wcd[as] = 15;
   const ax = e.x[as]!;
   const ay = e.y[as]!;
+  const anchorPathY = pathY(ay);
   let detoured = false;
 
   for (let t = 0; t < 180; t++) {
@@ -220,7 +424,7 @@ test('moving ground units path around rooted firing units without shoving them',
     assert.equal(e.x[as], ax, 'rooted shooter keeps its x position');
     assert.equal(e.y[as], ay, 'rooted shooter keeps its y position');
     const mx = tileX(e.x[ms]!);
-    if (mx >= 4 && mx <= 6 && tileY(e.y[ms]!) !== 4) detoured = true;
+    if (mx >= 4 && mx <= 6 && pathY(e.y[ms]!) !== anchorPathY) detoured = true;
   }
 
   assert.ok(detoured, 'mover should route around the firing unit tile');

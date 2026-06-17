@@ -1,6 +1,6 @@
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
-  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Role, Tech, Units, tiles,
+  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Role, Tech, Units, WeaponRangeUpgradePx, bwRange,
   unitTraits, Trait, type Weapon,
 } from './data.ts';
 import type { State } from './world.ts';
@@ -68,10 +68,10 @@ export const upgradedRange = (s: State, attacker: number, weapon: Weapon): numbe
   const e = s.e;
   const owner = e.owner[attacker]!;
   switch (e.kind[attacker]!) {
-    case Kind.Marine: return weapon.range + (level(s, owner, Tech.U238Shells) > 0 ? tiles(1) : 0);
-    case Kind.Goliath: return weapon === Units[Kind.Goliath]!.airWeapon && level(s, owner, Tech.CharonBoosters) > 0 ? weapon.range + tiles(3) : weapon.range;
-    case Kind.Dragoon: return weapon.range + (level(s, owner, Tech.SingularityCharge) > 0 ? tiles(2) : 0);
-    case Kind.Hydralisk: return weapon.range + (level(s, owner, Tech.GroovedSpines) > 0 ? tiles(1) : 0);
+    case Kind.Marine: return weapon.range + (level(s, owner, Tech.U238Shells) > 0 ? bwRange(WeaponRangeUpgradePx.U238Shells) : 0);
+    case Kind.Goliath: return weapon === Units[Kind.Goliath]!.airWeapon && level(s, owner, Tech.CharonBoosters) > 0 ? weapon.range + bwRange(WeaponRangeUpgradePx.CharonBoosters) : weapon.range;
+    case Kind.Dragoon: return weapon.range + (level(s, owner, Tech.SingularityCharge) > 0 ? bwRange(WeaponRangeUpgradePx.SingularityCharge) : 0);
+    case Kind.Hydralisk: return weapon.range + (level(s, owner, Tech.GroovedSpines) > 0 ? bwRange(WeaponRangeUpgradePx.GroovedSpines) : 0);
     default: return weapon.range;
   }
 };

@@ -11,7 +11,7 @@ import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from './world
 import type { MapDef, StartLoc, ResourceSpawn } from './map.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'
-const VERSION = 17;
+const VERSION = 19;
 const BYTES: Record<ColType, number> = { u8: 1, u16: 2, u32: 4, i32: 4 };
 
 // ---- cursor over a DataView ----
@@ -61,7 +61,7 @@ const sizeOf = (s: State): number => {
   let n = 8; // magic + version
   n += 4 + name.length + 4 + 4 + 3 * m.w * m.h; // map header + 3 terrain grids
   n += 4 + m.starts.length * 8; // starts
-  n += 4 + m.resources.length * 13; // resources (x,y,amount i32 ×3 + gas u8)
+  n += 4 + m.resources.length * 22; // resources (x,y,amount i32 ×3 + gas u8 + px/py presence + px/py i32 ×2)
   n += 4 + m.teams.length * 4; // map teams
   const P = s.teams.length;
   n += 4 + 4 + 4 + 1 + 4 + 1; // tick, rng, startTeams, over, winner, trackVision
@@ -87,7 +87,16 @@ export const serializeState = (s: State): ArrayBuffer => {
   w.u32(m.starts.length);
   for (const st of m.starts) { w.i32(st.x); w.i32(st.y); }
   w.u32(m.resources.length);
-  for (const r of m.resources) { w.i32(r.x); w.i32(r.y); w.i32(r.amount); w.u8(r.gas ? 1 : 0); }
+  for (const r of m.resources) {
+    w.i32(r.x);
+    w.i32(r.y);
+    w.i32(r.amount);
+    w.u8(r.gas ? 1 : 0);
+    const hasPixelCenter = r.px !== undefined && r.py !== undefined;
+    w.u8(hasPixelCenter ? 1 : 0);
+    w.i32(hasPixelCenter ? r.px! : 0);
+    w.i32(hasPixelCenter ? r.py! : 0);
+  }
   w.u32(m.teams.length);
   for (const t of m.teams) w.i32(t);
   // state scalars
@@ -124,7 +133,16 @@ export const deserializeState = (buf: ArrayBuffer): State => {
   const starts: StartLoc[] = [];
   for (let i = r.u32(); i > 0; i--) starts.push({ x: r.i32(), y: r.i32() });
   const resources: ResourceSpawn[] = [];
-  for (let i = r.u32(); i > 0; i--) resources.push({ x: r.i32(), y: r.i32(), amount: r.i32(), gas: r.u8() === 1 });
+  for (let i = r.u32(); i > 0; i--) {
+    const x = r.i32();
+    const y = r.i32();
+    const amount = r.i32();
+    const gas = r.u8() === 1;
+    const hasPixelCenter = r.u8() === 1;
+    const px = r.i32();
+    const py = r.i32();
+    resources.push(hasPixelCenter ? { x, y, amount, gas, px, py } : { x, y, amount, gas });
+  }
   const mapTeams: number[] = [];
   for (let i = r.u32(); i > 0; i--) mapTeams.push(r.i32());
   const map: MapDef = { name, w: mw, h: mh, walk, build, elev, starts, resources, teams: mapTeams };

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
+import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
 import { generateMap } from '../src/procedural.ts';
 import { eid, ENTITY_COLUMNS, makeState, type State } from '../src/world.ts';
 import { sliceMap } from '../src/map.ts';
@@ -108,6 +108,20 @@ test('replay round-trips through JSON (the on-disk / on-wire form)', () => {
   const replay = toReplay(sim, SPEC);
   const round = parseReplay(JSON.stringify(replay));
   assert.deepEqual(replayHashes(round), replayHashes(replay), 'JSON-serialized replay is faithful');
+});
+
+test('procedural replay specs preserve optional generator knobs', () => {
+  const spec: MapSpec = { kind: 'procedural', perTeam: 2, seed: 17, preset: 'teamPlateaus', midfield: 'dualChoke' };
+  const parsed = parseReplay(JSON.stringify({
+    version: 1,
+    map: spec,
+    players: 4,
+    seed: 17,
+    frames: [],
+  }));
+
+  assert.deepEqual(parsed.map, spec);
+  assert.equal(mapFromSpec(parsed.map).bases?.filter((base) => base.kind === 'natural').length, 4);
 });
 
 test('replay preserves selected player factions', () => {

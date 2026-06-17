@@ -4,9 +4,9 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { count, eid, kill, slotOf } from '../src/world.ts';
-import { DamageType, Kind, Tech, Units, computeDamage, tiles } from '../src/data.ts';
+import { DamageType, Kind, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { edgeDistanceSq } from '../src/spatial.ts';
+import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial.ts';
 import { applyWeaponDamage } from '../src/damage.ts';
 import { setTechLevel } from '../src/tech.ts';
 
@@ -111,11 +111,63 @@ test('weapon range is measured edge-to-edge against large buildings', () => {
   const hpBefore = e.hp[target]!;
 
   assert.ok(fx(190) > Units[Kind.Marine]!.weapon!.range, 'center distance is outside Marine range');
-  assert.ok(edgeDistanceSq(s, slotOf(marine), target) <= Units[Kind.Marine]!.weapon!.range ** 2);
+  assert.ok(topDownEdgeDistanceSq(s, slotOf(marine), target) <= Units[Kind.Marine]!.weapon!.range ** 2);
 
   sim.step([{ player: 0, cmds: [{ t: 'attack', unit: marine, target: cc }] }]);
 
   assert.ok(e.hp[target]! < hpBefore);
+});
+
+test('marine combat uses top-down physical range while BW compatibility keeps source distance', () => {
+  const inRange = new Sim({ map: sliceMap(), players: 2, seed: 2201 });
+  const sIn = inRange.fullState();
+  const marineIn = spawnUnit(sIn, Kind.Marine, 0, fx(400), fx(400));
+  const targetIn = spawnUnit(sIn, Kind.Marine, 1, fx(544), fx(400));
+  const targetSlotIn = slotOf(targetIn);
+  const hpBefore = sIn.e.hp[targetSlotIn]!;
+
+  assert.equal(Units[Kind.Marine]!.weapon!.range, bwRange(128));
+  assert.equal(topDownEdgeDistance(sIn, slotOf(marineIn), targetSlotIn), bwRange(128));
+  inRange.step([{ player: 0, cmds: [{ t: 'attack', unit: marineIn, target: targetIn }] }]);
+  assert.ok(sIn.e.hp[targetSlotIn]! < hpBefore);
+
+  const outRange = new Sim({ map: sliceMap(), players: 2, seed: 2202 });
+  const sOut = outRange.fullState();
+  const marineOut = spawnUnit(sOut, Kind.Marine, 0, fx(400), fx(400));
+  const targetOut = spawnUnit(sOut, Kind.Marine, 1, fx(545), fx(400));
+  const targetSlotOut = slotOf(targetOut);
+  const hpOutBefore = sOut.e.hp[targetSlotOut]!;
+
+  assert.equal(bwApproxEdgeDistance(sOut, slotOf(marineOut), targetSlotOut), bwRange(128));
+  assert.equal(topDownEdgeDistance(sOut, slotOf(marineOut), targetSlotOut), bwRange(129));
+  outRange.step([{ player: 0, cmds: [{ t: 'attack', unit: marineOut, target: targetOut }] }]);
+  assert.equal(sOut.e.hp[targetSlotOut], hpOutBefore);
+});
+
+test('melee attackers use top-down physical pixel ranges instead of BW target expansion', () => {
+  const zealotIn = new Sim({ map: sliceMap(), players: 2, seed: 2203 });
+  const sZin = zealotIn.fullState();
+  const zIn = spawnUnit(sZin, Kind.Zealot, 0, fx(400), fx(400));
+  const mIn = spawnUnit(sZin, Kind.Marine, 1, fx(434), fx(400));
+  const mSlotIn = slotOf(mIn);
+  const hpBefore = sZin.e.hp[mSlotIn]!;
+
+  assert.equal(Units[Kind.Zealot]!.weapon!.range, bwRange(15));
+  assert.equal(topDownEdgeDistance(sZin, slotOf(zIn), mSlotIn), bwRange(15));
+  zealotIn.step([{ player: 0, cmds: [{ t: 'attack', unit: zIn, target: mIn }] }]);
+  assert.ok(sZin.e.hp[mSlotIn]! < hpBefore);
+
+  const zealotOut = new Sim({ map: sliceMap(), players: 2, seed: 2204 });
+  const sZout = zealotOut.fullState();
+  const zOut = spawnUnit(sZout, Kind.Zealot, 0, fx(400), fx(400));
+  const mOut = spawnUnit(sZout, Kind.Marine, 1, fx(435), fx(400));
+  const mSlotOut = slotOf(mOut);
+  const hpOutBefore = sZout.e.hp[mSlotOut]!;
+
+  assert.equal(bwApproxEdgeDistance(sZout, slotOf(zOut), mSlotOut), bwRange(15));
+  assert.equal(topDownEdgeDistance(sZout, slotOf(zOut), mSlotOut), bwRange(16));
+  zealotOut.step([{ player: 0, cmds: [{ t: 'attack', unit: zOut, target: mOut }] }]);
+  assert.equal(sZout.e.hp[mSlotOut], hpOutBefore);
 });
 
 test('attack-move acquisition uses body edges for large targets', () => {
@@ -131,7 +183,7 @@ test('attack-move acquisition uses body edges for large targets', () => {
 
   assert.ok(e.hp[target]! < hpBefore);
   assert.equal(e.target[slotOf(marine)], cc);
-  assert.ok(edgeDistanceSq(s, slotOf(marine), target) <= tiles(4) ** 2);
+  assert.ok(topDownEdgeDistanceSq(s, slotOf(marine), target) <= tiles(4) ** 2);
 });
 
 test('attacking units face their current target', () => {

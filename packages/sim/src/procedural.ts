@@ -1,156 +1,300 @@
-// Procedural map generation. Goals (docs/specs/maps.md): symmetric & fair,
-// vertical-major, teams on opposite (south/north) sides, base plateaus reachable
-// only via a ramp (natural chokepoint), some midfield obstacles for tactical
-// variety — and ALWAYS fully connected (validated by flood fill; obstacles dropped
-// if they would wall anything off). NvN scales the width: 2v2 is twice as wide.
+// Deterministic procedural map generation.
+//
+// The default preset is intentionally simple: one shared north team plateau, one
+// shared south team plateau, ramp exits into low-ground naturals, and an empty
+// midfield. Optional midfield modules can add blockers/chokes later without
+// changing the base/economy contract.
 
-import type { MapDef, ResourceSpawn, StartLoc } from './map.ts';
-import { PATCH_AMOUNT } from './data.ts';
+import type { BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
+import { addStartingResources, resourceSpawnFootprint } from './map.ts';
 import { makeRng, range, type Rng } from './rng.ts';
 
-const LANE_W = 64; // width per matchup lane
-const H = 96; // map height (portrait)
-const PLAT_HW = 7; // plateau half-width (tiles)
-const PLAT_HH = 6; // plateau half-height
-const RAMP_HW = 2; // ramp half-width
+export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
+export type MapPreset = 'teamPlateaus';
+export type GenerateMapOptions = {
+  preset?: MapPreset;
+  midfield?: MidfieldModule;
+};
+
+const LANE_W = 64;
+const H = 96;
+const EDGE_PAD = 4;
+const PLATEAU_H = 20;
+const RAMP_HALF_W = 3;
+const NATURAL_OFFSET = 10;
+
+type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 const fillRect = (g: Uint8Array, w: number, x0: number, y0: number, x1: number, y1: number, v: number): void => {
-  for (let y = Math.max(0, y0); y <= y1; y++) for (let x = Math.max(0, x0); x <= x1; x++) g[y * w + x] = v;
-};
-
-const carveBase = (m: MapDef, cx: number, cy: number, faceUp: boolean): void => {
-  const w = m.w;
-  const x0 = cx - PLAT_HW; const x1 = cx + PLAT_HW;
-  const y0 = cy - PLAT_HH; const y1 = cy + PLAT_HH;
-  // Plateau: high ground, walkable, buildable.
-  fillRect(m.elev, w, x0, y0, x1, y1, 1);
-  fillRect(m.walk, w, x0, y0, x1, y1, 1);
-  fillRect(m.build, w, x0, y0, x1, y1, 1);
-  // Cliff ring (impassable) around the plateau, except the center-facing ramp gap.
-  const rampY = faceUp ? y0 - 1 : y1 + 1;
-  for (let x = x0 - 1; x <= x1 + 1; x++) {
-    const topY = y0 - 1; const botY = y1 + 1;
-    if (x >= 0 && x < w) {
-      setCliff(m, x, topY); setCliff(m, x, botY);
-    }
-  }
-  for (let y = y0 - 1; y <= y1 + 1; y++) {
-    setCliff(m, x0 - 1, y); setCliff(m, x1 + 1, y);
-  }
-  // Open the ramp gap on the center-facing edge.
-  for (let x = cx - RAMP_HW; x <= cx + RAMP_HW; x++) {
-    if (x >= 0 && x < w && rampY >= 0 && rampY < m.h) {
-      m.walk[rampY * w + x] = 1; m.build[rampY * w + x] = 0; m.elev[rampY * w + x] = 1;
+  for (let y = Math.max(0, y0); y <= y1; y++) {
+    const row = y * w;
+    if (row >= g.length) break;
+    for (let x = Math.max(0, x0); x <= x1; x++) {
+      if (x >= w) break;
+      g[row + x] = v;
     }
   }
 };
 
-const setCliff = (m: MapDef, x: number, y: number): void => {
-  if (x < 0 || y < 0 || x >= m.w || y >= m.h) return;
-  m.walk[y * m.w + x] = 0; m.build[y * m.w + x] = 0;
+class MapBuilder {
+  readonly map: MapDef;
+  readonly perTeam: number;
+
+  constructor(perTeam: number, seed: number) {
+    this.perTeam = perTeam;
+    const w = LANE_W * perTeam;
+    const h = H;
+    const n = w * h;
+    this.map = {
+      name: `Procedural ${perTeam}v${perTeam} (#${seed})`,
+      w,
+      h,
+      walk: new Uint8Array(n).fill(1),
+      build: new Uint8Array(n).fill(1),
+      elev: new Uint8Array(n),
+      starts: [],
+      resources: [],
+      teams: [],
+      bases: [],
+    };
+  }
+
+  fill(rect: Rect, walk: number, build: number, elev: number): void {
+    fillRect(this.map.walk, this.map.w, rect.x0, rect.y0, rect.x1, rect.y1, walk);
+    fillRect(this.map.build, this.map.w, rect.x0, rect.y0, rect.x1, rect.y1, build);
+    fillRect(this.map.elev, this.map.w, rect.x0, rect.y0, rect.x1, rect.y1, elev);
+  }
+
+  stampCliffLine(y: number, gaps: readonly number[]): void {
+    fillRect(this.map.walk, this.map.w, 0, y, this.map.w - 1, y, 0);
+    fillRect(this.map.build, this.map.w, 0, y, this.map.w - 1, y, 0);
+    fillRect(this.map.elev, this.map.w, 0, y, this.map.w - 1, y, 1);
+    for (const cx of gaps) {
+      fillRect(this.map.walk, this.map.w, cx - RAMP_HALF_W, y, cx + RAMP_HALF_W, y, 1);
+      fillRect(this.map.build, this.map.w, cx - RAMP_HALF_W, y, cx + RAMP_HALF_W, y, 0);
+    }
+  }
+
+  stampBlock(rect: Rect, elev = 1): void {
+    this.fill(rect, 0, 0, elev);
+  }
+
+  reserveNoBuild(rect: Rect): void {
+    fillRect(this.map.build, this.map.w, rect.x0, rect.y0, rect.x1, rect.y1, 0);
+  }
+}
+
+const laneCenter = (i: number): number => i * LANE_W + (LANE_W >> 1);
+
+const addBaseResources = (m: MapDef, base: StartLoc, dir: -1 | 1): void => {
+  addStartingResources(m.resources, base, dir);
+};
+
+const addBaseSite = (
+  m: MapDef,
+  kind: BaseSite['kind'],
+  team: number,
+  x: number,
+  y: number,
+  resourceDir: -1 | 1,
+  owner?: number,
+  rampX?: number,
+  rampY?: number,
+): void => {
+  m.bases ??= [];
+  m.bases.push({
+    kind,
+    team,
+    x,
+    y,
+    resourceDir,
+    ...(owner === undefined ? {} : { owner }),
+    ...(rampX === undefined ? {} : { rampX }),
+    ...(rampY === undefined ? {} : { rampY }),
+    timingProfile: 'bw-resource-route-v1',
+  });
+};
+
+const stampTeamPlateaus = (b: MapBuilder): void => {
+  const m = b.map;
+  const centers = Array.from({ length: b.perTeam }, (_, i) => laneCenter(i));
+  const northPlateau: Rect = { x0: 0, x1: m.w - 1, y0: EDGE_PAD, y1: EDGE_PAD + PLATEAU_H - 1 };
+  const southPlateau: Rect = { x0: 0, x1: m.w - 1, y0: m.h - EDGE_PAD - PLATEAU_H, y1: m.h - EDGE_PAD - 1 };
+
+  b.fill(northPlateau, 1, 1, 1);
+  b.fill(southPlateau, 1, 1, 1);
+  b.stampCliffLine(northPlateau.y1 + 1, centers);
+  b.stampCliffLine(southPlateau.y0 - 1, centers);
+
+  for (let i = 0; i < b.perTeam; i++) {
+    const x = centers[i]!;
+    const south: StartLoc = { x, y: m.h - 14 };
+    const north: StartLoc = { x, y: 14 };
+    const southRampY = southPlateau.y0 - 1;
+    const northRampY = northPlateau.y1 + 1;
+    const southNatural: StartLoc = { x, y: southRampY - NATURAL_OFFSET };
+    const northNatural: StartLoc = { x, y: northRampY + NATURAL_OFFSET };
+
+    m.starts.push(south);
+    m.teams.push(0);
+    m.starts.push(north);
+    m.teams.push(1);
+
+    addBaseSite(m, 'main', 0, south.x, south.y, -1, i * 2, south.x, southRampY);
+    addBaseSite(m, 'main', 1, north.x, north.y, 1, i * 2 + 1, north.x, northRampY);
+    addBaseSite(m, 'natural', 0, southNatural.x, southNatural.y, -1, undefined, south.x, southRampY);
+    addBaseSite(m, 'natural', 1, northNatural.x, northNatural.y, 1, undefined, north.x, northRampY);
+
+    addBaseResources(m, south, -1);
+    addBaseResources(m, north, 1);
+    addBaseResources(m, southNatural, -1);
+    addBaseResources(m, northNatural, 1);
+  }
+
+  for (const base of m.bases ?? []) {
+    b.reserveNoBuild({ x0: base.x - 5, x1: base.x + 5, y0: base.y - 4, y1: base.y + 5 });
+  }
+};
+
+const mirrorY = (m: MapDef, rect: Rect): Rect => ({
+  x0: rect.x0,
+  x1: rect.x1,
+  y0: m.h - 1 - rect.y1,
+  y1: m.h - 1 - rect.y0,
+});
+
+const addBlocks = (b: MapBuilder, rng: Rng): void => {
+  const m = b.map;
+  const blobs = 2 + range(rng, 3);
+  for (let i = 0; i < blobs; i++) {
+    const bw = 3 + range(rng, 5);
+    const bh = 3 + range(rng, 5);
+    const x = 8 + range(rng, Math.max(1, m.w - 16 - bw));
+    const y = 34 + range(rng, 9);
+    const r = { x0: x, y0: y, x1: x + bw, y1: y + bh };
+    b.stampBlock(r);
+    b.stampBlock(mirrorY(m, r));
+  }
+};
+
+const addDualChoke = (b: MapBuilder): void => {
+  const m = b.map;
+  const cx = m.w >> 1;
+  b.stampBlock({ x0: cx - 7, x1: cx + 7, y0: 38, y1: 57 });
+};
+
+const addArena = (b: MapBuilder): void => {
+  const m = b.map;
+  b.stampBlock({ x0: 8, x1: 15, y0: 38, y1: 57 });
+  b.stampBlock({ x0: m.w - 16, x1: m.w - 9, y0: 38, y1: 57 });
+};
+
+const addRaisedCenter = (b: MapBuilder): void => {
+  const m = b.map;
+  const cx = m.w >> 1;
+  const r = { x0: cx - 12, x1: cx + 12, y0: 40, y1: 55 };
+  b.fill(r, 1, 1, 1);
+  b.reserveNoBuild({ x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y0 });
+  b.reserveNoBuild({ x0: r.x0, x1: r.x1, y0: r.y1, y1: r.y1 });
+};
+
+const applyMidfieldModule = (b: MapBuilder, module: MidfieldModule, rng: Rng): void => {
+  switch (module) {
+    case 'empty': return;
+    case 'blocks': addBlocks(b, rng); return;
+    case 'dualChoke': addDualChoke(b); return;
+    case 'arena': addArena(b); return;
+    case 'raisedCenter': addRaisedCenter(b); return;
+  }
 };
 
 const reachableFrom = (m: MapDef, sx: number, sy: number): Uint8Array => {
-  const w = m.w; const n = w * m.h;
+  const w = m.w;
+  const n = w * m.h;
   const seen = new Uint8Array(n);
   const q = [sy * w + sx];
   seen[sy * w + sx] = 1;
   for (let h = 0; h < q.length; h++) {
-    const u = q[h]!; const ux = u % w; const uy = (u - ux) / w;
+    const u = q[h]!;
+    const ux = u % w;
+    const uy = (u - ux) / w;
     for (let d = 0; d < 4; d++) {
       const nx = ux + (d === 0 ? 1 : d === 1 ? -1 : 0);
       const ny = uy + (d === 2 ? 1 : d === 3 ? -1 : 0);
       if (nx < 0 || ny < 0 || nx >= w || ny >= m.h) continue;
       const v = ny * w + nx;
-      if (seen[v] === 0 && m.walk[v] === 1) { seen[v] = 1; q.push(v); }
+      if (seen[v] === 0 && m.walk[v] === 1) {
+        seen[v] = 1;
+        q.push(v);
+      }
     }
   }
   return seen;
+};
+
+const resourceFootprintClear = (m: MapDef, r: ResourceSpawn, margin: number): boolean => {
+  const fp = resourceSpawnFootprint(r);
+  const x0 = fp.x0 - margin;
+  const y0 = fp.y0 - margin;
+  const x1 = fp.x1 + margin;
+  const y1 = fp.y1 + margin;
+  if (x0 < 0 || y0 < 0 || x1 >= m.w || y1 >= m.h) return false;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (m.walk[y * m.w + x] !== 1) return false;
+    }
+  }
+  return true;
+};
+
+const resourceFootprintsOverlap = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
+  a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0;
+
+export const mapResourcesValid = (m: MapDef): boolean => {
+  const seen: ResourceFootprint[] = [];
+  for (const r of m.resources) {
+    if (!resourceFootprintClear(m, r, 1)) return false;
+    const fp = resourceSpawnFootprint(r);
+    if (seen.some((other) => resourceFootprintsOverlap(fp, other))) return false;
+    seen.push(fp);
+  }
+  return true;
 };
 
 export const mapConnected = (m: MapDef): boolean => {
   const s0 = m.starts[0]!;
   const seen = reachableFrom(m, s0.x, s0.y);
   for (const st of m.starts) if (seen[st.y * m.w + st.x] !== 1) return false;
-  for (const r of m.resources) if (seen[r.y * m.w + r.x] !== 1) return false;
+  for (const base of m.bases ?? []) if (seen[base.y * m.w + base.x] !== 1) return false;
+  for (const r of m.resources) {
+    const fp = resourceSpawnFootprint(r);
+    if (seen[fp.y0 * m.w + fp.x0] !== 1) return false;
+  }
   return true;
 };
 
+const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: MidfieldModule): MapDef => {
+  const builder = new MapBuilder(perTeam, seed);
+  switch (preset) {
+    case 'teamPlateaus': stampTeamPlateaus(builder); break;
+  }
+  applyMidfieldModule(builder, midfield, makeRng(seed));
+  return builder.map;
+};
+
 /**
- * Generate a symmetric NvN map. `perTeam` players per side (1 = 1v1, 2 = 2v2, …).
+ * Generate a symmetric NvN map. `perTeam` players share each side's plateau
+ * (1 = 1v1, 2 = 2v2, ...). The default midfield is empty by design so movement,
+ * economy, and range tuning have a clean reference scenario.
  */
-export const generateMap = (perTeam: number, seed: number): MapDef => {
-  const w = LANE_W * perTeam;
-  const h = H;
-  const n = w * h;
-  const rng = makeRng(seed);
-
-  const build = (): MapDef => ({
-    name: `Procedural ${perTeam}v${perTeam} (#${seed})`,
-    w, h,
-    walk: new Uint8Array(n).fill(1),
-    build: new Uint8Array(n).fill(1),
-    elev: new Uint8Array(n),
-    starts: [],
-    resources: [],
-    teams: [],
-  });
-
-  const m = build();
-  const starts: StartLoc[] = [];
-  const teams: number[] = [];
-  const resources: ResourceSpawn[] = [];
-
-  for (let i = 0; i < perTeam; i++) {
-    const cx = i * LANE_W + (LANE_W >> 1);
-    const south: StartLoc = { x: cx, y: h - 14 };
-    const north: StartLoc = { x: cx, y: 14 };
-    starts.push(south); teams.push(0);
-    starts.push(north); teams.push(1);
-    addResources(resources, south, +1);
-    addResources(resources, north, -1);
+export const generateMap = (perTeam: number, seed: number, options: GenerateMapOptions = {}): MapDef => {
+  const preset = options.preset ?? 'teamPlateaus';
+  const midfield = options.midfield ?? 'empty';
+  const m = buildMap(perTeam, seed, preset, midfield);
+  if (mapConnected(m) && mapResourcesValid(m)) return m;
+  if (midfield !== 'empty') {
+    const fallback = buildMap(perTeam, seed, preset, 'empty');
+    if (mapConnected(fallback) && mapResourcesValid(fallback)) return fallback;
   }
-  m.starts = starts; m.teams = teams; m.resources = resources;
-
-  for (let i = 0; i < starts.length; i++) {
-    carveBase(m, starts[i]!.x, starts[i]!.y, teams[i] === 0); // south (team 0) ramps up toward center
-  }
-
-  // Midfield obstacles, mirrored top/bottom, then validate connectivity.
-  addObstacles(m, rng);
-  if (!mapConnected(m)) {
-    // Fallback: clear obstacles (plateaus + ramps + open field are always connected).
-    m.walk = new Uint8Array(n).fill(1);
-    m.build = new Uint8Array(n).fill(1);
-    m.elev = new Uint8Array(n);
-    for (let i = 0; i < starts.length; i++) carveBase(m, starts[i]!.x, starts[i]!.y, teams[i] === 0);
-  }
-  return m;
-};
-
-const addResources = (out: ResourceSpawn[], base: StartLoc, dir: number): void => {
-  // Patches behind the base (away from the ramp), inside the plateau.
-  for (let i = 0; i < 8; i++) {
-    out.push({ x: base.x - 4 + i, y: base.y + dir * 4, amount: PATCH_AMOUNT, gas: false });
-  }
-  out.push({ x: base.x + 6, y: base.y + dir * 3, amount: 0, gas: true }); // one gas geyser per base
-};
-
-const addObstacles = (m: MapDef, rng: Rng): void => {
-  const w = m.w; const h = m.h;
-  const blobs = 2 + range(rng, 3); // 2..4 obstacle blobs (mirrored)
-  for (let b = 0; b < blobs; b++) {
-    const bw = 2 + range(rng, 4);
-    const bh = 2 + range(rng, 4);
-    const x = 6 + range(rng, Math.max(1, w - 12 - bw));
-    const y = 24 + range(rng, Math.max(1, h - 48 - bh)); // central band only
-    fillRect(m.walk, w, x, y, x + bw, y + bh, 0);
-    fillRect(m.build, w, x, y, x + bw, y + bh, 0);
-    fillRect(m.elev, w, x, y, x + bw, y + bh, 1);
-    // Mirror across the horizontal mid-axis for fairness.
-    const my = h - 1 - (y + bh);
-    fillRect(m.walk, w, x, my, x + bw, my + bh, 0);
-    fillRect(m.build, w, x, my, x + bw, my + bh, 0);
-    fillRect(m.elev, w, x, my, x + bw, my + bh, 1);
-  }
+  throw new Error(`generateMap: invalid ${perTeam}v${perTeam} map for seed ${seed}`);
 };

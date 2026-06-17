@@ -3,6 +3,7 @@
 // driven, so it is not specific to any race.
 
 import type { MapDef } from './map.ts';
+import { resourceSpawnCenterPx } from './map.ts';
 import type { State } from './world.ts';
 import { makeState, slotOf, eid, nearest, NEUTRAL, NONE } from './world.ts';
 import { spawnUnit } from './factory.ts';
@@ -24,7 +25,8 @@ export const setupMatch = (
 
   // Neutral resources: mineral patches and (inert) vespene geysers.
   for (const r of map.resources) {
-    const id = spawnUnit(s, r.gas ? Kind.Geyser : Kind.Mineral, NEUTRAL, tilePx(r.x), tilePx(r.y));
+    const p = resourceSpawnCenterPx(r);
+    const id = spawnUnit(s, r.gas ? Kind.Geyser : Kind.Mineral, NEUTRAL, fx(p.x), fx(p.y));
     if (!r.gas) e.cargo[slotOf(id)] = r.amount;
   }
 

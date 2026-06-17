@@ -18,10 +18,11 @@ import { upgradedRange } from '../derived.ts';
 import { isPowered } from '../power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
-import { edgeDistanceSq, withinEdgeRange } from '../spatial.ts';
+import { topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
+import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 
 const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = ax - bx;
@@ -30,7 +31,7 @@ const distSq = (ax: number, ay: number, bx: number, by: number): number => {
 };
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
-  weapon.minRange !== undefined && edgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
+  weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
 
 const isSuicideAttacker = (kind: number): boolean =>
   kind === Kind.Scourge || kind === Kind.InfestedTerran || kind === Kind.SpiderMine;
@@ -123,7 +124,7 @@ const bunkerCanAttack = (s: State, bunker: number, target: number): boolean => {
     const weapon = weaponForTarget(Units[e.kind[i]!]!, targetDef);
     if (!weapon) continue;
     const range = upgradedRange(s, i, weapon);
-    if (withinEdgeRange(s, bunker, target, range)) return true;
+    if (withinTopDownEdgeRange(s, bunker, target, range)) return true;
   }
   return false;
 };
@@ -136,7 +137,7 @@ const nearestBunkerTarget = (s: State, bunker: number, sight: number): number =>
   let bestD = r2 + 1;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i) || !isEnemy(s, owner, e.owner[i]!) || !canDetect(s, owner, i)) continue;
-    const d = edgeDistanceSq(s, bunker, i);
+    const d = topDownEdgeDistanceSq(s, bunker, i);
     if (d <= r2 && d < bestD && bunkerCanAttack(s, bunker, i)) { best = i; bestD = d; }
   }
   return best;
@@ -152,7 +153,7 @@ const bunkerFire = (s: State, bunker: number, target: number): void => {
     const weapon = weaponForTarget(Units[e.kind[i]!]!, targetDef);
     if (!weapon || e.wcd[i]! > 0) continue;
     const range = upgradedRange(s, i, weapon);
-    if (!withinEdgeRange(s, bunker, target, range)) continue;
+    if (!withinTopDownEdgeRange(s, bunker, target, range)) continue;
     if ((e.flags[target]! & Role.Air) === 0 && coveredByEffect(s, target, EffectKind.DarkSwarm) && range > tiles(2)) continue;
     if (e.illusion[i] !== 1) applyWeaponHit(s, target, weapon, i);
     e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
@@ -204,7 +205,10 @@ export const combat = (s: State, grid: Grid): void => {
     if (tgt === NONE) {
       if (order === Order.Attack) e.order[i] = Order.Idle; // target gone
       else if (order === Order.AttackMove) {
-        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed)) e.order[i] = Order.Idle;
+        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) {
+          e.order[i] = Order.Idle;
+          e.target[i] = NONE;
+        }
       }
       continue;
     }
@@ -214,7 +218,7 @@ export const combat = (s: State, grid: Grid): void => {
       continue;
     }
     if (isCarrier) {
-      if (withinEdgeRange(s, i, tgt, carrierLaunchRange())) {
+      if (withinTopDownEdgeRange(s, i, tgt, carrierLaunchRange())) {
         if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorLaunchCooldown();
       } else {
         navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed));
@@ -230,7 +234,7 @@ export const combat = (s: State, grid: Grid): void => {
       continue;
     }
     const range = upgradedRange(s, i, weapon);
-    if (withinEdgeRange(s, i, tgt, range) && !insideMinimumRange(s, i, tgt, weapon)) {
+    if (withinTopDownEdgeRange(s, i, tgt, range) && !insideMinimumRange(s, i, tgt, weapon)) {
       if (e.wcd[i]! <= 0) {
         if ((e.flags[tgt]! & Role.Air) !== 0 || !coveredByEffect(s, tgt, EffectKind.DarkSwarm) || range <= tiles(2)) {
           if (e.illusion[i] !== 1) {

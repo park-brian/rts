@@ -1,9 +1,11 @@
-// BWAPI body rectangles used for gameplay math: weapon range, minimum range,
-// and selection/collision-style edge distance. These are not render bounds for
-// our authored SVG art; buildings still use footprintW/H for build placement.
+// Gameplay spatial helpers. BW source data is intentionally kept separate from
+// top-down interaction geometry: BW body bounds and approximate distance are an
+// isometric/source compatibility layer, while the `topDown*` helpers are the
+// final reach/contact metric used by our orthographic game.
 
-import { Kind, Units } from './data.ts';
-import { fx } from './fixed.ts';
+import { Kind, Role, TILE, Units } from './data.ts';
+import { fx, isqrt } from './fixed.ts';
+import { structureFootprint } from './footprint.ts';
 import type { State } from './world.ts';
 
 export type BodyBounds = {
@@ -139,24 +141,126 @@ export const bodyBounds = (kind: number): BodyBounds => {
   return { left: radius, up: radius, right: radius, down: radius };
 };
 
-const axisGap = (a0: number, a1: number, b0: number, b1: number): number => {
+export const bwApproxDistance = (dx: number, dy: number): number => {
+  let max = Math.abs(dx);
+  let min = Math.abs(dy);
+  if (max < min) {
+    const t = max;
+    max = min;
+    min = t;
+  }
+  if (min <= (max >> 2)) return max;
+  const minCalc = (3 * min) >> 3;
+  return (minCalc >> 5) + minCalc + max - (max >> 4) - (max >> 6);
+};
+
+const axisGap = (source0: number, source1: number, target0: number, target1: number): number => {
+  const left = target0 - fx(1);
+  const right = target1 + fx(1);
+  let d = source0 - right;
+  if (d < 0) {
+    d = left - source1;
+    if (d < 0) return 0;
+  }
+  return d;
+};
+
+export const bwApproxEdgeDistanceBetween = (
+  sourceKind: number,
+  sourceX: number,
+  sourceY: number,
+  targetKind: number,
+  targetX: number,
+  targetY: number,
+): number => {
+  const ab = bodyBounds(sourceKind);
+  const bb = bodyBounds(targetKind);
+  const dx = axisGap(sourceX - ab.left, sourceX + ab.right, targetX - bb.left, targetX + bb.right);
+  const dy = axisGap(sourceY - ab.up, sourceY + ab.down, targetY - bb.up, targetY + bb.down);
+  return bwApproxDistance(dx, dy);
+};
+
+export const bwApproxEdgeDistance = (s: State, a: number, b: number): number => {
+  const e = s.e;
+  return bwApproxEdgeDistanceBetween(e.kind[a]!, e.x[a]!, e.y[a]!, e.kind[b]!, e.x[b]!, e.y[b]!);
+};
+
+const exactAxisGap = (a0: number, a1: number, b0: number, b1: number): number => {
   if (a1 < b0) return b0 - a1;
   if (b1 < a0) return a0 - b1;
   return 0;
 };
 
-export const edgeDistanceSq = (s: State, a: number, b: number): number => {
-  const e = s.e;
-  const ab = bodyBounds(e.kind[a]!);
-  const bb = bodyBounds(e.kind[b]!);
-  const ax = e.x[a]!;
-  const ay = e.y[a]!;
-  const bx = e.x[b]!;
-  const by = e.y[b]!;
-  const dx = axisGap(ax - ab.left, ax + ab.right, bx - bb.left, bx + bb.right);
-  const dy = axisGap(ay - ab.up, ay + ab.down, by - bb.up, by + bb.down);
+export type InteractionRect = {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+};
+
+const bodyRect = (kind: number, x: number, y: number): InteractionRect => {
+  const b = bodyBounds(kind);
+  return { x0: x - b.left, y0: y - b.up, x1: x + b.right, y1: y + b.down };
+};
+
+const footprintRect = (kind: number, x: number, y: number): InteractionRect => {
+  const fp = structureFootprint(kind, x, y);
+  return {
+    x0: fx(fp.x0 * TILE),
+    y0: fx(fp.y0 * TILE),
+    x1: fx((fp.x1 + 1) * TILE),
+    y1: fx((fp.y1 + 1) * TILE),
+  };
+};
+
+export const topDownInteractionRect = (kind: number, x: number, y: number, flags = Units[kind]?.roles ?? 0): InteractionRect => {
+  if ((flags & Role.Structure) !== 0 && (flags & Role.Resource) === 0) return footprintRect(kind, x, y);
+  return bodyRect(kind, x, y);
+};
+
+export const topDownEdgeDistanceSqBetween = (
+  sourceKind: number,
+  sourceX: number,
+  sourceY: number,
+  sourceFlags: number,
+  targetKind: number,
+  targetX: number,
+  targetY: number,
+  targetFlags: number,
+): number => {
+  const a = topDownInteractionRect(sourceKind, sourceX, sourceY, sourceFlags);
+  const b = topDownInteractionRect(targetKind, targetX, targetY, targetFlags);
+  const dx = exactAxisGap(a.x0, a.x1, b.x0, b.x1);
+  const dy = exactAxisGap(a.y0, a.y1, b.y0, b.y1);
   return dx * dx + dy * dy;
 };
 
-export const withinEdgeRange = (s: State, a: number, b: number, range: number): boolean =>
-  edgeDistanceSq(s, a, b) <= range * range;
+export const topDownEdgeDistanceSq = (s: State, a: number, b: number): number => {
+  const e = s.e;
+  return topDownEdgeDistanceSqBetween(e.kind[a]!, e.x[a]!, e.y[a]!, e.flags[a]!, e.kind[b]!, e.x[b]!, e.y[b]!, e.flags[b]!);
+};
+
+export const topDownEdgeDistance = (s: State, a: number, b: number): number =>
+  isqrt(topDownEdgeDistanceSq(s, a, b));
+
+export const withinTopDownEdgeRange = (s: State, a: number, b: number, range: number): boolean =>
+  topDownEdgeDistanceSq(s, a, b) <= range * range;
+
+export const bwApproxEdgeDistanceSq = (s: State, a: number, b: number): number => {
+  const d = bwApproxEdgeDistance(s, a, b);
+  return d * d;
+};
+
+export const withinBwApproxEdgeRange = (s: State, a: number, b: number, range: number): boolean =>
+  bwApproxEdgeDistance(s, a, b) <= range;
+
+/** @deprecated Use `topDownEdgeDistance` for gameplay or `bwApproxEdgeDistance` for BW audits. */
+export const edgeDistance = bwApproxEdgeDistance;
+/** @deprecated Use `topDownEdgeDistanceSq` for gameplay or `bwApproxEdgeDistanceSq` for BW audits. */
+export const edgeDistanceSq = bwApproxEdgeDistanceSq;
+/** @deprecated Use `withinTopDownEdgeRange` for gameplay or `withinBwApproxEdgeRange` for BW audits. */
+export const withinEdgeRange = withinBwApproxEdgeRange;
+/** @deprecated Use `bwApproxEdgeDistanceBetween`. */
+export const edgeDistanceBetween = bwApproxEdgeDistanceBetween;
+/** @deprecated Use `topDownEdgeDistanceSq`. */
+export const exactEdgeDistanceSq = topDownEdgeDistanceSq;

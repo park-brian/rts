@@ -1,20 +1,12 @@
 // Flow-field group pathfinding + dynamic pathing context.
 //
-// A single integer Dijkstra from the goal tile yields a distance field that every
-// unit heading there follows downhill — N units to one goal cost one field, not N
-// A* runs. Routing must also avoid *buildings*, which are dynamic, so each State
-// carries a transient "solid" grid (building footprints over the static terrain).
-// Flow fields therefore depend on (terrain + solid) and are cached per-State; the
-// cache is invalidated when the building layout changes (a cheap signature check).
-// Re-deriving a field is a pure function of that input, so determinism holds and
-// forks/snapshots rebuild their own context.
-//
-// Perf note: callers fetch the solid grid ONCE (navSolid) and pass it into the
-// hot per-tile checks — a per-tile WeakMap lookup in line-of-sight scans (every
-// unit, every tick) was a real throughput sink.
+// The public map/building model is build-tile based, but routing uses a derived
+// finer path lattice. That lets small units pass one-build-tile openings while
+// wider bodies reject gaps they cannot actually fit through. Flow fields are still
+// shared per goal, now keyed by the unit clearance class as well.
 
 import { NONE, type State } from './world.ts';
-import { Role, TILE } from './data.ts';
+import { Role, Size, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './hash.ts';
 import { structureFootprint } from './footprint.ts';
@@ -22,69 +14,41 @@ import { isPathingAnchor } from './pathing-anchor.ts';
 import { bodyBounds } from './spatial.ts';
 
 export const INF = 0x7fffffff;
+export const PATH_CELLS_PER_TILE = 2;
+export const PATH_CELL = TILE / PATH_CELLS_PER_TILE;
+
 const LIMIT = 24; // cached fields per State (LRU by insertion order)
-const CLEARANCE_CLASSES = 4;
-const TILE_FX = TILE * ONE;
-const HALF_TILE_FX = TILE_FX >> 1;
-type Dilation = { left: number; right: number; up: number; down: number };
-const DILATIONS: readonly Dilation[] = [
-  { left: 0, right: 0, up: 0, down: 0 },
-  { left: 1, right: 1, up: 0, down: 0 },
-  { left: 0, right: 0, up: 0, down: 1 },
-  { left: 1, right: 1, up: 1, down: 1 },
-];
+const FIELD_KEY_STRIDE = 128;
+const RAW_CLEARANCE_PX = (TILE >> 1) - 1;
+const PATH_CELL_FX = PATH_CELL * ONE;
+
 type Nav = {
   sig: number;
   solid: Uint8Array;
-  clearanceSolid: Uint8Array[];
+  pathSolid: Uint8Array;
+  pathOpen: Uint8Array;
+  clearance: Map<number, Uint8Array>;
   fields: Map<number, Int32Array>;
-  unitTick: number[];
-  unitSolid: Uint8Array[];
-  unitTiles: Int32Array[];
-  unitTileCount: number[];
-  unitHasSolid: boolean[];
+  unitTick: number;
+  unitSolid: Uint8Array;
+  unitTiles: Int32Array;
+  unitTileCount: number;
+  unitHasSolid: boolean;
 };
+
 const navByState = new WeakMap<State, Nav>();
 
-const newMasks = (count: number, size: number): Uint8Array[] =>
-  Array.from({ length: count }, () => new Uint8Array(size));
-
-const newTileLists = (count: number, size: number): Int32Array[] =>
-  Array.from({ length: count }, () => new Int32Array(size));
-
-const extraTiles = (extent: number): number => Math.max(0, Math.ceil((extent - HALF_TILE_FX) / TILE_FX));
-
-export const navClearanceClass = (kind: number): number => {
+const bodyExtentPx = (kind: number): number => {
   const b = bodyBounds(kind);
-  const left = extraTiles(b.left);
-  const right = extraTiles(b.right);
-  const up = extraTiles(b.up);
-  const down = extraTiles(b.down);
-  if (left === 0 && right === 0 && up === 0 && down === 0) return 0;
-  if (left <= 1 && right <= 1 && up === 0 && down === 0) return 1;
-  if (left === 0 && right === 0 && up === 0 && down <= 1) return 2;
-  return 3;
+  const max = Math.max(b.left, b.right, b.up, b.down);
+  return Math.trunc((max + ONE - 1) / ONE);
 };
 
-const stampDilated = (
-  m: State['map'],
-  mask: Uint8Array,
-  tx: number,
-  ty: number,
-  d: Dilation,
-  touched?: Int32Array,
-  count = 0,
-): number => {
-  for (let y = Math.max(0, ty - d.down); y <= Math.min(m.h - 1, ty + d.up); y++) {
-    for (let x = Math.max(0, tx - d.right); x <= Math.min(m.w - 1, tx + d.left); x++) {
-      const tile = y * m.w + x;
-      if (mask[tile] === 1) continue;
-      mask[tile] = 1;
-      if (touched) touched[count++] = tile;
-    }
-  }
-  return count;
-};
+export const pathW = (s: State): number => s.map.w * PATH_CELLS_PER_TILE;
+export const pathH = (s: State): number => s.map.h * PATH_CELLS_PER_TILE;
+export const pathX = (xfx: number): number => Math.floor(xfx / PATH_CELL_FX);
+export const pathY = (yfx: number): number => Math.floor(yfx / PATH_CELL_FX);
+export const pathCenterFx = (t: number): number => t * PATH_CELL_FX + (PATH_CELL_FX >> 1);
 
 /** Solid = grounded structures that aren't resources (a refinery on a geyser stays walkable). */
 const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & (Role.Resource | Role.Air)) === 0;
@@ -100,54 +64,73 @@ const buildSig = (s: State): number => {
   return h >>> 0;
 };
 
-const stampSolid = (s: State, solid: Uint8Array): void => {
+const stampPathTile = (pathSolid: Uint8Array, pw: number, tx: number, ty: number): void => {
+  const px0 = tx * PATH_CELLS_PER_TILE;
+  const py0 = ty * PATH_CELLS_PER_TILE;
+  for (let oy = 0; oy < PATH_CELLS_PER_TILE; oy++) {
+    const row = (py0 + oy) * pw;
+    for (let ox = 0; ox < PATH_CELLS_PER_TILE; ox++) pathSolid[row + px0 + ox] = 1;
+  }
+};
+
+const buildPathOpen = (s: State, pathSolid: Uint8Array, pathOpen: Uint8Array): void => {
   const m = s.map;
+  const pw = pathW(s);
+  const ph = pathH(s);
+  for (let py = 0; py < ph; py++) {
+    const ty = Math.floor(py / PATH_CELLS_PER_TILE);
+    for (let px = 0; px < pw; px++) {
+      const tx = Math.floor(px / PATH_CELLS_PER_TILE);
+      const t = py * pw + px;
+      pathOpen[t] = m.walk[ty * m.w + tx] === 1 && pathSolid[t] === 0 ? 1 : 0;
+    }
+  }
+};
+
+const stampSolid = (s: State, solid: Uint8Array, pathSolid: Uint8Array, pathOpen: Uint8Array): void => {
+  const m = s.map;
+  const pw = pathW(s);
   solid.fill(0);
+  pathSolid.fill(0);
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || !blocks(e.flags[i]!)) continue;
     const fp = structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!);
     for (let ty = Math.max(0, fp.y0); ty <= Math.min(m.h - 1, fp.y1); ty++) {
-      for (let tx = Math.max(0, fp.x0); tx <= Math.min(m.w - 1, fp.x1); tx++) solid[ty * m.w + tx] = 1;
+      for (let tx = Math.max(0, fp.x0); tx <= Math.min(m.w - 1, fp.x1); tx++) {
+        solid[ty * m.w + tx] = 1;
+        stampPathTile(pathSolid, pw, tx, ty);
+      }
     }
   }
-};
-
-const stampClearanceSolids = (s: State, nav: Nav): void => {
-  const m = s.map;
-  for (const mask of nav.clearanceSolid) mask.fill(0);
-  for (let tile = 0; tile < m.walk.length; tile++) {
-    if (m.walk[tile] === 1 && nav.solid[tile] === 0) continue;
-    const tx = tile % m.w;
-    const ty = (tile - tx) / m.w;
-    for (let cls = 0; cls < CLEARANCE_CLASSES; cls++) {
-      stampDilated(m, nav.clearanceSolid[cls]!, tx, ty, DILATIONS[cls]!);
-    }
-  }
+  buildPathOpen(s, pathSolid, pathOpen);
 };
 
 /** Refresh a State's pathing context; rebuild the solid grid + drop stale fields if buildings changed. */
 export const prepareNav = (s: State): Nav => {
   let nav = navByState.get(s);
   if (!nav) {
+    const pathCells = pathW(s) * pathH(s);
     nav = {
       sig: -1,
       solid: new Uint8Array(s.map.w * s.map.h),
-      clearanceSolid: newMasks(CLEARANCE_CLASSES, s.map.w * s.map.h),
+      pathSolid: new Uint8Array(pathCells),
+      pathOpen: new Uint8Array(pathCells),
+      clearance: new Map(),
       fields: new Map(),
-      unitTick: Array(CLEARANCE_CLASSES).fill(-1),
-      unitSolid: newMasks(CLEARANCE_CLASSES, s.map.w * s.map.h),
-      unitTiles: newTileLists(CLEARANCE_CLASSES, s.map.w * s.map.h),
-      unitTileCount: Array(CLEARANCE_CLASSES).fill(0),
-      unitHasSolid: Array(CLEARANCE_CLASSES).fill(false),
+      unitTick: -1,
+      unitSolid: new Uint8Array(pathCells),
+      unitTiles: new Int32Array(pathCells),
+      unitTileCount: 0,
+      unitHasSolid: false,
     };
     navByState.set(s, nav);
   }
   const sig = buildSig(s);
   if (sig !== nav.sig) {
     nav.sig = sig;
-    stampSolid(s, nav.solid);
-    stampClearanceSolids(s, nav);
+    stampSolid(s, nav.solid, nav.pathSolid, nav.pathOpen);
+    nav.clearance.clear();
     nav.fields.clear();
   }
   return nav;
@@ -161,57 +144,160 @@ const navOf = (s: State): Nav => navByState.get(s) ?? prepareNav(s);
 let memoState: State | null = null;
 let memoSolid: Uint8Array = new Uint8Array(0);
 
-/** The current building-footprint grid (fetch once, then use `open` in hot loops). */
+/** The current build-tile building-footprint grid. */
 export const navSolid = (s: State): Uint8Array => {
   if (s !== memoState) { memoState = s; memoSolid = navOf(s).solid; }
   return memoSolid;
 };
 
-export const navClearanceSolid = (s: State, cls: number): Uint8Array => navOf(s).clearanceSolid[cls]!;
-
-/** Walkable terrain AND free of a building footprint, given a fetched solid grid. */
+/** Walkable terrain AND free of a building footprint, given a fetched build-tile solid grid. */
 export const open = (m: State['map'], solid: Uint8Array, tx: number, ty: number): boolean =>
   tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.walk[ty * m.w + tx] === 1 && solid[ty * m.w + tx] === 0;
 
-const openClearance = (m: State['map'], solid: Uint8Array, tx: number, ty: number): boolean =>
-  tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && solid[ty * m.w + tx] === 0;
-
-/** Single-tile passability check (does its own lookup; for occasional callers). */
+/** Single build-tile passability check (does its own lookup; for occasional callers). */
 export const navPassable = (s: State, tx: number, ty: number): boolean => open(s.map, navOf(s).solid, tx, ty);
 
-export const navPassableForKind = (s: State, kind: number, tx: number, ty: number): boolean =>
-  openClearance(s.map, navClearanceSolid(s, navClearanceClass(kind)), tx, ty);
+export const clearancePxForKind = (kind: number): number => {
+  const def = Units[kind];
+  if (!def || (def.roles & Role.Air) !== 0 || (def.roles & Role.Mobile) === 0) return 0;
+  const px = bodyExtentPx(kind);
+  if (px <= RAW_CLEARANCE_PX) return 0;
+  return px + (def.size === Size.Large || px >= (TILE >> 1) ? 1 : 0);
+};
 
-const refreshUnitSolid = (s: State, cls: number): Nav => {
+const bodyFits = (s: State, raw: Uint8Array, px: number, py: number, clearancePx: number): boolean => {
+  const pw = pathW(s);
+  const ph = pathH(s);
+  if (px < 0 || py < 0 || px >= pw || py >= ph) return false;
+  if (raw[py * pw + px] !== 1) return false;
+
+  const cx = px * PATH_CELL + (PATH_CELL >> 1);
+  const cy = py * PATH_CELL + (PATH_CELL >> 1);
+  const left = cx - clearancePx;
+  const right = cx + clearancePx;
+  const top = cy - clearancePx;
+  const bottom = cy + clearancePx;
+  if (left < 0 || top < 0 || right > s.map.w * TILE || bottom > s.map.h * TILE) return false;
+
+  const span = Math.trunc((clearancePx + PATH_CELL - 1) / PATH_CELL) + 1;
+  for (let by = Math.max(0, py - span); by <= Math.min(ph - 1, py + span); by++) {
+    const blockTop = by * PATH_CELL;
+    const blockBottom = blockTop + PATH_CELL;
+    if (bottom <= blockTop || top >= blockBottom) continue;
+    for (let bx = Math.max(0, px - span); bx <= Math.min(pw - 1, px + span); bx++) {
+      if (raw[by * pw + bx] === 1) continue;
+      const blockLeft = bx * PATH_CELL;
+      const blockRight = blockLeft + PATH_CELL;
+      if (right > blockLeft && left < blockRight) return false;
+    }
+  }
+  return true;
+};
+
+export const pathPass = (s: State, clearancePx: number): Uint8Array => {
   const nav = navOf(s);
-  if (nav.unitTick[cls] === s.tick) return nav;
-  nav.unitTick[cls] = s.tick;
-  const tiles = nav.unitTiles[cls]!;
-  const solid = nav.unitSolid[cls]!;
-  for (let i = 0; i < nav.unitTileCount[cls]!; i++) solid[tiles[i]!] = 0;
-  nav.unitTileCount[cls] = 0;
-  nav.unitHasSolid[cls] = false;
-  const e = s.e; const m = s.map;
+  if (clearancePx <= RAW_CLEARANCE_PX) return nav.pathOpen;
+  const cached = nav.clearance.get(clearancePx);
+  if (cached) return cached;
+  const pass = new Uint8Array(nav.pathOpen.length);
+  const pw = pathW(s);
+  const ph = pathH(s);
+  for (let py = 0; py < ph; py++) {
+    for (let px = 0; px < pw; px++) pass[py * pw + px] = bodyFits(s, nav.pathOpen, px, py, clearancePx) ? 1 : 0;
+  }
+  nav.clearance.set(clearancePx, pass);
+  return pass;
+};
+
+export const pathPassable = (s: State, clearancePx: number, px: number, py: number): boolean => {
+  const pw = pathW(s);
+  return px >= 0 && py >= 0 && px < pw && py < pathH(s) && pathPass(s, clearancePx)[py * pw + px] === 1;
+};
+
+export const navPassableForKind = (s: State, kind: number, tx: number, ty: number): boolean => {
+  const clearancePx = clearancePxForKind(kind);
+  const px0 = tx * PATH_CELLS_PER_TILE;
+  const py0 = ty * PATH_CELLS_PER_TILE;
+  for (let oy = 0; oy < PATH_CELLS_PER_TILE; oy++) {
+    for (let ox = 0; ox < PATH_CELLS_PER_TILE; ox++) {
+      if (pathPassable(s, clearancePx, px0 + ox, py0 + oy)) return true;
+    }
+  }
+  return false;
+};
+
+const stampPathBody = (
+  s: State,
+  solid: Uint8Array,
+  touched: Int32Array,
+  count: number,
+  xfx: number,
+  yfx: number,
+  radiusPx: number,
+): number => {
+  const W = pathW(s);
+  const H = pathH(s);
+  const cx = Math.trunc(xfx / ONE);
+  const cy = Math.trunc(yfx / ONE);
+  const left = cx - radiusPx;
+  const right = cx + radiusPx;
+  const top = cy - radiusPx;
+  const bottom = cy + radiusPx;
+  const x0 = Math.max(0, Math.trunc(left / PATH_CELL) - 1);
+  const y0 = Math.max(0, Math.trunc(top / PATH_CELL) - 1);
+  const x1 = Math.min(W - 1, Math.trunc((right + PATH_CELL - 1) / PATH_CELL) + 1);
+  const y1 = Math.min(H - 1, Math.trunc((bottom + PATH_CELL - 1) / PATH_CELL) + 1);
+  for (let py = y0; py <= y1; py++) {
+    const blockTop = py * PATH_CELL;
+    const blockBottom = blockTop + PATH_CELL;
+    if (bottom <= blockTop || top >= blockBottom) continue;
+    for (let px = x0; px <= x1; px++) {
+      const blockLeft = px * PATH_CELL;
+      const blockRight = blockLeft + PATH_CELL;
+      if (right <= blockLeft || left >= blockRight) continue;
+      const tile = py * W + px;
+      if (solid[tile] === 1) continue;
+      solid[tile] = 1;
+      touched[count++] = tile;
+    }
+  }
+  return count;
+};
+
+const refreshUnitSolid = (s: State): Nav => {
+  const nav = navOf(s);
+  if (nav.unitTick === s.tick) return nav;
+  nav.unitTick = s.tick;
+  for (let i = 0; i < nav.unitTileCount; i++) nav.unitSolid[nav.unitTiles[i]!] = 0;
+  nav.unitTileCount = 0;
+  nav.unitHasSolid = false;
+  const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (!isPathingAnchor(s, i)) continue;
-    const tx = Math.floor(e.x[i]! / TILE_FX);
-    const ty = Math.floor(e.y[i]! / TILE_FX);
-    if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) continue;
-    nav.unitTileCount[cls] = stampDilated(m, solid, tx, ty, DILATIONS[cls]!, tiles, nav.unitTileCount[cls]!);
-    nav.unitHasSolid[cls] = true;
+    nav.unitTileCount = stampPathBody(
+      s,
+      nav.unitSolid,
+      nav.unitTiles,
+      nav.unitTileCount,
+      e.x[i]!,
+      e.y[i]!,
+      bodyExtentPx(e.kind[i]!),
+    );
+    nav.unitHasSolid = true;
   }
   return nav;
 };
 
-export const navUnitSolid = (s: State, cls = 0): Uint8Array => refreshUnitSolid(s, cls).unitSolid[cls]!;
-export const navHasUnitSolid = (s: State, cls = 0): boolean => refreshUnitSolid(s, cls).unitHasSolid[cls]!;
+export const navUnitSolid = (s: State): Uint8Array => refreshUnitSolid(s).unitSolid;
+export const navHasUnitSolid = (s: State): boolean => refreshUnitSolid(s).unitHasSolid;
 
 /** Integer Dijkstra from `goal` over combined terrain+building passability. */
-const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
-  const m = s.map; const W = m.w;
-  const dist = new Int32Array(W * m.h).fill(INF);
+const compute = (s: State, pass: Uint8Array, goal: number): Int32Array => {
+  const W = pathW(s);
+  const H = pathH(s);
+  const dist = new Int32Array(W * H).fill(INF);
   const gx = goal % W; const gy = (goal - gx) / W;
-  if (!openClearance(m, solid, gx, gy)) return dist;
+  if (gx < 0 || gy < 0 || gx >= W || gy >= H || pass[goal] !== 1) return dist;
 
   const heapT: number[] = []; const heapK: number[] = [];
   const swap = (a: number, b: number): void => {
@@ -247,8 +333,8 @@ const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
         const nx = ux + dx; const ny = uy + dy;
-        if (!openClearance(m, solid, nx, ny)) continue;
-        if (dx !== 0 && dy !== 0 && (!openClearance(m, solid, ux + dx, uy) || !openClearance(m, solid, ux, uy + dy))) continue;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || pass[ny * W + nx] !== 1) continue;
+        if (dx !== 0 && dy !== 0 && (pass[uy * W + ux + dx] !== 1 || pass[(uy + dy) * W + ux] !== 1)) continue;
         const v = ny * W + nx;
         const nd = dist[u]! + (dx !== 0 && dy !== 0 ? 14 : 10);
         if (nd < dist[v]!) { dist[v] = nd; push(v, nd); }
@@ -258,41 +344,85 @@ const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
   return dist;
 };
 
-/** Distance field to `goalTile` for State `s`, cached until the building layout changes. */
-export const flowField = (s: State, goalTile: number, cls = 0): Int32Array => {
+/** Distance field to a path-cell goal for State `s`, cached until the building layout changes. */
+export const flowField = (s: State, goalCell: number, clearancePx = 0): Int32Array => {
   const nav = navOf(s);
-  const key = goalTile * CLEARANCE_CLASSES + cls;
+  const key = goalCell * FIELD_KEY_STRIDE + Math.min(clearancePx, FIELD_KEY_STRIDE - 1);
   const hit = nav.fields.get(key);
   if (hit) return hit;
-  const field = compute(s, nav.clearanceSolid[cls]!, goalTile);
+  const field = compute(s, pathPass(s, clearancePx), goalCell);
   nav.fields.set(key, field);
   if (nav.fields.size > LIMIT) nav.fields.delete(nav.fields.keys().next().value!);
   return field;
 };
 
-/** Neighbour tile one step downhill toward the goal, or -1 at the goal/unreachable. */
+/** Neighbour path cell one step downhill toward the goal, or -1 at the goal/unreachable. */
 export const downhill = (
   s: State,
-  solid: Uint8Array,
   field: Int32Array,
   tx: number,
   ty: number,
   unitSolid: Uint8Array | null = null,
+  clearancePx = 0,
 ): number => {
-  const m = s.map; const W = m.w;
+  const W = pathW(s);
+  const H = pathH(s);
+  const pass = pathPass(s, clearancePx);
   const here = field[ty * W + tx]!;
   if (here === INF || here === 0) return -1;
   let best = -1; let bestD = here;
+  let fallback = -1; let fallbackD = INF;
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       if (dx === 0 && dy === 0) continue;
       const nx = tx + dx; const ny = ty + dy;
-      if (!openClearance(m, solid, nx, ny)) continue;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || pass[ny * W + nx] !== 1) continue;
       if (unitSolid !== null && unitSolid[ny * W + nx] === 1) continue;
-      if (dx !== 0 && dy !== 0 && (!openClearance(m, solid, tx + dx, ty) || !openClearance(m, solid, tx, ty + dy))) continue;
+      if (dx !== 0 && dy !== 0) {
+        const sideA = ty * W + tx + dx;
+        const sideB = (ty + dy) * W + tx;
+        if (pass[sideA] !== 1 || pass[sideB] !== 1) continue;
+        if (unitSolid !== null && (unitSolid[sideA] === 1 || unitSolid[sideB] === 1)) continue;
+      }
       const v = ny * W + nx;
       if (field[v]! < bestD) { bestD = field[v]!; best = v; }
+      if (field[v]! < fallbackD) { fallbackD = field[v]!; fallback = v; }
     }
   }
-  return best;
+  return best >= 0 ? best : fallback;
+};
+
+export const nearestPassablePathCell = (
+  s: State,
+  clearancePx: number,
+  goalX: number,
+  goalY: number,
+  startX: number,
+  startY: number,
+): number => {
+  const W = pathW(s);
+  const H = pathH(s);
+  const pass = pathPass(s, clearancePx);
+  if (goalX >= 0 && goalY >= 0 && goalX < W && goalY < H && pass[goalY * W + goalX] === 1) return goalY * W + goalX;
+  const maxR = PATH_CELLS_PER_TILE * 8;
+  for (let r = 1; r <= maxR; r++) {
+    let best = -1;
+    let bestStartD = INF;
+    for (let y = goalY - r; y <= goalY + r; y++) {
+      for (let x = goalX - r; x <= goalX + r; x++) {
+        if (x !== goalX - r && x !== goalX + r && y !== goalY - r && y !== goalY + r) continue;
+        if (x < 0 || y < 0 || x >= W || y >= H || pass[y * W + x] !== 1) continue;
+        const dx = x - startX;
+        const dy = y - startY;
+        const d = dx * dx + dy * dy;
+        const tile = y * W + x;
+        if (d < bestStartD || (d === bestStartD && tile < best)) {
+          best = tile;
+          bestStartD = d;
+        }
+      }
+    }
+    if (best >= 0) return best;
+  }
+  return -1;
 };

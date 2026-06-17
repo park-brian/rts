@@ -13,7 +13,7 @@ test('lifted terran buildings move, stop producing, and restore landed capabilit
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 140 });
   const s = sim.fullState();
   const e = s.e;
-  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(700), fx(700)));
+  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(1_400), fx(1_400)));
   s.players.minerals[0] = 1_000;
 
   const lifted = sim.step([{ player: 0, cmds: [{ t: 'lift', building: eid(e, cc) }] }]);
@@ -26,22 +26,22 @@ test('lifted terran buildings move, stop producing, and restore landed capabilit
   assert.deepEqual(trainWhileLifted, [{ player: 0, index: 0, t: 'train', ok: false, reason: 'missing-capability' }]);
 
   const beforeX = e.x[cc]!;
-  const move = sim.step([{ player: 0, cmds: [{ t: 'move', unit: eid(e, cc), x: fx(860), y: fx(700) }] }]);
+  const move = sim.step([{ player: 0, cmds: [{ t: 'move', unit: eid(e, cc), x: fx(1_560), y: fx(1_400) }] }]);
   assert.deepEqual(move, [{ player: 0, index: 0, t: 'move', ok: true }]);
   for (let i = 0; i < 5; i++) sim.step([]);
   assert.equal(e.order[cc], Order.Move);
   assert.ok(e.x[cc]! > beforeX, 'lifted building moves as an air unit');
 
-  const landed = sim.step([{ player: 0, cmds: [{ t: 'land', building: eid(e, cc), x: fx(860), y: fx(700) }] }]);
+  const landed = sim.step([{ player: 0, cmds: [{ t: 'land', building: eid(e, cc), x: fx(1_560), y: fx(1_400) }] }]);
   assert.deepEqual(landed, [{ player: 0, index: 0, t: 'land', ok: true }]);
   assert.equal(e.order[cc], Order.Move);
   assert.notEqual((e.flags[cc]! & Role.Air), 0);
-  assert.ok(e.x[cc]! < fx(860), 'land command does not teleport the lifted building');
+  assert.ok(e.x[cc]! < fx(1_560), 'land command does not teleport the lifted building');
 
   for (let i = 0; i < 300 && (e.flags[cc]! & Role.Air) !== 0; i++) sim.step([]);
   assert.equal(e.flags[cc], Units[Kind.CommandCenter]!.roles);
   assert.equal(e.order[cc], Order.Idle);
-  assert.equal(e.x[cc], snapBuildAnchor(fx(860), fx(700)).x);
+  assert.equal(e.x[cc], snapBuildAnchor(fx(1_560), fx(1_400)).x);
 
   const trainAfterLanding = sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, cc), kind: Kind.SCV }] }]);
   assert.deepEqual(trainAfterLanding, [{ player: 0, index: 0, t: 'train', ok: true }]);

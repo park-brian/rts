@@ -18,10 +18,12 @@ import { interceptors } from './systems/interceptors.ts';
 import { movement } from './systems/movement.ts';
 import { cargo } from './systems/cargo.ts';
 import { collide } from './systems/collision.ts';
+import { settleMovement } from './systems/settle.ts';
 import { vision } from './systems/vision.ts';
 import { victory } from './systems/victory.ts';
 import { buildGrid } from './grid.ts';
 import { prepareNav } from './flow.ts';
+import { prepareLocalAvoidance } from './local-avoidance.ts';
 import { updateCloakAuras } from './detection.ts';
 
 export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] => {
@@ -38,12 +40,14 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] =>
   repair(s);
   const grid = buildGrid(s); // spatial index for target acquisition + collision
   mines(s);
+  prepareLocalAvoidance(s); // common pre-move body snapshot for local steering
   combat(s, grid);
   scarabs(s);
   interceptors(s);
   movement(s);
   cargo(s);
   collide(s); // builds its own fine (one-tile) grid for tight overlap resolution
+  settleMovement(s);
   if (s.trackVision) vision(s); // per-player fog (derived; for observe()/rendering)
   victory(s);
   s.tick++;

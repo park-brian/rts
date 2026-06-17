@@ -14,7 +14,7 @@ import { TILE, Units, weaponForTarget } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';
 import { isContained } from './cargo.ts';
-import { MAX_BODY_REACH, bodyBounds, edgeDistanceSq } from './spatial.ts';
+import { MAX_BODY_REACH, bodyBounds, topDownEdgeDistanceSq } from './spatial.ts';
 
 const CELL_TILES = 4;
 const CELL_FX = CELL_TILES * TILE * ONE; // cell size in fixed px
@@ -91,7 +91,7 @@ export const nearestAttackableEnemy = (s: State, g: Grid, i: number, range: numb
       for (let j = g.head[row + gx]!; j >= 0; j = g.next[j]!) {
         if (j === i || isContained(s, j) || !isEnemy(s, owner, e.owner[j]!) || !canDetect(s, owner, j)) continue;
         if (!weaponForTarget(attacker, Units[e.kind[j]!]!)) continue;
-        const d = edgeDistanceSq(s, i, j);
+        const d = topDownEdgeDistanceSq(s, i, j);
         if (d <= r2 && (d < bestD || (d === bestD && j < best))) { bestD = d; best = j; }
       }
     }

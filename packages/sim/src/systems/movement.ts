@@ -9,6 +9,7 @@ import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '
 import { isContained } from '../cargo.ts';
 import { placementForStructure } from '../validation.ts';
 import { eid, NONE } from '../world.ts';
+import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 
 const landIfArrived = (s: State, slot: number): void => {
   const e = s.e;
@@ -41,6 +42,8 @@ export const movement = (s: State): void => {
       e.order[i] = Order.Idle;
       continue;
     }
-    if (navigate(s, i, e.tx[i]!, e.ty[i]!, effectiveSpeed(s, e, i, speed))) landIfArrived(s, i);
+    const arrived = navigate(s, i, e.tx[i]!, e.ty[i]!, effectiveSpeed(s, e, i, speed));
+    if (arrived && e.target[i] === eid(e, i) && isLiftedStructureFlags(e.flags[i]!)) landIfArrived(s, i);
+    else if (arrived && !isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) e.order[i] = Order.Idle;
   }
 };

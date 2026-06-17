@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
-import { count, eid, kill, slotOf } from '../src/world.ts';
+import { sliceMap, type MapDef } from '../src/map.ts';
+import { count, eid, kill, makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, Role, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { snapBuildAnchor } from '../src/footprint.ts';
+import { placementForStructure } from '../src/validation.ts';
 
 const findSlot = (sim: Sim, pred: (slot: number) => boolean): number => {
   const e = sim.fullState().e;
@@ -15,6 +16,22 @@ const findSlot = (sim: Sim, pred: (slot: number) => boolean): number => {
 };
 
 const snapped = (px: number): number => fx(Math.floor(px / TILE) * TILE + TILE / 2);
+const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
+const open = (resources: MapDef['resources'] = []): MapDef => {
+  const w = 32;
+  const h = 32;
+  return {
+    name: 'open',
+    w,
+    h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h),
+    starts: [],
+    resources,
+    teams: [],
+  };
+};
 
 test('invalid commands do not mutate incompatible recipients', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 101 });
@@ -102,8 +119,8 @@ test('land placement snaps raw cursor coordinates to the build grid anchor', () 
     { player: 0, index: 0, t: 'lift', ok: true },
   ]);
 
-  const rawX = 1063;
-  const rawY = 2671;
+  const rawX = 1600;
+  const rawY = 1600;
   const results = sim.step([{ player: 0, cmds: [
     { t: 'land', building: eid(e, cc), x: fx(rawX), y: fx(rawY) },
   ] }]);
@@ -114,12 +131,51 @@ test('land placement snaps raw cursor coordinates to the build grid anchor', () 
   assert.notEqual((e.flags[cc]! & Role.Air), 0);
   assert.notEqual(e.x[cc], target.x, 'land command should not teleport lifted structures');
 
-  for (let i = 0; i < 400 && (e.flags[cc]! & Role.Air) !== 0; i++) sim.step([]);
+  for (let i = 0; i < 2_000 && (e.flags[cc]! & Role.Air) !== 0; i++) sim.step([]);
 
   assert.equal(e.order[cc], Order.Idle);
   assert.equal(e.flags[cc], Units[Kind.CommandCenter]!.roles);
   assert.equal(e.x[cc], target.x);
   assert.equal(e.y[cc], target.y);
+});
+
+test('resource depots use BWAPI mineral placement exclusion boundaries', () => {
+  const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery];
+  for (const kind of depotKinds) {
+    const blocked = makeState(open([{ x: 6, y: 8, amount: 1500, gas: false }]), 1, 1);
+    assert.deepEqual(placementForStructure(blocked, kind, tc(12), tc(12)), { ok: false, reason: 'placement-blocked' });
+
+    const leftBoundary = makeState(open([{ x: 5, y: 8, amount: 1500, gas: false }]), 1, 1);
+    assert.equal(placementForStructure(leftBoundary, kind, tc(12), tc(12)).ok, true);
+
+    const topBoundary = makeState(open([{ x: 6, y: 7, amount: 1500, gas: false }]), 1, 1);
+    assert.equal(placementForStructure(topBoundary, kind, tc(12), tc(12)).ok, true);
+  }
+});
+
+test('resource depots use BWAPI geyser placement exclusion boundaries', () => {
+  const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery];
+  for (const kind of depotKinds) {
+    const blocked = makeState(open([{ x: 4, y: 7, amount: 0, gas: true }]), 1, 1);
+    assert.deepEqual(placementForStructure(blocked, kind, tc(12), tc(12)), { ok: false, reason: 'placement-blocked' });
+
+    const leftBoundary = makeState(open([{ x: 3, y: 7, amount: 0, gas: true }]), 1, 1);
+    assert.equal(placementForStructure(leftBoundary, kind, tc(12), tc(12)).ok, true);
+
+    const topBoundary = makeState(open([{ x: 4, y: 6, amount: 0, gas: true }]), 1, 1);
+    assert.equal(placementForStructure(topBoundary, kind, tc(12), tc(12)).ok, true);
+  }
+});
+
+test('resource depot placement follows live resources after map setup', () => {
+  const s = makeState(open([{ x: 6, y: 8, amount: 1500, gas: false }]), 1, 1);
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, fx(7 * TILE), fx(8.5 * TILE)));
+
+  assert.deepEqual(placementForStructure(s, Kind.CommandCenter, tc(12), tc(12)), { ok: false, reason: 'placement-blocked' });
+
+  kill(s, mineral);
+
+  assert.equal(placementForStructure(s, Kind.CommandCenter, tc(12), tc(12)).ok, true);
 });
 
 test('same-tick production reserves supply across multiple producers', () => {

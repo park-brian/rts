@@ -4,10 +4,12 @@
 
 import { createBot } from '@rts/ai';
 import {
-  Sim, Terran, Zerg, generateMap, type Command, type Controller, type Faction, type PlayerCommands,
+  Sim, Terran, Zerg, generateMap,
+  Kind, Order, TILE, eid, fx, hashState, makeState, slotOf, spawnUnit, stepWorld,
+  type Command, type Controller, type Faction, type MapDef, type PlayerCommands,
 } from '@rts/sim';
 
-export type BenchCaseName = 'step-no-vision' | 'step-vision' | 'observe-results';
+export type BenchCaseName = 'step-no-vision' | 'step-vision' | 'observe-results' | 'movement-deathball';
 
 export type BenchResult = {
   name: BenchCaseName;
@@ -21,6 +23,10 @@ export type BenchResult = {
   accepted: number;
   rejected: number;
   hash: number;
+  units?: number;
+  settled?: number;
+  activeOrders?: number;
+  distinctPositions?: number;
   elapsedMs: number;
   ticksPerSecond: number;
 };
@@ -45,7 +51,22 @@ const CASES: BenchCase[] = [
   { name: 'step-no-vision', vision: false, observe: false, resultProbe: false },
   { name: 'step-vision', vision: true, observe: false, resultProbe: false },
   { name: 'observe-results', vision: true, observe: true, resultProbe: true },
+  { name: 'movement-deathball', vision: false, observe: false, resultProbe: false },
 ];
+
+const MOVEMENT_STRESS_UNITS = 32;
+const MOVEMENT_KINDS: readonly number[] = [
+  Kind.Marine, Kind.Firebat, Kind.Zealot, Kind.Hydralisk,
+  Kind.Goliath, Kind.Dragoon, Kind.SiegeTank, Kind.Ultralisk,
+];
+const tileCenter = (t: number): number => fx(t * TILE + (TILE >> 1));
+
+const blankMap = (name: string, w: number, h: number): MapDef => ({
+  name, w, h,
+  walk: new Uint8Array(w * h).fill(1),
+  build: new Uint8Array(w * h).fill(1),
+  elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+});
 
 const makeControllers = (): Controller[] =>
   FACTIONS.map((faction, i) => createBot(faction, {
@@ -64,7 +85,67 @@ const batchFor = (sim: Sim, controllers: Controller[], resultProbe: boolean): Pl
   });
 };
 
+const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  const s = makeState(blankMap('Bench Movement Deathball', 96, 96), 1, opts.seed);
+  const goalX = tileCenter(54);
+  const goalY = tileCenter(30);
+  const slots: number[] = [];
+  for (let i = 0; i < MOVEMENT_STRESS_UNITS; i++) {
+    const x = tileCenter(18 + (i % 8) * 2);
+    const y = tileCenter(72 + ((i / 8) | 0) * 2);
+    slots.push(slotOf(spawnUnit(s, MOVEMENT_KINDS[i % MOVEMENT_KINDS.length]!, 0, x, y)));
+  }
+  const batch: PlayerCommands[] = [{
+    player: 0,
+    cmds: slots.map((slot) => ({ t: 'move' as const, unit: eid(s.e, slot), x: goalX, y: goalY })),
+  }];
+
+  let commandResults = 0;
+  let accepted = 0;
+  let rejected = 0;
+  const start = performance.now();
+  for (let i = 0; i < opts.ticks; i++) {
+    const results = stepWorld(s, i === 0 ? batch : []);
+    commandResults += results.length;
+    for (const result of results) {
+      if (result.ok) accepted++;
+      else rejected++;
+    }
+  }
+
+  let settled = 0;
+  let activeOrders = 0;
+  const positions = new Set<string>();
+  for (const slot of slots) {
+    if (s.e.settled[slot] === 1) settled++;
+    if (s.e.order[slot] === Order.Move || s.e.order[slot] === Order.AttackMove) activeOrders++;
+    positions.add(`${s.e.x[slot]},${s.e.y[slot]}`);
+  }
+
+  const elapsedMs = Math.max(0.001, performance.now() - start);
+  return {
+    name: 'movement-deathball',
+    seed: opts.seed,
+    ticks: s.tick,
+    players: 1,
+    vision: false,
+    observations: 0,
+    observedEntities: 0,
+    commandResults,
+    accepted,
+    rejected,
+    hash: hashState(s),
+    units: slots.length,
+    settled,
+    activeOrders,
+    distinctPositions: positions.size,
+    elapsedMs: Number(elapsedMs.toFixed(3)),
+    ticksPerSecond: Number((s.tick / (elapsedMs / 1000)).toFixed(1)),
+  };
+};
+
 const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  if (bench.name === 'movement-deathball') return runMovementDeathballCase(opts);
   const players = FACTIONS.length;
   const sim = new Sim({
     map: generateMap(players / 2, opts.seed),

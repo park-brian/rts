@@ -8,17 +8,17 @@ import { Sim } from './sim.ts';
 import type { Command, PlayerCommands } from './commands.ts';
 import { Factions, factionNameOf, type FactionName } from './data.ts';
 import { sliceMap, type MapDef } from './map.ts';
-import { generateMap } from './procedural.ts';
+import { generateMap, type MapPreset, type MidfieldModule } from './procedural.ts';
 
 export const REPLAY_VERSION = 1;
 
 /** How to reconstruct the map deterministically (the map isn't stored, its recipe is). */
 export type MapSpec =
   | { kind: 'slice' }
-  | { kind: 'procedural'; perTeam: number; seed: number };
+  | { kind: 'procedural'; perTeam: number; seed: number; preset?: MapPreset; midfield?: MidfieldModule };
 
 export const mapFromSpec = (spec: MapSpec): MapDef =>
-  spec.kind === 'slice' ? sliceMap() : generateMap(spec.perTeam, spec.seed);
+  spec.kind === 'slice' ? sliceMap() : generateMap(spec.perTeam, spec.seed, { preset: spec.preset, midfield: spec.midfield });
 
 export type Replay = {
   version: number;
@@ -70,6 +70,16 @@ const readArray = (x: unknown, msg: string): unknown[] => {
   return fail(msg);
 };
 
+const validateMapPreset = (x: unknown): MapPreset => {
+  if (x === 'teamPlateaus') return x;
+  return fail('unknown procedural map preset');
+};
+
+const validateMidfieldModule = (x: unknown): MidfieldModule => {
+  if (x === 'empty' || x === 'blocks' || x === 'dualChoke' || x === 'arena' || x === 'raisedCenter') return x;
+  return fail('unknown procedural midfield module');
+};
+
 const validateMapSpec = (x: unknown): MapSpec => {
   const r = asRecord(x, 'map must be an object');
   const kind = r.kind;
@@ -77,7 +87,15 @@ const validateMapSpec = (x: unknown): MapSpec => {
   if (kind === 'procedural') {
     const perTeam = readPositiveInt(r.perTeam, 'procedural map perTeam must be a positive integer');
     const seed = readInt(r.seed, 'procedural map seed must be an integer');
-    return { kind: 'procedural', perTeam, seed };
+    const preset = r.preset === undefined ? undefined : validateMapPreset(r.preset);
+    const midfield = r.midfield === undefined ? undefined : validateMidfieldModule(r.midfield);
+    return {
+      kind: 'procedural',
+      perTeam,
+      seed,
+      ...(preset === undefined ? {} : { preset }),
+      ...(midfield === undefined ? {} : { midfield }),
+    };
   }
   return fail('unknown map spec');
 };

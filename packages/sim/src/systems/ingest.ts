@@ -17,13 +17,16 @@ import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
 import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
+import { bodyBounds } from '../spatial.ts';
 
 const EMPTY_RESULTS: CommandResult[] = [];
 const GROUP_SLOT_SPACING = TILE * ONE;
+const GROUP_SLOT_SPACING_STEP = GROUP_SLOT_SPACING >> 1;
 
 type MoveGroupPlan = {
   count: Map<string, number>;
   rank: Map<string, number>;
+  spacing: Map<string, number>;
 };
 
 const moveGroupKey = (player: number, c: Command): string =>
@@ -31,7 +34,7 @@ const moveGroupKey = (player: number, c: Command): string =>
 
 const moveRankKey = (key: string, slot: number): string => `${key}:${slot}`;
 
-const groupOffset = (rank: number): { x: number; y: number } => {
+const groupOffset = (rank: number, spacing: number): { x: number; y: number } => {
   if (rank <= 0) return { x: 0, y: 0 };
   let ring = 1;
   while ((2 * ring + 1) * (2 * ring + 1) <= rank) ring++;
@@ -52,7 +55,18 @@ const groupOffset = (rank: number): { x: number; y: number } => {
     gx = -ring;
     gy = ring - 1 - (pos - side * 3);
   }
-  return { x: gx * GROUP_SLOT_SPACING, y: gy * GROUP_SLOT_SPACING };
+  return { x: gx * spacing, y: gy * spacing };
+};
+
+const roundedGroupSpacing = (s: State, slots: number[]): number => {
+  let spacing = GROUP_SLOT_SPACING;
+  for (const slot of slots) {
+    const b = bodyBounds(s.e.kind[slot]!);
+    const body = Math.max(b.left + b.right, b.up + b.down) + (GROUP_SLOT_SPACING_STEP >> 1);
+    const rounded = Math.trunc((body + GROUP_SLOT_SPACING_STEP - 1) / GROUP_SLOT_SPACING_STEP) * GROUP_SLOT_SPACING_STEP;
+    spacing = Math.max(spacing, rounded);
+  }
+  return spacing;
 };
 
 const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan => {
@@ -71,7 +85,7 @@ const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan =>
       break;
     }
   }
-  if (!hasGroup) return { count: new Map(), rank: new Map() };
+  if (!hasGroup) return { count: new Map(), rank: new Map(), spacing: new Map() };
 
   const groups = new Map<string, number[]>();
   for (const { player, cmds } of batch) {
@@ -92,11 +106,12 @@ const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan =>
       if (!group.includes(slot)) group.push(slot);
     }
   }
-  const plan: MoveGroupPlan = { count: new Map(), rank: new Map() };
+  const plan: MoveGroupPlan = { count: new Map(), rank: new Map(), spacing: new Map() };
   for (const [key, slots] of groups) {
     if (slots.length <= 1) continue;
     slots.sort((a, b) => a - b);
     plan.count.set(key, slots.length);
+    plan.spacing.set(key, roundedGroupSpacing(s, slots));
     for (let i = 0; i < slots.length; i++) plan.rank.set(moveRankKey(key, slots[i]!), i);
   }
   return plan;
@@ -111,8 +126,12 @@ const groupDestination = (
   const key = moveGroupKey(player, c);
   if ((plan.count.get(key) ?? 0) <= 1) return { x: c.x, y: c.y };
   const rank = plan.rank.get(moveRankKey(key, slot)) ?? 0;
-  const offset = groupOffset(rank);
+  const offset = groupOffset(rank, plan.spacing.get(key) ?? GROUP_SLOT_SPACING);
   return { x: c.x + offset.x, y: c.y + offset.y };
+};
+
+const clearSettled = (s: State, slot: number): void => {
+  s.e.settled[slot] = 0;
 };
 
 const startProduction = (s: State, slot: number, kind: number, player: number): void => {
@@ -159,6 +178,7 @@ const startBuild = (s: State, slot: number, kind: number, x: number, y: number, 
   const e = s.e;
   const def = Units[kind];
   if (!def) return;
+  clearSettled(s, slot);
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;
   e.order[slot] = Order.Build;
@@ -187,6 +207,7 @@ const startAddon = (s: State, parent: number, kind: number, player: number): voi
 
 const liftBuilding = (s: State, slot: number): void => {
   const e = s.e;
+  clearSettled(s, slot);
   e.flags[slot] = liftedStructureFlags(e.kind[slot]!);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
@@ -194,6 +215,7 @@ const liftBuilding = (s: State, slot: number): void => {
 
 const landBuilding = (s: State, slot: number, x: number, y: number): void => {
   const e = s.e;
+  clearSettled(s, slot);
   e.order[slot] = Order.Move;
   e.target[slot] = eid(e, slot);
   e.tx[slot] = x;
@@ -224,6 +246,7 @@ const setEntityKindFull = (s: State, slot: number, kind: number): void => {
 
 const transformUnit = (s: State, slot: number, kind: number): void => {
   const e = s.e;
+  clearSettled(s, slot);
   setEntityKind(s, slot, kind);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
@@ -233,6 +256,7 @@ const startMorph = (s: State, slot: number, kind: number): void => {
   const e = s.e;
   const def = Units[kind]!;
   const player = e.owner[slot]!;
+  clearSettled(s, slot);
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;
   e.morphFromKind[slot] = e.kind[slot]!;
@@ -255,6 +279,7 @@ const startMerge = (s: State, slot: number, kind: number, partner: number): void
   const def = Units[kind]!;
   const x = Math.trunc((e.x[slot]! + e.x[partner]!) / 2);
   const y = Math.trunc((e.y[slot]! + e.y[partner]!) / 2);
+  clearSettled(s, slot);
   kill(s, partner);
   setEntityKindFull(s, slot, kind);
   e.x[slot] = x;
@@ -281,6 +306,7 @@ const applyTransform = (s: State, slot: number, kind: number, target = NONE): vo
 
 const burrowUnit = (s: State, slot: number, active: boolean): void => {
   const e = s.e;
+  clearSettled(s, slot);
   e.burrowed[slot] = active ? 1 : 0;
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
@@ -288,6 +314,7 @@ const burrowUnit = (s: State, slot: number, active: boolean): void => {
 
 const laySpiderMine = (s: State, vulture: number): void => {
   const e = s.e;
+  clearSettled(s, vulture);
   e.specialAmmo[vulture] = e.specialAmmo[vulture]! - 1;
   const mine = slotOf(spawnUnit(s, Kind.SpiderMine, e.owner[vulture]!, e.x[vulture]!, e.y[vulture]!));
   e.burrowed[mine] = 1;
@@ -297,6 +324,7 @@ const laySpiderMine = (s: State, vulture: number): void => {
 
 const loadUnit = (s: State, transport: number, unit: number): void => {
   const e = s.e;
+  clearSettled(s, unit);
   e.container[unit] = eid(e, transport);
   e.x[unit] = e.x[transport]!;
   e.y[unit] = e.y[transport]!;
@@ -306,6 +334,7 @@ const loadUnit = (s: State, transport: number, unit: number): void => {
 
 const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   const e = s.e;
+  clearSettled(s, unit);
   e.container[unit] = NONE;
   e.x[unit] = x;
   e.y[unit] = y;
@@ -472,6 +501,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           const slot = slotOf(c.unit);
           const dest = groupDestination(c, slot, player, moveGroups);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           e.order[slot] = Order.Move;
           e.target[slot] = NONE;
           e.tx[slot] = dest.x;
@@ -482,6 +512,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'attack': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           e.order[slot] = Order.Attack;
           e.target[slot] = c.target;
           results.push({ player, index, t: c.t, ok: true });
@@ -491,6 +522,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           const slot = slotOf(c.unit);
           const dest = groupDestination(c, slot, player, moveGroups);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           e.order[slot] = Order.AttackMove;
           e.target[slot] = NONE;
           e.tx[slot] = dest.x;
@@ -499,13 +531,16 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           break;
         }
         case 'ability': {
-          castAbility(s, slotOf(c.unit), c);
+          const slot = slotOf(c.unit);
+          clearSettled(s, slot);
+          castAbility(s, slot, c);
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
         case 'harvest': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           e.order[slot] = Order.Harvest;
           e.target[slot] = c.patch;
           e.timer[slot] = 0;
@@ -515,6 +550,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'repair': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           const target = slotOf(c.target);
           if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
             resumeConstruction(s, slot, target);
@@ -544,6 +580,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'stop': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
+          clearSettled(s, slot);
           e.order[slot] = Order.Idle;
           e.target[slot] = NONE;
           results.push({ player, index, t: c.t, ok: true });

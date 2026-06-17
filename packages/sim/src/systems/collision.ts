@@ -2,7 +2,7 @@
 // pairs are pushed apart so an army forms a body around its target instead of
 // stacking on one pixel. Two passes (accumulate from pre-move positions, then
 // apply) so pushes are symmetric and order-independent; integer math, clamped to
-// walkable tiles. Deterministic.
+// the same clearance masks used by navigation. Deterministic.
 //
 // Scope: Mobile, non-Structure units that are neither Workers, Air, nor projectile
 // actors. Workers are excluded so mineral bunching/mining ranges work; Air units
@@ -17,11 +17,12 @@
 
 import type { State } from '../world.ts';
 import { CAP } from '../world.ts';
-import { Kind, Role, Units, TILE } from '../data.ts';
+import { Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
-import { navSolid, open } from '../flow.ts';
+import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../flow.ts';
 import { isContained } from '../cargo.ts';
 import { isPathingAnchor } from '../pathing-anchor.ts';
+import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable
 const TILE_FX = TILE * ONE;
@@ -33,10 +34,13 @@ const list = new Int32Array(CAP); // solid slots this tick (reused)
 const next = new Int32Array(CAP); // intrusive linked list within a grid cell
 let head = new Int32Array(0); // one cell per tile; grown to the largest map seen
 
-const isSolid = (kind: number, fl: number): boolean =>
-  kind !== Kind.Scarab &&
-  (fl & Role.Mobile) !== 0 && (fl & Role.Structure) === 0 &&
-  (fl & Role.Worker) === 0 && (fl & Role.Air) === 0;
+const canOccupy = (s: State, kind: number, xfx: number, yfx: number): boolean => {
+  const w = pathW(s);
+  const px = pathX(xfx);
+  const py = pathY(yfx);
+  if (px < 0 || py < 0 || px >= w || py >= pathH(s)) return false;
+  return pathPass(s, clearancePxForKind(kind))[py * w + px] === 1;
+};
 
 export const collide = (s: State): void => {
   const e = s.e; const m = s.map; const W = m.w; const H = m.h;
@@ -46,7 +50,7 @@ export const collide = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     ndx[i] = 0; ndy[i] = 0;
     anchored[i] = isPathingAnchor(s, i) ? 1 : 0;
-    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isSolid(e.kind[i]!, e.flags[i]!)) list[nl++] = i;
+    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) list[nl++] = i;
   }
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
 
@@ -93,12 +97,11 @@ export const collide = (s: State): void => {
     ndx[i] = ax; ndy[i] = ay;
   }
 
-  // 4) Apply, never shoving a unit into terrain or a building footprint.
-  const solid = navSolid(s);
+  // 4) Apply, never shoving a unit into terrain/buildings or a gap too small for its body.
   for (let k = 0; k < nl; k++) {
     const i = list[k]!;
     if (ndx[i] === 0 && ndy[i] === 0) continue;
     const nx = e.x[i]! + ndx[i]!; const ny = e.y[i]! + ndy[i]!;
-    if (open(m, solid, Math.floor(nx / TILE_FX), Math.floor(ny / TILE_FX))) { e.x[i] = nx; e.y[i] = ny; }
+    if (canOccupy(s, e.kind[i]!, nx, ny)) { e.x[i] = nx; e.y[i] = ny; }
   }
 };

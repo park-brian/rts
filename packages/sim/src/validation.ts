@@ -4,7 +4,7 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import type { State } from './world.ts';
 import { eid, isAlive, isEnemy, nearest, slotOf, NONE } from './world.ts';
-import { buildable, inBounds } from './map.ts';
+import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';
 import { fx } from './fixed.ts';
 import {
   Ability, Abilities, Kind, MAX_QUEUE, Order, ResourceType, Role, TECH_CAP, Tech, TechDefs, TILE, Units,
@@ -98,6 +98,49 @@ const placementBlockingKind = (s: State, slot: number): boolean => {
   return e.kind[slot] === Kind.Geyser;
 };
 
+const resourceBlocksDepotAt = (depotFp: Footprint, resourceFp: Footprint, gas: boolean): boolean => {
+  if (gas) {
+    return resourceFp.x0 > depotFp.x0 - 7 &&
+      resourceFp.y0 > depotFp.y0 - 5 &&
+      resourceFp.x0 < depotFp.x0 + 7 &&
+      resourceFp.y0 < depotFp.y0 + 6;
+  }
+  return resourceFp.x0 > depotFp.x0 - 5 &&
+    resourceFp.y0 > depotFp.y0 - 4 &&
+    resourceFp.x0 < depotFp.x0 + 7 &&
+    resourceFp.y0 < depotFp.y0 + 6;
+};
+
+const slotResourceFootprint = (s: State, slot: number): Footprint => {
+  const e = s.e;
+  return structureFootprint(e.kind[slot]!, e.x[slot]!, e.y[slot]!);
+};
+
+const resourceBlocksDepot = (s: State, depotFp: Footprint, slot: number): boolean => {
+  const e = s.e;
+  const def = Units[e.kind[slot]!];
+  if (!def) return false;
+  if (e.kind[slot] === Kind.Mineral) return resourceBlocksDepotAt(depotFp, slotResourceFootprint(s, slot), false);
+  if (e.kind[slot] === Kind.Geyser || def.resourceType === ResourceType.Gas) {
+    return resourceBlocksDepotAt(depotFp, slotResourceFootprint(s, slot), true);
+  }
+  return false;
+};
+
+const depotTooCloseToResources = (s: State, fp: Footprint, ignorePendingSlot: number): boolean => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (i === ignorePendingSlot || e.alive[i] !== 1 || isContained(s, i)) continue;
+    if (resourceBlocksDepot(s, fp, i)) return true;
+  }
+  if (e.hi > 0) return false;
+
+  for (const r of s.map.resources) {
+    if (resourceBlocksDepotAt(fp, resourceSpawnFootprint(r), r.gas)) return true;
+  }
+  return false;
+};
+
 const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
@@ -161,6 +204,10 @@ export const placementForStructure = (
       if (!inBounds(s.map, tx, ty)) return rejectPlace('placement-off-map');
       if (!buildable(s.map, tx, ty)) return rejectPlace('placement-blocked');
     }
+  }
+
+  if ((def.roles & Role.ResourceDepot) !== 0 && depotTooCloseToResources(s, fp, ignorePendingSlot)) {
+    return rejectPlace('placement-blocked');
   }
 
   for (let i = 0; i < e.hi; i++) {

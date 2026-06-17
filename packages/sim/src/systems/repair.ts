@@ -3,9 +3,10 @@ import { isAlive, slotOf, NONE } from '../world.ts';
 import type { State } from '../world.ts';
 import { navigate } from '../pathing.ts';
 import { REPAIR_RATE, isRepairableKind, repairCost } from '../repair.ts';
-import { faceToward, within } from './move.ts';
+import { faceToward } from './move.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
+import { withinTopDownEdgeRange } from '../spatial.ts';
 
 export const repair = (s: State): void => {
   const e = s.e;
@@ -21,7 +22,7 @@ export const repair = (s: State): void => {
       e.order[i] = Order.Idle; e.target[i] = NONE; continue;
     }
     faceToward(e, i, e.x[target]!, e.y[target]!);
-    if (!within(e, i, e.x[target]!, e.y[target]!, BUILD_RANGE)) {
+    if (!withinTopDownEdgeRange(s, i, target, BUILD_RANGE)) {
       navigate(s, i, e.x[target]!, e.y[target]!, effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed));
       continue;
     }

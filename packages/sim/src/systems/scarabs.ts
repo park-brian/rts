@@ -5,7 +5,7 @@ import { spawnUnit } from '../factory.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
 import { navigate } from '../pathing.ts';
-import { withinEdgeRange } from '../spatial.ts';
+import { withinTopDownEdgeRange } from '../spatial.ts';
 import { faceToward } from './move.ts';
 import { effectiveSpeed } from './status.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
@@ -33,7 +33,7 @@ export const launchScarab = (s: State, reaver: number, target: number): void => 
 
 const impactIfReady = (s: State, scarab: number, reaver: number, target: number): boolean => {
   const weapon = Units[Kind.Scarab]!.weapon!;
-  if (!withinEdgeRange(s, scarab, target, weapon.range)) return false;
+  if (!withinTopDownEdgeRange(s, scarab, target, weapon.range)) return false;
   applyWeaponHit(s, target, weapon, reaver);
   kill(s, scarab);
   return true;

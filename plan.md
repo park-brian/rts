@@ -724,14 +724,24 @@ Design target:
 Implementation:
 
 - Clearance-aware navigation:
+  - Introduce an internal pathing lattice finer than build tiles. The map/building data can stay
+    32px build-tile based, but navigation should run on derived pathing cells: prefer 16px as the
+    first performance-conscious step, and keep the API shaped so it can move to true BW-style 8px
+    walk cells if tuning shows the extra precision is needed.
+  - Derive the pathing lattice from `MapDef.walk` and stamped building footprints. A blocked
+    build tile fills its child pathing cells; an open build tile contributes open child cells.
+    Structures continue to stamp from authoritative footprint metadata.
   - Derive a small set of ground movement clearance classes from existing gameplay body data:
     `Units[kind].radius` and/or `bodyBounds(kind)` from `packages/sim/src/spatial.ts`.
-  - Build clearance masks by dilating terrain/building blockers for each class. Small infantry
-    can pass through narrow gaps; Dragoons, Tanks, Goliaths, Lurkers, Reavers, and Ultralisks
-    cannot pass through gaps their bodies do not fit.
-  - Key cached fields by `(goalTile, clearanceClass, buildingLayoutSignature)`.
-  - Update `clearLine`, `flowField`, `downhill`, and movement obstacle checks to use the moving
-    unit's clearance class.
+  - Build clearance masks on the pathing lattice by testing whether the unit body fits at that
+    path-cell center without overlapping blocked path cells. Small infantry can pass through
+    narrow gaps; Dragoons, Tanks, Goliaths, Lurkers, Reavers, and Ultralisks cannot pass through
+    gaps their bodies do not fit.
+  - Key cached fields by `(goalPathCell, clearanceClass, buildingLayoutSignature)`.
+  - Update `clearLine`, `flowField`, `downhill`, and movement obstacle checks to use path-cell
+    coordinates plus the moving unit's clearance class.
+  - Keep build-tile helpers such as placement, resource footprints, and UI footprint rendering on
+    the existing build-tile grid. Only routing/clearance needs the finer lattice.
   - Preserve no-corner-cutting at diagonals after dilation.
 - Stable group destination slots:
   - During command ingestion, detect same-tick same-player move/attack-move groups that share the
@@ -799,8 +809,8 @@ Rollout:
 
 1. Completed: add clearance classes and masks, then wire pathing to them while keeping current collision.
 2. Completed: add deterministic group slot assignment for same-target command batches.
-3. Add candidate-velocity local avoidance behind the existing movement systems.
-4. Add arrival damping/settle hysteresis and reduce collision push to cleanup.
+3. Completed: add candidate-velocity local avoidance behind the existing movement systems.
+4. Completed: add arrival damping/settle hysteresis and reduce collision push to cleanup.
 5. Tune with screenshots/replays and benchmark data, then update `docs/specs/architecture.md`.
 
 Done when:
@@ -812,12 +822,317 @@ Done when:
 
 Completed:
 
-- Ground combat navigation now uses cached clearance masks derived from BW body bounds, so large
-  bodies cannot route through gaps that small infantry can use, while worker economy navigation
-  keeps its existing permissive mineral-line behavior.
-- Same-tick same-player ground combat move and attack-move batches now derive deterministic nearby
+- Added a derived 16px pathing lattice from the 32px build-tile map and stamped structure
+  footprints. Build placement, resource footprints, and UI footprint rendering stay on the
+  build-tile grid; routing now uses path cells.
+- Added path-cell clearance masks from BW body bounds. Small units can use the raw path lattice;
+  wider bodies require enough free path-cell space to fit.
+- Re-keyed cached flow fields by path-cell goal and clearance size, so different body widths do
+  not share invalid passability assumptions.
+- Ground navigation now routes on path-cell coordinates, adjusts blocked goals to nearby legal
+  cells, and no longer falls back to walking straight through unreachable blocked gaps.
+- Units that start inside or against a blocked footprint escape toward the nearest legal path cell
+  before normal routing resumes, preserving worker/producible-unit startup behavior.
+- Firing pathing anchors now stamp their actual body footprint over path cells, and `downhill`
+  can take deterministic local sidesteps around transient blockers instead of shoving through.
+- Worker mine/deposit checks now use body-edge distance, so workers can stop outside solid depot
+  and refinery footprints without breaking the economy cycle.
+- Added focused pathing tests for small-vs-large doorway clearance, diagonal no-corner-cutting,
+  rooted firing-unit detours, and deterministic same-target move/attack-move destination spread.
+- Same-tick same-player ground combat move and attack-move batches derive deterministic nearby
   destination slots from the public per-unit commands, preserving replay shape while avoiding one
   shared target pixel for whole groups.
+- Same-target formation spacing now scales to the largest ground body in the command group, rounded
+  to the path-lattice cadence, so mixed groups with Ultralisks/Tanks/Dragoons reserve more room
+  than pure infantry groups.
+- Added deterministic pre-move local avoidance for solid ground combat bodies. `navigate()` now
+  scores a small candidate set around the preferred step using forward progress and predicted
+  next-tick body overlap, so units can sidestep nearby bodies before the collision cleanup pass.
+- The local-avoidance body grid is prepared once per tick before combat/movement steering, giving
+  movers a common deterministic snapshot instead of depending on which unit asks first.
+- Local avoidance stays out of worker, air, projectile, burrowed, and contained-unit behavior, and
+  keeps firing/pathing anchors as stronger blockers.
+- Collision cleanup now clamps pushes against the same path-cell clearance masks as navigation,
+  so the final symmetric push pass cannot shove a large unit into a gap only its center point can
+  occupy.
+- Move and attack-move completion now runs in a post-collision settling pass. Units only go idle
+  if they still occupy their reachable final point after overlap cleanup, then keep a serialized
+  `settled` bit so tiny nudges are tolerated while larger displacement wakes them to reclaim the
+  slot.
+- Command ingestion clears stale `settled` claims when a unit receives a new explicit intent, so
+  follow-up attack, stop, ability, transport, burrow, and transform commands are not rewritten by
+  the settling pass.
+- Added a focused test proving a moving Marine sidesteps a nearby body during `navigate()` before
+  collision cleanup runs.
+- Extended the group movement test to require settled idle units to remain position-stable across
+  additional ticks.
+- Added movement stress coverage for mixed ground deathball settling, opposing groups crossing a
+  shared choke, and ground groups exiting procedural base ramps into the midfield.
+- Added a `movement-deathball` case to the headless throughput benchmark. It reports command
+  acceptance, unit count, distinct positions, active movement orders, and settled units alongside
+  timing/hash data without making wall-clock timing a pass/fail gate.
+
+Remaining:
+
+- Run and compare the new movement stress benchmark across representative seeds after tuning
+  changes.
+- Decide from movement-stress measurements and visual review whether the path lattice needs to move
+  from 16px to true BW-style 8px cells.
+
+## Phase 9B: Top-Down Spatial Semantics And Procedural Map Design
+
+Status: in progress.
+
+Purpose: preserve StarCraft-equivalent rules, timings, and build-order math while making the
+actual motion and contact read correctly in our orthographic top-down game. BWAPI gives us
+valuable source constants, but those constants were embedded in an isometric-looking game with
+sprite, selection, and approximate-distance affordances. In our top-down view, those affordances
+can become visible bugs: a worker can mine a corner mineral while not touching it, or a diagonal
+range can read differently from an axial range. The fix is not to abandon BW values; it is to make
+the spatial contract explicit.
+
+Core principle:
+
+- **Runtime geometry must be top-down physical geometry.**
+- **Balance/timing targets can remain BW-equivalent.**
+- **Compatibility with BW approximations must be opt-in and named.**
+
+That means a worker must visibly dock before mining, and a Zealot/Marine range circle should read
+as a top-down circle. If exact BW-equivalent economy timing needs calibration, solve the map and
+harvest route timing to hit that target; do not let hidden reach ranges fake contact.
+
+Design target:
+
+- Define three separate spatial layers:
+  - **Source data layer:** BW pixel constants, footprints, cooldowns, mining amounts, build times,
+    and upgrade deltas. These remain data and stay easy to audit against BW references.
+  - **Interaction geometry layer:** top-down gameplay hulls used for final reach/contact checks.
+    This layer answers "are these two things actually touching or in range in our view?"
+  - **Timing calibration layer:** per-route or per-layout targets that preserve BW-equivalent
+    economy timing when top-down geometry and tile/grid discreteness cannot hit the target exactly.
+- Lock the coordinate contract before touching more systems:
+  - one build tile is 32px, and the canonical BW walk-cell target remains 8px even if the first
+    navigation implementation keeps a 16px path lattice for performance;
+  - all final interaction checks happen in fixed-point world pixels, never in build-tile units;
+  - `ResourceSpawn.x/y` means the resource's initial build-tile footprint, while `px/py` means the
+    authored body center used for top-down interaction and route timing;
+  - a depot start location is the depot center/build location, not the top-left footprint corner;
+  - body bounds are gameplay hulls, not render bounds, and SVG sprite size is never allowed to
+    affect reach, harvesting, or placement;
+  - if a value is a tile coordinate, a pixel center, a footprint corner, a hull edge, or a route
+    timing target, its type/name should say so.
+- Replace ambiguous distance helpers with named metrics:
+  - `topDownEdgeDistanceSq` / `withinTopDownEdgeRange`: exact deterministic top-down reach checks,
+    preferably squared-distance based in hot paths.
+  - `topDownEdgeDistance`: scalar integer distance only when a system needs an actual length for
+    timing or diagnostics.
+  - `bwApproxDistance`: compatibility with BWAPI's approximate distance formula, retained for
+    tests, audits, and any mechanic we deliberately choose to keep legacy-shaped.
+  - `centerDistanceSq`: broad-phase search and cheap ordering only; never final reach/contact.
+- Make interaction hulls explicit:
+  - mobile units use top-down collision/selection radii unless a unit needs an authored exception;
+  - buildings/resources use footprint/body rectangles for placement and contact;
+  - visual SVG bounds remain presentation only and never silently change gameplay reach.
+- Harvesting must use top-down docking:
+  - workers navigate to deterministic contact/docking points on mineral, gas, and depot hulls;
+  - mining/deposit begins only at physical contact or a tiny named docking epsilon;
+  - corner/near-corner mineral patches must be physically touched, not harvested through a legacy
+    approximate-distance shortcut.
+- Preserve economy timing with a positive-only calibration model:
+  - solve resource positions and docking sides first so the top-down route length is at or below
+    the BW-equivalent target within a tight band;
+  - if a route is slightly shorter than target, add deterministic wait frames at the dock or
+    depot to match the calibrated trip;
+  - if a route is longer than target, the layout is invalid and must move resources or fail
+    generation. Do not compensate by making the worker mine before contact or by silently speeding
+    it up.
+- Procedural maps should be assembled from explicit, validated terrain components:
+  - first preset: full-width shared team main plateaus at the north and south edges;
+  - player start sites distributed across each team plateau;
+  - ramp exits down from main plateaus to low-ground naturals;
+  - natural expansion sites near those ramp exits;
+  - default empty midfield for baseline movement/economy testing;
+  - optional midfield modules for blockers, dual chokes, arenas, raised centers, center expansions,
+    extra ramps, and future island/fortress/corner-base presets.
+
+Implementation:
+
+- Step 0: coordinate invariants and naming.
+  - Add small branded types or helper constructors if TypeScript can carry the distinction without
+    making hot code noisy: build-tile coordinate, world-pixel coordinate, fixed-world-pixel value,
+    footprint rectangle, and interaction hull.
+  - Add assertion/test helpers that convert between tile top-left, tile center, footprint rectangle,
+    and body center in one place.
+  - Document every remaining legacy conversion that must exist while old map code is being
+    replaced.
+- Step 1: metric taxonomy and call-site audit.
+  - Add the top-down edge metric helpers without changing gameplay behavior yet.
+  - Rename the current BW-style helper to make its compatibility meaning impossible to miss.
+  - Audit each distance use and assign a metric:
+    - combat weapon reach: top-down edge range, unless a specific projectile/child system says
+      otherwise;
+    - minimum range: top-down edge range;
+    - harvest mine/deposit: top-down dock/contact;
+    - repair/build continuation: top-down edge range;
+    - cargo load/unload: top-down edge or explicit unload geometry;
+    - detection/sight/fog: probably top-down circular ranges, with separate tests because BW vision
+      behavior may still want balance tuning;
+    - abilities: case-by-case, but every ability must name whether it is top-down or BW-compatible;
+    - nearest-target broad phase: center/grid distance is allowed only as a prefilter.
+  - Add tests that fail if newly audited systems accidentally use a generic final-distance helper.
+- Step 2: top-down interaction hulls.
+  - Introduce an `InteractionShape` helper around existing body/radius data:
+    - circles for most mobile units;
+    - axis-aligned rectangles for resources and structures;
+    - optional per-kind overrides when top-down readability demands it.
+  - Keep `structureFootprint()` and build-tile placement unchanged.
+  - Use exact integer squared distances for circle-circle and circle-rect checks in hot paths.
+  - Use scalar `isqrt` only for route timing, telemetry, or non-hot calibration.
+- Harvest docking and timing:
+  - Define deterministic docking points for each resource/depot pair:
+    - mineral docking point is the nearest legal point on the mineral hull from the depot-side
+      route;
+    - depot docking point is the nearest legal point on the depot hull from the mineral-side route;
+    - gas uses geyser/refinery hull contact and may need a separate three-worker cadence target.
+  - Treat the BW-equivalent target as a frame count or route-time contract, not as permission to
+    keep BW's approximate visual distance. Source BW distance constants seed the solver, but the
+    pass/fail result is "top-down path plus waits matches target frames."
+  - Store no per-worker path history beyond deterministic order state unless a small route timer
+    field is required for calibration.
+  - Navigate to the docking point, not the resource center.
+  - Start mining/deposit only after docking.
+  - Compute actual leg length as path/top-down distance between docking points. For the first
+    implementation, straight-line top-down length is acceptable only if pathing is unobstructed;
+    once ramps/obstacles affect workers, use the path lattice route cost.
+  - Build a calibration table for main-base mineral patches:
+    - target route time from the BW-equivalent model;
+    - actual top-down route time;
+    - positive wait frames needed to match target;
+    - invalid flag when actual route exceeds target by more than tolerance.
+  - Keep the timing compensation deterministic and visible in tests. It should be an economy
+    timing shim, not a movement distortion.
+- Resource/base layout:
+  - Introduce `BaseSite` metadata if needed:
+    - `kind`: main, natural, third, center, island, fortress;
+    - `team` and optional owner slot;
+    - depot center;
+    - resource direction;
+    - ramp association;
+    - timing profile id.
+  - Keep `ResourceSpawn.x/y` as initial build-tile footprint and `px/py` as top-down pixel center.
+  - Extend resource solving so every candidate must pass:
+    - build-tile footprint in bounds;
+    - resource footprint not overlapping any other resource;
+    - resource footprint on allowed terrain;
+    - resource hull clear of cliffs/blockers by an explicit margin;
+    - depot placement legal at the base site;
+    - docking point exists for worker/resource and worker/depot;
+    - calibrated route timing valid.
+  - Make the current "mineral arc" solver a base-resource solver instead of a slice-map special.
+    It should work for mains and naturals and be reusable by procedural presets.
+- Procedural map architecture:
+  - Add a deterministic `MapBuilder` with small primitives:
+    - fill low/high terrain rectangles;
+    - stamp cliffs/blockers;
+    - open ramp rectangles;
+    - reserve build-safe areas;
+    - mirror north/south and optionally rotate 180 degrees;
+    - query whether a footprint has enough walk/build/elevation clearance.
+  - Add a `BasePlanner`:
+    - first preset creates one north team plateau and one south team plateau;
+    - allies share the same plateau;
+    - starts are spread horizontally with reserved space for each depot/resource cluster;
+    - ramp locations are lane-aligned but can be widened or merged later;
+    - naturals are placed on low ground near ramp exits, not on the main plateau.
+  - Add a `MidfieldModule` interface:
+    - `empty`: no center blockers, baseline movement and economy testing;
+    - `blocks`: symmetric obstacle islands;
+    - `dualChoke`: two corridors around a center blocker;
+    - `arena`: open center with side blockers;
+    - `raisedCenter`: high-ground center plateau with ramps;
+    - future modules: islands, fortress corners, corner-base FFA, isolated mains.
+  - Extend replay map specs carefully:
+    - preserve existing `{ kind: 'procedural', perTeam, seed }` defaults;
+    - allow optional `preset` and `midfield` fields with deterministic defaults;
+    - avoid storing generated map blobs in replays unless/until map editing requires it.
+
+Tests and proof:
+
+- Spatial metric tests:
+  - Coordinate-conversion tests prove build-tile, walk-cell, world-pixel, fixed-pixel, footprint,
+    and body-center conversions do not drift.
+  - Axis-aligned and diagonal top-down ranges are symmetric for circle-circle, circle-rect, and
+    rect-rect cases.
+  - BW approximate distance remains covered by explicit compatibility tests.
+  - Melee range tests prove units must physically touch/overlap the correct top-down shell.
+  - Static defense and ranged-unit tests prove top-down edge range is directionally stable.
+- Harvest tests:
+  - SCVs, Probes, and Drones physically dock before mining/depositing.
+  - The second-to-last and outer mineral arc patches are explicitly tested for physical contact.
+  - Main-base per-patch round-trip frames match the calibrated timing band.
+  - If a patch route is too long to match timing, generation fails instead of using detached
+    contact.
+  - Mineral saturation behavior remains equivalent to the intended BW-style two-to-three worker
+    cadence.
+- Map tests:
+  - Generated mains, naturals, ramps, and resources remain connected for 1v1, 2v2, and 3v3 across
+    representative seeds.
+  - Every resource footprint is in bounds, on valid terrain, and clear of cliff/blocker tiles by
+    the configured margin.
+  - Depot placement is legal at every generated main and natural.
+  - Large ground units can path from each shared plateau through ramps to the natural and midfield.
+  - `midfield: empty` produces no blockers in the central combat band; other modules must preserve
+    connectivity and clearance.
+- Visual/debug proof:
+  - Add a Math-renderer or headless debug overlay that can draw interaction hulls, docking points,
+    route targets, base-site reservations, resource footprints, and timing-valid/invalid markers.
+  - Capture at least one reference screenshot for `midfield: empty` and one blocker/choke module
+    once implementation begins.
+
+Done when:
+
+- Workers never start mining/depositing while visibly detached from their target in top-down view.
+- Main-base mineral timings and saturation remain in the calibrated BW-equivalent band.
+- Weapon and interaction ranges read as circular/top-down ranges instead of inherited isometric
+  distortions.
+- Procedural maps use shared team plateaus, ramp-down naturals, and toggleable midfield modules,
+  and generated resource clusters cannot clip into walls or cliffs.
+- Replay reconstruction, hash determinism, typecheck, full tests, and movement/economy benchmarks
+  pass.
+
+Completed:
+
+- Split BW compatibility distance from runtime top-down distance in `spatial.ts`. BW body bounds
+  and approximate distance remain available under explicit `bwApprox*` names; combat, scarabs,
+  repair, grid target acquisition, and harvesting now use named top-down edge checks.
+- Top-down structure interaction uses build-footprint hulls for contact, so workers and combat
+  units read against the same solid footprint that pathing/placement uses instead of a smaller
+  isometric BW body rectangle.
+- Harvesting now requires visible top-down docking/contact before mine or deposit starts. A worker
+  at the old BW-compatible detached mine range moves closer instead of starting the mine timer.
+- Added coordinate and spatial regression tests for fixed build-tile centers, footprint hulls,
+  BW approximate distance versus top-down physical distance, top-down combat thresholds, and
+  detached harvest contact.
+- Replaced the procedural generator's per-start mini plateaus with shared north/south team
+  plateaus, ramp exits, low-ground natural base-site metadata, empty midfield default, optional
+  midfield modules, and generated resource-footprint validation.
+- Extended procedural replay specs with optional `preset` and `midfield` fields while preserving
+  the existing deterministic defaults.
+- Updated `docs/specs/sc1-spec.md` and `docs/specs/maps.md` so the written contract matches the
+  code: BW values are source constants; top-down geometry is runtime contact/reach truth.
+- Verified with `npm run typecheck` and the full `npm test` suite.
+
+Remaining:
+
+- Add explicit per-resource/depot docking point targets instead of navigating workers toward
+  centers and relying on pathing to adjust blocked goals.
+- Add the positive-only harvest timing calibration table: target BW-equivalent route frames,
+  actual top-down route frames, deterministic wait frames, and invalid-too-long layout detection.
+- Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
+  can affect worker trips.
+- Add gas-specific cadence validation for three-worker refinery saturation.
+- Add a debug/headless overlay for interaction hulls, docking points, route targets, base-site
+  reservations, resource footprints, and timing-valid/invalid markers.
 
 ## Current BW-Fidelity Missing Inventory
 
@@ -825,7 +1140,19 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Pathing and movement fidelity:
-  - Predictive local avoidance and arrival settling so large armies stop jostling indefinitely.
+  - Movement-stress benchmark comparisons and visual review to decide whether the 16px path
+    lattice needs true BW-style 8px cells.
+- Top-down spatial semantics:
+  - Build the remaining harvest timing calibration layer on top of the new contact-only top-down
+    docking behavior.
+  - Audit ability target ranges separately; combat/repair/harvest/scarab final reach checks now
+    use named top-down edge metrics, while ability validation still intentionally uses caster/point
+    center ranges until each spell gets its own geometry decision.
+- Procedural map generation:
+  - Expand beyond the first shared-plateau preset into island, fortress, corner-base, and isolated
+    main presets.
+  - Add richer generated-map visual/debug proofs for resource/base reservations and midfield
+    module clearance.
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
 - Upgrade fidelity:

@@ -47,7 +47,10 @@ real-time duration of each frame; per-frame logic is identical.
 | **Pixel** | 1 px | Unit positions at sub-tile precision |
 
 - Origin (0,0) top-left; +X right, +Y down. Map size given in build tiles (e.g. 128×128).
-- Range/sight expressed in **matrix tiles** (1 tile = 32 px) but computed in pixels.
+- Weapon ranges are stored as **BWAPI pixel values** and computed in pixels. Tables may use the
+  familiar tile shorthand for readability (`4 range` = 128 px), but melee and collision-style
+  ranges use their small original pixel values (for example 10–25 px), not rounded build tiles.
+  Sight remains tile-authored and is converted to pixels.
 
 ### 3. Resources
 
@@ -100,7 +103,13 @@ real-time duration of each frame; per-frame logic is identical.
 
 #### Cooldown, range, shields
 - **Cooldown** in frames (Marine 15 ≈ 0.63 s). `DPS = damage×shots / (cooldown/23.81)`.
-- **Range** in matrix tiles edge-to-edge; melee ≈ 0 (~15 px). Bunkered units gain **+1 range**.
+- **Range source values** are BWAPI pixel max/min ranges. Because this game renders and plays in
+  orthographic top-down rather than BW's isometric presentation, final combat/contact checks use
+  explicit top-down edge geometry in fixed world pixels. The BW target-expansion + approximate
+  distance formula remains a named compatibility metric for audits and BW-seeded layout/timing
+  solvers, not the default runtime reach test. Ranged weapons are often tile multiples; melee
+  weapons are exact small pixel values (SCV 10 px, Zealot/Zergling 15 px, Ultralisk 25 px).
+  Bunkered units gain **+1 range** (+32 px).
 - **Protoss shields** absorb before HP, regenerate over time, reduced only by shield-armor.
 
 ### 6. Upgrades model

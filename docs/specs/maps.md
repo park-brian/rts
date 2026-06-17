@@ -70,8 +70,18 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   - `buildable` — can a building be placed here.
   - `ramp` — flag + orientation (connects two elevation levels; walkable).
   - `doodad`/decoration — purely visual.
-- **Resources** — list of mineral patches (amount, position) and geysers (amount, position).
+- **Resources** — list of mineral patches and geysers. Store both BW concepts explicitly:
+  integer initial build-tile footprint (`x`,`y`) for placement legality, plus an optional integer
+  pixel center (`px`,`py`) for exact body-edge distance and harvest timing. Resource depots use
+  BWAPI's resource-placement exclusion windows against the initial tile (`minerals: x -5..+6,
+  y -4..+5; geysers: x -7..+6, y -5..+5`, strict comparisons). Starting bases should solve the
+  mineral line as a resource arc around the depot edge, not as a straight row. BW approximate
+  distance may seed the layout target, but workers must still visibly dock using top-down physical
+  contact; route timing calibration handles any remaining BW-equivalent economy target.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
+- **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
+  etc. A base site stores team/owner intent, depot center, resource direction, ramp association,
+  and timing profile without requiring a depot to exist there yet.
 - **Metadata** — name, max players, symmetry, recommended modes.
 
 The renderer derives cliff-edge/shadow/ramp visuals from the `elevation` field of adjacent tiles
@@ -85,6 +95,12 @@ One small, symmetric, vertical-major 1v1 map: south start vs north start, each w
 **high ground** behind a **ramp**, ~8 minerals + 1 geyser at the main, one natural expansion, and
 a contested patch in the middle. Two elevation levels. This exercises the full elevation
 representation + mechanics (ramps, high-ground vision, low→high miss) in the first playable build.
+
+Procedural baseline: for deterministic stress tests, the first generated preset uses one full-width
+shared north plateau and one full-width shared south plateau. Allies on the same team share that
+plateau. Each lane has a ramp down to a low-ground natural, and `midfield: empty` leaves the center
+combat band clear; optional modules add blocks, dual chokes, arenas, or raised centers after the
+base/resource validation pass.
 
 ## 6. Open questions / deferred
 - Exact map serialization format (binary typed arrays vs. JSON vs. an existing tilemap format).

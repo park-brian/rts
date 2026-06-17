@@ -12,6 +12,8 @@ export const FPS = 24; // logical ticks/sec (SC1 "Fastest" is about 23.81; round
 export const sec = (s: number): number => Math.round(s * FPS);
 /** tiles -> fixed-point pixels. */
 export const tiles = (t: number): number => fx(t * TILE);
+/** BWAPI weapon/interaction range pixels -> fixed-point pixels. */
+export const bwRange = (px: number): number => fx(px);
 
 // Supply is stored in half-supply units so Zerglings/Scourge can cost 0.5.
 export const SUPPLY_SCALE = 2;
@@ -198,6 +200,87 @@ export type Weapon = {
   splashMediumRadius?: number; // fixed-point px, 50% splash damage inside this radius
 };
 
+export const WeaponRangePx = {
+  // Terran
+  FusionCutter: 10,
+  GaussRifle: 128,
+  FlameThrower: 32,
+  C10CanisterRifle: 224,
+  FragmentationGrenade: 160,
+  SpiderMines: 10,
+  TwinAutocannons: 192,
+  HellfireMissilePack: 160,
+  ArcliteCannon: 224,
+  ArcliteShockCannon: 384,
+  BurstLasers: 160,
+  GeminiMissiles: 160,
+  ATSLaserBattery: 192,
+  LongboltMissile: 224,
+  HaloRockets: 192,
+
+  // Protoss
+  ParticleBeam: 32,
+  PsiBlades: 15,
+  PhaseDisruptor: 128,
+  WarpBlades: 15,
+  PsionicShockwave: 64,
+  ReaverLaunch: 256,
+  ScarabImpact: 16,
+  DualPhotonBlasters: 128,
+  AntiMatterMissiles: 128,
+  PulseCannon: 128,
+  PhaseDisruptorCannon: 160,
+  NeutronFlare: 160,
+  PhotonCannon: 224,
+
+  // Zerg
+  Spines: 32,
+  Claws: 15,
+  NeedleSpines: 128,
+  SubterraneanSpines: 192,
+  GlaveWurm: 96,
+  SuicideScourge: 3,
+  AcidSpore: 256,
+  CorrosiveAcid: 192,
+  KaiserBlades: 25,
+  SuicideInfestedTerran: 3,
+  ToxicSpores: 2,
+  SubterraneanTentacle: 224,
+  SeekerSpores: 224,
+} as const;
+
+export const WeaponMinRangePx = {
+  ArcliteShockCannon: 64,
+} as const;
+
+export const WeaponRangeUpgradePx = {
+  U238Shells: 32,
+  CharonBoosters: 96,
+  SingularityCharge: 64,
+  GroovedSpines: 32,
+} as const;
+
+export const HarvestRangePx = {
+  Mine: 10,
+  Deposit: 10,
+} as const;
+
+type SplashSpecPx = {
+  readonly inner: number;
+  readonly medium: number;
+  readonly outer: number;
+};
+
+export const SplashPx = {
+  FlameThrower: { inner: 15, medium: 20, outer: 25 },
+  ArcliteShockCannon: { inner: 10, medium: 25, outer: 40 },
+  SpiderMines: { inner: 50, medium: 75, outer: 100 },
+  Scarab: { inner: 20, medium: 40, outer: 60 },
+  PsionicShockwave: { inner: 3, medium: 15, outer: 30 },
+  InfestedTerran: { inner: 20, medium: 40, outer: 60 },
+  AirSplash: { inner: 5, medium: 50, outer: 100 },
+} satisfies Record<string, SplashSpecPx>;
+
 export type UnitDef = {
   name: string;
   race: Race;
@@ -260,18 +343,20 @@ const protoss = (sprite: string, d: Partial<UnitDef> & { name: string; roles: nu
 const zerg = (sprite: string, d: Partial<UnitDef> & { name: string; roles: number }): UnitDef => def({ race: 'zerg', sprite, ...d });
 
 const same = (w: Weapon): { weapon: Weapon; airWeapon: Weapon } => ({ weapon: w, airWeapon: w });
-const W = (damage: number, dtype: number, cooldown: number, rangeTiles: number, shots = 1, minRangeTiles = 0, splashRadiusTiles = 0): Weapon => ({
-  damage, dtype, cooldown, range: tiles(rangeTiles), shots,
-  ...(minRangeTiles > 0 ? { minRange: tiles(minRangeTiles) } : {}),
-  ...(splashRadiusTiles > 0 ? { splashRadius: tiles(splashRadiusTiles) } : {}),
+const WR = WeaponRangePx;
+const WMIN = WeaponMinRangePx;
+const SP = SplashPx;
+const W = (damage: number, dtype: number, cooldown: number, rangePx: number, shots = 1, minRangePx = 0): Weapon => ({
+  damage, dtype, cooldown, range: bwRange(rangePx), shots,
+  ...(minRangePx > 0 ? { minRange: bwRange(minRangePx) } : {}),
 });
-const radialSplash = (innerPx: number, mediumPx: number, outerPx: number): Pick<Weapon, 'splashInnerRadius' | 'splashMediumRadius' | 'splashRadius'> => ({
-  splashInnerRadius: fx(innerPx),
-  splashMediumRadius: fx(mediumPx),
-  splashRadius: fx(outerPx),
+const radialSplash = (px: SplashSpecPx): Pick<Weapon, 'splashInnerRadius' | 'splashMediumRadius' | 'splashRadius'> => ({
+  splashInnerRadius: bwRange(px.inner),
+  splashMediumRadius: bwRange(px.medium),
+  splashRadius: bwRange(px.outer),
 });
 const cd = sec;
-const SCARAB_SPLASH = radialSplash(20, 40, 60);
+const SCARAB_SPLASH = radialSplash(SP.Scarab);
 
 export const Ability = {
   StimPack: 1,
@@ -686,17 +771,18 @@ export const Units: Record<number, UnitDef> = {
   [Kind.SCV]: terran('scv', {
     name: 'SCV', ...mobile(11), roles: Role.Mobile | Role.Worker, size: Size.Small,
     hp: 60, sight: 7, speed: fx(2), minerals: 50, supply: supply(1), buildTime: sec(17.86),
-    weapon: W(5, DamageType.Normal, 15, 0.5), ...cargo(1),
+    weapon: W(5, DamageType.Normal, 15, WR.FusionCutter), ...cargo(1),
   }),
   [Kind.Marine]: terran('marine', {
     name: 'Marine', ...mobile(8), size: Size.Small,
     hp: 40, sight: 7, speed: fx(2), minerals: 50, supply: supply(1), buildTime: sec(15.12),
-    ...same(W(6, DamageType.Normal, 15, 4)), abilities: [Ability.StimPack], ...cargo(1),
+    ...same(W(6, DamageType.Normal, 15, WR.GaussRifle)), abilities: [Ability.StimPack], ...cargo(1),
   }),
   [Kind.Firebat]: terran('firebat', {
     name: 'Firebat', ...mobile(11), size: Size.Small,
     hp: 50, armor: 1, sight: 7, speed: fx(2), minerals: 50, gas: 25, supply: supply(1), buildTime: sec(15.12),
-    weapon: W(8, DamageType.Concussive, cd(1.05), 2, 2), abilities: [Ability.StimPack], requires: [Kind.Academy], ...cargo(1),
+    weapon: { ...W(8, DamageType.Concussive, cd(1.05), WR.FlameThrower, 2), ...radialSplash(SP.FlameThrower) },
+    abilities: [Ability.StimPack], requires: [Kind.Academy], ...cargo(1),
   }),
   [Kind.Medic]: terran('medic', {
     name: 'Medic', ...mobile(8), size: Size.Small,
@@ -706,34 +792,35 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Ghost]: terran('ghost', {
     name: 'Ghost', ...mobile(8), size: Size.Medium,
     hp: 45, energyMax: 200, startEnergy: 50, sight: 9, speed: fx(2), minerals: 25, gas: 75, supply: supply(1), buildTime: sec(31.5),
-    ...same(W(10, DamageType.Concussive, cd(0.92), 7)), requires: [Kind.Academy, Kind.CovertOps],
+    ...same(W(10, DamageType.Concussive, cd(0.92), WR.C10CanisterRifle)), requires: [Kind.Academy, Kind.CovertOps],
     abilities: [Ability.Lockdown, Ability.PersonnelCloaking, Ability.NuclearStrike], ...cargo(1),
   }),
   [Kind.Vulture]: terran('vulture', {
     name: 'Vulture', ...mobile(16), size: Size.Small,
     hp: 80, sight: 8, speed: fx(3), minerals: 75, supply: supply(2), buildTime: sec(12.6),
-    weapon: W(20, DamageType.Concussive, cd(1.26), 5), ...cargo(2),
+    weapon: W(20, DamageType.Concussive, cd(1.26), WR.FragmentationGrenade), ...cargo(2),
   }),
   [Kind.SiegeTank]: terran('siegeTank', {
     name: 'Siege Tank', ...mobile(16), size: Size.Large,
     hp: 150, armor: 1, sight: 10, speed: fx(2), minerals: 150, gas: 100, supply: supply(2), buildTime: sec(31.5),
-    weapon: W(30, DamageType.Explosive, cd(1.55), 7), requires: [Kind.MachineShop], ...cargo(4),
+    weapon: W(30, DamageType.Explosive, cd(1.55), WR.ArcliteCannon), requires: [Kind.MachineShop], ...cargo(4),
   }),
   [Kind.SiegeTankSieged]: terran('siegeMode', {
     name: 'Siege Tank (Siege)', ...mobile(16), size: Size.Large,
     hp: 150, armor: 1, sight: 10, minerals: 0, gas: 0, supply: supply(2),
-    weapon: W(70, DamageType.Explosive, cd(3.15), 12, 1, 2, 1.5), buildMethod: 'internal',
+    weapon: { ...W(70, DamageType.Explosive, cd(3.15), WR.ArcliteShockCannon, 1, WMIN.ArcliteShockCannon), ...radialSplash(SP.ArcliteShockCannon) },
+    buildMethod: 'internal',
   }),
   [Kind.Goliath]: terran('goliath', {
     name: 'Goliath', ...mobile(16), size: Size.Large,
     hp: 125, armor: 1, sight: 8, speed: fx(2), minerals: 100, gas: 50, supply: supply(2), buildTime: sec(25.2),
-    weapon: W(12, DamageType.Normal, cd(0.92), 6), airWeapon: W(10, DamageType.Explosive, cd(1.85), 5, 2),
+    weapon: W(12, DamageType.Normal, cd(0.92), WR.TwinAutocannons), airWeapon: W(10, DamageType.Explosive, cd(1.85), WR.HellfireMissilePack, 2),
     requires: [Kind.MachineShop], ...cargo(4),
   }),
   [Kind.Wraith]: terran('wraith', {
     name: 'Wraith', ...air(19), size: Size.Large,
     hp: 120, energyMax: 200, startEnergy: 50, sight: 7, speed: fx(3), minerals: 150, gas: 100, supply: supply(2), buildTime: sec(37.8),
-    weapon: W(8, DamageType.Normal, cd(1.26), 5), airWeapon: W(20, DamageType.Explosive, cd(1.89), 5),
+    weapon: W(8, DamageType.Normal, cd(1.26), WR.BurstLasers), airWeapon: W(20, DamageType.Explosive, cd(1.89), WR.GeminiMissiles),
     abilities: [Ability.CloakingField],
   }),
   [Kind.Dropship]: terran('dropship', {
@@ -749,17 +836,20 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Valkyrie]: terran('valkyrie', {
     name: 'Valkyrie', ...air(24), size: Size.Large,
     hp: 200, armor: 2, sight: 8, speed: fx(3), minerals: 250, gas: 125, supply: supply(3), buildTime: sec(31.5),
-    airWeapon: W(6, DamageType.Explosive, cd(4), 6, 8, 0, 1), requires: [Kind.ControlTower, Kind.Armory],
+    airWeapon: { ...W(6, DamageType.Explosive, cd(4), WR.HaloRockets, 8), ...radialSplash(SP.AirSplash) },
+    requires: [Kind.ControlTower, Kind.Armory],
   }),
   [Kind.Battlecruiser]: terran('battlecruiser', {
     name: 'Battlecruiser', ...air(37), size: Size.Large,
     hp: 500, energyMax: 200, startEnergy: 50, armor: 3, sight: 11, speed: fx(1), minerals: 400, gas: 300, supply: supply(6), buildTime: sec(84),
-    ...same(W(25, DamageType.Normal, cd(1.89), 6)), requires: [Kind.ControlTower, Kind.PhysicsLab],
+    ...same(W(25, DamageType.Normal, cd(1.89), WR.ATSLaserBattery)), requires: [Kind.ControlTower, Kind.PhysicsLab],
     abilities: [Ability.YamatoGun],
   }),
   [Kind.SpiderMine]: terran('spiderMine', {
     name: 'Spider Mine', ...mobile(7), size: Size.Small,
-    hp: 20, sight: 3, speed: fx(4), weapon: W(125, DamageType.Explosive, 1, 1, 1, 0, 2), buildMethod: 'internal',
+    hp: 20, sight: 3, speed: fx(4),
+    weapon: { ...W(125, DamageType.Explosive, 1, WR.SpiderMines), ...radialSplash(SP.SpiderMines) },
+    buildMethod: 'internal',
   }),
   [Kind.NuclearMissile]: terran('nuclearMissile', {
     name: 'Nuclear Missile', roles: 0, size: Size.Large,
@@ -801,7 +891,7 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.MissileTurret]: terran('missileTurret', {
     name: 'Missile Turret', ...structure(20, 2, 2), size: Size.Large,
-    hp: 200, sight: 11, minerals: 75, buildTime: sec(18.9), airWeapon: W(20, DamageType.Explosive, 15, 7, 1),
+    hp: 200, sight: 11, minerals: 75, buildTime: sec(18.9), airWeapon: W(20, DamageType.Explosive, 15, WR.LongboltMissile, 1),
     requires: [Kind.EngineeringBay],
   }),
   [Kind.Factory]: terran('factory', {
@@ -858,17 +948,17 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Probe]: protoss('probe', {
     name: 'Probe', ...mobile(11), roles: Role.Mobile | Role.Worker, size: Size.Small,
     hp: 20, shields: 20, sight: 8, speed: fx(2), minerals: 50, supply: supply(1), buildTime: sec(12.6),
-    weapon: W(5, DamageType.Normal, 22, 1), ...cargo(1),
+    weapon: W(5, DamageType.Normal, 22, WR.ParticleBeam), ...cargo(1),
   }),
   [Kind.Zealot]: protoss('zealot', {
     name: 'Zealot', ...mobile(11), size: Size.Small,
     hp: 100, shields: 60, armor: 1, sight: 7, speed: fx(2), minerals: 100, supply: supply(2), buildTime: sec(25.2),
-    weapon: W(8, DamageType.Normal, 22, 1, 2), ...cargo(2),
+    weapon: W(8, DamageType.Normal, 22, WR.PsiBlades, 2), ...cargo(2),
   }),
   [Kind.Dragoon]: protoss('dragoon', {
     name: 'Dragoon', ...mobile(16), size: Size.Large,
     hp: 100, shields: 80, armor: 1, sight: 8, speed: fx(2), minerals: 125, gas: 50, supply: supply(2), buildTime: sec(31.5),
-    ...same(W(20, DamageType.Explosive, 30, 4)), requires: [Kind.CyberneticsCore], ...cargo(4),
+    ...same(W(20, DamageType.Explosive, 30, WR.PhaseDisruptor)), requires: [Kind.CyberneticsCore], ...cargo(4),
   }),
   [Kind.HighTemplar]: protoss('highTemplar', {
     name: 'High Templar', ...mobile(12), size: Size.Small,
@@ -878,12 +968,12 @@ export const Units: Record<number, UnitDef> = {
   [Kind.DarkTemplar]: protoss('darkTemplar', {
     name: 'Dark Templar', ...mobile(12), size: Size.Small,
     hp: 80, shields: 40, armor: 1, sight: 7, speed: fx(2), minerals: 125, gas: 100, supply: supply(2), buildTime: sec(31.5),
-    weapon: W(40, DamageType.Normal, 30, 1), requires: [Kind.TemplarArchives], ...cargo(2),
+    weapon: W(40, DamageType.Normal, 30, WR.WarpBlades), requires: [Kind.TemplarArchives], ...cargo(2),
   }),
   [Kind.Archon]: protoss('archon', {
     name: 'Archon', ...mobile(16), size: Size.Large,
     hp: 10, shields: 350, sight: 8, speed: fx(2), supply: supply(4), buildTime: sec(12.6),
-    ...same(W(30, DamageType.Normal, 20, 2)), buildMethod: 'merge', ...cargo(4),
+    ...same({ ...W(30, DamageType.Normal, 20, WR.PsionicShockwave), ...radialSplash(SP.PsionicShockwave) }), buildMethod: 'merge', ...cargo(4),
   }),
   [Kind.DarkArchon]: protoss('darkArchon', {
     name: 'Dark Archon', ...mobile(16), size: Size.Large,
@@ -893,13 +983,13 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Reaver]: protoss('reaver', {
     name: 'Reaver', ...mobile(16), roles: Role.Mobile | Role.Producer, size: Size.Large,
     hp: 100, shields: 80, sight: 10, speed: fx(1), minerals: 200, gas: 100, supply: supply(4), buildTime: sec(44),
-    weapon: { ...W(100, DamageType.Normal, 60, 8), ...SCARAB_SPLASH }, requires: [Kind.RoboticsSupportBay],
+    weapon: { ...W(100, DamageType.Normal, 60, WR.ReaverLaunch), ...SCARAB_SPLASH }, requires: [Kind.RoboticsSupportBay],
     produces: [Kind.Scarab], ...cargo(4),
   }),
   [Kind.Scarab]: protoss('scarab', {
     name: 'Scarab', ...mobile(3), size: Size.Small,
     hp: 1, minerals: 15, buildTime: sec(4), speed: fx(4),
-    weapon: { ...W(100, DamageType.Normal, 1, 0.5), ...SCARAB_SPLASH },
+    weapon: { ...W(100, DamageType.Normal, 1, WR.ScarabImpact), ...SCARAB_SPLASH },
     buildMethod: 'internal',
   }),
   [Kind.Observer]: protoss('observer', {
@@ -915,7 +1005,7 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Scout]: protoss('scout', {
     name: 'Scout', ...air(18), size: Size.Large,
     hp: 150, shields: 100, sight: 8, speed: fx(3), minerals: 275, gas: 125, supply: supply(3), buildTime: sec(50.4),
-    weapon: W(8, DamageType.Normal, 30, 4), airWeapon: W(14, DamageType.Explosive, 22, 4, 2),
+    weapon: W(8, DamageType.Normal, 30, WR.DualPhotonBlasters), airWeapon: W(14, DamageType.Explosive, 22, WR.AntiMatterMissiles, 2),
   }),
   [Kind.Carrier]: protoss('carrier', {
     name: 'Carrier', ...air(32), roles: Role.Mobile | Role.Air | Role.Producer, size: Size.Large,
@@ -925,18 +1015,19 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Interceptor]: protoss('interceptor', {
     name: 'Interceptor', ...air(8), size: Size.Small,
     hp: 40, shields: 40, sight: 6, speed: fx(4), minerals: 25, buildTime: sec(12.6),
-    ...same(W(6, DamageType.Normal, 1, 1)), buildMethod: 'internal',
+    ...same(W(6, DamageType.Normal, 1, WR.PulseCannon)), buildMethod: 'internal',
   }),
   [Kind.Arbiter]: protoss('arbiter', {
     name: 'Arbiter', ...air(22), size: Size.Large,
     hp: 200, shields: 150, energyMax: 200, startEnergy: 50, armor: 1, sight: 9, speed: fx(2), minerals: 100, gas: 350, supply: supply(4), buildTime: sec(100.8),
-    ...same(W(10, DamageType.Explosive, 45, 5)), requires: [Kind.ArbiterTribunal],
+    ...same(W(10, DamageType.Explosive, 45, WR.PhaseDisruptorCannon)), requires: [Kind.ArbiterTribunal],
     abilities: [Ability.StasisField, Ability.Recall],
   }),
   [Kind.Corsair]: protoss('corsair', {
     name: 'Corsair', ...air(18), size: Size.Medium,
     hp: 100, shields: 80, energyMax: 200, startEnergy: 50, armor: 1, sight: 9, speed: fx(3), minerals: 150, gas: 100, supply: supply(2), buildTime: sec(25.2),
-    airWeapon: W(5, DamageType.Explosive, 8, 5, 1, 0, 1), abilities: [Ability.DisruptionWeb],
+    airWeapon: { ...W(5, DamageType.Explosive, 8, WR.NeutronFlare), ...radialSplash(SP.AirSplash) },
+    abilities: [Ability.DisruptionWeb],
   }),
 
   // Protoss buildings.
@@ -964,7 +1055,7 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.PhotonCannon]: protoss('photonCannon', {
     name: 'Photon Cannon', ...structure(20, 2, 2), size: Size.Large,
-    hp: 100, shields: 100, sight: 11, minerals: 150, buildTime: sec(31.5), ...same(W(20, DamageType.Normal, 22, 7)),
+    hp: 100, shields: 100, sight: 11, minerals: 150, buildTime: sec(31.5), ...same(W(20, DamageType.Normal, 22, WR.PhotonCannon)),
     requires: [Kind.Forge],
   }),
   [Kind.CyberneticsCore]: protoss('cyberneticsCore', {
@@ -1030,7 +1121,7 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Drone]: zerg('drone', {
     name: 'Drone', ...mobile(11), roles: Role.Mobile | Role.Worker, size: Size.Small,
     hp: 40, sight: 7, speed: fx(2), minerals: 50, supply: supply(1), buildTime: sec(12.6),
-    weapon: W(5, DamageType.Normal, 22, 1), buildMethod: 'larva', ...cargo(1),
+    weapon: W(5, DamageType.Normal, 22, WR.Spines), buildMethod: 'larva', ...cargo(1),
   }),
   [Kind.Overlord]: zerg('overlord', {
     name: 'Overlord', ...air(25), size: Size.Large,
@@ -1040,38 +1131,38 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Zergling]: zerg('zergling', {
     name: 'Zergling', ...mobile(8), size: Size.Small,
     hp: 35, sight: 5, speed: fx(3), minerals: 25, supply: supply(0.5), buildTime: sec(28),
-    weapon: W(5, DamageType.Normal, 8, 1), requires: [Kind.SpawningPool], buildMethod: 'larva', ...cargo(1),
+    weapon: W(5, DamageType.Normal, 8, WR.Claws), requires: [Kind.SpawningPool], buildMethod: 'larva', ...cargo(1),
   }),
   [Kind.Hydralisk]: zerg('hydralisk', {
     name: 'Hydralisk', ...mobile(10), size: Size.Medium,
     hp: 80, sight: 6, speed: fx(2), minerals: 75, gas: 25, supply: supply(1), buildTime: sec(28),
-    ...same(W(10, DamageType.Explosive, 15, 4)), requires: [Kind.HydraliskDen], buildMethod: 'larva', ...cargo(2),
+    ...same(W(10, DamageType.Explosive, 15, WR.NeedleSpines)), requires: [Kind.HydraliskDen], buildMethod: 'larva', ...cargo(2),
   }),
   [Kind.Lurker]: zerg('lurker', {
     name: 'Lurker', ...mobile(16), size: Size.Large,
     hp: 125, armor: 1, sight: 8, speed: fx(2), minerals: 50, gas: 100, supply: supply(2), buildTime: sec(40),
-    weapon: W(20, DamageType.Explosive, 37, 6), requires: [Kind.HydraliskDen], buildMethod: 'morph',
+    weapon: W(20, DamageType.Explosive, 37, WR.SubterraneanSpines), requires: [Kind.HydraliskDen], buildMethod: 'morph',
     ...cargo(4),
   }),
   [Kind.Mutalisk]: zerg('mutalisk', {
     name: 'Mutalisk', ...air(22), size: Size.Small,
     hp: 120, sight: 7, speed: fx(3), minerals: 100, gas: 100, supply: supply(2), buildTime: sec(40),
-    ...same(W(9, DamageType.Normal, 30, 3)), requires: [Kind.Spire], buildMethod: 'larva',
+    ...same(W(9, DamageType.Normal, 30, WR.GlaveWurm)), requires: [Kind.Spire], buildMethod: 'larva',
   }),
   [Kind.Scourge]: zerg('scourge', {
     name: 'Scourge', ...air(12), size: Size.Small,
     hp: 25, sight: 5, speed: fx(4), minerals: 25, gas: 75, supply: supply(0.5), buildTime: sec(30),
-    airWeapon: W(110, DamageType.Normal, 1, 0.5), requires: [Kind.Spire], buildMethod: 'larva',
+    airWeapon: W(110, DamageType.Normal, 1, WR.SuicideScourge), requires: [Kind.Spire], buildMethod: 'larva',
   }),
   [Kind.Guardian]: zerg('guardian', {
     name: 'Guardian', ...air(22), size: Size.Large,
     hp: 150, armor: 2, sight: 8, speed: fx(2), minerals: 50, gas: 100, supply: supply(2), buildTime: sec(40),
-    weapon: W(20, DamageType.Normal, 30, 8), requires: [Kind.GreaterSpire], buildMethod: 'morph',
+    weapon: W(20, DamageType.Normal, 30, WR.AcidSpore), requires: [Kind.GreaterSpire], buildMethod: 'morph',
   }),
   [Kind.Devourer]: zerg('devourer', {
     name: 'Devourer', ...air(22), size: Size.Large,
     hp: 250, armor: 2, sight: 8, speed: fx(2), minerals: 150, gas: 50, supply: supply(2), buildTime: sec(40),
-    airWeapon: W(25, DamageType.Explosive, 100, 6), requires: [Kind.GreaterSpire], buildMethod: 'morph',
+    airWeapon: W(25, DamageType.Explosive, 100, WR.CorrosiveAcid), requires: [Kind.GreaterSpire], buildMethod: 'morph',
   }),
   [Kind.Queen]: zerg('queen', {
     name: 'Queen', ...air(24), size: Size.Medium,
@@ -1086,16 +1177,17 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Ultralisk]: zerg('ultralisk', {
     name: 'Ultralisk', ...mobile(19), size: Size.Large,
     hp: 400, armor: 1, sight: 7, speed: fx(3), minerals: 200, gas: 200, supply: supply(4), buildTime: sec(60),
-    weapon: W(20, DamageType.Normal, 15, 1), requires: [Kind.UltraliskCavern], buildMethod: 'larva', ...cargo(4),
+    weapon: W(20, DamageType.Normal, 15, WR.KaiserBlades), requires: [Kind.UltraliskCavern], buildMethod: 'larva', ...cargo(4),
   }),
   [Kind.InfestedTerran]: zerg('infestedTerran', {
     name: 'Infested Terran', ...mobile(8), size: Size.Small,
     hp: 60, sight: 5, speed: fx(2), minerals: 100, gas: 50, supply: supply(1), buildTime: sec(40),
-    weapon: W(500, DamageType.Normal, 1, 0.5, 1, 0, 2), buildMethod: 'internal', ...cargo(1),
+    weapon: { ...W(500, DamageType.Normal, 1, WR.SuicideInfestedTerran), ...radialSplash(SP.InfestedTerran) },
+    buildMethod: 'internal', ...cargo(1),
   }),
   [Kind.Broodling]: zerg('broodling', {
     name: 'Broodling', ...mobile(9), size: Size.Small,
-    hp: 30, sight: 5, speed: fx(2), weapon: W(4, DamageType.Normal, 15, 1), buildMethod: 'internal',
+    hp: 30, sight: 5, speed: fx(2), weapon: W(4, DamageType.Normal, 15, WR.ToxicSpores), buildMethod: 'internal',
   }),
 
   // Zerg buildings.
@@ -1120,12 +1212,12 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.SunkenColony]: zerg('sunkenColony', {
     name: 'Sunken Colony', ...structure(24, 2, 2), size: Size.Large,
-    hp: 300, armor: 2, sight: 10, minerals: 50, buildTime: sec(20), weapon: W(40, DamageType.Explosive, 32, 7),
+    hp: 300, armor: 2, sight: 10, minerals: 50, buildTime: sec(20), weapon: W(40, DamageType.Explosive, 32, WR.SubterraneanTentacle),
     requires: [Kind.SpawningPool], buildMethod: 'morph',
   }),
   [Kind.SporeColony]: zerg('sporeColony', {
     name: 'Spore Colony', ...structure(24, 2, 2), size: Size.Large,
-    hp: 400, sight: 10, minerals: 50, buildTime: sec(20), airWeapon: W(15, DamageType.Normal, 15, 7),
+    hp: 400, sight: 10, minerals: 50, buildTime: sec(20), airWeapon: W(15, DamageType.Normal, 15, WR.SeekerSpores),
     requires: [Kind.EvolutionChamber], buildMethod: 'morph',
   }),
   [Kind.SpawningPool]: zerg('spawningPool', {
@@ -1269,9 +1361,9 @@ export type FactionName = 'terran' | 'protoss' | 'zerg';
 // ---- economy / combat tunables (provisional) ----
 export const MINE_AMOUNT = 8;
 export const MINE_TICKS = sec(2);
-export const MINE_RANGE = fx(20);
+export const MINE_RANGE = bwRange(HarvestRangePx.Mine);
 export const MAX_PER_PATCH = 3; // ceiling for the timing-derived patch saturation cap
-export const DEPOSIT_RANGE = fx(48);
+export const DEPOSIT_RANGE = bwRange(HarvestRangePx.Deposit);
 export const BUILD_RANGE = fx(28); // worker "at the construction site" radius
 export const START_MINERALS = 50;
 export const START_WORKERS = 4;

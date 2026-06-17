@@ -5,14 +5,72 @@ import { spawnUnit } from '../src/factory.ts';
 import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/setup.ts';
 import { sliceMap } from '../src/map.ts';
-import { Kind, Order, Role, TILE, MINE_AMOUNT } from '../src/data.ts';
+import { Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, bwRange } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
+import { bwApproxEdgeDistance, topDownEdgeDistance } from '../src/spatial.ts';
 import type { MapDef } from '../src/map.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const open = (w: number, h: number): MapDef => ({
   name: 'open', w, h, walk: new Uint8Array(w * h).fill(1), build: new Uint8Array(w * h).fill(1),
   elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+});
+
+test('workers must physically dock before mining and deposit', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  const depot = slotOf(spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12)));
+  const node = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(7)));
+  e.cargo[node] = 1_000_000;
+
+  const miner = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(10)));
+  e.order[miner] = Order.Harvest;
+  e.target[miner] = eid(e, node);
+
+  assert.equal(MINE_RANGE, bwRange(10));
+  assert.equal(DEPOSIT_RANGE, bwRange(10));
+  assert.ok(topDownEdgeDistance(s, miner, node) > 0);
+
+  const mineStartY = e.y[miner]!;
+  stepWorld(s, []);
+
+  assert.equal(e.timer[miner], 0, 'worker did not start mining from depot range');
+  assert.ok(e.y[miner]! < mineStartY, 'worker moved toward the mineral patch');
+
+  e.x[miner] = e.x[node]!;
+  e.y[miner] = e.y[node]!;
+  e.cargo[miner] = MINE_AMOUNT;
+  e.cargoType[miner] = ResourceType.Minerals;
+  e.order[miner] = Order.Harvest;
+  e.target[miner] = eid(e, node);
+
+  assert.ok(topDownEdgeDistance(s, miner, depot) > 0);
+  const depositStartY = e.y[miner]!;
+  const before = s.players.minerals[0]!;
+  stepWorld(s, []);
+
+  assert.equal(s.players.minerals[0], before, 'worker did not deposit from mineral range');
+  assert.ok(e.y[miner]! > depositStartY, 'worker moved back toward the depot');
+});
+
+test('workers do not mine from BW-compatible detached range', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(18), tc(18));
+  const node = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, fx(400), fx(400)));
+  e.cargo[node] = 1_000_000;
+
+  const miner = slotOf(spawnUnit(s, Kind.SCV, 0, fx(400), fx(437)));
+  e.order[miner] = Order.Harvest;
+  e.target[miner] = eid(e, node);
+
+  assert.equal(bwApproxEdgeDistance(s, miner, node), MINE_RANGE);
+  assert.ok(topDownEdgeDistance(s, miner, node) > 0);
+
+  stepWorld(s, []);
+
+  assert.equal(e.timer[miner], 0, 'worker waits for visible top-down contact before mining');
+  assert.ok(e.y[miner]! < fx(437), 'worker moves into actual contact');
 });
 
 test('a patch is reserved while mined — at most one worker extracts at a time', () => {

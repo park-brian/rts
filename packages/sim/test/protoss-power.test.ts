@@ -84,7 +84,7 @@ test('unpowered photon cannons cannot attack or detect', () => {
   const e = s.e;
   const cannon = slotOf(spawnUnit(s, Kind.PhotonCannon, 0, fx(400), fx(400)));
   const ling = slotOf(spawnUnit(s, Kind.Zergling, 1, fx(500), fx(400)));
-  const dt = slotOf(spawnUnit(s, Kind.DarkTemplar, 1, fx(500), fx(430)));
+  const dt = slotOf(spawnUnit(s, Kind.DarkTemplar, 1, fx(650), fx(430)));
   const hp = e.hp[ling]!;
 
   assert.equal(canDetect(s, 0, dt), false);
