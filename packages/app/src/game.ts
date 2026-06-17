@@ -15,6 +15,7 @@ import {
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
+import { isUserCommandableKind } from './child-actors.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -425,6 +426,7 @@ export class Game {
     const buildings: number[] = [];
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human) continue;
+      if (!isUserCommandableKind(e.kind[i]!)) continue;
       const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
       if (x < wx0 || x > wx1 || y < wy0 || y > wy1) continue;
       if ((e.flags[i]! & Role.Structure) !== 0) buildings.push(eid(e, i));
@@ -728,7 +730,7 @@ export class Game {
 
   private isOwnedSelectable(e: State['e'], id: number): boolean {
     if (id < 0 || this.human < 0) return false;
-    return isAlive(e, id) && e.owner[slotOf(id)] === this.human;
+    return isAlive(e, id) && e.owner[slotOf(id)] === this.human && isUserCommandableKind(e.kind[slotOf(id)]!);
   }
 
   private queueHarvestTarget(target: number): boolean {
@@ -783,6 +785,7 @@ export class Game {
     let best = -1; let bestD = Infinity;
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
+      if (!isUserCommandableKind(e.kind[i]!)) continue;
       if (!this.canSeeEntity(i)) continue;
       if (this.human >= 0 && e.owner[i] !== this.human && this.tileVisible(Math.floor(e.x[i]! / ONE / TILE), Math.floor(e.y[i]! / ONE / TILE)) !== 2) continue;
       const r = Math.max(10, Units[e.kind[i]!]!.radius / ONE);
@@ -1029,6 +1032,7 @@ export class Game {
   }
 
   private selectVisibleKind(kind: number): void {
+    if (!isUserCommandableKind(kind)) return;
     const e = this.sim.fullState().e;
     const x0 = this.camX; const y0 = this.camY;
     const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;

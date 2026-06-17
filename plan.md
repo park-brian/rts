@@ -472,12 +472,15 @@ Completed:
   impact, and dud cleanly if the Reaver or target becomes invalid before impact.
 - Added general weapon splash falloff metadata and applied Brood War-style Scarab/Reaver
   100/50/25 percent damage bands, including Scarab Damage upgrade scaling and armor.
+- Reaver Scarabs now have app-level projectile presentation in both renderers: the WebGL path
+  adds a cheap additive glow around visible Scarab actors, and the Math renderer keeps the exact
+  gameplay radius while adding a readable glow reference. Scarabs remain fog-safe through normal
+  `Game.canSeeEntity` visibility and no longer steal tap or box selection as commandable units.
 - Added Carrier Interceptors as launched child combat actors with a serialized home link, attack
   sortie, target orbit, leash/return behavior, ammo restoration, and idle target acquisition.
 
 Remaining:
 
-- More exact Reaver scarab presentation on top of the projectile primitive.
 - More exact Carrier Interceptor launch/dock presentation and any remaining Brood War movement
   fidelity on top of the launched-child primitive.
 - More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
@@ -550,7 +553,6 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
-  - More exact Reaver scarab presentation.
   - More exact Carrier Interceptor launch/dock presentation and Brood War movement fidelity.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.

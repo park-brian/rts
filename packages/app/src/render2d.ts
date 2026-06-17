@@ -10,6 +10,7 @@ import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
+import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
 import { ui } from './store.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -149,9 +150,19 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       const r = def.radius / ONE;
       overlayW = r * 2;
       overlayH = r * 2;
+      if (isProjectilePresentationKind(kind)) {
+        const glowR = readableProjectileRadius(kind, r, game.zoom);
+        ctx.globalAlpha = alpha * 0.42;
+        ctx.fillStyle = 'rgba(255,210,78,0.5)';
+        ctx.beginPath();
+        ctx.arc(wx, wy, glowR, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = illusion.known ? 'rgba(125,190,255,0.18)' : footprintColor(e.owner[i]!, 0.26);
-      ctx.strokeStyle = color(e.owner[i]!);
+      ctx.fillStyle = isProjectilePresentationKind(kind)
+        ? 'rgba(255,225,120,0.58)'
+        : illusion.known ? 'rgba(125,190,255,0.18)' : footprintColor(e.owner[i]!, 0.26);
+      ctx.strokeStyle = isProjectilePresentationKind(kind) ? '#fff1a8' : color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
       ctx.beginPath();
       ctx.arc(wx, wy, r, 0, Math.PI * 2);
@@ -366,6 +377,7 @@ export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => 
   const e = game.sim.fullState().e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
+    if (isProjectilePresentationKind(e.kind[i]!)) continue;
     const tx = Math.floor(e.x[i]! / ONE / TILE); const ty = Math.floor(e.y[i]! / ONE / TILE);
     if (!game.canSeeEntity(i)) continue;
     ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? NEUTRAL_COL : color(e.owner[i]!);

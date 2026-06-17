@@ -21,6 +21,7 @@ import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
 import { illusionPresentation } from '../illusion-presentation.ts';
+import { isProjectilePresentationKind, readableProjectileRadius } from '../child-actors.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -364,6 +365,9 @@ export class GlRenderer {
         this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
       } else if (isGeyser || def.resourceType === ResourceType.Gas) {
         this.fx.push(baseX, baseY - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
+      } else if (isProjectilePresentationKind(kind)) {
+        const glowR = readableProjectileRadius(kind, r, game.zoom);
+        this.fx.push(wx, wy, glowR * 3, glowR * 3, 0, glow, 1, 0.75, 0.2, 0.32, 0, 0, 0);
       }
     }
   }
