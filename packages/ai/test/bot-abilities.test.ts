@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
 
@@ -33,6 +33,12 @@ const hasAbility = (cmds: ReturnType<ReturnType<typeof createBot>>, unit: number
   cmds.some((c) => c.t === 'ability' && c.unit === unit && c.ability === ability);
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
+
+const linkAddon = (s: State, parent: number, addon: number): void => {
+  const e = s.e;
+  e.target[slotOf(parent)] = addon;
+  e.target[slotOf(addon)] = parent;
+};
 
 const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): void => {
   const map = sim.fullState().map;
@@ -1036,7 +1042,9 @@ test('bot queues a legal physics lab for science facilities on the air tech path
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 422, factions: [Terran, Zerg] });
   const s = sim.fullState();
   const facility = spawnUnit(s, Kind.ScienceFacility, 0, fx(1_200), fx(1_200));
-  spawnUnit(s, Kind.ControlTower, 0, fx(900), fx(1_200));
+  const towerParent = spawnUnit(s, Kind.Starport, 0, fx(900), fx(1_200));
+  const tower = spawnUnit(s, Kind.ControlTower, 0, fx(980), fx(1_200));
+  linkAddon(s, towerParent, tower);
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 
@@ -1098,7 +1106,9 @@ test('bot queues a legal nuclear silo after covert ops', () => {
   const s = sim.fullState();
   const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
   const base = entityPos(sim, commandCenter);
-  spawnUnit(s, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  const facility = spawnUnit(s, Kind.ScienceFacility, 0, base.x - fx(240), base.y);
+  const covertOps = spawnUnit(s, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  linkAddon(s, facility, covertOps);
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 
@@ -1122,7 +1132,9 @@ test('bot respects nuclear silo prerequisites, add-on conflicts, and budget', ()
   const dupE = dupState.e;
   const commandCenter = slotOf(findEntity(duplicate, Kind.CommandCenter, 0));
   const base = entityPos(duplicate, eid(dupE, commandCenter));
-  spawnUnit(dupState, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  const facility = spawnUnit(dupState, Kind.ScienceFacility, 0, base.x - fx(240), base.y);
+  const covertOps = spawnUnit(dupState, Kind.CovertOps, 0, base.x - fx(160), base.y);
+  linkAddon(dupState, facility, covertOps);
   const comsat = slotOf(spawnUnit(dupState, Kind.ComsatStation, 0, base.x + fx(80), base.y));
   dupE.target[commandCenter] = eid(dupE, comsat);
   dupE.target[comsat] = eid(dupE, commandCenter);
@@ -1134,7 +1146,9 @@ test('bot respects nuclear silo prerequisites, add-on conflicts, and budget', ()
   const broke = new Sim({ map: sliceMap(), players: 2, seed: 430, factions: [Terran, Zerg] });
   const brokeState = broke.fullState();
   const brokeBase = entityPos(broke, findEntity(broke, Kind.CommandCenter, 0));
-  spawnUnit(brokeState, Kind.CovertOps, 0, brokeBase.x - fx(160), brokeBase.y);
+  const brokeFacility = spawnUnit(brokeState, Kind.ScienceFacility, 0, brokeBase.x - fx(240), brokeBase.y);
+  const brokeCovertOps = spawnUnit(brokeState, Kind.CovertOps, 0, brokeBase.x - fx(160), brokeBase.y);
+  linkAddon(brokeState, brokeFacility, brokeCovertOps);
   brokeState.players.minerals[0] = 1_000;
   brokeState.players.gas[0] = 0;
 
@@ -1618,7 +1632,9 @@ test('bot launches nukes at high-value enemy clusters when a missile is ready', 
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
   const ghost = spawnUnit(s, Kind.Ghost, 0, base.x, base.y);
-  const silo = spawnUnit(s, Kind.NuclearSilo, 0, base.x, base.y);
+  const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
+  const silo = spawnUnit(s, Kind.NuclearSilo, 0, base.x + fx(80), base.y);
+  linkAddon(s, commandCenter, silo);
   s.e.specialAmmo[slotOf(silo)] = 1;
   spawnUnit(s, Kind.CommandCenter, 1, base.x + fx(260), base.y);
   spawnUnit(s, Kind.SupplyDepot, 1, base.x + fx(280), base.y);
@@ -1796,8 +1812,10 @@ test('bot casts Defiler plague, consume, and dark swarm when appropriate', () =>
 test('bot scans undetected cloaked enemies', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 53 });
   const s = sim.fullState();
-  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
-  const comsat = spawnUnit(s, Kind.ComsatStation, 0, base.x, base.y);
+  const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
+  const base = entityPos(sim, commandCenter);
+  const comsat = spawnUnit(s, Kind.ComsatStation, 0, base.x + fx(80), base.y);
+  linkAddon(s, commandCenter, comsat);
   s.e.energy[slotOf(comsat)] = 50;
   spawnUnit(s, Kind.DarkTemplar, 1, base.x + fx(40), base.y);
 

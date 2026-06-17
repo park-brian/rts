@@ -11,6 +11,7 @@ import { faceToward } from './move.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { consumeReadyNuke } from '../nuke.ts';
+import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 
 const ENERGY_REGEN_TICKS = sec(1.78);
 
@@ -48,6 +49,7 @@ const tickEnergy = (s: State): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.energyMax[i]! <= 0 || e.cloakActive[i] === 1 || e.energy[i]! >= e.energyMax[i]!) continue;
+    if (isAddonKind(e.kind[i]!) && activeAddonParentSlot(s, i) === NONE) continue;
     if (e.energyTimer[i]! <= 0) e.energyTimer[i] = ENERGY_REGEN_TICKS;
     e.energyTimer[i] = e.energyTimer[i]! - 1;
     if (e.energyTimer[i]! <= 0) e.energy[i] = Math.min(e.energyMax[i]!, e.energy[i]! + 1);

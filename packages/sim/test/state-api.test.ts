@@ -269,8 +269,11 @@ test('scanner sweep reveals fogged cloaked enemies to observation', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 207, vision: true });
   const s = sim.fullState();
   const e = s.e;
+  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(420), fx(500)));
   const comsat = slotOf(spawnUnit(s, Kind.ComsatStation, 0, fx(500), fx(500)));
   const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(1_300), fx(1_300));
+  e.target[commandCenter] = eid(e, comsat);
+  e.target[comsat] = eid(e, commandCenter);
   e.energy[comsat] = 50;
 
   sim.step([{ player: 0, cmds: [{ t: 'ability', unit: eid(e, comsat), ability: Ability.ScannerSweep, x: fx(1_300), y: fx(1_300) }] }]);

@@ -45,7 +45,10 @@ test('spider mine tech grants charges to current and future vultures', () => {
   const s = sim.fullState();
   const e = s.e;
   const vulture = slotOf(spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400)));
+  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(400), fx(400)));
   const shop = slotOf(spawnUnit(s, Kind.MachineShop, 0, fx(480), fx(400)));
+  e.target[factory] = eid(e, shop);
+  e.target[shop] = eid(e, factory);
   e.researchKind[shop] = Tech.SpiderMines;
   e.researchTimer[shop] = 1;
 

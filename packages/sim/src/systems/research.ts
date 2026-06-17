@@ -1,9 +1,11 @@
 import type { State } from '../world.ts';
+import { NONE } from '../world.ts';
 import { Kind, SPIDER_MINE_CHARGES, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../derived.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
+import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 
 const refreshEnergyMax = (s: State, player: number): void => {
   const e = s.e;
@@ -28,6 +30,7 @@ export const research = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || e.researchKind[i] === Kind.None) continue;
     if (isLiftedStructureFlags(e.flags[i]!)) continue;
+    if (isAddonKind(e.kind[i]!) && activeAddonParentSlot(s, i) === NONE) continue;
     if (!isPowered(s, i)) continue;
     if (e.researchTimer[i]! > 0) {
       e.researchTimer[i] = e.researchTimer[i]! - 1;

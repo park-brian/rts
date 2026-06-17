@@ -11,7 +11,7 @@ import {
   hasAnyWeapon, productionCostCount, productionCount, unitTraits, weaponForTarget,
   workerBuildKindsFor,
 } from './data.ts';
-import { addonParentKind, addonPosition, isAddonKind } from './addon.ts';
+import { activeAddonParentSlot, addonParentKind, addonPosition, isAddonKind } from './addon.ts';
 import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
 import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
@@ -101,7 +101,9 @@ const placementBlockingKind = (s: State, slot: number): boolean => {
 const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === kind && e.built[i] === 1) return true;
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== kind || e.built[i] !== 1) continue;
+    if (isAddonKind(kind) && activeAddonParentSlot(s, i) === NONE) continue;
+    return true;
   }
   return false;
 };
@@ -110,6 +112,9 @@ const requirementsMet = (s: State, player: number, requirements: number[]): bool
   for (const req of requirements) if (!hasCompletedKind(s, player, req)) return false;
   return true;
 };
+
+const activeAddon = (s: State, slot: number): boolean =>
+  !isAddonKind(s.e.kind[slot]!) || activeAddonParentSlot(s, slot) !== NONE;
 
 const validTechId = (tech: number): boolean => Number.isInteger(tech) && tech > 0 && tech < TECH_CAP;
 
@@ -227,6 +232,7 @@ export const validateCommand = (
       if (e.illusion[slot] === 1) return reject('missing-capability');
       if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('incomplete-producer');
+      if (!activeAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       const def = Units[c.kind];
       const building = Units[e.kind[slot]!];
@@ -250,6 +256,7 @@ export const validateCommand = (
       if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('incomplete-producer');
       if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
+      if (!activeAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       if (e.researchKind[slot] !== Kind.None) return reject('queue-full');
       if (!validTechId(c.tech)) return reject('target-not-allowed');
@@ -398,6 +405,7 @@ export const validateCommand = (
       if (isContained(s, slot)) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('missing-capability');
+      if (!activeAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
       const attacker = Units[e.kind[slot]!]!;

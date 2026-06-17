@@ -1,5 +1,7 @@
 import { Kind, Units, tiles } from './data.ts';
+import { isLiftedStructureFlags } from './terran-mobility.ts';
 import type { State } from './world.ts';
+import { NONE, eid, isAlive, slotOf } from './world.ts';
 
 export const addonParentKind = (addonKind: number): number => {
   switch (addonKind) {
@@ -14,6 +16,18 @@ export const addonParentKind = (addonKind: number): number => {
 };
 
 export const isAddonKind = (kind: number): boolean => Units[kind]?.buildMethod === 'addon';
+
+export const activeAddonParentSlot = (s: State, addon: number): number => {
+  const e = s.e;
+  if (addon < 0 || addon >= e.hi || e.alive[addon] !== 1 || !isAddonKind(e.kind[addon]!)) return NONE;
+  const parentId = e.target[addon]!;
+  if (!isAlive(e, parentId)) return NONE;
+  const parent = slotOf(parentId);
+  if (e.owner[parent] !== e.owner[addon]) return NONE;
+  if (e.built[parent] !== 1 || isLiftedStructureFlags(e.flags[parent]!)) return NONE;
+  if (addonParentKind(e.kind[addon]!) !== e.kind[parent]) return NONE;
+  return e.target[parent] === eid(e, addon) ? parent : NONE;
+};
 
 export const addonPosition = (s: State, parent: number, addonKind: number): { x: number; y: number } => {
   const e = s.e;

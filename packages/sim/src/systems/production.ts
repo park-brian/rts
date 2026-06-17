@@ -15,6 +15,7 @@ import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { internalAmmoCapacity } from '../derived.ts';
 import { resolveRallyEndpoint } from '../rally.ts';
 import { LARVA_MAX, countLarvae } from '../larva.ts';
+import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
@@ -119,6 +120,7 @@ export const production = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || e.prodKind[i] === Kind.None) continue;
     if (e.kind[i] !== Kind.Egg && isLiftedStructureFlags(e.flags[i]!)) continue;
+    if (isAddonKind(e.kind[i]!) && activeAddonParentSlot(s, i) === NONE) continue;
     if (!isPowered(s, i)) continue;
     if (e.prodTimer[i]! > 0) {
       e.prodTimer[i] = e.prodTimer[i]! - 1;

@@ -698,8 +698,11 @@ test('command card publishes disabled train and ability reasons', () => {
 test('nuclear command card surfaces silo missile state', () => {
   const g = freshGame();
   const s = g.sim.fullState();
+  const commandCenter = findEntity(g, Kind.CommandCenter, 0);
   const silo = spawnUnit(s, Kind.NuclearSilo, 0, fx(500), fx(500));
   const siloSlot = slotOf(silo);
+  s.e.target[slotOf(commandCenter)] = silo;
+  s.e.target[siloSlot] = commandCenter;
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
   select(g, [silo]);

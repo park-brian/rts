@@ -378,6 +378,12 @@ Completed:
   cancellation cleanup, and replay parsing.
 - Added focused add-on tests for construction/linkage, duplicate rejection, parent/prerequisite
   validation, cancellation refunds, and replay parsing.
+- Completed add-ons now require a live, bidirectionally linked, landed parent to satisfy tech
+  prerequisites, train, research, cast add-on abilities, provide ready nukes, tick production or
+  research queues, and regenerate energy; the scripted Terran bot mirrors the same active-add-on
+  prerequisite rule.
+- Added focused orphaned/lifted parent tests for add-on validation plus production/research pause
+  coverage, and updated add-on fixtures to model real parent links.
 - Added authoritative Terran `lift` and `land` commands for Command Center, Barracks,
   Engineering Bay, Factory, Starport, and Science Facility.
 - Lifted buildings become mobile air structures, stop acting as producers/depots, stop blocking
@@ -405,7 +411,6 @@ Remaining:
   desired visual language.
 - Any remaining power-field UI affordances beyond the current placement overlay and powered-state
   validation.
-- Deeper Terran add-on ownership behavior such as dependency on landed parent state.
 
 ## Phase 6: Unit-Specific Combat Mechanics
 

@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
-import { eid, isAlive, slotOf } from '../src/world.ts';
+import { eid, isAlive, kill, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Units } from '../src/data.ts';
+import { Kind, Tech, Units } from '../src/data.ts';
 import { addonPosition } from '../src/addon.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
+import { validateCommand } from '../src/validation.ts';
+import { liftedStructureFlags } from '../src/terran-mobility.ts';
 
 test('terran parent buildings construct one linked add-on', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 130 });
@@ -62,6 +64,86 @@ test('add-ons enforce parent type, prerequisites, placement, and cancel refunds'
   assert.equal(isAlive(e, eid(e, comsat)), false);
   assert.equal(e.target[cc], -1);
   assert.equal(s.players.minerals[0], before + Math.trunc(Units[Kind.ComsatStation]!.minerals * 3 / 4));
+});
+
+test('completed add-ons require a live linked landed parent for validation', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 132 });
+  const s = sim.fullState();
+  const e = s.e;
+  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
+  const spareFactory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(1_100), fx(700)));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 100;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.MachineShop }] }]), [
+    { player: 0, index: 0, t: 'addon', ok: true },
+  ]);
+  const shop = slotOf(e.target[factory]!);
+  e.built[shop] = 1;
+  e.ctimer[shop] = 0;
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'research', building: eid(e, shop), tech: Tech.SiegeTech }), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: eid(e, spareFactory), kind: Kind.SiegeTank }), { ok: true });
+
+  const landedFlags = e.flags[factory]!;
+  e.flags[factory] = liftedStructureFlags(Kind.Factory);
+  assert.deepEqual(validateCommand(s, 0, { t: 'research', building: eid(e, shop), tech: Tech.SiegeTech }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: eid(e, spareFactory), kind: Kind.SiegeTank }), {
+    ok: false,
+    reason: 'missing-requirement',
+  });
+
+  e.flags[factory] = landedFlags;
+  kill(s, factory);
+  assert.deepEqual(validateCommand(s, 0, { t: 'research', building: eid(e, shop), tech: Tech.SiegeTech }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'train', building: eid(e, spareFactory), kind: Kind.SiegeTank }), {
+    ok: false,
+    reason: 'missing-requirement',
+  });
+});
+
+test('orphaned add-on production and research do not complete', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 133 });
+  const s = sim.fullState();
+  const e = s.e;
+  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
+  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(1_200), fx(700)));
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.MachineShop }] }]), [
+    { player: 0, index: 0, t: 'addon', ok: true },
+  ]);
+  const shop = slotOf(e.target[factory]!);
+  e.built[shop] = 1;
+  e.ctimer[shop] = 0;
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'research', building: eid(e, shop), tech: Tech.SiegeTech }] }]), [
+    { player: 0, index: 0, t: 'research', ok: true },
+  ]);
+
+  const silo = slotOf(spawnUnit(s, Kind.NuclearSilo, 0, fx(1_280), fx(700)));
+  e.target[commandCenter] = eid(e, silo);
+  e.target[silo] = eid(e, commandCenter);
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, silo), kind: Kind.NuclearMissile }] }]), [
+    { player: 0, index: 0, t: 'train', ok: true },
+  ]);
+  e.researchTimer[shop] = 1;
+  e.prodTimer[silo] = 1;
+
+  kill(s, factory);
+  kill(s, commandCenter);
+  sim.step([]);
+
+  assert.equal(e.researchKind[shop], Tech.SiegeTech);
+  assert.equal(e.prodKind[silo], Kind.NuclearMissile);
+  assert.equal(e.specialAmmo[silo], 0);
 });
 
 test('replay parser accepts addon commands', () => {

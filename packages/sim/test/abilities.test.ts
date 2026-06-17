@@ -12,8 +12,16 @@ import { validateCommand } from '../src/validation.ts';
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
 
+const linkAddon = (s: ReturnType<Sim['fullState']>, parent: number, addon: number): void => {
+  const e = s.e;
+  e.target[slotOf(parent)] = addon;
+  e.target[slotOf(addon)] = parent;
+};
+
 const loadedSilo = (s: ReturnType<Sim['fullState']>, player: number, x = fx(400), y = fx(400)): number => {
+  const parent = spawnUnit(s, Kind.CommandCenter, player, x - fx(80), y);
   const silo = spawnUnit(s, Kind.NuclearSilo, player, x, y);
+  linkAddon(s, parent, silo);
   s.e.specialAmmo[slotOf(silo)] = 1;
   return silo;
 };
@@ -264,9 +272,11 @@ test('active cloak toggles on, drains energy, and blocks attacks until revealed'
 test('scanner sweep reveals cloaked targets without a detector unit', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 32 });
   const s = sim.fullState();
+  const commandCenter = spawnUnit(s, Kind.CommandCenter, 0, fx(220), fx(300));
   const comsat = spawnUnit(s, Kind.ComsatStation, 0, fx(300), fx(300));
   const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
   const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(700), fx(400));
+  linkAddon(s, commandCenter, comsat);
   s.e.energy[slotOf(comsat)] = 50;
 
   sim.step([{ player: 0, cmds: [
@@ -612,8 +622,10 @@ test('nuclear strike requires a ready missile and cancels if the ghost moves', (
 test('nuclear silos build one internal missile ammo', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 397 });
   const s = sim.fullState();
+  const commandCenter = spawnUnit(s, Kind.CommandCenter, 0, fx(320), fx(400));
   const silo = spawnUnit(s, Kind.NuclearSilo, 0, fx(400), fx(400));
   const slot = slotOf(silo);
+  linkAddon(s, commandCenter, silo);
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
 

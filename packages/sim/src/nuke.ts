@@ -1,10 +1,13 @@
 import { Kind } from './data.ts';
 import type { State } from './world.ts';
+import { activeAddonParentSlot } from './addon.ts';
+import { NONE } from './world.ts';
 
 export const readyNukeSilo = (s: State, player: number): number => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.NuclearSilo && e.built[i] === 1 && e.specialAmmo[i]! > 0) {
+    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.NuclearSilo && e.built[i] === 1 &&
+        e.specialAmmo[i]! > 0 && activeAddonParentSlot(s, i) !== NONE) {
       return i;
     }
   }

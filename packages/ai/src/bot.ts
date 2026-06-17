@@ -8,7 +8,7 @@ import {
   Abilities, Ability, Role, Trait, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
-  addonParentKind, hasAnyWeapon, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  activeAddonParentSlot, addonParentKind, hasAnyWeapon, hasReadyNuke, isAddonKind, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -81,7 +81,9 @@ const findMacroSpot = (s: State, player: number, worker: number, kind: number, f
 const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === kind && e.built[i] === 1) return true;
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== kind || e.built[i] !== 1) continue;
+    if (isAddonKind(kind) && activeAddonParentSlot(s, i) === NONE) continue;
+    return true;
   }
   return false;
 };
