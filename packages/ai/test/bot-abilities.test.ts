@@ -3,11 +3,17 @@ import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
 import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand } from '@rts/sim';
 
+type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
+
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
 const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number) =>
   cmds.find((c) => c.t === 'build' && c.kind === kind);
 const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findBuild(cmds, kind) !== undefined;
+const findTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'transform' }> | undefined =>
+  cmds.find((c): c is Extract<BotCommand, { t: 'transform' }> => c.t === 'transform' && c.kind === kind);
+const hasTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
+  findTransform(cmds, kind) !== undefined;
 
 const entityPos = (sim: Sim, id: number): { x: number; y: number } => {
   const e = sim.fullState().e;
@@ -366,6 +372,85 @@ test('zerg bot respects queen nest prerequisite, placement, duplicates, and budg
   brokeState.players.gas[0] = Units[Kind.QueensNest]!.gas - 1;
 
   assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.QueensNest), false);
+});
+
+test('zerg bot morphs a legal hive from a completed lair after queen nest', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 470, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const lair = findEntity(sim, Kind.Hatchery, 0);
+  const lairSlot = slotOf(lair);
+  const base = entityPos(sim, lair);
+  s.e.kind[lairSlot] = Kind.Lair;
+  spawnUnit(s, Kind.QueensNest, 0, base.x + fx(180), base.y);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Zerg, { workerTarget: 0 })(s, 0);
+  const morph = findTransform(cmds, Kind.Hive);
+
+  assert.ok(morph);
+  assert.equal(morph.unit, lair);
+  assert.deepEqual(validateCommand(s, 0, morph), { ok: true });
+});
+
+test('zerg bot respects hive prerequisite, duplicates, pending morph, queue, and budget', () => {
+  const missingNest = new Sim({ map: sliceMap(), players: 2, seed: 471, factions: [Zerg, Terran] });
+  const missingState = missingNest.fullState();
+  const missingLair = slotOf(findEntity(missingNest, Kind.Hatchery, 0));
+  missingState.e.kind[missingLair] = Kind.Lair;
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(missingState, 0), Kind.Hive), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 472, factions: [Zerg, Terran] });
+  const duplicateState = duplicate.fullState();
+  const duplicateLair = slotOf(findEntity(duplicate, Kind.Hatchery, 0));
+  const duplicateBase = entityPos(duplicate, eid(duplicateState.e, duplicateLair));
+  duplicateState.e.kind[duplicateLair] = Kind.Lair;
+  spawnUnit(duplicateState, Kind.QueensNest, 0, duplicateBase.x + fx(180), duplicateBase.y);
+  spawnUnit(duplicateState, Kind.Hive, 0, duplicateBase.x + fx(260), duplicateBase.y);
+  duplicateState.players.minerals[0] = 1_000;
+  duplicateState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(duplicateState, 0), Kind.Hive), false);
+
+  const pending = new Sim({ map: sliceMap(), players: 2, seed: 473, factions: [Zerg, Terran] });
+  const pendingState = pending.fullState();
+  const pendingLair = slotOf(findEntity(pending, Kind.Hatchery, 0));
+  const pendingBase = entityPos(pending, eid(pendingState.e, pendingLair));
+  pendingState.e.kind[pendingLair] = Kind.Lair;
+  spawnUnit(pendingState, Kind.QueensNest, 0, pendingBase.x + fx(180), pendingBase.y);
+  const pendingHive = slotOf(spawnUnit(pendingState, Kind.Hive, 0, pendingBase.x + fx(260), pendingBase.y));
+  pendingState.e.built[pendingHive] = 0;
+  pendingState.e.morphFromKind[pendingHive] = Kind.Lair;
+  pendingState.players.minerals[0] = 1_000;
+  pendingState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(pendingState, 0), Kind.Hive), false);
+
+  const queued = new Sim({ map: sliceMap(), players: 2, seed: 474, factions: [Zerg, Terran] });
+  const queuedState = queued.fullState();
+  const queuedLair = slotOf(findEntity(queued, Kind.Hatchery, 0));
+  const queuedBase = entityPos(queued, eid(queuedState.e, queuedLair));
+  queuedState.e.kind[queuedLair] = Kind.Lair;
+  queuedState.e.prodKind[queuedLair] = Kind.Drone;
+  spawnUnit(queuedState, Kind.QueensNest, 0, queuedBase.x + fx(180), queuedBase.y);
+  queuedState.players.minerals[0] = 1_000;
+  queuedState.players.gas[0] = 1_000;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(queuedState, 0), Kind.Hive), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 475, factions: [Zerg, Terran] });
+  const brokeState = broke.fullState();
+  const brokeLair = slotOf(findEntity(broke, Kind.Hatchery, 0));
+  const brokeBase = entityPos(broke, eid(brokeState.e, brokeLair));
+  brokeState.e.kind[brokeLair] = Kind.Lair;
+  spawnUnit(brokeState, Kind.QueensNest, 0, brokeBase.x + fx(180), brokeBase.y);
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = Units[Kind.Hive]!.gas - 1;
+
+  assert.equal(hasTransform(createBot(Zerg, { workerTarget: 0 })(brokeState, 0), Kind.Hive), false);
 });
 
 test('bot morphs hydralisks into lurkers through shared transform validation', () => {

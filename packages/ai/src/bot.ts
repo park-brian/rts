@@ -416,13 +416,23 @@ const maybeQueueZergMorphs = (
   if (faction.name !== 'Zerg') return;
   const e = s.e;
   let lairStarted = false;
+  let hiveStarted = false;
   let lurkerStarted = false;
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player) continue;
+    const kind = e.kind[i]!;
+    if (kind === Kind.Lair || kind === Kind.Hive) lairStarted = true;
+    if (kind === Kind.Hive) hiveStarted = true;
+  }
+
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || e.built[i] !== 1) continue;
     const kind = e.kind[i]!;
-    if (!lairStarted && kind === Kind.Hatchery) lairStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lair);
+    if (!hiveStarted && kind === Kind.Lair) hiveStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Hive);
+    else if (!lairStarted && kind === Kind.Hatchery) lairStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lair);
     else if (!lurkerStarted && kind === Kind.Hydralisk) lurkerStarted = maybeQueueTransform(s, player, cmds, budget, i, Kind.Lurker);
-    if (lairStarted && lurkerStarted) return;
+    if (lairStarted && hiveStarted && lurkerStarted) return;
   }
 };
 
