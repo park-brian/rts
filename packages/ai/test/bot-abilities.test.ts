@@ -1998,13 +1998,16 @@ const readyProtossResearchScenario = (
 
 const readyZergResearchScenario = (
   seed: number,
+  producerKind: number,
   completedBefore: readonly number[] = [],
 ): { sim: Sim; producer: number } => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Zerg, Terran] });
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.Hatchery, 0));
-  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
-  const producer = spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  const pool = spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  const producer = producerKind === Kind.SpawningPool
+    ? pool
+    : spawnUnit(s, producerKind, 0, base.x + fx(160), base.y);
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
   for (const tech of completedBefore) grant(sim, 0, tech);
@@ -2014,21 +2017,25 @@ const readyZergResearchScenario = (
 const testZergResearchMacro = ({
   label,
   tech,
+  producerKind,
+  producerLabel,
   busyTech,
   firstSeed,
   completedBefore = [],
 }: {
   label: string;
   tech: number;
+  producerKind: number;
+  producerLabel: string;
   busyTech: number;
   firstSeed: number;
   completedBefore?: readonly number[];
 }): void => {
   const bot = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 });
   const ready = (seed: number): ReturnType<typeof readyZergResearchScenario> =>
-    readyZergResearchScenario(seed, completedBefore);
+    readyZergResearchScenario(seed, producerKind, completedBefore);
 
-  test(`zerg bot researches ${label} from a completed hydralisk den`, () => {
+  test(`zerg bot researches ${label} from a completed ${producerLabel}`, () => {
     const { sim } = ready(firstSeed);
     const s = sim.fullState();
 
@@ -2090,14 +2097,26 @@ const testZergResearchMacro = ({
 };
 
 testZergResearchMacro({
-  label: 'lurker aspect',
-  tech: Tech.LurkerAspect,
-  busyTech: Tech.GroovedSpines,
+  label: 'metabolic boost',
+  tech: Tech.MetabolicBoost,
+  producerKind: Kind.SpawningPool,
+  producerLabel: 'spawning pool',
+  busyTech: Tech.AdrenalGlands,
   firstSeed: 506,
 });
 
+testZergResearchMacro({
+  label: 'lurker aspect',
+  tech: Tech.LurkerAspect,
+  producerKind: Kind.HydraliskDen,
+  producerLabel: 'hydralisk den',
+  busyTech: Tech.GroovedSpines,
+  firstSeed: 514,
+  completedBefore: [Tech.MetabolicBoost],
+});
+
 test('zerg bot waits for lurker aspect before grooved spines', () => {
-  const { sim } = readyZergResearchScenario(514);
+  const { sim } = readyZergResearchScenario(522, Kind.HydraliskDen, [Tech.MetabolicBoost]);
   const cmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(sim.fullState(), 0);
 
   assert.equal(hasResearch(cmds, Tech.GroovedSpines), false);
@@ -2107,19 +2126,21 @@ test('zerg bot waits for lurker aspect before grooved spines', () => {
 testZergResearchMacro({
   label: 'grooved spines',
   tech: Tech.GroovedSpines,
+  producerKind: Kind.HydraliskDen,
+  producerLabel: 'hydralisk den',
   busyTech: Tech.MuscularAugments,
-  firstSeed: 515,
-  completedBefore: [Tech.LurkerAspect],
+  firstSeed: 523,
+  completedBefore: [Tech.MetabolicBoost, Tech.LurkerAspect],
 });
 
 test('zerg bot waits for lurker aspect and grooved spines before muscular augments', () => {
-  const missingBoth = readyZergResearchScenario(523);
+  const missingBoth = readyZergResearchScenario(531, Kind.HydraliskDen, [Tech.MetabolicBoost]);
   const missingBothCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingBoth.sim.fullState(), 0);
 
   assert.equal(hasResearch(missingBothCmds, Tech.MuscularAugments), false);
   assert.equal(hasResearch(missingBothCmds, Tech.LurkerAspect), true);
 
-  const missingGrooved = readyZergResearchScenario(524, [Tech.LurkerAspect]);
+  const missingGrooved = readyZergResearchScenario(532, Kind.HydraliskDen, [Tech.MetabolicBoost, Tech.LurkerAspect]);
   const missingGroovedCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingGrooved.sim.fullState(), 0);
 
   assert.equal(hasResearch(missingGroovedCmds, Tech.MuscularAugments), false);
@@ -2129,9 +2150,11 @@ test('zerg bot waits for lurker aspect and grooved spines before muscular augmen
 testZergResearchMacro({
   label: 'muscular augments',
   tech: Tech.MuscularAugments,
+  producerKind: Kind.HydraliskDen,
+  producerLabel: 'hydralisk den',
   busyTech: Tech.LurkerAspect,
-  firstSeed: 525,
-  completedBefore: [Tech.LurkerAspect, Tech.GroovedSpines],
+  firstSeed: 533,
+  completedBefore: [Tech.MetabolicBoost, Tech.LurkerAspect, Tech.GroovedSpines],
 });
 
 const testProtossResearchMacro = ({

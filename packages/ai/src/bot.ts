@@ -44,6 +44,7 @@ const ZERG_STRUCTURE_MACRO = [
   Kind.UltraliskCavern,
 ] as const;
 const ZERG_RESEARCH_MACRO = [
+  { tech: Tech.MetabolicBoost },
   { tech: Tech.LurkerAspect },
   { tech: Tech.GroovedSpines, after: [Tech.LurkerAspect] },
   { tech: Tech.MuscularAugments, after: [Tech.LurkerAspect, Tech.GroovedSpines] },

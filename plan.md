@@ -668,6 +668,8 @@ Completed:
 - Zerg scripted macro now extends an existing completed Nydus network to later attack fronts when
   the current focus lacks a useful endpoint, still using shared placement validation and suppressing
   duplicate or already-pending endpoint builds.
+- Zerg scripted macro now queues Metabolic Boost from completed Spawning Pools through the shared
+  research validation path, giving its core Zergling army the existing derived-speed upgrade.
 - Zerg scripted macro now queues Lurker Aspect research from completed Hydralisk Dens through the
   shared research validation path, respecting producer completion, duplicate/in-progress research,
   busy queues, and mineral/gas budget gates.
