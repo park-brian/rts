@@ -45,7 +45,8 @@ const ZERG_STRUCTURE_MACRO = [
 ] as const;
 const ZERG_RESEARCH_MACRO = [
   { tech: Tech.LurkerAspect },
-  { tech: Tech.GroovedSpines, after: Tech.LurkerAspect },
+  { tech: Tech.GroovedSpines, after: [Tech.LurkerAspect] },
+  { tech: Tech.MuscularAugments, after: [Tech.LurkerAspect, Tech.GroovedSpines] },
 ] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
@@ -403,7 +404,7 @@ const maybeQueueZergResearch = (
   budget: ResourceBudget,
 ): void => {
   for (const item of ZERG_RESEARCH_MACRO) {
-    if ('after' in item && getTechLevel(s, player, item.after) <= 0) continue;
+    if ('after' in item && item.after.some((tech) => getTechLevel(s, player, tech) <= 0)) continue;
     if (maybeQueueResearch(s, player, cmds, budget, item.tech)) return;
   }
 };

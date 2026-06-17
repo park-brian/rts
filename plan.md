@@ -674,6 +674,9 @@ Completed:
 - Zerg scripted macro now queues Grooved Spines from completed Hydralisk Dens only after Lurker
   Aspect is complete, keeping Hydralisk/Lurker range progression ordered while still using shared
   research validation for producer, queue, duplicate, and budget gates.
+- Zerg scripted macro now queues Muscular Augments from completed Hydralisk Dens after Lurker
+  Aspect and Grooved Spines are complete, finishing the Hydralisk Den upgrade trio through the
+  same ordered research macro and shared validation path.
 
 Done when:
 

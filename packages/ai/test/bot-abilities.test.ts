@@ -2112,6 +2112,28 @@ testZergResearchMacro({
   completedBefore: [Tech.LurkerAspect],
 });
 
+test('zerg bot waits for lurker aspect and grooved spines before muscular augments', () => {
+  const missingBoth = readyZergResearchScenario(523);
+  const missingBothCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingBoth.sim.fullState(), 0);
+
+  assert.equal(hasResearch(missingBothCmds, Tech.MuscularAugments), false);
+  assert.equal(hasResearch(missingBothCmds, Tech.LurkerAspect), true);
+
+  const missingGrooved = readyZergResearchScenario(524, [Tech.LurkerAspect]);
+  const missingGroovedCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingGrooved.sim.fullState(), 0);
+
+  assert.equal(hasResearch(missingGroovedCmds, Tech.MuscularAugments), false);
+  assert.equal(hasResearch(missingGroovedCmds, Tech.GroovedSpines), true);
+});
+
+testZergResearchMacro({
+  label: 'muscular augments',
+  tech: Tech.MuscularAugments,
+  busyTech: Tech.LurkerAspect,
+  firstSeed: 525,
+  completedBefore: [Tech.LurkerAspect, Tech.GroovedSpines],
+});
+
 const testProtossResearchMacro = ({
   label,
   tech,
