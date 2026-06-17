@@ -615,3 +615,46 @@ test('command card publishes disabled train and ability reasons', () => {
 
   assert.ok(ui.selAbilities.value.includes(Ability.PsionicStorm));
 });
+
+test('nuclear command card surfaces silo missile state', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const silo = spawnUnit(s, Kind.NuclearSilo, 0, fx(500), fx(500));
+  const siloSlot = slotOf(silo);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  select(g, [silo]);
+  g.fastForward(0);
+
+  let option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  assert.equal(option?.ok, true);
+  assert.equal(option?.label, 'Arm Nuke');
+
+  s.e.prodKind[siloSlot] = Kind.NuclearMissile;
+  s.e.prodTimer[siloSlot] = 100;
+  g.fastForward(0);
+
+  option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  assert.equal(option?.ok, false);
+  assert.equal(option?.label, 'Arming Nuke');
+  assert.equal(option?.detail, 'Arming');
+
+  s.e.prodKind[siloSlot] = Kind.None;
+  s.e.prodTimer[siloSlot] = 0;
+  s.e.specialAmmo[siloSlot] = 1;
+  g.fastForward(0);
+
+  option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  assert.equal(option?.ok, false);
+  assert.equal(option?.label, 'Nuke Ready');
+  assert.equal(option?.detail, 'Ready');
+
+  const ghost = spawnUnit(s, Kind.Ghost, 0, fx(520), fx(520));
+  s.e.specialAmmo[siloSlot] = 0;
+  select(g, [ghost]);
+  g.fastForward(0);
+
+  const ability = ui.selAbilityOptions.value.find((o) => o.id === Ability.NuclearStrike);
+  assert.equal(ability?.ok, false);
+  assert.equal(ability?.detail, 'No Nuke');
+});

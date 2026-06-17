@@ -11,6 +11,12 @@ import { canDetect } from '../src/detection.ts';
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
 
+const loadedSilo = (s: ReturnType<Sim['fullState']>, player: number, x = fx(400), y = fx(400)): number => {
+  const silo = spawnUnit(s, Kind.NuclearSilo, player, x, y);
+  s.e.specialAmmo[slotOf(silo)] = 1;
+  return silo;
+};
+
 test('stim costs hit points and speeds the next attack cooldown', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 20 });
   const s = sim.fullState();
@@ -505,7 +511,7 @@ test('nuclear strike consumes a missile and deals delayed area damage', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 394 });
   const s = sim.fullState();
   const ghost = spawnUnit(s, Kind.Ghost, 0, fx(400), fx(400));
-  const nuke = spawnUnit(s, Kind.NuclearMissile, 0, fx(400), fx(400));
+  const silo = loadedSilo(s, 0);
   const marine = spawnUnit(s, Kind.Marine, 1, fx(720), fx(400));
   const cc = spawnUnit(s, Kind.CommandCenter, 1, fx(740), fx(400));
   const far = spawnUnit(s, Kind.CommandCenter, 1, fx(1200), fx(400));
@@ -515,7 +521,7 @@ test('nuclear strike consumes a missile and deals delayed area damage', () => {
   ] }]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
-  assert.equal(isAlive(s.e, nuke), false);
+  assert.equal(s.e.specialAmmo[slotOf(silo)], 0);
   assert.equal(s.e.alive[slotOf(marine)], 1);
   for (let t = 0; t < sec(8.5); t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 0);
@@ -533,13 +539,37 @@ test('nuclear strike requires a ready missile and cancels if the ghost moves', (
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(500), y: fx(400) },
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: false, reason: 'missing-requirement' }]);
 
-  spawnUnit(s, Kind.NuclearMissile, 0, fx(400), fx(400));
+  loadedSilo(s, 0);
   assert.deepEqual(sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
   sim.step([{ player: 0, cmds: [{ t: 'move', unit: ghost, x: fx(200), y: fx(400) }] }]);
   for (let t = 0; t < sec(9); t++) sim.step([]);
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.CommandCenter]!.hp);
+});
+
+test('nuclear silos build one internal missile ammo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 397 });
+  const s = sim.fullState();
+  const silo = spawnUnit(s, Kind.NuclearSilo, 0, fx(400), fx(400));
+  const slot = slotOf(silo);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: silo, kind: Kind.NuclearMissile }] }]), [
+    { player: 0, index: 0, t: 'train', ok: true },
+  ]);
+  assert.equal(s.e.prodKind[slot], Kind.NuclearMissile);
+
+  for (let t = 0; t < Units[Kind.NuclearMissile]!.buildTime; t++) sim.step([]);
+
+  assert.equal(s.e.specialAmmo[slot], 1);
+  assert.equal(s.e.prodKind[slot], Kind.None);
+  assert.equal(isAlive(s.e, silo), true);
+  assert.equal([...s.e.kind.slice(0, s.e.hi)].filter((k) => k === Kind.NuclearMissile).length, 0);
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: silo, kind: Kind.NuclearMissile }] }]), [
+    { player: 0, index: 0, t: 'train', ok: false, reason: 'queue-full' },
+  ]);
 });
 
 test('shield battery spends energy to restore nearby protoss shields', () => {

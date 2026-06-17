@@ -10,6 +10,7 @@ import { updateCloakAuras } from '../detection.ts';
 import { faceToward } from './move.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../cargo.ts';
+import { consumeReadyNuke } from '../nuke.ts';
 
 const ENERGY_REGEN_TICKS = sec(1.78);
 
@@ -172,16 +173,6 @@ const recallUnits = (s: State, caster: number, x: number, y: number, radius: num
     e.order[i] = Order.Idle;
     e.target[i] = NONE;
     n++;
-  }
-};
-
-const consumeReadyNuke = (s: State, owner: number): void => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === owner && e.kind[i] === Kind.NuclearMissile && e.built[i] === 1) {
-      kill(s, i);
-      return;
-    }
   }
 };
 

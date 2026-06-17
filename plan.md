@@ -230,11 +230,13 @@ Completed:
 - Fixed hallucination weapon damage so the double-damage rule is applied once, not twice.
 - Scripted AI now uses Nuclear Strike when missile ammo is ready and enemy value justifies it, and
   recharges damaged Protoss shields with Shield Batteries.
+- Nuclear Silos now build one internal missile ammo through the shared producer/ammo path, Ghost
+  Nuclear Strike validation consumes that silo ammo, and the command card surfaces `Arm Nuke`,
+  `Arming Nuke`, `Nuke Ready`, and `No Nuke` states without app-only command rules.
+- The app screenshot harness now captures a Nuclear Silo ready-missile command-card reference.
 
 Remaining:
 
-- More exact Nuclear Strike presentation, including app-side red-dot/warning rendering and tighter
-  silo/missile UI semantics instead of the current produced missile-as-ammo entity.
 - More exact Hallucination presentation rules such as detection/selection treatment and source-type
   damage fidelity beyond the current shared double-damage model.
 - More exact attack animation lockout windows; current pathing treats ground units with an active
@@ -543,7 +545,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
   - More exact projectile/travel behavior for missiles, scarabs, interceptors, Valkyrie volleys,
-    and nuke warning/presentation.
+    and nuke missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
   - Observation/action-mask planes for tech, queues, effects, statuses, cargo, larva, creep, power,
@@ -553,7 +555,6 @@ approximated, or absent. Keep this list honest as mechanics land.
     Protoss power-aware expansions.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
-  - Better command grouping once full spell/upgrade/morph/production rosters crowd the bottom bar.
 - Rendering/assets:
   - Progress/cocoon/warp-in/building-under-construction presentation.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.

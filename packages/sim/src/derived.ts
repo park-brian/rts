@@ -125,5 +125,6 @@ export const internalAmmoCapacity = (s: State, producer: number, kind: number): 
   const producerKind = s.e.kind[producer]!;
   if (producerKind === Kind.Reaver && kind === Kind.Scarab) return reaverScarabCapacity(s, producer);
   if (producerKind === Kind.Carrier && kind === Kind.Interceptor) return carrierInterceptorCapacity(s, producer);
+  if (producerKind === Kind.NuclearSilo && kind === Kind.NuclearMissile) return 1;
   return 0;
 };

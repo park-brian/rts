@@ -21,6 +21,7 @@ import { isDisabled } from './systems/status.ts';
 import { commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
 import { internalAmmoCapacity } from './derived.ts';
+import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
@@ -111,14 +112,6 @@ const requirementsMet = (s: State, player: number, requirements: number[]): bool
 };
 
 const validTechId = (tech: number): boolean => Number.isInteger(tech) && tech > 0 && tech < TECH_CAP;
-
-const hasReadyNuke = (s: State, player: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.NuclearMissile && e.built[i] === 1) return true;
-  }
-  return false;
-};
 
 const canBuildWithWorker = (workerKind: number, structureKind: number): boolean => {
   const worker = Units[workerKind];

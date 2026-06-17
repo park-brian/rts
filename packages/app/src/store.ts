@@ -6,7 +6,7 @@ import type { CommandRejectReason } from './sim.ts';
 export type Mode = 'play' | 'spectate' | 'replay';
 export type TargetMode = 'none' | 'harvest' | 'repair';
 export type ControlScheme = 'mobile' | 'desktop';
-export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason };
+export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason; label?: string; detail?: string };
 
 const initialControlScheme = (): ControlScheme => {
   try {

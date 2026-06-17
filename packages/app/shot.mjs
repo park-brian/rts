@@ -38,7 +38,8 @@ if (!targetUrl) {
 mkdirSync('shots', { recursive: true });
 const ONE = 4096;
 const CAP = 4096;
-const KIND = { CommandCenter: 2, Nexus: 66, Pylon: 67, Drone: 102, Hatchery: 116, CreepColony: 119 };
+const KIND = { CommandCenter: 2, Nexus: 66, Pylon: 67, Drone: 102, Hatchery: 116, CreepColony: 119, NuclearSilo: 36 };
+const ROLE = { Structure: 2, Producer: 32 };
 
 // SwiftShader gives headless Chromium a working WebGL2 stack so screenshots
 // capture the real GL renderer (gl/renderer.ts), not the Canvas2D fallback.
@@ -108,7 +109,26 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-disabled.png' });
 
-  // 5) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
+  // 5) Nuclear Silo missile state: ready internal ammo shown as a command-card status.
+  await page.evaluate(({ CAP, KIND, ROLE }) => {
+    const g = window.__game;
+    g.restart('play', 24070, 1, ['terran', 'protoss']);
+    const s = g.sim.fullState();
+    const e = s.e;
+    let silo = 0;
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.CommandCenter) silo = i;
+    e.kind[silo] = KIND.NuclearSilo;
+    e.flags[silo] = ROLE.Structure | ROLE.Producer;
+    e.specialAmmo[silo] = 1;
+    s.players.supplyMax[g.human] = 10;
+    g.selection.clear();
+    g.selection.add(silo + e.gen[silo] * CAP);
+    g.fastForward(0);
+  }, { CAP, KIND, ROLE });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/nuclear-silo-ready.png' });
+
+  // 6) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
   await page.evaluate(({ CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24068, 1, ['zerg', 'terran']);
@@ -125,7 +145,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-groups.png' });
 
-  // 6) Placement field overlays: candidate Pylon power and Zerg creep.
+  // 7) Placement field overlays: candidate Pylon power and Zerg creep.
   await page.evaluate(({ ONE, KIND }) => {
     const g = window.__game;
     g.restart('play', 24067, 1, ['protoss', 'terran']);
@@ -155,21 +175,21 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/placement-creep-overlay.png' });
 
-  // 7) Spectate a fast-forwarded battle (both AIs).
+  // 8) Spectate a fast-forwarded battle (both AIs).
   await page.getByRole('button', { name: '▶ Play' }).click();
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(4500)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-battle.png' });
 
-  // 8) A 2v2 (twice as wide), fast-forwarded.
+  // 9) A 2v2 (twice as wide), fast-forwarded.
   await page.evaluate('window.__game.restart("spectate", 12345, 2)');
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(5000)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-2v2.png' });
 
-  // 9) Desktop command console layout: minimap, selection panel, grouped command grid.
+  // 10) Desktop command console layout: minimap, selection panel, grouped command grid.
   const desktopCtx = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,

@@ -76,15 +76,16 @@ const Btn = (p: {
   dense?: boolean;
   disabled?: boolean;
   reason?: string;
+  detail?: string;
   hotkeyAction?: HotkeyAction;
 }) => (
-  <button disabled={p.disabled} title={p.reason ? reasonLabel(p.reason) : undefined}
+  <button disabled={p.disabled} title={p.detail ?? (p.reason ? reasonLabel(p.reason) : undefined)}
     style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction), p.disabled, p.dense)}
     onClick={p.disabled ? undefined : p.onClick}>
     <span style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{p.label}</span>
-    {p.reason && <span style={{ width: '100%', opacity: 0.86, fontSize: '10px', lineHeight: '11px',
+    {(p.detail || p.reason) && <span style={{ width: '100%', opacity: 0.86, fontSize: '10px', lineHeight: '11px',
       overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
-      {reasonLabel(p.reason)}
+      {p.detail ?? reasonLabel(p.reason!)}
     </span>}
     {ui.controlScheme.value === 'desktop' && p.hotkeyAction && !p.reason && (
       <span style={{ width: '100%', opacity: 0.75, fontSize: '11px', lineHeight: '11px', flex: '0 0 auto',
@@ -340,8 +341,9 @@ const Hotbar = (p: { game: Game }) => {
     onClick: () => void,
     active = false,
   ): void => {
-    addCommand(group, <Btn dense={ui.controlScheme.value !== 'desktop'} label={label} hotkeyAction={hotkeyAction} active={active}
-      disabled={!option.ok} reason={option.ok ? undefined : option.reason} onClick={onClick} />);
+    addCommand(group, <Btn dense={ui.controlScheme.value !== 'desktop'} label={option.label ?? label}
+      hotkeyAction={hotkeyAction} active={active} disabled={!option.ok}
+      reason={option.ok ? undefined : option.reason} detail={option.detail} onClick={onClick} />);
   };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',

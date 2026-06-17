@@ -278,7 +278,8 @@ test('bot launches nukes at high-value enemy clusters when a missile is ready', 
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
   const ghost = spawnUnit(s, Kind.Ghost, 0, base.x, base.y);
-  spawnUnit(s, Kind.NuclearMissile, 0, base.x, base.y);
+  const silo = spawnUnit(s, Kind.NuclearSilo, 0, base.x, base.y);
+  s.e.specialAmmo[slotOf(silo)] = 1;
   spawnUnit(s, Kind.CommandCenter, 1, base.x + fx(260), base.y);
   spawnUnit(s, Kind.SupplyDepot, 1, base.x + fx(280), base.y);
 

@@ -3,7 +3,7 @@
 // publishes HUD state. Rendering and input live in sibling modules.
 
 import {
-  Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Kind, TechDefs, Units, Role,
+  Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, TechDefs, Units, Role,
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
@@ -41,6 +41,7 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
   'wrong-owner': 15,
   'stale-entity': 16,
 };
+type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
@@ -48,15 +49,15 @@ const normalizeRace = (race: string | undefined): FactionName =>
 const defaultRaceNames = (players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
 
-const addOption = (options: Map<number, CommandOption>, id: number, result: CommandValidation): void => {
+const addOption = (options: Map<number, CommandOption>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
   const current = options.get(id);
   if (result.ok) {
-    options.set(id, { id, ok: true });
+    options.set(id, { id, ok: true, ...meta });
     return;
   }
   if (current?.ok) return;
   if (!current || REASON_PRIORITY[result.reason] < REASON_PRIORITY[current.reason!]) {
-    options.set(id, { id, ok: false, reason: result.reason });
+    options.set(id, { id, ok: false, reason: result.reason, ...meta });
   }
 };
 
@@ -65,6 +66,13 @@ const optionKinds = (options: Map<number, CommandOption>): number[] =>
 
 const sortedOptions = (options: Map<number, CommandOption>): CommandOption[] =>
   [...options.values()].sort((a, b) => a.id - b.id);
+
+const nukeTrainOptionMeta = (s: State, slot: number): CommandOptionMeta => {
+  const e = s.e;
+  if (e.specialAmmo[slot]! > 0) return { label: 'Nuke Ready', detail: 'Ready' };
+  if (e.prodKind[slot] === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
+  return { label: 'Arm Nuke' };
+};
 
 export class Game {
   sim!: Sim;
@@ -1107,13 +1115,17 @@ export class Game {
         if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
       }
       for (const train of Units[k]!.produces) {
-        addOption(trainOptions, train, validateCommand(s, this.human, { t: 'train', building: id, kind: train }));
+        const result = validateCommand(s, this.human, { t: 'train', building: id, kind: train });
+        const meta = k === Kind.NuclearSilo && train === Kind.NuclearMissile ? nukeTrainOptionMeta(s, slot) : {};
+        addOption(trainOptions, train, result, meta);
       }
       for (const target of transformTargetsFor(k)) {
         addOption(transformOptions, target, validateCommand(s, this.human, { t: 'transform', unit: id, kind: target }));
       }
       for (const ability of Units[k]!.abilities) {
-        addOption(abilityOptions, ability, this.abilityAvailability(s, slot, ability));
+        const result = this.abilityAvailability(s, slot, ability);
+        addOption(abilityOptions, ability, result,
+          ability === Ability.NuclearStrike && !result.ok && result.reason === 'missing-requirement' ? { detail: 'No Nuke' } : {});
       }
       for (const tech of TECH_IDS) {
         const c: Command = { t: 'research', building: id, tech };

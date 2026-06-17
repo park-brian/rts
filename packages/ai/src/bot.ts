@@ -8,7 +8,7 @@ import {
   Abilities, Ability, Role, Trait, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest, unitTraits,
   canDetect, isCloaked, NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
-  hasAnyWeapon, sameTeam, unloadAnchorSlot, unloadPassable, weaponForTarget,
+  hasAnyWeapon, hasReadyNuke, sameTeam, unloadAnchorSlot, unloadPassable, weaponForTarget,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -387,14 +387,6 @@ const abilityThreshold = (abilityId: number): number => {
     case Ability.NuclearStrike: return 650;
     default: return 1;
   }
-};
-
-const hasReadyNuke = (s: State, player: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.NuclearMissile) return true;
-  }
-  return false;
 };
 
 const maybeCastHeal = (s: State, player: number, cmds: Command[], caster: number): boolean => {
