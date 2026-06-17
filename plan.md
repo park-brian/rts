@@ -700,15 +700,130 @@ Done when:
 - A bot can play each race using its real macro mechanic and tactical abilities without relying on
   impossible commands.
 
+## Phase 9: SC2-Style Movement, Clearance, And Local Avoidance
+
+Status: planned.
+
+Purpose: replace "move into overlap, then shove apart" with a deterministic movement model that
+feels closer to StarCraft II: large units respect real body clearance, armies flow around each
+other before collision, and groups settle cleanly instead of jostling forever.
+
+Design target:
+
+- Keep the current shared flow-field approach for high-level pathfinding. It is still the right
+  macro primitive for many units moving to the same area.
+- Add clearance-aware passability so pathing asks "can this unit body fit here?" rather than "is
+  this center tile open?"
+- Give group commands stable destination slots around the clicked target instead of sending every
+  unit to one pixel.
+- Choose movement velocities with local avoidance before movement is applied. Collision push
+  remains only as an emergency overlap cleanup.
+- Preserve the sim constraints: fixed-point integers, deterministic tie-breaking, typed-array hot
+  loops, replay/hash reproducibility, no DOM/I/O, and benchmarked throughput.
+
+Implementation:
+
+- Clearance-aware navigation:
+  - Derive a small set of ground movement clearance classes from existing gameplay body data:
+    `Units[kind].radius` and/or `bodyBounds(kind)` from `packages/sim/src/spatial.ts`.
+  - Build clearance masks by dilating terrain/building blockers for each class. Small infantry
+    can pass through narrow gaps; Dragoons, Tanks, Goliaths, Lurkers, Reavers, and Ultralisks
+    cannot pass through gaps their bodies do not fit.
+  - Key cached fields by `(goalTile, clearanceClass, buildingLayoutSignature)`.
+  - Update `clearLine`, `flowField`, `downhill`, and movement obstacle checks to use the moving
+    unit's clearance class.
+  - Preserve no-corner-cutting at diagonals after dilation.
+- Stable group destination slots:
+  - During command ingestion, detect same-tick same-player move/attack-move groups that share the
+    same command target and assign deterministic final slots around that target.
+  - Keep the public command/replay surface as per-unit commands; slot assignment is derived from
+    the batch, sorted by stable slot id/distance rules.
+  - Prefer compact rings/grids that fit the local clearance mask. Fall back to nearest legal slots
+    around the target if the exact clicked point is obstructed.
+  - Keep a semantic route goal separate from the final settle slot if needed, so many units can
+    still share the same high-level flow field while fanning out near arrival.
+- Predictive local avoidance:
+  - Add a movement-local neighbor grid for solid ground movers and relevant stationary blockers.
+  - For each moving ground unit, compute a preferred velocity toward the next waypoint or final
+    slot.
+  - Evaluate a tiny deterministic candidate set around that preferred velocity: preferred,
+    slower preferred, left/right sidesteps, wider left/right, and stop.
+  - Score candidates by forward progress, predicted next-tick body overlap, obstacle clearance,
+    turn cost, slot ownership, and priority yielding.
+  - Pick the lowest-score candidate with stable tie-breaking. This gives ORCA/RVO-like behavior
+    without floats, allocation, or an imported solver.
+  - Treat idle, firing, burrowed, and other anchored units as higher-priority blockers; moving
+    units should flow around settled/combat units rather than constantly dislodging them.
+- Arrival damping and settling:
+  - Slow units as they approach their assigned slot.
+  - Snap/idle inside a small deterministic epsilon.
+  - Add hysteresis so a settled unit does not wake up from tiny residual pushes.
+  - Allow meaningful displacement or a new order to wake the unit.
+- Collision cleanup:
+  - Keep the current symmetric collision pass, but make it the seatbelt, not the steering wheel.
+  - Reduce push magnitude once predictive avoidance is in place.
+  - Clamp cleanup against the unit's clearance mask, not just the center tile.
+- Worker and special-unit rules:
+  - Preserve worker mineral behavior and existing worker-collision exemptions unless a focused
+    worker pathing slice says otherwise.
+  - Keep air units outside ground clearance/local-avoidance logic.
+  - Ensure Scarabs, Interceptors, Spider Mines, burrowed units, loaded cargo, and unfinished morphs
+    keep their existing commandability/collision semantics.
+
+Tests and proof:
+
+- Clearance tests:
+  - A Marine/Zergling can pass a narrow gap that a Dragoon/Tank/Ultralisk cannot.
+  - Large units cannot diagonal-corner-cut through a gap created by two blockers.
+  - Building footprints and terrain blockers participate in the same clearance mask.
+- Group settle tests:
+  - A 40-unit Marine group ordered to one point reaches a compact spread and then has near-zero
+    motion after a bounded settle window.
+  - A mixed Marine/Dragoon/Ultralisk-style group settles without persistent overlap or oscillation.
+  - Reissuing the same command stream produces identical hashes.
+- Local avoidance tests:
+  - Two opposing groups pass around each other without permanent deadlock in open terrain.
+  - Movers route around firing/pathing anchors without shoving them out of combat position.
+  - Large units approaching a ramp or choke queue smoothly instead of vibrating.
+- Regression tests:
+  - Harvesting throughput and worker clumping behavior remain within the current intended band.
+  - Transport unload, Nydus unload, Reaver Scarab movement, Interceptor movement, burrow, and
+    Spider Mine behavior keep their existing focused tests passing.
+- Performance tests:
+  - Add a headless "deathball settle" benchmark with no vision.
+  - Track tick cost for 50, 100, and 200 ground movers in open field, choke, and opposing-flow
+    scenarios.
+  - Do not accept the slice if local avoidance turns normal combat movement into O(n^2) behavior.
+
+Rollout:
+
+1. Add clearance classes and masks, then wire pathing to them while keeping current collision.
+2. Add deterministic group slot assignment for same-target command batches.
+3. Add candidate-velocity local avoidance behind the existing movement systems.
+4. Add arrival damping/settle hysteresis and reduce collision push to cleanup.
+5. Tune with screenshots/replays and benchmark data, then update `docs/specs/architecture.md`.
+
+Done when:
+
+- Large ground units can no longer pass through gaps their bodies should not fit through.
+- Large mixed groups ordered to one point settle into stable positions without endless jitter.
+- Moving units visibly flow around stationary/firing units before overlap occurs.
+- Replay hash determinism, serialization coverage, and headless movement benchmarks all pass.
+
 ## Current BW-Fidelity Missing Inventory
 
 This is the working list of "things that were actually in the game" which remain either partial,
 approximated, or absent. Keep this list honest as mechanics land.
 
+- Pathing and movement fidelity:
+  - Clearance-aware ground pathing by unit body size.
+  - Stable group destination slots for same-target move/attack-move commands.
+  - Predictive local avoidance and arrival settling so large armies stop jostling indefinitely.
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
 - Upgrade fidelity:
-  - Audit any remaining multi-hit/special weapon upgrade exceptions against BW references.
+  - Audit any remaining weapon-specific or multi-hit upgrade exceptions against BW references;
+    `weaponUpgradeBonus` now receives weapon identity, but only documented clear cases are wired.
 - Combat spatial rules:
   - More exact projectile/travel behavior for missiles, Valkyrie volleys, and nuke
     missile/presentation beyond the existing fog-safe warning affordance.
@@ -726,7 +841,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.
   - Add event-stream benchmark coverage if the sim grows a public gameplay event stream.
 
-## Phase 9: Performance And Maintainability Passes
+## Phase 10: Performance And Maintainability Passes
 
 Status: planned.
 
