@@ -190,6 +190,9 @@ Completed:
   show live group counts, click/tap recalls assigned groups, empty chips bind the current
   selection, Shift-click appends, and Ctrl/Cmd-click overwrites through the existing
   `assignControlGroup` and `recallControlGroup` paths.
+- Desktop and mobile command chrome now share one responsive fixed-cell command table instead of
+  scroll rails. The table reserves exact cells from viewport/chrome metrics, keeps selection
+  status compact, pages overflow in-place, and avoids overlapping group chips or command buttons.
 
 Remaining:
 

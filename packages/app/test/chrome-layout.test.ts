@@ -27,24 +27,28 @@ test('hud bars are solid separate chrome, not glass overlays', () => {
   assert.doesNotMatch(ui, /rgba\(11,\s*14,\s*19/);
 });
 
-test('desktop command console uses a reserved two-row command grid', () => {
+test('command console uses a fixed-cell table with no horizontal scroll lane', () => {
   const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
 
   assert.match(ui, /const desktopBottomChrome = \(width: number\): number =>/);
   assert.match(ui, /root\.style\.setProperty\('--bottom-chrome', bottom\)/);
-  assert.match(ui, /gridTemplateColumns:\s*'112px minmax\(260px, 320px\) minmax\(0, 1fr\)'/);
-  assert.match(ui, /gridTemplateRows:\s*'repeat\(2, 38px\)'/);
+  assert.match(ui, /data-command-table="true"/);
+  assert.match(ui, /gridTemplateColumns:\s*`repeat\(\$\{p\.metrics\.columns\}, minmax\(0, 1fr\)\)`/);
+  assert.match(ui, /gridAutoRows:\s*`\$\{p\.metrics\.cellHeight\}px`/);
+  assert.match(ui, /<Btn command label="More"/);
   assert.match(ui, /build:\s*'Build Orders'/);
+  assert.doesNotMatch(ui, /overflowX:\s*'auto'/);
+  assert.doesNotMatch(ui, /scrollbarWidth:\s*'thin'/);
   assert.doesNotMatch(ui, /`Build \$\{short/);
 });
 
 test('desktop console exposes control group chips without sharing command space', () => {
   const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
 
-  assert.match(ui, /const ControlGroups = \(p: \{ game: Game \}\)/);
-  assert.match(ui, /gridTemplateColumns:\s*'repeat\(10, minmax\(0, 1fr\)\)'/);
+  assert.match(ui, /const ControlGroups = \(p: \{ game: Game; compact\?: boolean \}\)/);
+  assert.match(ui, /p\.compact \? 'repeat\(5, minmax\(0, 1fr\)\)' : 'repeat\(10, minmax\(0, 1fr\)\)'/);
   assert.match(ui, /p\.game\.assignControlGroup\(index\)/);
   assert.match(ui, /p\.game\.recallControlGroup\(index, e\.shiftKey\)/);
   assert.match(ui, /e\.ctrlKey \|\| e\.metaKey/);
-  assert.match(ui, /<SelectionPanel game=\{g\} \/>/);
+  assert.match(ui, /<SelectionPanel game=\{g\} compact=\{metrics\.compactSelection\} \/>/);
 });

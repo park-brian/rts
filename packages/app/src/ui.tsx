@@ -24,7 +24,6 @@ type CommandLayoutMetrics = {
   columns: number;
   rows: number;
   cellHeight: number;
-  bottomChrome: number;
   minimapWidth: number;
   selectionWidth: number;
   showMinimap: boolean;
@@ -69,7 +68,7 @@ const btn = (active = false, compact = false, disabled = false, dense = false, c
     fontWeight: '600', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     opacity: disabled ? '0.72' : '1', cursor: disabled ? 'default' : 'pointer',
-    flex: dense ? '0 0 auto' : compact && !desktop ? '1 1 0' : '0 0 auto',
+    flex: dense ? '0 0 auto' : compact ? '1 1 0' : '0 0 auto',
   };
 };
 
@@ -147,18 +146,12 @@ const commandSections = (items: CommandItem[]): Array<{ id: CommandGroupId; item
   return sections;
 };
 
-const groupLabelStyle: Record<string, string> = {
-  height: '10px', lineHeight: '10px', fontSize: '9px', letterSpacing: '0',
-  textTransform: 'uppercase', color: '#9fb1c7', opacity: '0.78',
-};
-
 const viewportWidth = (): number => Math.max(320, Math.floor(globalThis.innerWidth || 1024));
 const desktopBottomChrome = (width: number): number => (width < 760 ? 176 : width < 1080 ? 148 : 128);
 const mobileBottomChrome = (width: number): number => (width < 370 ? 120 : 124);
 
 const commandLayoutMetrics = (scheme: ControlScheme, width: number): CommandLayoutMetrics => {
   const desktop = scheme === 'desktop';
-  const bottomChrome = desktop ? desktopBottomChrome(width) : mobileBottomChrome(width);
   const showMinimap = desktop && width >= 680;
   const minimapWidth = showMinimap ? (width < 900 ? 86 : 104) : 0;
   const selectionWidth = desktop
@@ -176,7 +169,6 @@ const commandLayoutMetrics = (scheme: ControlScheme, width: number): CommandLayo
     columns,
     rows,
     cellHeight,
-    bottomChrome,
     minimapWidth,
     selectionWidth,
     showMinimap,
@@ -493,6 +485,10 @@ const ReplayBar = (p: { game: Game }) => {
 
 const CommandTable = (p: { sections: Array<{ id: CommandGroupId; items: CommandItem[] }>; metrics: CommandLayoutMetrics }) => {
   const items = p.sections.flatMap((section) => section.items);
+  const summary = p.sections
+    .filter((section) => COMMAND_GROUP_LABEL[section.id])
+    .map((section) => `${COMMAND_GROUP_LABEL[section.id]} ${section.items.length}`)
+    .join(' · ');
   const capacity = Math.max(1, p.metrics.columns * p.metrics.rows);
   const pageSize = items.length > capacity ? Math.max(1, capacity - 1) : capacity;
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
@@ -504,7 +500,8 @@ const CommandTable = (p: { sections: Array<{ id: CommandGroupId; items: CommandI
   const visible = items.slice(start, start + pageSize);
   const hidden = Math.max(0, items.length - visible.length);
   return (
-    <div data-command-table="true" style={{ minWidth: 0, height: '100%', overflow: 'hidden',
+    <div data-command-table="true" title={summary} aria-label={summary || 'Command table'}
+      style={{ minWidth: 0, height: '100%', overflow: 'hidden',
       display: 'grid', gridTemplateColumns: `repeat(${p.metrics.columns}, minmax(0, 1fr))`,
       gridAutoRows: `${p.metrics.cellHeight}px`, gap: '4px', alignContent: 'start' }}>
       {visible.map((item) => (
@@ -660,54 +657,29 @@ const Hotbar = (p: { game: Game }) => {
   }
   const sections = commandSections(commands);
   if (ui.controlScheme.value === 'desktop') {
+    const columns = metrics.showMinimap
+      ? `${metrics.minimapWidth}px ${metrics.selectionWidth}px minmax(0, 1fr)`
+      : `${metrics.selectionWidth}px minmax(0, 1fr)`;
     return (
       <div style={{ ...bar, bottom: '0', height: 'var(--bottom-chrome)', overflow: 'hidden',
         borderTop: '1px solid #1e2733',
         padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
-        display: 'grid', gridTemplateColumns: '112px minmax(260px, 320px) minmax(0, 1fr)',
+        display: 'grid', gridTemplateColumns: columns,
         alignItems: 'stretch', gap: '8px' }}>
-        <MinimapPanel game={g} />
-        <SelectionPanel game={g} />
-        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', overflowY: 'hidden',
-          paddingRight: '2px', alignItems: 'stretch', minWidth: 0 }}>
-          {sections.map((section) => (
-            <div key={section.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '0 0 auto',
-              minWidth: '0' }}>
-              {sections.length > 1 && COMMAND_GROUP_LABEL[section.id] && (
-                <span style={groupLabelStyle}>{COMMAND_GROUP_LABEL[section.id]}</span>
-              )}
-              <div style={{ display: 'grid', gridTemplateRows: 'repeat(2, 38px)',
-                gridAutoFlow: 'column', gridAutoColumns: 'minmax(82px, 104px)',
-                gap: '5px', alignItems: 'stretch' }}>
-                {section.items.map((item) => <div key={item.key} style={{ display: 'flex' }}>{item.node}</div>)}
-              </div>
-            </div>
-          ))}
-        </div>
+        {metrics.showMinimap && <MinimapPanel game={g} />}
+        <SelectionPanel game={g} compact={metrics.compactSelection} />
+        <CommandTable sections={sections} metrics={metrics} />
       </div>
     );
   }
   return (
-    <div style={{ ...bar, bottom: '0', flexDirection: 'column', gap: '4px', alignItems: 'stretch',
+    <div style={{ ...bar, bottom: '0', gap: '8px', alignItems: 'stretch',
       height: 'var(--bottom-chrome)', overflow: 'hidden',
       borderTop: '1px solid #1e2733',
-      padding: '6px 8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-      {ui.selCount.value > 0 && <span style={{ height: '16px', textAlign: 'center', opacity: 0.82, fontSize: '12px',
-        lineHeight: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui.selKindName.value}</span>}
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '3px',
-        scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch', alignItems: 'stretch' }}>
-        {sections.map((section) => (
-          <div key={section.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '0 0 auto',
-            minWidth: section.items.length === 1 ? '0' : undefined }}>
-            {sections.length > 1 && COMMAND_GROUP_LABEL[section.id] && (
-              <span style={groupLabelStyle}>{COMMAND_GROUP_LABEL[section.id]}</span>
-            )}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'stretch' }}>
-              {section.items.map((item) => <div key={item.key} style={{ display: 'flex' }}>{item.node}</div>)}
-            </div>
-          </div>
-        ))}
-      </div>
+      padding: '6px 8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+      display: 'grid', gridTemplateColumns: `${metrics.selectionWidth}px minmax(0, 1fr)` }}>
+      <SelectionPanel game={g} compact />
+      <CommandTable sections={sections} metrics={metrics} />
     </div>
   );
 };

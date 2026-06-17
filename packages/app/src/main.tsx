@@ -7,6 +7,7 @@ import { Game } from './game.ts';
 import { App } from './ui.tsx';
 import { Renderer } from './render.ts';
 import { attachInput } from './input.ts';
+import { ui } from './store.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
@@ -14,6 +15,7 @@ const uiEl = document.getElementById('ui') as HTMLElement;
 const game = new Game('play');
 const renderer = new Renderer(canvas, overlay);
 (globalThis as Record<string, unknown>).__game = game; // handy for debugging/automation
+(globalThis as Record<string, unknown>).__ui = ui;
 
 let dpr = 1;
 const resize = (): void => {
