@@ -33,6 +33,36 @@ test('observe returns a defensive own-player tech vector', () => {
   assert.equal(sim.observe(0).tech[Tech.StimPack], 1, 'mutating observation does not mutate player tech');
 });
 
+test('observe returns active own queues without leaking enemy queues', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 209, vision: true });
+  const s = sim.fullState();
+  const e = s.e;
+  const own = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(500), fx(500)));
+  const enemy = slotOf(spawnUnit(s, Kind.Barracks, 1, fx(520), fx(500)));
+  e.prodKind[own] = Kind.Marine;
+  e.prodTimer[own] = 12;
+  e.prodQueued[own] = 1;
+  e.researchKind[own] = Tech.StimPack;
+  e.researchTimer[own] = 34;
+  e.prodKind[enemy] = Kind.Firebat;
+  e.prodTimer[enemy] = 56;
+
+  const obs = sim.observe(0);
+  assert.deepEqual(obs.queues, [{
+    id: eid(e, own),
+    prodKind: Kind.Marine,
+    prodTimer: 12,
+    prodQueued: 1,
+    researchKind: Tech.StimPack,
+    researchTimer: 34,
+  }]);
+
+  const queue: { prodKind: number } = obs.queues[0]!;
+  const differentKind: number = Kind.Ghost;
+  queue.prodKind = differentKind;
+  assert.equal(sim.observe(0).queues[0]!.prodKind, Kind.Marine, 'mutating observation queue does not mutate sim queue');
+});
+
 test('byte serialization preserves vision tracking and fog memory', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 203, vision: true });
   for (let t = 0; t < 10; t++) sim.step([]);

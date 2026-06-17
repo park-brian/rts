@@ -15,6 +15,15 @@ export type EntityView = {
   x: number; y: number; hp: number; built: number; order: number;
 };
 
+export type QueueView = {
+  id: number;
+  prodKind: number;
+  prodTimer: number;
+  prodQueued: number;
+  researchKind: number;
+  researchTimer: number;
+};
+
 export type Observation = {
   tick: number;
   player: number;
@@ -23,6 +32,7 @@ export type Observation = {
   supplyUsed: number;
   supplyMax: number;
   tech: Uint8Array; // completed tech/upgrade levels for this player only
+  queues: QueueView[]; // own active production/research queues
   vision: Uint8Array; // 0 unseen, 1 explored, 2 visible (per tile)
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
@@ -32,9 +42,20 @@ export const observe = (s: State, player: number): Observation => {
   const e = s.e; const m = s.map; const W = m.w;
   const v = s.vision[player]!;
   const entities: EntityView[] = [];
+  const queues: QueueView[] = [];
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
     const own = e.owner[i] === player;
+    if (own && (e.prodKind[i] !== 0 || e.researchKind[i] !== 0)) {
+      queues.push({
+        id: eid(e, i),
+        prodKind: e.prodKind[i]!,
+        prodTimer: e.prodTimer[i]!,
+        prodQueued: e.prodQueued[i]!,
+        researchKind: e.researchKind[i]!,
+        researchTimer: e.researchTimer[i]!,
+      });
+    }
     if (!own) {
       if (isContained(s, i)) continue;
       const tx = Math.floor(e.x[i]! / ONE / TILE);
@@ -56,6 +77,7 @@ export const observe = (s: State, player: number): Observation => {
     supplyUsed: s.players.supplyUsed[player]!,
     supplyMax: s.players.supplyMax[player]!,
     tech: s.players.tech.slice(player * TECH_CAP, (player + 1) * TECH_CAP),
+    queues,
     vision: v.slice(),
     entities,
   };
