@@ -605,6 +605,8 @@ Completed:
   walking an ordered tech-structure list through shared placement validation.
 - Protoss scripted macro now queues a legal Stargate from that same ordered tech-structure path
   after Cybernetics Core, preserving shared power, prerequisite, duplicate, and budget checks.
+- Protoss scripted macro now queues a legal Citadel of Adun through the ordered tech-structure path,
+  unlocking the templar branch while preserving the same validation-backed legality checks.
 
 Done when:
 
