@@ -179,7 +179,7 @@ Remaining:
 
 ## Phase 3: Remaining Spell Families
 
-Status: partial.
+Status: complete.
 
 Purpose: complete the spell roster with shared primitives instead of bespoke code per spell.
 
@@ -245,12 +245,13 @@ Completed:
 - Weapon damage against Hallucinations now uses the shared source-type pipeline: damage type,
   target size, weapon upgrades, multi-shot armor, shields, matrix absorption, and acid spores all
   resolve normally before the Hallucination double-damage rule is applied once per hit.
+- Firing ground units now become pathing/collision anchors only during a short active firing
+  lockout instead of their full weapon cooldown; sustained fire still blocks and routes movers,
+  while a single shot releases before the weapon is ready again.
 
 Remaining:
 
-- More exact attack animation lockout windows; current pathing treats ground units with an active
-  weapon cooldown and target as rooted pathing anchors so moving units route around them instead of
-  shoving them aside.
+- None in the current Phase 3 scope.
 
 ## Phase 4: Upgrade Effects In Combat, Movement, Vision, And Energy
 

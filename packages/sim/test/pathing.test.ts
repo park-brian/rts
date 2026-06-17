@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeState, slotOf, hashState } from '../src/world.ts';
+import { kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { stepWorld } from '../src/tick.ts';
@@ -9,6 +9,7 @@ import { sliceMap } from '../src/map.ts';
 import { Kind, Order, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
+import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
 
@@ -114,12 +115,13 @@ test('moving ground units path around rooted firing units without shoving them',
   e.ty[ms] = tc(4);
   e.order[as] = Order.Idle;
   e.target[as] = target;
-  e.wcd[as] = 12;
+  e.wcd[as] = 15;
   const ax = e.x[as]!;
   const ay = e.y[as]!;
   let detoured = false;
 
   for (let t = 0; t < 180; t++) {
+    e.wcd[as] = 15; // keep the unit in its active firing lockout, as if it is repeatedly firing.
     stepWorld(s, []);
     assert.equal(e.x[as], ax, 'rooted shooter keeps its x position');
     assert.equal(e.y[as], ay, 'rooted shooter keeps its y position');
@@ -128,6 +130,56 @@ test('moving ground units path around rooted firing units without shoving them',
   }
 
   assert.ok(detoured, 'mover should route around the firing unit tile');
+});
+
+test('firing pathing anchors release before the full weapon cooldown expires', () => {
+  const s = makeState(sliceMap(), 2, 100);
+  const anchor = spawnUnit(s, Kind.Marine, 0, tc(10), tc(10));
+  const target = spawnUnit(s, Kind.Zealot, 1, tc(12), tc(10));
+  const e = s.e;
+  const as = slotOf(anchor);
+  e.order[as] = Order.Idle;
+  e.target[as] = target;
+  e.wcd[as] = 15;
+
+  assert.equal(isPathingAnchor(s, as), true);
+  for (let t = 0; t < FIRING_PATHING_LOCKOUT_TICKS; t++) stepWorld(s, []);
+
+  assert.ok(e.wcd[as]! > 0, 'weapon cooldown is still ticking');
+  assert.equal(isPathingAnchor(s, as), false, 'anchor releases after the short firing lockout');
+});
+
+test('moving ground units can pass after a firing pathing anchor releases', () => {
+  const w = 12;
+  const h = 8;
+  const map: MapDef = {
+    name: 'released-firing-unit', w, h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+  const s = makeState(map, 2, 101);
+  const mover = spawnUnit(s, Kind.Marine, 0, tc(2), tc(4));
+  const anchor = spawnUnit(s, Kind.Marine, 0, tc(5), tc(4));
+  const target = spawnUnit(s, Kind.Zealot, 1, tc(6), tc(4));
+  const e = s.e;
+  const ms = slotOf(mover);
+  const as = slotOf(anchor);
+  e.order[ms] = Order.Move;
+  e.tx[ms] = tc(9);
+  e.ty[ms] = tc(4);
+  e.order[as] = Order.Idle;
+  e.target[as] = target;
+  e.wcd[as] = 15;
+
+  for (let t = 0; t < FIRING_PATHING_LOCKOUT_TICKS; t++) stepWorld(s, []);
+  assert.ok(e.wcd[as]! > 0, 'weapon cooldown is still ticking after the lockout');
+  assert.equal(isPathingAnchor(s, as), false, 'anchor released before the cooldown ended');
+  kill(s, slotOf(target));
+  e.target[as] = NONE;
+
+  for (let t = 0; t < 180; t++) stepWorld(s, []);
+
   assert.ok(Math.abs(e.x[ms]! - tc(9)) < fx(TILE), 'mover still reaches the far side');
 });
 
