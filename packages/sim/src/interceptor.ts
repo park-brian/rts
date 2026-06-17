@@ -1,12 +1,36 @@
 import { internalAmmoCapacity } from './derived.ts';
 import { Kind, Order, Units, sec, tiles, weaponForTarget } from './data.ts';
 import { spawnUnit } from './factory.ts';
+import { isqrt } from './fixed.ts';
 import { eid, slotOf, type State } from './world.ts';
+import { faceToward } from './systems/move.ts';
 
 const LAUNCH_COOLDOWN = sec(1);
 const LAUNCH_RANGE = tiles(8);
+const BAY_FORWARD = tiles(0.3);
+const BAY_SIDE = tiles(0.58);
 
 export const INTERCEPTOR_SORTIE_TICKS = sec(4);
+
+export type InterceptorBayPoint = { x: number; y: number };
+
+export const carrierBayPoint = (s: State, carrier: number, bay: number): InterceptorBayPoint => {
+  const e = s.e;
+  let fx = e.faceX[carrier]!;
+  let fy = e.faceY[carrier]!;
+  let len = isqrt(fx * fx + fy * fy);
+  if (len === 0) {
+    fx = 0;
+    fy = -1;
+    len = 1;
+  }
+  const side = (bay & 1) === 0 ? -BAY_SIDE : BAY_SIDE;
+  const forward = (bay & 2) === 0 ? BAY_FORWARD : -BAY_FORWARD;
+  return {
+    x: e.x[carrier]! + Math.trunc((fx * forward - fy * side) / len),
+    y: e.y[carrier]! + Math.trunc((fy * forward + fx * side) / len),
+  };
+};
 
 const launchedBy = (s: State, carrier: number): number => {
   const e = s.e;
@@ -33,14 +57,18 @@ export const launchInterceptor = (s: State, carrier: number, target: number): bo
   const e = s.e;
   const capacity = internalAmmoCapacity(s, carrier, Kind.Interceptor);
   if (capacity <= 0 || e.specialAmmo[carrier]! <= 0) return false;
-  if (launchedBy(s, carrier) >= capacity) return false;
+  const launched = launchedBy(s, carrier);
+  if (launched >= capacity) return false;
   e.specialAmmo[carrier] = e.specialAmmo[carrier]! - 1;
-  const id = spawnUnit(s, Kind.Interceptor, e.owner[carrier]!, e.x[carrier]!, e.y[carrier]!);
+  faceToward(e, carrier, e.x[target]!, e.y[target]!);
+  const bay = carrierBayPoint(s, carrier, launched);
+  const id = spawnUnit(s, Kind.Interceptor, e.owner[carrier]!, bay.x, bay.y);
   const interceptor = slotOf(id);
   e.home[interceptor] = eid(e, carrier);
   e.order[interceptor] = Order.Attack;
   e.target[interceptor] = eid(e, target);
   e.timer[interceptor] = INTERCEPTOR_SORTIE_TICKS;
+  faceToward(e, interceptor, e.x[target]!, e.y[target]!);
   return true;
 };
 

@@ -478,11 +478,16 @@ Completed:
   `Game.canSeeEntity` visibility and no longer steal tap or box selection as commandable units.
 - Added Carrier Interceptors as launched child combat actors with a serialized home link, attack
   sortie, target orbit, leash/return behavior, ammo restoration, and idle target acquisition.
+- Carrier Interceptors now launch from deterministic carrier bay points based on carrier facing,
+  dock back into bay points before restoring ammo, and steer through the Interceptor system only
+  while generic combat remains responsible for weapon fire. The app treats launched Interceptors
+  as visible child actors rather than selectable command units, and the screenshot harness captures
+  a focused Carrier sortie reference.
 
 Remaining:
 
-- More exact Carrier Interceptor launch/dock presentation and any remaining Brood War movement
-  fidelity on top of the launched-child primitive.
+- Further Carrier Interceptor attack-pass cadence polish only if source references reveal a
+  material mismatch beyond the current launch, orbit, return, and bay-docking primitive.
 - More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
 
 ## Phase 7: Visibility, Terrain, And Fog Fidelity
@@ -553,15 +558,15 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
-  - More exact Carrier Interceptor launch/dock presentation and Brood War movement fidelity.
+  - Further Carrier Interceptor attack-pass cadence polish if needed.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
 - Upgrade fidelity:
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
-  - More exact projectile/travel behavior for missiles, interceptors, Valkyrie volleys,
-    and nuke missile/presentation beyond the existing fog-safe warning affordance.
+  - More exact projectile/travel behavior for missiles, Valkyrie volleys, and nuke
+    missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.
   - Observation/action-mask planes for tech, queues, effects, statuses, cargo, larva, creep, power,

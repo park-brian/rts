@@ -2,6 +2,7 @@ import type { State } from '../world.ts';
 import { isAlive, kill, NONE, slotOf } from '../world.ts';
 import { Kind, Order, Units, tiles } from '../data.ts';
 import { internalAmmoCapacity } from '../derived.ts';
+import { carrierBayPoint } from '../interceptor.ts';
 import { navigate } from '../pathing.ts';
 import { faceToward, within } from './move.ts';
 import { effectiveSpeed } from './status.ts';
@@ -17,16 +18,17 @@ const ORBIT: readonly [number, number][] = [
 
 const returnToCarrier = (s: State, interceptor: number, carrier: number): void => {
   const e = s.e;
-  faceToward(e, interceptor, e.x[carrier]!, e.y[carrier]!);
+  const bay = carrierBayPoint(s, carrier, interceptor);
+  faceToward(e, interceptor, bay.x, bay.y);
   e.order[interceptor] = Order.Idle;
   e.target[interceptor] = NONE;
   e.timer[interceptor] = -1;
-  if (within(e, interceptor, e.x[carrier]!, e.y[carrier]!, RETURN_RANGE)) {
+  if (within(e, interceptor, bay.x, bay.y, RETURN_RANGE)) {
     e.specialAmmo[carrier] = Math.min(internalAmmoCapacity(s, carrier, Kind.Interceptor), e.specialAmmo[carrier]! + 1);
     kill(s, interceptor);
     return;
   }
-  navigate(s, interceptor, e.x[carrier]!, e.y[carrier]!, effectiveSpeed(s, e, interceptor, Units[Kind.Interceptor]!.speed));
+  navigate(s, interceptor, bay.x, bay.y, effectiveSpeed(s, e, interceptor, Units[Kind.Interceptor]!.speed));
 };
 
 export const interceptors = (s: State): void => {

@@ -224,6 +224,7 @@ export const combat = (s: State, grid: Grid): void => {
 
     faceToward(e, i, e.x[tgt]!, e.y[tgt]!);
     const weapon = weaponForTarget(def, Units[e.kind[tgt]!]!);
+    const childSystemSteers = e.kind[i] === Kind.Interceptor && e.home[i] !== NONE;
     if (!weapon) {
       if (order === Order.Attack) e.order[i] = Order.Idle;
       continue;
@@ -247,7 +248,7 @@ export const combat = (s: State, grid: Grid): void => {
         }
         e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
       }
-    } else {
+    } else if (!childSystemSteers) {
       navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed)); // approach
     }
   }

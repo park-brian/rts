@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap, type MapDef } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { eid, kill, slotOf } from '../src/world.ts';
+import { eid, kill, NONE, slotOf } from '../src/world.ts';
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
   REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, TILE, Units, tiles,
@@ -12,6 +12,8 @@ import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
+import { carrierBayPoint, launchInterceptor } from '../src/interceptor.ts';
+import { interceptors } from '../src/systems/interceptors.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -33,6 +35,12 @@ const launchedInterceptors = (s: ReturnType<Sim['fullState']>, carrierSlot: numb
     if (e.alive[i] === 1 && e.kind[i] === Kind.Interceptor && e.home[i] === home) out.push(i);
   }
   return out;
+};
+
+const distSq = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
 };
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {
@@ -244,6 +252,77 @@ test('carrier capacity upgrade gates queued interceptors', () => {
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, c), kind: Kind.Interceptor }] }]), [
     { player: 0, index: 0, t: 'train', ok: true },
   ]);
+});
+
+test('carriers launch interceptors from deterministic facing bays', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 612 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(560), fx(400));
+  const c = slotOf(carrier);
+  const t = slotOf(target);
+  e.specialAmmo[c] = 2;
+
+  assert.equal(launchInterceptor(s, c, t), true);
+  const firstBay = carrierBayPoint(s, c, 0);
+  const first = launchedInterceptors(s, c)[0]!;
+  assert.equal(e.x[first], firstBay.x);
+  assert.equal(e.y[first], firstBay.y);
+  assert.ok(e.faceX[c]! > 0, 'carrier should face its launch target');
+  assert.ok(e.faceX[first]! > 0, 'interceptor should face its launch target');
+
+  assert.equal(launchInterceptor(s, c, t), true);
+  const secondBay = carrierBayPoint(s, c, 1);
+  const second = launchedInterceptors(s, c)[1]!;
+  assert.equal(e.x[second], secondBay.x);
+  assert.equal(e.y[second], secondBay.y);
+});
+
+test('launched interceptor steering is owned by the interceptor system', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 613 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(560), fx(400));
+  const c = slotOf(carrier);
+  e.specialAmmo[c] = 1;
+
+  sim.step([{ player: 0, cmds: [{ t: 'attack', unit: carrier, target }] }]);
+
+  const interceptor = launchedInterceptors(s, c)[0]!;
+  const bay = carrierBayPoint(s, c, 0);
+  const moved = distSq(e.x[interceptor]!, e.y[interceptor]!, bay.x, bay.y);
+  const maxStep = Units[Kind.Interceptor]!.speed + 1;
+  assert.ok(moved <= maxStep * maxStep, 'first tick should move once, not once in combat and again in interceptor steering');
+});
+
+test('returning interceptors dock at carrier bays and restore ammo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 614 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400));
+  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(560), fx(400));
+  const c = slotOf(carrier);
+  const t = slotOf(target);
+  e.specialAmmo[c] = 1;
+  assert.equal(launchInterceptor(s, c, t), true);
+  const interceptor = launchedInterceptors(s, c)[0]!;
+  e.x[interceptor] = fx(540);
+  e.y[interceptor] = fx(460);
+  e.target[interceptor] = NONE;
+  e.timer[interceptor] = -1;
+  const bay = carrierBayPoint(s, c, interceptor);
+  const before = distSq(e.x[interceptor]!, e.y[interceptor]!, bay.x, bay.y);
+
+  interceptors(s);
+
+  assert.ok(distSq(e.x[interceptor]!, e.y[interceptor]!, bay.x, bay.y) < before);
+
+  for (let i = 0; i < 80 && launchedInterceptors(s, c).length > 0; i++) interceptors(s);
+
+  assert.equal(launchedInterceptors(s, c).length, 0);
+  assert.equal(e.specialAmmo[c], 1);
 });
 
 test('carriers launch interceptors that orbit targets and return as ammo', () => {
