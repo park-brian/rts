@@ -601,6 +601,8 @@ Completed:
   keeping late-game nuke tech on the same add-on validation path.
 - Protoss scripted macro now queues a legal Cybernetics Core after a completed Gateway, using the
   same Pylon-anchored placement and shared validation path as Gateway expansion.
+- Protoss scripted macro now queues a legal Robotics Facility after a completed Cybernetics Core,
+  walking an ordered tech-structure list through shared placement validation.
 
 Done when:
 

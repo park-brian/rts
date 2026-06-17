@@ -22,6 +22,7 @@ export type BotConfig = {
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
+const PROTOSS_STRUCTURE_MACRO = [Kind.CyberneticsCore, Kind.RoboticsFacility] as const;
 
 type ResourceBudget = { minerals: number; gas: number };
 
@@ -313,7 +314,10 @@ const maybeQueueProtossTechStructures = (
   anchor: number,
 ): boolean => {
   if (faction.name !== 'Protoss') return false;
-  return maybeQueueStructure(s, player, cmds, budget, worker, anchor, Kind.CyberneticsCore);
+  for (const kind of PROTOSS_STRUCTURE_MACRO) {
+    if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
+  }
+  return false;
 };
 
 const maybeQueueStructure = (
