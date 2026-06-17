@@ -1126,11 +1126,16 @@ Completed:
   and deposit happen at physical contact.
 - Replaced the provisional two-second extraction timer with BW frame timings: minerals mine for
   80 frames and gas mines for 37 frames before travel/deposit timing.
+- Added the first positive-only harvest calibration table for main-base mineral routes. It exposes
+  BW target trip frames, target route frames, actual top-down dock-to-dock route frames,
+  deterministic wait frames, and invalid-too-long flags without letting calibration bypass
+  physical docking.
 
 Remaining:
 
-- Add the positive-only harvest timing calibration table: target BW-equivalent route frames,
-  actual top-down route frames, deterministic wait frames, and invalid-too-long layout detection.
+- Consume the calibration table in the harvest cycle with deterministic wait frames, and make the
+  map/base solver re-position or reject routes that are too long or too asymmetric for the timing
+  profile instead of merely reporting them.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add gas-specific cadence validation for three-worker refinery saturation.

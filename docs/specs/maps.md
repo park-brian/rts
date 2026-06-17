@@ -77,7 +77,10 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   y -4..+5; geysers: x -7..+6, y -5..+5`, strict comparisons). Starting bases should solve the
   mineral line as a resource arc around the depot edge, not as a straight row. BW approximate
   distance may seed the layout target, but workers must still visibly dock using top-down physical
-  contact; route timing calibration handles any remaining BW-equivalent economy target.
+  contact. Route timing calibration is exposed as a positive-only table: target BW-equivalent route
+  frames, actual top-down dock-to-dock route frames, deterministic wait frames when the route is
+  shorter, and an invalid flag when the top-down route is too long to compensate without detached
+  mining.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
 - **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
   etc. A base site stores team/owner intent, depot center, resource direction, ramp association,
