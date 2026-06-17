@@ -527,6 +527,7 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
   assert.ok(!ui.selBuildKinds.value.includes(Kind.Spire));
   assert.ok(!ui.selBuildKinds.value.includes(Kind.QueensNest));
   assert.equal(ui.selBuildOptions.value.find((o) => o.id === Kind.Spire)?.reason, 'missing-requirement');
+  assert.equal(ui.selAddonOptions.value.length, 0);
 
   const s = g.sim.fullState();
   spawnUnit(s, Kind.Lair, 0, fx(700), fx(700));

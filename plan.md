@@ -168,10 +168,14 @@ Completed:
 - Command-card options now include unavailable but relevant build/train/research/add-on/transform
   and ability actions, with short disabled reasons derived from shared validation results.
 - The screenshot harness now captures a disabled command-card reference state.
+- Command-card rendering now groups commands into compact Train/Build/Tech/Cast/Orders/Select
+  sections, keeps mobile and desktop panels fixed-height, and uses horizontal capacity instead of
+  adding modal drill-down.
+- The screenshot harness now captures crowded mobile and desktop command-card reference states.
 
 Remaining:
 
-- Better visual grouping/capacity management when many train/research/spell buttons are valid.
+- None in the current Phase 2 scope.
 
 ## Phase 3: Remaining Spell Families
 
@@ -547,7 +551,6 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Macro/tech tree:
   - AI macro should use real race tech paths, including Zerg morph upgrades, Terran add-ons, and
     Protoss power-aware expansions.
-  - Command card should eventually show disabled reasons instead of hiding unaffordable options.
 - UX/control:
   - Control-group chips and explicit subgroup handling for large mixed selections.
   - Better command grouping once full spell/upgrade/morph/production rosters crowd the bottom bar.

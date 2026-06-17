@@ -7,6 +7,7 @@ import {
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
+  addonParentKind,
   transformFor, transformTargetsFor, snapBuildAnchor, isLiftedStructureFlags,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
@@ -1101,6 +1102,7 @@ export class Game {
       if (e.kind[slot] === Kind.SCV) canRepair = true;
       if ((e.flags[slot]! & Role.Structure) !== 0) canRally = true;
       for (const addon of ADDON_IDS) {
+        if (addonParentKind(addon) !== k) continue;
         const result = validateCommand(s, this.human, { t: 'addon', building: id, kind: addon });
         if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
       }
