@@ -262,6 +262,67 @@ test('bot respects control tower parent, duplicates, and gas budget', () => {
   assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ControlTower), false);
 });
 
+test('bot queues a legal physics lab for science facilities on the air tech path', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 422, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const facility = spawnUnit(s, Kind.ScienceFacility, 0, fx(1_200), fx(1_200));
+  spawnUnit(s, Kind.ControlTower, 0, fx(900), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === facility && c.kind === Kind.PhysicsLab);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot queues a legal covert ops for science facilities off the air tech path', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 423, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const facility = spawnUnit(s, Kind.ScienceFacility, 0, fx(1_200), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === facility && c.kind === Kind.CovertOps);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot respects science facility add-on parent, duplicates, and gas budget', () => {
+  const missingParent = new Sim({ map: sliceMap(), players: 2, seed: 424, factions: [Terran, Zerg] });
+  const missingState = missingParent.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  const missingCommands = createBot(Terran)(missingState, 0);
+  assert.equal(missingCommands.some((c) => c.t === 'addon' && (c.kind === Kind.PhysicsLab || c.kind === Kind.CovertOps)), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 425, factions: [Terran, Zerg] });
+  const dupState = duplicate.fullState();
+  const dupE = dupState.e;
+  const facility = slotOf(spawnUnit(dupState, Kind.ScienceFacility, 0, fx(1_200), fx(1_200)));
+  const covertOps = slotOf(spawnUnit(dupState, Kind.CovertOps, 0, fx(1_280), fx(1_200)));
+  dupE.target[facility] = eid(dupE, covertOps);
+  dupE.target[covertOps] = eid(dupE, facility);
+  dupState.players.minerals[0] = 1_000;
+  dupState.players.gas[0] = 1_000;
+
+  const duplicateCommands = createBot(Terran)(dupState, 0);
+  assert.equal(duplicateCommands.some((c) => c.t === 'addon' && (c.kind === Kind.PhysicsLab || c.kind === Kind.CovertOps)), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 426, factions: [Terran, Zerg] });
+  const brokeState = broke.fullState();
+  spawnUnit(brokeState, Kind.ScienceFacility, 0, fx(1_200), fx(1_200));
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = 0;
+
+  const brokeCommands = createBot(Terran)(brokeState, 0);
+  assert.equal(brokeCommands.some((c) => c.t === 'addon' && (c.kind === Kind.PhysicsLab || c.kind === Kind.CovertOps)), false);
+});
+
 test('protoss bot places gateways from completed pylon power anchors', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
   const s = sim.fullState();

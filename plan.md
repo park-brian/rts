@@ -595,6 +595,8 @@ Completed:
   same prioritized add-on path, keeping Starport tech progression validator-backed.
 - Protoss scripted macro now searches from completed Pylon power anchors when placing powered
   army structures, so Gateway expansion uses the same placement validation as human commands.
+- Terran scripted macro now queues legal Science Facility add-ons through shared add-on
+  validation, choosing Physics Lab for the air-tech path and Covert Ops otherwise.
 
 Done when:
 

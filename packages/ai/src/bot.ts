@@ -60,6 +60,17 @@ const findMacroSpot = (s: State, player: number, worker: number, kind: number, f
   return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
 };
 
+const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === kind && e.built[i] === 1) return true;
+  }
+  return false;
+};
+
+const scienceFacilityAddon = (s: State, player: number): number =>
+  hasCompletedKind(s, player, Kind.ControlTower) ? Kind.PhysicsLab : Kind.CovertOps;
+
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
@@ -266,6 +277,7 @@ const maybeQueueTerranAddons = (
   for (const kind of TERRAN_ADDON_MACRO) {
     if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
   }
+  maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player));
 };
 
 const maybeQueueAddon = (
