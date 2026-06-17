@@ -1,61 +1,17 @@
 import type { GameState, Unit, UnitAction } from '../microrts/types.ts';
-import { ActionType, DIRS, Kind, NEUTRAL } from '../microrts/types.ts';
-import { idleUnits, legalActions, livePlayerUnits, step, unitAt, winner } from '../microrts/game.ts';
-import { def } from '../microrts/units.ts';
+import { DIRS, Kind } from '../microrts/types.ts';
+import { idleUnits, livePlayerUnits, step, unitAt, winner } from '../microrts/game.ts';
 import { makeMap } from '../microrts/setup.ts';
 import type { Bot } from '../microrts/bots.ts';
 import { economyBot } from '../microrts/bots.ts';
+import { decode, unitMask, PER_UNIT_ACTIONS } from './microActions.ts';
 
 // A microRTS environment with a FACTORED, PER-UNIT action space — the point of
 // masking. Each decision step the agent commands EVERY idle unit at once; each
 // unit gets its own fixed-size action head, MASKED to that unit's own legal
-// actions (a worker's legal set differs from a base's, etc.). This is the
-// GridNet/Gym-µRTS representation: one forward pass, all units, per-unit masks.
-
-// ---- fixed per-unit action encoding (decode + mask below) ----
-// 0: None | 1-4: Move dir | 5-8: Harvest dir | 9-12: Return dir
-// 13-36: Produce (dir x 6 kinds) | 37-84: Attack (relative target within range 3)
-const PRODUCE_KINDS = [Kind.Worker, Kind.Light, Kind.Heavy, Kind.Ranged, Kind.Base, Kind.Barracks];
-const ATTACK_OFFSETS: { dx: number; dy: number }[] = [];
-for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (dx !== 0 || dy !== 0) ATTACK_OFFSETS.push({ dx, dy });
-export const PER_UNIT_ACTIONS = 37 + ATTACK_OFFSETS.length; // = 85
-
-// Decode a slot to a concrete UnitAction for `u` in `s`, or null if impossible.
-const decode = (s: GameState, u: Unit, slot: number): UnitAction | null => {
-  if (slot === 0) return { type: ActionType.None };
-  if (slot <= 4) return { type: ActionType.Move, dir: slot - 1 };
-  if (slot <= 8) return { type: ActionType.Harvest, dir: slot - 5 };
-  if (slot <= 12) return { type: ActionType.Return, dir: slot - 9 };
-  if (slot <= 36) {
-    const idx = slot - 13;
-    return { type: ActionType.Produce, dir: Math.floor(idx / 6), kind: PRODUCE_KINDS[idx % 6]! };
-  }
-  const off = ATTACK_OFFSETS[slot - 37]!;
-  const tgt = unitAt(s, u.x + off.dx, u.y + off.dy);
-  if (!tgt || tgt.owner === u.owner || tgt.owner === NEUTRAL) return null;
-  return { type: ActionType.Attack, targetId: tgt.id };
-};
-
-const eqAction = (a: UnitAction, b: UnitAction): boolean => {
-  if (a.type !== b.type) return false;
-  if (a.type === ActionType.Attack) return a.targetId === (b as { targetId: number }).targetId;
-  if (a.type === ActionType.Produce) return a.dir === (b as { dir: number }).dir && a.kind === (b as { kind: number }).kind;
-  if (a.type === ActionType.Move || a.type === ActionType.Harvest || a.type === ActionType.Return) return a.dir === (b as { dir: number }).dir;
-  return true;
-};
-
-// Per-unit legal-action mask: a slot is legal iff its decoded action is in the
-// engine's own legalActions for that unit (one source of truth).
-const unitMask = (s: GameState, u: Unit): boolean[] => {
-  const legal = legalActions(s, u);
-  const mask = new Array(PER_UNIT_ACTIONS).fill(false);
-  for (let slot = 0; slot < PER_UNIT_ACTIONS; slot++) {
-    const a = decode(s, u, slot);
-    if (a && legal.some((b) => eqAction(a, b))) mask[slot] = true;
-  }
-  mask[0] = true; // None is always allowed
-  return mask;
-};
+// actions (a worker's legal set differs from a base's, etc.). The GridNet env
+// (gridEnv.ts) is the spatial-CNN form of the same idea.
+export { PER_UNIT_ACTIONS };
 
 const adj = (s: GameState, u: Unit, pred: (t: Unit) => boolean): number => {
   for (const d of DIRS) { const t = unitAt(s, u.x + d.dx, u.y + d.dy); if (t && pred(t)) return 1; }

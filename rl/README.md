@@ -71,6 +71,32 @@ sampling/greedy never pick a masked-illegal slot for any unit; and the factored
 PPO learns the economy (net resources go positive). Net init is per-instance
 **seeded**, so training is reproducible regardless of test order.
 
+## GridNet — a CNN that commands every cell at once (pure TS)
+
+The per-unit MLP above commands units one feature-vector at a time. **GridNet** is
+the spatial form: a small **CNN over the H×W board** that, in **one forward pass**,
+outputs an action distribution for **every cell** (the unit standing there) plus a
+pooled state value — the efficient "all units at once" policy from Gym-µRTS,
+implemented here in pure TS with typed arrays.
+
+- **`grid.ts`** — conv encoder (`3×3 → relu → 3×3 → relu`) → a `1×1` policy conv
+  producing per-cell logits `[A,H,W]`, plus a global-avg-pooled value head. All
+  with **hand-written conv backprop**, verified by a **numerical gradient check**
+  (analytic vs finite-difference match to ~1e-11 — see `grid.test.ts`).
+- **`gridEnv.ts`** — microRTS as feature **planes** (`18` channels: own/enemy unit
+  types, hp, carrying, resources, a *my-idle* marker, broadcast globals) with a
+  **per-cell mask** taken from the engine's `legalActions`.
+- **`ppoGrid.ts`** — PPO over the GridNet: one conv forward per state gives all
+  cells' logits; the joint log-prob is the **sum over active cells** of per-cell
+  masked log-probs, and the per-cell gradient scatters back into the shared conv
+  weights.
+
+`node rl/trainGrid.ts` trains it on the economy. It's correct and it learns
+(episode return improves over training); being a conv net it needs more budget
+than the flat MLP to fully solve the economy, so the CI test asserts the
+**gradient check** (correctness) + **per-cell masking** + an **improving return
+trend**, and the demo runs a longer budget.
+
 ## Honest scope & next
 
 - The per-unit actor is a **shared MLP** over hand-built unit features — the
