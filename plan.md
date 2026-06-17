@@ -482,6 +482,11 @@ Implementation:
 - Teach scripted AI race-specific macro basics and tactical spell use for the completed roster.
 - Keep scripted bots deterministic and cheap enough for behavior-cloning warmstarts.
 
+Completed:
+
+- Added a minimal sim-owned command-head mask API backed directly by `validateCommand`, so UI,
+  AI, and future RL clients can ask for core legal actions without duplicating command rules.
+
 Done when:
 
 - A bot can play each race using its real macro mechanic and tactical abilities without relying on

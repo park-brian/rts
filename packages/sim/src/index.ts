@@ -7,6 +7,7 @@ export * from './data.ts';
 export * from './map.ts';
 export * from './commands.ts';
 export * from './validation.ts';
+export * from './action-mask.ts';
 export * from './footprint.ts';
 export * from './spatial.ts';
 export * from './build-cost.ts';
