@@ -133,6 +133,8 @@ Completed:
   valid.
 - The Math renderer draws that placement footprint ghost and dims cloaked entities to 50 percent
   opacity while keeping selection and health affordances readable.
+- Worker build and repair activity now renders localized sparks in both the GL renderer and the
+  Math renderer, derived from existing worker orders and target state without adding sim state.
 
 Remaining:
 
@@ -511,8 +513,6 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Better command grouping once full spell/upgrade/morph/production rosters crowd the bottom bar.
 - Rendering/assets:
   - Progress/cocoon/warp-in/building-under-construction presentation.
-  - Worker build and repair activity should render localized sparks/arc effects at the target
-    structure while work is actively progressing.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.
 - Maintenance/performance:
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.

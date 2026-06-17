@@ -6,6 +6,7 @@ import {
   structureFootprint, bodyBounds, isCloaked, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
+import { type WorkActivity, workActivities } from './activity.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -20,6 +21,7 @@ const footprintColor = (owner: number, alpha: number): string => {
 
 let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
+const workScratch: WorkActivity[] = [];
 
 const buildTerrain = (m: MapDef): HTMLCanvasElement => {
   const c = document.createElement('canvas');
@@ -148,6 +150,8 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     }
   }
 
+  drawWorkSparks(ctx, game);
+
   // Rally lines for selected structures.
   for (const id of game.selection) {
     if (!isAlive(e, id)) continue;
@@ -181,6 +185,38 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawDragBox(ctx, game);
   drawMinimap(ctx, game);
+};
+
+const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const s = game.sim.fullState();
+  ctx.save();
+  for (const a of workActivities(s, workScratch)) {
+    if (!game.canSeeEntity(a.worker) || !game.canSeeEntity(a.target)) continue;
+    const x = a.x / ONE;
+    const y = a.y / ONE;
+    const tick = s.tick + a.worker * 7;
+    const color = a.kind === 'repair' ? '#8feeff' : '#ffd57a';
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.2 / game.zoom;
+    for (let n = 0; n < 3; n++) {
+      const phase = ((tick + n * 4) % 12) / 12;
+      const angle = phase * Math.PI * 2 + n * 2.1;
+      const len = (5 + n * 1.5) / game.zoom;
+      const ox = Math.cos(angle) * len;
+      const oy = Math.sin(angle) * len;
+      ctx.globalAlpha = 0.35 + (1 - phase) * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(x - ox * 0.25, y - oy * 0.25);
+      ctx.lineTo(x + ox, y + oy);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(1.2, 2.1 / game.zoom), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 };
 
 /** Live selection drag box (screen px). Shared by the GL overlay. */

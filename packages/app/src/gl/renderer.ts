@@ -18,6 +18,7 @@ import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
 import { spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
+import { type WorkActivity, workActivities } from '../activity.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -168,6 +169,7 @@ export class GlRenderer {
   private prevX = new Int32Array(CAP);
   private prevY = new Int32Array(CAP);
   private prevKind = new Uint16Array(CAP);
+  private workScratch: WorkActivity[] = [];
   private last = 0; // wall-clock seconds of the previous frame
 
   constructor(core: Gl, atlas: Atlas) {
@@ -261,6 +263,7 @@ export class GlRenderer {
     this.fx.reset();
     this.cullAndShadows(game); // → sprites (shadows), fills drawn/rr/wx/wy caches
     this.bodies(game); // → sprites (bodies) + fx (ambient glows)
+    this.workSparks(game);
     this.events(game); // spawn particles from fired/died diffs; updates prev caches
     this.particles.update(dt);
     const glow = this.atlas.uv.glow!;
@@ -354,6 +357,41 @@ export class GlRenderer {
         this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
       } else if (isGeyser || def.resourceType === ResourceType.Gas) {
         this.fx.push(baseX, baseY - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
+      }
+    }
+  }
+
+  private workSparks(game: Game): void {
+    const s = game.sim.fullState();
+    const glow = this.atlas.uv.glow!;
+    const zoom = game.zoom;
+    for (const a of workActivities(s, this.workScratch)) {
+      if (this.drawn[a.worker] !== 1 || this.drawn[a.target] !== 1) continue;
+      const x = a.x / ONE;
+      const y = a.y / ONE;
+      const warm = a.kind === 'build';
+      const phaseBase = s.tick + a.worker * 7;
+      for (let n = 0; n < 3; n++) {
+        const phase = ((phaseBase + n * 4) % 12) / 12;
+        const angle = phase * Math.PI * 2 + n * 2.1;
+        const dist = (4 + n * 1.7) / zoom;
+        const size = (5 - n * 0.8) / zoom;
+        const alpha = 0.34 + (1 - phase) * 0.3;
+        this.fx.push(
+          x + Math.cos(angle) * dist,
+          y + Math.sin(angle) * dist,
+          size,
+          size,
+          0,
+          glow,
+          warm ? 1 : 0.55,
+          warm ? 0.72 : 0.95,
+          warm ? 0.28 : 1,
+          alpha,
+          0,
+          0,
+          0,
+        );
       }
     }
   }
