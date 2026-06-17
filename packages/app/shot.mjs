@@ -41,6 +41,7 @@ const CAP = 4096;
 const KIND = {
   CommandCenter: 2, SCV: 3, Marine: 6, Nexus: 66, Pylon: 67, Drone: 102, Hatchery: 116,
   CreepColony: 119, NuclearSilo: 36, Carrier: 62, Interceptor: 63, Scarab: 58,
+  Hydralisk: 105, Lurker: 106,
 };
 const ROLE = { Mobile: 1, Structure: 2, Producer: 32, Air: 64 };
 
@@ -161,7 +162,44 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/carrier-interceptor-sortie.png' });
 
-  // 6) Disabled command-card reasons.
+  // 6) Zerg combat morph presentation: target-sized cocoon with cancel command.
+  await page.evaluate(({ CAP, KIND, ONE, ROLE }) => {
+    const g = window.__game;
+    g.restart('play', 24074, 1, ['zerg', 'terran']);
+    const s = g.sim.fullState();
+    const e = s.e;
+    let morph = 0;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Drone) {
+        morph = i;
+        break;
+      }
+    }
+    e.kind[morph] = KIND.Lurker;
+    e.flags[morph] = ROLE.Mobile;
+    e.built[morph] = 0;
+    e.ctimer[morph] = 600;
+    e.morphFromKind[morph] = KIND.Hydralisk;
+    e.hp[morph] = 125;
+    e.shield[morph] = 0;
+    const hatchery = (() => {
+      for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.owner[i] === g.human && e.kind[i] === KIND.Hatchery) return i;
+      return morph;
+    })();
+    e.x[morph] = e.x[hatchery] + ONE * 120;
+    e.y[morph] = e.y[hatchery];
+    g.selection.clear();
+    g.selection.add(morph + e.gen[morph] * CAP);
+    g.zoom = 3.4;
+    g.camX = e.x[morph] / ONE - g.viewW / g.zoom / 2;
+    g.camY = e.y[morph] / ONE - g.viewH / g.zoom / 2;
+    g.clampCamera();
+    g.fastForward(0);
+  }, { CAP, KIND, ONE, ROLE });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: 'shots/zerg-morph-cocoon.png' });
+
+  // 7) Disabled command-card reasons.
   await page.evaluate(({ ONE, CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24066, 1, ['terran', 'protoss']);
@@ -181,7 +219,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-disabled.png' });
 
-  // 7) Nuclear Silo missile state: ready internal ammo shown as a command-card status.
+  // 8) Nuclear Silo missile state: ready internal ammo shown as a command-card status.
   await page.evaluate(({ CAP, KIND, ROLE }) => {
     const g = window.__game;
     g.restart('play', 24070, 1, ['terran', 'protoss']);
@@ -200,7 +238,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/nuclear-silo-ready.png' });
 
-  // 8) Known own Hallucination presentation.
+  // 9) Known own Hallucination presentation.
   await page.evaluate(({ CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24071, 1, ['terran', 'protoss']);
@@ -217,7 +255,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/hallucination-selected.png' });
 
-  // 9) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
+  // 10) Crowded command-card grouping: Zerg worker build palette with gated tech entries.
   await page.evaluate(({ CAP, KIND }) => {
     const g = window.__game;
     g.restart('play', 24068, 1, ['zerg', 'terran']);
@@ -234,7 +272,7 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/command-groups.png' });
 
-  // 10) Placement field overlays: candidate Pylon power and Zerg creep.
+  // 11) Placement field overlays: candidate Pylon power and Zerg creep.
   await page.evaluate(({ ONE, KIND }) => {
     const g = window.__game;
     g.restart('play', 24067, 1, ['protoss', 'terran']);
@@ -264,21 +302,21 @@ try {
   await page.waitForTimeout(100);
   await page.screenshot({ path: 'shots/placement-creep-overlay.png' });
 
-  // 11) Spectate a fast-forwarded battle (both AIs).
+  // 12) Spectate a fast-forwarded battle (both AIs).
   await page.getByRole('button', { name: '▶ Play' }).click();
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(4500)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-battle.png' });
 
-  // 12) A 2v2 (twice as wide), fast-forwarded.
+  // 13) A 2v2 (twice as wide), fast-forwarded.
   await page.evaluate('window.__game.restart("spectate", 12345, 2)');
   await page.waitForTimeout(100);
   await page.evaluate('window.__game.fastForward(5000)');
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/spectate-2v2.png' });
 
-  // 13) Desktop command console layout: minimap, selection panel, grouped command grid.
+  // 14) Desktop command console layout: minimap, selection panel, grouped command grid.
   const desktopCtx = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,

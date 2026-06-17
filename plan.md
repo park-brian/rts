@@ -483,12 +483,16 @@ Completed:
   while generic combat remains responsible for weapon fire. The app treats launched Interceptors
   as visible child actors rather than selectable command units, and the screenshot harness captures
   a focused Carrier sortie reference.
+- Zerg combat unit morphs now present as target-sized cocoons in both renderers while keeping the
+  authoritative target unit footprint/radius, publish `Morphing <target>` selection labels, and
+  expose the shared validated cancel command through the command card.
 
 Remaining:
 
 - Further Carrier Interceptor attack-pass cadence polish only if source references reveal a
   material mismatch beyond the current launch, orbit, return, and bay-docking primitive.
-- More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
+- More exact Archon/Dark Archon merge presentation and any remaining Zerg structure morph cocoon
+  polish.
 
 ## Phase 7: Visibility, Terrain, And Fog Fidelity
 
@@ -559,8 +563,8 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
   - Further Carrier Interceptor attack-pass cadence polish if needed.
-  - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
-    presentation.
+  - More exact Archon/Dark Archon merge presentation and any remaining Zerg structure morph cocoon
+    polish.
 - Upgrade fidelity:
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.

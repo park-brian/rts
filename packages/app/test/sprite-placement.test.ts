@@ -126,3 +126,14 @@ test('generated unit sprites fit inside their interaction radius circle', () => 
     assert.ok(p.visibleHeight <= radius * 2, `${def.name} height fits interaction circle`);
   }
 });
+
+test('combat morph cocoons borrow egg art while keeping target unit radius', () => {
+  const p = spritePlacement(Kind.Lurker, Kind.Egg);
+  const radius = Units[Kind.Lurker]!.radius / ONE;
+
+  assert.equal(p.sprite, Units[Kind.Egg]!.sprite);
+  assert.equal(p.role, 'unit-radius');
+  close(p.radius, radius, 'Lurker cocoon selection radius stays target-sized');
+  assert.ok(p.visibleWidth <= radius * 2, 'Lurker cocoon width fits target circle');
+  assert.ok(p.visibleHeight <= radius * 2, 'Lurker cocoon height fits target circle');
+});

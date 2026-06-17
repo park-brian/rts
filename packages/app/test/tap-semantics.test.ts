@@ -684,3 +684,31 @@ test('selection summary hides real production commands for known own hallucinati
   assert.equal(ui.selKindName.value, 'Hallucination Carrier');
   assert.equal(ui.selTrainOptions.value.length, 0);
 });
+
+test('selected zerg combat morphs present as cancellable cocoons', () => {
+  const g = freshGame();
+  g.restart('play', 5555, 1, ['zerg', 'terran'], 0);
+  g.controllers = [null, null];
+  const s = g.sim.fullState();
+  const hydra = spawnUnit(s, Kind.Hydralisk, 0, fx(500), fx(500));
+  spawnUnit(s, Kind.HydraliskDen, 0, fx(650), fx(500));
+  setTechLevel(s, 0, Tech.LurkerAspect, 1);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const started = g.sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hydra, kind: Kind.Lurker }] }]);
+  assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
+  select(g, [hydra]);
+  g.fastForward(0);
+
+  assert.equal(ui.selKindName.value, 'Morphing Lurker');
+  assert.equal(ui.selCanCancel.value, true);
+  assert.equal(ui.selCanAttackMove.value, false);
+  assert.equal(ui.selCanStop.value, false);
+
+  g.cancelSelectedBuild();
+
+  assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: hydra }]);
+  g.fastForward(1);
+  assert.equal(s.e.kind[slotOf(hydra)], Kind.Hydralisk);
+});

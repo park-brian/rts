@@ -22,6 +22,7 @@ import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
 import { illusionPresentation } from '../illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from '../child-actors.ts';
+import { morphPresentationKind } from '../morph-presentation.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
 const OWN_HEX = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
@@ -299,7 +300,8 @@ export class GlRenderer {
   // Decide visibility, cache center/radius, and emit a soft ground shadow per
   // drawn entity (shadows go first in the batch so bodies sit on top of them).
   private cullAndShadows(game: Game): void {
-    const e = game.sim.fullState().e;
+    const state = game.sim.fullState();
+    const e = state.e;
     const glow = this.atlas.uv.glow!;
     const zoom = game.zoom;
     for (let i = 0; i < e.hi; i++) {
@@ -309,7 +311,7 @@ export class GlRenderer {
       const kind = e.kind[i]!;
       if (!game.canSeeEntity(i)) continue;
 
-      const p = spritePlacement(kind);
+      const p = spritePlacement(kind, morphPresentationKind(state, i));
       const mul = mobileZoomMul(kind, zoom);
       const r = p.radius * mul;
       this.drawn[i] = 1; this.rr[i] = r; this.wxA[i] = wx; this.wyA[i] = wy;
@@ -329,14 +331,15 @@ export class GlRenderer {
     for (let i = 0; i < e.hi; i++) {
       if (this.drawn[i] !== 1) continue;
       const kind = e.kind[i]!;
+      const artKind = morphPresentationKind(state, i);
       const def = Units[kind]!;
       const isStruct = (def.roles & Role.Structure) !== 0;
       const isGeyser = kind === Kind.Geyser;
       const wx = this.wxA[i]!; const wy = this.wyA[i]!;
       const r = this.rr[i]!;
-      const p = spritePlacement(kind);
+      const p = spritePlacement(kind, artKind);
       const mul = mobileZoomMul(kind, game.zoom);
-      const sprite = uv[spriteOf(kind)] ?? uv.white!;
+      const sprite = uv[p.sprite] ?? uv[spriteOf(kind)] ?? uv.white!;
 
       // Facing: rotate mobile units from deterministic sim state ("up" art = -y).
       let rot = 0;
@@ -471,7 +474,7 @@ export class GlRenderer {
       const id = eid(e, i);
       const kind = e.kind[i]!;
       const def = Units[kind]!;
-      const p = spritePlacement(kind);
+      const p = spritePlacement(kind, morphPresentationKind(s, i));
       const mul = mobileZoomMul(kind, zoom);
       const footprintArt = p.role === 'building-footprint';
       const wx = this.wxA[i]! + (footprintArt ? p.baseOffsetX * mul : 0);

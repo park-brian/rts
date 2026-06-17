@@ -64,6 +64,7 @@ export const ui = {
   selCanMine: signal(false),
   selCanLift: signal(false),
   selCanLand: signal(false),
+  selCanCancel: signal(false),
   placement: signal(0), // build-placement kind in progress (0 = none)
   land: signal(false), // land-placement mode for a lifted Terran structure
   amove: signal(false), // attack-move targeting armed

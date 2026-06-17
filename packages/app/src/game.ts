@@ -16,6 +16,7 @@ import {
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
+import { morphSelectionName } from './morph-presentation.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -168,6 +169,7 @@ export class Game {
     ui.selCanMine.value = false;
     ui.selCanLift.value = false;
     ui.selCanLand.value = false;
+    ui.selCanCancel.value = false;
     ui.selBuildKinds.value = [];
     ui.selAddonKinds.value = [];
     ui.selTransformKinds.value = [];
@@ -802,6 +804,16 @@ export class Game {
     this.clearTargetModes();
   }
 
+  cancelSelectedBuild(): void {
+    const s = this.sim.fullState();
+    const e = s.e;
+    for (const id of this.selection) {
+      const c: Command = { t: 'cancelBuild', building: id };
+      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
+    }
+    this.clearTargetModes();
+  }
+
   trainSelected(kind: number): void {
     const e = this.sim.fullState().e;
     let best = -1;
@@ -1013,6 +1025,7 @@ export class Game {
     ui.selCanHarvest.value = false; ui.selCanRepair.value = false; ui.selCanAttackMove.value = false;
     ui.selCanStop.value = false; ui.selCanMine.value = false;
     ui.selCanLift.value = false; ui.selCanLand.value = false;
+    ui.selCanCancel.value = false;
     ui.selAddonKinds.value = [];
     ui.selTransformKinds.value = [];
   }
@@ -1083,7 +1096,7 @@ export class Game {
     let canLoad = false; let canUnload = false; let canHarvest = false; let canRepair = false;
     let canAttackMove = false; let canStop = false;
     let canBurrow = false; let canUnburrow = false; let canMine = false;
-    let canLift = false; let canLand = false;
+    let canLift = false; let canLand = false; let canCancel = false;
     const buildOptions = new Map<number, CommandOption>();
     const addonOptions = new Map<number, CommandOption>();
     const transformOptions = new Map<number, CommandOption>();
@@ -1095,10 +1108,10 @@ export class Game {
       count++;
       const slot = slotOf(id);
       const k = e.kind[slot]!;
-      kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${Units[k]!.name}`;
+      kindName = `${illusionPresentation(s, this.human, slot).labelPrefix}${morphSelectionName(s, slot)}`;
       const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
       if (nonStructure && validateCommand(s, this.human, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
-      if (validateCommand(s, this.human, { t: 'stop', unit: id }).ok) canStop = true;
+      if (e.built[slot] === 1 && validateCommand(s, this.human, { t: 'stop', unit: id }).ok) canStop = true;
       if ((e.flags[slot]! & Role.Worker) !== 0) {
         if (e.illusion[slot] !== 1) canHarvest = true;
         for (const build of workerBuildKindsFor(Units[k]!.race)) {
@@ -1147,6 +1160,7 @@ export class Game {
       if (validateCommand(s, this.human, { t: 'mine', unit: id }).ok) canMine = true;
       if (validateCommand(s, this.human, { t: 'lift', building: id }).ok) canLift = true;
       if (isLiftedStructureFlags(e.flags[slot]!)) canLand = true;
+      if (validateCommand(s, this.human, { t: 'cancelBuild', building: id }).ok) canCancel = true;
     }
     const selected = [...this.selection].filter((id) => isAlive(e, id));
     for (const transport of selected) {
@@ -1187,6 +1201,7 @@ export class Game {
     ui.selCanMine.value = canMine;
     ui.selCanLift.value = canLift;
     ui.selCanLand.value = canLand;
+    ui.selCanCancel.value = canCancel;
   }
 
   private abilityAvailability(s: State, slot: number, abilityId: number): CommandValidation {

@@ -21,7 +21,7 @@ export type SpritePlacement = {
   footprintH: number;
 };
 
-const cache = new Map<number, SpritePlacement>();
+const cache = new Map<string, SpritePlacement>();
 
 const num = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : fallback;
@@ -50,12 +50,13 @@ const radialFit = (x: number, y: number, w: number, h: number, cx: number, cy: n
   );
 };
 
-export const spritePlacement = (kind: number): SpritePlacement => {
-  const cached = cache.get(kind);
+export const spritePlacement = (kind: number, artKind = kind): SpritePlacement => {
+  const key = `${kind}:${artKind}`;
+  const cached = cache.get(key);
   if (cached) return cached;
 
   const def = Units[kind]!;
-  const sprite = def.sprite;
+  const sprite = Units[artKind]?.sprite ?? def.sprite;
   const art = SPRITES[sprite];
   const meta = art?.meta;
   const [anchorX, anchorY] = pair(meta?.anchor, [SOURCE_CENTER, SOURCE_CENTER]);
@@ -97,7 +98,7 @@ export const spritePlacement = (kind: number): SpritePlacement => {
     footprintW,
     footprintH,
   };
-  cache.set(kind, placement);
+  cache.set(key, placement);
   return placement;
 };
 

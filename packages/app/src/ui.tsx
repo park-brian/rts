@@ -420,6 +420,9 @@ const Hotbar = (p: { game: Game }) => {
     if (ui.selCanLand.value) {
       addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.land.value} onClick={() => g.armLandSelected()} />);
     }
+    if (ui.selCanCancel.value) {
+      addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
+    }
     if (ui.selCanAttackMove.value) {
       addCommand('orders', <Btn dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.amove.value} onClick={toggleAmove} />);
     }
