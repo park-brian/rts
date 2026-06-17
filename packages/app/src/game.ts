@@ -13,6 +13,7 @@ import {
   weaponUpgradeBonus, armorUpgradeBonus, shieldArmorBonus,
   upgradedRange, upgradedSpeed, upgradedCooldown, upgradedSight,
   nextTechLevel, techTime,
+  isCloaked,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
   type CommandRejectReason, type CommandValidation, type Weapon,
@@ -144,16 +145,27 @@ const selectionStats = (s: State, slot: number): string[] => {
   return stats;
 };
 
-const selectionStatus = (s: State, slot: number): SelectionStatus => {
+const selectionVisibilityStats = (s: State, slot: number, viewer: number): string[] => {
+  const e = s.e;
+  const stats: string[] = [];
+  if (e.burrowed[slot] === 1) stats.push('Burrowed');
+  if (isCloaked(s, slot)) stats.push('Cloaked');
+  const owner = e.owner[slot]!;
+  if (viewer >= 0 && viewer !== owner && isCloaked(s, slot) && canDetect(s, viewer, slot)) stats.push('Detected');
+  return stats;
+};
+
+const selectionStatus = (s: State, slot: number, viewer: number): SelectionStatus => {
   const e = s.e;
   const kind = e.kind[slot]!;
   const def = Units[kind]!;
+  const stats = [...selectionStats(s, slot), ...selectionVisibilityStats(s, slot, viewer)];
   if (e.built[slot] !== 1) {
     return {
       label: constructionVerb(kind),
       detail: def.name,
       progress: clampProgress(e.ctimer[slot]!, def.buildTime),
-      stats: selectionStats(s, slot),
+      stats,
     };
   }
   const prod = e.prodKind[slot]!;
@@ -164,7 +176,7 @@ const selectionStatus = (s: State, slot: number): SelectionStatus => {
       label: prod === Kind.NuclearMissile ? 'Arming' : prodDef.buildMethod === 'morph' ? 'Morphing' : 'Training',
       detail: `${prodDef.name}${queued > 0 ? ` +${queued}` : ''}`,
       progress: clampProgress(e.prodTimer[slot]!, prodDef.buildTime),
-      stats: selectionStats(s, slot),
+      stats,
     };
   }
   const tech = e.researchKind[slot]!;
@@ -175,14 +187,14 @@ const selectionStatus = (s: State, slot: number): SelectionStatus => {
       label: 'Researching',
       detail: techDef.name,
       progress: clampProgress(e.researchTimer[slot]!, techTime(techDef, level)),
-      stats: selectionStats(s, slot),
+      stats,
     };
   }
   return {
     label: isLiftedStructureFlags(e.flags[slot]!) ? 'Flying' : orderLabel(e.order[slot]!),
     detail: '',
     progress: 0,
-    stats: selectionStats(s, slot),
+    stats,
   };
 };
 
@@ -1235,8 +1247,9 @@ export class Game {
     const researchOptions = new Map<number, CommandOption>();
     for (const id of this.selection) {
       if (!isAlive(e, id)) continue;
-      count++;
       const slot = slotOf(id);
+      if (e.owner[slot] !== this.human && !this.canSeeEntity(slot)) continue;
+      count++;
       const k = e.kind[slot]!;
       const completed = e.built[slot] === 1;
       if (primarySlot < 0) primarySlot = slot;
@@ -1310,7 +1323,7 @@ export class Game {
     }
     ui.selCount.value = count;
     ui.selKindName.value = count > 1 ? `${kindName} ×${count}` : kindName;
-    ui.selStatus.value = primarySlot >= 0 ? selectionStatus(s, primarySlot) : EMPTY_SELECTION_STATUS;
+    ui.selStatus.value = primarySlot >= 0 ? selectionStatus(s, primarySlot, this.human) : EMPTY_SELECTION_STATUS;
     ui.selCanBuild.value = buildOptions.size > 0;
     ui.selCanRally.value = canRally;
     ui.selBuildOptions.value = sortedOptions(buildOptions);

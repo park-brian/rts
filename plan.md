@@ -714,7 +714,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - More exact projectile/travel behavior for missiles, Valkyrie volleys, and nuke
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
-  - App-side spell fields, cloaking/detection, and last-known/fog affordances.
+  - App-side spell fields and last-known/fog affordances.
 - Macro/tech tree:
   - AI macro should continue filling race tech paths with validator-backed research/upgrade
     choices after the existing Protoss powered expansion and Zerg structure progression work.
@@ -755,3 +755,6 @@ Completed:
   harness. It prints stable JSON lines for fixed-seed no-vision stepping, vision-tracked
   stepping, and vision plus `observe()` plus command-result receipt pressure, with a smoke test
   guarding output shape without hard-coding machine-specific timing thresholds.
+- Selected-entity HUD status now reports cloaked, burrowed, and viewer-detected state from the
+  existing sim visibility/detection helpers, and ignores stale non-owned selections that are no
+  longer visible so HUD state cannot leak hidden enemy entities.
