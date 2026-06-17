@@ -11,6 +11,7 @@ import {
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
+import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -126,6 +127,28 @@ test('reaver scarabs dud if their target becomes invalid before impact', () => {
   assert.equal(launchedScarabs(s, r).length, 0);
   assert.equal(e.hp[n], nearHp, 'dud scarab must not splash around a dead target');
   assert.equal(e.specialAmmo[r], 0, 'fired scarabs are spent even if they dud');
+});
+
+test('scarab splash damage falls off by radius after upgrades and armor', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 611 });
+  const s = sim.fullState();
+  const e = s.e;
+  const reaver = slotOf(spawnUnit(s, Kind.Reaver, 0, fx(400), fx(400)));
+  const target = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620), fx(400)));
+  const inner = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(636), fx(400)));
+  const medium = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(652), fx(400)));
+  const outer = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(672), fx(400)));
+  const beyond = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(684), fx(400)));
+  const before = [target, inner, medium, outer, beyond].map((slot) => e.hp[slot]!);
+  setTechLevel(s, 0, Tech.ScarabDamage, 1);
+
+  applyWeaponHit(s, target, Units[Kind.Scarab]!.weapon!, reaver);
+
+  assert.equal(before[0]! - e.hp[target]!, 124);
+  assert.equal(before[1]! - e.hp[inner]!, 124);
+  assert.equal(before[2]! - e.hp[medium]!, 61);
+  assert.equal(before[3]! - e.hp[outer]!, 30);
+  assert.equal(e.hp[beyond], before[4]);
 });
 
 test('reaver scarabs path around terrain before impacting', () => {

@@ -44,12 +44,13 @@ export const applyPlagueDamage = (s: State, target: number, amount: number): voi
   e.hp[target] = Math.max(1, e.hp[target]! - amount);
 };
 
-const typedDamage = (weapon: Weapon, targetSize: number, bonus: number): number => {
+const typedDamage = (weapon: Weapon, targetSize: number, bonus: number, damagePercent: number): number => {
   const pct = DAMAGE_MULT[weapon.dtype]![targetSize]!;
-  return Math.max(1, Math.trunc(((weapon.damage + bonus) * pct) / 100));
+  const scaled = Math.trunc(((weapon.damage + bonus) * damagePercent) / 100);
+  return Math.max(1, Math.trunc((scaled * pct) / 100));
 };
 
-export const applyWeaponDamage = (s: State, target: number, weapon: Weapon, attacker = -1): void => {
+export const applyWeaponDamage = (s: State, target: number, weapon: Weapon, attacker = -1, damagePercent = 100): void => {
   const e = s.e;
   if (e.stasisTimer[target]! > 0) return;
   const bonus = attacker >= 0 ? weaponUpgradeBonus(s, attacker) : 0;
@@ -58,7 +59,7 @@ export const applyWeaponDamage = (s: State, target: number, weapon: Weapon, atta
   const shieldArmor = attacker >= 0 ? shieldArmorBonus(s, target) : 0;
   const shots = weapon.shots ?? 1;
   for (let n = 0; n < shots && e.alive[target] === 1; n++) {
-    let rawDamage = typedDamage(weapon, td.size, bonus) + e.acidSporeCount[target]!;
+    let rawDamage = typedDamage(weapon, td.size, bonus, damagePercent) + e.acidSporeCount[target]!;
     if (e.illusion[target] === 1) rawDamage *= 2;
     const afterMatrix = absorbMatrix(s, target, rawDamage);
     if (afterMatrix <= 0) continue;

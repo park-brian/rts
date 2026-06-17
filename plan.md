@@ -470,12 +470,14 @@ Completed:
 - Reaver attacks now launch deterministic Scarab child actors with serialized home/target links:
   Scarabs path to ground targets through shared movement, resolve existing splash/damage rules on
   impact, and dud cleanly if the Reaver or target becomes invalid before impact.
+- Added general weapon splash falloff metadata and applied Brood War-style Scarab/Reaver
+  100/50/25 percent damage bands, including Scarab Damage upgrade scaling and armor.
 - Added Carrier Interceptors as launched child combat actors with a serialized home link, attack
   sortie, target orbit, leash/return behavior, ammo restoration, and idle target acquisition.
 
 Remaining:
 
-- More exact Reaver scarab falloff/presentation on top of the projectile primitive.
+- More exact Reaver scarab presentation on top of the projectile primitive.
 - More exact Carrier Interceptor launch/dock presentation and any remaining Brood War movement
   fidelity on top of the launched-child primitive.
 - More exact merge/morph presentation/cocoon rules for Protoss and Zerg unit transforms.
@@ -548,7 +550,7 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Unit production specials:
-  - More exact Reaver scarab falloff/presentation.
+  - More exact Reaver scarab presentation.
   - More exact Carrier Interceptor launch/dock presentation and Brood War movement fidelity.
   - More exact Archon/Dark Archon merge presentation and Zerg unit morph cocoons/cancel/selection
     presentation.
@@ -556,7 +558,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Attack-speed upgrade fidelity for any remaining non-Zergling cases.
   - Broader per-weapon upgrade increments for multi-hit/special weapons.
 - Combat spatial rules:
-  - More exact projectile/travel behavior for missiles, scarabs, interceptors, Valkyrie volleys,
+  - More exact projectile/travel behavior for missiles, interceptors, Valkyrie volleys,
     and nuke missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields, cloaking/detection, and last-known/fog affordances.

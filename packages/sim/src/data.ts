@@ -193,7 +193,9 @@ export type Weapon = {
   range: number; // fixed-point px
   shots?: number; // armor applies per shot
   minRange?: number; // fixed-point px
-  splashRadius?: number; // fixed-point px, full damage in this simplified BW slice
+  splashRadius?: number; // fixed-point px, outer splash radius
+  splashInnerRadius?: number; // fixed-point px, 100% splash damage inside this radius
+  splashMediumRadius?: number; // fixed-point px, 50% splash damage inside this radius
 };
 
 export type UnitDef = {
@@ -263,7 +265,13 @@ const W = (damage: number, dtype: number, cooldown: number, rangeTiles: number, 
   ...(minRangeTiles > 0 ? { minRange: tiles(minRangeTiles) } : {}),
   ...(splashRadiusTiles > 0 ? { splashRadius: tiles(splashRadiusTiles) } : {}),
 });
+const radialSplash = (innerPx: number, mediumPx: number, outerPx: number): Pick<Weapon, 'splashInnerRadius' | 'splashMediumRadius' | 'splashRadius'> => ({
+  splashInnerRadius: fx(innerPx),
+  splashMediumRadius: fx(mediumPx),
+  splashRadius: fx(outerPx),
+});
 const cd = sec;
+const SCARAB_SPLASH = radialSplash(20, 40, 60);
 
 export const Ability = {
   StimPack: 1,
@@ -885,12 +893,13 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Reaver]: protoss('reaver', {
     name: 'Reaver', ...mobile(16), roles: Role.Mobile | Role.Producer, size: Size.Large,
     hp: 100, shields: 80, sight: 10, speed: fx(1), minerals: 200, gas: 100, supply: supply(4), buildTime: sec(44),
-    weapon: W(100, DamageType.Normal, 60, 8, 1, 0, 1), requires: [Kind.RoboticsSupportBay],
-    produces: [Kind.Scarab], notes: ['scarab-projectile-travel-not-implemented'], ...cargo(4),
+    weapon: { ...W(100, DamageType.Normal, 60, 8), ...SCARAB_SPLASH }, requires: [Kind.RoboticsSupportBay],
+    produces: [Kind.Scarab], ...cargo(4),
   }),
   [Kind.Scarab]: protoss('scarab', {
     name: 'Scarab', ...mobile(3), size: Size.Small,
-    hp: 1, minerals: 15, buildTime: sec(4), speed: fx(4), weapon: W(100, DamageType.Normal, 1, 0.5),
+    hp: 1, minerals: 15, buildTime: sec(4), speed: fx(4),
+    weapon: { ...W(100, DamageType.Normal, 1, 0.5), ...SCARAB_SPLASH },
     buildMethod: 'internal',
   }),
   [Kind.Observer]: protoss('observer', {
