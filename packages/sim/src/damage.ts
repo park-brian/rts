@@ -53,16 +53,13 @@ export const applyWeaponDamage = (s: State, target: number, weapon: Weapon, atta
   const e = s.e;
   if (e.stasisTimer[target]! > 0) return;
   const bonus = attacker >= 0 ? weaponUpgradeBonus(s, attacker) : 0;
-  if (e.illusion[target] === 1) {
-    applyIndependentDamage(s, target, Math.max(1, (weapon.damage + bonus) * (weapon.shots ?? 1)));
-    return;
-  }
   const td = Units[e.kind[target]!]!;
   const armor = td.armor + (attacker >= 0 ? armorUpgradeBonus(s, target) : 0);
   const shieldArmor = attacker >= 0 ? shieldArmorBonus(s, target) : 0;
   const shots = weapon.shots ?? 1;
   for (let n = 0; n < shots && e.alive[target] === 1; n++) {
-    const rawDamage = typedDamage(weapon, td.size, bonus) + e.acidSporeCount[target]!;
+    let rawDamage = typedDamage(weapon, td.size, bonus) + e.acidSporeCount[target]!;
+    if (e.illusion[target] === 1) rawDamage *= 2;
     const afterMatrix = absorbMatrix(s, target, rawDamage);
     if (afterMatrix <= 0) continue;
     let hpDamage = 0;

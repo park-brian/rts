@@ -4,9 +4,11 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { count, eid, kill, slotOf } from '../src/world.ts';
-import { Kind, Units, computeDamage, tiles } from '../src/data.ts';
+import { DamageType, Kind, Tech, Units, computeDamage, tiles } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { edgeDistanceSq } from '../src/spatial.ts';
+import { applyWeaponDamage } from '../src/damage.ts';
+import { setTechLevel } from '../src/tech.ts';
 
 test('two enemy marines fight and at least one dies', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 5 });
@@ -33,6 +35,70 @@ test('damage respects type/size/armor', () => {
   const conc = { damage: 20, dtype: 1, cooldown: 1, range: 1 };
   assert.equal(computeDamage(conc, 2 /*Large*/, 0), 5);
   assert.equal(computeDamage(conc, 0 /*Small*/, 0), 20);
+});
+
+test('weapon damage against hallucinations still respects damage type, armor, and shots', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 2401 });
+  const s = sim.fullState();
+  const e = s.e;
+  const firebat = spawnUnit(s, Kind.Firebat, 0, fx(400), fx(400));
+  const battlecruiser = spawnUnit(s, Kind.Battlecruiser, 1, fx(430), fx(400));
+  const target = slotOf(battlecruiser);
+  e.illusion[target] = 1;
+  e.shield[target] = 0;
+  const hpBefore = e.hp[target]!;
+
+  applyWeaponDamage(s, target, Units[Kind.Firebat]!.weapon!, slotOf(firebat));
+
+  assert.equal(e.hp[target], hpBefore - 2);
+});
+
+test('weapon upgrades affect typed damage against hallucinations before the double-damage rule', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 2402 });
+  const s = sim.fullState();
+  const e = s.e;
+  const dragoon = spawnUnit(s, Kind.Dragoon, 0, fx(400), fx(400));
+  const siegeTank = spawnUnit(s, Kind.SiegeTank, 1, fx(430), fx(400));
+  const target = slotOf(siegeTank);
+  e.illusion[target] = 1;
+  setTechLevel(s, 0, Tech.GroundWeapons, 1);
+  const hpBefore = e.hp[target]!;
+
+  applyWeaponDamage(s, target, Units[Kind.Dragoon]!.weapon!, slotOf(dragoon));
+
+  assert.equal(e.hp[target], hpBefore - 41);
+});
+
+test('explosive splash sources use typed damage against hallucinations', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 2403 });
+  const s = sim.fullState();
+  const e = s.e;
+  const tank = spawnUnit(s, Kind.SiegeTank, 0, fx(400), fx(400));
+  const marine = spawnUnit(s, Kind.Marine, 1, fx(430), fx(400));
+  const target = slotOf(marine);
+  e.illusion[target] = 1;
+  const hpBefore = e.hp[target]!;
+
+  applyWeaponDamage(s, target, { damage: 30, dtype: DamageType.Explosive, cooldown: 1, range: tiles(1) }, slotOf(tank));
+
+  assert.equal(e.hp[target], hpBefore - 30);
+});
+
+test('acid spores amplify typed weapon damage before hallucination doubling', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 2404 });
+  const s = sim.fullState();
+  const e = s.e;
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const targetId = spawnUnit(s, Kind.Marine, 1, fx(430), fx(400));
+  const target = slotOf(targetId);
+  e.illusion[target] = 1;
+  e.acidSporeCount[target] = 3;
+  e.acidSporeTimer[target] = 100;
+  const hpBefore = e.hp[target]!;
+
+  applyWeaponDamage(s, target, Units[Kind.Marine]!.weapon!, slotOf(marine));
+
+  assert.equal(e.hp[target], hpBefore - 18);
 });
 
 test('weapon range is measured edge-to-edge against large buildings', () => {

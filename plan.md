@@ -242,11 +242,12 @@ Completed:
   while retaining decoy move/attack orders.
 - The command card hides worker utility affordances that are impossible because the selected worker
   is a Hallucination, and the screenshot harness captures the selected-Hallucination reference.
+- Weapon damage against Hallucinations now uses the shared source-type pipeline: damage type,
+  target size, weapon upgrades, multi-shot armor, shields, matrix absorption, and acid spores all
+  resolve normally before the Hallucination double-damage rule is applied once per hit.
 
 Remaining:
 
-- More exact Hallucination source-type damage fidelity beyond the current shared double-damage
-  model.
 - More exact attack animation lockout windows; current pathing treats ground units with an active
   weapon cooldown and target as rooted pathing anchors so moving units route around them instead of
   shoving them aside.
