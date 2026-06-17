@@ -28,6 +28,7 @@ const PROTOSS_STRUCTURE_MACRO = [
   Kind.RoboticsSupportBay,
   Kind.Observatory,
   Kind.Stargate,
+  Kind.FleetBeacon,
   Kind.CitadelOfAdun,
   Kind.TemplarArchives,
 ] as const;

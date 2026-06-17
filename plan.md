@@ -617,6 +617,9 @@ Completed:
   pending, placement, and budget validation.
 - Protoss scripted macro now queues a legal Stargate from that same ordered tech-structure path
   after Cybernetics Core, preserving shared power, prerequisite, duplicate, and budget checks.
+- Protoss scripted macro now queues a legal Fleet Beacon after Stargate through the same powered
+  path, unlocking Carrier/Corsair air tech while preserving shared prerequisite, duplicate,
+  pending, placement, and budget validation.
 - Protoss scripted macro now queues a legal Citadel of Adun through the ordered tech-structure path,
   unlocking the templar branch while preserving the same validation-backed legality checks.
 - Protoss scripted macro now queues a legal Templar Archives after Citadel of Adun through that
