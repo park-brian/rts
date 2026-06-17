@@ -7,6 +7,7 @@ import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, Role, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { parseReplay } from '../src/replay.ts';
+import { snapBuildAnchor } from '../src/footprint.ts';
 
 test('lifted terran buildings move, stop producing, and restore landed capabilities', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 140 });
@@ -33,8 +34,14 @@ test('lifted terran buildings move, stop producing, and restore landed capabilit
 
   const landed = sim.step([{ player: 0, cmds: [{ t: 'land', building: eid(e, cc), x: fx(860), y: fx(700) }] }]);
   assert.deepEqual(landed, [{ player: 0, index: 0, t: 'land', ok: true }]);
+  assert.equal(e.order[cc], Order.Move);
+  assert.notEqual((e.flags[cc]! & Role.Air), 0);
+  assert.ok(e.x[cc]! < fx(860), 'land command does not teleport the lifted building');
+
+  for (let i = 0; i < 300 && (e.flags[cc]! & Role.Air) !== 0; i++) sim.step([]);
   assert.equal(e.flags[cc], Units[Kind.CommandCenter]!.roles);
   assert.equal(e.order[cc], Order.Idle);
+  assert.equal(e.x[cc], snapBuildAnchor(fx(860), fx(700)).x);
 
   const trainAfterLanding = sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, cc), kind: Kind.SCV }] }]);
   assert.deepEqual(trainAfterLanding, [{ player: 0, index: 0, t: 'train', ok: true }]);

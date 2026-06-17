@@ -16,17 +16,21 @@ const bar: Record<string, string> = {
   background: 'rgba(11,14,19,0.78)', backdropFilter: 'blur(6px)', fontSize: '14px',
 };
 
-const btn = (active = false, compact = false): Record<string, string> => ({
-  minWidth: compact ? '0' : '58px', maxWidth: compact ? 'none' : '104px', minHeight: compact ? '44px' : '42px',
-  padding: compact ? '5px 8px' : '5px 9px', borderRadius: '8px',
-  border: active ? '2px solid #ffe14e' : '1px solid #2a3340',
-  background: active ? '#34507a' : '#1a2230', color: '#e6edf3', fontSize: compact ? '12px' : '12px',
-  fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: compact ? '1 1 0' : '0 0 auto',
-});
+const btn = (active = false, compact = false): Record<string, string> => {
+  const desktop = ui.controlScheme.value === 'desktop';
+  return {
+    minWidth: compact ? '0' : '58px', maxWidth: compact ? 'none' : '104px', minHeight: compact ? '34px' : '40px',
+    padding: compact ? '4px 7px' : '5px 9px', borderRadius: '8px',
+    border: active ? '2px solid #ffe14e' : '1px solid #2a3340',
+    background: active ? '#34507a' : '#1a2230', color: '#e6edf3', fontSize: compact ? '12px' : '12px',
+    fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    flex: compact && !desktop ? '1 1 0' : '0 1 auto',
+  };
+};
 
 const Btn = (p: { label: string; onClick: () => void; active?: boolean; compact?: boolean; hotkeyAction?: HotkeyAction }) => (
-  <button style={btn(p.active, p.compact)} onClick={p.onClick}>
+  <button style={btn(p.active, p.compact || (ui.controlScheme.value === 'desktop' && !!p.hotkeyAction))} onClick={p.onClick}>
     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.label}</span>
     {ui.controlScheme.value === 'desktop' && p.hotkeyAction && (
       <span style={{ marginLeft: '6px', opacity: 0.75, fontSize: '11px', flex: '0 0 auto' }}>
@@ -36,8 +40,15 @@ const Btn = (p: { label: string; onClick: () => void; active?: boolean; compact?
   </button>
 );
 
+const applyControlChrome = (scheme: ControlScheme): void => {
+  const root = document.documentElement;
+  root.style.setProperty('--top-chrome', scheme === 'desktop' ? '46px' : 'calc(76px + env(safe-area-inset-top))');
+  root.style.setProperty('--bottom-chrome', scheme === 'desktop' ? '76px' : 'calc(84px + env(safe-area-inset-bottom))');
+};
+
 const setControlScheme = (scheme: ControlScheme): void => {
   ui.controlScheme.value = scheme;
+  applyControlChrome(scheme);
   try {
     globalThis.localStorage?.setItem('rts.controlScheme', scheme);
   } catch {
@@ -45,17 +56,20 @@ const setControlScheme = (scheme: ControlScheme): void => {
   }
 };
 
-const TopBar = (p: { game: Game }) => (
-  <div style={{ ...bar, top: '0', padding: '6px 8px 8px', paddingTop: 'max(6px, env(safe-area-inset-top))',
-    flexWrap: 'wrap', alignItems: 'stretch', height: 'var(--top-chrome)', overflow: 'hidden' }}>
-    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%',
-      fontVariantNumeric: 'tabular-nums', minHeight: '24px' }}>
+applyControlChrome(ui.controlScheme.value);
+
+const TopBar = (p: { game: Game }) => {
+  const resources = (
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'center',
+      fontVariantNumeric: 'tabular-nums', minHeight: '24px', flex: '0 0 auto' }}>
       <b style={{ color: '#49d0c0' }}>⬡ {ui.minerals.value}</b>
       <b style={{ color: '#56d364' }}>◆ {ui.gas.value}</b>
       <span style={{ opacity: 0.85 }}>▦ {fmtSupply(ui.supplyUsed.value)}/{fmtSupply(ui.supplyMax.value)}</span>
-      <span style={{ opacity: 0.6, marginLeft: 'auto' }}>⏱ {fmt(ui.seconds.value)}</span>
+      <span style={{ opacity: 0.6 }}>⏱ {fmt(ui.seconds.value)}</span>
     </div>
-    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+  );
+  const buttons = (
+    <div style={{ display: 'flex', gap: '6px', minWidth: 0, flex: '1 1 auto' }}>
       <Btn compact label={`${ui.perTeam.value}v${ui.perTeam.value}`} onClick={() => p.game.restart(ui.mode.value, undefined, (ui.perTeam.value % 3) + 1)} />
       <Btn compact label="⚙ Setup" onClick={() => (ui.setupOpen.value = true)} />
       <Btn compact label={ui.mode.value === 'play' ? '▶ Play' : '◎ Watch'} onClick={() => p.game.restart(ui.mode.value === 'play' ? 'spectate' : 'play')} />
@@ -66,8 +80,24 @@ const TopBar = (p: { game: Game }) => (
         active={ui.controlScheme.value === 'desktop'}
         onClick={() => setControlScheme(ui.controlScheme.value === 'desktop' ? 'mobile' : 'desktop')} />
     </div>
-  </div>
-);
+  );
+  if (ui.controlScheme.value === 'desktop') {
+    return (
+      <div style={{ ...bar, top: '0', height: 'var(--top-chrome)', overflow: 'hidden',
+        padding: '4px 8px', flexWrap: 'nowrap', alignItems: 'center' }}>
+        {resources}
+        {buttons}
+      </div>
+    );
+  }
+  return (
+    <div style={{ ...bar, top: '0', padding: '6px 8px 8px', paddingTop: 'max(6px, env(safe-area-inset-top))',
+      flexWrap: 'wrap', alignItems: 'stretch', height: 'var(--top-chrome)', overflow: 'hidden' }}>
+      <div style={{ width: '100%' }}>{resources}</div>
+      <div style={{ width: '100%' }}>{buttons}</div>
+    </div>
+  );
+};
 
 const fmtTick = (t: number): string => fmt(Math.floor(t / 24));
 
@@ -304,24 +334,21 @@ const Hotbar = (p: { game: Game }) => {
   if (ui.controlScheme.value === 'desktop') {
     return (
       <div style={{ ...bar, bottom: '0', height: 'var(--bottom-chrome)', overflow: 'hidden',
-        padding: '7px 10px', paddingBottom: 'max(7px, env(safe-area-inset-bottom))',
-        display: 'grid', gridTemplateColumns: '150px minmax(180px, 1fr) minmax(300px, 44vw)',
-        alignItems: 'stretch', gap: '10px' }}>
+        padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
+        display: 'grid', gridTemplateColumns: '112px 240px minmax(420px, 1fr)',
+        alignItems: 'stretch', gap: '8px' }}>
         <MinimapPanel game={g} />
         <div style={{ border: '1px solid #2a3340', background: '#111923', padding: '8px',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
           <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {ui.selCount.value > 0 ? ui.selKindName.value : 'No selection'}
           </b>
-          <span style={{ opacity: 0.72, marginTop: '5px', fontSize: '12px' }}>
+          <span style={{ opacity: 0.72, marginTop: '3px', fontSize: '12px' }}>
             {ui.selCount.value > 0 ? `Group ${ui.selCount.value}` : 'Ctrl+1-0 assigns groups'}
           </span>
-          <span style={{ opacity: 0.58, marginTop: '3px', fontSize: '12px' }}>
-            1-0 selects, Shift+1-0 adds, double tap centers
-          </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(78px, 1fr))',
-          gridAutoRows: '36px', gap: '6px', overflowY: 'auto', paddingRight: '2px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 112px)',
+          gridAutoRows: '34px', gap: '5px', overflowY: 'auto', paddingRight: '2px', justifyContent: 'end' }}>
           {buttons}
         </div>
       </div>

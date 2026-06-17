@@ -98,11 +98,10 @@ const liftBuilding = (s: State, slot: number): void => {
 
 const landBuilding = (s: State, slot: number, x: number, y: number): void => {
   const e = s.e;
-  e.x[slot] = x;
-  e.y[slot] = y;
-  e.flags[slot] = landedStructureFlags(e.kind[slot]!);
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
+  e.order[slot] = Order.Move;
+  e.target[slot] = eid(e, slot);
+  e.tx[slot] = x;
+  e.ty[slot] = y;
 };
 
 const setEntityKind = (s: State, slot: number, kind: number): void => {

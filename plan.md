@@ -156,6 +156,11 @@ Completed:
   reachable from the command card: worker structures, production, research/upgrades, spells,
   morphs/merges, Terran add-ons, and Terran lift/land. Command availability must continue to flow
   through shared validation rather than app-only prerequisites.
+- Screenshot review compacted desktop chrome to a 46px top bar and 76px bottom console, with
+  fixed command cells on the right so the playable viewport gets the reclaimed space.
+- Lifted Terran structures now treat `land` as a landing move intent: they stay airborne, fly
+  through the normal movement system, re-check the snapped footprint on arrival, then restore
+  landed structure roles without per-tick landing scans.
 
 Remaining:
 

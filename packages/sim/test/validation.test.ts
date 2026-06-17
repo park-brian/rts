@@ -4,8 +4,9 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { count, eid, kill, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Order, TILE, Units } from '../src/data.ts';
+import { Kind, Order, Role, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
+import { snapBuildAnchor } from '../src/footprint.ts';
 
 const findSlot = (sim: Sim, pred: (slot: number) => boolean): number => {
   const e = sim.fullState().e;
@@ -101,15 +102,24 @@ test('land placement snaps raw cursor coordinates to the build grid anchor', () 
     { player: 0, index: 0, t: 'lift', ok: true },
   ]);
 
-  const rawX = 901;
-  const rawY = 923;
+  const rawX = 1063;
+  const rawY = 2671;
   const results = sim.step([{ player: 0, cmds: [
     { t: 'land', building: eid(e, cc), x: fx(rawX), y: fx(rawY) },
   ] }]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'land', ok: true }]);
-  assert.equal(e.x[cc], snapped(rawX));
-  assert.equal(e.y[cc], snapped(rawY));
+  const target = snapBuildAnchor(fx(rawX), fx(rawY));
+  assert.equal(e.order[cc], Order.Move);
+  assert.notEqual((e.flags[cc]! & Role.Air), 0);
+  assert.notEqual(e.x[cc], target.x, 'land command should not teleport lifted structures');
+
+  for (let i = 0; i < 400 && (e.flags[cc]! & Role.Air) !== 0; i++) sim.step([]);
+
+  assert.equal(e.order[cc], Order.Idle);
+  assert.equal(e.flags[cc], Units[Kind.CommandCenter]!.roles);
+  assert.equal(e.x[cc], target.x);
+  assert.equal(e.y[cc], target.y);
 });
 
 test('same-tick production reserves supply across multiple producers', () => {

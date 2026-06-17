@@ -5,8 +5,26 @@ import type { State } from '../world.ts';
 import { Order, Units } from '../data.ts';
 import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
-import { commandMoveSpeed } from '../terran-mobility.ts';
+import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../terran-mobility.ts';
 import { isContained } from '../cargo.ts';
+import { placementForStructure } from '../validation.ts';
+import { eid, NONE } from '../world.ts';
+
+const landIfArrived = (s: State, slot: number): void => {
+  const e = s.e;
+  if (e.target[slot] !== eid(e, slot) || !isLiftedStructureFlags(e.flags[slot]!)) {
+    e.order[slot] = Order.Idle;
+    return;
+  }
+  const placement = placementForStructure(s, e.kind[slot]!, e.tx[slot]!, e.ty[slot]!, slot, e.owner[slot]!);
+  if (placement.ok) {
+    e.x[slot] = placement.x;
+    e.y[slot] = placement.y;
+    e.flags[slot] = landedStructureFlags(e.kind[slot]!);
+  }
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
 
 export const movement = (s: State): void => {
   const e = s.e;
@@ -23,6 +41,6 @@ export const movement = (s: State): void => {
       e.order[i] = Order.Idle;
       continue;
     }
-    if (navigate(s, i, e.tx[i]!, e.ty[i]!, effectiveSpeed(s, e, i, speed))) e.order[i] = Order.Idle;
+    if (navigate(s, i, e.tx[i]!, e.ty[i]!, effectiveSpeed(s, e, i, speed))) landIfArrived(s, i);
   }
 };
