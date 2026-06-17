@@ -14,14 +14,26 @@
 // unit, every tick) was a real throughput sink.
 
 import { NONE, type State } from './world.ts';
-import { Role } from './data.ts';
+import { Role, TILE } from './data.ts';
+import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './hash.ts';
 import { structureFootprint } from './footprint.ts';
+import { isPathingAnchor } from './pathing-anchor.ts';
 
 export const INF = 0x7fffffff;
 const LIMIT = 24; // cached fields per State (LRU by insertion order)
-type Nav = { sig: number; solid: Uint8Array; fields: Map<number, Int32Array> };
+type Nav = {
+  sig: number;
+  solid: Uint8Array;
+  fields: Map<number, Int32Array>;
+  unitTick: number;
+  unitSolid: Uint8Array;
+  unitTiles: Int32Array;
+  unitTileCount: number;
+  unitHasSolid: boolean;
+};
 const navByState = new WeakMap<State, Nav>();
+const TILE_FX = TILE * ONE;
 
 /** Solid = grounded structures that aren't resources (a refinery on a geyser stays walkable). */
 const blocks = (fl: number): boolean => (fl & Role.Structure) !== 0 && (fl & (Role.Resource | Role.Air)) === 0;
@@ -53,7 +65,19 @@ const stampSolid = (s: State, solid: Uint8Array): void => {
 /** Refresh a State's pathing context; rebuild the solid grid + drop stale fields if buildings changed. */
 export const prepareNav = (s: State): Nav => {
   let nav = navByState.get(s);
-  if (!nav) { nav = { sig: -1, solid: new Uint8Array(s.map.w * s.map.h), fields: new Map() }; navByState.set(s, nav); }
+  if (!nav) {
+    nav = {
+      sig: -1,
+      solid: new Uint8Array(s.map.w * s.map.h),
+      fields: new Map(),
+      unitTick: -1,
+      unitSolid: new Uint8Array(s.map.w * s.map.h),
+      unitTiles: new Int32Array(s.e.alive.length),
+      unitTileCount: 0,
+      unitHasSolid: false,
+    };
+    navByState.set(s, nav);
+  }
   const sig = buildSig(s);
   if (sig !== nav.sig) { nav.sig = sig; stampSolid(s, nav.solid); nav.fields.clear(); }
   return nav;
@@ -79,6 +103,32 @@ export const open = (m: State['map'], solid: Uint8Array, tx: number, ty: number)
 
 /** Single-tile passability check (does its own lookup; for occasional callers). */
 export const navPassable = (s: State, tx: number, ty: number): boolean => open(s.map, navOf(s).solid, tx, ty);
+
+const refreshUnitSolid = (s: State): Nav => {
+  const nav = navOf(s);
+  if (nav.unitTick === s.tick) return nav;
+  nav.unitTick = s.tick;
+  for (let i = 0; i < nav.unitTileCount; i++) nav.unitSolid[nav.unitTiles[i]!] = 0;
+  nav.unitTileCount = 0;
+  nav.unitHasSolid = false;
+  const e = s.e; const m = s.map;
+  for (let i = 0; i < e.hi; i++) {
+    if (!isPathingAnchor(s, i)) continue;
+    const tx = Math.floor(e.x[i]! / TILE_FX);
+    const ty = Math.floor(e.y[i]! / TILE_FX);
+    if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) continue;
+    const tile = ty * m.w + tx;
+    if (nav.unitSolid[tile] === 0) {
+      nav.unitSolid[tile] = 1;
+      nav.unitTiles[nav.unitTileCount++] = tile;
+    }
+    nav.unitHasSolid = true;
+  }
+  return nav;
+};
+
+export const navUnitSolid = (s: State): Uint8Array => refreshUnitSolid(s).unitSolid;
+export const navHasUnitSolid = (s: State): boolean => refreshUnitSolid(s).unitHasSolid;
 
 /** Integer Dijkstra from `goal` over combined terrain+building passability. */
 const compute = (s: State, solid: Uint8Array, goal: number): Int32Array => {
@@ -144,7 +194,14 @@ export const flowField = (s: State, goalTile: number): Int32Array => {
 };
 
 /** Neighbour tile one step downhill toward the goal, or -1 at the goal/unreachable. */
-export const downhill = (s: State, solid: Uint8Array, field: Int32Array, tx: number, ty: number): number => {
+export const downhill = (
+  s: State,
+  solid: Uint8Array,
+  field: Int32Array,
+  tx: number,
+  ty: number,
+  unitSolid: Uint8Array | null = null,
+): number => {
   const m = s.map; const W = m.w;
   const here = field[ty * W + tx]!;
   if (here === INF || here === 0) return -1;
@@ -154,6 +211,7 @@ export const downhill = (s: State, solid: Uint8Array, field: Int32Array, tx: num
       if (dx === 0 && dy === 0) continue;
       const nx = tx + dx; const ny = ty + dy;
       if (!open(m, solid, nx, ny)) continue;
+      if (unitSolid !== null && unitSolid[ny * W + nx] === 1) continue;
       if (dx !== 0 && dy !== 0 && (!open(m, solid, tx + dx, ty) || !open(m, solid, tx, ty + dy))) continue;
       const v = ny * W + nx;
       if (field[v]! < bestD) { bestD = field[v]!; best = v; }

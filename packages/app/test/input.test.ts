@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { attachInput } from '../src/input.ts';
 import { ui } from '../src/store.ts';
 
-type Listener = (e: Record<string, number | (() => void)>) => void;
+type Listener = (e: any) => void;
 
 class FakeCanvas {
   listeners = new Map<string, Listener[]>();
@@ -14,19 +14,19 @@ class FakeCanvas {
     list.push(fn);
     this.listeners.set(type, list);
   }
-  fire(type: string, e: Record<string, number | (() => void)>): void {
+  fire(type: string, e: any): void {
     for (const fn of this.listeners.get(type) ?? []) fn(e);
   }
 }
 
-const pointer = (pointerId: number, clientX: number, clientY: number): Record<string, number | (() => void)> =>
-  ({ pointerId, clientX, clientY, preventDefault() {} });
+const pointer = (pointerId: number, clientX: number, clientY: number, extra: Record<string, unknown> = {}): any =>
+  ({ pointerId, clientX, clientY, button: 0, shiftKey: false, ctrlKey: false, metaKey: false, preventDefault() {}, ...extra });
 
 const makeGame = (): {
   game: any;
-  calls: { tap: number; box: number; minimap: number };
+  calls: { tap: number; box: number; minimap: number; desktopTap: number; smart: number; edge: number; clearEdge: number };
 } => {
-  const calls = { tap: 0, box: 0, minimap: 0 };
+  const calls = { tap: 0, box: 0, minimap: 0, desktopTap: 0, smart: 0, edge: 0, clearEdge: 0 };
   const game: any = {
     box: null,
     camX: 0,
@@ -36,6 +36,10 @@ const makeGame = (): {
     clampCamera: () => {},
     minimapPan: () => { calls.minimap++; return false; },
     tap: () => { calls.tap++; },
+    desktopSelectTap: () => { calls.desktopTap++; },
+    desktopSmartTap: () => { calls.smart++; },
+    setEdgePanPointer: () => { calls.edge++; },
+    clearEdgePan: () => { calls.clearEdge++; },
     updatePlacementGhost: () => {},
     commitPlacementGhost: () => false,
     cancelPlacementGhost: () => {},
@@ -48,6 +52,7 @@ const makeGame = (): {
 test('single pointer tap emits one tap', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
+  ui.controlScheme.value = 'mobile';
   attachInput(canvas as any, game);
 
   canvas.fire('pointerdown', pointer(1, 20, 20));
@@ -60,6 +65,7 @@ test('single pointer tap emits one tap', () => {
 test('single pointer drag emits box select', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
+  ui.controlScheme.value = 'mobile';
   attachInput(canvas as any, game);
 
   canvas.fire('pointerdown', pointer(1, 20, 20));
@@ -79,6 +85,7 @@ test('build placement drag updates ghost and commits on pointer up', () => {
   game.commitPlacementGhost = (): boolean => { commits++; return true; };
   attachInput(canvas as any, game);
 
+  ui.controlScheme.value = 'mobile';
   ui.placement.value = 1;
   canvas.fire('pointerdown', pointer(1, 20, 20));
   canvas.fire('pointermove', pointer(1, 60, 60));
@@ -94,6 +101,7 @@ test('build placement drag updates ghost and commits on pointer up', () => {
 test('two-finger camera gesture suppresses remaining-finger tap and box', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
+  ui.controlScheme.value = 'mobile';
   attachInput(canvas as any, game);
 
   canvas.fire('pointerdown', pointer(1, 20, 20));
@@ -106,4 +114,33 @@ test('two-finger camera gesture suppresses remaining-finger tap and box', () => 
   assert.equal(calls.tap, 0);
   assert.equal(calls.box, 0);
   assert.equal(game.box, null);
+});
+
+test('desktop pointer routes left click to selection and right click to smart command', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 20, 20));
+  canvas.fire('pointerup', pointer(1, 20, 20));
+  canvas.fire('pointerdown', pointer(2, 40, 40, { button: 2 }));
+  canvas.fire('pointerup', pointer(2, 40, 40, { button: 2 }));
+
+  assert.equal(calls.tap, 0);
+  assert.equal(calls.desktopTap, 1);
+  assert.equal(calls.smart, 1);
+});
+
+test('desktop mouse hover tracks screen-edge panning and clears on leave', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('mousemove', { clientX: 2, clientY: 40 });
+  canvas.fire('mouseleave', {});
+
+  assert.equal(calls.edge, 1);
+  assert.equal(calls.clearEdge, 1);
 });

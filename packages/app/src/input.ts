@@ -3,11 +3,13 @@
 
 import type { Game } from './game.ts';
 import { ui } from './store.ts';
+import { dispatchHotkey } from './hotkeys.ts';
 
 const TAP_SLOP = 8; // px movement under which a press counts as a tap
 
 export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   const pts = new Map<number, { x: number; y: number }>();
+  const buttons = new Map<number, number>();
   let moved = false;
   let start = { x: 0, y: 0 };
   let pinchDist = 0;
@@ -19,15 +21,21 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   let placing = false;
 
   const rect = (): DOMRect => canvas.getBoundingClientRect();
-  const local = (e: PointerEvent): { x: number; y: number } => {
+  const localPoint = (clientX: number, clientY: number): { x: number; y: number } => {
     const r = rect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return { x: clientX - r.left, y: clientY - r.top };
   };
+  const local = (e: PointerEvent): { x: number; y: number } => localPoint(e.clientX, e.clientY);
+  const isDesktop = (): boolean => ui.controlScheme.value === 'desktop';
+  const buttonOf = (e: PointerEvent): number => typeof e.button === 'number' ? e.button : 0;
 
   canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
     const p = local(e);
+    if (isDesktop()) game.setEdgePanPointer(p.x, p.y);
     pts.set(e.pointerId, p);
+    buttons.set(e.pointerId, buttonOf(e));
     if (pts.size === 1) {
       multiTouch = false;
       start = p; moved = false; game.box = null;
@@ -35,8 +43,10 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
       if (placing) {
         onMinimap = false;
         game.updatePlacementGhost(p.x, p.y);
-      } else {
+      } else if (!isDesktop() || buttonOf(e) === 0) {
         onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
+      } else {
+        onMinimap = false;
       }
     } else if (pts.size === 2) {
       multiTouch = true;
@@ -52,12 +62,14 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return;
     const p = local(e);
+    if (isDesktop()) game.setEdgePanPointer(p.x, p.y);
     pts.set(e.pointerId, p);
 
     if (pts.size === 1) {
       if (multiTouch) return; // remaining finger after a pinch/pan cannot become a tap/box
       if (placing) { game.updatePlacementGhost(p.x, p.y); return; }
       if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
+      if (isDesktop() && (buttons.get(e.pointerId) ?? 0) !== 0) return;
       if (Math.hypot(p.x - start.x, p.y - start.y) > TAP_SLOP) moved = true;
       if (moved) game.box = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
     } else if (pts.size === 2) {
@@ -78,7 +90,9 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     if (!pts.has(e.pointerId)) return;
     const wasOne = pts.size === 1;
     const p = local(e);
+    const button = buttons.get(e.pointerId) ?? buttonOf(e);
     pts.delete(e.pointerId);
+    buttons.delete(e.pointerId);
     if (wasOne) {
       if (multiTouch) {
         multiTouch = false; onMinimap = false; placing = false; game.cancelPlacementGhost(); game.box = null;
@@ -91,7 +105,11 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
         const now = performance.now();
         const dbl = now - lastTapT < 300 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 24;
         lastTapT = now; lastTap = p;
-        if (dbl) game.selectAllByType(p.x, p.y); // double-tap: all of this type on screen
+        if (isDesktop() && button === 2) game.desktopSmartTap(p.x, p.y);
+        else if (isDesktop()) {
+          if (dbl) game.selectAllByType(p.x, p.y);
+          else game.desktopSelectTap(p.x, p.y, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
+        } else if (dbl) game.selectAllByType(p.x, p.y); // double-tap: all of this type on screen
         else game.tap(p.x, p.y);
       } else if (game.box) {
         game.boxSelect(game.box.x0, game.box.y0, game.box.x1, game.box.y1);
@@ -107,6 +125,13 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDesktop()) return;
+    const p = localPoint(e.clientX, e.clientY);
+    game.setEdgePanPointer(p.x, p.y);
+  });
+  canvas.addEventListener('mouseleave', () => game.clearEdgePan());
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -114,6 +139,26 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): void => {
     zoomAt(game, e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.1 : 1 / 1.1);
     game.clampCamera();
   }, { passive: false });
+
+  globalThis.addEventListener?.('keydown', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    const group = controlGroupIndex(e.code);
+    if (ui.controlScheme.value === 'desktop' && group >= 0) {
+      const handled = e.ctrlKey || e.metaKey
+        ? game.assignControlGroup(group)
+        : game.recallControlGroup(group, e.shiftKey);
+      if (handled) e.preventDefault();
+      return;
+    }
+    if (dispatchHotkey(game, e.code)) e.preventDefault();
+  });
+};
+
+const controlGroupIndex = (code: string): number => {
+  if (code === 'Digit0') return 9;
+  if (/^Digit[1-9]$/.test(code)) return Number(code.slice(5)) - 1;
+  return -1;
 };
 
 const zoomAt = (game: Game, sx: number, sy: number, factor: number): void => {

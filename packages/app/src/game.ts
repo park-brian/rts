@@ -7,7 +7,7 @@ import {
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, getTechLevel, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
-  transformFor, transformTargetsFor, snapBuildAnchor,
+  transformFor, transformTargetsFor, snapBuildAnchor, isLiftedStructureFlags,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
@@ -15,7 +15,11 @@ import { ui, type Mode } from './store.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
+const ADDON_IDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
+const EDGE_PAN_MARGIN = 24;
+const EDGE_PAN_SPEED = 560; // screen px/sec; converted to world px by zoom
+const CONTROL_GROUPS = 10;
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
@@ -38,9 +42,12 @@ export class Game {
   viewW = 1; viewH = 1; // CSS px
 
   selection = new Set<number>();
+  controlGroups: Set<number>[] = Array.from({ length: CONTROL_GROUPS }, () => new Set<number>());
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
   placementGhost: { kind: number; x: number; y: number; ok: boolean } | null = null;
+  private edgePanX = 0;
+  private edgePanY = 0;
 
   // replay viewer state (mode === 'replay')
   replay: Replay | null = null;
@@ -56,6 +63,8 @@ export class Game {
   private visibleEntityTick = -1;
   private visibleEntityHuman = -2;
   private visibleEntity = new Uint8Array(CAP);
+  private lastControlGroup = -1;
+  private lastControlGroupT = 0;
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
     this.restart(mode, seed);
@@ -85,6 +94,7 @@ export class Game {
     this.human = mode === 'play' ? this.humanPlayer : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selection.clear();
+    for (const group of this.controlGroups) group.clear();
     this.queued = [];
     this.placementGhost = null;
     this.visible = new Uint8Array(this.map.w * this.map.h);
@@ -95,6 +105,7 @@ export class Game {
     ui.humanPlayer.value = this.humanPlayer;
     ui.playerRaces.value = [...this.playerRaceNames];
     ui.placement.value = 0;
+    ui.land.value = false;
     ui.amove.value = false;
     ui.rally.value = false;
     ui.abilityTarget.value = 0;
@@ -106,6 +117,9 @@ export class Game {
     ui.selCanAttackMove.value = false;
     ui.selCanStop.value = false;
     ui.selCanMine.value = false;
+    ui.selCanLift.value = false;
+    ui.selCanLand.value = false;
+    ui.selAddonKinds.value = [];
     ui.selTransformKinds.value = [];
     ui.hasReplay.value = false;
     this.framed = false;
@@ -206,12 +220,35 @@ export class Game {
     this.camY = Math.max(0, Math.min(this.camY, Math.max(0, maxY)));
   }
 
+  setEdgePanPointer(sx: number, sy: number): void {
+    if (sx < 0 || sy < 0 || sx > this.viewW || sy > this.viewH) {
+      this.clearEdgePan();
+      return;
+    }
+    this.edgePanX = sx <= EDGE_PAN_MARGIN ? -1 : sx >= this.viewW - EDGE_PAN_MARGIN ? 1 : 0;
+    this.edgePanY = sy <= EDGE_PAN_MARGIN ? -1 : sy >= this.viewH - EDGE_PAN_MARGIN ? 1 : 0;
+  }
+
+  clearEdgePan(): void {
+    this.edgePanX = 0;
+    this.edgePanY = 0;
+  }
+
+  private applyEdgePan(dt: number): void {
+    if (ui.controlScheme.value !== 'desktop' || (this.edgePanX === 0 && this.edgePanY === 0)) return;
+    const step = (EDGE_PAN_SPEED * dt) / 1000 / this.zoom;
+    this.camX += this.edgePanX * step;
+    this.camY += this.edgePanY * step;
+    this.clampCamera();
+  }
+
   // ---- main loop step (called each rAF with the timestamp) ----
   update(now: number): void {
     if (!this.lastSel) this.lastSel = now;
     let dt = now - this.lastSel;
     this.lastSel = now;
     if (dt > 250) dt = 250; // avoid spiral after a stall
+    this.applyEdgePan(dt);
     this.acc += dt;
     if (this.mode === 'replay') {
       const interval = TICK_MS / Math.max(0.01, this.replaySpeed); // honor playback speed
@@ -430,6 +467,127 @@ export class Game {
     }
   }
 
+  desktopSelectTap(sx: number, sy: number, opts: { shift?: boolean; ctrl?: boolean } = {}): void {
+    if (this.human < 0) return;
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const e = this.sim.fullState().e;
+    const hit = this.hitTest(wx, wy);
+    this.clearTargetModes();
+    if (!this.isOwnedSelectable(e, hit)) {
+      if (!opts.shift) this.selection.clear();
+      return;
+    }
+    if (opts.ctrl) {
+      this.selectVisibleKind(e.kind[slotOf(hit)]!);
+      return;
+    }
+    if (opts.shift) {
+      if (this.selection.has(hit)) this.selection.delete(hit);
+      else this.selection.add(hit);
+      return;
+    }
+    this.selection.clear();
+    this.selection.add(hit);
+  }
+
+  desktopSmartTap(sx: number, sy: number): void {
+    if (this.human < 0 || ui.placement.value !== 0 || this.selection.size === 0) return;
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const e = this.sim.fullState().e;
+    const tx = (wx * ONE) | 0;
+    const ty = (wy * ONE) | 0;
+    const hit = this.hitTest(wx, wy);
+    if (ui.abilityTarget.value !== 0 || ui.rally.value || ui.amove.value || ui.targetMode.value !== 'none') {
+      this.tap(sx, sy);
+      return;
+    }
+    let queued = false;
+    for (const id of this.selection) if (this.queueDesktopSmartCommand(id, hit, tx, ty)) queued = true;
+    if (queued) this.clearTargetModes();
+  }
+
+  private queueDesktopSmartCommand(actor: number, hit: number, x: number, y: number): boolean {
+    const s = this.sim.fullState();
+    const e = s.e;
+    if (!isAlive(e, actor)) return false;
+    const actorSlot = slotOf(actor);
+    const targetSlot = hit >= 0 && isAlive(e, hit) ? slotOf(hit) : -1;
+    const tryCommand = (c: Command): boolean => {
+      if (!validateCommand(s, this.human, c).ok) return false;
+      this.queued.push(c);
+      return true;
+    };
+
+    if (targetSlot >= 0) {
+      if (isEnemy(s, this.human, e.owner[targetSlot]!) && tryCommand({ t: 'attack', unit: actor, target: hit })) return true;
+      if ((e.flags[targetSlot]! & Role.Resource) !== 0 && tryCommand({ t: 'harvest', unit: actor, patch: hit })) return true;
+      if (tryCommand({ t: 'repair', unit: actor, target: hit })) return true;
+      if (tryCommand({ t: 'load', transport: hit, unit: actor })) return true;
+      if (tryCommand({ t: 'load', transport: actor, unit: hit })) return true;
+      if ((e.flags[actorSlot]! & Role.Structure) !== 0) {
+        if (tryCommand({ t: 'rally', building: actor, x, y, target: hit })) return true;
+      }
+    }
+
+    if ((e.flags[actorSlot]! & Role.Structure) !== 0) return tryCommand({ t: 'rally', building: actor, x, y });
+    return tryCommand({ t: 'move', unit: actor, x, y });
+  }
+
+  private clearTargetModes(): void {
+    ui.placement.value = 0;
+    ui.land.value = false;
+    ui.amove.value = false;
+    ui.rally.value = false;
+    ui.abilityTarget.value = 0;
+    ui.targetMode.value = 'none';
+  }
+
+  private liveGroup(group: Set<number>): number[] {
+    const e = this.sim.fullState().e;
+    const live: number[] = [];
+    for (const id of group) {
+      if (isAlive(e, id) && e.owner[slotOf(id)] === this.human && e.container[slotOf(id)] === NONE) live.push(id);
+    }
+    return live;
+  }
+
+  private centerOnSelection(): void {
+    const e = this.sim.fullState().e;
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    for (const id of this.selection) {
+      if (!isAlive(e, id)) continue;
+      const slot = slotOf(id);
+      x += e.x[slot]! / ONE;
+      y += e.y[slot]! / ONE;
+      n++;
+    }
+    if (n > 0) this.centerOn(x / n, y / n);
+  }
+
+  assignControlGroup(index: number): boolean {
+    if (index < 0 || index >= CONTROL_GROUPS || this.selection.size === 0) return false;
+    this.controlGroups[index] = new Set(this.liveGroup(this.selection));
+    return this.controlGroups[index]!.size > 0;
+  }
+
+  recallControlGroup(index: number, add = false): boolean {
+    if (index < 0 || index >= CONTROL_GROUPS) return false;
+    const live = this.liveGroup(this.controlGroups[index]!);
+    this.controlGroups[index] = new Set(live);
+    if (live.length === 0) return false;
+    if (!add) this.selection.clear();
+    for (const id of live) this.selection.add(id);
+    this.clearTargetModes();
+
+    const now = performance.now();
+    if (!add && this.lastControlGroup === index && now - this.lastControlGroupT < 450) this.centerOnSelection();
+    this.lastControlGroup = index;
+    this.lastControlGroupT = now;
+    return true;
+  }
+
   private firstSelected(pred: (slot: number) => boolean): number {
     const e = this.sim.fullState().e;
     for (const id of this.selection) {
@@ -445,14 +603,25 @@ export class Game {
     }
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
+    const kind = ui.placement.value;
+    const tx = (wx * ONE) | 0;
+    const ty = (wy * ONE) | 0;
+    if (ui.land.value) {
+      const building = this.firstSelected((i) => e.kind[i] === kind && isLiftedStructureFlags(e.flags[i]!));
+      if (building < 0) {
+        this.placementGhost = null;
+        return;
+      }
+      const snapped = snapBuildAnchor(tx, ty);
+      const c: Command = { t: 'land', building: eid(e, building), x: snapped.x, y: snapped.y };
+      this.placementGhost = { kind, x: snapped.x, y: snapped.y, ok: validateCommand(this.sim.fullState(), this.human, c).ok };
+      return;
+    }
     const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
     if (worker < 0) {
       this.placementGhost = null;
       return;
     }
-    const kind = ui.placement.value;
-    const tx = (wx * ONE) | 0;
-    const ty = (wy * ONE) | 0;
     const placement = canPlaceStructure(this.sim.fullState(), this.human, worker, kind, tx, ty);
     if (placement.ok) this.placementGhost = { kind, x: placement.x, y: placement.y, ok: true };
     else {
@@ -464,10 +633,21 @@ export class Game {
   commitPlacementGhost(): boolean {
     const ghost = this.placementGhost;
     const e = this.sim.fullState().e;
+    if (!ghost || !ghost.ok || ui.placement.value === 0) return false;
+    if (ui.land.value) {
+      const building = this.firstSelected((i) => e.kind[i] === ghost.kind && isLiftedStructureFlags(e.flags[i]!));
+      if (building < 0) return false;
+      this.queued.push({ t: 'land', building: eid(e, building), x: ghost.x, y: ghost.y });
+      ui.placement.value = 0;
+      ui.land.value = false;
+      this.placementGhost = null;
+      return true;
+    }
     const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
-    if (!ghost || !ghost.ok || worker < 0 || ui.placement.value === 0) return false;
+    if (worker < 0) return false;
     this.queued.push({ t: 'build', unit: eid(e, worker), kind: ghost.kind, x: ghost.x, y: ghost.y });
     ui.placement.value = 0;
+    ui.land.value = false;
     ui.abilityTarget.value = 0;
     ui.targetMode.value = 'none';
     this.placementGhost = null;
@@ -558,7 +738,7 @@ export class Game {
   stopSelected(): void {
     const e = this.sim.fullState().e;
     for (const id of this.selection) if (isAlive(e, id)) this.queued.push({ t: 'stop', unit: id });
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   trainSelected(kind: number): void {
@@ -587,6 +767,41 @@ export class Game {
       if (validateCommand(this.sim.fullState(), this.human, c).ok) { best = id; break; }
     }
     if (best >= 0) this.queued.push({ t: 'research', building: best, tech });
+  }
+
+  addonSelected(kind: number): void {
+    const s = this.sim.fullState();
+    const e = s.e;
+    for (const id of this.selection) {
+      if (!isAlive(e, id)) continue;
+      const c: Command = { t: 'addon', building: id, kind };
+      if (validateCommand(s, this.human, c).ok) {
+        this.queued.push(c);
+        break;
+      }
+    }
+    this.clearTargetModes();
+  }
+
+  liftSelected(): void {
+    const s = this.sim.fullState();
+    const e = s.e;
+    for (const id of this.selection) {
+      if (!isAlive(e, id)) continue;
+      const c: Command = { t: 'lift', building: id };
+      if (validateCommand(s, this.human, c).ok) this.queued.push(c);
+    }
+    this.clearTargetModes();
+  }
+
+  armLandSelected(): void {
+    const e = this.sim.fullState().e;
+    const slot = this.firstSelected((i) => isLiftedStructureFlags(e.flags[i]!));
+    this.clearTargetModes();
+    if (slot >= 0) {
+      ui.placement.value = e.kind[slot]!;
+      ui.land.value = true;
+    }
   }
 
   transformSelected(kind: number): void {
@@ -622,7 +837,7 @@ export class Game {
         this.queued.push(c);
       }
     }
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   castSelectedAbility(abilityId: number, target?: number, x?: number, y?: number): boolean {
@@ -674,7 +889,7 @@ export class Game {
         if (validateCommand(s, this.human, c).ok) this.queued.push(c);
       }
     }
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   unloadSelected(): void {
@@ -707,7 +922,7 @@ export class Game {
         }
       }
     }
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   burrowSelected(active: boolean): void {
@@ -717,7 +932,7 @@ export class Game {
       const c: Command = { t: 'burrow', unit: id, active };
       if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
     }
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   mineSelected(): void {
@@ -727,15 +942,17 @@ export class Game {
       const c: Command = { t: 'mine', unit: id };
       if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
     }
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
   }
 
   deselect(): void {
     this.selection.clear();
-    ui.placement.value = 0; ui.amove.value = false; ui.rally.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    this.clearTargetModes();
     ui.selCanBurrow.value = false; ui.selCanUnburrow.value = false;
     ui.selCanHarvest.value = false; ui.selCanRepair.value = false; ui.selCanAttackMove.value = false;
     ui.selCanStop.value = false; ui.selCanMine.value = false;
+    ui.selCanLift.value = false; ui.selCanLand.value = false;
+    ui.selAddonKinds.value = [];
     ui.selTransformKinds.value = [];
   }
 
@@ -749,6 +966,12 @@ export class Game {
     const hs = slotOf(hit);
     if (e.owner[hs] !== this.human) return;
     const kind = e.kind[hs]!;
+    this.selectVisibleKind(kind);
+    ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+  }
+
+  private selectVisibleKind(kind: number): void {
+    const e = this.sim.fullState().e;
     const x0 = this.camX; const y0 = this.camY;
     const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
     this.selection.clear();
@@ -757,7 +980,6 @@ export class Game {
       const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
       if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
     }
-    ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
   }
 
   // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----
@@ -799,7 +1021,9 @@ export class Game {
     let canLoad = false; let canUnload = false; let canHarvest = false; let canRepair = false;
     let canAttackMove = false; let canStop = false;
     let canBurrow = false; let canUnburrow = false; let canMine = false;
+    let canLift = false; let canLand = false;
     const buildKinds = new Set<number>();
+    const addonKinds = new Set<number>();
     const transformKinds = new Set<number>();
     const trainKinds = new Set<number>();
     const abilityIds = new Set<number>();
@@ -821,6 +1045,9 @@ export class Game {
       }
       if (e.kind[slot] === Kind.SCV) canRepair = true;
       if ((e.flags[slot]! & Role.Structure) !== 0) canRally = true;
+      for (const addon of ADDON_IDS) {
+        if (validateCommand(s, this.human, { t: 'addon', building: id, kind: addon }).ok) addonKinds.add(addon);
+      }
       for (const train of Units[k]!.produces) {
         if (validateCommand(s, this.human, { t: 'train', building: id, kind: train }).ok) trainKinds.add(train);
       }
@@ -837,6 +1064,8 @@ export class Game {
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: true }).ok) canBurrow = true;
       if (validateCommand(s, this.human, { t: 'burrow', unit: id, active: false }).ok) canUnburrow = true;
       if (validateCommand(s, this.human, { t: 'mine', unit: id }).ok) canMine = true;
+      if (validateCommand(s, this.human, { t: 'lift', building: id }).ok) canLift = true;
+      if (isLiftedStructureFlags(e.flags[slot]!)) canLand = true;
     }
     const selected = [...this.selection].filter((id) => isAlive(e, id));
     for (const transport of selected) {
@@ -855,6 +1084,7 @@ export class Game {
     ui.selCanBuild.value = buildKinds.size > 0;
     ui.selCanRally.value = canRally;
     ui.selBuildKinds.value = [...buildKinds].sort((a, b) => a - b);
+    ui.selAddonKinds.value = [...addonKinds].sort((a, b) => a - b);
     ui.selTransformKinds.value = [...transformKinds].sort((a, b) => a - b);
     ui.selTrainKinds.value = [...trainKinds].sort((a, b) => a - b);
     ui.selAbilities.value = [...abilityIds].sort((a, b) => a - b);
@@ -868,6 +1098,8 @@ export class Game {
     ui.selCanBurrow.value = canBurrow;
     ui.selCanUnburrow.value = canUnburrow;
     ui.selCanMine.value = canMine;
+    ui.selCanLift.value = canLift;
+    ui.selCanLand.value = canLand;
   }
 
   private canOfferAbility(s: State, slot: number, abilityId: number): boolean {

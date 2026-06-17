@@ -8,6 +8,7 @@ import {
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
+import { ui } from './store.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -136,18 +137,23 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.globalAlpha = 1;
     }
 
+    const selected = game.selection.has(eid(e, i));
     // selection ring
-    if (game.selection.has(eid(e, i))) {
+    if (selected) {
       ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 2 / game.zoom;
       ctx.strokeRect(overlayX - overlayW / 2 - 2, overlayY - overlayH / 2 - 2, overlayW + 4, overlayH + 4);
     }
-    // hp bar
+    // Health/progress bar, anchored above the visible body.
     const maxLife = def.hp + def.shields;
     const life = e.hp[i]! + e.shield[i]!;
-    if (life < maxLife && maxLife > 0) {
-      const w = overlayW; const frac = Math.max(0, life / maxLife);
+    if (selected && !isRes && kind !== Kind.Geyser && maxLife > 0) {
+      const progress = e.built[i] !== 1 && def.buildTime > 0
+        ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
+        : Math.max(0, life / maxLife);
+      const w = overlayW;
+      const frac = Math.max(0, Math.min(1, progress));
       ctx.fillStyle = '#000'; ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w, 3);
-      ctx.fillStyle = frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
+      ctx.fillStyle = e.built[i] !== 1 ? '#49d0c0' : frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
       ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w * frac, 3);
     }
   }
@@ -187,7 +193,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   // Screen space: drag box + minimap.
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawDragBox(ctx, game);
-  drawMinimap(ctx, game);
+  if (ui.controlScheme.value !== 'desktop') drawMinimap(ctx, game);
 };
 
 const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {

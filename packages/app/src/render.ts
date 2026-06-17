@@ -37,7 +37,7 @@ export class Renderer {
       this.overlay.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.overlay.clearRect(0, 0, game.viewW, game.viewH);
       drawDragBox(this.overlay, game);
-      drawMinimap(this.overlay, game);
+      if (ui.controlScheme.value !== 'desktop') drawMinimap(this.overlay, game);
     } else {
       // Fallback: the 2D renderer draws the full scene (incl. minimap) on the overlay.
       render2d(this.overlay, game, dpr);

@@ -1108,7 +1108,6 @@ export const Units: Record<number, UnitDef> = {
   [Kind.CreepColony]: zerg('creepColony', {
     name: 'Creep Colony', ...structure(24, 2, 2), size: Size.Large,
     hp: 400, sight: 10, minerals: 75, buildTime: sec(20), requires: [Kind.Hatchery], buildMethod: 'morph',
-    notes: ['creep-not-implemented'],
   }),
   [Kind.SunkenColony]: zerg('sunkenColony', {
     name: 'Sunken Colony', ...structure(24, 2, 2), size: Size.Large,

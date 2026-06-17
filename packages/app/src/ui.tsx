@@ -1,11 +1,14 @@
 // HUD chrome (Preact + signals). The only framework-managed UI; the game world is
 // drawn imperatively on canvas. Touch-first: big targets in the bottom thumb arc.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { ui } from './store.ts';
-import { Abilities, Kind, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
+import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
 import type { Game } from './game.ts';
-import type { Mode } from './store.ts';
+import type { ControlScheme, Mode } from './store.ts';
+import {
+  HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, resetHotkeys, setHotkey, type HotkeyAction,
+} from './hotkeys.ts';
 
 const bar: Record<string, string> = {
   position: 'absolute', left: '0', right: '0', display: 'flex', gap: '8px',
@@ -22,13 +25,29 @@ const btn = (active = false, compact = false): Record<string, string> => ({
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: compact ? '1 1 0' : '0 0 auto',
 });
 
-const Btn = (p: { label: string; onClick: () => void; active?: boolean; compact?: boolean }) => (
-  <button style={btn(p.active, p.compact)} onClick={p.onClick}>{p.label}</button>
+const Btn = (p: { label: string; onClick: () => void; active?: boolean; compact?: boolean; hotkeyAction?: HotkeyAction }) => (
+  <button style={btn(p.active, p.compact)} onClick={p.onClick}>
+    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.label}</span>
+    {ui.controlScheme.value === 'desktop' && p.hotkeyAction && (
+      <span style={{ marginLeft: '6px', opacity: 0.75, fontSize: '11px', flex: '0 0 auto' }}>
+        {hotkeyLabelForAction(p.hotkeyAction)}
+      </span>
+    )}
+  </button>
 );
+
+const setControlScheme = (scheme: ControlScheme): void => {
+  ui.controlScheme.value = scheme;
+  try {
+    globalThis.localStorage?.setItem('rts.controlScheme', scheme);
+  } catch {
+    // Optional persistence only.
+  }
+};
 
 const TopBar = (p: { game: Game }) => (
   <div style={{ ...bar, top: '0', padding: '6px 8px 8px', paddingTop: 'max(6px, env(safe-area-inset-top))',
-    flexWrap: 'wrap', alignItems: 'stretch' }}>
+    flexWrap: 'wrap', alignItems: 'stretch', height: 'var(--top-chrome)', overflow: 'hidden' }}>
     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%',
       fontVariantNumeric: 'tabular-nums', minHeight: '24px' }}>
       <b style={{ color: '#49d0c0' }}>⬡ {ui.minerals.value}</b>
@@ -43,6 +62,9 @@ const TopBar = (p: { game: Game }) => (
       <Btn compact label="⟳ Map" onClick={() => p.game.restart(ui.mode.value === 'replay' ? 'spectate' : ui.mode.value)} />
       <Btn compact label="▭ Load" onClick={() => loadReplay(p.game)} />
       <Btn compact label="▣ Math" active={ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = !ui.mathRenderer.value)} />
+      <Btn compact label={ui.controlScheme.value === 'desktop' ? '⌨ Desktop' : '☝ Mobile'}
+        active={ui.controlScheme.value === 'desktop'}
+        onClick={() => setControlScheme(ui.controlScheme.value === 'desktop' ? 'mobile' : 'desktop')} />
     </div>
   </div>
 );
@@ -69,6 +91,79 @@ const loadReplay = (g: Game): void => {
     f.text().then((t) => g.loadReplay(t));
   };
   input.click();
+};
+
+const MinimapPanel = (p: { game: Game }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const draw = (): void => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+    const w = Math.max(1, Math.floor(rect.width));
+    const h = Math.max(1, Math.floor(rect.height));
+    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+    }
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const g = p.game;
+    const m = g.map;
+    const scale = Math.min(w / m.w, h / m.h);
+    const W = m.w * scale;
+    const H = m.h * scale;
+    const ox = (w - W) / 2;
+    const oy = (h - H) / 2;
+    ctx.fillStyle = '#05070b';
+    ctx.fillRect(0, 0, w, h);
+    for (let ty = 0; ty < m.h; ty += 2) {
+      for (let tx = 0; tx < m.w; tx += 2) {
+        const v = g.tileVisible(tx, ty);
+        if (v === 0) ctx.fillStyle = '#05070b';
+        else ctx.fillStyle = m.walk[ty * m.w + tx] === 0 ? '#0a0e16' : m.elev[ty * m.w + tx]! >= 1 ? '#16263a' : '#0f1622';
+        ctx.fillRect(ox + tx * scale, oy + ty * scale, scale * 2, scale * 2);
+      }
+    }
+    const e = g.sim.fullState().e;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.container[i] !== NONE || !g.canSeeEntity(i)) continue;
+      const tx = Math.floor(e.x[i]! / ONE / TILE);
+      const ty = Math.floor(e.y[i]! / ONE / TILE);
+      ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? '#49d0c0' : minimapColor(e.owner[i]!);
+      ctx.fillRect(ox + tx * scale, oy + ty * scale, 2, 2);
+    }
+    ctx.strokeStyle = '#ffffff90';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ox + (g.camX / TILE) * scale, oy + (g.camY / TILE) * scale,
+      (g.viewW / g.zoom / TILE) * scale, (g.viewH / g.zoom / TILE) * scale);
+  };
+  useEffect(() => {
+    let raf = 0;
+    const loop = (): void => {
+      draw();
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => cancelAnimationFrame(raf);
+  }, [p.game]);
+  const pan = (e: PointerEvent): void => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const m = p.game.map;
+    const scale = Math.min(rect.width / m.w, rect.height / m.h);
+    const ox = (rect.width - m.w * scale) / 2;
+    const oy = (rect.height - m.h * scale) / 2;
+    p.game.centerOn(((e.clientX - rect.left - ox) / scale) * TILE, ((e.clientY - rect.top - oy) / scale) * TILE);
+  };
+  return (
+    <canvas ref={ref} onPointerDown={(e) => pan(e as unknown as PointerEvent)}
+      onPointerMove={(e) => { if (e.buttons) pan(e as unknown as PointerEvent); }}
+      style={{ width: '100%', height: '100%', border: '1px solid #2a3340', background: '#05070b', touchAction: 'none' }} />
+  );
 };
 
 // Replay scrubber + transport, shown only while watching a replay.
@@ -105,7 +200,7 @@ const Hotbar = (p: { game: Game }) => {
   const place = ui.placement.value;
   const buttons = [];
   const clearTargets = (): void => {
-    ui.placement.value = 0; ui.rally.value = false; ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    ui.placement.value = 0; ui.land.value = false; ui.rally.value = false; ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
   };
   const placeKind = (kind: number): void => { clearTargets(); ui.placement.value = kind; };
   const toggleRally = (): void => {
@@ -129,32 +224,39 @@ const Hotbar = (p: { game: Game }) => {
     ui.abilityTarget.value = active ? ability : 0;
   };
   if (place !== 0) {
-    buttons.push(<span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto' }}>Place {Kind ? name(place) : ''}</span>);
+    buttons.push(<span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto' }}>{ui.land.value ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
     buttons.push(<Btn label="Cancel" onClick={clearTargets} />);
   } else if (ui.selCount.value > 0) {
     for (const kind of ui.selTrainKinds.value) {
-      buttons.push(<Btn label={`Train ${short(Units[kind]?.name ?? 'Unit')}`} onClick={() => { clearTargets(); g.trainSelected(kind); }} />);
+      buttons.push(<Btn label={`Train ${short(Units[kind]?.name ?? 'Unit')}`} hotkeyAction={actionKey.train(kind)}
+        onClick={() => { clearTargets(); g.trainSelected(kind); }} />);
+    }
+    for (const kind of ui.selAddonKinds.value) {
+      buttons.push(<Btn label={`Add ${short(Units[kind]?.name ?? 'Add-on')}`} hotkeyAction={actionKey.addon(kind)}
+        onClick={() => { clearTargets(); g.addonSelected(kind); }} />);
     }
     for (const kind of ui.selTransformKinds.value) {
       const verb = kind === Kind.Archon || kind === Kind.DarkArchon ? 'Merge' : 'Morph';
-      buttons.push(<Btn label={`${verb} ${short(Units[kind]?.name ?? 'Unit')}`} onClick={() => { clearTargets(); g.transformSelected(kind); }} />);
+      buttons.push(<Btn label={`${verb} ${short(Units[kind]?.name ?? 'Unit')}`} hotkeyAction={actionKey.transform(kind)}
+        onClick={() => { clearTargets(); g.transformSelected(kind); }} />);
     }
     if (ui.selCanBuild.value) {
       for (const kind of ui.selBuildKinds.value) {
-        buttons.push(<Btn label={`Build ${short(Units[kind]?.name ?? 'Building')}`} onClick={() => placeKind(kind)} />);
+        buttons.push(<Btn label={`Build ${short(Units[kind]?.name ?? 'Building')}`} hotkeyAction={actionKey.build(kind)} onClick={() => placeKind(kind)} />);
       }
     }
     if (ui.selCanRally.value) {
-      buttons.push(<Btn label="Set Rally" active={ui.rally.value} onClick={toggleRally} />);
+      buttons.push(<Btn label="Set Rally" hotkeyAction="rally" active={ui.rally.value} onClick={toggleRally} />);
     }
     if (ui.selCanHarvest.value) {
-      buttons.push(<Btn label="Harvest" active={ui.targetMode.value === 'harvest'} onClick={() => toggleTarget('harvest')} />);
+      buttons.push(<Btn label="Harvest" hotkeyAction="harvest" active={ui.targetMode.value === 'harvest'} onClick={() => toggleTarget('harvest')} />);
     }
     if (ui.selCanRepair.value) {
-      buttons.push(<Btn label="Repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
+      buttons.push(<Btn label="Repair" hotkeyAction="repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
     }
     for (const tech of ui.selResearchTechs.value) {
-      buttons.push(<Btn label={short(TechDefs[tech]?.name ?? 'Research')} onClick={() => { clearTargets(); g.researchSelected(tech); }} />);
+      buttons.push(<Btn label={short(TechDefs[tech]?.name ?? 'Research')} hotkeyAction={actionKey.research(tech)}
+        onClick={() => { clearTargets(); g.researchSelected(tech); }} />);
     }
     for (const ability of ui.selAbilities.value) {
       const def = Abilities[ability]!;
@@ -166,36 +268,68 @@ const Hotbar = (p: { game: Game }) => {
         }
         else toggleAbility(ability);
       };
-      buttons.push(<Btn label={short(def.name)} active={active} onClick={cast} />);
+      buttons.push(<Btn label={short(def.name)} hotkeyAction={actionKey.ability(ability)} active={active} onClick={cast} />);
     }
     if (ui.selCanLoad.value) {
-      buttons.push(<Btn label="Load" onClick={() => g.loadSelected()} />);
+      buttons.push(<Btn label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
     }
     if (ui.selCanUnload.value) {
-      buttons.push(<Btn label="Unload" onClick={() => g.unloadSelected()} />);
+      buttons.push(<Btn label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
     }
     if (ui.selCanBurrow.value) {
-      buttons.push(<Btn label="Burrow" onClick={() => g.burrowSelected(true)} />);
+      buttons.push(<Btn label="Burrow" hotkeyAction="burrow" onClick={() => g.burrowSelected(true)} />);
     }
     if (ui.selCanUnburrow.value) {
-      buttons.push(<Btn label="Unburrow" onClick={() => g.burrowSelected(false)} />);
+      buttons.push(<Btn label="Unburrow" hotkeyAction="unburrow" onClick={() => g.burrowSelected(false)} />);
     }
     if (ui.selCanMine.value) {
-      buttons.push(<Btn label="Lay Mine" onClick={() => g.mineSelected()} />);
+      buttons.push(<Btn label="Lay Mine" hotkeyAction="mine" onClick={() => g.mineSelected()} />);
+    }
+    if (ui.selCanLift.value) {
+      buttons.push(<Btn label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
+    }
+    if (ui.selCanLand.value) {
+      buttons.push(<Btn label="Land" hotkeyAction="land" active={ui.land.value} onClick={() => g.armLandSelected()} />);
     }
     if (ui.selCanAttackMove.value) {
-      buttons.push(<Btn label="Atk-Move" active={ui.amove.value} onClick={toggleAmove} />);
+      buttons.push(<Btn label="Atk-Move" hotkeyAction="attackMove" active={ui.amove.value} onClick={toggleAmove} />);
     }
     if (ui.selCanStop.value) {
-      buttons.push(<Btn label="Stop" onClick={() => g.stopSelected()} />);
+      buttons.push(<Btn label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
     }
-    buttons.push(<Btn label="Deselect" onClick={() => g.deselect()} />);
+    buttons.push(<Btn label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);
   } else {
     buttons.push(<span style={{ opacity: 0.5, alignSelf: 'center' }}>No selection</span>);
   }
+  if (ui.controlScheme.value === 'desktop') {
+    return (
+      <div style={{ ...bar, bottom: '0', height: 'var(--bottom-chrome)', overflow: 'hidden',
+        padding: '7px 10px', paddingBottom: 'max(7px, env(safe-area-inset-bottom))',
+        display: 'grid', gridTemplateColumns: '150px minmax(180px, 1fr) minmax(300px, 44vw)',
+        alignItems: 'stretch', gap: '10px' }}>
+        <MinimapPanel game={g} />
+        <div style={{ border: '1px solid #2a3340', background: '#111923', padding: '8px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+          <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {ui.selCount.value > 0 ? ui.selKindName.value : 'No selection'}
+          </b>
+          <span style={{ opacity: 0.72, marginTop: '5px', fontSize: '12px' }}>
+            {ui.selCount.value > 0 ? `Group ${ui.selCount.value}` : 'Ctrl+1-0 assigns groups'}
+          </span>
+          <span style={{ opacity: 0.58, marginTop: '3px', fontSize: '12px' }}>
+            1-0 selects, Shift+1-0 adds, double tap centers
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(78px, 1fr))',
+          gridAutoRows: '36px', gap: '6px', overflowY: 'auto', paddingRight: '2px' }}>
+          {buttons}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ ...bar, bottom: '0', flexDirection: 'column', gap: '4px', alignItems: 'stretch',
-      height: 'calc(88px + env(safe-area-inset-bottom))', overflow: 'hidden',
+      height: 'var(--bottom-chrome)', overflow: 'hidden',
       padding: '6px 8px', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
       {ui.selCount.value > 0 && <span style={{ height: '16px', textAlign: 'center', opacity: 0.82, fontSize: '12px',
         lineHeight: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui.selKindName.value}</span>}
@@ -231,6 +365,55 @@ const setupRaces = (races: readonly string[], players: number): FactionName[] =>
     const race = races[i];
     return race === 'protoss' || race === 'zerg' ? race : 'terran';
   });
+
+const keyLabel = (code: string): string => code
+  .replace(/^Key/, '')
+  .replace(/^Digit/, '')
+  .replace('Escape', 'Esc')
+  .replace('Space', 'Space');
+
+const ControlsPanel = () => {
+  const [scheme, setSchemeState] = useState<ControlScheme>(ui.controlScheme.value);
+  const [hotkeys, setHotkeysState] = useState(getHotkeys());
+  const [capturing, setCapturing] = useState<HotkeyAction | null>(null);
+  const pickScheme = (next: ControlScheme): void => {
+    setSchemeState(next);
+    setControlScheme(next);
+  };
+  const capture = (action: HotkeyAction, code: string): void => {
+    setHotkey(action, code);
+    setHotkeysState(getHotkeys());
+    setCapturing(null);
+  };
+  return (
+    <div style={{ marginTop: '14px', borderTop: '1px solid #2a3340', paddingTop: '12px', display: 'grid', gap: '10px' }}>
+      <b style={{ fontSize: '13px' }}>Controls</b>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <Btn compact label="Mobile" active={scheme === 'mobile'} onClick={() => pickScheme('mobile')} />
+        <Btn compact label="Desktop" active={scheme === 'desktop'} onClick={() => pickScheme('desktop')} />
+      </div>
+      <div style={{ display: 'grid', gap: '6px', gridTemplateColumns: 'repeat(auto-fit, minmax(154px, 1fr))' }}>
+        {HOTKEY_ACTIONS.map((action) => (
+          <button
+            style={{ ...btn(capturing === action.id, true), justifyContent: 'space-between', minHeight: '38px' }}
+            onClick={() => setCapturing(action.id)}
+            onKeyDown={(e) => {
+              if (capturing !== action.id) return;
+              e.preventDefault();
+              capture(action.id, e.code);
+            }}
+          >
+            <span>{action.label}</span>
+            <span style={{ opacity: 0.8 }}>{capturing === action.id ? 'Press key' : keyLabel(hotkeys[action.id])}</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <Btn compact label="Reset Hotkeys" onClick={() => setHotkeysState(resetHotkeys())} />
+      </div>
+    </div>
+  );
+};
 
 const SetupModal = (p: { game: Game }) => {
   const [mode, setMode] = useState<Mode>(ui.mode.value === 'spectate' ? 'spectate' : 'play');
@@ -284,6 +467,7 @@ const SetupModal = (p: { game: Game }) => {
             </div>
           ))}
         </div>
+        <ControlsPanel />
         <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
           <Btn label="Start Match" onClick={start} />
           <Btn label="Cancel" onClick={() => (ui.setupOpen.value = false)} />
@@ -304,6 +488,8 @@ export const App = (p: { game: Game }) => (
 );
 
 const fmt = (s: number): string => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const minimapColor = (owner: number): string =>
+  ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'][owner] ?? '#49d0c0';
 const fmtSupply = (s: number): string => {
   const v = shownSupply(s);
   return Number.isInteger(v) ? String(v) : v.toFixed(1);

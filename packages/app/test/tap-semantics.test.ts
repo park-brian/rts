@@ -15,6 +15,7 @@ const freshGame = (): Game => {
   ui.amove.value = false;
   ui.abilityTarget.value = 0;
   ui.targetMode.value = 'none';
+  ui.controlScheme.value = 'mobile';
   return g;
 };
 
@@ -247,6 +248,55 @@ test('normal tap on an owned gas structure selects it instead of harvesting', ()
 
   assert.deepEqual([...g.selection], [refinery]);
   assert.deepEqual(g.queued, []);
+});
+
+test('desktop left click selects while desktop right click smart-harvests owned gas', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const refinery = spawnUnit(s, Kind.Refinery, 0, fx(620), fx(400));
+  select(g, [scv]);
+  centerOnEntity(g, refinery);
+  g.fastForward(1);
+
+  const p = screenOf(g, refinery);
+  g.desktopSelectTap(p.x, p.y);
+
+  assert.deepEqual([...g.selection], [refinery]);
+  assert.deepEqual(g.queued, []);
+
+  select(g, [scv]);
+  g.desktopSmartTap(p.x, p.y);
+
+  assert.deepEqual([...g.selection], [scv]);
+  assert.deepEqual(g.queued, [{ t: 'harvest', unit: scv, patch: refinery }]);
+});
+
+test('desktop right click attacks enemies and moves on empty ground', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(470), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, enemy);
+  g.fastForward(1);
+
+  const p = screenOf(g, enemy);
+  g.desktopSmartTap(p.x, p.y);
+
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  g.queued = [];
+
+  g.desktopSmartTap(g.viewW / 2 + 80, g.viewH / 2 + 80);
+
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    x: ((g.camX + (g.viewW / 2 + 80) / g.zoom) * ONE) | 0,
+    y: ((g.camY + (g.viewH / 2 + 80) / g.zoom) * ONE) | 0,
+  }]);
 });
 
 test('harvest target mode sends selected workers to an owned gas structure', () => {

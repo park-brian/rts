@@ -18,13 +18,12 @@ const renderer = new Renderer(canvas, overlay);
 let dpr = 1;
 const resize = (): void => {
   dpr = Math.min(2, globalThis.devicePixelRatio || 1);
-  const w = globalThis.innerWidth;
-  const h = globalThis.innerHeight;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.floor(rect.width));
+  const h = Math.max(1, Math.floor(rect.height));
   for (const c of [canvas, overlay]) {
     c.width = Math.floor(w * dpr);
     c.height = Math.floor(h * dpr);
-    c.style.width = `${w}px`;
-    c.style.height = `${h}px`;
   }
   game.resize(w, h);
 };

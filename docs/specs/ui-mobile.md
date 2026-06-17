@@ -119,6 +119,32 @@ The default empty-ground command for mobile selections is plain move. Attack-mov
 hotbar verb and target mode. This keeps normal map navigation predictable and leaves combat intent
 visible in the command stream instead of hiding it behind every ground tap.
 
+## 4a. Desktop Control Scheme
+
+The browser app also supports a desktop scheme for mouse + keyboard play. Desktop mode deliberately
+uses classic RTS ownership of inputs:
+
+| Input | Action |
+|---|---|
+| Left click own unit / building | Select it |
+| Shift-left click own unit / building | Add/remove it from the current selection |
+| Ctrl-left click or double-left click own unit / building | Select visible owned units/buildings of that type |
+| Left click empty ground | Clear selection |
+| Left drag | Box-select |
+| Mouse at screen edge | Pan camera |
+| Mouse wheel / trackpad scroll | Zoom about the cursor |
+| Right click enemy | Attack with selected eligible units |
+| Right click resource/refinery with workers | Harvest |
+| Right click repairable target with SCVs | Repair / resume construction |
+| Right click transport/loadable target | Load when a legal load command exists |
+| Right click ground with mobile units | Move |
+| Right click ground or valid rally target with structures | Set rally |
+
+Desktop hotkeys are command bindings, not hard-coded event branches. The default bindings follow
+familiar StarCraft-style verbs where the current command set supports them: `A` attack-move, `S`
+stop, `G` harvest, `R` repair, `Y` rally, `L` load, `U` unload, and `Esc` deselect/cancel. Bindings
+are remappable from the setup controls and persist locally.
+
 **Target mode** (for explicit verbs from the hotbar — Attack-move, Patrol, Build, Rally,
 repair/heal/load, cast, etc.): tapping the verb puts the viewport into a clear one-tap "now tap
 where/what" mode, then auto-exits. The target-mode tap is consumed by that verb even if it lands

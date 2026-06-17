@@ -472,17 +472,23 @@ export class GlRenderer {
       const hpWidth = footprintArt ? p.visibleWidth * mul : r * 1.8;
       const hpTop = wy - (footprintArt ? p.visibleHeight * mul / 2 : r) - 5 / zoom;
 
-      if (game.selection.has(id)) {
+      const selected = game.selection.has(id);
+      if (selected) {
         const sr = r + 3 / zoom;
         this.sprites.push(wx, wy, sr * 2, sr * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
       }
       const maxLife = def.hp + def.shields;
       const life = e.hp[i]! + e.shield[i]!;
-      if (life < maxLife && maxLife > 0) {
+      const isResource = (def.roles & Role.Resource) !== 0 || kind === Kind.Geyser;
+      if (selected && !isResource && maxLife > 0) {
         const th = 3 / zoom;
-        const frac = Math.max(0, life / maxLife);
+        const progress = e.built[i] !== 1 && def.buildTime > 0
+          ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
+          : Math.max(0, life / maxLife);
+        const frac = Math.max(0, Math.min(1, progress));
         this.sprites.push(wx, hpTop, hpWidth, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
-        const col = frac > 0.5 ? [0.35, 1, 0.48] : frac > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
+        const col = e.built[i] !== 1 ? [0.29, 0.82, 0.75] :
+          frac > 0.5 ? [0.35, 1, 0.48] : frac > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
         this.sprites.push(wx - hpWidth / 2 + (hpWidth * frac) / 2, hpTop, hpWidth * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
       }
     }

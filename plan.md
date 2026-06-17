@@ -137,12 +137,32 @@ Completed:
   Math renderer, derived from existing worker orders and target state without adding sim state.
 - Carriers can now build Interceptors as internal ammo through the shared producer queue, with
   base and Carrier Capacity-upgraded limits enforced by shared validation.
+- Added a switchable desktop control scheme beside the mobile grammar: left click selects, right
+  click smart-commands, desktop command hotkeys are remappable/persisted locally, and the setup UI
+  exposes the bindings without changing the sim command surface.
+- UI chrome invariant: top and bottom panels must reserve layout space and never occlude the
+  playable game viewport or game-space UI. Selection boxes, placement ghosts, minimap interaction,
+  edge pan, and world rendering must all use the unobscured canvas bounds.
+- Desktop HUD target: desktop mode should move toward a StarCraft-like command console with
+  minimap on the left, selected unit/building state in the center, and hotkey-labeled commands on
+  the right. Mobile mode keeps the compact thumb-friendly command rail.
+- Selected entity bars: health/progress bars belong above the actual visible selected
+  unit/building body in the world render, not in a detached debug panel. Incomplete selected
+  buildings use the same bar slot for construction progress; unselected entities do not show bars.
+- Control groups are required for desktop fidelity: Ctrl+1-0 assigns current selection, 1-0
+  recalls, Shift+1-0 adds the group to the current selection, and a rapid repeat centers the
+  camera on the recalled group.
+- Full tech-tree UI coverage means every valid sim command needed to build out the tree must be
+  reachable from the command card: worker structures, production, research/upgrades, spells,
+  morphs/merges, Terran add-ons, and Terran lift/land. Command availability must continue to flow
+  through shared validation rather than app-only prerequisites.
 
 Remaining:
 
-- Control-group chips.
 - Better visual grouping/capacity management when many train/research/spell buttons are valid.
 - Disabled/tooltip states instead of hiding unaffordable commands.
+- Creep and Pylon power field overlays during placement, so players can see why an otherwise
+  valid building site is accepted or rejected before releasing the pointer.
 
 ## Phase 3: Remaining Spell Families
 
@@ -204,6 +224,9 @@ Remaining:
   silo/missile UI semantics instead of the current produced missile-as-ammo entity.
 - More exact Hallucination presentation rules such as detection/selection treatment and source-type
   damage fidelity beyond the current shared double-damage model.
+- More exact attack animation lockout windows; current pathing treats ground units with an active
+  weapon cooldown and target as rooted pathing anchors so moving units route around them instead of
+  shoving them aside.
 
 ## Phase 4: Upgrade Effects In Combat, Movement, Vision, And Energy
 

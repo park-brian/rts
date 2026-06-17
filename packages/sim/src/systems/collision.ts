@@ -20,12 +20,14 @@ import { Role, Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { navSolid, open } from '../flow.ts';
 import { isContained } from '../cargo.ts';
+import { isPathingAnchor } from '../pathing-anchor.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable
 const TILE_FX = TILE * ONE;
 
 const ndx = new Int32Array(CAP);
 const ndy = new Int32Array(CAP);
+const anchored = new Uint8Array(CAP);
 const list = new Int32Array(CAP); // solid slots this tick (reused)
 const next = new Int32Array(CAP); // intrusive linked list within a grid cell
 let head = new Int32Array(0); // one cell per tile; grown to the largest map seen
@@ -41,6 +43,7 @@ export const collide = (s: State): void => {
   let nl = 0;
   for (let i = 0; i < e.hi; i++) {
     ndx[i] = 0; ndy[i] = 0;
+    anchored[i] = isPathingAnchor(s, i) ? 1 : 0;
     if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isSolid(e.flags[i]!)) list[nl++] = i;
   }
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
@@ -69,10 +72,11 @@ export const collide = (s: State): void => {
           const min = ri + Units[e.kind[j]!]!.radius;
           const dx = e.x[i]! - e.x[j]!; const dy = e.y[i]! - e.y[j]!;
           const d2 = dx * dx + dy * dy;
-          if (d2 === 0) { ax += i < j ? -(min >> 1) : min >> 1; continue; } // exact overlap: split by slot
+          if (anchored[i] === 1) continue;
+          if (d2 === 0) { ax += i < j ? -min : min; continue; } // exact overlap: deterministic side by slot
           if (d2 >= min * min) continue; // not overlapping
           const d = isqrt(d2);
-          const push = (min - d) >> 1; // each backs out half the penetration → they just touch
+          const push = anchored[j] === 1 ? min - d : (min - d) >> 1; // anchored units keep their firing position
           ax += Math.trunc((dx * push) / d);
           ay += Math.trunc((dy * push) / d);
         }

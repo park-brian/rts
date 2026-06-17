@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeState, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { navigate, lineClear } from '../src/pathing.ts';
+import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapConnected } from '../src/procedural.ts';
 import { sliceMap } from '../src/map.ts';
@@ -91,6 +91,44 @@ test('moving units face their current travel direction', () => {
 
   assert.ok(s.e.faceX[slot]! > 0, 'unit faces east while moving east');
   assert.ok(Math.abs(s.e.faceY[slot]!) < fx(1), 'eastward move has no meaningful vertical facing');
+});
+
+test('moving ground units path around rooted firing units without shoving them', () => {
+  const w = 12;
+  const h = 8;
+  const map: MapDef = {
+    name: 'rooted-firing-unit', w, h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+  const s = makeState(map, 2, 99);
+  const mover = spawnUnit(s, Kind.Marine, 0, tc(2), tc(4));
+  const anchor = spawnUnit(s, Kind.Marine, 0, tc(5), tc(4));
+  const target = spawnUnit(s, Kind.Zealot, 1, tc(6), tc(4));
+  const e = s.e;
+  const ms = slotOf(mover);
+  const as = slotOf(anchor);
+  e.order[ms] = Order.Move;
+  e.tx[ms] = tc(9);
+  e.ty[ms] = tc(4);
+  e.order[as] = Order.Idle;
+  e.target[as] = target;
+  e.wcd[as] = 12;
+  const ax = e.x[as]!;
+  const ay = e.y[as]!;
+  let detoured = false;
+
+  for (let t = 0; t < 180; t++) {
+    stepWorld(s, []);
+    assert.equal(e.x[as], ax, 'rooted shooter keeps its x position');
+    assert.equal(e.y[as], ay, 'rooted shooter keeps its y position');
+    const mx = tileX(e.x[ms]!);
+    if (mx >= 4 && mx <= 6 && tileY(e.y[ms]!) !== 4) detoured = true;
+  }
+
+  assert.ok(detoured, 'mover should route around the firing unit tile');
+  assert.ok(Math.abs(e.x[ms]! - tc(9)) < fx(TILE), 'mover still reaches the far side');
 });
 
 test('base ramps make plateaus reachable (no walled-off starts)', () => {
