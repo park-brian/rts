@@ -15,6 +15,7 @@
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.json",
     "demo": "node packages/headless/src/demo.ts",
+    "bench": "node packages/headless/src/bench.ts",
     "build:app": "npm run build -w @rts/app",
     "assets:app-sprites": "node docs/design/export-app-sprites.mjs",
     "shot:app": "npm run shot -w @rts/app",

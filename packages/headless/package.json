@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Headless runner: play games fast, benchmark throughput, record replays.",
+  "scripts": {
+    "bench": "node src/bench.ts"
+  },
   "dependencies": {
     "@rts/sim": "*",
     "@rts/ai": "*"

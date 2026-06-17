@@ -725,7 +725,7 @@ approximated, or absent. Keep this list honest as mechanics land.
   - More exact footprint/art placement checks for every imported sprite after asset refreshes.
 - Maintenance/performance:
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.
-  - Add repeatable throughput benchmarks with vision on/off and command-result/event options.
+  - Add event-stream benchmark coverage if the sim grows a public gameplay event stream.
 
 ## Phase 9: Performance And Maintainability Passes
 
@@ -748,3 +748,10 @@ Done when:
 
 - The codebase still has obvious extension points for the next SC mechanic.
 - Tests describe behavior rather than implementation accidents.
+
+Completed:
+
+- Added `npm run bench` / `npm run bench -w @rts/headless` as a repeatable headless throughput
+  harness. It prints stable JSON lines for fixed-seed no-vision stepping, vision-tracked
+  stepping, and vision plus `observe()` plus command-result receipt pressure, with a smoke test
+  guarding output shape without hard-coding machine-specific timing thresholds.
