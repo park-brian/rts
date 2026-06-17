@@ -68,6 +68,16 @@ const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
   return false;
 };
 
+const hasOwnedOrPendingStructure = (s: State, player: number, kind: number): boolean => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (e.kind[i] === kind) return true;
+    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === kind) return true;
+  }
+  return false;
+};
+
 const scienceFacilityAddon = (s: State, player: number): number =>
   hasCompletedKind(s, player, Kind.ControlTower) ? Kind.PhysicsLab : Kind.CovertOps;
 
@@ -146,6 +156,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
     const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtBarracks;
     const usedProducers = new Set<number>();
+    let builderUsed = false;
     const takeLarva = (): number => {
       for (const l of idleLarvae) {
         if (!usedProducers.has(l)) { usedProducers.add(l); return l; }
@@ -202,19 +213,26 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
         spend(supplyDef.minerals);
+        builderUsed = true;
         pendingSupply++;
       }
     }
 
     // 3) Army structures.
     else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget &&
-             minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE) {
+             minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE && !builderUsed) {
       const spot = findMacroSpot(s, p, aWorker, faction.armyStructure, depot);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
         spend(rax.minerals, rax.gas);
+        builderUsed = true;
         pendingBarracks++;
       }
+    }
+
+    if (!builderUsed) {
+      builderUsed = maybeQueueProtossTechStructures(s, p, faction, cmds, budget, aWorker, depot);
+      minerals = budget.minerals;
     }
 
     maybeQueueTerranAddons(s, p, faction, cmds, budget);
@@ -283,6 +301,41 @@ const maybeQueueTerranAddons = (
     if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
   }
   maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player));
+};
+
+const maybeQueueProtossTechStructures = (
+  s: State,
+  player: number,
+  faction: Faction,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  anchor: number,
+): boolean => {
+  if (faction.name !== 'Protoss') return false;
+  return maybeQueueStructure(s, player, cmds, budget, worker, anchor, Kind.CyberneticsCore);
+};
+
+const maybeQueueStructure = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  anchor: number,
+  kind: number,
+): boolean => {
+  if (worker === NONE || hasOwnedOrPendingStructure(s, player, kind)) return false;
+  const def = Units[kind]!;
+  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
+  const spot = findMacroSpot(s, player, worker, kind, anchor);
+  if (!spot) return false;
+  const command: Command = { t: 'build', unit: eid(s.e, worker), kind, x: spot.x, y: spot.y };
+  if (!validateCommand(s, player, command).ok) return false;
+  cmds.push(command);
+  budget.minerals -= def.minerals;
+  budget.gas -= def.gas;
+  return true;
 };
 
 const maybeQueueAddon = (

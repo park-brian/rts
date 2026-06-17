@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, eid, slotOf, fx, setTechLevel, NONE, validateCommand } from '@rts/sim';
+import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, Terran, Protoss, Zerg, Units, eid, slotOf, fx, setTechLevel, NONE, validateCommand } from '@rts/sim';
 
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
 
@@ -396,6 +396,50 @@ test('protoss bot avoids unpowered gateway placements', () => {
   const cmds = createBot(Protoss, { barracksTarget: 1 })(s, 0);
 
   assert.equal(cmds.some((c) => c.t === 'build' && c.kind === Kind.Gateway), false);
+});
+
+test('protoss bot places a legal cybernetics core after a completed gateway', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 431, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(s, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(s, 0);
+  const build = cmds.find((c) => c.t === 'build' && c.kind === Kind.CyberneticsCore);
+
+  assert.ok(build);
+  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('protoss bot respects cybernetics core prerequisite, power, and budget', () => {
+  const missingGateway = new Sim({ map: sliceMap(), players: 2, seed: 432, factions: [Protoss, Zerg] });
+  const missingState = missingGateway.fullState();
+  spawnUnit(missingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Protoss, { barracksTarget: 0, workerTarget: 0 })(missingState, 0).some((c) => c.t === 'build' && c.kind === Kind.CyberneticsCore), false);
+
+  const unpowered = new Sim({ map: sliceMap(), players: 2, seed: 433, factions: [Protoss, Zerg] });
+  const unpoweredState = unpowered.fullState();
+  const pylon = slotOf(spawnUnit(unpoweredState, Kind.Pylon, 0, fx(1_200), fx(1_200)));
+  unpoweredState.e.built[pylon] = 0;
+  spawnUnit(unpoweredState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  unpoweredState.players.minerals[0] = 1_000;
+  unpoweredState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(unpoweredState, 0).some((c) => c.t === 'build' && c.kind === Kind.CyberneticsCore), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 434, factions: [Protoss, Zerg] });
+  const brokeState = broke.fullState();
+  spawnUnit(brokeState, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(brokeState, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  brokeState.players.minerals[0] = Units[Kind.CyberneticsCore]!.minerals - 1;
+  brokeState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Protoss, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0).some((c) => c.t === 'build' && c.kind === Kind.CyberneticsCore), false);
 });
 
 test('bot unsieges tanks when the focus is inside minimum range', () => {

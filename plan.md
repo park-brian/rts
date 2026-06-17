@@ -599,6 +599,8 @@ Completed:
   validation, choosing Physics Lab for the air-tech path and Covert Ops otherwise.
 - Terran scripted macro now queues legal Nuclear Silos on Command Centers after Covert Ops,
   keeping late-game nuke tech on the same add-on validation path.
+- Protoss scripted macro now queues a legal Cybernetics Core after a completed Gateway, using the
+  same Pylon-anchored placement and shared validation path as Gateway expansion.
 
 Done when:
 
