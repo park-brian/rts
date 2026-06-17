@@ -20,7 +20,7 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
-const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop] as const;
+const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 
 type ResourceBudget = { minerals: number; gas: number };
 

@@ -591,6 +591,8 @@ Completed:
 - Terran scripted macro now prioritizes legal Comsat Stations on idle completed Command Centers,
   respecting Academy prerequisites, existing add-ons, placement, and gas budget through shared
   add-on validation.
+- Terran scripted macro now queues legal Control Towers on idle completed Starports through the
+  same prioritized add-on path, keeping Starport tech progression validator-backed.
 
 Done when:
 

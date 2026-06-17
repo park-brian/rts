@@ -219,6 +219,49 @@ test('bot respects comsat add-on prerequisites, duplicates, and gas budget', () 
   assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ComsatStation), false);
 });
 
+test('bot queues a legal control tower on an idle completed starport', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 416, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const starport = spawnUnit(s, Kind.Starport, 0, fx(1_200), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const cmds = createBot(Terran)(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.building === starport && c.kind === Kind.ControlTower);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+});
+
+test('bot respects control tower parent, duplicates, and gas budget', () => {
+  const missingParent = new Sim({ map: sliceMap(), players: 2, seed: 417, factions: [Terran, Zerg] });
+  const missingState = missingParent.fullState();
+  missingState.players.minerals[0] = 1_000;
+  missingState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(missingState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ControlTower), false);
+
+  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 418, factions: [Terran, Zerg] });
+  const dupState = duplicate.fullState();
+  const dupE = dupState.e;
+  const starport = slotOf(spawnUnit(dupState, Kind.Starport, 0, fx(1_200), fx(1_200)));
+  const tower = slotOf(spawnUnit(dupState, Kind.ControlTower, 0, fx(1_280), fx(1_200)));
+  dupE.target[starport] = eid(dupE, tower);
+  dupE.target[tower] = eid(dupE, starport);
+  dupState.players.minerals[0] = 1_000;
+  dupState.players.gas[0] = 1_000;
+
+  assert.equal(createBot(Terran)(dupState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ControlTower), false);
+
+  const broke = new Sim({ map: sliceMap(), players: 2, seed: 419, factions: [Terran, Zerg] });
+  const brokeState = broke.fullState();
+  spawnUnit(brokeState, Kind.Starport, 0, fx(1_200), fx(1_200));
+  brokeState.players.minerals[0] = 1_000;
+  brokeState.players.gas[0] = 0;
+
+  assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.ControlTower), false);
+});
+
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });
   const s = sim.fullState();
