@@ -14,6 +14,7 @@ export type CommandOption = {
   label?: string;
   detail?: string;
   commands?: Command[];
+  arm?: ArmedCommand;
 };
 export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
 export type SelectionView = {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { dispatchHotkey, resetHotkeys, setHotkey } from '../src/hotkeys.ts';
 import { ui } from '../src/store.ts';
-import { Kind, Tech, eid, fx, liftedStructureFlags, slotOf, spawnUnit } from '../src/sim.ts';
+import { Ability, Kind, Tech, eid, fx, liftedStructureFlags, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 
 const selectFirst = (g: Game, kind: number): number => {
   const e = g.sim.fullState().e;
@@ -106,6 +106,53 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.fastForward(0);
   assert.equal(dispatchHotkey(g, 'KeyL'), true);
   assert.deepEqual(ui.armedCommand.value, { t: 'land', kind: Kind.Barracks });
+});
+
+test('desktop command-card hotkeys execute build and ability options through shared descriptors', () => {
+  resetHotkeys();
+  const g = new Game('play', 95);
+  ui.controlScheme.value = 'desktop';
+  ui.mode.value = 'play';
+  const s = g.sim.fullState();
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+
+  const scv = selectFirst(g, Kind.SCV);
+  g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.build.find((o) => o.id === Kind.SupplyDepot)?.arm, {
+    t: 'place',
+    kind: Kind.SupplyDepot,
+  });
+  assert.equal(dispatchHotkey(g, 'KeyS'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'place', kind: Kind.SupplyDepot });
+  assert.equal(g.sim.fullState().e.alive[slotOf(scv)], 1);
+
+  ui.armedCommand.value = { t: 'none' };
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  g.selection.clear();
+  g.selection.add(marine);
+  g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.ability.find((o) => o.id === Ability.StimPack)?.commands, [
+    { t: 'ability', unit: marine, ability: Ability.StimPack },
+  ]);
+  assert.equal(dispatchHotkey(g, 'KeyT'), true);
+  assert.deepEqual(g.queued.pop(), { t: 'ability', unit: marine, ability: Ability.StimPack });
+
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(460), fx(400));
+  s.e.energy[slotOf(templar)] = 75;
+  setTechLevel(s, 0, Tech.PsionicStorm, 1);
+  g.selection.clear();
+  g.selection.add(templar);
+  g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.ability.find((o) => o.id === Ability.PsionicStorm)?.arm, {
+    t: 'ability',
+    ability: Ability.PsionicStorm,
+  });
+  assert.equal(dispatchHotkey(g, 'KeyT'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'ability', ability: Ability.PsionicStorm });
+  assert.equal(dispatchHotkey(g, 'KeyT'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('command options execute grouped transforms through the shared option path', () => {

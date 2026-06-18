@@ -9,10 +9,10 @@ import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { entitySelectionName } from './entity-presentation.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
-import { EMPTY_SELECTION_VIEW, type CommandOption, type SelectionView } from './store.ts';
+import { EMPTY_SELECTION_VIEW, type ArmedCommand, type CommandOption, type SelectionView } from './store.ts';
 
 type OptionRecord = CommandOption & { priority?: number };
-type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands'> & { priority?: number };
+type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands' | 'arm'> & { priority?: number };
 type CanSeeEntity = (slot: number) => boolean;
 
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -48,7 +48,8 @@ const addOption = (options: Map<number, OptionRecord>, id: number, result: Comma
   }
   if (current?.ok) return;
   if (!current || REASON_PRIORITY[result.reason] < REASON_PRIORITY[current.reason!]) {
-    options.set(id, { id, ok: false, reason: result.reason, ...meta });
+    const { commands: _commands, arm: _arm, priority: _priority, ...displayMeta } = meta;
+    options.set(id, { id, ok: false, reason: result.reason, ...displayMeta });
   }
 };
 
@@ -99,10 +100,27 @@ const addWorkerBuildOptions = (
       const def = Units[build]!;
       addOption(buildOptions, build, s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas
         ? { ok: false, reason: 'not-affordable' }
-        : { ok: true });
+        : { ok: true }, { arm: { t: 'place', kind: build } });
     }
   }
 };
+
+const abilityCommandsForSelection = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  ability: number,
+): Command[] => {
+  const e = s.e;
+  const commands: Command[] = [];
+  for (const id of selected) {
+    const command: Command = { t: 'ability', unit: id, ability };
+    if (isAlive(e, id) && validateCommand(s, player, command).ok) commands.push(command);
+  }
+  return commands;
+};
+
+const abilityArm = (ability: number): ArmedCommand => ({ t: 'ability', ability });
 
 const transformCommandsForSelection = (
   s: State,
@@ -253,6 +271,13 @@ export const selectionCapabilities = (
   for (const option of transformOptions.values()) {
     if (!option.ok) continue;
     option.commands = transformCommandsForSelection(s, player, selected, option.id);
+  }
+  for (const option of abilityOptions.values()) {
+    if (!option.ok) continue;
+    const ability = Abilities[option.id];
+    if (!ability) continue;
+    if (ability.target === 'self') option.commands = abilityCommandsForSelection(s, player, selected, option.id);
+    else option.arm = abilityArm(option.id);
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;

@@ -1,7 +1,7 @@
 import type { Game } from './game.ts';
 import { clearArmedCommand, ui } from './store.ts';
 import type { CommandOption } from './store.ts';
-import { Abilities, Ability, Kind, Tech } from './sim.ts';
+import { Ability, Kind, Tech } from './sim.ts';
 
 export type GlobalHotkeyAction =
   | 'attackMove'
@@ -349,16 +349,13 @@ const toggleTarget = (mode: 'harvest' | 'repair'): void => {
 const executeOption = (game: Game, options: CommandOption[], id: number): boolean => {
   const option = options.find((o) => o.id === id);
   if (!option) return false;
-  clearTargets();
   return game.executeOption(option);
 };
 
 const fireAction = (game: Game, action: HotkeyAction): boolean => {
   const selection = ui.selectionView.value;
   if (action.startsWith('build:')) {
-    clearTargets();
-    ui.armedCommand.value = { t: 'place', kind: Number(action.slice('build:'.length)) };
-    return true;
+    return executeOption(game, selection.options.build, Number(action.slice('build:'.length)));
   }
   if (action.startsWith('train:')) {
     return executeOption(game, selection.options.train, Number(action.slice('train:'.length)));
@@ -373,13 +370,7 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     return executeOption(game, selection.options.research, Number(action.slice('research:'.length)));
   }
   if (action.startsWith('ability:')) {
-    const ability = Number(action.slice('ability:'.length));
-    const def = Abilities[ability];
-    if (!def) return false;
-    clearTargets();
-    if (def.target === 'self') game.castSelectedAbility(ability);
-    else ui.armedCommand.value = { t: 'ability', ability };
-    return true;
+    return executeOption(game, selection.options.ability, Number(action.slice('ability:'.length)));
   }
   switch (action) {
     case 'attackMove': {

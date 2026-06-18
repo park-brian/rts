@@ -1809,8 +1809,11 @@ Further concrete deletion opportunities found on review:
    - Started:
      - Added executable command candidates to enabled train, add-on, transform, and research options.
        The command card and desktop hotkeys now route those option clicks through one
-       `Game.executeOption` path, while placement and targeted abilities remain separate target-mode
-       affordances for later slices.
+       `Game.executeOption` path.
+     - Added target-mode descriptors to enabled worker build and non-self ability options, plus
+       command candidates for self abilities. Command-card clicks and desktop hotkeys now use
+       `Game.executeOption` for build and ability options too; rally, attack-move, harvest, and
+       repair remain explicit order buttons for a later order-option slice.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,

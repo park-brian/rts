@@ -499,7 +499,15 @@ export class Game {
   }
 
   executeOption(option: CommandOption): boolean {
-    if (!option.ok || !option.commands?.length) return false;
+    if (!option.ok) return false;
+    if (option.arm) {
+      const current = ui.armedCommand.value;
+      const sameAbility = option.arm.t === 'ability' && current.t === 'ability' && current.ability === option.arm.ability;
+      this.clearTargetModes();
+      if (!sameAbility) ui.armedCommand.value = option.arm;
+      return true;
+    }
+    if (!option.commands?.length) return false;
     const s = this.sim.fullState();
     let queued = false;
     for (const command of option.commands) {

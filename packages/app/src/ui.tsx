@@ -539,7 +539,6 @@ const Hotbar = (p: { game: Game }) => {
   const clearTargets = (): void => {
     clearArmedCommand();
   };
-  const placeKind = (kind: number): void => { ui.armedCommand.value = { t: 'place', kind }; };
   const toggleRally = (): void => {
     const active = ui.armedCommand.value.t !== 'rally';
     clearTargets();
@@ -555,11 +554,6 @@ const Hotbar = (p: { game: Game }) => {
     clearTargets();
     if (active) ui.armedCommand.value = { t: 'target', mode };
   };
-  const toggleAbility = (ability: number): void => {
-    const active = ui.armedCommand.value.t !== 'ability' || ui.armedCommand.value.ability !== ability;
-    clearTargets();
-    if (active) ui.armedCommand.value = { t: 'ability', ability };
-  };
   const addOptionButton = (
     group: CommandGroupId,
     option: CommandOption,
@@ -573,7 +567,6 @@ const Hotbar = (p: { game: Game }) => {
       reason={option.ok ? undefined : option.reason} detail={option.detail} onClick={onClick} />);
   };
   const executeOption = (option: CommandOption): void => {
-    clearTargets();
     g.executeOption(option);
   };
   if (place !== 0) {
@@ -600,7 +593,8 @@ const Hotbar = (p: { game: Game }) => {
     if (selection.can.build) {
       for (const option of selection.options.build) {
         const kind = option.id;
-        addOptionButton('build', option, short(Units[kind]?.name ?? 'Building'), actionKey.build(kind), () => placeKind(kind));
+        addOptionButton('build', option, short(Units[kind]?.name ?? 'Building'), actionKey.build(kind),
+          () => executeOption(option));
       }
     }
     if (selection.can.rally) {
@@ -621,14 +615,7 @@ const Hotbar = (p: { game: Game }) => {
       const ability = option.id;
       const def = Abilities[ability]!;
       const active = ui.armedCommand.value.t === 'ability' && ui.armedCommand.value.ability === ability;
-      const cast = (): void => {
-        if (def.target === 'self') {
-          g.castSelectedAbility(ability);
-          clearTargets();
-        }
-        else toggleAbility(ability);
-      };
-      addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), cast, active);
+      addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), () => executeOption(option), active);
     }
     if (selection.can.load) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
