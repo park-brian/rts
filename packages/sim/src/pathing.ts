@@ -204,6 +204,12 @@ const moveTowardPass = (
   let bestArrived = false;
   let bestScore = -0x7fffffff;
 
+  // Movement is intentionally layered:
+  // route/flow gives a desired step, reciprocal avoidance tweaks preferred
+  // velocity, the candidate scorer picks a passable fallback-safe step,
+  // acceleration integrates persisted vx/vy, and collision/settle remain the
+  // authoritative residual cleanup. Keep these layers separate for determinism
+  // and because the reciprocal prototype has mixed pressure counters so far.
   const consider = (vx: number, vy: number, arrived: boolean, rank: number): void => {
     const step = normalizedStep(vx, vy, limit);
     if (step.x === 0 && step.y === 0) return;

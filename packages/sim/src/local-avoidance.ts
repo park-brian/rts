@@ -102,6 +102,10 @@ export const localAvoidancePenalty = (s: State, slot: number, nx: number, ny: nu
   return penalty;
 };
 
+// Prototype reciprocal layer: adjust the preferred velocity for predicted
+// opposing/anchored interactions, but do not make it the source of truth yet.
+// The candidate scorer below still chooses a passable step, and collision remains
+// the residual guard, because current benchmark counters are mixed.
 export const localAvoidanceVelocity = (
   s: State,
   slot: number,
