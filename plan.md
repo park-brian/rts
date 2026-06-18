@@ -1614,6 +1614,8 @@ Highest-impact LOC reductions:
        Zerg tech and command policy clusters.
      - Expanded the helper with build-command assertions and migrated the Hydralisk Den, Spire, and
        Queen Nest Zerg build-gate tests to remove repeated sim/resource/build-validation setup.
+     - Migrated the remaining late-Zerg build-policy tests for Nydus Canal, Nydus endpoint expansion,
+       Defiler Mound, and Ultralisk Cavern through the same scenario/build assertion helpers.
 6. Replace scattered child/internal-product logic with descriptors.
    - Current shape: Scarabs, Interceptors, Spider Mines, and Nukes share concepts but appear as
      `specialAmmo`, child actors, production specials, UI labels, combat checks, and tests.
