@@ -1583,7 +1583,9 @@ Highest-impact LOC reductions:
        `smartCommandCandidates`, a pure read-only query used by `Game` before enqueueing commands.
      - Extracted producer/research/internal-ammo work derivation into `entityWorkQueue`, used by
        lifecycle status, nuclear command-card metadata, and producer load ordering.
-     - Remaining: split `Game` controllers once the query boundaries settle.
+     - Extracted resource/time/result/control-group/selection publication into `publishHud`, so
+       `Game` supplies state and visibility while HUD signal writes live in one app-side module.
+     - Remaining: split input/placement/control-group controllers once the HUD boundary settles.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.

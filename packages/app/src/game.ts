@@ -1,6 +1,6 @@
 // Game: drives the deterministic sim at a fixed timestep, owns the camera,
 // selection, and the human command queue, computes fog for the human player, and
-// publishes HUD state. Rendering and input live in sibling modules.
+// publishes state through HUD helpers. Rendering and input live in sibling modules.
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
@@ -12,11 +12,11 @@ import {
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
-import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type Mode } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, ui, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
-import { selectionCapabilities } from './selection-capabilities.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
+import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -64,13 +64,6 @@ const pointInBounds = (x: number, y: number, b: SelectableBounds): boolean =>
 
 const boundsIntersectsRect = (b: SelectableBounds, x0: number, y0: number, x1: number, y1: number): boolean =>
   b.x0 <= x1 && b.x1 >= x0 && b.y0 <= y1 && b.y1 >= y0;
-
-const clearSelectionUi = (): void => {
-  ui.selectionView.value = EMPTY_SELECTION_VIEW;
-};
-
-const sameCounts = (a: readonly number[], b: readonly number[]): boolean =>
-  a.length === b.length && a.every((v, i) => v === b[i]);
 
 export class Game {
   sim!: Sim;
@@ -140,7 +133,7 @@ export class Game {
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selection.clear();
     for (const group of this.controlGroups) group.clear();
-    ui.controlGroupCounts.value = Array(CONTROL_GROUPS).fill(0);
+    resetControlGroupCounts(CONTROL_GROUPS);
     this.queued = [];
     this.placementGhost = null;
     this.visible = new Uint8Array(this.map.w * this.map.h);
@@ -151,7 +144,7 @@ export class Game {
     ui.humanPlayer.value = this.humanPlayer;
     ui.playerRaces.value = [...this.playerRaceNames];
     clearArmedCommand();
-    clearSelectionUi();
+    clearSelectionView();
     ui.hasReplay.value = false;
     this.framed = false;
     if (this.viewW > 1) this.frame();
@@ -554,11 +547,6 @@ export class Game {
     return live;
   }
 
-  private publishControlGroupCounts(): void {
-    const next = this.controlGroups.map((group) => this.liveGroup(group).length);
-    if (!sameCounts(ui.controlGroupCounts.value, next)) ui.controlGroupCounts.value = next;
-  }
-
   private centerOnSelection(): void {
     const e = this.sim.fullState().e;
     let x = 0;
@@ -577,7 +565,7 @@ export class Game {
   assignControlGroup(index: number): boolean {
     if (index < 0 || index >= CONTROL_GROUPS || this.selection.size === 0) return false;
     this.controlGroups[index] = new Set(this.liveGroup(this.selection));
-    this.publishControlGroupCounts();
+    this.publish();
     return this.controlGroups[index]!.size > 0;
   }
 
@@ -585,11 +573,14 @@ export class Game {
     if (index < 0 || index >= CONTROL_GROUPS) return false;
     const live = this.liveGroup(this.controlGroups[index]!);
     this.controlGroups[index] = new Set(live);
-    this.publishControlGroupCounts();
-    if (live.length === 0) return false;
+    if (live.length === 0) {
+      this.publish();
+      return false;
+    }
     if (!add) this.selection.clear();
     for (const id of live) this.selection.add(id);
     this.clearTargetModes();
+    this.publish();
 
     const now = performance.now();
     if (!add && this.lastControlGroup === index && now - this.lastControlGroupT < 450) this.centerOnSelection();
@@ -983,7 +974,7 @@ export class Game {
   deselect(): void {
     this.selection.clear();
     this.clearTargetModes();
-    clearSelectionUi();
+    clearSelectionView();
   }
 
   /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
@@ -1036,18 +1027,15 @@ export class Game {
 
   private publish(): void {
     const s = this.sim.fullState();
-    const p = this.human < 0 ? 0 : this.human;
-    ui.minerals.value = s.players.minerals[p]!;
-    ui.gas.value = s.players.gas[p]!;
-    ui.supplyUsed.value = s.players.supplyUsed[p]!;
-    ui.supplyMax.value = s.players.supplyMax[p]!;
-    ui.seconds.value = Math.floor(s.tick / FPS);
-    ui.over.value = s.result.over;
-    ui.winner.value = s.result.winner;
-    ui.hasReplay.value = this.mode !== 'replay' && s.result.over && this.sim.frames !== null;
-    this.publishControlGroupCounts();
-
-    ui.selectionView.value = selectionCapabilities(s, this.human, this.selection, (slot) => this.canSeeEntity(slot));
+    publishHud({
+      state: s,
+      human: this.human,
+      mode: this.mode,
+      hasRecordedReplay: this.sim.frames !== null,
+      selection: this.selection,
+      controlGroups: this.controlGroups,
+      canSeeEntity: (slot) => this.canSeeEntity(slot),
+    });
   }
 }
 
