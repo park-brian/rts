@@ -2,6 +2,7 @@ import type { Entities } from '../world.ts';
 import type { State } from '../world.ts';
 import { upgradedCooldown, upgradedSight, upgradedSpeed } from '../derived.ts';
 import { Units, sec } from '../data.ts';
+import { clearVelocity } from './move.ts';
 
 export const isDisabled = (e: Entities, slot: number): boolean =>
   e.lockdownTimer[slot]! > 0 || e.stasisTimer[slot]! > 0 || e.maelstromTimer[slot]! > 0;
@@ -44,6 +45,7 @@ export const tickRegeneration = (s: State): void => {
 export const tickStatusTimers = (e: Entities): void => {
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
+    if (isDisabled(e, i)) clearVelocity(e, i);
     tick(e.stimTimer, i);
     tick(e.matrixTimer, i);
     if (e.matrixTimer[i]! <= 0) e.matrixHp[i] = 0;

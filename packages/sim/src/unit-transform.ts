@@ -4,6 +4,7 @@ import { isDisabled } from './systems/status.ts';
 import { NONE, isAlive, kill, slotOf, type State } from './world.ts';
 import { setEntityKind, setEntityKindFull } from './entity-kind.ts';
 import { distanceSq, withinRangeSq } from './spatial.ts';
+import { clearVelocity } from './systems/move.ts';
 
 export type UnitTransform = {
   from: number;
@@ -71,6 +72,7 @@ const clearSettled = (s: State, slot: number): void => {
 const transformUnit = (s: State, slot: number, kind: number): void => {
   const e = s.e;
   clearSettled(s, slot);
+  clearVelocity(e, slot);
   setEntityKind(s, slot, kind);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
@@ -81,6 +83,7 @@ const startMorph = (s: State, slot: number, kind: number): void => {
   const def = Units[kind]!;
   const player = e.owner[slot]!;
   clearSettled(s, slot);
+  clearVelocity(e, slot);
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;
   e.morphFromKind[slot] = e.kind[slot]!;
@@ -104,6 +107,7 @@ const startMerge = (s: State, slot: number, kind: number, partner: number): void
   const x = Math.trunc((e.x[slot]! + e.x[partner]!) / 2);
   const y = Math.trunc((e.y[slot]! + e.y[partner]!) / 2);
   clearSettled(s, slot);
+  clearVelocity(e, slot);
   kill(s, partner);
   setEntityKindFull(s, slot, kind);
   e.x[slot] = x;

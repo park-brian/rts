@@ -10,10 +10,12 @@ import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../c
 import { placementForStructure } from '../placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../world.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { clearVelocity } from './move.ts';
 
 const landIfArrived = (s: State, slot: number): void => {
   const e = s.e;
   if (e.target[slot] !== eid(e, slot) || !isLiftedStructureFlags(e.flags[slot]!)) {
+    clearVelocity(e, slot);
     e.order[slot] = Order.Idle;
     return;
   }
@@ -23,6 +25,7 @@ const landIfArrived = (s: State, slot: number): void => {
     e.y[slot] = placement.y;
     e.flags[slot] = landedStructureFlags(e.kind[slot]!);
   }
+  clearVelocity(e, slot);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
 };
@@ -31,14 +34,19 @@ export const movement = (s: State): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i) || e.order[i] !== Order.Move) continue;
-    if (isDisabled(e, i)) continue;
+    if (isDisabled(e, i)) {
+      clearVelocity(e, i);
+      continue;
+    }
     if (e.burrowed[i] === 1) {
+      clearVelocity(e, i);
       e.order[i] = Order.Idle;
       continue;
     }
     const def = Units[e.kind[i]!];
     const speed = commandMoveSpeed(e.kind[i]!, e.flags[i]!);
     if (!def || speed === 0) {
+      clearVelocity(e, i);
       e.order[i] = Order.Idle;
       continue;
     }

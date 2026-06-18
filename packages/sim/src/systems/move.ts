@@ -3,6 +3,12 @@
 import type { Entities } from '../world.ts';
 import { isqrt } from '../fixed.ts';
 
+/** Clear persistent movement velocity at hard order/state boundaries. */
+export const clearVelocity = (e: Entities, slot: number): void => {
+  e.vx[slot] = 0;
+  e.vy[slot] = 0;
+};
+
 /** Face slot toward (tx,ty) if the target is not exactly its current position. */
 export const faceToward = (e: Entities, slot: number, tx: number, ty: number): void => {
   const dx = tx - e.x[slot]!;

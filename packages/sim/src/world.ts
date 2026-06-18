@@ -54,6 +54,8 @@ export type Entities = {
   tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
   settled: Uint8Array; // post-collision move/attack-move has settled into place
+  vx: Int32Array; // persistent movement velocity (fixed px/tick)
+  vy: Int32Array;
   faceX: Int32Array; // last intentional facing vector (fixed-point delta)
   faceY: Int32Array;
   timer: Int32Array; // generic countdown (mining)
@@ -93,7 +95,7 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['cloakActive', 'u8'], ['cloakTimer', 'i32'],
   ['opticalFlare', 'u8'], ['parasiteOwner', 'u8'], ['illusion', 'u8'], ['lifeTimer', 'i32'],
   ['cloakAura', 'u8'], ['burrowed', 'u8'], ['flags', 'u16'], ['order', 'u8'],
-  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
+  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['morphFromKind', 'u16'], ['buildCostMinerals', 'i32'],
   ['buildCostGas', 'i32'], ['specialAmmo', 'u8'], ['cargo', 'i32'],
   ['cargoType', 'u8'], ['container', 'i32'], ['home', 'i32'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
@@ -211,6 +213,8 @@ const makeEntities = (): Entities => {
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
     settled: new Uint8Array(CAP),
+    vx: new Int32Array(CAP),
+    vy: new Int32Array(CAP),
     faceX: new Int32Array(CAP),
     faceY: new Int32Array(CAP),
     timer: new Int32Array(CAP),
@@ -332,6 +336,8 @@ export const spawn = (
   e.tx[slot] = 0;
   e.ty[slot] = 0;
   e.settled[slot] = 0;
+  e.vx[slot] = 0;
+  e.vy[slot] = 0;
   e.faceX[slot] = 0;
   e.faceY[slot] = -1;
   e.timer[slot] = 0;
@@ -416,6 +422,8 @@ export const kill = (s: State, slot: number): void => {
   e.morphFromKind[slot] = 0;
   e.container[slot] = NONE;
   e.home[slot] = NONE;
+  e.vx[slot] = 0;
+  e.vy[slot] = 0;
   e.alive[slot] = 0;
   e.gen[slot] = (e.gen[slot]! + 1) >>> 0;
   e.free[e.freeTop++] = slot;
@@ -548,6 +556,8 @@ export const hashState = (s: State): number => {
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
     h = fold(h, e.settled[i]!);
+    h = fold(h, e.vx[i]!);
+    h = fold(h, e.vy[i]!);
     h = fold(h, e.faceX[i]!);
     h = fold(h, e.faceY[i]!);
     h = fold(h, e.timer[i]!);

@@ -5,6 +5,7 @@ import { eid, isAlive, NONE, type State } from './world.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from './flow.ts';
 import { topDownInteractionRect, type InteractionRect } from './spatial.ts';
 import { isDisabled } from './systems/status.ts';
+import { clearVelocity } from './systems/move.ts';
 
 export const LOAD_RANGE = tiles(2);
 export const UNLOAD_RANGE = tiles(3);
@@ -112,6 +113,7 @@ export const withinLoadRange = (s: State, transport: number, unit: number): bool
 export const loadUnitInto = (s: State, transport: number, unit: number): void => {
   const e = s.e;
   e.settled[unit] = 0;
+  clearVelocity(e, unit);
   e.container[unit] = eid(e, transport);
   e.x[unit] = e.x[transport]!;
   e.y[unit] = e.y[transport]!;
@@ -122,6 +124,7 @@ export const loadUnitInto = (s: State, transport: number, unit: number): void =>
 export const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   const e = s.e;
   e.settled[unit] = 0;
+  clearVelocity(e, unit);
   e.container[unit] = NONE;
   e.x[unit] = x;
   e.y[unit] = y;

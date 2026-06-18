@@ -11,7 +11,7 @@ import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from './world
 import type { MapDef, StartLoc, ResourceSpawn } from './map.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'
-const VERSION = 19;
+const VERSION = 20;
 const BYTES: Record<ColType, number> = { u8: 1, u16: 2, u32: 4, i32: 4 };
 
 // ---- cursor over a DataView ----

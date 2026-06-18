@@ -1,6 +1,7 @@
 import { fx } from './fixed.ts';
 import { Kind, Order, Role, Units } from './data.ts';
 import { eid, NONE, type State } from './world.ts';
+import { clearVelocity } from './systems/move.ts';
 
 export const LIFTED_BUILDING_SPEED = fx(1);
 
@@ -36,6 +37,7 @@ const clearSettled = (s: State, slot: number): void => {
 export const liftStructure = (s: State, slot: number): void => {
   const e = s.e;
   clearSettled(s, slot);
+  clearVelocity(e, slot);
   e.flags[slot] = liftedStructureFlags(e.kind[slot]!);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
@@ -44,6 +46,7 @@ export const liftStructure = (s: State, slot: number): void => {
 export const startStructureLanding = (s: State, slot: number, x: number, y: number): void => {
   const e = s.e;
   clearSettled(s, slot);
+  clearVelocity(e, slot);
   e.order[slot] = Order.Move;
   e.target[slot] = eid(e, slot);
   e.tx[slot] = x;

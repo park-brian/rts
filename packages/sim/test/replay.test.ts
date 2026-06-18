@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
 import { generateMap } from '../src/procedural.ts';
-import { eid, ENTITY_COLUMNS, makeState, type State } from '../src/world.ts';
+import { eid, ENTITY_COLUMNS, hashState, makeState, slotOf, type State } from '../src/world.ts';
 import { sliceMap } from '../src/map.ts';
 import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands.ts';
+import { spawnUnit } from '../src/factory.ts';
+import { deserializeState, serializeState } from '../src/serialize.ts';
 
 // A deterministic controller exercising train + group amove (movement/flow/separation),
 // standing in for a mixed human/bot command stream.
@@ -100,6 +102,22 @@ test('ENTITY_COLUMNS covers every typed-array column (clone/serialize guard)', (
   const typed = Object.keys(e).filter((k) => ArrayBuffer.isView(e[k] as object)).sort();
   const registered = ENTITY_COLUMNS.map(([k]) => k as string).sort();
   assert.deepEqual(typed, registered, 'a new typed-array column must be added to ENTITY_COLUMNS');
+});
+
+test('persistent movement velocity is serialized and hashed', () => {
+  const s = makeState(sliceMap(), 1, 99);
+  const slot = slotOf(spawnUnit(s, Kind.Marine, 0, fx(4 * 32), fx(4 * 32)));
+  s.e.vx[slot] = fx(3);
+  s.e.vy[slot] = -fx(2);
+  const hash = hashState(s);
+
+  const restored = deserializeState(serializeState(s));
+  assert.equal(restored.e.vx[slot], fx(3));
+  assert.equal(restored.e.vy[slot], -fx(2));
+  assert.equal(hashState(restored), hash, 'velocity round-trip preserves hash');
+
+  restored.e.vx[slot] = fx(4);
+  assert.notEqual(hashState(restored), hash, 'velocity participates in desync hashes');
 });
 
 test('replay round-trips through JSON (the on-disk / on-wire form)', () => {

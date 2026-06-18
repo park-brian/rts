@@ -32,6 +32,7 @@ import { queueProduction, queuedProductionCount } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
+import { clearVelocity } from './systems/move.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -595,6 +596,7 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
     const slot = slotOf(command.unit);
     cancelPendingBeforeOrder(s, slot);
     clearSettled(s, slot);
+    clearVelocity(e, slot);
     e.order[slot] = Order.Idle;
     e.target[slot] = NONE;
   },
