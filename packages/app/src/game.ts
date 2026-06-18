@@ -2,10 +2,9 @@
 // controllers for camera, visibility, selection, input commands, and HUD publishing.
 
 import {
-  Sim, generateMap, createBotControllers, FPS, TILE, Kind, toReplay, mapFromSpec, parseReplay,
-  Factions,
+  Sim, FPS, TILE, Kind,
   type MapDef, type Command, type PlayerCommands, type Controller,
-  type Replay, type MapSpec, type State, type Faction, type FactionName,
+  type Replay, type State, type FactionName,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -15,15 +14,12 @@ import { TapSelectionController, type TapOptions } from './tap-selection-control
 import { VisibilityController } from './visibility-controller.ts';
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 import { CommandController } from './command-controller.ts';
+import {
+  createPlaySession, createReplaySeekSim, createReplaySession, defaultRaceNames,
+  exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
+} from './game-session.ts';
 
 const TICK_MS = 1000 / FPS;
-const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
-
-const normalizeRace = (race: string | undefined): FactionName =>
-  race === 'protoss' || race === 'zerg' ? race : 'terran';
-
-const defaultRaceNames = (players: number): FactionName[] =>
-  Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
 
 export class Game {
   sim!: Sim;
@@ -140,21 +136,17 @@ export class Game {
     humanPlayer = this.humanPlayer,
   ): void {
     if (mode === 'replay') { this.startReplay(); return; } // toggle into watching the last game
-    this.mode = mode;
-    this.seed = seed;
-    this.perTeam = perTeam;
     this.replay = null;
-    const players = perTeam * 2;
-    this.playerRaceNames = raceNames.length === players
-      ? raceNames.map(normalizeRace)
-      : defaultRaceNames(players);
-    this.humanPlayer = Math.max(0, Math.min(players - 1, humanPlayer));
-    const factions: Faction[] = this.playerRaceNames.map((race) => Factions[race]);
-    this.map = generateMap(perTeam, seed);
-    this.sim = new Sim({ map: this.map, players, seed, record: true, vision: true, factions }); // record + fog for rendering
-    const bots = createBotControllers(players, factions);
-    this.human = mode === 'play' ? this.humanPlayer : -1;
-    this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
+    const session = createPlaySession(mode, seed, perTeam, raceNames, humanPlayer);
+    this.mode = session.mode;
+    this.seed = session.seed;
+    this.perTeam = session.perTeam;
+    this.playerRaceNames = session.playerRaceNames;
+    this.humanPlayer = session.humanPlayer;
+    this.map = session.map;
+    this.sim = session.sim;
+    this.human = session.human;
+    this.controllers = session.controllers;
     this.selectionState().reset();
     resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.commandState().reset();
@@ -170,27 +162,25 @@ export class Game {
     if (this.viewW > 1) this.frame();
   }
 
-  private mapSpec(): MapSpec {
-    return { kind: 'procedural', perTeam: this.perTeam, seed: this.seed };
-  }
-
   /** Switch into replay playback. With no argument, watch the game just played. */
   startReplay(replay?: Replay): void {
-    const r = replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
+    const r = replay ?? replayFromCurrent(this.sim, mapSpecFor(this.perTeam, this.seed));
     if (!r || r.frames.length === 0) return;
-    this.replay = r;
-    this.mode = 'replay';
-    this.perTeam = r.map.kind === 'procedural' ? r.map.perTeam : this.perTeam;
-    this.seed = r.map.kind === 'procedural' ? r.map.seed : this.seed;
-    this.playerRaceNames = r.factions ? r.factions.map(normalizeRace) : defaultRaceNames(r.players);
-    this.map = mapFromSpec(r.map);
-    this.human = -1; // god view for analysis
-    this.controllers = [];
+    const session = createReplaySession(r, this.perTeam, this.seed);
+    this.replay = session.replay;
+    this.mode = session.mode;
+    this.perTeam = session.perTeam;
+    this.seed = session.seed;
+    this.playerRaceNames = session.playerRaceNames;
+    this.map = session.map;
+    this.sim = session.sim;
+    this.human = session.human; // god view for analysis
+    this.controllers = session.controllers;
     this.selectionState().clear();
     this.commandState().reset();
     this.visibility().reset();
-    this.replaySpeed = 1;
-    this.paused = false;
+    this.replaySpeed = session.replaySpeed;
+    this.paused = session.paused;
     this.seekReplay(0);
     ui.mode.value = 'replay';
     ui.playerRaces.value = [...this.playerRaceNames];
@@ -207,8 +197,7 @@ export class Game {
     if (!this.replay) return;
     const r = this.replay;
     const target = Math.max(0, Math.min(tick, r.frames.length));
-    const factions = (r.factions ? r.factions.map(normalizeRace) : defaultRaceNames(r.players)).map((race) => Factions[race]);
-    this.sim = new Sim({ map: this.map, players: r.players, seed: r.seed, vision: true, factions });
+    this.sim = createReplaySeekSim(r, this.map);
     for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
     this.replayTick = target;
     this.paused = target >= r.frames.length;
@@ -227,12 +216,11 @@ export class Game {
 
   /** The replay JSON for the current/just-played game (download payload). */
   exportReplay(): string | null {
-    const r = this.replay ?? (this.sim.frames ? toReplay(this.sim, this.mapSpec()) : null);
-    return r ? JSON.stringify(r) : null;
+    return exportReplayJson(this.sim, this.replay, mapSpecFor(this.perTeam, this.seed));
   }
 
   loadReplay(json: string): void {
-    this.startReplay(parseReplay(json));
+    this.startReplay(parseReplayJson(json));
   }
 
   resize(w: number, h: number): void {

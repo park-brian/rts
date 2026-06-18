@@ -1867,6 +1867,9 @@ Further concrete deletion opportunities found on review:
      - Extracted command queue ownership, placement ghost update/commit/cancel, command-card
        execution, and selected-command dispatch into `CommandController` while preserving `Game`
        wrappers for UI, hotkeys, input, and tests.
+     - Extracted race normalization, play-session construction, replay construction/seek/export,
+       and map-spec helpers into `game-session.ts` while `Game` keeps controller orchestration and
+       stable lifecycle wrappers.
 6. Treat tests as product code for compression.
    - Current shape:
      - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,
