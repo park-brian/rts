@@ -1,19 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Kind, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { parseReplay } from '../src/replay.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 test('templar merge consumes a nearby partner and creates an unfinished archon', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 501 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 501 });
   const e = s.e;
-  const a = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
-  const b = spawnUnit(s, Kind.HighTemplar, 0, fx(432), fx(400));
+  const a = spawn(Kind.HighTemplar, 0, fx(400), fx(400));
+  const b = spawn(Kind.HighTemplar, 0, fx(432), fx(400));
   const slot = slotOf(a);
   sim.step([]);
   const beforeSupply = s.players.supplyUsed[0]!;
@@ -30,7 +27,7 @@ test('templar merge consumes a nearby partner and creates an unfinished archon',
   assert.equal(e.x[slot], fx(416));
   assert.equal(s.players.supplyUsed[0], beforeSupply);
 
-  const inert = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: eid(e, slot), target: spawnUnit(s, Kind.Marine, 1, fx(450), fx(400)) }] }]);
+  const inert = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: eid(e, slot), target: spawn(Kind.Marine, 1, fx(450), fx(400)) }] }]);
   assert.deepEqual(inert, [{ player: 0, index: 0, t: 'attack', ok: false, reason: 'missing-capability' }]);
 
   const cancel = sim.step([{ player: 0, cmds: [{ t: 'cancelBuild', building: eid(e, slot) }] }]);
@@ -45,16 +42,15 @@ test('templar merge consumes a nearby partner and creates an unfinished archon',
 });
 
 test('dark templar merge creates a dark archon and rejects missing partners', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 502 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 502 });
   const e = s.e;
-  const lone = spawnUnit(s, Kind.DarkTemplar, 0, fx(400), fx(400));
+  const lone = spawn(Kind.DarkTemplar, 0, fx(400), fx(400));
 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'transform', unit: lone, kind: Kind.DarkArchon }] }]), [
     { player: 0, index: 0, t: 'transform', ok: false, reason: 'target-not-allowed' },
   ]);
 
-  const partner = spawnUnit(s, Kind.DarkTemplar, 0, fx(430), fx(400));
+  const partner = spawn(Kind.DarkTemplar, 0, fx(430), fx(400));
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'transform', unit: lone, kind: Kind.DarkArchon, target: partner }] }]), [
     { player: 0, index: 0, t: 'transform', ok: true },
   ]);
