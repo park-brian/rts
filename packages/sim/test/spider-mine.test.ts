@@ -1,13 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
-import { setTechLevel } from '../src/tech.ts';
 import { parseReplay } from '../src/replay.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 const mineSlots = (sim: Sim): number[] => {
   const e = sim.fullState().e;
@@ -17,15 +15,14 @@ const mineSlots = (sim: Sim): number[] => {
 };
 
 test('vultures lay researched spider mines with finite charges', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 210 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 210 });
   const e = s.e;
-  const vulture = spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400));
+  const vulture = spawn(Kind.Vulture, 0, fx(400), fx(400));
 
   let results = sim.step([{ player: 0, cmds: [{ t: 'mine', unit: vulture }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'mine', ok: false, reason: 'missing-requirement' }]);
 
-  setTechLevel(s, 0, Tech.SpiderMines, 1);
+  grant(0, Tech.SpiderMines);
   results = sim.step([{ player: 0, cmds: [{ t: 'mine', unit: vulture }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'mine', ok: false, reason: 'target-not-allowed' }]);
 
@@ -41,33 +38,31 @@ test('vultures lay researched spider mines with finite charges', () => {
 });
 
 test('spider mine tech grants charges to current and future vultures', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 211 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 211 });
   const e = s.e;
-  const vulture = slotOf(spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400)));
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(400), fx(400)));
-  const shop = slotOf(spawnUnit(s, Kind.MachineShop, 0, fx(480), fx(400)));
+  const vulture = slotOf(spawn(Kind.Vulture, 0, fx(400), fx(400)));
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(400), fx(400)));
+  const shop = slotOf(spawn(Kind.MachineShop, 0, fx(480), fx(400)));
   e.target[factory] = eid(e, shop);
   e.target[shop] = eid(e, factory);
   e.researchKind[shop] = Tech.SpiderMines;
   e.researchTimer[shop] = 1;
 
   sim.step([]);
-  const later = slotOf(spawnUnit(s, Kind.Vulture, 0, fx(430), fx(400)));
+  const later = slotOf(spawn(Kind.Vulture, 0, fx(430), fx(400)));
 
   assert.equal(e.specialAmmo[vulture], SPIDER_MINE_CHARGES);
   assert.equal(e.specialAmmo[later], SPIDER_MINE_CHARGES);
 });
 
 test('burrowed spider mines wake on nearby ground units and detonate with splash', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 212 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 212 });
   const e = s.e;
-  setTechLevel(s, 0, Tech.SpiderMines, 1);
-  const vulture = spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400));
-  const tank = spawnUnit(s, Kind.SiegeTank, 1, fx(470), fx(400));
-  const splashEnemy = spawnUnit(s, Kind.Marine, 1, fx(492), fx(400));
-  const splashFriendly = spawnUnit(s, Kind.Marine, 0, fx(488), fx(406));
+  grant(0, Tech.SpiderMines);
+  const vulture = spawn(Kind.Vulture, 0, fx(400), fx(400));
+  const tank = spawn(Kind.SiegeTank, 1, fx(470), fx(400));
+  const splashEnemy = spawn(Kind.Marine, 1, fx(492), fx(400));
+  const splashFriendly = spawn(Kind.Marine, 0, fx(488), fx(406));
   const tankHp = e.hp[slotOf(tank)]!;
   const enemyHp = e.hp[slotOf(splashEnemy)]!;
   const friendlyHp = e.hp[slotOf(splashFriendly)]!;
@@ -83,12 +78,11 @@ test('burrowed spider mines wake on nearby ground units and detonate with splash
 });
 
 test('spider mines ignore nearby air-only targets', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 213 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 213 });
   const e = s.e;
-  setTechLevel(s, 0, Tech.SpiderMines, 1);
-  const vulture = spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400));
-  spawnUnit(s, Kind.Wraith, 1, fx(430), fx(400));
+  grant(0, Tech.SpiderMines);
+  const vulture = spawn(Kind.Vulture, 0, fx(400), fx(400));
+  spawn(Kind.Wraith, 1, fx(430), fx(400));
 
   sim.step([{ player: 0, cmds: [{ t: 'mine', unit: vulture }] }]);
   const mine = mineSlots(sim)[0]!;
@@ -100,10 +94,9 @@ test('spider mines ignore nearby air-only targets', () => {
 });
 
 test('spider mine state round-trips through byte snapshots', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 214 });
-  const s = sim.fullState();
-  const vulture = spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400));
-  setTechLevel(s, 0, Tech.SpiderMines, 1);
+  const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 214 });
+  const vulture = spawn(Kind.Vulture, 0, fx(400), fx(400));
+  grant(0, Tech.SpiderMines);
   s.e.specialAmmo[slotOf(vulture)] = 2;
   sim.step([{ player: 0, cmds: [{ t: 'mine', unit: vulture }] }]);
 
