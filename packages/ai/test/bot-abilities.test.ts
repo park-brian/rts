@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
-import { botScenario, expectBotCasts, expectCommandType } from '../test-support/bot-scenario.ts';
+import {
+  botScenario,
+  expectBotBuildsLegal,
+  expectBotCasts,
+  expectCommandType,
+  expectNoBotBuild,
+  type BotScenario,
+} from '../test-support/bot-scenario.ts';
 import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
@@ -54,6 +61,24 @@ const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): 
       map.build[ty * map.w + tx] = 0;
     }
   }
+};
+
+const zergBuildOptions = { barracksTarget: 1, workerTarget: 0 };
+
+const zergBuildScenario = (
+  seed: number,
+  setup: (scenario: BotScenario, base: { x: number; y: number }, hatchery: number) => void = () => {},
+): { base: { x: number; y: number }; hatchery: number; scenario: BotScenario } => {
+  const scenario = botScenario({ seed, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  setup(scenario, base, hatchery);
+  scenario.resources(0, 1_000, 1_000);
+  return { base, hatchery, scenario };
+};
+
+const makeLair = (scenario: BotScenario, hatchery: number): void => {
+  scenario.state.e.kind[slotOf(hatchery)] = Kind.Lair;
 };
 
 test('bot uses Stim when committing idle bio to defend', () => {
@@ -149,238 +174,149 @@ test('bot keeps using a completed lair as the zerg base anchor', () => {
 });
 
 test('zerg bot places a legal hydralisk den after a completed spawning pool', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 452, factions: [Zerg, Terran] });
-  const s = sim.fullState();
-  const hatchery = findEntity(sim, Kind.Hatchery, 0);
-  const base = entityPos(sim, hatchery);
-  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const { scenario } = zergBuildScenario(452, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
 
-  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(s, 0);
-  const build = findBuild(cmds, Kind.HydraliskDen);
-
-  assert.ok(build);
-  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+  expectBotBuildsLegal(scenario, Zerg, Kind.HydraliskDen, zergBuildOptions);
 });
 
 test('zerg bot respects hydralisk den prerequisite, placement, duplicates, and budget', () => {
-  const missingPool = new Sim({ map: sliceMap(), players: 2, seed: 453, factions: [Zerg, Terran] });
-  const missingState = missingPool.fullState();
-  missingState.players.minerals[0] = 1_000;
-  missingState.players.gas[0] = 1_000;
+  const { scenario: missingPool } = zergBuildScenario(453);
+  expectNoBotBuild(missingPool, Zerg, Kind.HydraliskDen, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.HydraliskDen), false);
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(454, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
+  blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
+  expectNoBotBuild(blocked, Zerg, Kind.HydraliskDen, zergBuildOptions);
 
-  const blocked = new Sim({ map: sliceMap(), players: 2, seed: 454, factions: [Zerg, Terran] });
-  const blockedState = blocked.fullState();
-  const blockedBase = entityPos(blocked, findEntity(blocked, Kind.Hatchery, 0));
-  spawnUnit(blockedState, Kind.SpawningPool, 0, blockedBase.x + fx(120), blockedBase.y);
-  blockBuildTilesAround(blocked, blockedBase.x, blockedBase.y, 18);
-  blockedState.players.minerals[0] = 1_000;
-  blockedState.players.gas[0] = 1_000;
+  const { scenario: duplicate } = zergBuildScenario(455, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  expectNoBotBuild(duplicate, Zerg, Kind.HydraliskDen, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(blockedState, 0), Kind.HydraliskDen), false);
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(456, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
+  const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pending.state.e.buildKind[worker] = Kind.HydraliskDen;
+  expectNoBotBuild(pending, Zerg, Kind.HydraliskDen, zergBuildOptions);
 
-  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 455, factions: [Zerg, Terran] });
-  const duplicateState = duplicate.fullState();
-  const duplicateBase = entityPos(duplicate, findEntity(duplicate, Kind.Hatchery, 0));
-  spawnUnit(duplicateState, Kind.SpawningPool, 0, duplicateBase.x + fx(120), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.HydraliskDen, 0, duplicateBase.x + fx(160), duplicateBase.y);
-  duplicateState.players.minerals[0] = 1_000;
-  duplicateState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.HydraliskDen), false);
-
-  const pending = new Sim({ map: sliceMap(), players: 2, seed: 456, factions: [Zerg, Terran] });
-  const pendingState = pending.fullState();
-  const pendingBase = entityPos(pending, findEntity(pending, Kind.Hatchery, 0));
-  spawnUnit(pendingState, Kind.SpawningPool, 0, pendingBase.x + fx(120), pendingBase.y);
-  const worker = slotOf(spawnUnit(pendingState, Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
-  pendingState.e.buildKind[worker] = Kind.HydraliskDen;
-  pendingState.players.minerals[0] = 1_000;
-  pendingState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.HydraliskDen), false);
-
-  const broke = new Sim({ map: sliceMap(), players: 2, seed: 457, factions: [Zerg, Terran] });
-  const brokeState = broke.fullState();
-  const brokeBase = entityPos(broke, findEntity(broke, Kind.Hatchery, 0));
-  spawnUnit(brokeState, Kind.SpawningPool, 0, brokeBase.x + fx(120), brokeBase.y);
-  brokeState.players.minerals[0] = 1_000;
-  brokeState.players.gas[0] = Units[Kind.HydraliskDen]!.gas - 1;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.HydraliskDen), false);
+  const { scenario: broke } = zergBuildScenario(457, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
+  broke.resources(0, 1_000, Units[Kind.HydraliskDen]!.gas - 1);
+  expectNoBotBuild(broke, Zerg, Kind.HydraliskDen, zergBuildOptions);
 });
 
 test('zerg bot places a legal spire after a completed lair', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 458, factions: [Zerg, Terran] });
-  const s = sim.fullState();
-  const hatchery = slotOf(findEntity(sim, Kind.Hatchery, 0));
-  const base = entityPos(sim, eid(s.e, hatchery));
-  s.e.kind[hatchery] = Kind.Lair;
-  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
-  spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const { scenario } = zergBuildScenario(458, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
 
-  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(s, 0);
-  const build = findBuild(cmds, Kind.Spire);
-
-  assert.ok(build);
-  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+  expectBotBuildsLegal(scenario, Zerg, Kind.Spire, zergBuildOptions);
 });
 
 test('zerg bot respects spire prerequisite, placement, duplicates, and budget', () => {
-  const missingLair = new Sim({ map: sliceMap(), players: 2, seed: 459, factions: [Zerg, Terran] });
-  const missingState = missingLair.fullState();
-  const missingBase = entityPos(missingLair, findEntity(missingLair, Kind.Hatchery, 0));
-  spawnUnit(missingState, Kind.SpawningPool, 0, missingBase.x + fx(120), missingBase.y);
-  spawnUnit(missingState, Kind.HydraliskDen, 0, missingBase.x + fx(160), missingBase.y);
-  missingState.players.minerals[0] = 1_000;
-  missingState.players.gas[0] = 1_000;
+  const { scenario: missingLair } = zergBuildScenario(459, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  expectNoBotBuild(missingLair, Zerg, Kind.Spire, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.Spire), false);
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(460, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
+  expectNoBotBuild(blocked, Zerg, Kind.Spire, zergBuildOptions);
 
-  const blocked = new Sim({ map: sliceMap(), players: 2, seed: 460, factions: [Zerg, Terran] });
-  const blockedState = blocked.fullState();
-  const blockedHatchery = slotOf(findEntity(blocked, Kind.Hatchery, 0));
-  const blockedBase = entityPos(blocked, eid(blockedState.e, blockedHatchery));
-  blockedState.e.kind[blockedHatchery] = Kind.Lair;
-  spawnUnit(blockedState, Kind.SpawningPool, 0, blockedBase.x + fx(120), blockedBase.y);
-  spawnUnit(blockedState, Kind.HydraliskDen, 0, blockedBase.x + fx(160), blockedBase.y);
-  blockBuildTilesAround(blocked, blockedBase.x, blockedBase.y, 18);
-  blockedState.players.minerals[0] = 1_000;
-  blockedState.players.gas[0] = 1_000;
+  const { scenario: duplicate } = zergBuildScenario(461, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
+  expectNoBotBuild(duplicate, Zerg, Kind.Spire, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(blockedState, 0), Kind.Spire), false);
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(462, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pending.state.e.buildKind[worker] = Kind.Spire;
+  expectNoBotBuild(pending, Zerg, Kind.Spire, zergBuildOptions);
 
-  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 461, factions: [Zerg, Terran] });
-  const duplicateState = duplicate.fullState();
-  const duplicateHatchery = slotOf(findEntity(duplicate, Kind.Hatchery, 0));
-  const duplicateBase = entityPos(duplicate, eid(duplicateState.e, duplicateHatchery));
-  duplicateState.e.kind[duplicateHatchery] = Kind.Lair;
-  spawnUnit(duplicateState, Kind.SpawningPool, 0, duplicateBase.x + fx(120), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.HydraliskDen, 0, duplicateBase.x + fx(160), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.Spire, 0, duplicateBase.x + fx(200), duplicateBase.y);
-  duplicateState.players.minerals[0] = 1_000;
-  duplicateState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.Spire), false);
-
-  const pending = new Sim({ map: sliceMap(), players: 2, seed: 462, factions: [Zerg, Terran] });
-  const pendingState = pending.fullState();
-  const pendingHatchery = slotOf(findEntity(pending, Kind.Hatchery, 0));
-  const pendingBase = entityPos(pending, eid(pendingState.e, pendingHatchery));
-  pendingState.e.kind[pendingHatchery] = Kind.Lair;
-  spawnUnit(pendingState, Kind.SpawningPool, 0, pendingBase.x + fx(120), pendingBase.y);
-  spawnUnit(pendingState, Kind.HydraliskDen, 0, pendingBase.x + fx(160), pendingBase.y);
-  const worker = slotOf(spawnUnit(pendingState, Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
-  pendingState.e.buildKind[worker] = Kind.Spire;
-  pendingState.players.minerals[0] = 1_000;
-  pendingState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.Spire), false);
-
-  const broke = new Sim({ map: sliceMap(), players: 2, seed: 463, factions: [Zerg, Terran] });
-  const brokeState = broke.fullState();
-  const brokeHatchery = slotOf(findEntity(broke, Kind.Hatchery, 0));
-  const brokeBase = entityPos(broke, eid(brokeState.e, brokeHatchery));
-  brokeState.e.kind[brokeHatchery] = Kind.Lair;
-  spawnUnit(brokeState, Kind.SpawningPool, 0, brokeBase.x + fx(120), brokeBase.y);
-  spawnUnit(brokeState, Kind.HydraliskDen, 0, brokeBase.x + fx(160), brokeBase.y);
-  brokeState.players.minerals[0] = 1_000;
-  brokeState.players.gas[0] = Units[Kind.Spire]!.gas - 1;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.Spire), false);
+  const { scenario: broke } = zergBuildScenario(463, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  broke.resources(0, 1_000, Units[Kind.Spire]!.gas - 1);
+  expectNoBotBuild(broke, Zerg, Kind.Spire, zergBuildOptions);
 });
 
 test('zerg bot places a legal queen nest after a completed lair', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 464, factions: [Zerg, Terran] });
-  const s = sim.fullState();
-  const hatchery = slotOf(findEntity(sim, Kind.Hatchery, 0));
-  const base = entityPos(sim, eid(s.e, hatchery));
-  s.e.kind[hatchery] = Kind.Lair;
-  spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
-  spawnUnit(s, Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-  spawnUnit(s, Kind.Spire, 0, base.x + fx(200), base.y);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const { scenario } = zergBuildScenario(464, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
 
-  const cmds = createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(s, 0);
-  const build = findBuild(cmds, Kind.QueensNest);
-
-  assert.ok(build);
-  assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+  expectBotBuildsLegal(scenario, Zerg, Kind.QueensNest, zergBuildOptions);
 });
 
 test('zerg bot respects queen nest prerequisite, placement, duplicates, and budget', () => {
-  const missingLair = new Sim({ map: sliceMap(), players: 2, seed: 465, factions: [Zerg, Terran] });
-  const missingState = missingLair.fullState();
-  const missingBase = entityPos(missingLair, findEntity(missingLair, Kind.Hatchery, 0));
-  spawnUnit(missingState, Kind.SpawningPool, 0, missingBase.x + fx(120), missingBase.y);
-  spawnUnit(missingState, Kind.HydraliskDen, 0, missingBase.x + fx(160), missingBase.y);
-  spawnUnit(missingState, Kind.Spire, 0, missingBase.x + fx(200), missingBase.y);
-  missingState.players.minerals[0] = 1_000;
-  missingState.players.gas[0] = 1_000;
+  const { scenario: missingLair } = zergBuildScenario(465, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
+  expectNoBotBuild(missingLair, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(missingState, 0), Kind.QueensNest), false);
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(466, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
+  blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
+  expectNoBotBuild(blocked, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const blocked = new Sim({ map: sliceMap(), players: 2, seed: 466, factions: [Zerg, Terran] });
-  const blockedState = blocked.fullState();
-  const blockedHatchery = slotOf(findEntity(blocked, Kind.Hatchery, 0));
-  const blockedBase = entityPos(blocked, eid(blockedState.e, blockedHatchery));
-  blockedState.e.kind[blockedHatchery] = Kind.Lair;
-  spawnUnit(blockedState, Kind.SpawningPool, 0, blockedBase.x + fx(120), blockedBase.y);
-  spawnUnit(blockedState, Kind.HydraliskDen, 0, blockedBase.x + fx(160), blockedBase.y);
-  spawnUnit(blockedState, Kind.Spire, 0, blockedBase.x + fx(200), blockedBase.y);
-  blockBuildTilesAround(blocked, blockedBase.x, blockedBase.y, 18);
-  blockedState.players.minerals[0] = 1_000;
-  blockedState.players.gas[0] = 1_000;
+  const { scenario: duplicate } = zergBuildScenario(467, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    scenario.spawn(Kind.QueensNest, 0, base.x + fx(240), base.y);
+  });
+  expectNoBotBuild(duplicate, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(blockedState, 0), Kind.QueensNest), false);
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(468, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
+  const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pending.state.e.buildKind[worker] = Kind.QueensNest;
+  expectNoBotBuild(pending, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const duplicate = new Sim({ map: sliceMap(), players: 2, seed: 467, factions: [Zerg, Terran] });
-  const duplicateState = duplicate.fullState();
-  const duplicateHatchery = slotOf(findEntity(duplicate, Kind.Hatchery, 0));
-  const duplicateBase = entityPos(duplicate, eid(duplicateState.e, duplicateHatchery));
-  duplicateState.e.kind[duplicateHatchery] = Kind.Lair;
-  spawnUnit(duplicateState, Kind.SpawningPool, 0, duplicateBase.x + fx(120), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.HydraliskDen, 0, duplicateBase.x + fx(160), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.Spire, 0, duplicateBase.x + fx(200), duplicateBase.y);
-  spawnUnit(duplicateState, Kind.QueensNest, 0, duplicateBase.x + fx(240), duplicateBase.y);
-  duplicateState.players.minerals[0] = 1_000;
-  duplicateState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(duplicateState, 0), Kind.QueensNest), false);
-
-  const pending = new Sim({ map: sliceMap(), players: 2, seed: 468, factions: [Zerg, Terran] });
-  const pendingState = pending.fullState();
-  const pendingHatchery = slotOf(findEntity(pending, Kind.Hatchery, 0));
-  const pendingBase = entityPos(pending, eid(pendingState.e, pendingHatchery));
-  pendingState.e.kind[pendingHatchery] = Kind.Lair;
-  spawnUnit(pendingState, Kind.SpawningPool, 0, pendingBase.x + fx(120), pendingBase.y);
-  spawnUnit(pendingState, Kind.HydraliskDen, 0, pendingBase.x + fx(160), pendingBase.y);
-  spawnUnit(pendingState, Kind.Spire, 0, pendingBase.x + fx(200), pendingBase.y);
-  const worker = slotOf(spawnUnit(pendingState, Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
-  pendingState.e.buildKind[worker] = Kind.QueensNest;
-  pendingState.players.minerals[0] = 1_000;
-  pendingState.players.gas[0] = 1_000;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(pendingState, 0), Kind.QueensNest), false);
-
-  const broke = new Sim({ map: sliceMap(), players: 2, seed: 469, factions: [Zerg, Terran] });
-  const brokeState = broke.fullState();
-  const brokeHatchery = slotOf(findEntity(broke, Kind.Hatchery, 0));
-  const brokeBase = entityPos(broke, eid(brokeState.e, brokeHatchery));
-  brokeState.e.kind[brokeHatchery] = Kind.Lair;
-  spawnUnit(brokeState, Kind.SpawningPool, 0, brokeBase.x + fx(120), brokeBase.y);
-  spawnUnit(brokeState, Kind.HydraliskDen, 0, brokeBase.x + fx(160), brokeBase.y);
-  spawnUnit(brokeState, Kind.Spire, 0, brokeBase.x + fx(200), brokeBase.y);
-  brokeState.players.minerals[0] = 1_000;
-  brokeState.players.gas[0] = Units[Kind.QueensNest]!.gas - 1;
-
-  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 1, workerTarget: 0 })(brokeState, 0), Kind.QueensNest), false);
+  const { scenario: broke } = zergBuildScenario(469, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  });
+  broke.resources(0, 1_000, Units[Kind.QueensNest]!.gas - 1);
+  expectNoBotBuild(broke, Zerg, Kind.QueensNest, zergBuildOptions);
 });
 
 test('zerg bot places a legal nydus canal after a completed lair', () => {

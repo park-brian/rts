@@ -1612,6 +1612,8 @@ Highest-impact LOC reductions:
        setup, spawning, bot execution, and command expectation helpers.
      - Migrated the Stim bot ability test as the initial proof before expanding the DSL across larger
        Zerg tech and command policy clusters.
+     - Expanded the helper with build-command assertions and migrated the Hydralisk Den, Spire, and
+       Queen Nest Zerg build-gate tests to remove repeated sim/resource/build-validation setup.
 6. Replace scattered child/internal-product logic with descriptors.
    - Current shape: Scarabs, Interceptors, Spider Mines, and Nukes share concepts but appear as
      `specialAmmo`, child actors, production specials, UI labels, combat checks, and tests.
