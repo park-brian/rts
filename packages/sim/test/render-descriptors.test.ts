@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EffectKind, Kind, TILE, Units } from '../src/data.ts';
+import { EffectKind, Kind, Order, TILE, Units } from '../src/data.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';
-import { makeState, slotOf, spawnEffect } from '../src/world.ts';
+import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
   effectVisibilityAffordances, entityPresentation, entityRenderHull, entitySelectionName, selectionBase,
+  workActivities,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -125,4 +126,33 @@ test('effect visibility affordances expose scan and nuke presentation policy', (
   assert.equal(explored.length, 1);
   assert.equal(explored[0]?.kind, 'nuke');
   assert.equal(explored[0]?.timer, 40);
+});
+
+test('work activities expose construction and repair spark policy from sim state', () => {
+  const s = makeState(sliceMap(), 1, 80);
+  const e = s.e;
+  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, fx(400), fx(400)));
+  const depot = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(430), fx(400)));
+  e.built[depot] = 0;
+  e.ctimer[depot] = Units[Kind.SupplyDepot]!.buildTime;
+  e.order[scv] = Order.Build;
+  e.buildKind[scv] = Kind.None;
+  e.target[scv] = eid(e, depot);
+  e.target[depot] = eid(e, scv);
+
+  const [build] = workActivities(s);
+  assert.equal(build?.kind, 'build');
+  assert.equal(build?.worker, scv);
+  assert.equal(build?.target, depot);
+  assert.ok(build.x <= e.x[scv]!);
+
+  const tank = slotOf(spawnUnit(s, Kind.SiegeTank, 0, fx(410), fx(400)));
+  e.hp[tank] = Units[Kind.SiegeTank]!.hp - 25;
+  e.order[scv] = Order.Repair;
+  e.target[scv] = eid(e, tank);
+
+  const [repair] = workActivities(s);
+  assert.equal(repair?.kind, 'repair');
+  assert.equal(repair?.worker, scv);
+  assert.equal(repair?.target, tank);
 });

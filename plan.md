@@ -1754,6 +1754,9 @@ Highest-impact LOC reductions:
        footprint/body math while sprite pixel placement remains app-owned.
      - Moved scan/nuke effect visibility affordance policy into a sim-exported render descriptor
        query. The app still supplies viewer tile visibility and renderers still own pixel styling.
+     - Moved construction/repair work spark affordance policy into sim-exported render descriptors.
+       The app renderers still own particle color and drawing, but no longer interpret worker orders
+       or target footprint math themselves.
 
 Further concrete deletion opportunities found on review:
 
