@@ -1587,7 +1587,9 @@ Highest-impact LOC reductions:
        `Game` supplies state and visibility while HUD signal writes live in one app-side module.
      - Extracted `ControlGroupController`, which owns group storage, live filtering, assign/recall
        selection mutation, pruning, and repeat-recall centering decisions behind stable `Game` wrappers.
-     - Remaining: split input/placement controllers once the control-group boundary settles.
+     - Extracted `PlacementController`, which owns placement ghost derivation and build/land commit
+       command construction behind stable `Game` wrappers for input and tests.
+     - Remaining: split input controllers once the placement boundary settles.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.

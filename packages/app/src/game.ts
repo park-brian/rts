@@ -5,9 +5,9 @@
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
   slotOf, eid, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
-  canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
+  validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions,
-  transformFor, snapBuildAnchor, isLiftedStructureFlags,
+  transformFor, isLiftedStructureFlags,
   bodyBounds, structureFootprint,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
@@ -18,6 +18,7 @@ import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
+import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -81,9 +82,9 @@ export class Game {
 
   selection = new Set<number>();
   private readonly controlGroupController = new ControlGroupController();
+  private readonly placementController = new PlacementController();
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
-  placementGhost: { kind: number; x: number; y: number; ok: boolean } | null = null;
   private edgePanX = 0;
   private edgePanY = 0;
 
@@ -104,6 +105,14 @@ export class Game {
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.controlGroupController.groups;
+  }
+
+  get placementGhost(): PlacementGhost | null {
+    return this.placementController.ghost;
+  }
+
+  set placementGhost(ghost: PlacementGhost | null) {
+    this.placementController.ghost = ghost;
   }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
@@ -137,7 +146,7 @@ export class Game {
     this.controlGroupController.reset();
     resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.queued = [];
-    this.placementGhost = null;
+    this.placementController.clear();
     this.visible = new Uint8Array(this.map.w * this.map.h);
     this.explored = new Uint8Array(this.map.w * this.map.h);
     this.visibleEntityTick = -1;
@@ -579,62 +588,31 @@ export class Game {
 
   updatePlacementGhost(sx: number, sy: number): void {
     const armed = ui.armedCommand.value;
-    if (this.human < 0 || !isPlacementArmed(armed)) {
-      this.placementGhost = null;
-      return;
-    }
     const [wx, wy] = this.screenToWorld(sx, sy);
-    const e = this.sim.fullState().e;
-    const kind = armed.kind;
-    const tx = (wx * ONE) | 0;
-    const ty = (wy * ONE) | 0;
-    if (armed.t === 'land') {
-      const building = this.firstSelected((i) => e.kind[i] === kind && isLiftedStructureFlags(e.flags[i]!));
-      if (building < 0) {
-        this.placementGhost = null;
-        return;
-      }
-      const snapped = snapBuildAnchor(tx, ty);
-      const c: Command = { t: 'land', building: eid(e, building), x: snapped.x, y: snapped.y };
-      this.placementGhost = { kind, x: snapped.x, y: snapped.y, ok: validateCommand(this.sim.fullState(), this.human, c).ok };
-      return;
-    }
-    const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
-    if (worker < 0) {
-      this.placementGhost = null;
-      return;
-    }
-    const placement = canPlaceStructure(this.sim.fullState(), this.human, worker, kind, tx, ty);
-    if (placement.ok) this.placementGhost = { kind, x: placement.x, y: placement.y, ok: true };
-    else {
-      const snapped = snapBuildAnchor(tx, ty);
-      this.placementGhost = { kind, x: snapped.x, y: snapped.y, ok: false };
-    }
+    this.placementController.update({
+      state: this.sim.fullState(),
+      human: this.human,
+      armed,
+      worldX: wx,
+      worldY: wy,
+      firstSelected: (pred) => this.firstSelected(pred),
+    });
   }
 
   commitPlacementGhost(): boolean {
-    const ghost = this.placementGhost;
-    const e = this.sim.fullState().e;
-    const armed = ui.armedCommand.value;
-    if (!ghost || !ghost.ok || !isPlacementArmed(armed)) return false;
-    if (armed.t === 'land') {
-      const building = this.firstSelected((i) => e.kind[i] === ghost.kind && isLiftedStructureFlags(e.flags[i]!));
-      if (building < 0) return false;
-      this.queued.push({ t: 'land', building: eid(e, building), x: ghost.x, y: ghost.y });
-      clearArmedCommand();
-      this.placementGhost = null;
-      return true;
-    }
-    const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
-    if (worker < 0) return false;
-    this.queued.push({ t: 'build', unit: eid(e, worker), kind: ghost.kind, x: ghost.x, y: ghost.y });
+    const command = this.placementController.commit({
+      state: this.sim.fullState(),
+      armed: ui.armedCommand.value,
+      firstSelected: (pred) => this.firstSelected(pred),
+    });
+    if (!command) return false;
+    this.queued.push(command);
     clearArmedCommand();
-    this.placementGhost = null;
     return true;
   }
 
   cancelPlacementGhost(): void {
-    this.placementGhost = null;
+    this.placementController.clear();
   }
 
   private mobileSelection(e: State['e']): number[] {
