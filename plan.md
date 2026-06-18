@@ -2877,6 +2877,9 @@ Implementation slices:
    - Status: immediate command-card Load candidates now resolve through `command-intent.ts`, so
      mixed-selection transport/cargo pairing and validation filtering are shared with sim tests
      instead of being rebuilt in the app selection presenter.
+   - Status: armed Rally target resolution now also lives in `command-intent.ts`, including
+     friendly/gather target detection, targeted rally validation, and fallback to point rally when a
+     hit entity is not a valid rally target for the selected producer.
    - Status: action-mask follow-target coverage implemented. Entity target masks and caller-owned
      writers now accept the `move` head for targeted follow candidates, with validator-parity tests
      proving friendly non-resource targets are exposed while enemy, resource, and self targets are

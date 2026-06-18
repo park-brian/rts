@@ -5,7 +5,7 @@ import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
   attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
-  repairModeCandidates, smartCommandCandidates,
+  rallyModeCandidates, repairModeCandidates, smartCommandCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, makeState, NEUTRAL, slotOf } from '../src/world.ts';
@@ -193,6 +193,32 @@ test('load command-card candidates ignore invalid cargo and non-selected transpo
     { t: 'load', transport: dropship, unit: marine },
     { t: 'load', transport: dropship, unit: tank },
     { t: 'load', transport: bunker, unit: marine },
+  ]);
+});
+
+test('armed rally mode targets valid friendly units and gather targets', () => {
+  const s = makeState(open(), 1, 1217);
+  const cc = spawnUnit(s, Kind.CommandCenter, 0, tc(8), tc(8));
+  const barracks = spawnUnit(s, Kind.Barracks, 0, tc(9), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(8));
+
+  assert.deepEqual(rallyModeCandidates(s, 0, [cc, barracks, marine], { hit: marine, x: tc(12), y: tc(8) }), [
+    { t: 'rally', building: cc, x: tc(12), y: tc(8), target: marine },
+    { t: 'rally', building: barracks, x: tc(12), y: tc(8), target: marine },
+  ]);
+  assert.deepEqual(rallyModeCandidates(s, 0, [cc], { hit: mineral, x: tc(14), y: tc(8) }), [
+    { t: 'rally', building: cc, x: tc(14), y: tc(8), target: mineral },
+  ]);
+});
+
+test('armed rally mode falls back to point rally for invalid entity targets', () => {
+  const s = makeState(open(), 1, 1218);
+  const barracks = spawnUnit(s, Kind.Barracks, 0, tc(8), tc(8));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(8));
+
+  assert.deepEqual(rallyModeCandidates(s, 0, [barracks], { hit: mineral, x: tc(14), y: tc(8) }), [
+    { t: 'rally', building: barracks, x: tc(14), y: tc(8) },
   ]);
 });
 

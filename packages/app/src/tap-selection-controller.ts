@@ -1,8 +1,8 @@
 import type { Game } from './game.ts';
 import {
-  Abilities, NONE, ONE, Role, attackModeCandidates, canPlayerGatherTarget, harvestModeCandidates,
-  isAlive, repairModeCandidates, sameTeam, slotOf, validateCommand,
-  type Command, type State,
+  Abilities, NONE, ONE, Role, attackModeCandidates, harvestModeCandidates, isAlive,
+  rallyModeCandidates, repairModeCandidates, slotOf,
+  type State,
 } from './sim.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { clearArmedCommand, isPlacementArmed, ui } from './store.ts';
@@ -41,19 +41,7 @@ export class TapSelectionController {
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? g.hitTest(wx, wy);
 
     if (armed.t === 'rally') {
-      const rallyTarget = hit >= 0 && (canPlayerGatherTarget(s, g.human, hit) || sameTeam(s, g.human, e.owner[slotOf(hit)]!))
-        ? hit
-        : undefined;
-      for (const id of g.selection) {
-        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          const targeted: Command | null = rallyTarget !== undefined
-            ? { t: 'rally', building: id, x: tx, y: ty, target: rallyTarget }
-            : null;
-          g.queued.push(targeted && validateCommand(s, g.human, targeted).ok
-            ? targeted
-            : { t: 'rally', building: id, x: tx, y: ty });
-        }
-      }
+      this.queueRallyMode(hit, tx, ty);
       clearArmedCommand();
       return;
     }
@@ -154,6 +142,14 @@ export class TapSelectionController {
       if ((e.flags[slotOf(id)]! & Role.Structure) === 0) ids.push(id);
     }
     return ids;
+  }
+
+  private queueRallyMode(hit: number, x: number, y: number): void {
+    const g = this.game;
+    const s = g.sim.fullState();
+    for (const command of rallyModeCandidates(s, g.human, g.selection, { hit, x, y })) {
+      g.queued.push(command);
+    }
   }
 
   private queueHarvestTarget(target: number): boolean {

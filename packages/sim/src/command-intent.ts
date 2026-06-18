@@ -160,6 +160,31 @@ export const loadSelectionCandidates = (
   return commands;
 };
 
+export const rallyModeCandidates = (
+  s: State,
+  player: number,
+  buildings: Iterable<number>,
+  target: SmartCommandTarget,
+): Command[] => {
+  const e = s.e;
+  const targetSlot = target.hit >= 0 && isAlive(e, target.hit) ? slotOf(target.hit) : -1;
+  const canTarget = targetSlot >= 0 &&
+    (canPlayerGatherTarget(s, player, target.hit) || sameTeam(s, player, e.owner[targetSlot]!));
+  const commands: Command[] = [];
+  for (const building of buildings) {
+    const targeted: Command | null = canTarget
+      ? { t: 'rally', building, x: target.x, y: target.y, target: target.hit }
+      : null;
+    if (targeted && validateCommand(s, player, targeted).ok) {
+      commands.push(targeted);
+      continue;
+    }
+    const point: Command = { t: 'rally', building, x: target.x, y: target.y };
+    if (validateCommand(s, player, point).ok) commands.push(point);
+  }
+  return commands;
+};
+
 export const producedUnitRallyIntent = (
   s: State,
   producer: number,
