@@ -13,6 +13,8 @@ import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
 import { placementForStructure } from '../src/validation.ts';
+import { applyCommands } from '../src/systems/ingest.ts';
+import { workersCanShareMineralWalkCollision } from '../src/worker-collision.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
 const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery] as const;
@@ -514,6 +516,23 @@ test('returning mineral workers share collision with harvesting workers but not 
 
   assert.notEqual(positionKey(s, a), before, 'mineral-carrying worker still collides with non-worker traffic');
   assert.notEqual(positionKey(s, marine), before, 'non-worker traffic is still solid to mineral-carrying workers');
+});
+
+test('harvest commands immediately put workers on mineral-walk collision routes', () => {
+  const s = makeState(blankMap('harvest-command-worker-collision', 16, 16), 1, 107);
+  const e = s.e;
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
+  const fresh = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const returning = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  e.order[returning] = Order.Harvest;
+  e.target[returning] = eid(e, mineral);
+  e.cargo[returning] = 8;
+  e.cargoType[returning] = ResourceType.Minerals;
+
+  const results = applyCommands(s, [{ player: 0, cmds: [{ t: 'harvest', unit: eid(e, fresh), patch: eid(e, mineral) }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'harvest', ok: true }]);
+  assert.equal(workersCanShareMineralWalkCollision(s, fresh, returning), true);
 });
 
 test('moving units face their current travel direction', () => {

@@ -1282,3 +1282,8 @@ Completed:
 - Added a Protoss power + production scenario test that proves powered queues tick, unpowered
   producers reject new work and pause existing queues, and restored power lets production complete
   through normal sim stepping.
+- Added a transport unload + collision scenario test and shared unload placement helper: blocked
+  terrain and occupied ground bodies reject without releasing cargo, while a nearby clear point
+  unloads without overlap.
+- Added a command-ingestion regression proving accepted mineral harvest orders immediately enter
+  the mineral-walk collision class against workers that are harvesting or returning minerals.

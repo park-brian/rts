@@ -9,6 +9,8 @@ import { spawnUnit } from '../src/factory.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { deserializeState, serializeState } from '../src/serialize.ts';
 import { parseReplay } from '../src/replay.ts';
+import { tileX, tileY } from '../src/pathing.ts';
+import { topDownEdgeDistance } from '../src/spatial.ts';
 
 test('transports load, carry, and unload ground units through explicit commands', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 170 });
@@ -34,6 +36,36 @@ test('transports load, carry, and unload ground units through explicit commands'
   assert.equal(e.container[marine], NONE);
   assert.equal(e.x[marine], unloadX);
   assert.equal(e.y[marine], unloadY);
+});
+
+test('transport unload rejects blocked or occupied points without releasing cargo', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 179 });
+  const s = sim.fullState();
+  const e = s.e;
+  const dropship = slotOf(spawnUnit(s, Kind.Dropship, 0, fx(700), fx(700)));
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(720), fx(700)));
+  const blocker = slotOf(spawnUnit(s, Kind.Marine, 0, fx(740), fx(700)));
+  const blockedX = fx(780);
+  const blockedY = fx(700);
+  s.map.walk[tileY(blockedY) * s.map.w + tileX(blockedX)] = 0;
+
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: eid(e, dropship), unit: eid(e, marine) }] }]);
+  const blocked = sim.step([{ player: 0, cmds: [{ t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), x: blockedX, y: blockedY }] }]);
+  assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'unload', ok: false, reason: 'placement-blocked' }]);
+  assert.equal(e.container[marine], eid(e, dropship));
+
+  const occupied = sim.step([{ player: 0, cmds: [{ t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), x: e.x[blocker]!, y: e.y[blocker]! }] }]);
+  assert.deepEqual(occupied, [{ player: 0, index: 0, t: 'unload', ok: false, reason: 'placement-blocked' }]);
+  assert.equal(e.container[marine], eid(e, dropship));
+
+  const clearX = e.x[dropship]!;
+  const clearY = e.y[dropship]! + fx(72);
+  const clear = sim.step([{ player: 0, cmds: [{ t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), x: clearX, y: clearY }] }]);
+  assert.deepEqual(clear, [{ player: 0, index: 0, t: 'unload', ok: true }]);
+  assert.equal(e.container[marine], NONE);
+  assert.equal(e.x[marine], clearX);
+  assert.equal(e.y[marine], clearY);
+  assert.ok(topDownEdgeDistance(s, marine, blocker) > 0, 'successful unload should not overlap the occupied point blocker');
 });
 
 test('transport capacity and Overlord transport tech are validated centrally', () => {

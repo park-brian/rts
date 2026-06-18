@@ -2,7 +2,8 @@ import { Kind, Order, Role, Tech, Units, tiles } from './data.ts';
 import { tileX, tileY } from './pathing.ts';
 import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from './world.ts';
-import { navPassable } from './flow.ts';
+import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from './flow.ts';
+import { topDownInteractionRect, type InteractionRect } from './spatial.ts';
 import { isDisabled } from './systems/status.ts';
 
 export const LOAD_RANGE = tiles(2);
@@ -123,3 +124,21 @@ export const containedBy = (s: State, unit: number, transport: number): boolean 
 
 export const unloadPassable = (s: State, x: number, y: number): boolean =>
   navPassable(s, tileX(x), tileY(y));
+
+const rectsOverlap = (a: InteractionRect, b: InteractionRect): boolean =>
+  a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+
+export const canUnloadAt = (s: State, unit: number, x: number, y: number, ignoreSlot = NONE): boolean => {
+  const e = s.e;
+  const kind = e.kind[unit]!;
+  const flags = e.flags[unit]!;
+  if (!pathPassable(s, clearancePxForKind(kind), pathX(x), pathY(y))) return false;
+  if ((flags & Role.Air) !== 0) return true;
+
+  const body = topDownInteractionRect(kind, x, y, flags);
+  for (let i = 0; i < e.hi; i++) {
+    if (i === unit || i === ignoreSlot || e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Air) !== 0) continue;
+    if (rectsOverlap(body, topDownInteractionRect(e.kind[i]!, e.x[i]!, e.y[i]!, e.flags[i]!))) return false;
+  }
+  return true;
+};

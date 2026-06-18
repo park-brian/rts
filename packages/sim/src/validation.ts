@@ -28,7 +28,7 @@ import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
-  transportCapacity, unloadAnchorSlot, unloadPassable,
+  transportCapacity, unloadAnchorSlot, canUnloadAt,
 } from './cargo.ts';
 
 export type { CommandRejectReason };
@@ -431,7 +431,7 @@ export const validateCommand = (
       if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
       const anchor = unloadAnchorSlot(s, transport, c.x, c.y);
       if (anchor === NONE || distSq(e.x[anchor]!, e.y[anchor]!, c.x, c.y) > UNLOAD_RANGE * UNLOAD_RANGE) return reject('target-out-of-range');
-      if (!unloadPassable(s, c.x, c.y)) return reject('placement-blocked');
+      if (!canUnloadAt(s, unit, c.x, c.y, anchor)) return reject('placement-blocked');
       return { ok: true };
     }
     case 'cancelBuild': {
