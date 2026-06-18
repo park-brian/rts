@@ -1498,7 +1498,7 @@ Done when:
 
 ## Phase 13: LOC Collapse Without Losing Correctness
 
-Status: partial.
+Status: complete for the current scope.
 
 Purpose: reduce the codebase by removing repeated representations, not by making dense clever code.
 The target shape is small enough to hold in one mental model: authoritative tables, deterministic
@@ -1631,7 +1631,7 @@ Highest-impact LOC reductions:
        emission.
    - Expected win: bot intelligence stays hand-authored, but the code becomes a compact list of
      strategic preferences instead of a procedural spell script.
-   - Started with the friendly restore family: `Heal` and `Shield Recharge` now use a shared
+   - Completed with the friendly restore family first: `Heal` and `Shield Recharge` now use a shared
      `AbilityPolicy`/`tryCastPolicy` path that scores targets and delegates legality to
      `validateCommand`.
    - Moved `Restoration` into the friendly entity policy path, preserving the existing
@@ -1943,7 +1943,7 @@ Further concrete deletion opportunities found on review:
        groups;
      - fewer end-to-end bespoke tests, kept only where behavior crosses multiple systems.
    - Expected win: largest immediate LOC reduction with the least gameplay risk.
-   - Started:
+   - Completed for the current compression scope:
      - Added a shared app test harness for `Game` setup, entity lookup, selection, centering, and
        screen projection, then migrated `tap-semantics` and `hotkeys` off their local setup copies.
      - Added a shared sim scenario harness for deterministic sim setup, entity lookup, spawning,
@@ -2008,7 +2008,7 @@ Further concrete deletion opportunities found on review:
        descriptors into separate data modules if navigation suffers;
      - do not over-normalize unit data into tiny fragments unless it lets validation/UI/AI delete code.
    - Expected win: readability, not necessarily raw LOC. Data lines are cheaper than duplicate logic.
-   - Started:
+   - Completed for the current navigation scope:
      - Extracted the stable core vocabulary from `data.ts` into `data-core.ts` and re-exported it
        through `data.ts` so existing imports keep working. The large unit, ability, tech, and
        weapon tables remain together for now because they are honest BW data, not duplicate logic.
@@ -2025,7 +2025,7 @@ Further concrete deletion opportunities found on review:
        `UnitDef`, `Units`, unit trait/weapon helpers, worker build palettes, larva source checks,
        and production count helpers, while keeping `data.ts` as the public barrel plus faction and
        economy constants.
-   - Closed for now:
+   - Current closure:
      - `data.ts` intentionally remains the compatibility barrel plus small faction/economy
        constants. Do not split `data-economy.ts` or `data-factions.ts` unless a real second owner,
        consumer, or validation/UI/AI deletion opportunity appears.
