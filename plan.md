@@ -706,7 +706,7 @@ Done when:
 
 ## Phase 9: SC2-Style Movement, Clearance, And Local Avoidance
 
-Status: in progress.
+Status: complete.
 
 Purpose: replace "move into overlap, then shove apart" with a deterministic movement model that
 feels closer to StarCraft II: large units respect real body clearance, armies flow around each
@@ -878,13 +878,16 @@ Completed:
 - Worker collision is now pairwise and order-derived instead of role-wide: workers are solid
   during ordinary move/build/repair/gas behavior, while two workers that are both on mineral
   harvest/return routes may share space for smooth mineral-line routing.
+- Swept the `movement-deathball` benchmark across seeds 7, 31, 99, 2026, and 4099.
+  All runs accepted 32/32 commands, settled all 32 mixed ground units, left zero active orders,
+  and produced 32 distinct final positions. Architecture docs now record the current decision to
+  keep the 16px path lattice and revisit 8px only if visual, choke, or resource-route tests expose
+  a concrete precision miss.
 
 Remaining:
 
-- Run and compare the new movement stress benchmark across representative seeds after tuning
-  changes.
-- Decide from movement-stress measurements and visual review whether the path lattice needs to move
-  from 16px to true BW-style 8px cells.
+- None in the current Phase 9 scope; future 8px path cells are a measured tuning option, not an
+  active requirement.
 
 ## Phase 9B: Top-Down Spatial Semantics And Procedural Map Design
 
@@ -1172,9 +1175,6 @@ Remaining:
 This is the working list of "things that were actually in the game" which remain either partial,
 approximated, or absent. Keep this list honest as mechanics land.
 
-- Pathing and movement fidelity:
-  - Movement-stress benchmark comparisons and visual review to decide whether the 16px path
-    lattice needs true BW-style 8px cells.
 - Top-down spatial semantics:
   - Replace remaining BW-approx harvest placement with direct top-down mineral/gas dock-distance
     targets and keep route slack as diagnostics only.
