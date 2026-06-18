@@ -1726,6 +1726,11 @@ Highest-impact LOC reductions:
      - the combat loop dispatches to a tiny closed set of mechanic handlers.
    - Expected win: moderate LOC reduction, large readability win, and better fit for future Valkyrie,
      missile, splash, and projectile fidelity.
+   - Started:
+     - Added first-pass `WeaponMechanicDef` ids for Reaver Scarab launch and Carrier Interceptor
+       launch.
+     - Routed the existing Reaver ammo/child-launch and Carrier launch-range/cooldown combat
+       branches through those descriptor ids without changing delivery behavior.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.

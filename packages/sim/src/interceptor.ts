@@ -4,11 +4,16 @@ import { spawnUnit } from './factory.ts';
 import { isqrt } from './fixed.ts';
 import { eid, slotOf, type State } from './world.ts';
 import { faceToward } from './systems/move.ts';
+import { WeaponMechanic, weaponMechanicDef } from './weapon-mechanics.ts';
 
-const LAUNCH_COOLDOWN = sec(1);
-const LAUNCH_RANGE = tiles(8);
 const BAY_FORWARD = tiles(0.3);
 const BAY_SIDE = tiles(0.58);
+
+const interceptorMechanic = () => {
+  const mechanic = weaponMechanicDef(Kind.Carrier);
+  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch) throw new Error('missing carrier interceptor mechanic');
+  return mechanic;
+};
 
 export const INTERCEPTOR_SORTIE_TICKS = sec(4);
 
@@ -42,12 +47,13 @@ const launchedBy = (s: State, carrier: number): number => {
   return n;
 };
 
-export const carrierLaunchRange = (): number => LAUNCH_RANGE;
+export const carrierLaunchRange = (): number => interceptorMechanic().launchRange!;
 
 export const carrierCanTarget = (s: State, carrier: number, target: number): boolean => {
-  if (s.e.kind[carrier] !== Kind.Carrier) return false;
+  const mechanic = weaponMechanicDef(s.e.kind[carrier]!);
+  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch) return false;
   const targetDef = Units[s.e.kind[target]!];
-  return !!targetDef && !!weaponForTarget(Units[Kind.Interceptor]!, targetDef);
+  return !!targetDef && !!weaponForTarget(Units[mechanic.childKind]!, targetDef);
 };
 
 export const carrierCanAttack = (s: State, carrier: number, target: number): boolean =>
@@ -55,14 +61,15 @@ export const carrierCanAttack = (s: State, carrier: number, target: number): boo
 
 export const launchInterceptor = (s: State, carrier: number, target: number): boolean => {
   const e = s.e;
-  const capacity = internalAmmoCapacity(s, carrier, Kind.Interceptor);
+  const mechanic = interceptorMechanic();
+  const capacity = internalAmmoCapacity(s, carrier, mechanic.childKind);
   if (capacity <= 0 || e.specialAmmo[carrier]! <= 0) return false;
   const launched = launchedBy(s, carrier);
   if (launched >= capacity) return false;
   e.specialAmmo[carrier] = e.specialAmmo[carrier]! - 1;
   faceToward(e, carrier, e.x[target]!, e.y[target]!);
   const bay = carrierBayPoint(s, carrier, launched);
-  const id = spawnUnit(s, Kind.Interceptor, e.owner[carrier]!, bay.x, bay.y);
+  const id = spawnUnit(s, mechanic.childKind, e.owner[carrier]!, bay.x, bay.y);
   const interceptor = slotOf(id);
   e.home[interceptor] = eid(e, carrier);
   e.order[interceptor] = Order.Attack;
@@ -72,4 +79,4 @@ export const launchInterceptor = (s: State, carrier: number, target: number): bo
   return true;
 };
 
-export const interceptorLaunchCooldown = (): number => LAUNCH_COOLDOWN;
+export const interceptorLaunchCooldown = (): number => interceptorMechanic().launchCooldown!;

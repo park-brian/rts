@@ -27,6 +27,7 @@ export * from './repair.ts';
 export * from './tech.ts';
 export * from './internal-products.ts';
 export * from './child-actors.ts';
+export * from './weapon-mechanics.ts';
 export * from './derived.ts';
 export * from './rally.ts';
 export * from './world.ts';

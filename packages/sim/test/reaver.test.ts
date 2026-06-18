@@ -12,8 +12,9 @@ import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
-import { carrierBayPoint, launchInterceptor } from '../src/interceptor.ts';
+import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
+import { WeaponMechanic, weaponMechanicDef } from '../src/weapon-mechanics.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -42,6 +43,19 @@ const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dy = ay - by;
   return dx * dx + dy * dy;
 };
+
+test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
+  const scarab = weaponMechanicDef(Kind.Reaver);
+  assert.equal(scarab?.id, WeaponMechanic.ScarabLaunch);
+  assert.equal(scarab?.childKind, Kind.Scarab);
+  assert.equal(scarab?.consumesAmmoOnFire, true);
+
+  const interceptor = weaponMechanicDef(Kind.Carrier);
+  assert.equal(interceptor?.id, WeaponMechanic.InterceptorLaunch);
+  assert.equal(interceptor?.childKind, Kind.Interceptor);
+  assert.equal(interceptor?.launchRange, carrierLaunchRange());
+  assert.equal(interceptor?.launchCooldown, interceptorLaunchCooldown());
+});
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 601 });

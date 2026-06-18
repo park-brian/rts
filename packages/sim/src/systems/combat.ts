@@ -23,6 +23,7 @@ import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launch
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from '../weapon-mechanics.ts';
 
 const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = ax - bx;
@@ -36,11 +37,11 @@ const insideMinimumRange = (s: State, attacker: number, target: number, weapon: 
 const isSuicideAttacker = (kind: number): boolean =>
   kind === Kind.Scourge || kind === Kind.InfestedTerran || kind === Kind.SpiderMine;
 
-const hasSpecialWeaponAmmo = (s: State, slot: number): boolean =>
-  s.e.kind[slot] !== Kind.Reaver || s.e.specialAmmo[slot]! > 0;
+const hasSpecialWeaponAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): boolean =>
+  mechanic?.consumesAmmoOnFire !== true || s.e.specialAmmo[slot]! > 0;
 
-const consumeSpecialWeaponAmmo = (s: State, slot: number): void => {
-  if (s.e.kind[slot] === Kind.Reaver && s.e.specialAmmo[slot]! > 0) {
+const consumeSpecialWeaponAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): void => {
+  if (mechanic?.consumesAmmoOnFire === true && s.e.specialAmmo[slot]! > 0) {
     s.e.specialAmmo[slot] = s.e.specialAmmo[slot]! - 1;
   }
 };
@@ -169,11 +170,12 @@ export const combat = (s: State, grid: Grid): void => {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || isContained(s, i)) continue;
     if (e.kind[i] === Kind.Scarab) continue;
     const def = Units[e.kind[i]!];
+    const mechanic = weaponMechanicDef(e.kind[i]!);
     const isBunker = e.kind[i] === Kind.Bunker;
-    const isCarrier = e.kind[i] === Kind.Carrier;
-    if (!def || (!hasAnyWeapon(def) && !isBunker && !isCarrier)) continue;
+    const interceptorLaunch = mechanic?.id === WeaponMechanic.InterceptorLaunch;
+    if (!def || (!hasAnyWeapon(def) && !isBunker && !interceptorLaunch)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
-    if (!isBunker && !isCarrier && !hasSpecialWeaponAmmo(s, i)) continue;
+    if (!isBunker && !interceptorLaunch && !hasSpecialWeaponAmmo(s, i, mechanic)) continue;
     if (!isBunker && !canUseWeaponNow(s, i)) continue;
     if (isDisabled(e, i)) continue;
     if (!isPowered(s, i)) continue;
@@ -194,11 +196,11 @@ export const combat = (s: State, grid: Grid): void => {
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
-          (isBunker ? bunkerCanAttack(s, i, rs) : isCarrier ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
+          (isBunker ? bunkerCanAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     }
     if (tgt === NONE && order !== Order.Attack) {
-      tgt = isBunker ? nearestBunkerTarget(s, i, sight) : isCarrier ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
+      tgt = isBunker ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
     }
     if (tgt !== NONE) e.target[i] = eid(e, tgt); // remember for next tick
 
@@ -217,7 +219,7 @@ export const combat = (s: State, grid: Grid): void => {
       bunkerFire(s, i, tgt);
       continue;
     }
-    if (isCarrier) {
+    if (interceptorLaunch) {
       if (withinTopDownEdgeRange(s, i, tgt, carrierLaunchRange())) {
         if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorLaunchCooldown();
       } else {
@@ -239,9 +241,9 @@ export const combat = (s: State, grid: Grid): void => {
         if ((e.flags[tgt]! & Role.Air) !== 0 || !coveredByEffect(s, tgt, EffectKind.DarkSwarm) || range <= tiles(2)) {
           if (e.illusion[i] !== 1) {
             let hit = true;
-            if (e.kind[i] === Kind.Reaver) launchScarab(s, i, tgt);
+            if (mechanic?.id === WeaponMechanic.ScarabLaunch) launchScarab(s, i, tgt);
             else hit = applyWeaponHit(s, tgt, weapon, i);
-            consumeSpecialWeaponAmmo(s, i);
+            consumeSpecialWeaponAmmo(s, i, mechanic);
             if (hit) {
               if (e.kind[i] === Kind.Lurker) applyLurkerLineSplash(s, i, tgt, weapon);
               if (e.kind[i] === Kind.Mutalisk) applyMutaliskBounce(s, i, tgt, weapon);
