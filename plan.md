@@ -1735,6 +1735,8 @@ Highest-impact LOC reductions:
        direct post-hit unit checks with a small descriptor dispatch.
      - Routed Devourer acid-spore application through the same `onHit` mechanic dispatch.
      - Added a `postFire` suicide mechanic for Scourge, Infested Terran, and Spider Mine cleanup.
+     - Routed Bunker contained-fire targeting and resolution through a `containerProvider` weapon
+       mechanic flag without changing loaded infantry behavior.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.

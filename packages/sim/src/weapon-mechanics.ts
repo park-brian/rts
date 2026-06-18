@@ -7,6 +7,7 @@ export const WeaponMechanic = {
   MutaliskBounce: 4,
   AcidSpores: 5,
   SuicideOnFire: 6,
+  ContainerProvider: 7,
 } as const;
 
 export type WeaponMechanicId = typeof WeaponMechanic[keyof typeof WeaponMechanic];
@@ -21,6 +22,7 @@ export type WeaponMechanicDef = {
   launchCooldown?: number;
   onHit?: WeaponMechanicId;
   postFire?: WeaponMechanicId;
+  containerProvider?: boolean;
 };
 
 export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
@@ -68,6 +70,11 @@ export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
     id: WeaponMechanic.SuicideOnFire,
     postFire: WeaponMechanic.SuicideOnFire,
   },
+  {
+    unit: Kind.Bunker,
+    id: WeaponMechanic.ContainerProvider,
+    containerProvider: true,
+  },
 ] as const;
 
 const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
@@ -79,6 +86,7 @@ const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
   [Kind.Scourge]: WeaponMechanicDefs[5]!,
   [Kind.InfestedTerran]: WeaponMechanicDefs[6]!,
   [Kind.SpiderMine]: WeaponMechanicDefs[7]!,
+  [Kind.Bunker]: WeaponMechanicDefs[8]!,
 };
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>

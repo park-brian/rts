@@ -190,12 +190,12 @@ export const combat = (s: State, grid: Grid): void => {
     if (e.kind[i] === Kind.Scarab) continue;
     const def = Units[e.kind[i]!];
     const mechanic = weaponMechanicDef(e.kind[i]!);
-    const isBunker = e.kind[i] === Kind.Bunker;
+    const containerProvider = mechanic?.containerProvider === true;
     const interceptorLaunch = mechanic?.id === WeaponMechanic.InterceptorLaunch;
-    if (!def || (!hasAnyWeapon(def) && !isBunker && !interceptorLaunch)) continue;
+    if (!def || (!hasAnyWeapon(def) && !containerProvider && !interceptorLaunch)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
-    if (!isBunker && !interceptorLaunch && !hasSpecialWeaponAmmo(s, i, mechanic)) continue;
-    if (!isBunker && !canUseWeaponNow(s, i)) continue;
+    if (!containerProvider && !interceptorLaunch && !hasSpecialWeaponAmmo(s, i, mechanic)) continue;
+    if (!containerProvider && !canUseWeaponNow(s, i)) continue;
     if (isDisabled(e, i)) continue;
     if (!isPowered(s, i)) continue;
     if ((e.flags[i]! & Role.Air) === 0 && coveredByEffect(s, i, EffectKind.DisruptionWeb)) continue;
@@ -215,11 +215,11 @@ export const combat = (s: State, grid: Grid): void => {
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
-          (isBunker ? bunkerCanAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
+          (containerProvider ? bunkerCanAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     }
     if (tgt === NONE && order !== Order.Attack) {
-      tgt = isBunker ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
+      tgt = containerProvider ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
     }
     if (tgt !== NONE) e.target[i] = eid(e, tgt); // remember for next tick
 
@@ -234,7 +234,7 @@ export const combat = (s: State, grid: Grid): void => {
       continue;
     }
 
-    if (isBunker) {
+    if (containerProvider) {
       bunkerFire(s, i, tgt);
       continue;
     }
