@@ -5,8 +5,8 @@ import type { Command, CommandRejectReason } from './commands.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf, NONE } from './world.ts';
 import {
-  Ability, Abilities, Kind, MAX_QUEUE, Role, Tech, Units,
-  productionCostCount, productionCount, unitTraits,
+  Ability, Abilities, Kind, Role, Tech, Units,
+  unitTraits,
   workerBuildKindsFor,
 } from './data.ts';
 import { isActiveAddon } from './addon.ts';
@@ -17,7 +17,6 @@ import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
 import { getTechLevel } from './tech.ts';
-import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { validateCommandSpec } from './command-specs.ts';
 import { isContained, sameTeam } from './cargo.ts';
@@ -89,28 +88,7 @@ export const validateCommand = (
 
   switch (c.t) {
     case 'train': {
-      const slot = ownedSlot(s, c.building, player);
-      if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
-      if (e.illusion[slot] === 1) return reject('missing-capability');
-      if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
-      if (e.built[slot] !== 1) return reject('incomplete-producer');
-      if (!isActiveAddon(s, slot)) return reject('missing-capability');
-      if (!isPowered(s, slot)) return reject('missing-capability');
-      const def = Units[c.kind];
-      const building = Units[e.kind[slot]!];
-      if (!def || !building || !building.produces.includes(c.kind)) return reject('target-not-allowed');
-      if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-      const queued = e.prodKind[slot] === Kind.None ? 0 : 1 + e.prodQueued[slot]!;
-      const internalCapacity = internalAmmoCapacity(s, slot, c.kind);
-      if (internalCapacity > 0 && e.specialAmmo[slot]! + queued >= internalCapacity) {
-        return reject('queue-full');
-      }
-      if (queued >= MAX_QUEUE) return reject('queue-full');
-      const costCount = productionCostCount(c.kind);
-      if (s.players.minerals[player]! < def.minerals * costCount || s.players.gas[player]! < def.gas * costCount) return reject('not-affordable');
-      const used = ctx.reservedSupply ?? s.players.supplyUsed[player]!;
-      if (used + def.supply * productionCount(c.kind) > s.players.supplyMax[player]!) return reject('supply-blocked');
-      return { ok: true };
+      return validateCommandSpec(s, player, c, { reservedSupply: ctx.reservedSupply });
     }
     case 'research': {
       return validateCommandSpec(s, player, c);

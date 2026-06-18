@@ -1568,8 +1568,10 @@ Highest-impact LOC reductions:
   liveness is now a shared `addon.ts` helper used by production, research, and command validation.
 - Moved `addon` into command specs and put add-on spawn/link/cost mutation in `addon.ts` beside
   add-on parent compatibility, position, and active-parent helpers.
-   - Continue remaining command migrations in small command families before starting the larger
-     ability descriptor refactor.
+- Moved `train` into command specs and put production queue/cost mutation in
+  `production-queue.ts`, preserving same-tick reserved supply through narrow command-spec context.
+- Continue remaining command migrations in small command families before starting the larger
+  ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.

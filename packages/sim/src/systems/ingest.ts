@@ -5,12 +5,13 @@
 import type { State } from '../world.ts';
 import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
-import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
+import { Kind, Order, Units } from '../data.ts';
 import { validateCommand } from '../validation.ts';
 import { placementForStructure } from '../placement.ts';
 import { castAbility } from './abilities.ts';
 import { spawnUnit } from '../factory.ts';
-import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
+import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled, validateCommandSpec } from '../command-specs.ts';
+import { reserveProductionSupply } from '../production-queue.ts';
 import {
   GROUP_SLOT_SPACING,
   groupOffset,
@@ -91,36 +92,6 @@ const groupDestination = (
   return { x: c.x + offset.x, y: c.y + offset.y };
 };
 
-const startProduction = (s: State, slot: number, kind: number, player: number): void => {
-  const e = s.e;
-  const def = Units[kind];
-  if (!def) return;
-  const costCount = productionCostCount(kind);
-  s.players.minerals[player] = s.players.minerals[player]! - def.minerals * costCount;
-  s.players.gas[player] = s.players.gas[player]! - def.gas * costCount;
-  if (e.kind[slot] === Kind.Larva) {
-    const egg = Units[Kind.Egg]!;
-    e.kind[slot] = Kind.Egg;
-    e.hp[slot] = egg.hp;
-    e.shield[slot] = egg.shields;
-    e.energy[slot] = egg.startEnergy;
-    e.energyMax[slot] = egg.energyMax;
-    e.flags[slot] = egg.roles;
-    e.order[slot] = Order.Idle;
-    e.target[slot] = NONE;
-    e.prodKind[slot] = kind;
-    e.prodTimer[slot] = def.buildTime;
-    e.prodQueued[slot] = 0;
-    return;
-  }
-  if (e.prodKind[slot] === Kind.None) {
-    e.prodKind[slot] = kind;
-    e.prodTimer[slot] = def.buildTime;
-  } else {
-    e.prodQueued[slot] = e.prodQueued[slot]! + 1;
-  }
-};
-
 const startBuild = (s: State, slot: number, kind: number, x: number, y: number, player: number): void => {
   const e = s.e;
   const def = Units[kind];
@@ -149,24 +120,14 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
     for (let index = 0; index < cmds.length; index++) {
       const c = cmds[index]!;
       if (c.t === 'train' && !reservedSupply) reservedSupply = new Int32Array(s.players.supplyUsed);
-      const valid = validateCommand(
-        s,
-        player,
-        c,
-        c.t === 'train' && reservedSupply ? { reservedSupply: reservedSupply[player] } : {},
-      );
+      const valid = c.t === 'train'
+        ? validateCommandSpec(s, player, c, { reservedSupply: reservedSupply![player] })
+        : validateCommand(s, player, c);
       if (!valid.ok) {
         results.push({ player, index, t: c.t, ok: false, reason: valid.reason });
         continue;
       }
       switch (c.t) {
-        case 'train': {
-          const slot = slotOf(c.building);
-          startProduction(s, slot, c.kind, player);
-          reservedSupply![player] = reservedSupply![player]! + Units[c.kind]!.supply * productionCount(c.kind);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'build': {
           const slot = slotOf(c.unit);
           const placement = placementForStructure(s, c.kind, c.x, c.y, slot);
@@ -194,10 +155,13 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'repair':
         case 'research':
         case 'stop':
+        case 'train':
         case 'transform':
         case 'unload':
           applyCommandSpec(s, player, c, {
             destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),
+            reservedSupply: reservedSupply?.[player],
+            reserveSupply: (kind) => reserveProductionSupply(reservedSupply ?? undefined, player, kind),
           });
           results.push({ player, index, t: c.t, ok: true });
           break;
