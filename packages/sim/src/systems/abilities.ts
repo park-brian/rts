@@ -1,5 +1,8 @@
 import type { Command } from '../commands.ts';
-import { Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits, type AbilityStatusTimer } from '../data.ts';
+import {
+  Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
+  type AbilityStatusTimer, type AbilityTargetMarker,
+} from '../data.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
@@ -72,12 +75,32 @@ const applyStatusTimer = (
   }
 };
 
+const applyTargetMarker = (e: State['e'], marker: AbilityTargetMarker, target: number, owner: number): void => {
+  switch (marker) {
+    case 'opticalFlare':
+      e.opticalFlare[target] = 1;
+      return;
+    case 'parasiteOwner':
+      e.parasiteOwner[target] = owner;
+      return;
+  }
+};
+
 const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): boolean => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
   if (!execution) return false;
+  const e = s.e;
   const target = execution.mode === 'caster-status' ? slot : slotOf(c.target!);
-  applyStatusTimer(s.e, execution.timer, target, ability.duration);
+  switch (execution.mode) {
+    case 'caster-status':
+    case 'target-status':
+      applyStatusTimer(e, execution.timer, target, ability.duration);
+      break;
+    case 'target-marker':
+      applyTargetMarker(e, execution.marker, target, e.owner[slot]!);
+      break;
+  }
   return true;
 };
 
@@ -306,12 +329,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     }
     case Ability.Restoration:
       restoreStatuses(s, slotOf(c.target!));
-      break;
-    case Ability.OpticalFlare:
-      e.opticalFlare[slotOf(c.target!)] = 1;
-      break;
-    case Ability.Parasite:
-      e.parasiteOwner[slotOf(c.target!)] = e.owner[slot]!;
       break;
     case Ability.Recall:
       recallUnits(s, slot, c.x!, c.y!, ability.radius);

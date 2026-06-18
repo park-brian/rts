@@ -589,9 +589,11 @@ export const TechDefs: Record<number, TechDef> = {
 export type AbilityTarget = 'self' | 'point' | 'entity';
 export type TargetTeam = 'own' | 'enemy' | 'any';
 export type AbilityStatusTimer = 'stim' | 'lockdown';
+export type AbilityTargetMarker = 'opticalFlare' | 'parasiteOwner';
 export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
-  | { mode: 'target-status'; timer: AbilityStatusTimer };
+  | { mode: 'target-status'; timer: AbilityStatusTimer }
+  | { mode: 'target-marker'; marker: AbilityTargetMarker };
 export type AbilityDef = {
   name: string;
   tech?: number;
@@ -725,11 +727,13 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Optical Flare', tech: Tech.OpticalFlare, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Medic],
     energyCost: 75, hpCost: 0, range: tiles(9), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-marker', marker: 'opticalFlare' },
   },
   [Ability.Parasite]: {
     name: 'Parasite', target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Queen],
     energyCost: 75, hpCost: 0, range: tiles(12), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-marker', marker: 'parasiteOwner' },
   },
   [Ability.Recall]: {
     name: 'Recall', tech: Tech.Recall, target: 'point', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,

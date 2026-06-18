@@ -1594,6 +1594,9 @@ Highest-impact LOC reductions:
        simple recurring spell shapes. `Stim Pack` now applies a caster status timer and `Lockdown`
        applies a target status timer through descriptors while complex spells stay on named
        handlers.
+     - Extended descriptor execution to permanent target marker spells: `Optical Flare` now sets
+       detector suppression and `Parasite` now records the caster owner through the generic marker
+       path.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

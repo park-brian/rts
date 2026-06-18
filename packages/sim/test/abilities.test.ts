@@ -48,11 +48,15 @@ test('stim costs hit points and speeds the next attack cooldown', () => {
   assert.equal(s.e.wcd[m], 10);
 });
 
-test('simple timer abilities are descriptor-backed', () => {
+test('simple timer and marker abilities are descriptor-backed', () => {
   assert.equal(Units[Kind.Marine]!.abilities.includes(Ability.StimPack), true);
   assert.equal(Units[Kind.Ghost]!.abilities.includes(Ability.Lockdown), true);
+  assert.equal(Units[Kind.Medic]!.abilities.includes(Ability.OpticalFlare), true);
+  assert.equal(Units[Kind.Queen]!.abilities.includes(Ability.Parasite), true);
   assert.deepEqual(Abilities[Ability.StimPack]!.execution, { mode: 'caster-status', timer: 'stim' });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
+  assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
+  assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
 });
 
 test('ability validation rejects unaffordable energy casts', () => {
