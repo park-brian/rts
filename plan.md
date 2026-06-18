@@ -1891,6 +1891,8 @@ Further concrete deletion opportunities found on review:
        serialization, kill, and replay assertions local to the file.
      - Migrated `spider-mine.test.ts` onto the shared sim scenario harness while keeping mine-slot,
        serialization, and replay assertions local to the file.
+     - Migrated `regeneration.test.ts` onto the shared sim scenario harness while keeping passive
+       regeneration assertions local to the file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
