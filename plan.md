@@ -1561,6 +1561,9 @@ Highest-impact LOC reductions:
 - Moved `transform` into command specs and relocated instant transform, Zerg morph, and Protoss
   merge side effects into `unit-transform.ts` beside the transform definitions; shared prerequisite
   checks now live in one requirements helper instead of being duplicated by the command split.
+- Moved `lift`/`land` into command specs, moved their immediate Terran state transitions into
+  `terran-mobility.ts`, and extracted placement checks to `placement.ts` so command specs,
+  validation, construction, and movement share the same footprint query without a validation cycle.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

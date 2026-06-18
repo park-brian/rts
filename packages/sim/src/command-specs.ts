@@ -2,7 +2,9 @@ import type { Command, CommandRejectReason } from './commands.ts';
 import { Kind, Order, ResourceType, Role, TILE, Tech, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import { fx } from './fixed.ts';
-import { commandMoveSpeed } from './terran-mobility.ts';
+import {
+  commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags, liftStructure, startStructureLanding,
+} from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
 import {
@@ -19,6 +21,7 @@ import { getTechLevel } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
+import { placementForStructure } from './placement.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -28,7 +31,7 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'amove' | 'rally' | 'repair' | 'stop' | 'transform' | 'unload';
+    | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'stop' | 'transform' | 'unload';
 }>;
 
 type CommandSpecContext = {
@@ -210,6 +213,26 @@ const validateTransform = (s: State, player: number, command: Extract<Command, {
   return { ok: true };
 };
 
+const validateLift = (s: State, player: number, command: Extract<Command, { t: 'lift' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
+  if (!isLiftableTerranStructureKind(e.kind[slot]!) || isLiftedStructureFlags(e.flags[slot]!)) return reject('target-not-allowed');
+  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('target-not-allowed');
+  if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
+  return { ok: true };
+};
+
+const validateLand = (s: State, player: number, command: Extract<Command, { t: 'land' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if (!isLiftableTerranStructureKind(e.kind[slot]!) || !isLiftedStructureFlags(e.flags[slot]!)) return reject('target-not-allowed');
+  const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
+  return placement.ok ? { ok: true } : reject(placement.reason);
+};
+
 const validateAttack = (s: State, player: number, command: Extract<Command, { t: 'attack' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -325,6 +348,23 @@ const loadSpec: CommandSpec<Extract<Command, { t: 'load' }>> = {
   },
 };
 
+const liftSpec: CommandSpec<Extract<Command, { t: 'lift' }>> = {
+  validate: validateLift,
+  apply(s, _player, command): void {
+    liftStructure(s, slotOf(command.building));
+  },
+};
+
+const landSpec: CommandSpec<Extract<Command, { t: 'land' }>> = {
+  validate: validateLand,
+  apply(s, player, command): void {
+    const e = s.e;
+    const slot = slotOf(command.building);
+    const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
+    if (placement.ok) startStructureLanding(s, slot, placement.x, placement.y);
+  },
+};
+
 const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
   validate: validateMine,
   apply(s, _player, command): void {
@@ -432,6 +472,8 @@ export const commandSpecs = {
   burrow: burrowSpec,
   cancelBuild: cancelBuildSpec,
   harvest: harvestSpec,
+  land: landSpec,
+  lift: liftSpec,
   load: loadSpec,
   mine: mineSpec,
   move: moveSpec,
@@ -448,6 +490,8 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
+    case 'land': return commandSpecs.land.validate(s, player, command);
+    case 'lift': return commandSpecs.lift.validate(s, player, command);
     case 'load': return commandSpecs.load.validate(s, player, command);
     case 'mine': return commandSpecs.mine.validate(s, player, command);
     case 'move': return commandSpecs.move.validate(s, player, command);
@@ -478,6 +522,12 @@ export const applyCommandSpec = (
       return;
     case 'harvest':
       commandSpecs.harvest.apply(s, player, command, ctx);
+      return;
+    case 'land':
+      commandSpecs.land.apply(s, player, command, ctx);
+      return;
+    case 'lift':
+      commandSpecs.lift.apply(s, player, command, ctx);
       return;
     case 'load':
       commandSpecs.load.apply(s, player, command, ctx);

@@ -11,7 +11,7 @@ import { navigate } from '../pathing.ts';
 import { navPassable } from '../flow.ts';
 import { pickPatch } from './harvest.ts';
 import { faceToward, within } from './move.ts';
-import { placementForStructure } from '../validation.ts';
+import { placementForStructure } from '../placement.ts';
 import { structureFootprint } from '../footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../build-cost.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';

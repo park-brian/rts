@@ -7,7 +7,7 @@ import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../terran-mobility.ts';
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
-import { placementForStructure } from '../validation.ts';
+import { placementForStructure } from '../placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../world.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 

@@ -7,9 +7,9 @@ import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
-import { placementForStructure, validateCommand } from '../validation.ts';
+import { validateCommand } from '../validation.ts';
+import { placementForStructure } from '../placement.ts';
 import { addonPosition } from '../addon.ts';
-import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
 import { castAbility } from './abilities.ts';
 import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
@@ -165,25 +165,7 @@ const startAddon = (s: State, parent: number, kind: number, player: number): voi
   e.buildCostGas[addon] = def.gas;
 };
 
-const liftBuilding = (s: State, slot: number): void => {
-  const e = s.e;
-  clearSettled(s, slot);
-  e.flags[slot] = liftedStructureFlags(e.kind[slot]!);
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-};
-
-const landBuilding = (s: State, slot: number, x: number, y: number): void => {
-  const e = s.e;
-  clearSettled(s, slot);
-  e.order[slot] = Order.Move;
-  e.target[slot] = eid(e, slot);
-  e.tx[slot] = x;
-  e.ty[slot] = y;
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
-  const e = s.e;
   let total = 0;
   for (const pc of batch) total += pc.cmds.length;
   if (total === 0) return EMPTY_RESULTS;
@@ -236,26 +218,12 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'lift': {
-          liftBuilding(s, slotOf(c.building));
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'land': {
-          const slot = slotOf(c.building);
-          const placement = placementForStructure(s, e.kind[slot]!, c.x, c.y, slot, player);
-          if (!placement.ok) {
-            results.push({ player, index, t: c.t, ok: false, reason: placement.reason });
-            break;
-          }
-          landBuilding(s, slot, placement.x, placement.y);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'attack':
         case 'burrow':
         case 'cancelBuild':
         case 'harvest':
+        case 'land':
+        case 'lift':
         case 'load':
         case 'mine':
         case 'move':
