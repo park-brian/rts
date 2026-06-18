@@ -5,18 +5,18 @@ import type { Command, CommandRejectReason } from './commands.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf, NONE } from './world.ts';
 import {
-  Ability, Abilities, Kind, MAX_QUEUE, Role, TECH_CAP, Tech, TechDefs, Units,
+  Ability, Abilities, Kind, MAX_QUEUE, Role, Tech, Units,
   productionCostCount, productionCount, unitTraits,
   workerBuildKindsFor,
 } from './data.ts';
-import { activeAddonParentSlot, addonParentKind, addonPosition, isAddonKind } from './addon.ts';
+import { addonParentKind, addonPosition, isActiveAddon, isAddonKind } from './addon.ts';
 import { snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
 import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
-import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
+import { getTechLevel } from './tech.ts';
 import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { validateCommandSpec } from './command-specs.ts';
@@ -50,11 +50,6 @@ const ownedSlot = (s: State, id: number, player: number): number | null => {
   const slot = slotOf(id);
   return e.owner[slot] === player ? slot : null;
 };
-
-const activeAddon = (s: State, slot: number): boolean =>
-  !isAddonKind(s.e.kind[slot]!) || activeAddonParentSlot(s, slot) !== NONE;
-
-const validTechId = (tech: number): boolean => Number.isInteger(tech) && tech > 0 && tech < TECH_CAP;
 
 const canBuildWithWorker = (workerKind: number, structureKind: number): boolean => {
   const worker = Units[workerKind];
@@ -99,7 +94,7 @@ export const validateCommand = (
       if (e.illusion[slot] === 1) return reject('missing-capability');
       if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('incomplete-producer');
-      if (!activeAddon(s, slot)) return reject('missing-capability');
+      if (!isActiveAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       const def = Units[c.kind];
       const building = Units[e.kind[slot]!];
@@ -118,22 +113,7 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'research': {
-      const slot = ownedSlot(s, c.building, player);
-      if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
-      if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
-      if (e.built[slot] !== 1) return reject('incomplete-producer');
-      if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
-      if (!activeAddon(s, slot)) return reject('missing-capability');
-      if (!isPowered(s, slot)) return reject('missing-capability');
-      if (e.researchKind[slot] !== Kind.None) return reject('queue-full');
-      if (!validTechId(c.tech)) return reject('target-not-allowed');
-      const def = TechDefs[c.tech];
-      if (!def || !def.producers.includes(e.kind[slot]!)) return reject('target-not-allowed');
-      if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-      if (isTechInProgress(s, player, c.tech) || getTechLevel(s, player, c.tech) >= def.maxLevel) return reject('target-not-allowed');
-      const level = nextTechLevel(s, player, c.tech);
-      if (s.players.minerals[player]! < techMinerals(def, level) || s.players.gas[player]! < techGas(def, level)) return reject('not-affordable');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'build': {
       const slot = ownedSlot(s, c.unit, player);
@@ -197,7 +177,7 @@ export const validateCommand = (
       if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
       if (isDisabled(e, slot)) return reject('missing-capability');
       if (e.built[slot] !== 1) return reject('missing-capability');
-      if (!activeAddon(s, slot)) return reject('missing-capability');
+      if (!isActiveAddon(s, slot)) return reject('missing-capability');
       if (!isPowered(s, slot)) return reject('missing-capability');
       const caster = Units[e.kind[slot]!]!;
       const ability = Abilities[c.ability];

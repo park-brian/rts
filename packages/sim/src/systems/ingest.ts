@@ -6,12 +6,10 @@ import type { State } from '../world.ts';
 import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
-import { TechDefs } from '../data.ts';
 import { validateCommand } from '../validation.ts';
 import { placementForStructure } from '../placement.ts';
 import { addonPosition } from '../addon.ts';
 import { castAbility } from './abilities.ts';
-import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
 import {
@@ -124,16 +122,6 @@ const startProduction = (s: State, slot: number, kind: number, player: number): 
   }
 };
 
-const startResearch = (s: State, slot: number, tech: number, player: number): void => {
-  const def = TechDefs[tech];
-  if (!def) return;
-  const level = nextTechLevel(s, player, tech);
-  s.players.minerals[player] = s.players.minerals[player]! - techMinerals(def, level);
-  s.players.gas[player] = s.players.gas[player]! - techGas(def, level);
-  s.e.researchKind[slot] = tech;
-  s.e.researchTimer[slot] = techTime(def, level);
-};
-
 const startBuild = (s: State, slot: number, kind: number, x: number, y: number, player: number): void => {
   const e = s.e;
   const def = Units[kind];
@@ -195,12 +183,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'research': {
-          const slot = slotOf(c.building);
-          startResearch(s, slot, c.tech, player);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'build': {
           const slot = slotOf(c.unit);
           const placement = placementForStructure(s, c.kind, c.x, c.y, slot);
@@ -230,6 +212,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'amove':
         case 'rally':
         case 'repair':
+        case 'research':
         case 'stop':
         case 'transform':
         case 'unload':

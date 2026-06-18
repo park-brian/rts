@@ -29,6 +29,9 @@ export const activeAddonParentSlot = (s: State, addon: number): number => {
   return e.target[parent] === eid(e, addon) ? parent : NONE;
 };
 
+export const isActiveAddon = (s: State, slot: number): boolean =>
+  !isAddonKind(s.e.kind[slot]!) || activeAddonParentSlot(s, slot) !== NONE;
+
 export const addonPosition = (s: State, parent: number, addonKind: number): { x: number; y: number } => {
   const e = s.e;
   const parentDef = Units[e.kind[parent]!]!;

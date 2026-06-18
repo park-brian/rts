@@ -29,3 +29,13 @@ export const canResearchNextLevel = (s: State, player: number, tech: number): bo
   if (!def) return false;
   return getTechLevel(s, player, tech) < def.maxLevel && !isTechInProgress(s, player, tech);
 };
+
+export const queueResearch = (s: State, slot: number, tech: number, player: number): void => {
+  const def = TechDefs[tech];
+  if (!def) return;
+  const level = nextTechLevel(s, player, tech);
+  s.players.minerals[player] = s.players.minerals[player]! - techMinerals(def, level);
+  s.players.gas[player] = s.players.gas[player]! - techGas(def, level);
+  s.e.researchKind[slot] = tech;
+  s.e.researchTimer[slot] = techTime(def, level);
+};

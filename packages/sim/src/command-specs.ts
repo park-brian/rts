@@ -1,5 +1,7 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import { Kind, Order, ResourceType, Role, TILE, Tech, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
+import {
+  Kind, Order, ResourceType, Role, TECH_CAP, TILE, Tech, TechDefs, Units, hasAnyWeapon, weaponForTarget,
+} from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import { fx } from './fixed.ts';
 import {
@@ -17,11 +19,12 @@ import { canDetect } from './detection.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
-import { getTechLevel } from './tech.ts';
+import { getTechLevel, isTechInProgress, nextTechLevel, queueResearch, techGas, techMinerals } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
+import { isActiveAddon } from './addon.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -31,7 +34,7 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'stop' | 'transform' | 'unload';
+    | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'transform' | 'unload';
 }>;
 
 type CommandSpecContext = {
@@ -224,6 +227,32 @@ const validateLift = (s: State, player: number, command: Extract<Command, { t: '
   return { ok: true };
 };
 
+const validTechId = (tech: number): boolean => Number.isInteger(tech) && tech > 0 && tech < TECH_CAP;
+
+const validateResearch = (s: State, player: number, command: Extract<Command, { t: 'research' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
+  if (e.built[slot] !== 1) return reject('incomplete-producer');
+  if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
+  if (!isActiveAddon(s, slot)) return reject('missing-capability');
+  if (!isPowered(s, slot)) return reject('missing-capability');
+  if (e.researchKind[slot] !== Kind.None) return reject('queue-full');
+  if (!validTechId(command.tech)) return reject('target-not-allowed');
+  const def = TechDefs[command.tech];
+  if (!def || !def.producers.includes(e.kind[slot]!)) return reject('target-not-allowed');
+  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
+  if (isTechInProgress(s, player, command.tech) || getTechLevel(s, player, command.tech) >= def.maxLevel) {
+    return reject('target-not-allowed');
+  }
+  const level = nextTechLevel(s, player, command.tech);
+  if (s.players.minerals[player]! < techMinerals(def, level) || s.players.gas[player]! < techGas(def, level)) {
+    return reject('not-affordable');
+  }
+  return { ok: true };
+};
+
 const validateLand = (s: State, player: number, command: Extract<Command, { t: 'land' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.building, player);
@@ -406,6 +435,13 @@ const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
   },
 };
 
+const researchSpec: CommandSpec<Extract<Command, { t: 'research' }>> = {
+  validate: validateResearch,
+  apply(s, player, command): void {
+    queueResearch(s, slotOf(command.building), command.tech, player);
+  },
+};
+
 const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
   validate: validateRally,
   apply(s, player, command): void {
@@ -479,6 +515,7 @@ export const commandSpecs = {
   move: moveSpec,
   rally: rallySpec,
   repair: repairSpec,
+  research: researchSpec,
   stop: stopSpec,
   transform: transformSpec,
   unload: unloadSpec,
@@ -498,6 +535,7 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
     case 'amove': return commandSpecs.amove.validate(s, player, command);
     case 'rally': return commandSpecs.rally.validate(s, player, command);
     case 'repair': return commandSpecs.repair.validate(s, player, command);
+    case 'research': return commandSpecs.research.validate(s, player, command);
     case 'stop': return commandSpecs.stop.validate(s, player, command);
     case 'transform': return commandSpecs.transform.validate(s, player, command);
     case 'unload': return commandSpecs.unload.validate(s, player, command);
@@ -546,6 +584,9 @@ export const applyCommandSpec = (
       return;
     case 'repair':
       commandSpecs.repair.apply(s, player, command, ctx);
+      return;
+    case 'research':
+      commandSpecs.research.apply(s, player, command, ctx);
       return;
     case 'stop':
       commandSpecs.stop.apply(s, player, command, ctx);

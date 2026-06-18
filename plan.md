@@ -1564,6 +1564,8 @@ Highest-impact LOC reductions:
 - Moved `lift`/`land` into command specs, moved their immediate Terran state transitions into
   `terran-mobility.ts`, and extracted placement checks to `placement.ts` so command specs,
   validation, construction, and movement share the same footprint query without a validation cycle.
+- Moved `research` into command specs and put research queue/cost mutation in `tech.ts`; addon
+  liveness is now a shared `addon.ts` helper used by production, research, and command validation.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
