@@ -1574,6 +1574,11 @@ Highest-impact LOC reductions:
        mobile/desktop input.
    - Expected win: the app stops being a second rules engine, and both mobile and desktop controls
      become policy over shared command candidates.
+   - Completed:
+     - Extracted selected entity lifecycle/status derivation into `entityLifecycleStatus`, a pure
+       read-only query used by `Game` when publishing `selectionView.status`.
+     - Remaining: move work-queue, selection-capability, and smart-command derivation out of `Game`
+       before splitting controllers.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.
@@ -1740,6 +1745,7 @@ LOC collapse order:
 2. Collapse `armedCommand` and `selectionView` in the app, because these remove impossible UI states
    and make later `Game` splitting meaningful. `armedCommand` and `selectionView` are complete.
 3. Add lifecycle/status, work-queue, and selection-capability queries, then slim `Game`.
+   `entityLifecycleStatus` is complete; work-queue and selection-capability queries remain.
 4. Add command specs while keeping public `validateCommand`/`applyCommands` stable.
 5. Add ability descriptors and AI policies.
 6. Add internal-product/child-actor descriptors.

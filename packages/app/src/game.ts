@@ -4,25 +4,21 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, TechDefs, Units, Role,
-  Order,
   slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions, workerBuildKindsFor, canWorkerStartStructure,
   addonParentKind,
   transformFor, transformTargetsFor, snapBuildAnchor, isLiftedStructureFlags,
-  weaponUpgradeBonus, armorUpgradeBonus, shieldArmorBonus,
-  upgradedRange, upgradedSpeed, upgradedCooldown, upgradedSight,
-  nextTechLevel, techTime,
-  isCloaked,
   bodyBounds, structureFootprint,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
-  type CommandRejectReason, type CommandValidation, type Weapon,
+  type CommandRejectReason, type CommandValidation,
 } from './sim.ts';
-import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
+import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entitySelectionName } from './entity-presentation.ts';
+import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
 
 const TICK_MS = 1000 / FPS;
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -53,16 +49,6 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
 type TapOptions = { shift?: boolean; ctrl?: boolean; preferredHit?: number };
 type SelectableBounds = { x0: number; y0: number; x1: number; y1: number; cx: number; cy: number };
-const ORDER_LABELS: Record<number, string> = {
-  [Order.Idle]: 'Idle',
-  [Order.Move]: 'Moving',
-  [Order.Harvest]: 'Harvesting',
-  [Order.Attack]: 'Attacking',
-  [Order.AttackMove]: 'Attack-moving',
-  [Order.Build]: 'Building',
-  [Order.Cast]: 'Casting',
-  [Order.Repair]: 'Repairing',
-};
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
@@ -94,28 +80,6 @@ const nukeTrainOptionMeta = (s: State, slot: number): CommandOptionMeta => {
   if (e.prodKind[slot] === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
   return { label: 'Arm Nuke' };
 };
-
-const clampProgress = (remaining: number, total: number): number =>
-  total <= 0 ? 0 : Math.max(0, Math.min(1, 1 - remaining / total));
-
-const constructionVerb = (kind: number): string => {
-  switch (Units[kind]?.buildMethod) {
-    case 'warp': return 'Warping';
-    case 'morph': return 'Morphing';
-    case 'merge': return 'Summoning';
-    case 'addon': return 'Adding';
-    default: return 'Building';
-  }
-};
-
-const orderLabel = (order: number): string => ORDER_LABELS[order] ?? 'Acting';
-
-const fixedTile = (value: number): string => {
-  const n = value / ONE / TILE;
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-};
-
-const pxPerSecond = (value: number): string => ((value / ONE) * FPS).toFixed(1);
 
 const usesFootprintBounds = (kind: number): boolean => {
   const def = Units[kind]!;
@@ -149,89 +113,6 @@ const pointInBounds = (x: number, y: number, b: SelectableBounds): boolean =>
 
 const boundsIntersectsRect = (b: SelectableBounds, x0: number, y0: number, x1: number, y1: number): boolean =>
   b.x0 <= x1 && b.x1 >= x0 && b.y0 <= y1 && b.y1 >= y0;
-
-const weaponDetails = (s: State, slot: number, weapon: Weapon): string => {
-  const bonus = weaponUpgradeBonus(s, slot, weapon);
-  const shots = weapon.shots && weapon.shots > 1 ? `x${weapon.shots}` : '';
-  const dmg = bonus > 0 ? `${weapon.damage}+${bonus}` : String(weapon.damage);
-  const range = fixedTile(upgradedRange(s, slot, weapon));
-  const cd = upgradedCooldown(s, slot, weapon.cooldown);
-  return `${dmg}${shots} R${range} CD${cd}`;
-};
-
-const selectionStats = (s: State, slot: number): string[] => {
-  const e = s.e;
-  const def = Units[e.kind[slot]!]!;
-  const stats = [`HP ${e.hp[slot]}/${def.hp}`];
-  if (def.shields > 0) stats.push(`Sh ${e.shield[slot]}/${def.shields}`);
-  if (e.energyMax[slot]! > 0) stats.push(`E ${e.energy[slot]}/${e.energyMax[slot]}`);
-  const armor = armorUpgradeBonus(s, slot);
-  stats.push(`Arm ${def.armor}${armor > 0 ? `+${armor}` : ''}`);
-  const shieldArmor = shieldArmorBonus(s, slot);
-  if (shieldArmor > 0) stats.push(`ShArm +${shieldArmor}`);
-  if (def.weapon && def.airWeapon && def.weapon === def.airWeapon) {
-    stats.push(`G/A ${weaponDetails(s, slot, def.weapon)}`);
-  } else {
-    if (def.weapon) stats.push(`G ${weaponDetails(s, slot, def.weapon)}`);
-    if (def.airWeapon) stats.push(`A ${weaponDetails(s, slot, def.airWeapon)}`);
-  }
-  if (def.speed > 0) stats.push(`Spd ${pxPerSecond(upgradedSpeed(s, slot, def.speed))}`);
-  if (def.sight > 0) stats.push(`Sight ${upgradedSight(s, slot, def.sight)}`);
-  return stats;
-};
-
-const selectionVisibilityStats = (s: State, slot: number, viewer: number): string[] => {
-  const e = s.e;
-  const stats: string[] = [];
-  if (e.burrowed[slot] === 1) stats.push('Burrowed');
-  if (isCloaked(s, slot)) stats.push('Cloaked');
-  const owner = e.owner[slot]!;
-  if (viewer >= 0 && viewer !== owner && isCloaked(s, slot) && canDetect(s, viewer, slot)) stats.push('Detected');
-  return stats;
-};
-
-const selectionStatus = (s: State, slot: number, viewer: number): SelectionStatus => {
-  const e = s.e;
-  const kind = e.kind[slot]!;
-  const def = Units[kind]!;
-  const stats = [...selectionStats(s, slot), ...selectionVisibilityStats(s, slot, viewer)];
-  if (e.built[slot] !== 1) {
-    return {
-      label: constructionVerb(kind),
-      detail: def.name,
-      progress: clampProgress(e.ctimer[slot]!, def.buildTime),
-      stats,
-    };
-  }
-  const prod = e.prodKind[slot]!;
-  if (prod !== Kind.None) {
-    const prodDef = Units[prod]!;
-    const queued = e.prodQueued[slot]!;
-    return {
-      label: prod === Kind.NuclearMissile ? 'Arming' : prodDef.buildMethod === 'morph' ? 'Morphing' : 'Training',
-      detail: `${prodDef.name}${queued > 0 ? ` +${queued}` : ''}`,
-      progress: clampProgress(e.prodTimer[slot]!, prodDef.buildTime),
-      stats,
-    };
-  }
-  const tech = e.researchKind[slot]!;
-  if (tech !== Kind.None) {
-    const techDef = TechDefs[tech]!;
-    const level = nextTechLevel(s, e.owner[slot]!, tech);
-    return {
-      label: 'Researching',
-      detail: techDef.name,
-      progress: clampProgress(e.researchTimer[slot]!, techTime(techDef, level)),
-      stats,
-    };
-  }
-  return {
-    label: isLiftedStructureFlags(e.flags[slot]!) ? 'Flying' : orderLabel(e.order[slot]!),
-    detail: '',
-    progress: 0,
-    stats,
-  };
-};
 
 const clearSelectionUi = (): void => {
   ui.selectionView.value = EMPTY_SELECTION_VIEW;
@@ -1332,7 +1213,7 @@ export class Game {
     ui.selectionView.value = {
       count,
       kindName: count > 1 ? `${kindName} ×${count}` : kindName,
-      status: primarySlot >= 0 ? selectionStatus(s, primarySlot, this.human) : EMPTY_SELECTION_VIEW.status,
+      status: primarySlot >= 0 ? entityLifecycleStatus(s, primarySlot, this.human) : EMPTY_SELECTION_VIEW.status,
       can: {
         build: buildOptions.size > 0,
         rally: canRally,
