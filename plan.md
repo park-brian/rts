@@ -1950,6 +1950,9 @@ Further concrete deletion opportunities found on review:
      - Extracted research and upgrade vocabulary from `data.ts` into `data-tech.ts`, including
        the `Tech` ids, `TechDefs`, and table-local tech helpers, while preserving the `data.ts`
        public import surface for existing systems.
+     - Extracted spell/command ability vocabulary from `data.ts` into `data-abilities.ts`,
+       including `Ability`, `EffectKind`, ability descriptor types, and `Abilities`, while
+       preserving the `data.ts` public import surface and leaving unit definitions table-owned.
 
 Abstraction acceptance test:
 
