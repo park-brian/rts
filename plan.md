@@ -1749,6 +1749,9 @@ Highest-impact LOC reductions:
      - Moved entity lifecycle presentation classification into sim-exported render descriptors,
        including zerg combat cocoon art, zerg/protoss/terran unfinished labels, and merge-summon
        state. The app renderers now consume the descriptor and keep only pixel styling local.
+     - Moved gameplay render hulls and selection bases into sim-exported render descriptors. App
+       selection hit tests, Canvas2D math rendering, and GL selected health bars now share the same
+       footprint/body math while sprite pixel placement remains app-owned.
 
 Further concrete deletion opportunities found on review:
 

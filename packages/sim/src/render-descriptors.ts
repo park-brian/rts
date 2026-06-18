@@ -1,4 +1,7 @@
-import { Kind, Role, Units } from './data.ts';
+import { Kind, Role, TILE, Units } from './data.ts';
+import { ONE } from './fixed.ts';
+import { structureFootprint } from './footprint.ts';
+import { bodyBounds } from './spatial.ts';
 import type { State } from './world.ts';
 
 export type EntityPresentationState =
@@ -16,11 +19,87 @@ export type EntityPresentationDef = {
   selectionPrefix: '' | 'Morphing ' | 'Summoning ' | 'Warping ' | 'Building ';
 };
 
+export type EntityRenderHull = {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  usesFootprint: boolean;
+};
+
+export type SelectionBase =
+  | { shape: 'circle'; radius: number; offsetX: number; offsetY: number }
+  | { shape: 'rect'; width: number; height: number; offsetX: number; offsetY: number };
+
 const isUnfinished = (s: State, slot: number): boolean =>
   s.e.alive[slot] === 1 && s.e.built[slot] !== 1;
 
 const isStructure = (s: State, slot: number): boolean =>
   (s.e.flags[slot]! & Role.Structure) !== 0;
+
+const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);
+
+export const usesFootprintHull = (kind: number): boolean => {
+  const def = Units[kind]!;
+  return (def.roles & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser;
+};
+
+export const entityRenderHull = (kind: number, x: number, y: number): EntityRenderHull => {
+  if (usesFootprintHull(kind)) {
+    const fp = structureFootprint(kind, x, y);
+    const x0 = fp.x0 * TILE;
+    const y0 = fp.y0 * TILE;
+    const x1 = (fp.x1 + 1) * TILE;
+    const y1 = (fp.y1 + 1) * TILE;
+    return {
+      x0,
+      y0,
+      x1,
+      y1,
+      cx: (x0 + x1) / 2,
+      cy: (y0 + y1) / 2,
+      width: x1 - x0,
+      height: y1 - y0,
+      usesFootprint: true,
+    };
+  }
+  const b = bodyBounds(kind);
+  const cx = x / ONE;
+  const cy = y / ONE;
+  const x0 = cx - b.left / ONE;
+  const y0 = cy - b.up / ONE;
+  const x1 = cx + b.right / ONE;
+  const y1 = cy + b.down / ONE;
+  return {
+    x0,
+    y0,
+    x1,
+    y1,
+    cx,
+    cy,
+    width: x1 - x0,
+    height: y1 - y0,
+    usesFootprint: false,
+  };
+};
+
+export const selectionBase = (kind: number): SelectionBase => {
+  const def = Units[kind]!;
+  if (usesFootprintHull(kind)) {
+    return {
+      shape: 'rect',
+      width: def.footprintW * TILE,
+      height: def.footprintH * TILE,
+      offsetX: stampedFootprintCenterOffset(def.footprintW),
+      offsetY: stampedFootprintCenterOffset(def.footprintH),
+    };
+  }
+  return { shape: 'circle', radius: def.radius / ONE, offsetX: 0, offsetY: 0 };
+};
 
 export const isZergCombatMorph = (s: State, slot: number): boolean => {
   const e = s.e;

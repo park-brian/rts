@@ -1,5 +1,6 @@
-import { Kind, ONE, Role, TILE, Units } from '../sim.ts';
+import { ONE, Role, TILE, Units } from '../sim.ts';
 import { SPRITES } from './sprites.ts';
+export { selectionBase, type SelectionBase } from '../sim.ts';
 
 const SOURCE_SIZE = 64;
 const SOURCE_CENTER = SOURCE_SIZE / 2;
@@ -20,10 +21,6 @@ export type SpritePlacement = {
   footprintW: number;
   footprintH: number;
 };
-
-export type SelectionBase =
-  | { shape: 'circle'; radius: number; offsetX: number; offsetY: number }
-  | { shape: 'rect'; width: number; height: number; offsetX: number; offsetY: number };
 
 const cache = new Map<string, SpritePlacement>();
 
@@ -107,17 +104,3 @@ export const spritePlacement = (kind: number, artKind = kind): SpritePlacement =
 };
 
 export const visualRadius = (kind: number): number => spritePlacement(kind).radius;
-
-export const selectionBase = (kind: number): SelectionBase => {
-  const def = Units[kind]!;
-  if ((def.roles & Role.Structure) !== 0 || (def.roles & Role.Resource) !== 0 || kind === Kind.Geyser) {
-    return {
-      shape: 'rect',
-      width: def.footprintW * TILE,
-      height: def.footprintH * TILE,
-      offsetX: stampedFootprintCenterOffset(def.footprintW),
-      offsetY: stampedFootprintCenterOffset(def.footprintH),
-    };
-  }
-  return { shape: 'circle', radius: def.radius / ONE, offsetX: 0, offsetY: 0 };
-};

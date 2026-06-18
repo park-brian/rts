@@ -12,10 +12,13 @@
 // fragment shader via the atlas mask (assets.md §4). Combat FX are spawned by
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
-import { TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, isCloaked, resolveRallyEndpoint, type MapDef } from '../sim.ts';
+import {
+  TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, isCloaked,
+  resolveRallyEndpoint, entityRenderHull, selectionBase, type MapDef,
+} from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
-import { selectionBase, spritePlacement, visualRadius } from '../art/placement.ts';
+import { spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
@@ -485,15 +488,9 @@ export class GlRenderer {
       const id = eid(e, i);
       const kind = e.kind[i]!;
       const def = Units[kind]!;
-      const presentation = entityPresentation(s, i);
-      const p = spritePlacement(kind, presentation.artKind);
-      const mul = mobileZoomMul(kind, zoom);
-      const footprintArt = p.role === 'building-footprint';
-      const wx = this.wxA[i]! + (footprintArt ? p.baseOffsetX * mul : 0);
-      const wy = this.wyA[i]! + (footprintArt ? p.baseOffsetY * mul : 0);
-      const r = footprintArt ? Math.max(p.visibleWidth, p.visibleHeight) * mul / 2 : this.rr[i]!;
-      const hpWidth = footprintArt ? p.visibleWidth * mul : r * 1.8;
-      const hpTop = wy - (footprintArt ? p.visibleHeight * mul / 2 : r) - 5 / zoom;
+      const hull = entityRenderHull(kind, e.x[i]!, e.y[i]!);
+      const hpWidth = Math.max(2 / zoom, hull.width);
+      const hpTop = hull.y0 - 5 / zoom;
 
       const selected = game.selection.has(id);
       if (selected) {
@@ -534,10 +531,10 @@ export class GlRenderer {
           ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
           : Math.max(0, life / maxLife);
         const frac = Math.max(0, Math.min(1, progress));
-        this.sprites.push(wx, hpTop, hpWidth, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
+        this.sprites.push(hull.cx, hpTop, hpWidth, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
         const col = e.built[i] !== 1 ? [0.29, 0.82, 0.75] :
           frac > 0.5 ? [0.35, 1, 0.48] : frac > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
-        this.sprites.push(wx - hpWidth / 2 + (hpWidth * frac) / 2, hpTop, hpWidth * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
+        this.sprites.push(hull.cx - hpWidth / 2 + (hpWidth * frac) / 2, hpTop, hpWidth * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
       }
     }
 

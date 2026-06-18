@@ -3,8 +3,8 @@
 
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
-  structureFootprint, bodyBounds, isCloaked, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, type MapDef,
+  structureFootprint, isCloaked, POWER_RADIUS, CREEP_RADIUS,
+  requiresPower, requiresCreep, providesCreep, entityRenderHull, selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -13,7 +13,6 @@ import { illusionPresentation } from './illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
-import { selectionBase } from './art/placement.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -120,30 +119,20 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const wx = e.x[i]! / ONE; const wy = e.y[i]! / ONE;
     const kind = e.kind[i]!;
     const def = Units[kind]!;
-    const isStruct = (def.roles & Role.Structure) !== 0;
     const isRes = (def.roles & Role.Resource) !== 0;
-    const isFootprint = isStruct || isRes || kind === Kind.Geyser;
     if (!game.canSeeEntity(i)) continue;
     const illusion = illusionPresentation(s, game.human, i);
     const presentation = entityPresentation(s, i);
     const morphingCocoon = presentation.state === 'zerg-combat-morph';
     const mergeSummon = presentation.state === 'protoss-merge-summon';
     const alpha = (isCloaked(s, i) ? 0.5 : 1) * illusion.alpha;
+    const hull = entityRenderHull(kind, e.x[i]!, e.y[i]!);
 
-    let overlayX = wx;
-    let overlayY = wy;
-    let overlayW = Math.max(2, def.radius / ONE * 2);
-    let overlayH = overlayW;
-    if (isFootprint) {
-      const fp = structureFootprint(kind, e.x[i]!, e.y[i]!);
-      const x = fp.x0 * TILE;
-      const y = fp.y0 * TILE;
-      const w = (fp.x1 - fp.x0 + 1) * TILE;
-      const h = (fp.y1 - fp.y0 + 1) * TILE;
-      overlayX = x + w / 2;
-      overlayY = y + h / 2;
-      overlayW = w;
-      overlayH = h;
+    if (hull.usesFootprint) {
+      const x = hull.x0;
+      const y = hull.y0;
+      const w = hull.width;
+      const h = hull.height;
       ctx.globalAlpha = alpha * (e.built[i] === 1 ? 1 : 0.55);
       ctx.fillStyle = isRes || kind === Kind.Geyser
         ? 'rgba(73,208,192,0.22)'
@@ -170,8 +159,6 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.globalAlpha = 1;
     } else {
       const r = def.radius / ONE;
-      overlayW = r * 2;
-      overlayH = r * 2;
       if (isProjectilePresentationKind(kind)) {
         const glowR = readableProjectileRadius(kind, r, game.zoom);
         ctx.globalAlpha = alpha * 0.42;
@@ -213,10 +200,9 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
         }
       }
 
-      const b = bodyBounds(kind);
       ctx.strokeStyle = 'rgba(255,255,255,0.45)';
       ctx.lineWidth = 1 / game.zoom;
-      ctx.strokeRect(wx - b.left / ONE, wy - b.up / ONE, (b.left + b.right) / ONE, (b.up + b.down) / ONE);
+      ctx.strokeRect(hull.x0, hull.y0, hull.width, hull.height);
 
       const dx = e.faceX[i]!;
       const dy = e.faceY[i]!;
@@ -258,11 +244,11 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       const progress = e.built[i] !== 1 && def.buildTime > 0
         ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
         : Math.max(0, life / maxLife);
-      const w = overlayW;
+      const w = Math.max(2, hull.width);
       const frac = Math.max(0, Math.min(1, progress));
-      ctx.fillStyle = '#000'; ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w, 3);
+      ctx.fillStyle = '#000'; ctx.fillRect(hull.cx - w / 2, hull.y0 - 5, w, 3);
       ctx.fillStyle = e.built[i] !== 1 ? '#49d0c0' : frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
-      ctx.fillRect(overlayX - w / 2, overlayY - overlayH / 2 - 5, w * frac, 3);
+      ctx.fillRect(hull.cx - w / 2, hull.y0 - 5, w * frac, 3);
     }
   }
 
