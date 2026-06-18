@@ -1,7 +1,6 @@
 import { CONTROL_GROUP_COUNT, ControlGroupController, type ControlGroupResult } from './control-group-controller.ts';
-import { isUserCommandableKind } from './child-actors.ts';
 import { boundsIntersectsRect, pointInBounds, selectableBounds } from './selection-geometry.ts';
-import { NONE, ONE, Role, TILE, eid, isAlive, slotOf, type State } from './sim.ts';
+import { NONE, ONE, Role, TILE, eid, isAlive, isUserCommandableKind, slotOf, type State } from './sim.ts';
 
 type Viewport = {
   camX: number;

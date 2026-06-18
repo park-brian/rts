@@ -1,5 +1,6 @@
 import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
+import { childActorDef, type ChildActorPresentation } from './child-actors.ts';
 import { isCloaked } from './detection.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
@@ -73,6 +74,12 @@ export type IllusionPresentation = {
   tint: readonly [number, number, number];
 };
 
+export type ChildActorRenderPresentation = {
+  role: ChildActorPresentation;
+  radius: number;
+  minimapVisible: boolean;
+};
+
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 const structureWorkPoint = (s: State, worker: number, target: number): { x: number; y: number } => {
@@ -139,6 +146,24 @@ export const illusionPresentation = (s: State, viewer: number, slot: number): Il
   return known
     ? { known: true, labelPrefix: 'Hallucination ', alpha: 0.72, tint: [0.62, 0.82, 1] }
     : { known: false, labelPrefix: '', alpha: 1, tint: [1, 1, 1] };
+};
+
+export const childActorRenderPresentation = (
+  kind: number,
+  gameplayRadius: number,
+  zoom: number,
+): ChildActorRenderPresentation => {
+  const def = childActorDef(kind);
+  const role = def?.presentation ?? 'unit';
+  const minScreenRadius = def?.minReadableScreenRadius;
+  const radius = minScreenRadius === undefined
+    ? gameplayRadius
+    : Math.max(gameplayRadius, minScreenRadius / Math.max(zoom, 0.001));
+  return {
+    role,
+    radius,
+    minimapVisible: role !== 'projectile',
+  };
 };
 
 const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);

@@ -1805,6 +1805,9 @@ Highest-impact LOC reductions:
        resource, progress, and HP/shield fraction rules.
      - Moved hallucination/illusion presentation into sim-exported render descriptors. App selection,
        Canvas2D, and GL now share the same viewer/team label, alpha, and tint policy.
+     - Moved child projectile presentation into sim-exported render descriptors and removed the app
+       child-actor facade. Gameplay child-actor descriptors still own commandability and combat
+       participation; renderers consume only role, readable radius, and minimap visibility.
 
 Further concrete deletion opportunities found on review:
 
@@ -1886,7 +1889,7 @@ Further concrete deletion opportunities found on review:
      - keep them allocation-free and obvious.
    - Expected win: small raw LOC win, but large blind-spot reduction because AI, validation, and UI
      stop making subtly different "completed/available/in range" decisions.
-   - Started:
+   - Completed:
      - Exported the sim-owned `hasCompletedKind`/`requirementsMet` helpers through `@rts/sim` and
        removed AI's duplicate completed-kind implementation, including its add-on attachment rule.
      - Added sim-owned allocation-free center-distance helpers `distanceSq` and `withinRangeSq`,
@@ -1899,6 +1902,9 @@ Further concrete deletion opportunities found on review:
      - Moved rectangle-point distance into the shared sim spatial helpers and replaced the local
        construction-system and render-descriptor copies, keeping build-site range checks and
        construction spark affordances on the same math primitive.
+     - Audited remaining distance-style uses: they are now shared helpers, explicit BW compatibility
+       math, domain-specific footprint geometry, or test/reference assertions rather than duplicate
+       generic helpers.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Completed shape:
      - `game-session.ts`: setup/restart/replay/human player;

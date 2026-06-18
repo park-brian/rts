@@ -4,13 +4,12 @@
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, entityCloakOpacity, entityLifeBar, entityRenderHull,
+  requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull,
   illusionPresentation, selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
-import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
 
@@ -159,8 +158,10 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.globalAlpha = 1;
     } else {
       const r = def.radius / ONE;
-      if (isProjectilePresentationKind(kind)) {
-        const glowR = readableProjectileRadius(kind, r, game.zoom);
+      const childPresentation = childActorRenderPresentation(kind, r, game.zoom);
+      const projectile = childPresentation.role === 'projectile';
+      if (projectile) {
+        const glowR = childPresentation.radius;
         ctx.globalAlpha = alpha * 0.42;
         ctx.fillStyle = 'rgba(255,210,78,0.5)';
         ctx.beginPath();
@@ -172,10 +173,10 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
         ? 'rgba(100,230,135,0.22)'
         : mergeSummon
         ? 'rgba(125,150,255,0.22)'
-        : isProjectilePresentationKind(kind)
+        : projectile
         ? 'rgba(255,225,120,0.58)'
         : illusion.known ? 'rgba(125,190,255,0.18)' : footprintColor(e.owner[i]!, 0.26);
-      ctx.strokeStyle = morphingCocoon ? '#8cff92' : mergeSummon ? '#a9bcff' : isProjectilePresentationKind(kind) ? '#fff1a8' : color(e.owner[i]!);
+      ctx.strokeStyle = morphingCocoon ? '#8cff92' : mergeSummon ? '#a9bcff' : projectile ? '#fff1a8' : color(e.owner[i]!);
       ctx.lineWidth = 1.5 / game.zoom;
       ctx.beginPath();
       ctx.arc(wx, wy, r, 0, Math.PI * 2);
@@ -416,7 +417,7 @@ export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => 
   const e = game.sim.fullState().e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-    if (isProjectilePresentationKind(e.kind[i]!)) continue;
+    if (!childActorRenderPresentation(e.kind[i]!, 0, game.zoom).minimapVisible) continue;
     const tx = Math.floor(e.x[i]! / ONE / TILE); const ty = Math.floor(e.y[i]! / ONE / TILE);
     if (!game.canSeeEntity(i)) continue;
     ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? NEUTRAL_COL : color(e.owner[i]!);

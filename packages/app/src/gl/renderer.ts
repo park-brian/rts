@@ -14,7 +14,7 @@
 
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
-  resolveRallyEndpoint, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
+  resolveRallyEndpoint, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
   selectionBase, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
@@ -24,7 +24,6 @@ import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
-import { isProjectilePresentationKind, readableProjectileRadius } from '../child-actors.ts';
 import { entityPresentation } from '../entity-presentation.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
@@ -382,9 +381,12 @@ export class GlRenderer {
         this.fx.push(wx, wy, r * 2.6, r * 2.6, 0, glow, 0.25, 0.85, 0.78, 0.1, 0, 0, 0);
       } else if (isGeyser || def.resourceType === ResourceType.Gas) {
         this.fx.push(baseX, baseY - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
-      } else if (isProjectilePresentationKind(kind)) {
-        const glowR = readableProjectileRadius(kind, r, game.zoom);
-        this.fx.push(wx, wy, glowR * 3, glowR * 3, 0, glow, 1, 0.75, 0.2, 0.32, 0, 0, 0);
+      } else {
+        const childPresentation = childActorRenderPresentation(kind, r, game.zoom);
+        if (childPresentation.role === 'projectile') {
+          const glowR = childPresentation.radius;
+          this.fx.push(wx, wy, glowR * 3, glowR * 3, 0, glow, 1, 0.75, 0.2, 0.32, 0, 0, 0);
+        }
       }
     }
   }
