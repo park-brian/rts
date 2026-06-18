@@ -12,6 +12,7 @@ import {
   requiresPower,
   techGas, techMinerals,
   abilityTechAvailable,
+  hasInternalProductReady,
   distanceSq, withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -631,8 +632,7 @@ const maybeBurrowForFight = (s: State, cmds: Command[], slot: number, target: nu
 
 const maybeLaySpiderMine = (s: State, cmds: Command[], slot: number, target: number): boolean => {
   const e = s.e;
-  if (e.kind[slot] !== Kind.Vulture || e.specialAmmo[slot]! <= 0) return false;
-  if (getTechLevel(s, e.owner[slot]!, Tech.SpiderMines) <= 0) return false;
+  if (e.kind[slot] !== Kind.Vulture || !hasInternalProductReady(s, slot, Kind.SpiderMine)) return false;
   if ((e.flags[target]! & (Role.Mobile | Role.Air | Role.Structure | Role.Resource)) !== Role.Mobile) return false;
   if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, TILE * ONE * 4)) return false;
   cmds.push({ t: 'mine', unit: eid(e, slot) });

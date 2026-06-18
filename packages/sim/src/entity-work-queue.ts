@@ -1,5 +1,5 @@
 import { Kind, TechDefs, Units } from './data.ts';
-import { internalProductDef, internalProductsForProducer } from './internal-products.ts';
+import { internalProductDef, internalProductReadyCount, internalProductsForProducer } from './internal-products.ts';
 import { nextTechLevel, techTime } from './tech.ts';
 import type { State } from './world.ts';
 
@@ -45,15 +45,16 @@ export type EntityWorkQueue = {
 
 const internalReadyWork = (s: State, slot: number): InternalReadyWork | undefined => {
   const e = s.e;
-  if (e.specialAmmo[slot]! <= 0) return undefined;
   for (const def of internalProductsForProducer(e.kind[slot]!)) {
     if (!def.display?.readyLabel) continue;
+    const amount = internalProductReadyCount(s, slot, def.product);
+    if (amount <= 0) continue;
     return {
       t: 'internal-ready',
       kind: def.product,
       label: def.display.readyLabel,
       detail: def.display.readyDetail ?? 'Ready',
-      amount: e.specialAmmo[slot]!,
+      amount,
     };
   }
   return undefined;

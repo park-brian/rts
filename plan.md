@@ -1742,6 +1742,9 @@ Highest-impact LOC reductions:
      - Added first-pass `ChildActorDef` descriptors for Scarabs and Interceptors, moving
        commandability and projectile presentation facts out of the app helper while preserving
        existing selection and renderer behavior.
+     - Added Spider Mines to `InternalProductDef` as research-gated Vulture charges, and routed mine
+       validation, AI readiness, Vulture spawn/refill, ready-count presentation, and lay-mine
+       consumption through shared internal-product helpers.
 7. Replace combat's direct unit checks with weapon mechanic ids.
    - Current shape: combat is compact but has growing branches for Reaver, Carrier, Bunker, Lurker,
      Mutalisk, Devourer, and suicide units.

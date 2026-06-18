@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
+import {
+  consumeInternalProduct,
+  hasInternalProductReady,
+  internalProductCapacity,
+  internalProductDef,
+  internalProductReadyCount,
+  refillInternalProduct,
+} from '../src/internal-products.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { parseReplay } from '../src/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
@@ -13,6 +21,27 @@ const mineSlots = (sim: Sim): number[] => {
   for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.SpiderMine) out.push(i);
   return out;
 };
+
+test('spider mine charges are internal product descriptor-backed', () => {
+  const { state: s, spawn, grant } = simScenario({ players: 1, seed: 209 });
+  const vulture = slotOf(spawn(Kind.Vulture, 0, fx(400), fx(400)));
+
+  assert.deepEqual(
+    internalProductDef(Kind.Vulture, Kind.SpiderMine),
+    { producer: Kind.Vulture, product: Kind.SpiderMine, baseCapacity: SPIDER_MINE_CHARGES, requiresTech: Tech.SpiderMines },
+  );
+  assert.equal(internalProductCapacity(s, vulture, Kind.SpiderMine), 0);
+  assert.equal(hasInternalProductReady(s, vulture, Kind.SpiderMine), false);
+
+  grant(0, Tech.SpiderMines);
+  assert.equal(internalProductCapacity(s, vulture, Kind.SpiderMine), SPIDER_MINE_CHARGES);
+  assert.equal(internalProductReadyCount(s, vulture, Kind.SpiderMine), 0);
+
+  refillInternalProduct(s, vulture, Kind.SpiderMine);
+  assert.equal(internalProductReadyCount(s, vulture, Kind.SpiderMine), SPIDER_MINE_CHARGES);
+  assert.equal(consumeInternalProduct(s, vulture, Kind.SpiderMine), true);
+  assert.equal(internalProductReadyCount(s, vulture, Kind.SpiderMine), SPIDER_MINE_CHARGES - 1);
+});
 
 test('vultures lay researched spider mines with finite charges', () => {
   const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 210 });

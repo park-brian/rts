@@ -22,6 +22,7 @@ import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, queueResearch, techGas, techMinerals } from './tech.ts';
 import { internalAmmoCapacity } from './derived.ts';
+import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
@@ -185,8 +186,8 @@ const validateMine = (s: State, player: number, command: Extract<Command, { t: '
   if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
   if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
   if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
-  if (getTechLevel(s, player, Tech.SpiderMines) <= 0) return reject('missing-requirement');
-  if (e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
+  if (internalProductCapacity(s, slot, Kind.SpiderMine) <= 0) return reject('missing-requirement');
+  if (!hasInternalProductReady(s, slot, Kind.SpiderMine)) return reject('target-not-allowed');
   return { ok: true };
 };
 

@@ -1,11 +1,12 @@
 import type { State } from '../world.ts';
 import { NONE } from '../world.ts';
-import { Kind, SPIDER_MINE_CHARGES, Tech, TechDefs } from '../data.ts';
+import { Kind, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../derived.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
+import { refillInternalProduct } from '../internal-products.ts';
 
 const refreshEnergyMax = (s: State, player: number): void => {
   const e = s.e;
@@ -20,7 +21,7 @@ const refreshSpiderMineAmmo = (s: State, player: number): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.Vulture) {
-      e.specialAmmo[i] = Math.max(e.specialAmmo[i]!, SPIDER_MINE_CHARGES);
+      refillInternalProduct(s, i, Kind.SpiderMine);
     }
   }
 };
