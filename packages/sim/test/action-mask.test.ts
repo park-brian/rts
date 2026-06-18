@@ -42,7 +42,7 @@ import { validateCommand } from '../src/validation.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 import type { Command } from '../src/commands.ts';
 import {
-  harvestModeCandidates, loadSelectionCandidates, rallyModeCandidates, repairModeCandidates,
+  attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, rallyModeCandidates, repairModeCandidates,
   smartCommandCandidates,
 } from '../src/command-intent.ts';
 
@@ -251,6 +251,29 @@ test('entity target mask exposes targeted move follow candidates', () => {
     validateCommand(s, 0, { t: 'move', unit: marine, x: opts.x, y: opts.y, target }).ok ? 1 : 0));
   assert.deepEqual([...mask], [1, 0, 0, 0]);
   assert.deepEqual([...writeEntityTargetMask(new Uint8Array(targets.length), s, 0, marine, 'move', targets, opts)], [...mask]);
+});
+
+test('armed attack target surfaces do not expose friendly escort entities yet', () => {
+  const scenario = simScenario({ players: 2, seed: 966 });
+  const { state: s, spawn } = scenario;
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const friendly = spawn(Kind.SCV, 0, fx(440), fx(400));
+  const enemy = spawn(Kind.Zergling, 1, fx(480), fx(400));
+  const targets = [friendly, enemy, marine];
+  const point = { hit: friendly, x: fx(440), y: fx(400) };
+
+  assert.deepEqual(attackModeCandidates(s, 0, marine, point), []);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: fx(480), y: fx(400) }), [
+    { t: 'attack', unit: marine, target: enemy },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: fx(520), y: fx(400) }), [
+    { t: 'amove', unit: marine, x: fx(520), y: fx(400) },
+  ]);
+
+  const attackTargets = entityTargetMask(s, 0, marine, 'attack', targets, point);
+  assert.deepEqual([...attackTargets], [0, 1, 0]);
+  assert.deepEqual([...writeEntityTargetMask(new Uint8Array(targets.length), s, 0, marine, 'attack', targets, point)], [...attackTargets]);
+  assert.deepEqual(commandForHead(s, marine, 'amove', point), { t: 'amove', unit: marine, x: point.x, y: point.y });
 });
 
 test('worker command mask follows harvest and repair validation', () => {

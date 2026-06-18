@@ -3012,6 +3012,9 @@ Implementation slices:
      column.
 
 7. Normalize resource rally across town halls.
+   - Status: implemented. Town-hall worker defaults are derived in `producedUnitRallyIntent`, not
+     stored by setup. Command Center, Nexus, and Hatchery-family producers support worker/resource
+     rally for workers; combat units ignore resource rally and use unit/general rally instead.
    - Treat Hatchery/Lair/Hive, Command Center/Orbital-like future variants, and Nexus as producers
      that can instantiate worker gather from `RallyIntent.resource`.
    - Make "default town-hall rally to nearby minerals" a producer default when no explicit rally is
@@ -3020,6 +3023,10 @@ Implementation slices:
      same Zerg producer.
 
 8. Update UI/AI/RL surfaces only after sim semantics are stable.
+   - Status: public attack-mode exposure pinned. Desktop/mobile armed Attack remains enemy-target
+     attack or point attack-move only; friendly entity targets are rejected/keep target mode rather
+     than becoming implicit escort. RL/entity target masks expose `attack` only for enemies, while
+     `amove` remains a point command with no entity target until an explicit escort API is chosen.
    - Desktop right-click, desktop `A` plus left-click, and mobile explicit target modes should emit
      the same command intents without app-only priority overrides outside the finite smart-command
      grammar.
@@ -3039,11 +3046,11 @@ Implementation slices:
 Open questions for review:
 
 - Should setting a resource rally on a Hatchery-family producer also set/clear the unit rally, or
-  only the worker rally? Recommended default: only worker rally, because it avoids sending combat
-  units into mineral lines.
+  only the worker rally? Decision: only worker rally. Resource rally targets future workers without
+  overwriting unit/general rally, so combat units are not sent into mineral lines.
 - Should desktop attack-command on a friendly unit mean attack-move-follow, escort, or invalid
-  target? Brood War UI may not expose exactly this path, but our command grammar should be
-  consistent and not surprise mobile players.
+  target? Decision for current public UI/API: invalid target. Keep the armed command active and do
+  not expose escort until it has an explicit command shape and action-mask contract.
 - Should follow slots be persisted per follower for smoothness, or derived from deterministic
   target/follower rank each tick for lower state and easier replay stability?
 - Should `load` remain a separate explicit command plus explicit move-to-load, or become an
