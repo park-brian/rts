@@ -3027,6 +3027,11 @@ Implementation slices:
      attack or point attack-move only; friendly entity targets are rejected/keep target mode rather
      than becoming implicit escort. RL/entity target masks expose `attack` only for enemies, while
      `amove` remains a point command with no entity target until an explicit escort API is chosen.
+   - Status: smart-command UI parity pinned. Desktop smart/right-click and mobile normal tap command
+     paths are covered against `smartCommandCandidates` for the finite grammar they actually expose:
+     enemy attack, friendly follow, mineral harvest, repair/continue construction, load, empty-point
+     movement, and structure rally. Mobile's owned-entity selection interception remains explicit
+     UX, not a command-intent mismatch.
    - Desktop right-click, desktop `A` plus left-click, and mobile explicit target modes should emit
      the same command intents without app-only priority overrides outside the finite smart-command
      grammar.

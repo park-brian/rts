@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OrderOptionId, ui } from '../src/store.ts';
-import { Ability, Kind, NEUTRAL, ONE, Tech, TILE, Units, canPlaceStructure, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import {
+  Ability, Kind, NEUTRAL, ONE, Tech, TILE, Units, canPlaceStructure, fx, setTechLevel, slotOf, smartCommandCandidates,
+  spawnUnit,
+} from '../src/sim.ts';
 import {
   centerOnEntity, findEntity, findOwnedWorkers, freshGame, screenOf, screenOfStructureFootprintEdge,
   select,
@@ -9,6 +12,11 @@ import {
 
 const enabledOptionIds = (options: readonly { id: number; ok: boolean }[]): number[] =>
   options.filter((option) => option.ok).map((option) => option.id);
+
+const fixedPointAt = (g: ReturnType<typeof freshGame>, p: { x: number; y: number }): { x: number; y: number } => ({
+  x: ((g.camX + p.x / g.zoom) * ONE) | 0,
+  y: ((g.camY + p.y / g.zoom) * ONE) | 0,
+});
 
 test('normal tap on an owned building selects it instead of commanding selected workers', () => {
   const g = freshGame();
@@ -401,6 +409,100 @@ test('desktop right click attacks hostile gas collectors instead of harvesting t
   g.desktopSmartTap(p.x, p.y, { preferredHit: enemyRefinery });
 
   assert.deepEqual(g.queued, [{ t: 'attack', unit: scv, target: enemyRefinery }]);
+});
+
+test('desktop smart tap matches shared command intent grammar', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const e = s.e;
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(500), fx(400));
+  const leader = spawnUnit(s, Kind.Marine, 0, fx(520), fx(440));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(540), fx(480));
+  const depot = spawnUnit(s, Kind.SupplyDepot, 0, fx(560), fx(520));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, fx(408), fx(400));
+  e.built[slotOf(depot)] = 0;
+  e.ctimer[slotOf(depot)] = 100;
+  g.fastForward(1);
+
+  const cases = [
+    { actor: marine, hit: enemy },
+    { actor: marine, hit: leader },
+    { actor: scv, hit: mineral },
+    { actor: scv, hit: depot },
+    { actor: marine, hit: bunker },
+  ];
+  for (const c of cases) {
+    select(g, [c.actor]);
+    centerOnEntity(g, c.hit);
+    const p = screenOf(g, c.hit);
+    const point = fixedPointAt(g, p);
+    const [expected] = smartCommandCandidates(s, 0, c.actor, { hit: c.hit, ...point }, 'desktop');
+
+    g.queued = [];
+    g.desktopSmartTap(p.x, p.y, { preferredHit: c.hit });
+
+    assert.deepEqual(g.queued, expected ? [expected] : [], `desktop smart parity for hit ${c.hit}`);
+  }
+
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  const p = { x: g.viewW / 2 + 96, y: g.viewH / 2 + 64 };
+  const point = fixedPointAt(g, p);
+  const [expected] = smartCommandCandidates(s, 0, marine, { hit: -1, ...point }, 'desktop');
+
+  g.queued = [];
+  g.desktopSmartTap(p.x, p.y);
+
+  assert.deepEqual(g.queued, expected ? [expected] : []);
+});
+
+test('mobile normal tap matches shared command intent when selection does not intercept', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(500), fx(400));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(540), fx(480));
+  g.fastForward(1);
+
+  for (const c of [{ actor: marine, hit: enemy }, { actor: scv, hit: mineral }]) {
+    select(g, [c.actor]);
+    centerOnEntity(g, c.hit);
+    const p = screenOf(g, c.hit);
+    const point = fixedPointAt(g, p);
+    const [expected] = smartCommandCandidates(s, 0, c.actor, { hit: c.hit, ...point }, 'mobile');
+
+    g.queued = [];
+    g.tap(p.x, p.y, { preferredHit: c.hit });
+
+    assert.deepEqual(g.queued, expected ? [expected] : [], `mobile tap parity for hit ${c.hit}`);
+  }
+
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  const movePoint = { x: g.viewW / 2 + 72, y: g.viewH / 2 + 48 };
+  const move = fixedPointAt(g, movePoint);
+  const [moveExpected] = smartCommandCandidates(s, 0, marine, { hit: -1, ...move }, 'mobile');
+
+  g.queued = [];
+  g.tap(movePoint.x, movePoint.y);
+
+  assert.deepEqual(g.queued, moveExpected ? [moveExpected] : []);
+
+  const cc = findEntity(g, Kind.CommandCenter, 0);
+  select(g, [cc]);
+  centerOnEntity(g, cc);
+  const rallyPoint = { x: g.viewW / 2 + 88, y: g.viewH / 2 + 56 };
+  const rally = fixedPointAt(g, rallyPoint);
+  const [rallyExpected] = smartCommandCandidates(s, 0, cc, { hit: -1, ...rally }, 'mobile');
+
+  g.queued = [];
+  g.tap(rallyPoint.x, rallyPoint.y);
+
+  assert.deepEqual(g.queued, rallyExpected ? [rallyExpected] : []);
 });
 
 test('harvest target mode sends selected workers to an owned gas structure', () => {
