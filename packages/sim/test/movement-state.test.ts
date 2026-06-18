@@ -12,6 +12,7 @@ import { setBurrowed } from '../src/burrow.ts';
 import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts';
 import { applyTransform } from '../src/unit-transform.ts';
 import { tickStatusTimers } from '../src/systems/status.ts';
+import { navigate } from '../src/pathing.ts';
 
 const setVelocity = (s: ReturnType<typeof makeState>, slot: number): void => {
   s.e.vx[slot] = fx(5);
@@ -81,6 +82,19 @@ test('crossing ground movers settle deterministically with bounded velocity', ()
   const second = run();
   assert.equal(first.stable, true);
   assert.equal(first.hash, second.hash);
+});
+
+test('ground arrival shaping eases exact destinations without overshoot', () => {
+  const s = makeState(sliceMap(), 1, 207);
+  const targetX = fx(8 * 32);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, targetX - fx(6), fx(8 * 32)));
+  s.e.vx[marine] = fx(2);
+
+  const arrived = navigate(s, marine, targetX, s.e.y[marine]!, fx(2));
+
+  assert.equal(arrived, false);
+  assert.ok(s.e.x[marine]! < targetX, 'arrival easing should not overshoot the exact destination');
+  assert.ok(s.e.vx[marine]! > 0 && s.e.vx[marine]! < fx(2), 'velocity should ease down inside the arrival band');
 });
 
 test('containment transitions clear persistent movement velocity', () => {

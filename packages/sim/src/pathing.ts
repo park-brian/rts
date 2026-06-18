@@ -120,6 +120,12 @@ const distFx = (x0: number, y0: number, x1: number, y1: number): number => {
 
 const latticeCostToFx = (cost: number): number => Math.trunc((cost * PATH_CELL_FX + 5) / 10);
 
+const arrivalSpeed = (speed: number, dist: number, radius: number): number => {
+  const band = Math.max(radius, speed * 3);
+  if (dist >= band) return speed;
+  return Math.max(1, Math.trunc((speed * dist) / band));
+};
+
 /**
  * Deterministic terrain/building route length between exact fixed-point locations
  * over the same path lattice used by movement. Unit bodies are ignored: this is
@@ -178,6 +184,7 @@ const moveTowardPass = (
   tx: number,
   ty: number,
   speed: number,
+  shapeArrival: boolean,
 ): boolean => {
   const e = s.e;
   const ox = e.x[slot]!;
@@ -187,9 +194,10 @@ const moveTowardPass = (
   const dist = isqrt(dx * dx + dy * dy);
   if (dist === 0) return true;
 
-  const limit = dist <= speed ? dist : speed;
-  const baseX = dist <= speed ? dx : Math.trunc((dx * speed) / dist);
-  const baseY = dist <= speed ? dy : Math.trunc((dy * speed) / dist);
+  const shapedSpeed = shapeArrival && dist > speed ? arrivalSpeed(speed, dist, Units[e.kind[slot]!]!.radius) : speed;
+  const limit = dist <= shapedSpeed ? dist : shapedSpeed;
+  const baseX = dist <= shapedSpeed ? dx : Math.trunc((dx * shapedSpeed) / dist);
+  const baseY = dist <= shapedSpeed ? dy : Math.trunc((dy * shapedSpeed) / dist);
   const avoid = usesLocalAvoidance(s, slot);
   let bestX = 0;
   let bestY = 0;
@@ -296,13 +304,13 @@ export const navigate = (s: State, slot: number, gx: number, gy: number, speed: 
   const targetY = rpx === gpx && rpy === gpy ? gy : pathCenterFx(rpy);
 
   if (clearPathLine(pass, w, h, unitSolid, spx, spy, rpx, rpy)) {
-    return moveTowardPass(s, pass, w, h, unitSolid, slot, targetX, targetY, speed);
+    return moveTowardPass(s, pass, w, h, unitSolid, slot, targetX, targetY, speed, rpx === gpx && rpy === gpy);
   }
 
   const field = flowField(s, routeGoal, clearancePx);
   const next = downhill(s, field, spx, spy, unitSolid, clearancePx);
   if (next < 0) {
-    if (spx === rpx && spy === rpy) return moveTowardPass(s, pass, w, h, unitSolid, slot, targetX, targetY, speed);
+    if (spx === rpx && spy === rpy) return moveTowardPass(s, pass, w, h, unitSolid, slot, targetX, targetY, speed, rpx === gpx && rpy === gpy);
     return false;
   }
 
@@ -316,9 +324,9 @@ export const navigate = (s: State, slot: number, gx: number, gy: number, speed: 
   const discreteProgress = fieldProgress(field, w, h, spx, spy, npx, npy);
   const smoothProgress = fieldProgress(field, w, h, spx, spy, smx, smy);
   if ((flow.x !== 0 || flow.y !== 0) && smoothProgress >= discreteProgress) {
-    moveTowardPass(s, pass, w, h, unitSolid, slot, smoothTx, smoothTy, speed);
+    moveTowardPass(s, pass, w, h, unitSolid, slot, smoothTx, smoothTy, speed, false);
   } else {
-    moveTowardPass(s, pass, w, h, unitSolid, slot, pathCenterFx(npx), pathCenterFx(npy), speed);
+    moveTowardPass(s, pass, w, h, unitSolid, slot, pathCenterFx(npx), pathCenterFx(npy), speed, false);
   }
   return false;
 };
