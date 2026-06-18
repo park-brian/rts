@@ -713,12 +713,14 @@ type EntityAbilityPolicy = {
   ability: number;
   target: 'friendly-entity' | 'enemy-entity';
   minScore: number;
+  canCast?: (s: State, player: number, caster: number) => boolean;
   scoreTarget: (s: State, player: number, target: number, caster: number, focusX: number, focusY: number) => number;
 };
 type PointAbilityPolicy = {
   ability: number;
   target: 'enemy-point';
   minScore: number;
+  canCast?: (s: State, player: number, caster: number) => boolean;
   scorePoint: (s: State, player: number, x: number, y: number) => number;
 };
 type AbilityPolicy = EntityAbilityPolicy | PointAbilityPolicy;
@@ -761,6 +763,16 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     target: 'friendly-entity',
     minScore: 120,
     scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
+  },
+  {
+    ability: Ability.Consume,
+    target: 'friendly-entity',
+    minScore: 80,
+    canCast: (s, _player, caster) => {
+      const ability = Abilities[Ability.Consume]!;
+      return s.e.energy[caster]! <= s.e.energyMax[caster]! - ability.damage;
+    },
+    scoreTarget: (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
   },
   {
     ability: Ability.Parasite,
@@ -878,7 +890,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Restoration) && tryCastPolicy(s, player, cmds, caster, Ability.Restoration)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.ScannerSweep) && maybeCastScanner(s, player, cmds, caster)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Consume) && maybeCastConsume(s, player, cmds, caster)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Consume) && tryCastPolicy(s, player, cmds, caster, Ability.Consume)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Hallucination) && tryCastPolicy(s, player, cmds, caster, Ability.Hallucination, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Recall) && maybeCastRecall(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
@@ -916,6 +928,7 @@ const tryCastPolicy = (
 ): boolean => {
   const policy = tacticalAbilityPolicy(abilityId);
   if (!policy) return false;
+  if (policy.canCast && !policy.canCast(s, player, caster)) return false;
   const e = s.e;
   let bestCommand: Command | null = null;
   let bestScore = policy.minScore;
@@ -1165,6 +1178,15 @@ const scoreHallucinationTarget = (s: State, player: number, target: number, focu
   return nearFight + e.hp[target]! + e.shield[target]! + def.supply * 8;
 };
 
+const scoreConsumeTarget = (s: State, caster: number, target: number): number => {
+  const e = s.e;
+  if (target === caster || e.owner[target] !== e.owner[caster] || (e.flags[target]! & Role.Mobile) === 0) return 0;
+  if ((unitTraits(e.kind[target]!) & Trait.Biological) === 0) return 0;
+  const kind = e.kind[target]!;
+  const expendable = kind === Kind.Broodling || kind === Kind.Zergling ? 140 : kind === Kind.Drone ? 60 : 90;
+  return expendable - Math.min(80, e.hp[target]!);
+};
+
 const scoreInfestTarget = (s: State, _player: number, slot: number): number =>
   s.e.kind[slot] === Kind.CommandCenter && s.e.hp[slot]! * 2 <= Units[Kind.CommandCenter]!.hp ? 500 : 0;
 
@@ -1177,27 +1199,6 @@ const scoreFriendlyRecallCluster = (s: State, player: number, x: number, y: numb
     score += 70 + Math.min(80, e.hp[i]! + e.shield[i]!);
   }
   return score;
-};
-
-const maybeCastConsume = (s: State, player: number, cmds: Command[], caster: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.Consume]!;
-  if (!hasTechForAbility(s, player, Ability.Consume)) return false;
-  if (e.energy[caster]! > e.energyMax[caster]! - ability.damage) return false;
-  let best = NONE;
-  let bestScore = 80;
-  for (let i = 0; i < e.hi; i++) {
-    if (i === caster || e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    if ((e.flags[i]! & Role.Mobile) === 0 || (unitTraits(e.kind[i]!) & Trait.Biological) === 0) continue;
-    const kind = e.kind[i]!;
-    const expendable = kind === Kind.Broodling || kind === Kind.Zergling ? 140 : kind === Kind.Drone ? 60 : 90;
-    const score = expendable - Math.min(80, e.hp[i]!);
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.Consume, target: eid(e, best) });
-  return true;
 };
 
 const scoreArea = (

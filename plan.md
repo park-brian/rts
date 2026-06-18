@@ -1619,6 +1619,8 @@ Highest-impact LOC reductions:
      policy path without changing its threat/damage target score.
    - Moved `Hallucination` into the same focus-aware friendly entity policy path, preserving its
      high-value combat target scoring while deleting the bespoke cast helper.
+   - Added a narrow caster precondition hook for tactical policies and moved `Consume` into the
+     friendly entity policy path while preserving its energy-deficit gate and expendable-unit score.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
