@@ -4,67 +4,32 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
-  slotOf, eid, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
+  slotOf, eid, isAlive, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions,
   transformFor, isLiftedStructureFlags,
-  bodyBounds, structureFootprint,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
 import { clearArmedCommand, isPlacementArmed, ui, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
-import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
+import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
+import { pointInBounds, selectableBounds } from './selection-geometry.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
 const EDGE_PAN_MARGIN = 24;
 const EDGE_PAN_SPEED = 560; // screen px/sec; converted to world px by zoom
-type TapOptions = { shift?: boolean; ctrl?: boolean; preferredHit?: number };
-type SelectableBounds = { x0: number; y0: number; x1: number; y1: number; cx: number; cy: number };
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
 
 const defaultRaceNames = (players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
-
-const usesFootprintBounds = (kind: number): boolean => {
-  const def = Units[kind]!;
-  return (def.roles & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser;
-};
-
-const selectableBounds = (kind: number, x: number, y: number): SelectableBounds => {
-  if (usesFootprintBounds(kind)) {
-    const fp = structureFootprint(kind, x, y);
-    const x0 = fp.x0 * TILE;
-    const y0 = fp.y0 * TILE;
-    const x1 = (fp.x1 + 1) * TILE;
-    const y1 = (fp.y1 + 1) * TILE;
-    return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
-  }
-  const b = bodyBounds(kind);
-  const cx = x / ONE;
-  const cy = y / ONE;
-  return {
-    x0: cx - b.left / ONE,
-    y0: cy - b.up / ONE,
-    x1: cx + b.right / ONE,
-    y1: cy + b.down / ONE,
-    cx,
-    cy,
-  };
-};
-
-const pointInBounds = (x: number, y: number, b: SelectableBounds): boolean =>
-  x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
-
-const boundsIntersectsRect = (b: SelectableBounds, x0: number, y0: number, x1: number, y1: number): boolean =>
-  b.x0 <= x1 && b.x1 >= x0 && b.y0 <= y1 && b.y1 >= y0;
 
 export class Game {
   sim!: Sim;
@@ -83,6 +48,7 @@ export class Game {
   selection = new Set<number>();
   private readonly controlGroupController = new ControlGroupController();
   private readonly placementController = new PlacementController();
+  private tapSelectionController?: TapSelectionController;
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
   private edgePanX = 0;
@@ -113,6 +79,11 @@ export class Game {
 
   set placementGhost(ghost: PlacementGhost | null) {
     this.placementController.ghost = ghost;
+  }
+
+  private tapSelection(): TapSelectionController {
+    this.tapSelectionController ??= new TapSelectionController(this);
+    return this.tapSelectionController;
   }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
@@ -398,151 +369,20 @@ export class Game {
   }
 
   boxSelect(sx0: number, sy0: number, sx1: number, sy1: number): void {
-    const [wx0, wy0] = this.screenToWorld(Math.min(sx0, sx1), Math.min(sy0, sy1));
-    const [wx1, wy1] = this.screenToWorld(Math.max(sx0, sx1), Math.max(sy0, sy1));
-    this.selection.clear();
-    if (this.human < 0) return;
-    const s = this.sim.fullState();
-    const e = s.e;
-    const buildings: number[] = [];
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human) continue;
-      if (!isUserCommandableKind(e.kind[i]!)) continue;
-      const b = selectableBounds(e.kind[i]!, e.x[i]!, e.y[i]!);
-      if (!boundsIntersectsRect(b, wx0, wy0, wx1, wy1)) continue;
-      if ((e.flags[i]! & Role.Structure) !== 0) buildings.push(eid(e, i));
-      else this.selection.add(eid(e, i));
-    }
-    if (this.selection.size === 0) for (const id of buildings) this.selection.add(id);
+    this.tapSelection().boxSelect(sx0, sy0, sx1, sy1);
   }
 
   /** A tap at screen (sx,sy): target an armed verb, select own entities, or smart-command. */
   tap(sx: number, sy: number, opts: TapOptions = {}): void {
-    const [wx, wy] = this.screenToWorld(sx, sy);
-    if (this.human < 0) return;
-    const s = this.sim.fullState();
-    const e = s.e;
-    const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
-
-    if (isPlacementArmed(ui.armedCommand.value)) return;
-
-    const armed = ui.armedCommand.value;
-    if (armed.t === 'ability') {
-      const ability = Abilities[armed.ability]!;
-      const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-      const ok = ability.target === 'point'
-        ? this.castSelectedAbility(armed.ability, undefined, tx, ty)
-        : hit >= 0 && this.castSelectedAbility(armed.ability, hit);
-      if (ok) clearArmedCommand();
-      return;
-    }
-
-    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-
-    // Set-rally mode: point every selected structure's rally at the tapped spot or entity.
-    if (armed.t === 'rally') {
-      const rallyTarget = hit >= 0 && (((e.flags[slotOf(hit)]! & Role.Resource) !== 0) || sameTeam(s, this.human, e.owner[slotOf(hit)]!))
-        ? hit
-        : undefined;
-      for (const id of this.selection) {
-        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          this.queued.push(rallyTarget !== undefined
-            ? { t: 'rally', building: id, x: tx, y: ty, target: rallyTarget }
-            : { t: 'rally', building: id, x: tx, y: ty });
-        }
-      }
-      clearArmedCommand();
-      return;
-    }
-
-    // Attack-move is an explicit target mode: the next world tap is its destination,
-    // even if the tap lands on an owned selectable entity.
-    if (armed.t === 'attackMove') {
-      for (const id of this.mobileSelection(e)) this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
-      clearArmedCommand();
-      return;
-    }
-
-    if (armed.t === 'target' && armed.mode === 'harvest') {
-      if (hit >= 0 && this.queueHarvestTarget(hit)) clearArmedCommand();
-      return;
-    }
-    if (armed.t === 'target' && armed.mode === 'repair') {
-      if (hit >= 0 && this.queueRepairTarget(hit)) clearArmedCommand();
-      return;
-    }
-
-    // Normal mode rule: tapping your own selectable thing selects it. Friendly
-    // target commands (repair/load/future spells) must be armed from the hotbar first.
-    if (this.isOwnedSelectable(e, hit)) {
-      this.selection.clear(); this.selection.add(hit);
-      clearArmedCommand();
-      return;
-    }
-
-    if (this.selection.size === 0) {
-      return;
-    }
-
-    const mobile = this.mobileSelection(e);
-    if (mobile.length === 0) {
-      for (const id of this.selection) {
-        const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'mobile');
-        if (command) this.queued.push(command);
-      }
-      return;
-    }
-
-    for (const id of mobile) {
-      const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'mobile');
-      if (command) this.queued.push(command);
-    }
+    this.tapSelection().tap(sx, sy, opts);
   }
 
   desktopSelectTap(sx: number, sy: number, opts: TapOptions = {}): void {
-    if (this.human < 0) return;
-    const [wx, wy] = this.screenToWorld(sx, sy);
-    const e = this.sim.fullState().e;
-    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-    this.clearTargetModes();
-    if (!this.isOwnedSelectable(e, hit)) {
-      if (!opts.shift) this.selection.clear();
-      return;
-    }
-    if (opts.ctrl) {
-      this.selectVisibleKind(e.kind[slotOf(hit)]!);
-      return;
-    }
-    if (opts.shift) {
-      if (this.selection.has(hit)) this.selection.delete(hit);
-      else this.selection.add(hit);
-      return;
-    }
-    this.selection.clear();
-    this.selection.add(hit);
+    this.tapSelection().desktopSelectTap(sx, sy, opts);
   }
 
   desktopSmartTap(sx: number, sy: number, opts: TapOptions = {}): void {
-    if (this.human < 0 || isPlacementArmed(ui.armedCommand.value) || this.selection.size === 0) return;
-    const [wx, wy] = this.screenToWorld(sx, sy);
-    const e = this.sim.fullState().e;
-    const tx = (wx * ONE) | 0;
-    const ty = (wy * ONE) | 0;
-    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-    if (ui.armedCommand.value.t !== 'none') {
-      this.tap(sx, sy, opts);
-      return;
-    }
-    let queued = false;
-    const s = this.sim.fullState();
-    for (const id of this.selection) {
-      const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'desktop');
-      if (command) {
-        this.queued.push(command);
-        queued = true;
-      }
-    }
-    if (queued) this.clearTargetModes();
+    this.tapSelection().desktopSmartTap(sx, sy, opts);
   }
 
   private clearTargetModes(): void {
@@ -615,68 +455,6 @@ export class Game {
     this.placementController.clear();
   }
 
-  private mobileSelection(e: State['e']): number[] {
-    const ids: number[] = [];
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      if (e.container[slotOf(id)] !== NONE) continue;
-      if ((e.flags[slotOf(id)]! & Role.Structure) === 0) ids.push(id);
-    }
-    return ids;
-  }
-
-  private isOwnedSelectable(e: State['e'], id: number): boolean {
-    if (id < 0 || this.human < 0) return false;
-    return isAlive(e, id) && e.owner[slotOf(id)] === this.human && isUserCommandableKind(e.kind[slotOf(id)]!);
-  }
-
-  private queueHarvestTarget(target: number): boolean {
-    if (target < 0) return false;
-    const s = this.sim.fullState();
-    const e = s.e;
-    let queued = false;
-    for (const id of this.selection) {
-      const c: Command = { t: 'harvest', unit: id, patch: target };
-      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) {
-        this.queued.push(c);
-        queued = true;
-      }
-    }
-    return queued;
-  }
-
-  private queueRepairTarget(target: number): boolean {
-    if (target < 0) return false;
-    const s = this.sim.fullState();
-    const e = s.e;
-    const targetSlot = slotOf(target);
-    if (e.built[targetSlot] !== 1) {
-      let best: Command | null = null;
-      let bestD = Infinity;
-      for (const id of this.selection) {
-        const c: Command = { t: 'repair', unit: id, target };
-        if (!isAlive(e, id) || !validateCommand(s, this.human, c).ok) continue;
-        const slot = slotOf(id);
-        const dx = e.x[slot]! - e.x[targetSlot]!;
-        const dy = e.y[slot]! - e.y[targetSlot]!;
-        const d = dx * dx + dy * dy;
-        if (d < bestD) { bestD = d; best = c; }
-      }
-      if (!best) return false;
-      this.queued.push(best);
-      return true;
-    }
-    let queued = false;
-    for (const id of this.selection) {
-      const c: Command = { t: 'repair', unit: id, target };
-      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) {
-        this.queued.push(c);
-        queued = true;
-      }
-    }
-    return queued;
-  }
-
   hitTest(wx: number, wy: number): number {
     const e = this.sim.fullState().e;
     let best = -1; let bestD = Infinity;
@@ -691,7 +469,7 @@ export class Game {
     return best;
   }
 
-  private isHitTestCandidate(slot: number): boolean {
+  isHitTestCandidate(slot: number): boolean {
     const e = this.sim.fullState().e;
     if (e.alive[slot] !== 1 || e.container[slot] !== NONE) return false;
     if (!isUserCommandableKind(e.kind[slot]!)) return false;
@@ -702,12 +480,6 @@ export class Game {
       if (this.tileVisible(tx, ty) !== 2) return false;
     }
     return true;
-  }
-
-  private resolvePreferredHit(hit: number | undefined): number | undefined {
-    if (hit === undefined || hit < 0 || !isAlive(this.sim.fullState().e, hit)) return undefined;
-    const slot = slotOf(hit);
-    return this.isHitTestCandidate(slot) ? hit : undefined;
   }
 
   stopSelected(): void {
@@ -937,29 +709,7 @@ export class Game {
 
   /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
   selectAllByType(sx: number, sy: number, opts: TapOptions = {}): void {
-    if (this.human < 0) return;
-    const [wx, wy] = this.screenToWorld(sx, sy);
-    const e = this.sim.fullState().e;
-    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-    if (hit < 0) return;
-    const hs = slotOf(hit);
-    if (e.owner[hs] !== this.human) return;
-    const kind = e.kind[hs]!;
-    this.selectVisibleKind(kind);
-    clearArmedCommand();
-  }
-
-  private selectVisibleKind(kind: number): void {
-    if (!isUserCommandableKind(kind)) return;
-    const e = this.sim.fullState().e;
-    const x0 = this.camX; const y0 = this.camY;
-    const x1 = this.camX + this.viewW / this.zoom; const y1 = this.camY + this.viewH / this.zoom;
-    this.selection.clear();
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
-      const b = selectableBounds(kind, e.x[i]!, e.y[i]!);
-      if (boundsIntersectsRect(b, x0, y0, x1, y1)) this.selection.add(eid(e, i));
-    }
+    this.tapSelection().selectAllByType(sx, sy, opts);
   }
 
   // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----

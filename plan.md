@@ -1592,7 +1592,10 @@ Highest-impact LOC reductions:
      - Extracted `InputGestureController`, which owns pointer session state, placement drag/commit,
        minimap drag, box select, desktop tap/right-click, middle-button pan, pinch pan/zoom, and
        multi-touch suppression while `attachInput` remains the DOM wiring surface.
-     - Remaining: split direct tap/selection command policy out of `Game`.
+     - Extracted `TapSelectionController`, which owns mobile tap, desktop select/smart tap, box select,
+       double-tap select-all, preferred-hit validation, and harvest/repair target-mode command policy
+       behind stable `Game` wrappers.
+     - Remaining: introduce the scenario/test DSL before the command-spec refactor.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.
