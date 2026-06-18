@@ -1953,6 +1953,10 @@ Further concrete deletion opportunities found on review:
      - Extracted spell/command ability vocabulary from `data.ts` into `data-abilities.ts`,
        including `Ability`, `EffectKind`, ability descriptor types, and `Abilities`, while
        preserving the `data.ts` public import surface and leaving unit definitions table-owned.
+     - Extracted unit definition vocabulary from `data.ts` into `data-units.ts`, including
+       `UnitDef`, `Units`, unit trait/weapon helpers, worker build palettes, larva source checks,
+       and production count helpers, while keeping `data.ts` as the public barrel plus faction and
+       economy constants.
 
 Abstraction acceptance test:
 
