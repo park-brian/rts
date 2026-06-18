@@ -4,7 +4,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
-import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
+import {
+  Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, childActorRenderPresentation,
+  shownSupply, type FactionName,
+} from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
 import {
@@ -319,6 +322,7 @@ const MinimapPanel = (p: { game: Game }) => {
     const e = g.sim.fullState().e;
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || !g.canSeeEntity(i)) continue;
+      if (!childActorRenderPresentation(e.kind[i]!, 0, g.zoom).minimapVisible) continue;
       const tx = Math.floor(e.x[i]! / ONE / TILE);
       const ty = Math.floor(e.y[i]! / ONE / TILE);
       ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? '#49d0c0' : minimapColor(e.owner[i]!);
