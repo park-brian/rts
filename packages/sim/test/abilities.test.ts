@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Abilities, Ability, Kind, Tech, Units, sec } from '../src/data.ts';
+import { Abilities, Ability, EffectKind, Kind, Tech, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { canDetect } from '../src/detection.ts';
@@ -59,6 +59,9 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
   assert.deepEqual(Abilities[Ability.ShieldRecharge]!.execution, { mode: 'target-restore', pool: 'shield' });
+  assert.deepEqual(Abilities[Ability.DisruptionWeb]!.execution, { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb });
+  assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });
+  assert.deepEqual(Abilities[Ability.ScannerSweep]!.execution, { mode: 'persistent-effect', effect: EffectKind.ScannerSweep });
 });
 
 test('ability validation rejects unaffordable energy casts', () => {
@@ -244,6 +247,48 @@ test('dark swarm blocks ranged ground damage while disruption web prevents groun
 
   assert.equal(s.e.shield[slotOf(zealot)], zealotShield);
   assert.equal(s.e.wcd[slotOf(marine)], 0);
+});
+
+test('persistent point effects spawn through descriptor execution', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 291 });
+  const defiler = spawn(Kind.Defiler, 0, fx(400), fx(400));
+  const corsair = spawn(Kind.Corsair, 0, fx(405), fx(400));
+  const commandCenter = spawn(Kind.CommandCenter, 0, fx(220), fx(300));
+  const comsat = spawn(Kind.ComsatStation, 0, fx(300), fx(300));
+  linkAddon(s, commandCenter, comsat);
+  s.e.energy[slotOf(defiler)] = 100;
+  s.e.energy[slotOf(corsair)] = 125;
+  s.e.energy[slotOf(comsat)] = 50;
+  grant(0, Tech.DisruptionWeb);
+
+  const commands = [
+    { t: 'ability' as const, unit: defiler, ability: Ability.DarkSwarm, x: fx(450), y: fx(400) },
+    { t: 'ability' as const, unit: corsair, ability: Ability.DisruptionWeb, x: fx(430), y: fx(400) },
+    { t: 'ability' as const, unit: comsat, ability: Ability.ScannerSweep, x: fx(700), y: fx(400) },
+  ];
+  const results = sim.step([{ player: 0, cmds: commands }]);
+
+  assert.deepEqual(results, [
+    { player: 0, index: 0, t: 'ability', ok: true },
+    { player: 0, index: 1, t: 'ability', ok: true },
+    { player: 0, index: 2, t: 'ability', ok: true },
+  ]);
+
+  for (const command of commands) {
+    const ability = Abilities[command.ability]!;
+    const execution = ability.execution;
+    assert.equal(execution?.mode, 'persistent-effect');
+    const effect = execution && execution.mode === 'persistent-effect' ? execution.effect : 0;
+    let found = false;
+    for (let i = 0; i < s.effects.hi; i++) {
+      if (s.effects.alive[i] !== 1 || s.effects.kind[i] !== effect || s.effects.x[i] !== command.x || s.effects.y[i] !== command.y) continue;
+      assert.equal(s.effects.owner[i], 0);
+      assert.equal(s.effects.radius[i], ability.radius);
+      assert.equal(s.effects.timer[i], ability.duration - 1);
+      found = true;
+    }
+    assert.equal(found, true);
+  }
 });
 
 test('permanently cloaked units require a nearby detector to be attacked', () => {

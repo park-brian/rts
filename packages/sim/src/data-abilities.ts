@@ -53,7 +53,8 @@ export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
   | { mode: 'target-status'; timer: AbilityStatusTimer }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
-  | { mode: 'target-restore'; pool: AbilityRestorePool };
+  | { mode: 'target-restore'; pool: AbilityRestorePool }
+  | { mode: 'persistent-effect'; effect: EffectKind };
 export type AbilityDef = {
   name: string;
   tech?: number;
@@ -133,6 +134,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Disruption Web', tech: Tech.DisruptionWeb, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Corsair],
     energyCost: 125, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(37.8), period: 0, damage: 0,
+    execution: { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb },
   },
   [Ability.SpawnBroodling]: {
     name: 'Spawn Broodling', tech: Tech.SpawnBroodling, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: Role.Air,
@@ -158,6 +160,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Dark Swarm', target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Defiler],
     energyCost: 100, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(37.8), period: 0, damage: 0,
+    execution: { mode: 'persistent-effect', effect: EffectKind.DarkSwarm },
   },
   [Ability.PersonnelCloaking]: {
     name: 'Personnel Cloaking', tech: Tech.PersonnelCloaking, target: 'self', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,
@@ -173,6 +176,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Scanner Sweep', target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ComsatStation],
     energyCost: 50, hpCost: 0, range: tiles(999), radius: fx(160), duration: sec(8.4), period: 0, damage: 0,
+    execution: { mode: 'persistent-effect', effect: EffectKind.ScannerSweep },
   },
   [Ability.Heal]: {
     name: 'Heal', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,

@@ -1601,6 +1601,9 @@ Highest-impact LOC reductions:
        shields through the same capped restore path.
      - Extended descriptor target timers to `Irradiate`, so the generic execution path owns the
        target's damage-over-time timer while the existing tick system owns periodic splash damage.
+     - Added a persistent point-effect execution descriptor for non-damaging map effects:
+       `Disruption Web`, `Dark Swarm`, and `Scanner Sweep` now spawn their effects through the
+       generic descriptor path while leaving effect ticking behavior unchanged.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

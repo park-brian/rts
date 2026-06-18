@@ -106,17 +106,23 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
   const execution = ability.execution;
   if (!execution) return false;
   const e = s.e;
-  const target = execution.mode === 'caster-status' ? slot : slotOf(c.target!);
   switch (execution.mode) {
-    case 'caster-status':
-    case 'target-status':
+    case 'caster-status': {
+      const target = slot;
       applyStatusTimer(e, execution.timer, target, ability.duration);
       break;
+    }
+    case 'target-status':
+      applyStatusTimer(e, execution.timer, slotOf(c.target!), ability.duration);
+      break;
     case 'target-marker':
-      applyTargetMarker(e, execution.marker, target, e.owner[slot]!);
+      applyTargetMarker(e, execution.marker, slotOf(c.target!), e.owner[slot]!);
       break;
     case 'target-restore':
-      applyTargetRestore(e, execution.pool, target, ability.damage);
+      applyTargetRestore(e, execution.pool, slotOf(c.target!), ability.damage);
+      break;
+    case 'persistent-effect':
+      spawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
       break;
   }
   return true;
@@ -294,9 +300,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
         (target) => (unitTraits(e.kind[target]!) & Trait.Biological) !== 0,
         (target) => { e.maelstromTimer[target] = Math.max(e.maelstromTimer[target]!, ability.duration); });
       break;
-    case Ability.DisruptionWeb:
-      spawnEffect(s, EffectKind.DisruptionWeb, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, 0);
-      break;
     case Ability.SpawnBroodling: {
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;
@@ -325,16 +328,10 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
       break;
     }
-    case Ability.DarkSwarm:
-      spawnEffect(s, EffectKind.DarkSwarm, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, 0);
-      break;
     case Ability.PersonnelCloaking:
     case Ability.CloakingField:
       e.cloakActive[slot] = togglingCloakOff ? 0 : 1;
       e.cloakTimer[slot] = togglingCloakOff ? 0 : ability.period;
-      break;
-    case Ability.ScannerSweep:
-      spawnEffect(s, EffectKind.ScannerSweep, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, 0);
       break;
     case Ability.Restoration:
       restoreStatuses(s, slotOf(c.target!));
