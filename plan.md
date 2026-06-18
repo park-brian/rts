@@ -1570,6 +1570,9 @@ Highest-impact LOC reductions:
   add-on parent compatibility, position, and active-parent helpers.
 - Moved `train` into command specs and put production queue/cost mutation in
   `production-queue.ts`, preserving same-tick reserved supply through narrow command-spec context.
+- Moved `build` into command specs and put worker build legality plus pending construction order
+  stamping in `build-command.ts`, preserving placement snapping, pending refunds, and construction
+  ledgers outside ingestion.
 - Continue remaining command migrations in small command families before starting the larger
   ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

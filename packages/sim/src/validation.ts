@@ -7,11 +7,9 @@ import { isAlive, isEnemy, slotOf, NONE } from './world.ts';
 import {
   Ability, Abilities, Kind, Role, Tech, Units,
   unitTraits,
-  workerBuildKindsFor,
 } from './data.ts';
 import { isActiveAddon } from './addon.ts';
 import { snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
-import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
@@ -20,11 +18,11 @@ import { getTechLevel } from './tech.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { validateCommandSpec } from './command-specs.ts';
 import { isContained, sameTeam } from './cargo.ts';
-import { requirementsMet } from './requirements.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from './placement.ts';
 
 export type { CommandRejectReason };
 export { canPlaceStructure, placementForStructure, snapBuildAnchor, structureFootprint, type Footprint, type PlacementResult };
+export { canWorkerStartStructure } from './build-command.ts';
 
 export type CommandValidation =
   | { ok: true }
@@ -50,33 +48,6 @@ const ownedSlot = (s: State, id: number, player: number): number | null => {
   return e.owner[slot] === player ? slot : null;
 };
 
-const canBuildWithWorker = (workerKind: number, structureKind: number): boolean => {
-  const worker = Units[workerKind];
-  const structure = Units[structureKind];
-  if (!worker || worker.race !== structure.race) return false;
-  return workerBuildKindsFor(worker.race).includes(structureKind);
-};
-
-export const canWorkerStartStructure = (
-  s: State,
-  player: number,
-  workerSlot: number,
-  kind: number,
-): CommandValidation => {
-  if (!playerExists(s, player)) return reject('wrong-owner');
-  const e = s.e;
-  if (workerSlot < 0 || workerSlot >= e.hi || e.alive[workerSlot] !== 1) return reject('stale-entity');
-  if (e.owner[workerSlot] !== player) return reject('wrong-owner');
-  if (isContained(s, workerSlot) || e.burrowed[workerSlot] === 1 || e.illusion[workerSlot] === 1) return reject('missing-capability');
-  const def = Units[kind];
-  if (!def || (def.roles & Role.Structure) === 0 || (e.flags[workerSlot]! & Role.Worker) === 0 ||
-      !canBuildWithWorker(e.kind[workerSlot]!, kind)) {
-    return reject('missing-capability');
-  }
-  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-  return { ok: true };
-};
-
 export const validateCommand = (
   s: State,
   player: number,
@@ -94,17 +65,7 @@ export const validateCommand = (
       return validateCommandSpec(s, player, c);
     }
     case 'build': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      const def = Units[c.kind];
-      const buildableByWorker = canWorkerStartStructure(s, player, slot, c.kind);
-      if (!buildableByWorker.ok) return buildableByWorker;
-      const refundableMinerals = hasPendingBuild(e, slot) ? e.buildCostMinerals[slot]! : 0;
-      const refundableGas = hasPendingBuild(e, slot) ? e.buildCostGas[slot]! : 0;
-      if (s.players.minerals[player]! + refundableMinerals < def.minerals ||
-          s.players.gas[player]! + refundableGas < def.gas) return reject('not-affordable');
-      const placement = canPlaceStructure(s, player, slot, c.kind, c.x, c.y);
-      return placement.ok ? { ok: true } : reject(placement.reason);
+      return validateCommandSpec(s, player, c);
     }
     case 'addon': {
       return validateCommandSpec(s, player, c);

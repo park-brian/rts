@@ -28,6 +28,7 @@ import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 import { queueProduction, queuedProductionCount } from './production-queue.ts';
+import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -37,7 +38,7 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'addon' | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'train'
+    | 'addon' | 'amove' | 'build' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'train'
     | 'transform' | 'unload';
 }>;
 
@@ -161,6 +162,13 @@ const validateTrain = (
   const used = ctx.reservedSupply ?? s.players.supplyUsed[player]!;
   if (used + def.supply * productionCount(command.kind) > s.players.supplyMax[player]!) return reject('supply-blocked');
   return { ok: true };
+};
+
+const validateBuild = (s: State, player: number, command: Extract<Command, { t: 'build' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  return validateWorkerBuild(s, player, slot, command.kind, command.x, command.y);
 };
 
 const validateBurrow = (s: State, player: number, command: Extract<Command, { t: 'burrow' }>): CommandValidation => {
@@ -422,6 +430,15 @@ const burrowSpec: CommandSpec<Extract<Command, { t: 'burrow' }>> = {
   },
 };
 
+const buildSpec: CommandSpec<Extract<Command, { t: 'build' }>> = {
+  validate: validateBuild,
+  apply(s, player, command): void {
+    const slot = slotOf(command.unit);
+    const placement = placementForStructure(s, command.kind, command.x, command.y, slot, player);
+    if (placement.ok) beginWorkerBuild(s, slot, command.kind, placement, player);
+  },
+};
+
 const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
   validate: validateHarvest,
   apply(s, _player, command): void {
@@ -581,6 +598,7 @@ export const commandSpecs = {
   addon: addonSpec,
   attack: attackSpec,
   amove: amoveSpec,
+  build: buildSpec,
   burrow: burrowSpec,
   cancelBuild: cancelBuildSpec,
   harvest: harvestSpec,
@@ -607,6 +625,7 @@ export const validateCommandSpec = (
   switch (command.t) {
     case 'addon': return commandSpecs.addon.validate(s, player, command);
     case 'attack': return commandSpecs.attack.validate(s, player, command);
+    case 'build': return commandSpecs.build.validate(s, player, command);
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
@@ -638,6 +657,9 @@ export const applyCommandSpec = (
       return;
     case 'attack':
       commandSpecs.attack.apply(s, player, command, ctx);
+      return;
+    case 'build':
+      commandSpecs.build.apply(s, player, command, ctx);
       return;
     case 'burrow':
       commandSpecs.burrow.apply(s, player, command, ctx);

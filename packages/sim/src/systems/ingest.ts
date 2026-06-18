@@ -5,12 +5,9 @@
 import type { State } from '../world.ts';
 import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
-import { Kind, Order, Units } from '../data.ts';
 import { validateCommand } from '../validation.ts';
-import { placementForStructure } from '../placement.ts';
 import { castAbility } from './abilities.ts';
-import { spawnUnit } from '../factory.ts';
-import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled, validateCommandSpec } from '../command-specs.ts';
+import { applyCommandSpec, clearSettled, validateCommandSpec } from '../command-specs.ts';
 import { reserveProductionSupply } from '../production-queue.ts';
 import {
   GROUP_SLOT_SPACING,
@@ -92,22 +89,6 @@ const groupDestination = (
   return { x: c.x + offset.x, y: c.y + offset.y };
 };
 
-const startBuild = (s: State, slot: number, kind: number, x: number, y: number, player: number): void => {
-  const e = s.e;
-  const def = Units[kind];
-  if (!def) return;
-  clearSettled(s, slot);
-  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
-  s.players.gas[player] = s.players.gas[player]! - def.gas;
-  e.order[slot] = Order.Build;
-  e.buildKind[slot] = kind;
-  e.buildCostMinerals[slot] = def.minerals;
-  e.buildCostGas[slot] = def.gas;
-  e.target[slot] = NONE;
-  e.tx[slot] = x;
-  e.ty[slot] = y;
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   let total = 0;
   for (const pc of batch) total += pc.cmds.length;
@@ -128,20 +109,9 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         continue;
       }
       switch (c.t) {
-        case 'build': {
-          const slot = slotOf(c.unit);
-          const placement = placementForStructure(s, c.kind, c.x, c.y, slot);
-          if (!placement.ok) {
-            results.push({ player, index, t: c.t, ok: false, reason: placement.reason });
-            break;
-          }
-          cancelPendingBeforeOrder(s, slot);
-          startBuild(s, slot, c.kind, placement.x, placement.y, player);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'addon':
         case 'attack':
+        case 'build':
         case 'burrow':
         case 'cancelBuild':
         case 'harvest':
