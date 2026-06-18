@@ -755,6 +755,24 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     minScore: 1,
     scoreTarget: (s, player, target) => scoreLockdownTarget(s, player, target),
   },
+  {
+    ability: Ability.MindControl,
+    target: 'enemy-entity',
+    minScore: 180,
+    scoreTarget: (s, player, target) => scoreMindControlTarget(s, player, target),
+  },
+  {
+    ability: Ability.YamatoGun,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreYamatoTarget(s, player, target),
+  },
+  {
+    ability: Ability.Feedback,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreFeedbackTarget(s, player, target),
+  },
 ];
 
 const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
@@ -772,13 +790,13 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Consume) && maybeCastConsume(s, player, cmds, caster)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Hallucination) && maybeCastHallucination(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Recall) && maybeCastRecall(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.MindControl) && maybeCastEntityAbility(s, player, cmds, caster, Ability.MindControl, scoreMindControlTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.YamatoGun) && maybeCastEntityAbility(s, player, cmds, caster, Ability.YamatoGun, scoreYamatoTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.NuclearStrike) && maybeCastPointAbility(s, player, cmds, caster, Ability.NuclearStrike, scoreNukeTarget, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.InfestCommandCenter) && maybeCastEntityAbility(s, player, cmds, caster, Ability.InfestCommandCenter, scoreInfestTarget)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.SpawnBroodling) && maybeCastEntityAbility(s, player, cmds, caster, Ability.SpawnBroodling, scoreBroodlingTarget)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Parasite) && tryCastPolicy(s, player, cmds, caster, Ability.Parasite)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Feedback) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Feedback, scoreFeedbackTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Feedback) && tryCastPolicy(s, player, cmds, caster, Ability.Feedback)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Lockdown) && tryCastPolicy(s, player, cmds, caster, Ability.Lockdown)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Irradiate) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Irradiate, scoreIrradiateTarget)) { used.add(caster); continue; }
@@ -820,7 +838,6 @@ const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number
 
 const abilityThreshold = (abilityId: number): number => {
   switch (abilityId) {
-    case Ability.MindControl: return 180;
     case Ability.EMPShockwave: return 100;
     case Ability.PsionicStorm: return 70;
     case Ability.Plague: return 40;
