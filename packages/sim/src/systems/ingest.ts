@@ -6,8 +6,7 @@ import type { State } from '../world.ts';
 import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { validateCommand } from '../validation.ts';
-import { castAbility } from './abilities.ts';
-import { applyCommandSpec, clearSettled, validateCommandSpec } from '../command-specs.ts';
+import { applyCommandSpec, validateCommandSpec } from '../command-specs.ts';
 import { reserveProductionSupply } from '../production-queue.ts';
 import {
   GROUP_SLOT_SPACING,
@@ -109,6 +108,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         continue;
       }
       switch (c.t) {
+        case 'ability':
         case 'addon':
         case 'attack':
         case 'build':
@@ -135,13 +135,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           });
           results.push({ player, index, t: c.t, ok: true });
           break;
-        case 'ability': {
-          const slot = slotOf(c.unit);
-          clearSettled(s, slot);
-          castAbility(s, slot, c);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
       }
     }
   }

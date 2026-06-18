@@ -29,6 +29,7 @@ import { placementForStructure } from './placement.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 import { queueProduction, queuedProductionCount } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
+import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -38,8 +39,8 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'addon' | 'amove' | 'build' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'train'
-    | 'transform' | 'unload';
+    | 'ability' | 'addon' | 'amove' | 'build' | 'land' | 'lift' | 'rally' | 'repair' | 'research'
+    | 'stop' | 'train' | 'transform' | 'unload';
 }>;
 
 type CommandSpecValidationContext = {
@@ -409,6 +410,13 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   },
 };
 
+const abilitySpec: CommandSpec<Extract<Command, { t: 'ability' }>> = {
+  validate: validateAbilityCommand,
+  apply(s, _player, command): void {
+    applyAbilityCommand(s, command);
+  },
+};
+
 const addonSpec: CommandSpec<Extract<Command, { t: 'addon' }>> = {
   validate: validateAddon,
   apply(s, player, command): void {
@@ -595,6 +603,7 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
 };
 
 export const commandSpecs = {
+  ability: abilitySpec,
   addon: addonSpec,
   attack: attackSpec,
   amove: amoveSpec,
@@ -623,6 +632,7 @@ export const validateCommandSpec = (
   ctx: CommandSpecValidationContext = {},
 ): CommandValidation => {
   switch (command.t) {
+    case 'ability': return commandSpecs.ability.validate(s, player, command);
     case 'addon': return commandSpecs.addon.validate(s, player, command);
     case 'attack': return commandSpecs.attack.validate(s, player, command);
     case 'build': return commandSpecs.build.validate(s, player, command);
@@ -652,6 +662,9 @@ export const applyCommandSpec = (
   ctx: CommandSpecContext,
 ): void => {
   switch (command.t) {
+    case 'ability':
+      commandSpecs.ability.apply(s, player, command, ctx);
+      return;
     case 'addon':
       commandSpecs.addon.apply(s, player, command, ctx);
       return;

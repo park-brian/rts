@@ -1573,8 +1573,10 @@ Highest-impact LOC reductions:
 - Moved `build` into command specs and put worker build legality plus pending construction order
   stamping in `build-command.ts`, preserving placement snapping, pending refunds, and construction
   ledgers outside ingestion.
-- Continue remaining command migrations in small command families before starting the larger
-  ability descriptor refactor.
+- Moved `ability` into command specs and put the existing ability legality/apply bridge in
+  `ability-command.ts`, leaving spell execution behavior unchanged for the descriptor refactor.
+- Command-family migration is complete; start the larger ability descriptor refactor in the next
+  slices.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.
