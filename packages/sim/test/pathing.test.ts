@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { eid, kill, makeState, NONE, slotOf, hashState } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
-import { navPassableForKind, pathY } from '../src/flow.ts';
+import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
 import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
@@ -172,6 +172,26 @@ test('clearance-aware pathing preserves diagonal no-corner-cutting', () => {
 
   assert.equal(arrived, false, 'unit should not cut diagonally through two blocked corner tiles');
   assert.notEqual(`${tileX(s.e.x[marine]!)},${tileY(s.e.y[marine]!)}`, '1,1');
+});
+
+test('flow-field sampling blends local directions without changing passability', () => {
+  const w = 20;
+  const h = 12;
+  const walk = new Uint8Array(w * h).fill(1);
+  for (let y = 0; y <= 8; y++) walk[y * w + 10] = 0;
+  const map: MapDef = {
+    name: 'smooth-flow-wall', w, h, walk, build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+  const s = makeState(map, 1, 151);
+  const clearance = clearancePxForKind(Kind.Marine);
+  const pass = pathPass(s, clearance);
+  const goal = pathY(tc(2)) * pathW(s) + pathX(tc(15));
+  const field = flowField(s, goal, clearance);
+  const dir = sampleFlowDirection(s, field, pass, null, tc(9) + fx(4), tc(2) + fx(4), clearance);
+
+  assert.ok(dir.x <= 0, 'unit beside the wall should not smooth-steer into the blocked wall');
+  assert.ok(dir.y > 0, 'unit beside the wall should smooth-steer toward the gap');
 });
 
 test('procedural maps are connected and scale with team size', () => {

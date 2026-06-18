@@ -20,6 +20,7 @@ import {
   pathCenterFx,
   pathH,
   pathPass,
+  sampleFlowDirection,
   pathW,
   pathX,
   pathY,
@@ -238,6 +239,14 @@ const moveTowardPass = (
   return bestArrived;
 };
 
+const fieldProgress = (field: Int32Array, w: number, h: number, sx: number, sy: number, tx: number, ty: number): number => {
+  if (tx < 0 || ty < 0 || tx >= w || ty >= h) return -1;
+  const from = field[sy * w + sx]!;
+  const to = field[ty * w + tx];
+  if (to === undefined || from === INF || to === INF) return -1;
+  return from - to;
+};
+
 /**
  * Steer `slot` toward (gx,gy) in fixed px, avoiding terrain and buildings. Returns
  * true once the unit has reached the goal point.
@@ -283,6 +292,17 @@ export const navigate = (s: State, slot: number, gx: number, gy: number, speed: 
 
   const npx = next % w;
   const npy = (next - npx) / w;
-  moveTowardPass(s, pass, w, h, unitSolid, slot, pathCenterFx(npx), pathCenterFx(npy), speed);
+  const flow = sampleFlowDirection(s, field, pass, unitSolid, e.x[slot]!, e.y[slot]!, clearancePx);
+  const smoothTx = e.x[slot]! + Math.trunc((flow.x * PATH_CELL_FX) / ONE);
+  const smoothTy = e.y[slot]! + Math.trunc((flow.y * PATH_CELL_FX) / ONE);
+  const smx = pathX(smoothTx);
+  const smy = pathY(smoothTy);
+  const discreteProgress = fieldProgress(field, w, h, spx, spy, npx, npy);
+  const smoothProgress = fieldProgress(field, w, h, spx, spy, smx, smy);
+  if ((flow.x !== 0 || flow.y !== 0) && smoothProgress >= discreteProgress) {
+    moveTowardPass(s, pass, w, h, unitSolid, slot, smoothTx, smoothTy, speed);
+  } else {
+    moveTowardPass(s, pass, w, h, unitSolid, slot, pathCenterFx(npx), pathCenterFx(npy), speed);
+  }
   return false;
 };

@@ -392,6 +392,67 @@ export const downhill = (
   return best >= 0 ? best : fallback;
 };
 
+const flowVectorAt = (
+  s: State,
+  field: Int32Array,
+  pass: Uint8Array,
+  unitSolid: Uint8Array | null,
+  tx: number,
+  ty: number,
+  clearancePx: number,
+): { x: number; y: number; valid: boolean } => {
+  const W = pathW(s);
+  const H = pathH(s);
+  if (tx < 0 || ty < 0 || tx >= W || ty >= H) return { x: 0, y: 0, valid: false };
+  const here = field[ty * W + tx]!;
+  if (here === INF || here === 0 || pass[ty * W + tx] !== 1) return { x: 0, y: 0, valid: false };
+  const next = downhill(s, field, tx, ty, unitSolid, clearancePx);
+  if (next < 0) return { x: 0, y: 0, valid: false };
+  return { x: (next % W) - tx, y: Math.trunc(next / W) - ty, valid: true };
+};
+
+/**
+ * Smooth flow direction in path-cell units, scaled by ONE. Invalid sample corners
+ * are ignored rather than blended through walls; direct passability still gates
+ * the actual step in pathing.ts.
+ */
+export const sampleFlowDirection = (
+  s: State,
+  field: Int32Array,
+  pass: Uint8Array,
+  unitSolid: Uint8Array | null,
+  xfx: number,
+  yfx: number,
+  clearancePx = 0,
+): { x: number; y: number } => {
+  const px = pathX(xfx);
+  const py = pathY(yfx);
+  const gx = Math.trunc(((xfx - px * PATH_CELL_FX) * ONE) / PATH_CELL_FX);
+  const gy = Math.trunc(((yfx - py * PATH_CELL_FX) * ONE) / PATH_CELL_FX);
+  let sx = 0;
+  let sy = 0;
+  let sw = 0;
+  const add = (ox: number, oy: number, wx: number, wy: number): void => {
+    const weight = Math.trunc((wx * wy) / ONE);
+    if (weight <= 0) return;
+    const v = flowVectorAt(s, field, pass, unitSolid, px + ox, py + oy, clearancePx);
+    if (!v.valid) return;
+    sx += v.x * weight;
+    sy += v.y * weight;
+    sw += weight;
+  };
+
+  add(0, 0, ONE - gx, ONE - gy);
+  add(1, 0, gx, ONE - gy);
+  add(0, 1, ONE - gx, gy);
+  add(1, 1, gx, gy);
+  if (sw <= 0) return { x: 0, y: 0 };
+  return {
+    x: Math.trunc((sx * ONE) / sw),
+    y: Math.trunc((sy * ONE) / sw),
+  };
+};
+
 export const nearestPassablePathCell = (
   s: State,
   clearancePx: number,
