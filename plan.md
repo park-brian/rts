@@ -1915,6 +1915,9 @@ Further concrete deletion opportunities found on review:
      - Migrated `transport.test.ts` onto the shared sim scenario harness while keeping cargo,
        unload placement, visibility, serialization, replay parser, bunker, and nydus assertions
        local to the file.
+     - Migrated the observation setup portions of `state-api.test.ts` onto the shared sim scenario
+       harness while leaving disabled-vision, serialization, hash-history, and replay lifecycle
+       tests as direct `Sim` cases.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead

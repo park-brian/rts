@@ -6,10 +6,10 @@ import { eid, kill, slotOf, spawnEffect } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { setTechLevel } from '../src/tech.ts';
 import { CREEP_RADIUS } from '../src/creep.ts';
 import { LARVA_MAX } from '../src/larva.ts';
 import { POWER_RADIUS } from '../src/power.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 const tileCenter = (w: number, idx: number): { x: number; y: number } => {
   const tx = idx % w;
@@ -21,7 +21,7 @@ test('observe requires vision tracking and returns a defensive vision copy', () 
   const noVision = new Sim({ map: sliceMap(), players: 1, seed: 201 });
   assert.throws(() => noVision.observe(0), /vision tracking is disabled/);
 
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 202, vision: true });
+  const { sim } = simScenario({ players: 1, seed: 202, vision: true });
   const obs = sim.observe(0);
   assert.ok(obs.vision.some((v) => v === 2), 'initial vision is computed before the first tick');
   obs.vision.fill(0);
@@ -29,10 +29,9 @@ test('observe requires vision tracking and returns a defensive vision copy', () 
 });
 
 test('observe returns a defensive own-player tech vector', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 208, vision: true });
-  const s = sim.fullState();
-  setTechLevel(s, 0, Tech.StimPack, 1);
-  setTechLevel(s, 1, Tech.YamatoCannon, 1);
+  const { sim, grant } = simScenario({ players: 2, seed: 208, vision: true });
+  grant(0, Tech.StimPack);
+  grant(1, Tech.YamatoCannon);
 
   const obs = sim.observe(0);
   assert.equal(obs.tech[Tech.StimPack], 1);
@@ -43,11 +42,10 @@ test('observe returns a defensive own-player tech vector', () => {
 });
 
 test('observe returns active own queues without leaking enemy queues', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 209, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 209, vision: true });
   const e = s.e;
-  const own = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(500), fx(500)));
-  const enemy = slotOf(spawnUnit(s, Kind.Barracks, 1, fx(520), fx(500)));
+  const own = slotOf(spawn(Kind.Barracks, 0, fx(500), fx(500)));
+  const enemy = slotOf(spawn(Kind.Barracks, 1, fx(520), fx(500)));
   e.prodKind[own] = Kind.Marine;
   e.prodTimer[own] = 12;
   e.prodQueued[own] = 1;
@@ -73,16 +71,15 @@ test('observe returns active own queues without leaking enemy queues', () => {
 });
 
 test('observe returns usable own cargo without leaking enemy cargo', () => {
-  const sim = new Sim({ map: sliceMap(), players: 3, seed: 210, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 3, seed: 210, vision: true });
   s.teams[1] = s.teams[0]!;
   const e = s.e;
-  const bunker = slotOf(spawnUnit(s, Kind.Bunker, 0, fx(700), fx(700)));
-  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(710), fx(700)));
-  const allyNydus = slotOf(spawnUnit(s, Kind.NydusCanal, 1, fx(740), fx(700)));
-  const drone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(750), fx(700)));
-  const enemyBunker = slotOf(spawnUnit(s, Kind.Bunker, 2, fx(780), fx(700)));
-  const enemyMarine = slotOf(spawnUnit(s, Kind.Marine, 2, fx(790), fx(700)));
+  const bunker = slotOf(spawn(Kind.Bunker, 0, fx(700), fx(700)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(710), fx(700)));
+  const allyNydus = slotOf(spawn(Kind.NydusCanal, 1, fx(740), fx(700)));
+  const drone = slotOf(spawn(Kind.Drone, 0, fx(750), fx(700)));
+  const enemyBunker = slotOf(spawn(Kind.Bunker, 2, fx(780), fx(700)));
+  const enemyMarine = slotOf(spawn(Kind.Marine, 2, fx(790), fx(700)));
   e.container[marine] = eid(e, bunker);
   e.container[drone] = eid(e, allyNydus);
   e.container[enemyMarine] = eid(e, enemyBunker);
@@ -106,12 +103,11 @@ test('observe returns usable own cargo without leaking enemy cargo', () => {
 });
 
 test('observe returns sparse own energy and status records without leaking enemy status', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 211, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 211, vision: true });
   const e = s.e;
-  const medic = slotOf(spawnUnit(s, Kind.Medic, 0, fx(700), fx(700)));
-  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(730), fx(700)));
-  const enemyQueen = slotOf(spawnUnit(s, Kind.Queen, 1, fx(760), fx(700)));
+  const medic = slotOf(spawn(Kind.Medic, 0, fx(700), fx(700)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(730), fx(700)));
+  const enemyQueen = slotOf(spawn(Kind.Queen, 1, fx(760), fx(700)));
   e.energy[medic] = 77;
   e.energyMax[medic] = 250;
   e.stimTimer[marine] = 9;
@@ -155,8 +151,7 @@ test('observe returns sparse own energy and status records without leaking enemy
 });
 
 test('observe returns fair-play active effects without leaking hidden enemy effects', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 212, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s } = simScenario({ players: 2, seed: 212, vision: true });
   const vision = s.vision[0]!;
   const visibleIdx = vision.findIndex((v) => v === 2);
   const hiddenIdx = vision.findIndex((v) => v === 0);
@@ -197,8 +192,7 @@ test('observe returns fair-play active effects without leaking hidden enemy effe
 });
 
 test('observe returns larva counts and fair-play creep and power coverage', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 213, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 213, vision: true });
   const e = s.e;
   const vision = s.vision[0]!;
   const visibleIdx = vision.findIndex((v) => v === 2);
@@ -208,17 +202,17 @@ test('observe returns larva counts and fair-play creep and power coverage', () =
   const visible = tileCenter(s.map.w, visibleIdx);
   const hidden = tileCenter(s.map.w, hiddenIdx);
 
-  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, hidden.x, hidden.y));
+  const hatchery = slotOf(spawn(Kind.Hatchery, 0, hidden.x, hidden.y));
   e.timer[hatchery] = 42;
-  spawnUnit(s, Kind.Larva, 0, hidden.x + fx(8), hidden.y);
-  spawnUnit(s, Kind.Larva, 0, hidden.x - fx(8), hidden.y);
-  const enemyHatchery = slotOf(spawnUnit(s, Kind.Hatchery, 1, visible.x, visible.y));
-  spawnUnit(s, Kind.Larva, 1, visible.x, visible.y + fx(8));
-  const ownPylon = spawnUnit(s, Kind.Pylon, 0, hidden.x, hidden.y);
-  const visibleEnemyPylon = spawnUnit(s, Kind.Pylon, 1, visible.x, visible.y);
-  const hiddenEnemyPylon = spawnUnit(s, Kind.Pylon, 1, hidden.x, hidden.y);
-  const visibleEnemyCreep = spawnUnit(s, Kind.CreepColony, 1, visible.x, visible.y);
-  const hiddenEnemyCreep = spawnUnit(s, Kind.CreepColony, 1, hidden.x, hidden.y);
+  spawn(Kind.Larva, 0, hidden.x + fx(8), hidden.y);
+  spawn(Kind.Larva, 0, hidden.x - fx(8), hidden.y);
+  const enemyHatchery = slotOf(spawn(Kind.Hatchery, 1, visible.x, visible.y));
+  spawn(Kind.Larva, 1, visible.x, visible.y + fx(8));
+  const ownPylon = spawn(Kind.Pylon, 0, hidden.x, hidden.y);
+  const visibleEnemyPylon = spawn(Kind.Pylon, 1, visible.x, visible.y);
+  const hiddenEnemyPylon = spawn(Kind.Pylon, 1, hidden.x, hidden.y);
+  const visibleEnemyCreep = spawn(Kind.CreepColony, 1, visible.x, visible.y);
+  const hiddenEnemyCreep = spawn(Kind.CreepColony, 1, hidden.x, hidden.y);
 
   const obs = sim.observe(0);
   assert.deepEqual(obs.larva, [{ id: eid(e, hatchery), count: 2, max: LARVA_MAX, timer: 42 }]);
@@ -255,23 +249,21 @@ test('byte serialization preserves vision tracking and fog memory', () => {
 });
 
 test('observations hide undetected cloaked enemies even on visible tiles', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 206, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 206, vision: true });
   const e = s.e;
-  const own = slotOf(spawnUnit(s, Kind.Marine, 0, fx(500), fx(500)));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, e.x[own]! + fx(24), e.y[own]!);
+  const own = slotOf(spawn(Kind.Marine, 0, fx(500), fx(500)));
+  const dt = spawn(Kind.DarkTemplar, 1, e.x[own]! + fx(24), e.y[own]!);
   sim.step([]);
 
   assert.equal(sim.observe(0).entities.some((v) => v.id === dt), false);
 });
 
 test('scanner sweep reveals fogged cloaked enemies to observation', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 207, vision: true });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 207, vision: true });
   const e = s.e;
-  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(420), fx(500)));
-  const comsat = slotOf(spawnUnit(s, Kind.ComsatStation, 0, fx(500), fx(500)));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(1_300), fx(1_300));
+  const commandCenter = slotOf(spawn(Kind.CommandCenter, 0, fx(420), fx(500)));
+  const comsat = slotOf(spawn(Kind.ComsatStation, 0, fx(500), fx(500)));
+  const dt = spawn(Kind.DarkTemplar, 1, fx(1_300), fx(1_300));
   e.target[commandCenter] = eid(e, comsat);
   e.target[comsat] = eid(e, commandCenter);
   e.energy[comsat] = 50;
