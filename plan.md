@@ -1225,7 +1225,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 ## Phase 10: Performance And Maintainability Passes
 
-Status: partial.
+Status: complete for the current scope.
 
 Purpose: prevent SC fidelity from turning the engine into a slow or brittle rule pile.
 
@@ -1290,3 +1290,13 @@ Completed:
 - Added a Zerg creep + placement scenario test that proves off-creep structures are rejected and
   hidden from build masks until a creep-providing Hatchery finishes through normal sim stepping,
   after which the same placement is accepted through shared validation.
+- Existing cloak + scan + fog coverage is now credited in this phase: sim observation tests hide
+  undetected cloaked enemies and reveal fogged cloaked enemies after Scanner Sweep, ability tests
+  prove scan changes cloaked-target attack legality, and app visibility tests keep selected/HUD
+  cloak and detection presentation fog-safe.
+
+Remaining:
+
+- None in the current Phase 10 scope. Longer-running app responsibility splitting remains tracked
+  in the Current BW-Fidelity Missing Inventory as an architectural follow-up once command-card
+  growth stabilizes.
