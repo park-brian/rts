@@ -76,6 +76,7 @@ const injectStressState = async (page, scheme) => {
   await page.evaluate(({ KIND, TECH, ABILITIES, scheme }) => {
     const g = window.__game;
     const ui = window.__ui;
+    const optionKinds = (options) => options.filter((o) => o.ok).map((o) => o.id).sort((a, b) => a - b);
     g.update = () => {};
     ui.setupOpen.value = false;
     ui.mode.value = 'play';
@@ -85,60 +86,73 @@ const injectStressState = async (page, scheme) => {
     ui.supplyUsed.value = 180;
     ui.supplyMax.value = 200;
     ui.seconds.value = 999;
-    ui.selCount.value = 48;
-    ui.selKindName.value = 'All-Race Death Ball';
-    ui.selStatus.value = {
-      label: 'Mixed force',
-      detail: 'all commands',
-      progress: 0.52,
-      stats: ['HP 200/200', 'Sh 150/150', 'En 250', 'G/A 24 R8', 'Air 20 R9', 'Arm 3+3', 'Cargo 6/8', 'Kills 12'],
-    };
     ui.controlGroupCounts.value = [12, 8, 24, 0, 5, 2, 36, 0, 4, 1];
-    ui.selTrainOptions.value = [
+    const train = [
       [KIND.SCV, 'SCV'], [KIND.Marine, 'Marine'], [KIND.Firebat, 'Firebat'], [KIND.Medic, 'Medic'],
       [KIND.Ghost, 'Ghost'], [KIND.Vulture, 'Vulture'], [KIND.SiegeTank, 'Tank'], [KIND.Goliath, 'Goliath'],
       [KIND.Wraith, 'Wraith'], [KIND.Dropship, 'Dropship'], [KIND.ScienceVessel, 'Vessel'], [KIND.Battlecruiser, 'BC'],
       [KIND.Zealot, 'Zealot'], [KIND.Dragoon, 'Dragoon'], [KIND.HighTemplar, 'Templar'], [KIND.Carrier, 'Carrier'],
       [KIND.Zergling, 'Ling'], [KIND.Hydralisk, 'Hydra'], [KIND.Mutalisk, 'Muta'], [KIND.Ultralisk, 'Ultra'],
     ].map(([id, label], i) => ({ id, label, ok: i % 6 !== 5, reason: i % 6 === 5 ? 'queue-full' : undefined }));
-    ui.selAddonOptions.value = [
+    const addon = [
       [KIND.ComsatStation, 'Comsat'], [KIND.NuclearSilo, 'Silo'], [KIND.MachineShop, 'Shop'], [KIND.ControlTower, 'Tower'],
     ].map(([id, label], i) => ({ id, label, ok: i !== 2, reason: i === 2 ? 'placement-blocked' : undefined }));
-    ui.selTransformOptions.value = [
+    const transform = [
       [KIND.Archon, 'Archon'], [KIND.DarkArchon, 'Dark Archon'], [KIND.Lurker, 'Lurker'], [KIND.Lair, 'Lair'], [KIND.Hive, 'Hive'],
     ].map(([id, label]) => ({ id, label, ok: true }));
-    ui.selBuildOptions.value = [
+    const build = [
       [KIND.SupplyDepot, 'Depot'], [KIND.Barracks, 'Rax'], [KIND.Refinery, 'Refinery'], [KIND.EngineeringBay, 'Eng Bay'],
       [KIND.Bunker, 'Bunker'], [KIND.Factory, 'Factory'], [KIND.Starport, 'Starport'], [KIND.Armory, 'Armory'],
       [KIND.Nexus, 'Nexus'], [KIND.Pylon, 'Pylon'], [KIND.Gateway, 'Gateway'], [KIND.Forge, 'Forge'],
       [KIND.RoboticsFacility, 'Robotics'], [KIND.Stargate, 'Stargate'], [KIND.Hatchery, 'Hatchery'], [KIND.CreepColony, 'Colony'],
       [KIND.SpawningPool, 'Pool'], [KIND.EvolutionChamber, 'Evo'], [KIND.HydraliskDen, 'Hydra Den'], [KIND.Spire, 'Spire'],
     ].map(([id, label], i) => ({ id, label, ok: i % 7 !== 6, reason: i % 7 === 6 ? 'missing-requirement' : undefined }));
-    ui.selResearchOptions.value = TECH.map((id, i) => ({
+    const research = TECH.map((id, i) => ({
       id,
       ok: i % 4 !== 3,
       reason: i % 4 === 3 ? 'not-affordable' : undefined,
     }));
-    ui.selAbilityOptions.value = ABILITIES.map((id, i) => ({
+    const ability = ABILITIES.map((id, i) => ({
       id,
       ok: i % 6 !== 4,
       reason: i % 6 === 4 ? 'not-enough-energy' : undefined,
       detail: i % 8 === 7 ? 'No Nuke' : undefined,
     }));
-    ui.selCanBuild.value = true;
-    ui.selCanRally.value = true;
-    ui.selCanHarvest.value = true;
-    ui.selCanRepair.value = true;
-    ui.selCanLoad.value = true;
-    ui.selCanUnload.value = true;
-    ui.selCanBurrow.value = true;
-    ui.selCanUnburrow.value = true;
-    ui.selCanMine.value = true;
-    ui.selCanLift.value = true;
-    ui.selCanLand.value = true;
-    ui.selCanCancel.value = true;
-    ui.selCanAttackMove.value = true;
-    ui.selCanStop.value = true;
+    ui.selectionView.value = {
+      count: 48,
+      kindName: 'All-Race Death Ball',
+      status: {
+        label: 'Mixed force',
+        detail: 'all commands',
+        progress: 0.52,
+        stats: ['HP 200/200', 'Sh 150/150', 'En 250', 'G/A 24 R8', 'Air 20 R9', 'Arm 3+3', 'Cargo 6/8', 'Kills 12'],
+      },
+      can: {
+        build: true,
+        rally: true,
+        harvest: true,
+        repair: true,
+        load: true,
+        unload: true,
+        burrow: true,
+        unburrow: true,
+        mine: true,
+        lift: true,
+        land: true,
+        cancel: true,
+        attackMove: true,
+        stop: true,
+      },
+      kinds: {
+        train: optionKinds(train),
+        addon: optionKinds(addon),
+        transform: optionKinds(transform),
+        build: optionKinds(build),
+        research: optionKinds(research),
+        abilities: optionKinds(ability),
+      },
+      options: { train, addon, transform, build, research, ability },
+    };
   }, { KIND, TECH, ABILITIES, scheme });
   await page.waitForTimeout(100);
 };
