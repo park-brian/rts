@@ -508,6 +508,23 @@ test('gas-harvesting workers still collide with non-harvesting workers', () => {
   assert.notEqual(positionKey(s, gasWorker), positionKey(s, idle), 'gas routes still collide with non-harvesting workers');
 });
 
+test('enemy resource-route workers remain solid to each other', () => {
+  const s = makeState(blankMap('enemy-resource-route-worker-collision', 16, 16), 2, 110);
+  const e = s.e;
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
+  const blueMiner = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const redMiner = slotOf(spawnUnit(s, Kind.SCV, 1, tc(8), tc(8)));
+  for (const worker of [blueMiner, redMiner]) {
+    e.order[worker] = Order.Harvest;
+    e.target[worker] = eid(e, mineral);
+    e.stasisTimer[worker] = 1; // isolate collision from harvest steering for this one tick
+  }
+
+  stepWorld(s, []);
+
+  assert.notEqual(positionKey(s, blueMiner), positionKey(s, redMiner), 'enemy resource-route workers remain solid');
+});
+
 test('returning resource workers share collision with harvesting workers but not non-workers', () => {
   const s = makeState(blankMap('carrying-worker-collision', 16, 16), 1, 105);
   const e = s.e;

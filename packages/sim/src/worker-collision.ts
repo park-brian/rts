@@ -17,4 +17,4 @@ export const isResourceRouteWorker = (s: State, slot: number): boolean => {
 };
 
 export const workersCanShareResourceRouteCollision = (s: State, a: number, b: number): boolean =>
-  isResourceRouteWorker(s, a) && isResourceRouteWorker(s, b);
+  s.e.owner[a] === s.e.owner[b] && isResourceRouteWorker(s, a) && isResourceRouteWorker(s, b);
