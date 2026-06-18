@@ -1556,6 +1556,8 @@ Highest-impact LOC reductions:
        mutation in `burrow.ts` and spider-mine laying in a small mechanic helper.
      - Moved `cancelBuild` into command specs and relocated foundation/morph cancellation into
        `build-cost.ts`, keeping refundable build ledgers and cancel side effects together.
+     - Moved the cargo command family (`load`, `unload`) into command specs and relocated unload
+       side effects into `cargo.ts` beside loading and placement helpers.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

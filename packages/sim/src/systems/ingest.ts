@@ -15,7 +15,6 @@ import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
 import { setEntityKind, setEntityKindFull } from '../entity-kind.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
-import { loadUnitInto } from '../cargo.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
 import {
   GROUP_SLOT_SPACING,
@@ -245,16 +244,6 @@ const applyTransform = (s: State, slot: number, kind: number, target = NONE): vo
   else transformUnit(s, slot, kind);
 };
 
-const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
-  const e = s.e;
-  clearSettled(s, unit);
-  e.container[unit] = NONE;
-  e.x[unit] = x;
-  e.y[unit] = y;
-  e.order[unit] = Order.Idle;
-  e.target[unit] = NONE;
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   const e = s.e;
   let total = 0;
@@ -332,27 +321,18 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'load': {
-          const unit = slotOf(c.unit);
-          loadUnitInto(s, slotOf(c.transport), unit);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'unload': {
-          unloadUnit(s, slotOf(c.unit), c.x, c.y);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'attack':
         case 'burrow':
         case 'cancelBuild':
         case 'harvest':
+        case 'load':
         case 'mine':
         case 'move':
         case 'amove':
         case 'rally':
         case 'repair':
         case 'stop':
+        case 'unload':
           applyCommandSpec(s, player, c, {
             destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),
           });

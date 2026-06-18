@@ -5,7 +5,10 @@ import { fx } from './fixed.ts';
 import { commandMoveSpeed } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
-import { isContained, sameTeam } from './cargo.ts';
+import {
+  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, canUnloadAt, cargoUsed, containedBy, isContained, loadUnitInto,
+  sameTeam, transportCapacity, unloadAnchorSlot, unloadUnit,
+} from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
@@ -21,7 +24,9 @@ type CommandValidation =
 
 type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
-  t: 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'mine' | 'move' | 'amove' | 'rally' | 'repair' | 'stop';
+  t:
+    | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
+    | 'amove' | 'rally' | 'repair' | 'stop' | 'unload';
 }>;
 
 type CommandSpecContext = {
@@ -35,12 +40,25 @@ type CommandSpec<C extends CommandSpecCommand> = {
 
 const RALLY_SNAP = fx(2 * TILE);
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
+const distSq = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+};
 
 const ownedSlot = (s: State, id: number, player: number): number | null => {
   const e = s.e;
   if (!isAlive(e, id)) return null;
   const slot = slotOf(id);
   return e.owner[slot] === player ? slot : null;
+};
+
+const usableTransportSlot = (s: State, id: number, player: number): number | null => {
+  const e = s.e;
+  if (!isAlive(e, id)) return null;
+  const slot = slotOf(id);
+  if (e.owner[slot] === player) return slot;
+  return e.kind[slot] === Kind.NydusCanal && sameTeam(s, player, e.owner[slot]!) ? slot : null;
 };
 
 export const clearSettled = (s: State, slot: number): void => {
@@ -128,6 +146,41 @@ const validateCancelBuild = (s: State, player: number, command: Extract<Command,
       (e.buildCostMinerals[slot] === 0 && e.buildCostGas[slot] === 0)) {
     return reject('target-not-allowed');
   }
+  return { ok: true };
+};
+
+const validateLoad = (s: State, player: number, command: Extract<Command, { t: 'load' }>): CommandValidation => {
+  const e = s.e;
+  const transport = usableTransportSlot(s, command.transport, player);
+  if (transport === null) return isAlive(e, command.transport) ? reject('wrong-owner') : reject('stale-entity');
+  const unit = ownedSlot(s, command.unit, player);
+  if (unit === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (transport === unit || isContained(s, transport)) return reject('target-not-allowed');
+  const capacity = transportCapacity(s, transport);
+  if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport) || e.illusion[transport] === 1) {
+    return reject('missing-capability');
+  }
+  if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
+  const unitSize = Units[e.kind[unit]!]!.cargoSize;
+  if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
+  if (distSq(e.x[transport]!, e.y[transport]!, e.x[unit]!, e.y[unit]!) > LOAD_RANGE * LOAD_RANGE) {
+    return reject('target-out-of-range');
+  }
+  return { ok: true };
+};
+
+const validateUnload = (s: State, player: number, command: Extract<Command, { t: 'unload' }>): CommandValidation => {
+  const e = s.e;
+  const transport = usableTransportSlot(s, command.transport, player);
+  if (transport === null) return isAlive(e, command.transport) ? reject('wrong-owner') : reject('stale-entity');
+  const unit = ownedSlot(s, command.unit, player);
+  if (unit === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
+  const anchor = unloadAnchorSlot(s, transport, command.x, command.y);
+  if (anchor === NONE || distSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y) > UNLOAD_RANGE * UNLOAD_RANGE) {
+    return reject('target-out-of-range');
+  }
+  if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');
   return { ok: true };
 };
 
@@ -239,10 +292,24 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
   },
 };
 
+const loadSpec: CommandSpec<Extract<Command, { t: 'load' }>> = {
+  validate: validateLoad,
+  apply(s, _player, command): void {
+    loadUnitInto(s, slotOf(command.transport), slotOf(command.unit));
+  },
+};
+
 const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
   validate: validateMine,
   apply(s, _player, command): void {
     laySpiderMine(s, slotOf(command.unit));
+  },
+};
+
+const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
+  validate: validateUnload,
+  apply(s, _player, command): void {
+    unloadUnit(s, slotOf(command.unit), command.x, command.y);
   },
 };
 
@@ -330,11 +397,13 @@ export const commandSpecs = {
   burrow: burrowSpec,
   cancelBuild: cancelBuildSpec,
   harvest: harvestSpec,
+  load: loadSpec,
   mine: mineSpec,
   move: moveSpec,
   rally: rallySpec,
   repair: repairSpec,
   stop: stopSpec,
+  unload: unloadSpec,
 };
 
 export const validateCommandSpec = (s: State, player: number, command: CommandSpecCommand): CommandValidation => {
@@ -343,12 +412,14 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
+    case 'load': return commandSpecs.load.validate(s, player, command);
     case 'mine': return commandSpecs.mine.validate(s, player, command);
     case 'move': return commandSpecs.move.validate(s, player, command);
     case 'amove': return commandSpecs.amove.validate(s, player, command);
     case 'rally': return commandSpecs.rally.validate(s, player, command);
     case 'repair': return commandSpecs.repair.validate(s, player, command);
     case 'stop': return commandSpecs.stop.validate(s, player, command);
+    case 'unload': return commandSpecs.unload.validate(s, player, command);
   }
 };
 
@@ -371,6 +442,9 @@ export const applyCommandSpec = (
     case 'harvest':
       commandSpecs.harvest.apply(s, player, command, ctx);
       return;
+    case 'load':
+      commandSpecs.load.apply(s, player, command, ctx);
+      return;
     case 'mine':
       commandSpecs.mine.apply(s, player, command, ctx);
       return;
@@ -388,6 +462,9 @@ export const applyCommandSpec = (
       return;
     case 'stop':
       commandSpecs.stop.apply(s, player, command, ctx);
+      return;
+    case 'unload':
+      commandSpecs.unload.apply(s, player, command, ctx);
       return;
   }
 };

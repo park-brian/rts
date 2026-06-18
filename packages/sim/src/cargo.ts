@@ -119,6 +119,16 @@ export const loadUnitInto = (s: State, transport: number, unit: number): void =>
   e.target[unit] = NONE;
 };
 
+export const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
+  const e = s.e;
+  e.settled[unit] = 0;
+  e.container[unit] = NONE;
+  e.x[unit] = x;
+  e.y[unit] = y;
+  e.order[unit] = Order.Idle;
+  e.target[unit] = NONE;
+};
+
 export const containedBy = (s: State, unit: number, transport: number): boolean =>
   s.e.container[unit] === eid(s.e, transport);
 

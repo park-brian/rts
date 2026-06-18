@@ -24,10 +24,7 @@ import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { validateCommandSpec } from './command-specs.ts';
-import {
-  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
-  transportCapacity, unloadAnchorSlot, canUnloadAt,
-} from './cargo.ts';
+import { isContained, sameTeam } from './cargo.ts';
 
 export type { CommandRejectReason };
 
@@ -60,14 +57,6 @@ const ownedSlot = (s: State, id: number, player: number): number | null => {
   if (!isAlive(e, id)) return null;
   const slot = slotOf(id);
   return e.owner[slot] === player ? slot : null;
-};
-
-const usableTransportSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  if (e.owner[slot] === player) return slot;
-  return e.kind[slot] === Kind.NydusCanal && sameTeam(s, player, e.owner[slot]!) ? slot : null;
 };
 
 export { snapBuildAnchor, structureFootprint, type Footprint };
@@ -382,29 +371,10 @@ export const validateCommand = (
       return validateCommandSpec(s, player, c);
     }
     case 'load': {
-      const transport = usableTransportSlot(s, c.transport, player);
-      if (transport === null) return isAlive(e, c.transport) ? reject('wrong-owner') : reject('stale-entity');
-      const unit = ownedSlot(s, c.unit, player);
-      if (unit === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (transport === unit || isContained(s, transport)) return reject('target-not-allowed');
-      const capacity = transportCapacity(s, transport);
-      if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport) || e.illusion[transport] === 1) return reject('missing-capability');
-      if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
-      const unitSize = Units[e.kind[unit]!]!.cargoSize;
-      if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
-      if (distSq(e.x[transport]!, e.y[transport]!, e.x[unit]!, e.y[unit]!) > LOAD_RANGE * LOAD_RANGE) return reject('target-out-of-range');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'unload': {
-      const transport = usableTransportSlot(s, c.transport, player);
-      if (transport === null) return isAlive(e, c.transport) ? reject('wrong-owner') : reject('stale-entity');
-      const unit = ownedSlot(s, c.unit, player);
-      if (unit === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
-      const anchor = unloadAnchorSlot(s, transport, c.x, c.y);
-      if (anchor === NONE || distSq(e.x[anchor]!, e.y[anchor]!, c.x, c.y) > UNLOAD_RANGE * UNLOAD_RANGE) return reject('target-out-of-range');
-      if (!canUnloadAt(s, unit, c.x, c.y, anchor)) return reject('placement-blocked');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'cancelBuild': {
       return validateCommandSpec(s, player, c);
