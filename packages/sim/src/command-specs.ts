@@ -11,13 +11,14 @@ import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
 import { canUseWeaponNow } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
+import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
 
 type CommandValidation =
   | { ok: true }
   | { ok: false; reason: CommandRejectReason };
 
 type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
-export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'harvest' | 'move' | 'amove' | 'rally' | 'stop' }>;
+export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'harvest' | 'move' | 'amove' | 'rally' | 'repair' | 'stop' }>;
 
 type CommandSpecContext = {
   destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number };
@@ -143,6 +144,24 @@ const validateRally = (s: State, player: number, command: Extract<Command, { t: 
   return { ok: true };
 };
 
+const validateRepair = (s: State, player: number, command: Extract<Command, { t: 'repair' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
+  if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
+  if (!isAlive(e, command.target)) return reject('target-not-found');
+  const target = slotOf(command.target);
+  if (isContained(s, target)) return reject('target-not-allowed');
+  if (isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
+  const def = Units[e.kind[target]!];
+  if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
+  if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
+  const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
+  if (s.players.minerals[player]! < cost.minerals || s.players.gas[player]! < cost.gas) return reject('not-affordable');
+  return { ok: true };
+};
+
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   validate: validateAttack,
   apply(s, _player, command): void {
@@ -165,6 +184,24 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
     e.order[slot] = Order.Harvest;
     e.target[slot] = command.patch;
     e.timer[slot] = 0;
+  },
+};
+
+const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
+  validate: validateRepair,
+  apply(s, _player, command): void {
+    const e = s.e;
+    const slot = slotOf(command.unit);
+    cancelPendingBeforeOrder(s, slot);
+    clearSettled(s, slot);
+    const target = slotOf(command.target);
+    if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
+      resumeConstruction(s, slot, target);
+    } else {
+      e.order[slot] = Order.Repair;
+      e.target[slot] = command.target;
+      e.timer[slot] = 0;
+    }
   },
 };
 
@@ -234,6 +271,7 @@ export const commandSpecs = {
   harvest: harvestSpec,
   move: moveSpec,
   rally: rallySpec,
+  repair: repairSpec,
   stop: stopSpec,
 };
 
@@ -244,6 +282,7 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
     case 'move': return commandSpecs.move.validate(s, player, command);
     case 'amove': return commandSpecs.amove.validate(s, player, command);
     case 'rally': return commandSpecs.rally.validate(s, player, command);
+    case 'repair': return commandSpecs.repair.validate(s, player, command);
     case 'stop': return commandSpecs.stop.validate(s, player, command);
   }
 };
@@ -269,6 +308,9 @@ export const applyCommandSpec = (
       return;
     case 'rally':
       commandSpecs.rally.apply(s, player, command, ctx);
+      return;
+    case 'repair':
+      commandSpecs.repair.apply(s, player, command, ctx);
       return;
     case 'stop':
       commandSpecs.stop.apply(s, player, command, ctx);

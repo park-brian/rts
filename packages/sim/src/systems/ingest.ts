@@ -14,7 +14,6 @@ import { refundBuildCost } from '../build-cost.ts';
 import { castAbility } from './abilities.ts';
 import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
-import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 import { loadUnitInto } from '../cargo.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
@@ -325,26 +324,6 @@ const cancelFoundation = (s: State, slot: number): void => {
   kill(s, slot);
 };
 
-const resumeConstruction = (s: State, worker: number, foundation: number): void => {
-  const e = s.e;
-  const foundationId = eid(e, foundation);
-  const old = e.target[foundation]!;
-  if (old !== NONE && isAlive(e, old)) {
-    const oldWorker = slotOf(old);
-    if (e.order[oldWorker] === Order.Build && e.target[oldWorker] === foundationId) {
-      e.order[oldWorker] = Order.Idle;
-      e.target[oldWorker] = NONE;
-    }
-  }
-  e.order[worker] = Order.Build;
-  e.buildKind[worker] = Kind.None;
-  e.target[worker] = foundationId;
-  e.target[foundation] = eid(e, worker);
-  e.tx[worker] = e.x[foundation]!;
-  e.ty[worker] = e.y[foundation]!;
-  e.timer[worker] = 0;
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   const e = s.e;
   let total = 0;
@@ -453,6 +432,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'move':
         case 'amove':
         case 'rally':
+        case 'repair':
         case 'stop':
           applyCommandSpec(s, player, c, {
             destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),
@@ -463,21 +443,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           const slot = slotOf(c.unit);
           clearSettled(s, slot);
           castAbility(s, slot, c);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'repair': {
-          const slot = slotOf(c.unit);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          const target = slotOf(c.target);
-          if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
-            resumeConstruction(s, slot, target);
-          } else {
-            e.order[slot] = Order.Repair;
-            e.target[slot] = c.target;
-            e.timer[slot] = 0;
-          }
           results.push({ player, index, t: c.t, ok: true });
           break;
         }

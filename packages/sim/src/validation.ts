@@ -17,7 +17,6 @@ import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
 import { hasPowerAt, isPowered, requiresPower } from './power.ts';
 import { hasCreepAt, requiresCreep } from './creep.ts';
-import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
@@ -488,20 +487,7 @@ export const validateCommand = (
       return validateCommandSpec(s, player, c);
     }
     case 'repair': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-      if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
-      if (!isAlive(e, c.target)) return reject('target-not-found');
-      const target = slotOf(c.target);
-      if (isContained(s, target)) return reject('target-not-allowed');
-      if (isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
-      const def = Units[e.kind[target]!];
-      if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
-      if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
-      const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
-      if (s.players.minerals[player]! < cost.minerals || s.players.gas[player]! < cost.gas) return reject('not-affordable');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'rally': {
       return validateCommandSpec(s, player, c);

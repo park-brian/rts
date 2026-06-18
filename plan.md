@@ -1550,6 +1550,8 @@ Highest-impact LOC reductions:
        target snapping and structure target validation in one command home.
      - Moved `harvest` into the same command-spec path, preserving worker/resource validation and
        mineral-walk order setup.
+     - Moved `repair` into the command-spec path and relocated paused Terran foundation resume into
+       `repair.ts`, keeping SCV repair and construction continuation under one mechanic owner.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
