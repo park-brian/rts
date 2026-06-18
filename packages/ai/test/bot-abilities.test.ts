@@ -2093,6 +2093,25 @@ test('bot casts EMP on valuable shield and energy clusters', () => {
   assert.ok(cmds.some((c) => c.t === 'ability' && c.unit === vessel && c.ability === Ability.EMPShockwave));
 });
 
+test('bot preserves tactical policy priority for multi-spell casters', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 421 });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  const vessel = spawnUnit(s, Kind.ScienceVessel, 0, base.x - fx(120), base.y);
+  const goliath = spawnUnit(s, Kind.Goliath, 0, base.x + fx(20), base.y);
+  s.e.energy[slotOf(vessel)] = 100;
+  s.e.hp[slotOf(goliath)] = 50;
+  grant(sim, 0, Tech.EMPShockwave);
+  spawnUnit(s, Kind.Vulture, 1, base.x + fx(60), base.y);
+  const templar = spawnUnit(s, Kind.HighTemplar, 1, base.x + fx(38), base.y);
+  s.e.energy[slotOf(templar)] = 75;
+
+  const cmds = createBot(Terran)(s, 0);
+
+  assert.ok(hasAbility(cmds, vessel, Ability.EMPShockwave));
+  assert.ok(!hasAbility(cmds, vessel, Ability.DefensiveMatrix));
+});
+
 test('bot casts Storm on enemy clusters', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 43 });
   const s = sim.fullState();

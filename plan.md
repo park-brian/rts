@@ -1618,6 +1618,8 @@ Highest-impact LOC reductions:
        timer behavior while removing another cast branch.
      - Added point area-drain execution for `EMP Shockwave`, preserving shield/energy zeroing for
        non-resource entities in radius.
+     - Closed the generic execution pass: the remaining direct cast handlers are the intentional
+       bespoke mechanics listed above.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.
@@ -1657,6 +1659,8 @@ Highest-impact LOC reductions:
    - Added point-target policies for non-Nuke area spells: `EMP`, `Psionic Storm`, `Plague`,
      `Ensnare`, `Maelstrom`, `Stasis Field`, `Disruption Web`, and `Dark Swarm` now share
      the policy search path while preserving focus penalties.
+   - Replaced the remaining per-ability tactical dispatch chain with iteration over the ordered
+     `TACTICAL_ABILITY_POLICIES` table; active cloak remains the explicit self-toggle exception.
    - The tactical policy table now owns target/point/entity spell casting. Active cloak toggles
      (`Personnel Cloaking`, `Cloaking Field`) intentionally remain in the bespoke
      `maybeCastCloak` self-toggle path for now because they are combat-timing decisions rather

@@ -709,6 +709,7 @@ type PointAbilityPolicy = {
 };
 type AbilityPolicy = EntityAbilityPolicy | PointAbilityPolicy;
 
+// Order is tactical priority; each caster emits at most one tactical ability per tick.
 const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
   {
     ability: Ability.ShieldRecharge,
@@ -721,6 +722,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     },
   },
   {
+    ability: Ability.Restoration,
+    target: 'friendly-entity',
+    minScore: 1,
+    scoreTarget: (s, _player, target) => scoreRestorationTarget(s, target),
+  },
+  {
     ability: Ability.Heal,
     target: 'friendly-entity',
     minScore: 6,
@@ -731,22 +738,10 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     },
   },
   {
-    ability: Ability.Restoration,
-    target: 'friendly-entity',
-    minScore: 1,
-    scoreTarget: (s, _player, target) => scoreRestorationTarget(s, target),
-  },
-  {
-    ability: Ability.DefensiveMatrix,
-    target: 'friendly-entity',
-    minScore: 90,
-    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
-  },
-  {
-    ability: Ability.Hallucination,
-    target: 'friendly-entity',
-    minScore: 120,
-    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
+    ability: Ability.ScannerSweep,
+    target: 'enemy-point',
+    minScore: 0,
+    scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
   },
   {
     ability: Ability.Consume,
@@ -759,22 +754,18 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scoreTarget: (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
   },
   {
-    ability: Ability.Parasite,
-    target: 'enemy-entity',
-    minScore: 220,
-    scoreTarget: (s, player, target) => scoreParasiteTarget(s, player, target),
+    ability: Ability.Hallucination,
+    target: 'friendly-entity',
+    minScore: 120,
+    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
   },
   {
-    ability: Ability.OpticalFlare,
-    target: 'enemy-entity',
-    minScore: 100,
-    scoreTarget: (s, player, target) => scoreOpticalFlareTarget(s, player, target),
-  },
-  {
-    ability: Ability.Lockdown,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreLockdownTarget(s, player, target),
+    ability: Ability.Recall,
+    target: 'friendly-point',
+    minScore: 180,
+    canCast: (s, _player, caster, focusX, focusY) =>
+      withinRangeSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY, TILE * ONE * 12),
+    scorePoint: (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
   },
   {
     ability: Ability.MindControl,
@@ -789,10 +780,11 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scoreTarget: (s, player, target) => scoreYamatoTarget(s, player, target),
   },
   {
-    ability: Ability.Feedback,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreFeedbackTarget(s, player, target),
+    ability: Ability.NuclearStrike,
+    target: 'enemy-point',
+    minScore: 650,
+    canCast: (s, player) => hasReadyNuke(s, player),
+    scorePoint: (s, player, x, y) => scoreNukeTarget(s, player, x, y),
   },
   {
     ability: Ability.InfestCommandCenter,
@@ -807,6 +799,30 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scoreTarget: (s, player, target) => scoreBroodlingTarget(s, player, target),
   },
   {
+    ability: Ability.Parasite,
+    target: 'enemy-entity',
+    minScore: 220,
+    scoreTarget: (s, player, target) => scoreParasiteTarget(s, player, target),
+  },
+  {
+    ability: Ability.Feedback,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreFeedbackTarget(s, player, target),
+  },
+  {
+    ability: Ability.OpticalFlare,
+    target: 'enemy-entity',
+    minScore: 100,
+    scoreTarget: (s, player, target) => scoreOpticalFlareTarget(s, player, target),
+  },
+  {
+    ability: Ability.Lockdown,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreLockdownTarget(s, player, target),
+  },
+  {
     ability: Ability.Irradiate,
     target: 'enemy-entity',
     minScore: 1,
@@ -817,19 +833,6 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     target: 'enemy-point',
     minScore: 100,
     scorePoint: (s, player, x, y) => scoreEmpTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.ScannerSweep,
-    target: 'enemy-point',
-    minScore: 0,
-    scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.NuclearStrike,
-    target: 'enemy-point',
-    minScore: 650,
-    canCast: (s, player) => hasReadyNuke(s, player),
-    scorePoint: (s, player, x, y) => scoreNukeTarget(s, player, x, y),
   },
   {
     ability: Ability.PsionicStorm,
@@ -868,57 +871,41 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scorePoint: (s, player, x, y) => scoreDisruptionWebTarget(s, player, x, y),
   },
   {
+    ability: Ability.DefensiveMatrix,
+    target: 'friendly-entity',
+    minScore: 90,
+    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
+  },
+  {
     ability: Ability.DarkSwarm,
     target: 'enemy-point',
     minScore: 60,
     scorePoint: (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y),
   },
-  {
-    ability: Ability.Recall,
-    target: 'friendly-point',
-    minScore: 180,
-    canCast: (s, _player, caster, focusX, focusY) =>
-      withinRangeSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY, TILE * ONE * 12),
-    scorePoint: (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
-  },
 ];
 
-const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
-  TACTICAL_ABILITY_POLICIES.find((policy) => policy.ability === abilityId);
+const ACTIVE_CLOAK_ABILITIES: readonly number[] = [Ability.PersonnelCloaking, Ability.CloakingField];
 
 const castTacticalAbilities = (s: State, player: number, cmds: Command[], casters: number[], focusX: number, focusY: number): void => {
   const used = new Set<number>();
   for (const caster of casters) {
     if (used.has(caster)) continue;
     const def = Units[s.e.kind[caster]!]!;
-    if (def.abilities.includes(Ability.ShieldRecharge) && tryCastPolicy(s, player, cmds, caster, Ability.ShieldRecharge)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Restoration) && tryCastPolicy(s, player, cmds, caster, Ability.Restoration)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.ScannerSweep) && tryCastPolicy(s, player, cmds, caster, Ability.ScannerSweep)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Consume) && tryCastPolicy(s, player, cmds, caster, Ability.Consume)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Hallucination) && tryCastPolicy(s, player, cmds, caster, Ability.Hallucination, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Recall) && tryCastPolicy(s, player, cmds, caster, Ability.Recall, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.NuclearStrike) && tryCastPolicy(s, player, cmds, caster, Ability.NuclearStrike, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.InfestCommandCenter) && tryCastPolicy(s, player, cmds, caster, Ability.InfestCommandCenter)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.SpawnBroodling) && tryCastPolicy(s, player, cmds, caster, Ability.SpawnBroodling)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Parasite) && tryCastPolicy(s, player, cmds, caster, Ability.Parasite)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Feedback) && tryCastPolicy(s, player, cmds, caster, Ability.Feedback)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Lockdown) && tryCastPolicy(s, player, cmds, caster, Ability.Lockdown)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Irradiate) && tryCastPolicy(s, player, cmds, caster, Ability.Irradiate)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.EMPShockwave) && tryCastPolicy(s, player, cmds, caster, Ability.EMPShockwave)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.PsionicStorm) && tryCastPolicy(s, player, cmds, caster, Ability.PsionicStorm, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Plague) && tryCastPolicy(s, player, cmds, caster, Ability.Plague, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Ensnare) && tryCastPolicy(s, player, cmds, caster, Ability.Ensnare, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Maelstrom) && tryCastPolicy(s, player, cmds, caster, Ability.Maelstrom, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.StasisField) && tryCastPolicy(s, player, cmds, caster, Ability.StasisField, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DisruptionWeb) && tryCastPolicy(s, player, cmds, caster, Ability.DisruptionWeb, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DefensiveMatrix) && tryCastPolicy(s, player, cmds, caster, Ability.DefensiveMatrix, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.PersonnelCloaking) && maybeCastCloak(s, cmds, caster, Ability.PersonnelCloaking, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.CloakingField) && maybeCastCloak(s, cmds, caster, Ability.CloakingField, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DarkSwarm) && tryCastPolicy(s, player, cmds, caster, Ability.DarkSwarm, focusX, focusY)) used.add(caster);
+    for (const policy of TACTICAL_ABILITY_POLICIES) {
+      if (!def.abilities.includes(policy.ability)) continue;
+      if (tryCastPolicy(s, player, cmds, caster, policy, focusX, focusY)) {
+        used.add(caster);
+        break;
+      }
+    }
+    if (used.has(caster)) continue;
+    for (const ability of ACTIVE_CLOAK_ABILITIES) {
+      if (!def.abilities.includes(ability)) continue;
+      if (maybeCastCloak(s, cmds, caster, ability, focusX, focusY)) {
+        used.add(caster);
+        break;
+      }
+    }
   }
 };
 
@@ -927,12 +914,10 @@ const tryCastPolicy = (
   player: number,
   cmds: Command[],
   caster: number,
-  abilityId: number,
-  focusX = s.e.x[caster]!,
-  focusY = s.e.y[caster]!,
+  policy: AbilityPolicy,
+  focusX: number,
+  focusY: number,
 ): boolean => {
-  const policy = tacticalAbilityPolicy(abilityId);
-  if (!policy) return false;
   if (policy.canCast && !policy.canCast(s, player, caster, focusX, focusY)) return false;
   const e = s.e;
   let bestCommand: Command | null = null;
