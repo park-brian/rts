@@ -1,7 +1,8 @@
-import { Kind, Tech, tiles } from './data.ts';
+import { Kind, Order, Tech, Units, tiles } from './data.ts';
 import { isContained } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
-import { NONE, isAlive, slotOf, type State } from './world.ts';
+import { NONE, isAlive, kill, slotOf, type State } from './world.ts';
+import { setEntityKind, setEntityKindFull } from './entity-kind.ts';
 
 export type UnitTransform = {
   from: number;
@@ -66,4 +67,68 @@ export const mergePartnerFor = (s: State, slot: number, to: number, target = NON
     if (d < bestD || (d === bestD && i < best)) { best = i; bestD = d; }
   }
   return best;
+};
+
+const clearSettled = (s: State, slot: number): void => {
+  s.e.settled[slot] = 0;
+};
+
+const transformUnit = (s: State, slot: number, kind: number): void => {
+  const e = s.e;
+  clearSettled(s, slot);
+  setEntityKind(s, slot, kind);
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+};
+
+const startMorph = (s: State, slot: number, kind: number): void => {
+  const e = s.e;
+  const def = Units[kind]!;
+  const player = e.owner[slot]!;
+  clearSettled(s, slot);
+  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
+  s.players.gas[player] = s.players.gas[player]! - def.gas;
+  e.morphFromKind[slot] = e.kind[slot]!;
+  setEntityKind(s, slot, kind);
+  e.built[slot] = 0;
+  e.ctimer[slot] = def.buildTime;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+  e.prodKind[slot] = Kind.None;
+  e.prodTimer[slot] = 0;
+  e.prodQueued[slot] = 0;
+  e.researchKind[slot] = Kind.None;
+  e.researchTimer[slot] = 0;
+  e.buildCostMinerals[slot] = def.minerals;
+  e.buildCostGas[slot] = def.gas;
+};
+
+const startMerge = (s: State, slot: number, kind: number, partner: number): void => {
+  const e = s.e;
+  const def = Units[kind]!;
+  const x = Math.trunc((e.x[slot]! + e.x[partner]!) / 2);
+  const y = Math.trunc((e.y[slot]! + e.y[partner]!) / 2);
+  clearSettled(s, slot);
+  kill(s, partner);
+  setEntityKindFull(s, slot, kind);
+  e.x[slot] = x;
+  e.y[slot] = y;
+  e.built[slot] = 0;
+  e.ctimer[slot] = def.buildTime;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+  e.prodKind[slot] = Kind.None;
+  e.prodTimer[slot] = 0;
+  e.prodQueued[slot] = 0;
+  e.researchKind[slot] = Kind.None;
+  e.researchTimer[slot] = 0;
+};
+
+export const applyTransform = (s: State, slot: number, kind: number, target = NONE): void => {
+  const transform = transformFor(s.e.kind[slot]!, kind);
+  if (transform?.mode === 'merge') {
+    const partner = mergePartnerFor(s, slot, kind, target);
+    if (partner !== NONE) startMerge(s, slot, kind, partner);
+  } else if (transform?.mode === 'morph') startMorph(s, slot, kind);
+  else transformUnit(s, slot, kind);
 };

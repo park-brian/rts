@@ -3,7 +3,7 @@
 // unaffordable, illegal target) are ignored.
 
 import type { State } from '../world.ts';
-import { eid, kill, slotOf, NONE } from '../world.ts';
+import { eid, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
@@ -13,8 +13,6 @@ import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.t
 import { castAbility } from './abilities.ts';
 import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
-import { setEntityKind, setEntityKindFull } from '../entity-kind.ts';
-import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
 import {
   GROUP_SLOT_SPACING,
@@ -184,66 +182,6 @@ const landBuilding = (s: State, slot: number, x: number, y: number): void => {
   e.ty[slot] = y;
 };
 
-const transformUnit = (s: State, slot: number, kind: number): void => {
-  const e = s.e;
-  clearSettled(s, slot);
-  setEntityKind(s, slot, kind);
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-};
-
-const startMorph = (s: State, slot: number, kind: number): void => {
-  const e = s.e;
-  const def = Units[kind]!;
-  const player = e.owner[slot]!;
-  clearSettled(s, slot);
-  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
-  s.players.gas[player] = s.players.gas[player]! - def.gas;
-  e.morphFromKind[slot] = e.kind[slot]!;
-  setEntityKind(s, slot, kind);
-  e.built[slot] = 0;
-  e.ctimer[slot] = def.buildTime;
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-  e.prodKind[slot] = Kind.None;
-  e.prodTimer[slot] = 0;
-  e.prodQueued[slot] = 0;
-  e.researchKind[slot] = Kind.None;
-  e.researchTimer[slot] = 0;
-  e.buildCostMinerals[slot] = def.minerals;
-  e.buildCostGas[slot] = def.gas;
-};
-
-const startMerge = (s: State, slot: number, kind: number, partner: number): void => {
-  const e = s.e;
-  const def = Units[kind]!;
-  const x = Math.trunc((e.x[slot]! + e.x[partner]!) / 2);
-  const y = Math.trunc((e.y[slot]! + e.y[partner]!) / 2);
-  clearSettled(s, slot);
-  kill(s, partner);
-  setEntityKindFull(s, slot, kind);
-  e.x[slot] = x;
-  e.y[slot] = y;
-  e.built[slot] = 0;
-  e.ctimer[slot] = def.buildTime;
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-  e.prodKind[slot] = Kind.None;
-  e.prodTimer[slot] = 0;
-  e.prodQueued[slot] = 0;
-  e.researchKind[slot] = Kind.None;
-  e.researchTimer[slot] = 0;
-};
-
-const applyTransform = (s: State, slot: number, kind: number, target = NONE): void => {
-  const transform = transformFor(s.e.kind[slot]!, kind);
-  if (transform?.mode === 'merge') {
-    const partner = mergePartnerFor(s, slot, kind, target);
-    if (partner !== NONE) startMerge(s, slot, kind, partner);
-  } else if (transform?.mode === 'morph') startMorph(s, slot, kind);
-  else transformUnit(s, slot, kind);
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   const e = s.e;
   let total = 0;
@@ -314,13 +252,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'transform': {
-          const slot = slotOf(c.unit);
-          cancelPendingBeforeOrder(s, slot);
-          applyTransform(s, slot, c.kind, c.target ?? NONE);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'attack':
         case 'burrow':
         case 'cancelBuild':
@@ -332,6 +263,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'rally':
         case 'repair':
         case 'stop':
+        case 'transform':
         case 'unload':
           applyCommandSpec(s, player, c, {
             destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),

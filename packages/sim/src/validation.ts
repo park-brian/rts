@@ -22,9 +22,9 @@ import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
 import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
-import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { validateCommandSpec } from './command-specs.ts';
 import { isContained, sameTeam } from './cargo.ts';
+import { requirementsMet } from './requirements.ts';
 
 export type { CommandRejectReason };
 
@@ -123,21 +123,6 @@ const depotTooCloseToResources = (s: State, fp: Footprint, ignorePendingSlot: nu
     if (resourceBlocksDepotAt(fp, resourceSpawnFootprint(r), r.gas)) return true;
   }
   return false;
-};
-
-const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== kind || e.built[i] !== 1) continue;
-    if (isAddonKind(kind) && activeAddonParentSlot(s, i) === NONE) continue;
-    return true;
-  }
-  return false;
-};
-
-const requirementsMet = (s: State, player: number, requirements: number[]): boolean => {
-  for (const req of requirements) if (!hasCompletedKind(s, player, req)) return false;
-  return true;
 };
 
 const activeAddon = (s: State, slot: number): boolean =>
@@ -343,26 +328,7 @@ export const validateCommand = (
       return placement.ok ? { ok: true } : reject(placement.reason);
     }
     case 'transform': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-      if (isDisabled(e, slot) || e.built[slot] !== 1) return reject('missing-capability');
-      const transform = transformFor(e.kind[slot]!, c.kind);
-      if (!transform) return reject('target-not-allowed');
-      if (transform.tech !== undefined && getTechLevel(s, player, transform.tech) <= 0) return reject('missing-requirement');
-      if (transform.mode === 'merge') {
-        if (mergePartnerFor(s, slot, c.kind, c.target ?? NONE) === NONE) return reject('target-not-allowed');
-      }
-      if (transform.mode === 'morph') {
-        const def = Units[c.kind]!;
-        const source = Units[e.kind[slot]!]!;
-        if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-        if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
-        if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
-        const supplyDelta = def.supply - source.supply;
-        if (supplyDelta > 0 && s.players.supplyUsed[player]! + supplyDelta > s.players.supplyMax[player]!) return reject('supply-blocked');
-      }
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'burrow': {
       return validateCommandSpec(s, player, c);

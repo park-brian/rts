@@ -1558,6 +1558,9 @@ Highest-impact LOC reductions:
        `build-cost.ts`, keeping refundable build ledgers and cancel side effects together.
      - Moved the cargo command family (`load`, `unload`) into command specs and relocated unload
        side effects into `cargo.ts` beside loading and placement helpers.
+- Moved `transform` into command specs and relocated instant transform, Zerg morph, and Protoss
+  merge side effects into `unit-transform.ts` beside the transform definitions; shared prerequisite
+  checks now live in one requirements helper instead of being duplicated by the command split.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

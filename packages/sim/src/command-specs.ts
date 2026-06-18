@@ -17,6 +17,8 @@ import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
 import { getTechLevel } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
+import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
+import { requirementsMet } from './requirements.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -26,7 +28,7 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'amove' | 'rally' | 'repair' | 'stop' | 'unload';
+    | 'amove' | 'rally' | 'repair' | 'stop' | 'transform' | 'unload';
 }>;
 
 type CommandSpecContext = {
@@ -184,6 +186,30 @@ const validateUnload = (s: State, player: number, command: Extract<Command, { t:
   return { ok: true };
 };
 
+const validateTransform = (s: State, player: number, command: Extract<Command, { t: 'transform' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
+  if (isDisabled(e, slot) || e.built[slot] !== 1) return reject('missing-capability');
+  const transform = transformFor(e.kind[slot]!, command.kind);
+  if (!transform) return reject('target-not-allowed');
+  if (transform.tech !== undefined && getTechLevel(s, player, transform.tech) <= 0) return reject('missing-requirement');
+  if (transform.mode === 'merge') {
+    if (mergePartnerFor(s, slot, command.kind, command.target ?? NONE) === NONE) return reject('target-not-allowed');
+  }
+  if (transform.mode === 'morph') {
+    const def = Units[command.kind]!;
+    const source = Units[e.kind[slot]!]!;
+    if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
+    if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
+    if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
+    const supplyDelta = def.supply - source.supply;
+    if (supplyDelta > 0 && s.players.supplyUsed[player]! + supplyDelta > s.players.supplyMax[player]!) return reject('supply-blocked');
+  }
+  return { ok: true };
+};
+
 const validateAttack = (s: State, player: number, command: Extract<Command, { t: 'attack' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -306,6 +332,15 @@ const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
   },
 };
 
+const transformSpec: CommandSpec<Extract<Command, { t: 'transform' }>> = {
+  validate: validateTransform,
+  apply(s, _player, command): void {
+    const slot = slotOf(command.unit);
+    cancelPendingBeforeOrder(s, slot);
+    applyTransform(s, slot, command.kind, command.target ?? NONE);
+  },
+};
+
 const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
   validate: validateUnload,
   apply(s, _player, command): void {
@@ -403,6 +438,7 @@ export const commandSpecs = {
   rally: rallySpec,
   repair: repairSpec,
   stop: stopSpec,
+  transform: transformSpec,
   unload: unloadSpec,
 };
 
@@ -419,6 +455,7 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
     case 'rally': return commandSpecs.rally.validate(s, player, command);
     case 'repair': return commandSpecs.repair.validate(s, player, command);
     case 'stop': return commandSpecs.stop.validate(s, player, command);
+    case 'transform': return commandSpecs.transform.validate(s, player, command);
     case 'unload': return commandSpecs.unload.validate(s, player, command);
   }
 };
@@ -462,6 +499,9 @@ export const applyCommandSpec = (
       return;
     case 'stop':
       commandSpecs.stop.apply(s, player, command, ctx);
+      return;
+    case 'transform':
+      commandSpecs.transform.apply(s, player, command, ctx);
       return;
     case 'unload':
       commandSpecs.unload.apply(s, player, command, ctx);
