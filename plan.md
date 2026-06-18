@@ -1697,7 +1697,8 @@ Highest-impact LOC reductions:
      - Extracted `TapSelectionController`, which owns mobile tap, desktop select/smart tap, box select,
        double-tap select-all, preferred-hit validation, and harvest/repair target-mode command policy
        behind stable `Game` wrappers.
-     - Command-spec refactor is now underway after the scenario DSL proof.
+     - Closed the app-query/controller pass: command specs, ability descriptors, and AI policies are
+       tracked in the earlier Phase 13 items rather than hidden in `Game`.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.
