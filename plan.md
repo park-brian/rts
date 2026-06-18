@@ -2870,6 +2870,10 @@ Implementation slices:
      the explicit target-mode grammar: enemy entity means targeted `attack`, point/neutral means
      point `amove`, and friendly/allied entity means no command. The app queues those candidates
      instead of duplicating combat target classification.
+   - Status: Harvest and Repair armed target modes now also resolve through `command-intent.ts`.
+     Harvest fans out to every selected valid worker, Repair fans out to valid repairers for built
+     targets, and unfinished construction keeps the existing nearest-valid-worker rule in shared
+     sim code instead of app controller code.
    - Status: action-mask follow-target coverage implemented. Entity target masks and caller-owned
      writers now accept the `move` head for targeted follow candidates, with validator-parity tests
      proving friendly non-resource targets are exposed while enemy, resource, and self targets are

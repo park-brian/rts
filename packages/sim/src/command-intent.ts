@@ -92,6 +92,56 @@ export const attackModeCandidates = (
     : valid(s, player, { t: 'amove', unit: actor, x: target.x, y: target.y });
 };
 
+export const harvestModeCandidates = (
+  s: State,
+  player: number,
+  actors: Iterable<number>,
+  target: number,
+): Command[] => {
+  if (!isAlive(s.e, target)) return [];
+  const commands: Command[] = [];
+  for (const actor of actors) {
+    const command: Command = { t: 'harvest', unit: actor, patch: target };
+    if (validateCommand(s, player, command).ok) commands.push(command);
+  }
+  return commands;
+};
+
+export const repairModeCandidates = (
+  s: State,
+  player: number,
+  actors: Iterable<number>,
+  target: number,
+): Command[] => {
+  const e = s.e;
+  if (!isAlive(e, target)) return [];
+  const targetSlot = slotOf(target);
+  if (e.built[targetSlot] !== 1) {
+    let best: Command | null = null;
+    let bestD = Infinity;
+    for (const actor of actors) {
+      const command: Command = { t: 'repair', unit: actor, target };
+      if (!validateCommand(s, player, command).ok) continue;
+      const actorSlot = slotOf(actor);
+      const dx = e.x[actorSlot]! - e.x[targetSlot]!;
+      const dy = e.y[actorSlot]! - e.y[targetSlot]!;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) {
+        bestD = d;
+        best = command;
+      }
+    }
+    return best ? [best] : [];
+  }
+
+  const commands: Command[] = [];
+  for (const actor of actors) {
+    const command: Command = { t: 'repair', unit: actor, target };
+    if (validateCommand(s, player, command).ok) commands.push(command);
+  }
+  return commands;
+};
+
 export const producedUnitRallyIntent = (
   s: State,
   producer: number,

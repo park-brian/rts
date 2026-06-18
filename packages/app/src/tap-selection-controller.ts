@@ -1,6 +1,7 @@
 import type { Game } from './game.ts';
 import {
-  Abilities, NONE, ONE, Role, attackModeCandidates, canPlayerGatherTarget, isAlive, sameTeam, slotOf, validateCommand,
+  Abilities, NONE, ONE, Role, attackModeCandidates, canPlayerGatherTarget, harvestModeCandidates,
+  isAlive, repairModeCandidates, sameTeam, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
@@ -156,50 +157,23 @@ export class TapSelectionController {
   }
 
   private queueHarvestTarget(target: number): boolean {
-    if (target < 0) return false;
     const g = this.game;
     const s = g.sim.fullState();
-    const e = s.e;
     let queued = false;
-    for (const id of g.selection) {
-      const c: Command = { t: 'harvest', unit: id, patch: target };
-      if (isAlive(e, id) && validateCommand(s, g.human, c).ok) {
-        g.queued.push(c);
-        queued = true;
-      }
+    for (const command of harvestModeCandidates(s, g.human, g.selection, target)) {
+      g.queued.push(command);
+      queued = true;
     }
     return queued;
   }
 
   private queueRepairTarget(target: number): boolean {
-    if (target < 0) return false;
     const g = this.game;
     const s = g.sim.fullState();
-    const e = s.e;
-    const targetSlot = slotOf(target);
-    if (e.built[targetSlot] !== 1) {
-      let best: Command | null = null;
-      let bestD = Infinity;
-      for (const id of g.selection) {
-        const c: Command = { t: 'repair', unit: id, target };
-        if (!isAlive(e, id) || !validateCommand(s, g.human, c).ok) continue;
-        const slot = slotOf(id);
-        const dx = e.x[slot]! - e.x[targetSlot]!;
-        const dy = e.y[slot]! - e.y[targetSlot]!;
-        const d = dx * dx + dy * dy;
-        if (d < bestD) { bestD = d; best = c; }
-      }
-      if (!best) return false;
-      g.queued.push(best);
-      return true;
-    }
     let queued = false;
-    for (const id of g.selection) {
-      const c: Command = { t: 'repair', unit: id, target };
-      if (isAlive(e, id) && validateCommand(s, g.human, c).ok) {
-        g.queued.push(c);
-        queued = true;
-      }
+    for (const command of repairModeCandidates(s, g.human, g.selection, target)) {
+      g.queued.push(command);
+      queued = true;
     }
     return queued;
   }

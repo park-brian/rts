@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
-import { attackModeCandidates, producedUnitRallyIntent, smartCommandCandidates } from '../src/command-intent.ts';
+import {
+  attackModeCandidates, harvestModeCandidates, producedUnitRallyIntent, repairModeCandidates,
+  smartCommandCandidates,
+} from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, makeState, NEUTRAL, slotOf } from '../src/world.ts';
 
@@ -121,6 +124,47 @@ test('armed attack mode attacks enemies, amoves points, and rejects friendly tar
     { t: 'amove', unit: marine, x: tc(14), y: tc(8) },
   ]);
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }), []);
+});
+
+test('armed harvest mode queues every selected valid worker for a gather target', () => {
+  const s = makeState(open(), 1, 1212);
+  const a = spawnUnit(s, Kind.SCV, 0, tc(8), tc(8));
+  const b = spawnUnit(s, Kind.SCV, 0, tc(9), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(10), tc(8));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(8));
+
+  assert.deepEqual(harvestModeCandidates(s, 0, [a, b, marine], mineral), [
+    { t: 'harvest', unit: a, patch: mineral },
+    { t: 'harvest', unit: b, patch: mineral },
+  ]);
+});
+
+test('armed repair mode queues all valid repairers for built targets', () => {
+  const s = makeState(open(), 1, 1213);
+  s.players.minerals[0] = 500;
+  const a = spawnUnit(s, Kind.SCV, 0, tc(8), tc(8));
+  const b = spawnUnit(s, Kind.SCV, 0, tc(9), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(10), tc(8));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, tc(12), tc(8));
+  s.e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+
+  assert.deepEqual(repairModeCandidates(s, 0, [a, b, marine], bunker), [
+    { t: 'repair', unit: a, target: bunker },
+    { t: 'repair', unit: b, target: bunker },
+  ]);
+});
+
+test('armed repair mode picks the nearest valid worker for unfinished construction', () => {
+  const s = makeState(open(), 1, 1214);
+  const far = spawnUnit(s, Kind.SCV, 0, tc(6), tc(8));
+  const near = spawnUnit(s, Kind.SCV, 0, tc(11), tc(8));
+  const depot = spawnUnit(s, Kind.SupplyDepot, 0, tc(12), tc(8));
+  s.e.built[slotOf(depot)] = 0;
+  s.e.ctimer[slotOf(depot)] = 100;
+
+  assert.deepEqual(repairModeCandidates(s, 0, [far, near], depot), [
+    { t: 'repair', unit: near, target: depot },
+  ]);
 });
 
 test('produced worker rally intent distinguishes mineral spread from gas target harvest', () => {
