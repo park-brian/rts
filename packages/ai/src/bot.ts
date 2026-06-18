@@ -835,6 +835,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scorePoint: (s, player, x, y) => scoreEmpTarget(s, player, x, y),
   },
   {
+    ability: Ability.ScannerSweep,
+    target: 'enemy-point',
+    minScore: 0,
+    scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
+  },
+  {
     ability: Ability.PsionicStorm,
     target: 'enemy-point',
     minScore: 70,
@@ -889,7 +895,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.ShieldRecharge) && tryCastPolicy(s, player, cmds, caster, Ability.ShieldRecharge)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Restoration) && tryCastPolicy(s, player, cmds, caster, Ability.Restoration)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.ScannerSweep) && maybeCastScanner(s, player, cmds, caster)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.ScannerSweep) && tryCastPolicy(s, player, cmds, caster, Ability.ScannerSweep)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Consume) && tryCastPolicy(s, player, cmds, caster, Ability.Consume)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Hallucination) && tryCastPolicy(s, player, cmds, caster, Ability.Hallucination, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Recall) && maybeCastRecall(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
@@ -1009,6 +1015,19 @@ const scoreEmpTarget = (s: State, player: number, x: number, y: number): number 
   return score;
 };
 
+const scoreScannerTarget = (s: State, player: number, x: number, y: number): number => {
+  const e = s.e;
+  let best = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !isEnemy(s, player, e.owner[i]!)) continue;
+    if (!isCloaked(s, i) || canDetect(s, player, i) || e.x[i] !== x || e.y[i] !== y) continue;
+    const def = Units[e.kind[i]!]!;
+    const score = e.hp[i]! + e.shield[i]! + (def.weapon || def.airWeapon ? 60 : 0);
+    if (score > best) best = score;
+  }
+  return best;
+};
+
 const scoreStormTarget = (s: State, player: number, x: number, y: number): number => {
   const e = s.e;
   const radius = Abilities[Ability.PsionicStorm]!.radius;
@@ -1121,24 +1140,6 @@ const scoreMatrixTarget = (s: State, player: number, target: number, focusX: num
   const missing = Math.max(0, def.hp - e.hp[target]!) + Math.max(0, def.shields - e.shield[target]!);
   const nearFight = distanceSq(e.x[target]!, e.y[target]!, focusX, focusY) <= (TILE * ONE * 7) ** 2 ? 80 : 0;
   return missing + nearFight + (def.weapon || def.airWeapon ? 40 : 0);
-};
-
-const maybeCastScanner = (s: State, player: number, cmds: Command[], caster: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.ScannerSweep]!;
-  if (!hasTechForAbility(s, player, Ability.ScannerSweep)) return false;
-  if (e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestScore = 0;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || !isEnemy(s, player, e.owner[i]!) || !isCloaked(s, i) || canDetect(s, player, i)) continue;
-    const def = Units[e.kind[i]!]!;
-    const score = e.hp[i]! + e.shield[i]! + (def.weapon || def.airWeapon ? 60 : 0);
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.ScannerSweep, x: e.x[best]!, y: e.y[best]! });
-  return true;
 };
 
 const maybeCastCloak = (s: State, cmds: Command[], caster: number, abilityId: number, focusX: number, focusY: number): boolean => {

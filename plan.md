@@ -1621,6 +1621,8 @@ Highest-impact LOC reductions:
      high-value combat target scoring while deleting the bespoke cast helper.
    - Added a narrow caster precondition hook for tactical policies and moved `Consume` into the
      friendly entity policy path while preserving its energy-deficit gate and expendable-unit score.
+   - Moved `Scanner Sweep` into the enemy-point policy path, preserving its cloaked-undetected target
+     score while deleting the bespoke scan helper.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
