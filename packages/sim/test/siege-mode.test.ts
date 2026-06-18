@@ -1,26 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
-import { setTechLevel } from '../src/tech.ts';
 import { parseReplay } from '../src/replay.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 test('siege transform requires research and preserves unit state', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 150 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 150 });
   const e = s.e;
-  const tank = slotOf(spawnUnit(s, Kind.SiegeTank, 0, fx(700), fx(700)));
+  const tank = slotOf(spawn(Kind.SiegeTank, 0, fx(700), fx(700)));
   e.hp[tank] = 91;
 
   const blocked = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: eid(e, tank), kind: Kind.SiegeTankSieged }] }]);
   assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'transform', ok: false, reason: 'missing-requirement' }]);
   assert.equal(e.kind[tank], Kind.SiegeTank);
 
-  setTechLevel(s, 0, Tech.SiegeTech, 1);
+  grant(0, Tech.SiegeTech);
   const accepted = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: eid(e, tank), kind: Kind.SiegeTankSieged }] }]);
   assert.deepEqual(accepted, [{ player: 0, index: 0, t: 'transform', ok: true }]);
   assert.equal(e.kind[tank], Kind.SiegeTankSieged);
@@ -37,15 +33,14 @@ test('siege transform requires research and preserves unit state', () => {
 });
 
 test('sieged tank respects minimum range and deals splash around the target', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 151 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ seed: 151 });
   const e = s.e;
-  const tank = slotOf(spawnUnit(s, Kind.SiegeTankSieged, 0, fx(700), fx(700)));
-  const close = slotOf(spawnUnit(s, Kind.SupplyDepot, 1, fx(730), fx(700)));
-  const target = slotOf(spawnUnit(s, Kind.SupplyDepot, 1, fx(900), fx(700)));
-  const splash = slotOf(spawnUnit(s, Kind.SupplyDepot, 1, fx(930), fx(700)));
-  const friendly = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(900), fx(730)));
-  const air = slotOf(spawnUnit(s, Kind.Wraith, 1, fx(900), fx(730)));
+  const tank = slotOf(spawn(Kind.SiegeTankSieged, 0, fx(700), fx(700)));
+  const close = slotOf(spawn(Kind.SupplyDepot, 1, fx(730), fx(700)));
+  const target = slotOf(spawn(Kind.SupplyDepot, 1, fx(900), fx(700)));
+  const splash = slotOf(spawn(Kind.SupplyDepot, 1, fx(930), fx(700)));
+  const friendly = slotOf(spawn(Kind.SupplyDepot, 0, fx(900), fx(730)));
+  const air = slotOf(spawn(Kind.Wraith, 1, fx(900), fx(730)));
   const closeHp = e.hp[close]!;
   const splashHp = e.hp[splash]!;
   const friendlyHp = e.hp[friendly]!;
