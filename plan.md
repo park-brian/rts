@@ -1909,6 +1909,9 @@ Further concrete deletion opportunities found on review:
        scenario harness while keeping the custom open-map creep placement case raw.
      - Migrated the normal-match setup portions of `economy.test.ts` onto the shared sim scenario
        harness while leaving the raw `makeState(open(...))` rally mechanics tests unchanged.
+     - Migrated the normal-match setup portions of `validation.test.ts` onto the shared sim
+       scenario harness while leaving the raw placement-boundary and live-resource placement tests
+       unchanged.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
