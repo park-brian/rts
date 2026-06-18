@@ -1,20 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { eid, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, Role, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { parseReplay } from '../src/replay.ts';
 import { snapBuildAnchor } from '../src/footprint.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 test('lifted terran buildings move, stop producing, and restore landed capabilities', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 140 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 140 });
   const e = s.e;
-  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(1_400), fx(1_400)));
-  s.players.minerals[0] = 1_000;
+  const cc = slotOf(spawn(Kind.CommandCenter, 0, fx(1_400), fx(1_400)));
+  resources(0, 1_000);
 
   const lifted = sim.step([{ player: 0, cmds: [{ t: 'lift', building: eid(e, cc) }] }]);
   assert.deepEqual(lifted, [{ player: 0, index: 0, t: 'lift', ok: true }]);
@@ -48,11 +45,10 @@ test('lifted terran buildings move, stop producing, and restore landed capabilit
 });
 
 test('landing rejects occupied footprints without changing airborne state', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 141 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 141 });
   const e = s.e;
-  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(700), fx(700)));
-  const depot = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(900), fx(700)));
+  const cc = slotOf(spawn(Kind.CommandCenter, 0, fx(700), fx(700)));
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(900), fx(700)));
 
   sim.step([{ player: 0, cmds: [{ t: 'lift', building: eid(e, cc) }] }]);
   const blocked = sim.step([{ player: 0, cmds: [{ t: 'land', building: eid(e, cc), x: e.x[depot]!, y: e.y[depot]! }] }]);
@@ -62,13 +58,11 @@ test('landing rejects occupied footprints without changing airborne state', () =
 });
 
 test('lift rejects non-liftable and add-on-linked buildings', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 142 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 142 });
   const e = s.e;
-  const depot = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(700), fx(700)));
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(900), fx(700)));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(700), fx(700)));
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(900), fx(700)));
+  resources(0, 1_000, 1_000);
 
   const depotLift = sim.step([{ player: 0, cmds: [{ t: 'lift', building: eid(e, depot) }] }]);
   assert.deepEqual(depotLift, [{ player: 0, index: 0, t: 'lift', ok: false, reason: 'target-not-allowed' }]);
