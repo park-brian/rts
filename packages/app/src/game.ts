@@ -4,7 +4,7 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
-  slotOf, eid, isEnemy, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
+  slotOf, eid, isAlive, sameTeam, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
   canPlaceStructure, validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions,
   transformFor, snapBuildAnchor, isLiftedStructureFlags,
@@ -15,6 +15,7 @@ import {
 import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { selectionCapabilities } from './selection-capabilities.ts';
+import { smartCommandCandidates } from './smart-command-candidates.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -396,7 +397,8 @@ export class Game {
     const [wx1, wy1] = this.screenToWorld(Math.max(sx0, sx1), Math.max(sy0, sy1));
     this.selection.clear();
     if (this.human < 0) return;
-    const e = this.sim.fullState().e;
+    const s = this.sim.fullState();
+    const e = s.e;
     const buildings: number[] = [];
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human) continue;
@@ -413,7 +415,8 @@ export class Game {
   tap(sx: number, sy: number, opts: TapOptions = {}): void {
     const [wx, wy] = this.screenToWorld(sx, sy);
     if (this.human < 0) return;
-    const e = this.sim.fullState().e;
+    const s = this.sim.fullState();
+    const e = s.e;
     const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
 
     if (isPlacementArmed(ui.armedCommand.value)) return;
@@ -433,7 +436,7 @@ export class Game {
 
     // Set-rally mode: point every selected structure's rally at the tapped spot or entity.
     if (armed.t === 'rally') {
-      const rallyTarget = hit >= 0 && (((e.flags[slotOf(hit)]! & Role.Resource) !== 0) || sameTeam(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!))
+      const rallyTarget = hit >= 0 && (((e.flags[slotOf(hit)]! & Role.Resource) !== 0) || sameTeam(s, this.human, e.owner[slotOf(hit)]!))
         ? hit
         : undefined;
       for (const id of this.selection) {
@@ -479,22 +482,15 @@ export class Game {
     const mobile = this.mobileSelection(e);
     if (mobile.length === 0) {
       for (const id of this.selection) {
-        if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          this.queued.push({ t: 'rally', building: id, x: tx, y: ty });
-        }
+        const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'mobile');
+        if (command) this.queued.push(command);
       }
       return;
     }
 
     for (const id of mobile) {
-      const i = slotOf(id);
-      if (hit >= 0 && isEnemy(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!)) {
-        this.queued.push({ t: 'attack', unit: id, target: hit });
-      } else if (hit >= 0 && (e.flags[slotOf(hit)]! & Role.Resource) !== 0 && (e.flags[i]! & Role.Worker) !== 0) {
-        this.queued.push({ t: 'harvest', unit: id, patch: hit }); // neutral resources; owned gas selects unless Harvest is armed
-      } else {
-        this.queued.push({ t: 'move', unit: id, x: tx, y: ty });
-      }
+      const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'mobile');
+      if (command) this.queued.push(command);
     }
   }
 
@@ -533,35 +529,15 @@ export class Game {
       return;
     }
     let queued = false;
-    for (const id of this.selection) if (this.queueDesktopSmartCommand(id, hit, tx, ty)) queued = true;
-    if (queued) this.clearTargetModes();
-  }
-
-  private queueDesktopSmartCommand(actor: number, hit: number, x: number, y: number): boolean {
     const s = this.sim.fullState();
-    const e = s.e;
-    if (!isAlive(e, actor)) return false;
-    const actorSlot = slotOf(actor);
-    const targetSlot = hit >= 0 && isAlive(e, hit) ? slotOf(hit) : -1;
-    const tryCommand = (c: Command): boolean => {
-      if (!validateCommand(s, this.human, c).ok) return false;
-      this.queued.push(c);
-      return true;
-    };
-
-    if (targetSlot >= 0) {
-      if (isEnemy(s, this.human, e.owner[targetSlot]!) && tryCommand({ t: 'attack', unit: actor, target: hit })) return true;
-      if ((e.flags[targetSlot]! & Role.Resource) !== 0 && tryCommand({ t: 'harvest', unit: actor, patch: hit })) return true;
-      if (tryCommand({ t: 'repair', unit: actor, target: hit })) return true;
-      if (tryCommand({ t: 'load', transport: hit, unit: actor })) return true;
-      if (tryCommand({ t: 'load', transport: actor, unit: hit })) return true;
-      if ((e.flags[actorSlot]! & Role.Structure) !== 0) {
-        if (tryCommand({ t: 'rally', building: actor, x, y, target: hit })) return true;
+    for (const id of this.selection) {
+      const [command] = smartCommandCandidates(s, this.human, id, { hit, x: tx, y: ty }, 'desktop');
+      if (command) {
+        this.queued.push(command);
+        queued = true;
       }
     }
-
-    if ((e.flags[actorSlot]! & Role.Structure) !== 0) return tryCommand({ t: 'rally', building: actor, x, y });
-    return tryCommand({ t: 'move', unit: actor, x, y });
+    if (queued) this.clearTargetModes();
   }
 
   private clearTargetModes(): void {
