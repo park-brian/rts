@@ -757,6 +757,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
   },
   {
+    ability: Ability.Hallucination,
+    target: 'friendly-entity',
+    minScore: 120,
+    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
+  },
+  {
     ability: Ability.Parasite,
     target: 'enemy-entity',
     minScore: 220,
@@ -873,7 +879,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.ScannerSweep) && maybeCastScanner(s, player, cmds, caster)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Consume) && maybeCastConsume(s, player, cmds, caster)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Hallucination) && maybeCastHallucination(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Hallucination) && tryCastPolicy(s, player, cmds, caster, Ability.Hallucination, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Recall) && maybeCastRecall(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
@@ -1150,23 +1156,13 @@ const maybeCastRecall = (s: State, player: number, cmds: Command[], caster: numb
   return true;
 };
 
-const maybeCastHallucination = (s: State, player: number, cmds: Command[], caster: number, focusX: number, focusY: number): boolean => {
+const scoreHallucinationTarget = (s: State, player: number, target: number, focusX: number, focusY: number): number => {
   const e = s.e;
-  const ability = Abilities[Ability.Hallucination]!;
-  if (!hasTechForAbility(s, player, Ability.Hallucination) || e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestScore = 120;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || e.illusion[i] === 1 || (e.flags[i]! & Role.Mobile) === 0) continue;
-    if (!(Units[e.kind[i]!]!.weapon || Units[e.kind[i]!]!.airWeapon)) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const nearFight = distanceSq(e.x[i]!, e.y[i]!, focusX, focusY) <= (TILE * ONE * 10) ** 2 ? 80 : 0;
-    const score = nearFight + e.hp[i]! + e.shield[i]! + Units[e.kind[i]!]!.supply * 8;
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.Hallucination, target: eid(e, best) });
-  return true;
+  const def = Units[e.kind[target]!]!;
+  if (e.owner[target] !== player || e.illusion[target] === 1 || (e.flags[target]! & Role.Mobile) === 0) return 0;
+  if (!(def.weapon || def.airWeapon)) return 0;
+  const nearFight = distanceSq(e.x[target]!, e.y[target]!, focusX, focusY) <= (TILE * ONE * 10) ** 2 ? 80 : 0;
+  return nearFight + e.hp[target]! + e.shield[target]! + def.supply * 8;
 };
 
 const scoreInfestTarget = (s: State, _player: number, slot: number): number =>

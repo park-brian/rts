@@ -1617,6 +1617,8 @@ Highest-impact LOC reductions:
      status-clearing target preference while deleting the bespoke AI cast helper.
    - Extended entity policies with caster/focus context and moved `Defensive Matrix` into the shared
      policy path without changing its threat/damage target score.
+   - Moved `Hallucination` into the same focus-aware friendly entity policy path, preserving its
+     high-value combat target scoring while deleting the bespoke cast helper.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
