@@ -709,12 +709,19 @@ const hasTechForAbility = (s: State, player: number, abilityId: number): boolean
   return !ability?.tech || getTechLevel(s, player, ability.tech) > 0;
 };
 
-type AbilityPolicy = {
+type EntityAbilityPolicy = {
   ability: number;
   target: 'friendly-entity' | 'enemy-entity';
   minScore: number;
   scoreTarget: (s: State, player: number, target: number) => number;
 };
+type PointAbilityPolicy = {
+  ability: number;
+  target: 'enemy-point';
+  minScore: number;
+  scorePoint: (s: State, player: number, x: number, y: number) => number;
+};
+type AbilityPolicy = EntityAbilityPolicy | PointAbilityPolicy;
 
 const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
   {
@@ -785,6 +792,54 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     minScore: 1,
     scoreTarget: (s, player, target) => scoreBroodlingTarget(s, player, target),
   },
+  {
+    ability: Ability.EMPShockwave,
+    target: 'enemy-point',
+    minScore: 100,
+    scorePoint: (s, player, x, y) => scoreEmpTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.PsionicStorm,
+    target: 'enemy-point',
+    minScore: 70,
+    scorePoint: (s, player, x, y) => scoreStormTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.Plague,
+    target: 'enemy-point',
+    minScore: 40,
+    scorePoint: (s, player, x, y) => scorePlagueTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.Ensnare,
+    target: 'enemy-point',
+    minScore: 80,
+    scorePoint: (s, player, x, y) => scoreEnsnareTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.Maelstrom,
+    target: 'enemy-point',
+    minScore: 90,
+    scorePoint: (s, player, x, y) => scoreMaelstromTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.StasisField,
+    target: 'enemy-point',
+    minScore: 140,
+    scorePoint: (s, player, x, y) => scoreStasisTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.DisruptionWeb,
+    target: 'enemy-point',
+    minScore: 70,
+    scorePoint: (s, player, x, y) => scoreDisruptionWebTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.DarkSwarm,
+    target: 'enemy-point',
+    minScore: 60,
+    scorePoint: (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y),
+  },
 ];
 
 const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
@@ -812,21 +867,29 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Lockdown) && tryCastPolicy(s, player, cmds, caster, Ability.Lockdown)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Irradiate) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Irradiate, scoreIrradiateTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.EMPShockwave) && maybeCastPointAbility(s, player, cmds, caster, Ability.EMPShockwave, scoreEmpTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.PsionicStorm) && maybeCastPointAbility(s, player, cmds, caster, Ability.PsionicStorm, scoreStormTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Plague) && maybeCastPointAbility(s, player, cmds, caster, Ability.Plague, scorePlagueTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Ensnare) && maybeCastPointAbility(s, player, cmds, caster, Ability.Ensnare, scoreEnsnareTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Maelstrom) && maybeCastPointAbility(s, player, cmds, caster, Ability.Maelstrom, scoreMaelstromTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.StasisField) && maybeCastPointAbility(s, player, cmds, caster, Ability.StasisField, scoreStasisTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DisruptionWeb) && maybeCastPointAbility(s, player, cmds, caster, Ability.DisruptionWeb, scoreDisruptionWebTarget, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.EMPShockwave) && tryCastPolicy(s, player, cmds, caster, Ability.EMPShockwave)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.PsionicStorm) && tryCastPolicy(s, player, cmds, caster, Ability.PsionicStorm, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Plague) && tryCastPolicy(s, player, cmds, caster, Ability.Plague, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Ensnare) && tryCastPolicy(s, player, cmds, caster, Ability.Ensnare, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Maelstrom) && tryCastPolicy(s, player, cmds, caster, Ability.Maelstrom, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.StasisField) && tryCastPolicy(s, player, cmds, caster, Ability.StasisField, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.DisruptionWeb) && tryCastPolicy(s, player, cmds, caster, Ability.DisruptionWeb, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.DefensiveMatrix) && maybeCastMatrix(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.PersonnelCloaking) && maybeCastCloak(s, cmds, caster, Ability.PersonnelCloaking, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.CloakingField) && maybeCastCloak(s, cmds, caster, Ability.CloakingField, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DarkSwarm) && maybeCastPointAbility(s, player, cmds, caster, Ability.DarkSwarm, scoreDarkSwarmTarget, focusX, focusY)) used.add(caster);
+    if (def.abilities.includes(Ability.DarkSwarm) && tryCastPolicy(s, player, cmds, caster, Ability.DarkSwarm, focusX, focusY)) used.add(caster);
   }
 };
 
-const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number, abilityId: number): boolean => {
+const tryCastPolicy = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  caster: number,
+  abilityId: number,
+  focusX = s.e.x[caster]!,
+  focusY = s.e.y[caster]!,
+): boolean => {
   const policy = tacticalAbilityPolicy(abilityId);
   if (!policy) return false;
   const e = s.e;
@@ -834,11 +897,20 @@ const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number
   let bestScore = policy.minScore;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-    if (policy.target === 'friendly-entity' && e.owner[i] !== player) continue;
-    if (policy.target === 'enemy-entity' && !isEnemy(s, player, e.owner[i]!)) continue;
-    const score = policy.scoreTarget(s, player, i);
+    let command: Command;
+    let score: number;
+    if (policy.target === 'enemy-point') {
+      if (!isEnemy(s, player, e.owner[i]!)) continue;
+      const focusPenalty = Math.trunc(isqrt(distanceSq(e.x[i]!, e.y[i]!, focusX, focusY)) / (TILE * ONE));
+      score = policy.scorePoint(s, player, e.x[i]!, e.y[i]!) - focusPenalty;
+      command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, x: e.x[i]!, y: e.y[i]! };
+    } else {
+      if (policy.target === 'friendly-entity' && e.owner[i] !== player) continue;
+      if (policy.target === 'enemy-entity' && !isEnemy(s, player, e.owner[i]!)) continue;
+      score = policy.scoreTarget(s, player, i);
+      command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, target: eid(e, i) };
+    }
     if (score <= bestScore) continue;
-    const command: Command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, target: eid(e, i) };
     if (!validateCommand(s, player, command).ok) continue;
     bestScore = score;
     bestCommand = command;
@@ -850,15 +922,6 @@ const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number
 
 const abilityThreshold = (abilityId: number): number => {
   switch (abilityId) {
-    case Ability.EMPShockwave: return 100;
-    case Ability.PsionicStorm: return 70;
-    case Ability.Plague: return 40;
-    case Ability.Ensnare: return 80;
-    case Ability.Maelstrom: return 90;
-    case Ability.StasisField: return 140;
-    case Ability.DisruptionWeb: return 70;
-    case Ability.DarkSwarm: return 60;
-    case Ability.ScannerSweep: return 1;
     case Ability.NuclearStrike: return 650;
     default: return 1;
   }

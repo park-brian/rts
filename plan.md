@@ -1619,6 +1619,9 @@ Highest-impact LOC reductions:
      `Yamato Gun`, and `Mind Control`.
    - Moved the remaining Queen enemy-entity pair, `Spawn Broodling` and `Infest Command Center`,
      into the policy path while keeping their existing scorers and validation gates.
+   - Added point-target policies for non-Nuke area spells: `EMP`, `Psionic Storm`, `Plague`,
+     `Ensnare`, `Maelstrom`, `Stasis Field`, `Disruption Web`, and `Dark Swarm` now share
+     the policy search path while preserving focus penalties.
 4. Replace `Game` command-option/status derivation with sim/app query modules.
    - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
      capability summaries, selected status text, group management, replay scrub, and command emission.
