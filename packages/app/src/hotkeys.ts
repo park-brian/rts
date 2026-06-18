@@ -438,27 +438,30 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
   return false;
 };
 
-const commandCardActions = (): HotkeyAction[] => [
-  ...ui.selTrainKinds.value.map(actionKey.train),
-  ...ui.selAddonKinds.value.map(actionKey.addon),
-  ...ui.selTransformKinds.value.map(actionKey.transform),
-  ...ui.selBuildKinds.value.map(actionKey.build),
-  ...(ui.selCanRally.value ? ['rally' as const] : []),
-  ...(ui.selCanHarvest.value ? ['harvest' as const] : []),
-  ...(ui.selCanRepair.value ? ['repair' as const] : []),
-  ...ui.selResearchTechs.value.map(actionKey.research),
-  ...ui.selAbilities.value.map(actionKey.ability),
-  ...(ui.selCanLoad.value ? ['load' as const] : []),
-  ...(ui.selCanUnload.value ? ['unload' as const] : []),
-  ...(ui.selCanBurrow.value ? ['burrow' as const] : []),
-  ...(ui.selCanUnburrow.value ? ['unburrow' as const] : []),
-  ...(ui.selCanMine.value ? ['mine' as const] : []),
-  ...(ui.selCanLift.value ? ['lift' as const] : []),
-  ...(ui.selCanLand.value ? ['land' as const] : []),
-  ...(ui.selCanAttackMove.value ? ['attackMove' as const] : []),
-  ...(ui.selCanStop.value ? ['stop' as const] : []),
-  'deselect',
-];
+const commandCardActions = (): HotkeyAction[] => {
+  const selection = ui.selectionView.value;
+  return [
+    ...selection.kinds.train.map(actionKey.train),
+    ...selection.kinds.addon.map(actionKey.addon),
+    ...selection.kinds.transform.map(actionKey.transform),
+    ...selection.kinds.build.map(actionKey.build),
+    ...(selection.can.rally ? ['rally' as const] : []),
+    ...(selection.can.harvest ? ['harvest' as const] : []),
+    ...(selection.can.repair ? ['repair' as const] : []),
+    ...selection.kinds.research.map(actionKey.research),
+    ...selection.kinds.abilities.map(actionKey.ability),
+    ...(selection.can.load ? ['load' as const] : []),
+    ...(selection.can.unload ? ['unload' as const] : []),
+    ...(selection.can.burrow ? ['burrow' as const] : []),
+    ...(selection.can.unburrow ? ['unburrow' as const] : []),
+    ...(selection.can.mine ? ['mine' as const] : []),
+    ...(selection.can.lift ? ['lift' as const] : []),
+    ...(selection.can.land ? ['land' as const] : []),
+    ...(selection.can.attackMove ? ['attackMove' as const] : []),
+    ...(selection.can.stop ? ['stop' as const] : []),
+    'deselect',
+  ];
+};
 
 export const dispatchHotkey = (game: Game, code: string): boolean => {
   if (ui.mode.value !== 'play' || ui.controlScheme.value !== 'desktop') return false;

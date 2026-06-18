@@ -227,9 +227,9 @@ test('selected buildings do not publish mobile attack-move or stop commands', ()
 
   g.fastForward(0);
 
-  assert.equal(ui.selCanRally.value, true);
-  assert.equal(ui.selCanAttackMove.value, false);
-  assert.equal(ui.selCanStop.value, false);
+  assert.equal(ui.selectionView.value.can.rally, true);
+  assert.equal(ui.selectionView.value.can.attackMove, false);
+  assert.equal(ui.selectionView.value.can.stop, false);
 });
 
 test('selected mobile units publish mobile attack-move commands', () => {
@@ -239,8 +239,8 @@ test('selected mobile units publish mobile attack-move commands', () => {
 
   g.fastForward(0);
 
-  assert.equal(ui.selCanRally.value, false);
-  assert.equal(ui.selCanAttackMove.value, true);
+  assert.equal(ui.selectionView.value.can.rally, false);
+  assert.equal(ui.selectionView.value.can.attackMove, true);
 });
 
 test('normal tap on an owned gas structure selects it instead of harvesting', () => {
@@ -517,9 +517,9 @@ test('selected race workers publish their race build palette', () => {
 
   g.fastForward(0);
 
-  assert.ok(ui.selBuildKinds.value.includes(Kind.Pylon));
-  assert.ok(ui.selBuildKinds.value.includes(Kind.Gateway));
-  assert.ok(!ui.selBuildKinds.value.includes(Kind.SupplyDepot));
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Pylon));
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Gateway));
+  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.SupplyDepot));
 });
 
 test('zerg worker command card hides lair-gated buildings until tech exists', () => {
@@ -531,12 +531,12 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
 
   g.fastForward(0);
 
-  assert.ok(ui.selBuildKinds.value.includes(Kind.SpawningPool));
-  assert.ok(ui.selBuildKinds.value.includes(Kind.EvolutionChamber));
-  assert.ok(!ui.selBuildKinds.value.includes(Kind.Spire));
-  assert.ok(!ui.selBuildKinds.value.includes(Kind.QueensNest));
-  assert.equal(ui.selBuildOptions.value.find((o) => o.id === Kind.Spire)?.reason, 'missing-requirement');
-  assert.equal(ui.selAddonOptions.value.length, 0);
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.SpawningPool));
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.EvolutionChamber));
+  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.Spire));
+  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.QueensNest));
+  assert.equal(ui.selectionView.value.options.build.find((o) => o.id === Kind.Spire)?.reason, 'missing-requirement');
+  assert.equal(ui.selectionView.value.options.addon.length, 0);
 
   const s = g.sim.fullState();
   spawnUnit(s, Kind.Lair, 0, fx(700), fx(700));
@@ -544,8 +544,8 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
   s.players.gas[0] = 1_000;
   g.fastForward(0);
 
-  assert.ok(ui.selBuildKinds.value.includes(Kind.Spire));
-  assert.ok(ui.selBuildKinds.value.includes(Kind.QueensNest));
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Spire));
+  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.QueensNest));
 });
 
 test('zerg structure morph commands are only offered once prerequisites and resources exist', () => {
@@ -556,7 +556,7 @@ test('zerg structure morph commands are only offered once prerequisites and reso
 
   g.fastForward(0);
 
-  assert.ok(!ui.selTransformKinds.value.includes(Kind.Lair));
+  assert.ok(!ui.selectionView.value.kinds.transform.includes(Kind.Lair));
 
   const s = g.sim.fullState();
   const h = slotOf(hatchery);
@@ -565,7 +565,7 @@ test('zerg structure morph commands are only offered once prerequisites and reso
   s.players.gas[0] = 1_000;
   g.fastForward(0);
 
-  assert.ok(ui.selTransformKinds.value.includes(Kind.Lair));
+  assert.ok(ui.selectionView.value.kinds.transform.includes(Kind.Lair));
 
   g.transformSelected(Kind.Lair);
 
@@ -588,13 +588,13 @@ test('selected zerg structure morphs publish morphing label and cancel only', ()
   select(g, [hatchery]);
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Morphing Lair');
-  assert.equal(ui.selCanCancel.value, true);
-  assert.equal(ui.selCanRally.value, false);
-  assert.equal(ui.selCanStop.value, false);
-  assert.equal(ui.selTrainOptions.value.length, 0);
-  assert.equal(ui.selResearchOptions.value.length, 0);
-  assert.equal(ui.selTransformOptions.value.length, 0);
+  assert.equal(ui.selectionView.value.kindName, 'Morphing Lair');
+  assert.equal(ui.selectionView.value.can.cancel, true);
+  assert.equal(ui.selectionView.value.can.rally, false);
+  assert.equal(ui.selectionView.value.can.stop, false);
+  assert.equal(ui.selectionView.value.options.train.length, 0);
+  assert.equal(ui.selectionView.value.options.research.length, 0);
+  assert.equal(ui.selectionView.value.options.transform.length, 0);
 
   g.cancelSelectedBuild();
 
@@ -615,13 +615,13 @@ test('selected protoss warp-ins publish warping label and cancel only', () => {
 
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Warping Gateway');
-  assert.equal(ui.selCanCancel.value, true);
-  assert.equal(ui.selCanRally.value, false);
-  assert.equal(ui.selCanStop.value, false);
-  assert.equal(ui.selTrainOptions.value.length, 0);
-  assert.equal(ui.selResearchOptions.value.length, 0);
-  assert.equal(ui.selTransformOptions.value.length, 0);
+  assert.equal(ui.selectionView.value.kindName, 'Warping Gateway');
+  assert.equal(ui.selectionView.value.can.cancel, true);
+  assert.equal(ui.selectionView.value.can.rally, false);
+  assert.equal(ui.selectionView.value.can.stop, false);
+  assert.equal(ui.selectionView.value.options.train.length, 0);
+  assert.equal(ui.selectionView.value.options.research.length, 0);
+  assert.equal(ui.selectionView.value.options.transform.length, 0);
 
   g.cancelSelectedBuild();
 
@@ -658,10 +658,10 @@ test('selected protoss merge summons are inert and not cancellable', () => {
   select(g, [a]);
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Summoning Archon');
-  assert.equal(ui.selCanCancel.value, false);
-  assert.equal(ui.selCanAttackMove.value, false);
-  assert.equal(ui.selCanStop.value, false);
+  assert.equal(ui.selectionView.value.kindName, 'Summoning Archon');
+  assert.equal(ui.selectionView.value.can.cancel, false);
+  assert.equal(ui.selectionView.value.can.attackMove, false);
+  assert.equal(ui.selectionView.value.can.stop, false);
 
   g.cancelSelectedBuild();
 
@@ -675,7 +675,7 @@ test('selected carriers publish interceptor build commands', () => {
 
   g.fastForward(0);
 
-  assert.ok(ui.selTrainKinds.value.includes(Kind.Interceptor));
+  assert.ok(ui.selectionView.value.kinds.train.includes(Kind.Interceptor));
 });
 
 test('command card publishes disabled train and ability reasons', () => {
@@ -686,8 +686,8 @@ test('command card publishes disabled train and ability reasons', () => {
   select(g, [cc]);
   g.fastForward(0);
 
-  assert.ok(!ui.selTrainKinds.value.includes(Kind.SCV));
-  assert.equal(ui.selTrainOptions.value.find((o) => o.id === Kind.SCV)?.reason, 'not-affordable');
+  assert.ok(!ui.selectionView.value.kinds.train.includes(Kind.SCV));
+  assert.equal(ui.selectionView.value.options.train.find((o) => o.id === Kind.SCV)?.reason, 'not-affordable');
 
   const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(500), fx(500));
   const slot = slotOf(templar);
@@ -695,13 +695,13 @@ test('command card publishes disabled train and ability reasons', () => {
   select(g, [templar]);
   g.fastForward(0);
 
-  assert.ok(!ui.selAbilities.value.includes(Ability.PsionicStorm));
-  assert.equal(ui.selAbilityOptions.value.find((o) => o.id === Ability.PsionicStorm)?.reason, 'missing-requirement');
+  assert.ok(!ui.selectionView.value.kinds.abilities.includes(Ability.PsionicStorm));
+  assert.equal(ui.selectionView.value.options.ability.find((o) => o.id === Ability.PsionicStorm)?.reason, 'missing-requirement');
 
   setTechLevel(s, 0, Tech.PsionicStorm, 1);
   g.fastForward(0);
 
-  assert.ok(ui.selAbilities.value.includes(Ability.PsionicStorm));
+  assert.ok(ui.selectionView.value.kinds.abilities.includes(Ability.PsionicStorm));
 });
 
 test('nuclear command card surfaces silo missile state', () => {
@@ -717,7 +717,7 @@ test('nuclear command card surfaces silo missile state', () => {
   select(g, [silo]);
   g.fastForward(0);
 
-  let option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  let option = ui.selectionView.value.options.train.find((o) => o.id === Kind.NuclearMissile);
   assert.equal(option?.ok, true);
   assert.equal(option?.label, 'Arm Nuke');
 
@@ -725,7 +725,7 @@ test('nuclear command card surfaces silo missile state', () => {
   s.e.prodTimer[siloSlot] = 100;
   g.fastForward(0);
 
-  option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  option = ui.selectionView.value.options.train.find((o) => o.id === Kind.NuclearMissile);
   assert.equal(option?.ok, false);
   assert.equal(option?.label, 'Arming Nuke');
   assert.equal(option?.detail, 'Arming');
@@ -735,7 +735,7 @@ test('nuclear command card surfaces silo missile state', () => {
   s.e.specialAmmo[siloSlot] = 1;
   g.fastForward(0);
 
-  option = ui.selTrainOptions.value.find((o) => o.id === Kind.NuclearMissile);
+  option = ui.selectionView.value.options.train.find((o) => o.id === Kind.NuclearMissile);
   assert.equal(option?.ok, false);
   assert.equal(option?.label, 'Nuke Ready');
   assert.equal(option?.detail, 'Ready');
@@ -745,7 +745,7 @@ test('nuclear command card surfaces silo missile state', () => {
   select(g, [ghost]);
   g.fastForward(0);
 
-  const ability = ui.selAbilityOptions.value.find((o) => o.id === Ability.NuclearStrike);
+  const ability = ui.selectionView.value.options.ability.find((o) => o.id === Ability.NuclearStrike);
   assert.equal(ability?.ok, false);
   assert.equal(ability?.detail, 'No Nuke');
 });
@@ -758,10 +758,10 @@ test('selection summary identifies known own hallucinations without real worker 
   select(g, [scv]);
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Hallucination SCV');
-  assert.equal(ui.selBuildOptions.value.length, 0);
-  assert.equal(ui.selCanHarvest.value, false);
-  assert.equal(ui.selCanRepair.value, false);
+  assert.equal(ui.selectionView.value.kindName, 'Hallucination SCV');
+  assert.equal(ui.selectionView.value.options.build.length, 0);
+  assert.equal(ui.selectionView.value.can.harvest, false);
+  assert.equal(ui.selectionView.value.can.repair, false);
 });
 
 test('selection summary hides real production commands for known own hallucinations', () => {
@@ -772,8 +772,8 @@ test('selection summary hides real production commands for known own hallucinati
   select(g, [carrier]);
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Hallucination Carrier');
-  assert.equal(ui.selTrainOptions.value.length, 0);
+  assert.equal(ui.selectionView.value.kindName, 'Hallucination Carrier');
+  assert.equal(ui.selectionView.value.options.train.length, 0);
 });
 
 test('selection status publishes compact progress and upgraded combat stats', () => {
@@ -789,18 +789,18 @@ test('selection status publishes compact progress and upgraded combat stats', ()
   select(g, [barracks]);
   g.fastForward(0);
 
-  assert.equal(ui.selStatus.value.label, 'Training');
-  assert.equal(ui.selStatus.value.detail, 'Marine +1');
-  assert.ok(ui.selStatus.value.progress > 0.45 && ui.selStatus.value.progress < 0.55);
-  assert.ok(ui.selStatus.value.stats.includes('HP 1000/1000'));
+  assert.equal(ui.selectionView.value.status.label, 'Training');
+  assert.equal(ui.selectionView.value.status.detail, 'Marine +1');
+  assert.ok(ui.selectionView.value.status.progress > 0.45 && ui.selectionView.value.status.progress < 0.55);
+  assert.ok(ui.selectionView.value.status.stats.includes('HP 1000/1000'));
 
   const marine = spawnUnit(s, Kind.Marine, 0, fx(560), fx(520));
   select(g, [marine]);
   g.fastForward(0);
 
-  assert.equal(ui.selStatus.value.label, 'Idle');
-  assert.ok(ui.selStatus.value.stats.includes('Arm 0+1'));
-  assert.ok(ui.selStatus.value.stats.includes('G/A 6+1 R4 CD15'));
+  assert.equal(ui.selectionView.value.status.label, 'Idle');
+  assert.ok(ui.selectionView.value.status.stats.includes('Arm 0+1'));
+  assert.ok(ui.selectionView.value.status.stats.includes('G/A 6+1 R4 CD15'));
 });
 
 test('selected zerg combat morphs present as cancellable cocoons', () => {
@@ -819,10 +819,10 @@ test('selected zerg combat morphs present as cancellable cocoons', () => {
   select(g, [hydra]);
   g.fastForward(0);
 
-  assert.equal(ui.selKindName.value, 'Morphing Lurker');
-  assert.equal(ui.selCanCancel.value, true);
-  assert.equal(ui.selCanAttackMove.value, false);
-  assert.equal(ui.selCanStop.value, false);
+  assert.equal(ui.selectionView.value.kindName, 'Morphing Lurker');
+  assert.equal(ui.selectionView.value.can.cancel, true);
+  assert.equal(ui.selectionView.value.can.attackMove, false);
+  assert.equal(ui.selectionView.value.can.stop, false);
 
   g.cancelSelectedBuild();
 

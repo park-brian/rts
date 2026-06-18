@@ -19,7 +19,7 @@ import {
   type Replay, type MapSpec, type State, type Faction, type FactionName,
   type CommandRejectReason, type CommandValidation, type Weapon,
 } from './sim.ts';
-import { clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
+import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entitySelectionName } from './entity-presentation.ts';
@@ -51,7 +51,6 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
   'stale-entity': 16,
 };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
-const EMPTY_SELECTION_STATUS: SelectionStatus = { label: 'No selection', detail: '', progress: 0, stats: [] };
 type TapOptions = { shift?: boolean; ctrl?: boolean; preferredHit?: number };
 type SelectableBounds = { x0: number; y0: number; x1: number; y1: number; cx: number; cy: number };
 const ORDER_LABELS: Record<number, string> = {
@@ -235,35 +234,7 @@ const selectionStatus = (s: State, slot: number, viewer: number): SelectionStatu
 };
 
 const clearSelectionUi = (): void => {
-  ui.selCount.value = 0;
-  ui.selKindName.value = '';
-  ui.selStatus.value = EMPTY_SELECTION_STATUS;
-  ui.selCanBuild.value = false;
-  ui.selCanRally.value = false;
-  ui.selCanLoad.value = false;
-  ui.selCanUnload.value = false;
-  ui.selCanHarvest.value = false;
-  ui.selCanRepair.value = false;
-  ui.selCanAttackMove.value = false;
-  ui.selCanStop.value = false;
-  ui.selCanBurrow.value = false;
-  ui.selCanUnburrow.value = false;
-  ui.selCanMine.value = false;
-  ui.selCanLift.value = false;
-  ui.selCanLand.value = false;
-  ui.selCanCancel.value = false;
-  ui.selBuildKinds.value = [];
-  ui.selAddonKinds.value = [];
-  ui.selTransformKinds.value = [];
-  ui.selTrainKinds.value = [];
-  ui.selAbilities.value = [];
-  ui.selResearchTechs.value = [];
-  ui.selBuildOptions.value = [];
-  ui.selAddonOptions.value = [];
-  ui.selTransformOptions.value = [];
-  ui.selTrainOptions.value = [];
-  ui.selAbilityOptions.value = [];
-  ui.selResearchOptions.value = [];
+  ui.selectionView.value = EMPTY_SELECTION_VIEW;
 };
 
 const sameCounts = (a: readonly number[], b: readonly number[]): boolean =>
@@ -1358,35 +1329,43 @@ export class Game {
         if (e.alive[i] === 1 && e.owner[i] === this.human && e.container[i] === transport) canUnload = true;
       }
     }
-    ui.selCount.value = count;
-    ui.selKindName.value = count > 1 ? `${kindName} ×${count}` : kindName;
-    ui.selStatus.value = primarySlot >= 0 ? selectionStatus(s, primarySlot, this.human) : EMPTY_SELECTION_STATUS;
-    ui.selCanBuild.value = buildOptions.size > 0;
-    ui.selCanRally.value = canRally;
-    ui.selBuildOptions.value = sortedOptions(buildOptions);
-    ui.selAddonOptions.value = sortedOptions(addonOptions);
-    ui.selTransformOptions.value = sortedOptions(transformOptions);
-    ui.selTrainOptions.value = sortedOptions(trainOptions);
-    ui.selAbilityOptions.value = sortedOptions(abilityOptions);
-    ui.selResearchOptions.value = sortedOptions(researchOptions);
-    ui.selBuildKinds.value = optionKinds(buildOptions);
-    ui.selAddonKinds.value = optionKinds(addonOptions);
-    ui.selTransformKinds.value = optionKinds(transformOptions);
-    ui.selTrainKinds.value = optionKinds(trainOptions);
-    ui.selAbilities.value = optionKinds(abilityOptions);
-    ui.selResearchTechs.value = optionKinds(researchOptions);
-    ui.selCanLoad.value = canLoad;
-    ui.selCanUnload.value = canUnload;
-    ui.selCanHarvest.value = canHarvest;
-    ui.selCanRepair.value = canRepair;
-    ui.selCanAttackMove.value = canAttackMove;
-    ui.selCanStop.value = canStop;
-    ui.selCanBurrow.value = canBurrow;
-    ui.selCanUnburrow.value = canUnburrow;
-    ui.selCanMine.value = canMine;
-    ui.selCanLift.value = canLift;
-    ui.selCanLand.value = canLand;
-    ui.selCanCancel.value = canCancel;
+    ui.selectionView.value = {
+      count,
+      kindName: count > 1 ? `${kindName} ×${count}` : kindName,
+      status: primarySlot >= 0 ? selectionStatus(s, primarySlot, this.human) : EMPTY_SELECTION_VIEW.status,
+      can: {
+        build: buildOptions.size > 0,
+        rally: canRally,
+        load: canLoad,
+        unload: canUnload,
+        harvest: canHarvest,
+        repair: canRepair,
+        attackMove: canAttackMove,
+        stop: canStop,
+        burrow: canBurrow,
+        unburrow: canUnburrow,
+        mine: canMine,
+        lift: canLift,
+        land: canLand,
+        cancel: canCancel,
+      },
+      kinds: {
+        build: optionKinds(buildOptions),
+        addon: optionKinds(addonOptions),
+        transform: optionKinds(transformOptions),
+        train: optionKinds(trainOptions),
+        abilities: optionKinds(abilityOptions),
+        research: optionKinds(researchOptions),
+      },
+      options: {
+        build: sortedOptions(buildOptions),
+        addon: sortedOptions(addonOptions),
+        transform: sortedOptions(transformOptions),
+        train: sortedOptions(trainOptions),
+        ability: sortedOptions(abilityOptions),
+        research: sortedOptions(researchOptions),
+      },
+    };
   }
 
   private abilityAvailability(s: State, slot: number, abilityId: number): CommandValidation {

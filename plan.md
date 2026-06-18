@@ -1632,16 +1632,20 @@ Further concrete deletion opportunities found on review:
        routing, placement ghost preview/commit, and interaction tests to the single state.
      - Validation: `npm run typecheck` and `npm test` passed.
 2. Collapse selection UI signals into one selection view snapshot.
-   - Current shape:
+   - Previous shape:
      - `store.ts` exposes separate signals for `selCanBuild`, `selCanRally`, `selBuildKinds`,
        `selBuildOptions`, `selCanLoad`, `selCanUnload`, `selCanBurrow`, and many more;
      - `clearSelectionUi` and `refreshSelectionSummary` write a long list of fields every frame.
    - Collapse shape:
-     - one `selectionView` signal with `{ count, label, status, commandGroups, controlGroups }`;
-     - booleans such as "can build" and "can stop" are derived from command groups, not separately
-       stored;
-     - UI renders command groups directly instead of pairing `selCanX` booleans with `selXOptions`.
+     - one `selectionView` signal with `{ count, kindName, status, can, kinds, options }`;
+     - UI and hotkeys read a single coherent selection snapshot instead of pairing scattered
+       `selCanX` booleans with `selXOptions`.
    - Expected win: lower app LOC and no risk that `selCanX` disagrees with `selXOptions`.
+   - Completed:
+     - Replaced the scattered selection signals with one `selectionView` snapshot.
+     - Migrated HUD selection labels, status/progress/stats, command-card buttons, command-card
+       hotkey discovery, and app interaction tests.
+     - Validation: `npm run typecheck`, focused app interaction tests, and `npm test` passed.
 3. Make command options actual command candidates.
    - Current shape:
      - command-card options mostly carry `{ id, ok, reason, label, detail }`;
@@ -1734,7 +1738,7 @@ LOC collapse order:
 1. Build the test/scenario DSL first, because it makes all later refactors safer and may remove the
    most raw lines immediately.
 2. Collapse `armedCommand` and `selectionView` in the app, because these remove impossible UI states
-   and make later `Game` splitting meaningful. `armedCommand` is complete; `selectionView` remains.
+   and make later `Game` splitting meaningful. `armedCommand` and `selectionView` are complete.
 3. Add lifecycle/status, work-queue, and selection-capability queries, then slim `Game`.
 4. Add command specs while keeping public `validateCommand`/`applyCommands` stable.
 5. Add ability descriptors and AI policies.

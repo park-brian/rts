@@ -356,8 +356,9 @@ const MinimapPanel = (p: { game: Game }) => {
 };
 
 const ProgressLine = () => {
-  const status = ui.selStatus.value;
-  if (ui.selCount.value <= 0 || status.progress <= 0 || status.progress >= 1) return null;
+  const selection = ui.selectionView.value;
+  const status = selection.status;
+  if (selection.count <= 0 || status.progress <= 0 || status.progress >= 1) return null;
   const pct = Math.round(status.progress * 100);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 34px', gap: '6px', alignItems: 'center',
@@ -371,8 +372,9 @@ const ProgressLine = () => {
 };
 
 const StatChips = (p: { compact?: boolean }) => {
-  const stats = ui.selStatus.value.stats;
-  if (ui.selCount.value <= 0 || stats.length === 0) return null;
+  const selection = ui.selectionView.value;
+  const stats = selection.status.stats;
+  if (selection.count <= 0 || stats.length === 0) return null;
   const visible = stats.slice(0, p.compact ? 4 : 6);
   const hidden = stats.length - visible.length;
   return (
@@ -399,7 +401,7 @@ const groupKeyLabel = (index: number): string => index === 9 ? '0' : String(inde
 
 const ControlGroups = (p: { game: Game; compact?: boolean }) => {
   const counts = ui.controlGroupCounts.value;
-  const selected = ui.selCount.value > 0;
+  const selected = ui.selectionView.value.count > 0;
   const activate = (index: number, e: MouseEvent): void => {
     if (e.ctrlKey || e.metaKey || (counts[index] === 0 && selected)) p.game.assignControlGroup(index);
     else p.game.recallControlGroup(index, e.shiftKey);
@@ -432,21 +434,22 @@ const ControlGroups = (p: { game: Game; compact?: boolean }) => {
 };
 
 const SelectionPanel = (p: { game: Game; compact?: boolean }) => {
-  const status = ui.selStatus.value;
-  const hasSelection = ui.selCount.value > 0;
+  const selection = ui.selectionView.value;
+  const status = selection.status;
+  const hasSelection = selection.count > 0;
   return (
     <div style={{ border: '1px solid #2a3340', background: '#111923', padding: p.compact ? '5px 6px' : '7px 8px',
       display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         lineHeight: p.compact ? '14px' : '16px', fontSize: p.compact ? '12px' : '14px' }}>
-        {hasSelection ? ui.selKindName.value : 'No selection'}
+        {hasSelection ? selection.kindName : 'No selection'}
       </b>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '2px',
         fontSize: '10.5px', lineHeight: '12px', color: '#9fb1c7', minWidth: 0 }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {hasSelection ? [status.label, status.detail].filter(Boolean).join(': ') : 'Ctrl+1-0 assigns groups'}
         </span>
-        {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>×{ui.selCount.value}</span>}
+        {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>×{selection.count}</span>}
       </div>
       <ProgressLine />
       <StatChips compact={p.compact} />
@@ -526,6 +529,7 @@ const Hotbar = (p: { game: Game }) => {
   const metrics = commandLayoutMetrics(ui.controlScheme.value, width);
   if (ui.mode.value !== 'play') return null;
   const armed = ui.armedCommand.value;
+  const selection = ui.selectionView.value;
   const place = isPlacementArmed(armed) ? armed.kind : 0;
   const commands: CommandItem[] = [];
   let nextCommandKey = 0;
@@ -572,44 +576,44 @@ const Hotbar = (p: { game: Game }) => {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
       fontSize: '12px', whiteSpace: 'nowrap' }}>{armed.t === 'land' ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
     addCommand('placement', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={clearTargets} />);
-  } else if (ui.selCount.value > 0) {
-    for (const option of ui.selTrainOptions.value) {
+  } else if (selection.count > 0) {
+    for (const option of selection.options.train) {
       const kind = option.id;
       addOptionButton('production', option, `Train ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.train(kind),
         () => { clearTargets(); g.trainSelected(kind); });
     }
-    for (const option of ui.selAddonOptions.value) {
+    for (const option of selection.options.addon) {
       const kind = option.id;
       addOptionButton('build', option, short(Units[kind]?.name ?? 'Add-on'), actionKey.addon(kind),
         () => { clearTargets(); g.addonSelected(kind); });
     }
-    for (const option of ui.selTransformOptions.value) {
+    for (const option of selection.options.transform) {
       const kind = option.id;
       const verb = kind === Kind.Archon || kind === Kind.DarkArchon ? 'Merge' : 'Morph';
       addOptionButton('production', option, `${verb} ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.transform(kind),
         () => { clearTargets(); g.transformSelected(kind); });
     }
-    if (ui.selCanBuild.value) {
-      for (const option of ui.selBuildOptions.value) {
+    if (selection.can.build) {
+      for (const option of selection.options.build) {
         const kind = option.id;
         addOptionButton('build', option, short(Units[kind]?.name ?? 'Building'), actionKey.build(kind), () => placeKind(kind));
       }
     }
-    if (ui.selCanRally.value) {
+    if (selection.can.rally) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.armedCommand.value.t === 'rally'} onClick={toggleRally} />);
     }
-    if (ui.selCanHarvest.value) {
+    if (selection.can.harvest) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'harvest'} onClick={() => toggleTarget('harvest')} />);
     }
-    if (ui.selCanRepair.value) {
+    if (selection.can.repair) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'repair'} onClick={() => toggleTarget('repair')} />);
     }
-    for (const option of ui.selResearchOptions.value) {
+    for (const option of selection.options.research) {
       const tech = option.id;
       addOptionButton('tech', option, short(TechDefs[tech]?.name ?? 'Research'), actionKey.research(tech),
         () => { clearTargets(); g.researchSelected(tech); });
     }
-    for (const option of ui.selAbilityOptions.value) {
+    for (const option of selection.options.ability) {
       const ability = option.id;
       const def = Abilities[ability]!;
       const active = ui.armedCommand.value.t === 'ability' && ui.armedCommand.value.ability === ability;
@@ -622,34 +626,34 @@ const Hotbar = (p: { game: Game }) => {
       };
       addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), cast, active);
     }
-    if (ui.selCanLoad.value) {
+    if (selection.can.load) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
     }
-    if (ui.selCanUnload.value) {
+    if (selection.can.unload) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
     }
-    if (ui.selCanBurrow.value) {
+    if (selection.can.burrow) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Burrow" hotkeyAction="burrow" onClick={() => g.burrowSelected(true)} />);
     }
-    if (ui.selCanUnburrow.value) {
+    if (selection.can.unburrow) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unburrow" hotkeyAction="unburrow" onClick={() => g.burrowSelected(false)} />);
     }
-    if (ui.selCanMine.value) {
+    if (selection.can.mine) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lay Mine" hotkeyAction="mine" onClick={() => g.mineSelected()} />);
     }
-    if (ui.selCanLift.value) {
+    if (selection.can.lift) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
     }
-    if (ui.selCanLand.value) {
+    if (selection.can.land) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.armedCommand.value.t === 'land'} onClick={() => g.armLandSelected()} />);
     }
-    if (ui.selCanCancel.value) {
+    if (selection.can.cancel) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
     }
-    if (ui.selCanAttackMove.value) {
+    if (selection.can.attackMove) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.armedCommand.value.t === 'attackMove'} onClick={toggleAmove} />);
     }
-    if (ui.selCanStop.value) {
+    if (selection.can.stop) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
     }
     addCommand('selection', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);

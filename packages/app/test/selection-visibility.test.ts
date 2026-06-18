@@ -31,9 +31,9 @@ test('selected own burrowed units publish cloaked and burrowed status without de
 
   select(g, lurker);
 
-  assert.ok(ui.selStatus.value.stats.includes('Burrowed'));
-  assert.ok(ui.selStatus.value.stats.includes('Cloaked'));
-  assert.equal(ui.selStatus.value.stats.includes('Detected'), false);
+  assert.ok(ui.selectionView.value.status.stats.includes('Burrowed'));
+  assert.ok(ui.selectionView.value.status.stats.includes('Cloaked'));
+  assert.equal(ui.selectionView.value.status.stats.includes('Detected'), false);
 });
 
 test('selected own permanent cloak publishes cloaked status without asking enemy detection', () => {
@@ -43,8 +43,8 @@ test('selected own permanent cloak publishes cloaked status without asking enemy
 
   select(g, templar);
 
-  assert.ok(ui.selStatus.value.stats.includes('Cloaked'));
-  assert.equal(ui.selStatus.value.stats.includes('Detected'), false);
+  assert.ok(ui.selectionView.value.status.stats.includes('Cloaked'));
+  assert.equal(ui.selectionView.value.status.stats.includes('Detected'), false);
 });
 
 test('stale hidden enemy selections do not publish status through fog', () => {
@@ -54,9 +54,9 @@ test('stale hidden enemy selections do not publish status through fog', () => {
 
   select(g, hidden);
 
-  assert.equal(ui.selCount.value, 0);
-  assert.equal(ui.selKindName.value, '');
-  assert.deepEqual(ui.selStatus.value.stats, []);
+  assert.equal(ui.selectionView.value.count, 0);
+  assert.equal(ui.selectionView.value.kindName, '');
+  assert.deepEqual(ui.selectionView.value.status.stats, []);
 });
 
 test('detected enemy cloak status only publishes after visibility and detection exist', () => {
@@ -72,8 +72,8 @@ test('detected enemy cloak status only publishes after visibility and detection 
 
   select(g, enemy);
 
-  assert.equal(ui.selCount.value, 1);
-  assert.ok(ui.selStatus.value.stats.includes('Cloaked'));
-  assert.ok(ui.selStatus.value.stats.includes('Detected'));
+  assert.equal(ui.selectionView.value.count, 1);
+  assert.ok(ui.selectionView.value.status.stats.includes('Cloaked'));
+  assert.ok(ui.selectionView.value.status.stats.includes('Detected'));
   assert.equal(g.canSeeEntity(slotOf(enemy)), true);
 });

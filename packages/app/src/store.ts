@@ -9,6 +9,43 @@ export type TargetVerb = Exclude<TargetMode, 'none'>;
 export type ControlScheme = 'mobile' | 'desktop';
 export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason; label?: string; detail?: string };
 export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
+export type SelectionView = {
+  count: number;
+  kindName: string;
+  status: SelectionStatus;
+  can: {
+    build: boolean;
+    rally: boolean;
+    load: boolean;
+    unload: boolean;
+    harvest: boolean;
+    repair: boolean;
+    attackMove: boolean;
+    stop: boolean;
+    burrow: boolean;
+    unburrow: boolean;
+    mine: boolean;
+    lift: boolean;
+    land: boolean;
+    cancel: boolean;
+  };
+  kinds: {
+    build: number[];
+    addon: number[];
+    transform: number[];
+    train: number[];
+    abilities: number[];
+    research: number[];
+  };
+  options: {
+    build: CommandOption[];
+    addon: CommandOption[];
+    transform: CommandOption[];
+    train: CommandOption[];
+    ability: CommandOption[];
+    research: CommandOption[];
+  };
+};
 export type ArmedCommand =
   | { t: 'none' }
   | { t: 'place'; kind: number }
@@ -17,6 +54,45 @@ export type ArmedCommand =
   | { t: 'rally' }
   | { t: 'ability'; ability: number }
   | { t: 'target'; mode: TargetVerb };
+
+export const EMPTY_SELECTION_STATUS: SelectionStatus = { label: 'No selection', detail: '', progress: 0, stats: [] };
+export const EMPTY_SELECTION_VIEW: SelectionView = {
+  count: 0,
+  kindName: '',
+  status: EMPTY_SELECTION_STATUS,
+  can: {
+    build: false,
+    rally: false,
+    load: false,
+    unload: false,
+    harvest: false,
+    repair: false,
+    attackMove: false,
+    stop: false,
+    burrow: false,
+    unburrow: false,
+    mine: false,
+    lift: false,
+    land: false,
+    cancel: false,
+  },
+  kinds: {
+    build: [],
+    addon: [],
+    transform: [],
+    train: [],
+    abilities: [],
+    research: [],
+  },
+  options: {
+    build: [],
+    addon: [],
+    transform: [],
+    train: [],
+    ability: [],
+    research: [],
+  },
+};
 
 const initialControlScheme = (): ControlScheme => {
   try {
@@ -47,36 +123,8 @@ export const ui = {
   controlScheme: signal<ControlScheme>(initialControlScheme()),
   humanPlayer: signal(0),
   playerRaces: signal<string[]>(['terran', 'terran']),
-  selCount: signal(0),
-  selKindName: signal(''),
-  selStatus: signal<SelectionStatus>({ label: 'No selection', detail: '', progress: 0, stats: [] }),
+  selectionView: signal<SelectionView>(EMPTY_SELECTION_VIEW),
   controlGroupCounts: signal<number[]>(Array(10).fill(0)),
-  selCanBuild: signal(false), // a worker is selected
-  selCanRally: signal(false), // a structure is selected
-  selBuildKinds: signal<number[]>([]),
-  selAddonKinds: signal<number[]>([]),
-  selTransformKinds: signal<number[]>([]),
-  selTrainKinds: signal<number[]>([]),
-  selAbilities: signal<number[]>([]),
-  selResearchTechs: signal<number[]>([]),
-  selBuildOptions: signal<CommandOption[]>([]),
-  selAddonOptions: signal<CommandOption[]>([]),
-  selTransformOptions: signal<CommandOption[]>([]),
-  selTrainOptions: signal<CommandOption[]>([]),
-  selAbilityOptions: signal<CommandOption[]>([]),
-  selResearchOptions: signal<CommandOption[]>([]),
-  selCanLoad: signal(false),
-  selCanUnload: signal(false),
-  selCanHarvest: signal(false),
-  selCanRepair: signal(false),
-  selCanAttackMove: signal(false),
-  selCanStop: signal(false),
-  selCanBurrow: signal(false),
-  selCanUnburrow: signal(false),
-  selCanMine: signal(false),
-  selCanLift: signal(false),
-  selCanLand: signal(false),
-  selCanCancel: signal(false),
   armedCommand: signal<ArmedCommand>({ t: 'none' }),
 };
 
