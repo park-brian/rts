@@ -4,11 +4,11 @@ import {
   internalProductDef, isLiftedStructureFlags, slotOf, transformFor, transformTargetsFor, transportCapacity,
   validateCommand, workerBuildKindsFor,
   entityWorkQueue,
+  illusionPresentation,
   type Command, type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
 import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
 import { entitySelectionName } from './entity-presentation.ts';
-import { illusionPresentation } from './illusion-presentation.ts';
 import { EMPTY_SELECTION_VIEW, OrderOptionId, type ArmedCommand, type CommandOption, type SelectionView } from './store.ts';
 
 type OptionRecord = CommandOption & { priority?: number };

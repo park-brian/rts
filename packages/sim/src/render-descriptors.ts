@@ -66,6 +66,13 @@ export type WorkActivity = {
   kind: 'build' | 'repair';
 };
 
+export type IllusionPresentation = {
+  known: boolean;
+  labelPrefix: string;
+  alpha: number;
+  tint: readonly [number, number, number];
+};
+
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 const distSqToRect = (x: number, y: number, x0: number, y0: number, x1: number, y1: number): number => {
@@ -125,6 +132,20 @@ const isStructure = (s: State, slot: number): boolean =>
 
 export const entityCloakOpacity = (s: State, slot: number): number =>
   isCloaked(s, slot) ? 0.5 : 1;
+
+export const illusionPresentation = (s: State, viewer: number, slot: number): IllusionPresentation => {
+  const e = s.e;
+  if (e.alive[slot] !== 1 || e.illusion[slot] !== 1) {
+    return { known: false, labelPrefix: '', alpha: 1, tint: [1, 1, 1] };
+  }
+  const owner = e.owner[slot]!;
+  const known = viewer < 0 || viewer === owner || (
+    viewer < s.teams.length && owner < s.teams.length && s.teams[viewer] === s.teams[owner]
+  );
+  return known
+    ? { known: true, labelPrefix: 'Hallucination ', alpha: 0.72, tint: [0.62, 0.82, 1] }
+    : { known: false, labelPrefix: '', alpha: 1, tint: [1, 1, 1] };
+};
 
 const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);
 

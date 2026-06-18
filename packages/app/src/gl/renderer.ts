@@ -14,7 +14,8 @@
 
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
-  resolveRallyEndpoint, entityCloakOpacity, entityLifeBar, entityRenderHull, selectionBase, type MapDef,
+  resolveRallyEndpoint, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
+  selectionBase, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
@@ -23,7 +24,6 @@ import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
-import { illusionPresentation } from '../illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from '../child-actors.ts';
 import { entityPresentation } from '../entity-presentation.ts';
 

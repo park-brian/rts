@@ -5,12 +5,11 @@ import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
   requiresPower, requiresCreep, providesCreep, entityCloakOpacity, entityLifeBar, entityRenderHull,
-  selectionBase, type MapDef,
+  illusionPresentation, selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
-import { illusionPresentation } from './illusion-presentation.ts';
 import { isProjectilePresentationKind, readableProjectileRadius } from './child-actors.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';

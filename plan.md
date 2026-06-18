@@ -1756,7 +1756,7 @@ Highest-impact LOC reductions:
      - the combat loop dispatches to a tiny closed set of mechanic handlers.
    - Expected win: moderate LOC reduction, large readability win, and better fit for future Valkyrie,
      missile, splash, and projectile fidelity.
-   - Started:
+   - Completed:
      - Added first-pass `WeaponMechanicDef` ids for Reaver Scarab launch and Carrier Interceptor
        launch.
      - Routed the existing Reaver ammo/child-launch and Carrier launch-range/cooldown combat
@@ -1803,6 +1803,8 @@ Highest-impact LOC reductions:
      - Moved selected entity life/construction bar policy into sim-exported render descriptors.
        Renderers still choose exact thickness, offsets, and colors, but no longer duplicate selected,
        resource, progress, and HP/shield fraction rules.
+     - Moved hallucination/illusion presentation into sim-exported render descriptors. App selection,
+       Canvas2D, and GL now share the same viewer/team label, alpha, and tint policy.
 
 Further concrete deletion opportunities found on review:
 

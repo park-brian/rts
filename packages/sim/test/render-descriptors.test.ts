@@ -8,7 +8,7 @@ import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
-  entitySelectionName, selectionBase, workActivities,
+  entitySelectionName, illusionPresentation, selectionBase, workActivities,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -77,6 +77,22 @@ test('entity cloak opacity exposes renderer-neutral cloak presentation policy', 
 
   s.e.cloakActive[wraith] = 1;
   assert.equal(entityCloakOpacity(s, wraith), 0.5);
+});
+
+test('illusion presentation is known to owner, teammates, and spectators but hidden from enemies', () => {
+  const s = makeState(sliceMap(), 3, 901);
+  s.teams.set([0, 1, 0]);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(400), fx(400)));
+  s.e.illusion[marine] = 1;
+
+  assert.equal(illusionPresentation(s, 0, marine).known, true);
+  assert.equal(illusionPresentation(s, 2, marine).known, true);
+  assert.equal(illusionPresentation(s, -1, marine).known, true);
+  assert.equal(illusionPresentation(s, 1, marine).known, false);
+  assert.equal(illusionPresentation(s, 0, marine).labelPrefix, 'Hallucination ');
+  assert.equal(illusionPresentation(s, 0, marine).alpha, 0.72);
+  assert.deepEqual(illusionPresentation(s, 0, marine).tint, [0.62, 0.82, 1]);
+  assert.deepEqual(illusionPresentation(s, 1, marine).tint, [1, 1, 1]);
 });
 
 test('entity render hulls and selection bases expose gameplay math', () => {
