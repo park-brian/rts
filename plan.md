@@ -1881,6 +1881,8 @@ Further concrete deletion opportunities found on review:
      - Added a shared sim scenario harness for deterministic sim setup, entity lookup, spawning,
        resource grants, tech grants, and position reads. The AI bot scenario helper now layers on
        top of it, and `upgrades.test.ts` is the first migrated sim test file.
+     - Migrated `abilities.test.ts` onto the shared sim scenario harness while keeping
+       ability-specific add-on and loaded-silo helpers local to the test file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead

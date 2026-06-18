@@ -1,38 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Abilities, Ability, Kind, Tech, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
-import { setTechLevel } from '../src/tech.ts';
 import { canDetect } from '../src/detection.ts';
 import { validateCommand } from '../src/validation.ts';
+import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
-const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
+type ScenarioState = SimScenario['state'];
 
-const linkAddon = (s: ReturnType<Sim['fullState']>, parent: number, addon: number): void => {
+const linkAddon = (s: ScenarioState, parent: number, addon: number): void => {
   const e = s.e;
   e.target[slotOf(parent)] = addon;
   e.target[slotOf(addon)] = parent;
 };
 
-const loadedSilo = (s: ReturnType<Sim['fullState']>, player: number, x = fx(400), y = fx(400)): number => {
-  const parent = spawnUnit(s, Kind.CommandCenter, player, x - fx(80), y);
-  const silo = spawnUnit(s, Kind.NuclearSilo, player, x, y);
+const loadedSilo = (s: ScenarioState, spawn: SimScenario['spawn'], player: number, x = fx(400), y = fx(400)): number => {
+  const parent = spawn(Kind.CommandCenter, player, x - fx(80), y);
+  const silo = spawn(Kind.NuclearSilo, player, x, y);
   linkAddon(s, parent, silo);
   s.e.specialAmmo[slotOf(silo)] = 1;
   return silo;
 };
 
 test('stim costs hit points and speeds the next attack cooldown', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 20 });
-  const s = sim.fullState();
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
-  const target = spawnUnit(s, Kind.SupplyDepot, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 20 });
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const target = spawn(Kind.SupplyDepot, 1, fx(430), fx(400));
   const m = slotOf(marine);
-  grant(sim, 0, Tech.StimPack);
+  grant(0, Tech.StimPack);
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: marine, ability: Ability.StimPack },
@@ -64,12 +60,11 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
 });
 
 test('ability validation rejects unaffordable energy casts', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 21 });
-  const s = sim.fullState();
-  const vessel = spawnUnit(s, Kind.ScienceVessel, 0, fx(400), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 21 });
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
   const v = slotOf(vessel);
   s.e.energy[v] = 99;
-  grant(sim, 0, Tech.EMPShockwave);
+  grant(0, Tech.EMPShockwave);
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: vessel, ability: Ability.EMPShockwave, x: fx(430), y: fx(400) },
@@ -79,14 +74,13 @@ test('ability validation rejects unaffordable energy casts', () => {
 });
 
 test('EMP removes shields and energy in an area', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 22 });
-  const s = sim.fullState();
-  const vessel = spawnUnit(s, Kind.ScienceVessel, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(430), fx(400));
-  const templar = spawnUnit(s, Kind.HighTemplar, 1, fx(435), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 22 });
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 1, fx(430), fx(400));
+  const templar = spawn(Kind.HighTemplar, 1, fx(435), fx(400));
   s.e.energy[slotOf(vessel)] = 100;
   s.e.energy[slotOf(templar)] = 75;
-  grant(sim, 0, Tech.EMPShockwave);
+  grant(0, Tech.EMPShockwave);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: vessel, ability: Ability.EMPShockwave, x: fx(430), y: fx(400) },
@@ -99,14 +93,13 @@ test('EMP removes shields and energy in an area', () => {
 });
 
 test('psionic storm creates persistent area damage for units but not structures', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 23 });
-  const s = sim.fullState();
-  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
-  const enemy = spawnUnit(s, Kind.Medic, 1, fx(430), fx(400));
-  const friendly = spawnUnit(s, Kind.Medic, 0, fx(435), fx(400));
-  const depot = spawnUnit(s, Kind.SupplyDepot, 1, fx(430), fx(430));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 23 });
+  const templar = spawn(Kind.HighTemplar, 0, fx(400), fx(400));
+  const enemy = spawn(Kind.Medic, 1, fx(430), fx(400));
+  const friendly = spawn(Kind.Medic, 0, fx(435), fx(400));
+  const depot = spawn(Kind.SupplyDepot, 1, fx(430), fx(430));
   s.e.energy[slotOf(templar)] = 75;
-  grant(sim, 0, Tech.PsionicStorm);
+  grant(0, Tech.PsionicStorm);
   const depotHp = s.e.hp[slotOf(depot)]!;
 
   sim.step([{ player: 0, cmds: [
@@ -123,10 +116,9 @@ test('psionic storm creates persistent area damage for units but not structures'
 });
 
 test('defensive matrix absorbs incoming weapon damage before shields and hp', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 24 });
-  const s = sim.fullState();
-  const vessel = spawnUnit(s, Kind.ScienceVessel, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 0, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 24 });
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 0, fx(430), fx(400));
   s.e.energy[slotOf(vessel)] = 100;
 
   sim.step([{ player: 0, cmds: [
@@ -135,7 +127,7 @@ test('defensive matrix absorbs incoming weapon damage before shields and hp', ()
   const z = slotOf(zealot);
   assert.equal(s.e.matrixHp[z], 250);
 
-  const enemy = spawnUnit(s, Kind.Marine, 1, fx(450), fx(400));
+  const enemy = spawn(Kind.Marine, 1, fx(450), fx(400));
   sim.step([{ player: 1, cmds: [{ t: 'attack', unit: enemy, target: zealot }] }]);
 
   assert.equal(s.e.matrixHp[z], 244);
@@ -144,13 +136,12 @@ test('defensive matrix absorbs incoming weapon damage before shields and hp', ()
 });
 
 test('lockdown prevents a mechanical unit from moving or attacking', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 25 });
-  const s = sim.fullState();
-  const ghost = spawnUnit(s, Kind.Ghost, 0, fx(400), fx(400));
-  const goliath = spawnUnit(s, Kind.Goliath, 1, fx(430), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(450), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 25 });
+  const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
+  const goliath = spawn(Kind.Goliath, 1, fx(430), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(450), fx(400));
   s.e.energy[slotOf(ghost)] = 100;
-  grant(sim, 0, Tech.Lockdown);
+  grant(0, Tech.Lockdown);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.Lockdown, target: goliath },
@@ -169,10 +160,9 @@ test('lockdown prevents a mechanical unit from moving or attacking', () => {
 });
 
 test('feedback drains energy and deals matching damage', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 26 });
-  const s = sim.fullState();
-  const archon = spawnUnit(s, Kind.DarkArchon, 0, fx(400), fx(400));
-  const vessel = spawnUnit(s, Kind.ScienceVessel, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 26 });
+  const archon = spawn(Kind.DarkArchon, 0, fx(400), fx(400));
+  const vessel = spawn(Kind.ScienceVessel, 1, fx(430), fx(400));
   s.e.energy[slotOf(archon)] = 50;
   s.e.energy[slotOf(vessel)] = 80;
 
@@ -185,13 +175,12 @@ test('feedback drains energy and deals matching damage', () => {
 });
 
 test('plague damages but cannot kill', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 27 });
-  const s = sim.fullState();
-  const defiler = spawnUnit(s, Kind.Defiler, 0, fx(400), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 27 });
+  const defiler = spawn(Kind.Defiler, 0, fx(400), fx(400));
+  const marine = spawn(Kind.Marine, 1, fx(430), fx(400));
   s.e.energy[slotOf(defiler)] = 150;
   s.e.hp[slotOf(marine)] = 5;
-  grant(sim, 0, Tech.Plague);
+  grant(0, Tech.Plague);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: defiler, ability: Ability.Plague, x: fx(430), y: fx(400) },
@@ -203,12 +192,11 @@ test('plague damages but cannot kill', () => {
 });
 
 test('spawn broodling kills a legal biological ground target and creates broodlings', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 28 });
-  const s = sim.fullState();
-  const queen = spawnUnit(s, Kind.Queen, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 28 });
+  const queen = spawn(Kind.Queen, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 1, fx(430), fx(400));
   s.e.energy[slotOf(queen)] = 150;
-  grant(sim, 0, Tech.SpawnBroodling);
+  grant(0, Tech.SpawnBroodling);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: queen, ability: Ability.SpawnBroodling, target: zealot },
@@ -221,15 +209,14 @@ test('spawn broodling kills a legal biological ground target and creates broodli
 });
 
 test('dark swarm blocks ranged ground damage while disruption web prevents ground attacks', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 29 });
-  const s = sim.fullState();
-  const defiler = spawnUnit(s, Kind.Defiler, 0, fx(400), fx(400));
-  const corsair = spawnUnit(s, Kind.Corsair, 0, fx(405), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 1, fx(430), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 0, fx(450), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 29 });
+  const defiler = spawn(Kind.Defiler, 0, fx(400), fx(400));
+  const corsair = spawn(Kind.Corsair, 0, fx(405), fx(400));
+  const marine = spawn(Kind.Marine, 1, fx(430), fx(400));
+  const zealot = spawn(Kind.Zealot, 0, fx(450), fx(400));
   s.e.energy[slotOf(defiler)] = 225;
   s.e.energy[slotOf(corsair)] = 125;
-  grant(sim, 0, Tech.DisruptionWeb);
+  grant(0, Tech.DisruptionWeb);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: defiler, ability: Ability.DarkSwarm, x: fx(450), y: fx(400) },
@@ -243,17 +230,16 @@ test('dark swarm blocks ranged ground damage while disruption web prevents groun
 });
 
 test('permanently cloaked units require a nearby detector to be attacked', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 30 });
-  const s = sim.fullState();
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(700), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 30 });
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const dt = spawn(Kind.DarkTemplar, 1, fx(700), fx(400));
 
   let results = sim.step([{ player: 0, cmds: [
     { t: 'attack', unit: marine, target: dt },
   ] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: false, reason: 'target-not-allowed' }]);
 
-  spawnUnit(s, Kind.ScienceVessel, 0, fx(690), fx(400));
+  spawn(Kind.ScienceVessel, 0, fx(690), fx(400));
   results = sim.step([{ player: 0, cmds: [
     { t: 'attack', unit: marine, target: dt },
   ] }]);
@@ -261,12 +247,11 @@ test('permanently cloaked units require a nearby detector to be attacked', () =>
 });
 
 test('active cloak toggles on, drains energy, and blocks attacks until revealed', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 31 });
-  const s = sim.fullState();
-  const wraith = spawnUnit(s, Kind.Wraith, 1, fx(700), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(670), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 31 });
+  const wraith = spawn(Kind.Wraith, 1, fx(700), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(670), fx(400));
   s.e.energy[slotOf(wraith)] = 26;
-  grant(sim, 1, Tech.CloakingField);
+  grant(1, Tech.CloakingField);
 
   let results = sim.step([{ player: 1, cmds: [
     { t: 'ability', unit: wraith, ability: Ability.CloakingField },
@@ -285,12 +270,11 @@ test('active cloak toggles on, drains energy, and blocks attacks until revealed'
 });
 
 test('scanner sweep reveals cloaked targets without a detector unit', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 32 });
-  const s = sim.fullState();
-  const commandCenter = spawnUnit(s, Kind.CommandCenter, 0, fx(220), fx(300));
-  const comsat = spawnUnit(s, Kind.ComsatStation, 0, fx(300), fx(300));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(700), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 32 });
+  const commandCenter = spawn(Kind.CommandCenter, 0, fx(220), fx(300));
+  const comsat = spawn(Kind.ComsatStation, 0, fx(300), fx(300));
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const dt = spawn(Kind.DarkTemplar, 1, fx(700), fx(400));
   linkAddon(s, commandCenter, comsat);
   s.e.energy[slotOf(comsat)] = 50;
 
@@ -305,12 +289,11 @@ test('scanner sweep reveals cloaked targets without a detector unit', () => {
 });
 
 test('entity abilities with any target team still require cloaked enemies to be detected', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 321 });
-  const s = sim.fullState();
-  const medic = spawnUnit(s, Kind.Medic, 0, fx(400), fx(400));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 321 });
+  const medic = spawn(Kind.Medic, 0, fx(400), fx(400));
+  const dt = spawn(Kind.DarkTemplar, 1, fx(430), fx(400));
   s.e.energy[slotOf(medic)] = 50;
-  grant(sim, 0, Tech.Restoration);
+  grant(0, Tech.Restoration);
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: medic, ability: Ability.Restoration, target: dt },
@@ -320,11 +303,10 @@ test('entity abilities with any target team still require cloaked enemies to be 
 });
 
 test('arbiter aura cloaks nearby friendly units but not the arbiter itself', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 33 });
-  const s = sim.fullState();
-  const arbiter = spawnUnit(s, Kind.Arbiter, 1, fx(700), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(730), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(670), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 33 });
+  const arbiter = spawn(Kind.Arbiter, 1, fx(700), fx(400));
+  const zealot = spawn(Kind.Zealot, 1, fx(730), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(670), fx(400));
 
   let results = sim.step([{ player: 0, cmds: [
     { t: 'attack', unit: marine, target: zealot },
@@ -338,10 +320,9 @@ test('arbiter aura cloaks nearby friendly units but not the arbiter itself', () 
 });
 
 test('medic heal restores biological hit points by spending energy', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 34 });
-  const s = sim.fullState();
-  const medic = spawnUnit(s, Kind.Medic, 0, fx(400), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(420), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 34 });
+  const medic = spawn(Kind.Medic, 0, fx(400), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(420), fx(400));
   s.e.energy[slotOf(medic)] = 5;
   s.e.hp[slotOf(marine)] = 30;
 
@@ -355,10 +336,9 @@ test('medic heal restores biological hit points by spending energy', () => {
 });
 
 test('restoration clears removable statuses but not stasis', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 35 });
-  const s = sim.fullState();
-  const medic = spawnUnit(s, Kind.Medic, 0, fx(400), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 35 });
+  const medic = spawn(Kind.Medic, 0, fx(400), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(430), fx(400));
   const m = slotOf(marine);
   s.e.energy[slotOf(medic)] = 50;
   s.e.irradiateTimer[m] = 10;
@@ -371,7 +351,7 @@ test('restoration clears removable statuses but not stasis', () => {
   s.e.acidSporeTimer[m] = 10;
   s.e.opticalFlare[m] = 1;
   s.e.parasiteOwner[m] = 1;
-  grant(sim, 0, Tech.Restoration);
+  grant(0, Tech.Restoration);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: medic, ability: Ability.Restoration, target: marine },
@@ -390,13 +370,12 @@ test('restoration clears removable statuses but not stasis', () => {
 });
 
 test('optical flare removes detector coverage until restored', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 36 });
-  const s = sim.fullState();
-  const medic = spawnUnit(s, Kind.Medic, 0, fx(400), fx(400));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 0, fx(430), fx(400));
-  const vessel = spawnUnit(s, Kind.ScienceVessel, 1, fx(450), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 36 });
+  const medic = spawn(Kind.Medic, 0, fx(400), fx(400));
+  const dt = spawn(Kind.DarkTemplar, 0, fx(430), fx(400));
+  const vessel = spawn(Kind.ScienceVessel, 1, fx(450), fx(400));
   s.e.energy[slotOf(medic)] = 75;
-  grant(sim, 0, Tech.OpticalFlare);
+  grant(0, Tech.OpticalFlare);
   assert.equal(canDetect(s, 1, slotOf(dt)), true);
 
   sim.step([{ player: 0, cmds: [
@@ -408,11 +387,10 @@ test('optical flare removes detector coverage until restored', () => {
 });
 
 test('parasite grants vision from the target and detector coverage if the target detects', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 37, vision: true });
-  const s = sim.fullState();
-  const queen = spawnUnit(s, Kind.Queen, 0, fx(400), fx(400));
-  const observer = spawnUnit(s, Kind.ScienceVessel, 1, fx(500), fx(400));
-  const dt = spawnUnit(s, Kind.DarkTemplar, 1, fx(520), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 37, vision: true });
+  const queen = spawn(Kind.Queen, 0, fx(400), fx(400));
+  const observer = spawn(Kind.ScienceVessel, 1, fx(500), fx(400));
+  const dt = spawn(Kind.DarkTemplar, 1, fx(520), fx(400));
   s.e.energy[slotOf(queen)] = 75;
 
   sim.step([{ player: 0, cmds: [
@@ -426,13 +404,12 @@ test('parasite grants vision from the target and detector coverage if the target
 });
 
 test('recall teleports friendly mobile units near the arbiter', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 38 });
-  const s = sim.fullState();
-  const arbiter = spawnUnit(s, Kind.Arbiter, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 0, fx(700), fx(400));
-  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(705), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 38 });
+  const arbiter = spawn(Kind.Arbiter, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 0, fx(700), fx(400));
+  const enemy = spawn(Kind.Zealot, 1, fx(705), fx(400));
   s.e.energy[slotOf(arbiter)] = 150;
-  grant(sim, 0, Tech.Recall);
+  grant(0, Tech.Recall);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: arbiter, ability: Ability.Recall, x: fx(700), y: fx(400) },
@@ -444,12 +421,11 @@ test('recall teleports friendly mobile units near the arbiter', () => {
 });
 
 test('mind control transfers ownership and empties the caster shields', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 39 });
-  const s = sim.fullState();
-  const archon = spawnUnit(s, Kind.DarkArchon, 0, fx(400), fx(400));
-  const goliath = spawnUnit(s, Kind.Goliath, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 39 });
+  const archon = spawn(Kind.DarkArchon, 0, fx(400), fx(400));
+  const goliath = spawn(Kind.Goliath, 1, fx(430), fx(400));
   s.e.energy[slotOf(archon)] = 150;
-  grant(sim, 0, Tech.MindControl);
+  grant(0, Tech.MindControl);
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: archon, ability: Ability.MindControl, target: goliath },
@@ -461,13 +437,12 @@ test('mind control transfers ownership and empties the caster shields', () => {
 });
 
 test('hallucination creates timed harmless copies', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 391 });
-  const s = sim.fullState();
-  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(430), fx(400));
-  const depot = spawnUnit(s, Kind.SupplyDepot, 1, fx(470), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 391 });
+  const templar = spawn(Kind.HighTemplar, 0, fx(400), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(430), fx(400));
+  const depot = spawn(Kind.SupplyDepot, 1, fx(470), fx(400));
   s.e.energy[slotOf(templar)] = 100;
-  grant(sim, 0, Tech.Hallucination);
+  grant(0, Tech.Hallucination);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: templar, ability: Ability.Hallucination, target: marine },
@@ -484,26 +459,25 @@ test('hallucination creates timed harmless copies', () => {
   sim.step([{ player: 0, cmds: [{ t: 'attack', unit: eid(s.e, illusions[0]!), target: depot }] }]);
   assert.equal(s.e.hp[slotOf(depot)], hp);
 
-  const enemy = spawnUnit(s, Kind.Marine, 1, fx(450), fx(400));
+  const enemy = spawn(Kind.Marine, 1, fx(450), fx(400));
   sim.step([{ player: 1, cmds: [{ t: 'attack', unit: enemy, target: eid(s.e, illusions[0]!) }] }]);
   assert.equal(s.e.hp[illusions[0]!], Units[Kind.Marine]!.hp - 12);
 });
 
 test('hallucinations cannot perform real utility commands or cast spells', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 3921 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 3921 });
   s.players.minerals[0] = 500;
   s.players.gas[0] = 500;
 
-  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
-  const mineral = spawnUnit(s, Kind.Mineral, -1, fx(430), fx(400));
-  const depot = spawnUnit(s, Kind.SupplyDepot, 0, fx(460), fx(400));
-  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(520), fx(400));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(550), fx(400));
-  const dropship = spawnUnit(s, Kind.Dropship, 0, fx(580), fx(400));
-  const reaver = spawnUnit(s, Kind.Reaver, 0, fx(620), fx(400));
-  const carrier = spawnUnit(s, Kind.Carrier, 0, fx(660), fx(400));
-  const larva = spawnUnit(s, Kind.Larva, 0, fx(700), fx(400));
+  const scv = spawn(Kind.SCV, 0, fx(400), fx(400));
+  const mineral = spawn(Kind.Mineral, -1, fx(430), fx(400));
+  const depot = spawn(Kind.SupplyDepot, 0, fx(460), fx(400));
+  const templar = spawn(Kind.HighTemplar, 0, fx(520), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(550), fx(400));
+  const dropship = spawn(Kind.Dropship, 0, fx(580), fx(400));
+  const reaver = spawn(Kind.Reaver, 0, fx(620), fx(400));
+  const carrier = spawn(Kind.Carrier, 0, fx(660), fx(400));
+  const larva = spawn(Kind.Larva, 0, fx(700), fx(400));
 
   s.e.illusion[slotOf(scv)] = 1;
   s.e.illusion[slotOf(templar)] = 1;
@@ -513,7 +487,7 @@ test('hallucinations cannot perform real utility commands or cast spells', () =>
   s.e.illusion[slotOf(larva)] = 1;
   s.e.hp[slotOf(depot)] = Units[Kind.SupplyDepot]!.hp - 50;
   s.e.energy[slotOf(templar)] = 100;
-  grant(sim, 0, Tech.Hallucination);
+  grant(0, Tech.Hallucination);
 
   assert.deepEqual(validateCommand(s, 0, { t: 'build', unit: scv, kind: Kind.SupplyDepot, x: fx(400), y: fx(480) }), {
     ok: false,
@@ -550,12 +524,11 @@ test('hallucinations cannot perform real utility commands or cast spells', () =>
 });
 
 test('broodlings from spawn broodling expire after their timed life', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 392 });
-  const s = sim.fullState();
-  const queen = spawnUnit(s, Kind.Queen, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 392 });
+  const queen = spawn(Kind.Queen, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 1, fx(430), fx(400));
   s.e.energy[slotOf(queen)] = 150;
-  grant(sim, 0, Tech.SpawnBroodling);
+  grant(0, Tech.SpawnBroodling);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: queen, ability: Ability.SpawnBroodling, target: zealot },
@@ -572,11 +545,10 @@ test('broodlings from spawn broodling expire after their timed life', () => {
 });
 
 test('queen can infest a damaged Terran command center', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 393 });
-  const s = sim.fullState();
-  const queen = spawnUnit(s, Kind.Queen, 0, fx(400), fx(400));
-  spawnUnit(s, Kind.Overlord, 0, fx(380), fx(400));
-  const cc = spawnUnit(s, Kind.CommandCenter, 1, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 393 });
+  const queen = spawn(Kind.Queen, 0, fx(400), fx(400));
+  spawn(Kind.Overlord, 0, fx(380), fx(400));
+  const cc = spawn(Kind.CommandCenter, 1, fx(430), fx(400));
   s.e.hp[slotOf(cc)] = Math.floor(Units[Kind.CommandCenter]!.hp / 2);
   s.players.minerals[0] = 200;
   s.players.gas[0] = 100;
@@ -594,13 +566,12 @@ test('queen can infest a damaged Terran command center', () => {
 });
 
 test('nuclear strike consumes a missile and deals delayed area damage', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 394 });
-  const s = sim.fullState();
-  const ghost = spawnUnit(s, Kind.Ghost, 0, fx(400), fx(400));
-  const silo = loadedSilo(s, 0);
-  const marine = spawnUnit(s, Kind.Marine, 1, fx(720), fx(400));
-  const cc = spawnUnit(s, Kind.CommandCenter, 1, fx(740), fx(400));
-  const far = spawnUnit(s, Kind.CommandCenter, 1, fx(1200), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 394 });
+  const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
+  const silo = loadedSilo(s, spawn, 0);
+  const marine = spawn(Kind.Marine, 1, fx(720), fx(400));
+  const cc = spawn(Kind.CommandCenter, 1, fx(740), fx(400));
+  const far = spawn(Kind.CommandCenter, 1, fx(1200), fx(400));
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
@@ -616,16 +587,15 @@ test('nuclear strike consumes a missile and deals delayed area damage', () => {
 });
 
 test('nuclear strike requires a ready missile and cancels if the ghost moves', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 395 });
-  const s = sim.fullState();
-  const ghost = spawnUnit(s, Kind.Ghost, 0, fx(400), fx(400));
-  const target = spawnUnit(s, Kind.CommandCenter, 1, fx(720), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 395 });
+  const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
+  const target = spawn(Kind.CommandCenter, 1, fx(720), fx(400));
 
   assert.deepEqual(sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(500), y: fx(400) },
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: false, reason: 'missing-requirement' }]);
 
-  loadedSilo(s, 0);
+  loadedSilo(s, spawn, 0);
   assert.deepEqual(sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
@@ -635,10 +605,9 @@ test('nuclear strike requires a ready missile and cancels if the ghost moves', (
 });
 
 test('nuclear silos build one internal missile ammo', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 397 });
-  const s = sim.fullState();
-  const commandCenter = spawnUnit(s, Kind.CommandCenter, 0, fx(320), fx(400));
-  const silo = spawnUnit(s, Kind.NuclearSilo, 0, fx(400), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 397 });
+  const commandCenter = spawn(Kind.CommandCenter, 0, fx(320), fx(400));
+  const silo = spawn(Kind.NuclearSilo, 0, fx(400), fx(400));
   const slot = slotOf(silo);
   linkAddon(s, commandCenter, silo);
   s.players.minerals[0] = 1_000;
@@ -661,11 +630,10 @@ test('nuclear silos build one internal missile ammo', () => {
 });
 
 test('shield battery spends energy to restore nearby protoss shields', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 396 });
-  const s = sim.fullState();
-  spawnUnit(s, Kind.Pylon, 0, fx(360), fx(400));
-  const battery = spawnUnit(s, Kind.ShieldBattery, 0, fx(400), fx(400));
-  const zealot = spawnUnit(s, Kind.Zealot, 0, fx(430), fx(400));
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 396 });
+  spawn(Kind.Pylon, 0, fx(360), fx(400));
+  const battery = spawn(Kind.ShieldBattery, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 0, fx(430), fx(400));
   s.e.energy[slotOf(battery)] = 10;
   s.e.shield[slotOf(zealot)] = 20;
 
