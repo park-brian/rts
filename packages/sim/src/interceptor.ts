@@ -4,15 +4,20 @@ import { spawnUnit } from './factory.ts';
 import { isqrt } from './fixed.ts';
 import { eid, slotOf, type State } from './world.ts';
 import { faceToward } from './systems/move.ts';
-import { WeaponMechanic, weaponMechanicDef } from './weapon-mechanics.ts';
+import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapon-mechanics.ts';
 
 const BAY_FORWARD = tiles(0.3);
 const BAY_SIDE = tiles(0.58);
 
-const interceptorMechanic = () => {
+type InterceptorMechanic = WeaponMechanicDef & { childKind: number; launchRange: number; launchCooldown: number };
+
+const interceptorMechanic = (): InterceptorMechanic => {
   const mechanic = weaponMechanicDef(Kind.Carrier);
-  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch) throw new Error('missing carrier interceptor mechanic');
-  return mechanic;
+  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch ||
+      mechanic.childKind === undefined || mechanic.launchRange === undefined || mechanic.launchCooldown === undefined) {
+    throw new Error('missing carrier interceptor mechanic');
+  }
+  return mechanic as InterceptorMechanic;
 };
 
 export const INTERCEPTOR_SORTIE_TICKS = sec(4);
@@ -50,8 +55,8 @@ const launchedBy = (s: State, carrier: number): number => {
 export const carrierLaunchRange = (): number => interceptorMechanic().launchRange!;
 
 export const carrierCanTarget = (s: State, carrier: number, target: number): boolean => {
-  const mechanic = weaponMechanicDef(s.e.kind[carrier]!);
-  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch) return false;
+  if (s.e.kind[carrier] !== Kind.Carrier) return false;
+  const mechanic = interceptorMechanic();
   const targetDef = Units[s.e.kind[target]!];
   return !!targetDef && !!weaponForTarget(Units[mechanic.childKind]!, targetDef);
 };

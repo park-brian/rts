@@ -115,6 +115,17 @@ const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapo
   }
 };
 
+const applyMechanicOnHit = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number, target: number, weapon: Weapon): void => {
+  switch (mechanic?.onHit) {
+    case WeaponMechanic.LurkerLineSplash:
+      applyLurkerLineSplash(s, attacker, target, weapon);
+      break;
+    case WeaponMechanic.MutaliskBounce:
+      applyMutaliskBounce(s, attacker, target, weapon);
+      break;
+  }
+};
+
 const bunkerCanAttack = (s: State, bunker: number, target: number): boolean => {
   const e = s.e;
   const targetDef = Units[e.kind[target]!];
@@ -245,8 +256,7 @@ export const combat = (s: State, grid: Grid): void => {
             else hit = applyWeaponHit(s, tgt, weapon, i);
             consumeSpecialWeaponAmmo(s, i, mechanic);
             if (hit) {
-              if (e.kind[i] === Kind.Lurker) applyLurkerLineSplash(s, i, tgt, weapon);
-              if (e.kind[i] === Kind.Mutalisk) applyMutaliskBounce(s, i, tgt, weapon);
+              applyMechanicOnHit(s, mechanic, i, tgt, weapon);
               if (e.kind[i] === Kind.Devourer) applyAcidSpore(s, tgt);
             }
           }

@@ -1731,6 +1731,8 @@ Highest-impact LOC reductions:
        launch.
      - Routed the existing Reaver ammo/child-launch and Carrier launch-range/cooldown combat
        branches through those descriptor ids without changing delivery behavior.
+     - Added `onHit` mechanic ids for Lurker line splash and Mutalisk bounce, replacing their
+       direct post-hit unit checks with a small descriptor dispatch.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.
