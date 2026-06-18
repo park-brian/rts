@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Abilities, Ability, EffectKind, Kind, Tech, Units, sec } from '../src/data.ts';
+import { Abilities, Ability, EffectKind, Kind, Role, Tech, Trait, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { canDetect } from '../src/detection.ts';
@@ -56,6 +56,10 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.PsionicStorm]!.execution, { mode: 'persistent-effect', effect: EffectKind.PsionicStorm });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
+  assert.deepEqual(Abilities[Ability.StasisField]!.execution, { mode: 'point-area-status', timer: 'stasis', team: 'any', rolesAny: Role.Mobile, traitsAny: 0 });
+  assert.deepEqual(Abilities[Ability.Maelstrom]!.execution, { mode: 'point-area-status', timer: 'maelstrom', team: 'enemy', rolesAny: 0, traitsAny: Trait.Biological });
+  assert.deepEqual(Abilities[Ability.Ensnare]!.execution, { mode: 'point-area-status', timer: 'ensnare', team: 'enemy', rolesAny: Role.Mobile, traitsAny: 0 });
+  assert.deepEqual(Abilities[Ability.Plague]!.execution, { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
   assert.deepEqual(Abilities[Ability.PersonnelCloaking]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
@@ -237,6 +241,61 @@ test('yamato gun deals descriptor-backed target damage', () => {
   assert.equal(s.e.matrixTimer[slotOf(target)], 0);
   assert.equal(s.e.shield[slotOf(target)], 0);
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.ScienceVessel]!.hp - (Abilities[Ability.YamatoGun]!.damage - 50 - 40));
+});
+
+test('point area statuses apply through descriptor execution filters', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 262 });
+  const arbiter = spawn(Kind.Arbiter, 0, fx(400), fx(400));
+  const archon = spawn(Kind.DarkArchon, 0, fx(620), fx(400));
+  const queen = spawn(Kind.Queen, 0, fx(840), fx(400));
+  const defiler = spawn(Kind.Defiler, 0, fx(1060), fx(400));
+  s.e.energy[slotOf(arbiter)] = 100;
+  s.e.energy[slotOf(archon)] = 100;
+  s.e.energy[slotOf(queen)] = 75;
+  s.e.energy[slotOf(defiler)] = 150;
+  grant(0, Tech.StasisField);
+  grant(0, Tech.Maelstrom);
+  grant(0, Tech.Ensnare);
+  grant(0, Tech.Plague);
+
+  const stasisEnemy = spawn(Kind.Marine, 1, fx(430), fx(400));
+  const stasisFriendly = spawn(Kind.Marine, 0, fx(435), fx(400));
+  const stasisStructure = spawn(Kind.SupplyDepot, 1, fx(430), fx(430));
+  const maelstromBio = spawn(Kind.Marine, 1, fx(650), fx(400));
+  const maelstromMech = spawn(Kind.Goliath, 1, fx(655), fx(400));
+  const maelstromFriendly = spawn(Kind.Marine, 0, fx(660), fx(400));
+  const ensnareMobile = spawn(Kind.Marine, 1, fx(870), fx(400));
+  const ensnareStructure = spawn(Kind.SupplyDepot, 1, fx(875), fx(400));
+  const ensnareFriendly = spawn(Kind.Marine, 0, fx(880), fx(400));
+  const plagueMobile = spawn(Kind.Marine, 1, fx(1090), fx(400));
+  const plagueStructure = spawn(Kind.SupplyDepot, 1, fx(1095), fx(400));
+  const plagueFriendly = spawn(Kind.Marine, 0, fx(1100), fx(400));
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: arbiter, ability: Ability.StasisField, x: fx(430), y: fx(400) },
+    { t: 'ability', unit: archon, ability: Ability.Maelstrom, x: fx(650), y: fx(400) },
+    { t: 'ability', unit: queen, ability: Ability.Ensnare, x: fx(870), y: fx(400) },
+    { t: 'ability', unit: defiler, ability: Ability.Plague, x: fx(1090), y: fx(400) },
+  ] }]);
+
+  assert.deepEqual(results, [
+    { player: 0, index: 0, t: 'ability', ok: true },
+    { player: 0, index: 1, t: 'ability', ok: true },
+    { player: 0, index: 2, t: 'ability', ok: true },
+    { player: 0, index: 3, t: 'ability', ok: true },
+  ]);
+  assert.equal(s.e.stasisTimer[slotOf(stasisEnemy)], Abilities[Ability.StasisField]!.duration - 1);
+  assert.equal(s.e.stasisTimer[slotOf(stasisFriendly)], Abilities[Ability.StasisField]!.duration - 1);
+  assert.equal(s.e.stasisTimer[slotOf(stasisStructure)], 0);
+  assert.equal(s.e.maelstromTimer[slotOf(maelstromBio)], Abilities[Ability.Maelstrom]!.duration - 1);
+  assert.equal(s.e.maelstromTimer[slotOf(maelstromMech)], 0);
+  assert.equal(s.e.maelstromTimer[slotOf(maelstromFriendly)], 0);
+  assert.equal(s.e.ensnareTimer[slotOf(ensnareMobile)], Abilities[Ability.Ensnare]!.duration - 1);
+  assert.equal(s.e.ensnareTimer[slotOf(ensnareStructure)], 0);
+  assert.equal(s.e.ensnareTimer[slotOf(ensnareFriendly)], 0);
+  assert.equal(s.e.plagueTimer[slotOf(plagueMobile)], Abilities[Ability.Plague]!.duration - 1);
+  assert.equal(s.e.plagueTimer[slotOf(plagueStructure)], Abilities[Ability.Plague]!.duration - 1);
+  assert.equal(s.e.plagueTimer[slotOf(plagueFriendly)], 0);
 });
 
 test('plague damages but cannot kill', () => {

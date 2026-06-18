@@ -47,11 +47,13 @@ export type EffectKind = (typeof EffectKind)[keyof typeof EffectKind];
 export type AbilityTarget = 'self' | 'point' | 'entity';
 export type TargetTeam = 'own' | 'enemy' | 'any';
 export type AbilityStatusTimer = 'stim' | 'lockdown' | 'irradiate';
+export type AbilityAreaStatusTimer = 'stasis' | 'maelstrom' | 'ensnare' | 'plague';
 export type AbilityTargetMarker = 'opticalFlare' | 'parasiteOwner';
 export type AbilityRestorePool = 'hp' | 'shield';
 export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
   | { mode: 'target-status'; timer: AbilityStatusTimer }
+  | { mode: 'point-area-status'; timer: AbilityAreaStatusTimer; team: 'enemy' | 'any'; rolesAny: number; traitsAny: number }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
   | { mode: 'target-damage' }
@@ -130,11 +132,13 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Stasis Field', tech: Tech.StasisField, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Arbiter],
     energyCost: 100, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(37.8), period: 0, damage: 0,
+    execution: { mode: 'point-area-status', timer: 'stasis', team: 'any', rolesAny: Role.Mobile, traitsAny: 0 },
   },
   [Ability.Maelstrom]: {
     name: 'Maelstrom', tech: Tech.Maelstrom, target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.DarkArchon],
     energyCost: 100, hpCost: 0, range: tiles(10), radius: fx(48), duration: sec(7.56), period: 0, damage: 0,
+    execution: { mode: 'point-area-status', timer: 'maelstrom', team: 'enemy', rolesAny: 0, traitsAny: Trait.Biological },
   },
   [Ability.DisruptionWeb]: {
     name: 'Disruption Web', tech: Tech.DisruptionWeb, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
@@ -151,11 +155,13 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Ensnare', tech: Tech.Ensnare, target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Queen],
     energyCost: 75, hpCost: 0, range: tiles(9), radius: fx(64), duration: sec(25.2), period: 0, damage: 0,
+    execution: { mode: 'point-area-status', timer: 'ensnare', team: 'enemy', rolesAny: Role.Mobile, traitsAny: 0 },
   },
   [Ability.Plague]: {
     name: 'Plague', tech: Tech.Plague, target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Defiler],
     energyCost: 150, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(25.2), period: 8, damage: 10,
+    execution: { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 },
   },
   [Ability.Consume]: {
     name: 'Consume', tech: Tech.Consume, target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: Role.Structure,

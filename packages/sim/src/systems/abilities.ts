@@ -1,7 +1,7 @@
 import type { Command } from '../commands.ts';
 import {
   Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
-  type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetMarker,
+  type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetMarker,
 } from '../data.ts';
 import { isFreeAbilityToggleOff } from '../ability-execution.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
@@ -79,6 +79,28 @@ const applyStatusTimer = (
   }
 };
 
+const applyAreaStatusTimer = (
+  e: State['e'],
+  timer: AbilityAreaStatusTimer,
+  target: number,
+  duration: number,
+): void => {
+  switch (timer) {
+    case 'stasis':
+      e.stasisTimer[target] = Math.max(e.stasisTimer[target]!, duration);
+      return;
+    case 'maelstrom':
+      e.maelstromTimer[target] = Math.max(e.maelstromTimer[target]!, duration);
+      return;
+    case 'ensnare':
+      e.ensnareTimer[target] = Math.max(e.ensnareTimer[target]!, duration);
+      return;
+    case 'plague':
+      e.plagueTimer[target] = Math.max(e.plagueTimer[target]!, duration);
+      return;
+  }
+};
+
 const applyTargetMarker = (e: State['e'], marker: AbilityTargetMarker, target: number, owner: number): void => {
   switch (marker) {
     case 'opticalFlare':
@@ -115,6 +137,13 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     }
     case 'target-status':
       applyStatusTimer(e, execution.timer, slotOf(c.target!), ability.duration);
+      break;
+    case 'point-area-status':
+      applyAreaStatus(s, e.owner[slot]!, c.x!, c.y!, ability.radius, execution.team,
+        (target) =>
+          (execution.rolesAny === 0 || (e.flags[target]! & execution.rolesAny) !== 0) &&
+          (execution.traitsAny === 0 || (unitTraits(e.kind[target]!) & execution.traitsAny) !== 0),
+        (target) => { applyAreaStatusTimer(e, execution.timer, target, ability.duration); });
       break;
     case 'target-marker':
       applyTargetMarker(e, execution.marker, slotOf(c.target!), e.owner[slot]!);
@@ -293,16 +322,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, ability.duration);
       break;
     }
-    case Ability.StasisField:
-      applyAreaStatus(s, e.owner[slot]!, c.x!, c.y!, ability.radius, 'any',
-        (target) => (e.flags[target]! & Role.Mobile) !== 0,
-        (target) => { e.stasisTimer[target] = Math.max(e.stasisTimer[target]!, ability.duration); });
-      break;
-    case Ability.Maelstrom:
-      applyAreaStatus(s, e.owner[slot]!, c.x!, c.y!, ability.radius, 'enemy',
-        (target) => (unitTraits(e.kind[target]!) & Trait.Biological) !== 0,
-        (target) => { e.maelstromTimer[target] = Math.max(e.maelstromTimer[target]!, ability.duration); });
-      break;
     case Ability.SpawnBroodling: {
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;
@@ -315,16 +334,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.lifeTimer[slotOf(b)] = sec(75.2);
       break;
     }
-    case Ability.Ensnare:
-      applyAreaStatus(s, e.owner[slot]!, c.x!, c.y!, ability.radius, 'enemy',
-        (target) => (e.flags[target]! & Role.Mobile) !== 0,
-        (target) => { e.ensnareTimer[target] = Math.max(e.ensnareTimer[target]!, ability.duration); });
-      break;
-    case Ability.Plague:
-      applyAreaStatus(s, e.owner[slot]!, c.x!, c.y!, ability.radius, 'enemy',
-        (target) => (e.flags[target]! & (Role.Mobile | Role.Structure)) !== 0,
-        (target) => { e.plagueTimer[target] = Math.max(e.plagueTimer[target]!, ability.duration); });
-      break;
     case Ability.Consume: {
       const target = slotOf(c.target!);
       kill(s, target);

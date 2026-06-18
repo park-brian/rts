@@ -1612,6 +1612,8 @@ Highest-impact LOC reductions:
        energy and applies matching independent damage.
      - Added self-toggle execution for active cloak abilities, including descriptor-aware free
        toggle-off validation/application.
+     - Added point area-status execution for `Stasis Field`, `Maelstrom`, `Ensnare`, and `Plague`,
+       preserving team/role/trait filtering and existing Plague ticking.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.
