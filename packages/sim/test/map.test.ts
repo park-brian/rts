@@ -1,31 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
-import { Kind, TILE, bwRange } from '../src/data.ts';
-import { fx } from '../src/fixed.ts';
+import { makeState } from '../src/world.ts';
+import { Kind, TILE } from '../src/data.ts';
+import { fx, ONE } from '../src/fixed.ts';
 import {
-  BASE_GAS_EDGE_PX,
-  BASE_MINERAL_EDGE_PX,
+  BASE_GAS_DOCK_DISTANCE_PX,
+  BASE_MINERAL_DOCK_DISTANCE_PX,
+  baseResourceDockDistance,
   resourceFootprintsOverlap,
   resourceSpawnCenterPx,
   resourceSpawnFootprint,
   sliceMap,
   solveBaseCluster,
+  type ResourceFootprint,
 } from '../src/map.ts';
-import { bwApproxEdgeDistance } from '../src/spatial.ts';
 import { placementForStructure } from '../src/validation.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
-test('slice map start resources keep integer BW grid footprints and tight edge-distance arcs', () => {
+test('slice map start resources keep integer grid footprints and bounded top-down dock arcs', () => {
   const map = sliceMap();
   const resourcesPerStart = 9;
+  const allFootprints: ResourceFootprint[] = [];
 
   for (let startIndex = 0; startIndex < map.starts.length; startIndex++) {
     const start = map.starts[startIndex]!;
-    const state = makeState(map, 1, 1);
-    const depot = slotOf(spawnUnit(state, Kind.CommandCenter, 0, tc(start.x), tc(start.y)));
     const mineralDistances: number[] = [];
     const gasDistances: number[] = [];
 
@@ -37,17 +36,22 @@ test('slice map start resources keep integer BW grid footprints and tight edge-d
       assert.equal(Number.isInteger(center.y), true);
       assert.equal(Number.isInteger(fp.x0), true);
       assert.equal(Number.isInteger(fp.y0), true);
+      assert.equal(allFootprints.some((other) => resourceFootprintsOverlap(other, fp)), false);
+      allFootprints.push(fp);
 
-      const resource = slotOf(spawnUnit(state, r.gas ? Kind.Geyser : Kind.Mineral, NEUTRAL, fx(center.x), fx(center.y)));
-      const d = bwApproxEdgeDistance(state, depot, resource);
+      const d = baseResourceDockDistance(r.gas ? Kind.Geyser : Kind.Mineral, start.x, start.y, center.x, center.y);
       (r.gas ? gasDistances : mineralDistances).push(d);
     }
 
     const minMineral = Math.min(...mineralDistances);
     const maxMineral = Math.max(...mineralDistances);
-    assert.ok(maxMineral - minMineral <= bwRange(1), `mineral arc drifted by more than 1 px at start ${startIndex}`);
-    assert.ok(mineralDistances.every((d) => Math.abs(d - bwRange(BASE_MINERAL_EDGE_PX)) <= bwRange(1)));
-    assert.deepEqual(gasDistances, [bwRange(BASE_GAS_EDGE_PX)]);
+    assert.equal(mineralDistances.length, 8);
+    assert.equal(gasDistances.length, 1);
+    assert.ok(maxMineral - minMineral <= fx(24), `mineral dock arc spread exceeded 24 px at start ${startIndex}`);
+    assert.ok(mineralDistances.every((d) =>
+      d >= fx(BASE_MINERAL_DOCK_DISTANCE_PX - 28) && d <= fx(BASE_MINERAL_DOCK_DISTANCE_PX)),
+    `mineral dock distances left the 3-worker band at start ${startIndex}: ${mineralDistances.map((d) => (d / ONE).toFixed(2)).join(', ')}`);
+    assert.ok(gasDistances.every((d) => Math.abs(d - fx(BASE_GAS_DOCK_DISTANCE_PX)) <= fx(1)));
 
     const placement = placementForStructure(makeState(map, 1, 1), Kind.CommandCenter, tc(start.x), tc(start.y));
     assert.equal(placement.ok, true, 'start depot remains legal against its resource grid');

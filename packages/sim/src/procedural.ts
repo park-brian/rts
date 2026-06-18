@@ -136,7 +136,7 @@ const addBaseSite = (
     ...(owner === undefined ? {} : { owner }),
     ...(rampX === undefined ? {} : { rampX }),
     ...(rampY === undefined ? {} : { rampY }),
-    timingProfile: 'bw-resource-route-v1',
+    timingProfile: 'topdown-dock-route-v1',
   });
 };
 

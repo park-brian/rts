@@ -99,16 +99,27 @@ const placementBlockingKind = (s: State, slot: number): boolean => {
 };
 
 const resourceBlocksDepotAt = (depotFp: Footprint, resourceFp: Footprint, gas: boolean): boolean => {
+  const resourceSouthOfDepot = resourceFp.y0 + resourceFp.y1 >= depotFp.y0 + depotFp.y1;
   if (gas) {
-    return resourceFp.x0 > depotFp.x0 - 7 &&
-      resourceFp.y0 > depotFp.y0 - 5 &&
+    return resourceSouthOfDepot
+      ? resourceFp.x0 > depotFp.x0 - 7 &&
+        resourceFp.y0 > depotFp.y1 - 6 &&
+        resourceFp.x0 < depotFp.x0 + 7 &&
+        resourceFp.y0 < depotFp.y1 + 3
+      : resourceFp.x0 > depotFp.x0 - 7 &&
+        resourceFp.y0 > depotFp.y0 - 5 &&
+        resourceFp.x0 < depotFp.x0 + 7 &&
+        resourceFp.y0 < depotFp.y0 + 6;
+  }
+  return resourceSouthOfDepot
+    ? resourceFp.x0 > depotFp.x0 - 5 &&
+      resourceFp.y0 > depotFp.y1 - 6 &&
+      resourceFp.x0 < depotFp.x0 + 7 &&
+      resourceFp.y0 < depotFp.y1 + 4
+    : resourceFp.x0 > depotFp.x0 - 5 &&
+      resourceFp.y0 > depotFp.y0 - 4 &&
       resourceFp.x0 < depotFp.x0 + 7 &&
       resourceFp.y0 < depotFp.y0 + 6;
-  }
-  return resourceFp.x0 > depotFp.x0 - 5 &&
-    resourceFp.y0 > depotFp.y0 - 4 &&
-    resourceFp.x0 < depotFp.x0 + 7 &&
-    resourceFp.y0 < depotFp.y0 + 6;
 };
 
 const slotResourceFootprint = (s: State, slot: number): Footprint => {

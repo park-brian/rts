@@ -1,12 +1,12 @@
 // Map definition (static data consumed by the sim). Terrain is tile-grid based,
 // while resources keep both BW concepts explicit: integer initial build-tile
 // footprint (`x`,`y`) for placement legality, plus optional integer pixel center
-// (`px`,`py`) for exact body-distance and harvest timing.
+// (`px`,`py`) for exact dock-distance and harvest timing.
 // See docs/specs/maps.md.
 
-import { Kind, PATCH_AMOUNT, TILE } from './data.ts';
-import { fx, ONE } from './fixed.ts';
-import { bodyBounds, bwApproxEdgeDistanceBetween } from './spatial.ts';
+import { Kind, PATCH_AMOUNT, TILE, Units } from './data.ts';
+import { fx, isqrt } from './fixed.ts';
+import { topDownDockingPoint } from './spatial.ts';
 
 export type ResourceSpawn = { x: number; y: number; amount: number; gas: boolean; px?: number; py?: number };
 export type StartLoc = { x: number; y: number };
@@ -57,32 +57,23 @@ export const walkable = (m: MapDef, tx: number, ty: number): boolean =>
 export const buildable = (m: MapDef, tx: number, ty: number): boolean =>
   inBounds(m, tx, ty) && m.build[ty * m.w + tx] === 1;
 
-export const BASE_MINERAL_EDGE_PX = 115;
-export const BASE_GAS_EDGE_PX = 112;
+export const BASE_MINERAL_DOCK_DISTANCE_PX = 97;
+export const BASE_GAS_DOCK_DISTANCE_PX = 83;
 export const BASE_CLUSTER_RESERVATION_MARGIN_TILES = 1;
 
-const MINERAL_ARC_X_OFFSETS = [-6, -5, -3, -1, 1, 3, 5, 6] as const;
-const GAS_X_OFFSET = 7;
-const START_RESOURCE_X_SEARCH_PX = 16;
-const START_RESOURCE_Y_SEARCH_PX = 96;
+export const BASE_MINERAL_ARC_OFFSETS = [
+  { dx: -7, dy: 3 },
+  { dx: -6, dy: 5 },
+  { dx: -4, dy: 5 },
+  { dx: -2, dy: 5 },
+  { dx: 0, dy: 5 },
+  { dx: 2, dy: 5 },
+  { dx: 6, dy: 3 },
+  { dx: 6, dy: 2 },
+] as const;
+export const BASE_GAS_ARC_OFFSET = { dx: 6, dy: 5 } as const;
 
 const tileCenterPx = (t: number): number => t * TILE + (TILE >> 1);
-
-type ResourceCandidate = {
-  px: number;
-  py: number;
-  tile: { x: number; y: number };
-  footprint: ResourceFootprint;
-  score: number;
-  distanceError: number;
-  xDrift: number;
-  yDrift: number;
-};
-
-type IndexedCandidates = {
-  index: number;
-  candidates: ResourceCandidate[];
-};
 
 export const resourceSpawnCenterPx = (r: ResourceSpawn): { x: number; y: number } => {
   if (r.px !== undefined && r.py !== undefined) return { x: r.px, y: r.py };
@@ -109,16 +100,39 @@ const footprintFromTile = (tile: { x: number; y: number }, gas: boolean): Resour
 export const resourceFootprintsOverlap = (a: ResourceFootprint, b: ResourceFootprint): boolean =>
   a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0;
 
-const resourceInitialTile = (kind: number, px: number, py: number): { x: number; y: number } => {
-  const b = bodyBounds(kind);
-  return {
-    x: Math.floor((fx(px) - b.left) / (TILE * ONE)),
-    y: Math.floor((fx(py) - b.up) / (TILE * ONE)),
-  };
+export const baseResourceDockDistance = (
+  resourceKind: number,
+  sx: number,
+  sy: number,
+  px: number,
+  py: number,
+  workerKind = Kind.SCV,
+  depotKind = Kind.CommandCenter,
+): number => {
+  const depotCenter = { x: fx(tileCenterPx(sx)), y: fx(tileCenterPx(sy)) };
+  const resourceCenter = { x: fx(px), y: fx(py) };
+  const resourceDock = topDownDockingPoint(
+    workerKind,
+    resourceKind,
+    resourceCenter.x,
+    resourceCenter.y,
+    Units[resourceKind]!.roles,
+    depotCenter.x,
+    depotCenter.y,
+  );
+  const depotDock = topDownDockingPoint(
+    workerKind,
+    depotKind,
+    depotCenter.x,
+    depotCenter.y,
+    Units[depotKind]!.roles,
+    resourceCenter.x,
+    resourceCenter.y,
+  );
+  const dx = resourceDock.x - depotDock.x;
+  const dy = resourceDock.y - depotDock.y;
+  return isqrt(dx * dx + dy * dy);
 };
-
-const depotResourceDistance = (resourceKind: number, sx: number, sy: number, px: number, py: number): number =>
-  bwApproxEdgeDistanceBetween(Kind.CommandCenter, fx(tileCenterPx(sx)), fx(tileCenterPx(sy)), resourceKind, fx(px), fx(py));
 
 export const baseDepotFootprint = (start: StartLoc): ResourceFootprint => ({
   x0: start.x - 2,
@@ -144,115 +158,27 @@ export const resourceFootprintBounds = (fps: ResourceFootprint[]): ResourceFootp
   };
 };
 
-const legalStartResourceTile = (depot: ResourceFootprint, tile: { x: number; y: number }, gas: boolean): boolean => {
-  if (gas) {
-    return !(tile.x > depot.x0 - 7 && tile.y > depot.y0 - 5 && tile.x < depot.x0 + 7 && tile.y < depot.y0 + 6);
-  }
-  return !(tile.x > depot.x0 - 5 && tile.y > depot.y0 - 4 && tile.x < depot.x0 + 7 && tile.y < depot.y0 + 6);
-};
-
-const compareCandidates = (a: ResourceCandidate, b: ResourceCandidate): number =>
-  a.distanceError - b.distanceError ||
-  a.xDrift - b.xDrift ||
-  a.yDrift - b.yDrift ||
-  a.tile.y - b.tile.y ||
-  a.tile.x - b.tile.x ||
-  a.px - b.px ||
-  a.py - b.py;
-
-const candidateScore = (distanceError: number, xDrift: number, yDrift: number): number =>
-  distanceError * 1_000_000 + xDrift * ONE + yDrift;
-
-const resourceCandidateKey = (fp: ResourceFootprint): string => `${fp.x0},${fp.y0},${fp.x1},${fp.y1}`;
-
-const solveResourceCandidates = (
-  resourceKind: number,
-  start: StartLoc,
-  dxTiles: number,
-  frontDir: number,
-  minAbsTiles: number,
-  targetEdgePx: number,
+const legalStartResourceTile = (
+  depot: ResourceFootprint,
+  tile: { x: number; y: number },
   gas: boolean,
-  blocked: ResourceFootprint[],
-): ResourceCandidate[] => {
-  const nominalX = tileCenterPx(start.x) + dxTiles * TILE;
-  const minDelta = minAbsTiles * TILE;
-  const maxDelta = minDelta + START_RESOURCE_Y_SEARCH_PX;
-  const depot = baseDepotFootprint(start);
-  const targetEdge = fx(targetEdgePx);
-  const candidates = new Map<string, ResourceCandidate>();
-
-  for (let px = nominalX - START_RESOURCE_X_SEARCH_PX; px <= nominalX + START_RESOURCE_X_SEARCH_PX; px++) {
-    for (let delta = minDelta; delta <= maxDelta; delta++) {
-      const py = tileCenterPx(start.y) + frontDir * delta;
-      const tile = resourceInitialTile(resourceKind, px, py);
-      if (!legalStartResourceTile(depot, tile, gas)) continue;
-      const fp = footprintFromTile(tile, gas);
-      if (blocked.some((other) => resourceFootprintsOverlap(fp, other))) continue;
-      const d = depotResourceDistance(resourceKind, start.x, start.y, px, py);
-      const distanceError = Math.abs(d - targetEdge);
-      const xDrift = Math.abs(px - nominalX);
-      const yDrift = Math.abs(delta - minDelta);
-      const candidate = {
-        px,
-        py,
-        tile,
-        footprint: fp,
-        score: candidateScore(distanceError, xDrift, yDrift),
-        distanceError,
-        xDrift,
-        yDrift,
-      };
-      const key = resourceCandidateKey(fp);
-      const existing = candidates.get(key);
-      if (existing === undefined || compareCandidates(candidate, existing) < 0) candidates.set(key, candidate);
-    }
+  frontDir: -1 | 1,
+): boolean => {
+  if (gas) {
+    return frontDir < 0
+      ? !(tile.x > depot.x0 - 7 && tile.y > depot.y0 - 5 && tile.x < depot.x0 + 7 && tile.y < depot.y0 + 6)
+      : !(tile.x > depot.x0 - 7 && tile.y > depot.y1 - 6 && tile.x < depot.x0 + 7 && tile.y < depot.y1 + 3);
   }
-  return [...candidates.values()].sort(compareCandidates);
+  return frontDir < 0
+    ? !(tile.x > depot.x0 - 5 && tile.y > depot.y0 - 4 && tile.x < depot.x0 + 7 && tile.y < depot.y0 + 6)
+    : !(tile.x > depot.x0 - 5 && tile.y > depot.y1 - 6 && tile.x < depot.x0 + 7 && tile.y < depot.y1 + 4);
 };
 
-const solveMineralArc = (
-  candidateSets: ResourceCandidate[][],
-  blocked: ResourceFootprint[],
-): ResourceCandidate[] | null => {
-  // Eight 2x1 mineral footprints cannot be chosen greedily on a tight depot-distance arc:
-  // pick the whole non-overlapping set so every patch stays on the same BW edge-distance band.
-  const ordered: IndexedCandidates[] = candidateSets
-    .map((candidates, index) => ({ index, candidates }))
-    .sort((a, b) => a.candidates.length - b.candidates.length || a.index - b.index);
-  const chosen: ResourceCandidate[] = new Array(candidateSets.length);
-  const bestByStep = ordered.map((set) => set.candidates[0]?.score ?? Number.POSITIVE_INFINITY);
-  const suffixMin = new Array(ordered.length + 1).fill(0);
-  for (let i = ordered.length - 1; i >= 0; i--) suffixMin[i] = suffixMin[i + 1]! + bestByStep[i]!;
-
-  let bestScore = Number.POSITIVE_INFINITY;
-  let best: ResourceCandidate[] | null = null;
-
-  const search = (step: number, used: ResourceFootprint[], score: number): void => {
-    if (score + suffixMin[step]! >= bestScore) return;
-    if (step === ordered.length) {
-      bestScore = score;
-      best = [...chosen];
-      return;
-    }
-
-    const { index, candidates } = ordered[step]!;
-    for (const candidate of candidates) {
-      if (used.some((other) => resourceFootprintsOverlap(candidate.footprint, other))) continue;
-      chosen[index] = candidate;
-      search(step + 1, [...used, candidate.footprint], score + candidate.score);
-    }
-  };
-
-  search(0, blocked, 0);
-  return best;
-};
-
-const toResourceSpawn = (candidate: ResourceCandidate, amount: number, gas: boolean): ResourceSpawn => ({
-  x: candidate.tile.x,
-  y: candidate.tile.y,
-  px: candidate.px,
-  py: candidate.py,
+const resourceFromCenterTile = (centerX: number, centerY: number, amount: number, gas: boolean): ResourceSpawn => ({
+  x: centerX - (gas ? 2 : 1),
+  y: centerY - (gas ? 1 : 0),
+  px: tileCenterPx(centerX),
+  py: tileCenterPx(centerY),
   amount,
   gas,
 });
@@ -264,34 +190,18 @@ const clusterReservation = (depot: ResourceFootprint, resources: ResourceSpawn[]
   );
 
 export const solveBaseCluster = (start: StartLoc, frontDir: -1 | 1): BaseCluster => {
-  const gasDx = GAS_X_OFFSET * (frontDir < 0 ? 1 : -1);
-  const gasCandidates = solveResourceCandidates(Kind.Geyser, start, gasDx, frontDir, 2, BASE_GAS_EDGE_PX, true, []);
-  let bestScore = Number.POSITIVE_INFINITY;
-  let bestMinerals: ResourceCandidate[] | null = null;
-  let bestGas: ResourceCandidate | null = null;
-
-  for (const gas of gasCandidates) {
-    const mineralSets = MINERAL_ARC_X_OFFSETS.map((dx) =>
-      solveResourceCandidates(Kind.Mineral, start, dx, frontDir, 4, BASE_MINERAL_EDGE_PX, false, [gas.footprint]),
-    );
-    if (mineralSets.some((candidates) => candidates.length === 0)) continue;
-
-    const minerals = solveMineralArc(mineralSets, [gas.footprint]);
-    if (minerals === null) continue;
-    const score = gas.score + minerals.reduce((total, candidate) => total + candidate.score, 0);
-    if (score < bestScore) {
-      bestScore = score;
-      bestMinerals = minerals;
-      bestGas = gas;
+  const depotFootprint = baseDepotFootprint(start);
+  const resources = [
+    ...BASE_MINERAL_ARC_OFFSETS.map(({ dx, dy }) =>
+      resourceFromCenterTile(start.x + dx, start.y + frontDir * dy, PATCH_AMOUNT, false),
+    ),
+    resourceFromCenterTile(start.x + BASE_GAS_ARC_OFFSET.dx, start.y + frontDir * BASE_GAS_ARC_OFFSET.dy, 0, true),
+  ];
+  for (const resource of resources) {
+    if (!legalStartResourceTile(depotFootprint, { x: resource.x, y: resource.y }, resource.gas, frontDir)) {
+      throw new Error('solveBaseCluster: hardcoded resource arc violates depot exclusion grid');
     }
   }
-
-  if (bestMinerals === null || bestGas === null) throw new Error('solveBaseCluster: no legal resource arc position');
-  const resources = [
-    ...bestMinerals.map((candidate) => toResourceSpawn(candidate, PATCH_AMOUNT, false)),
-    toResourceSpawn(bestGas, 0, true),
-  ];
-  const depotFootprint = baseDepotFootprint(start);
   return {
     x: start.x,
     y: start.y,

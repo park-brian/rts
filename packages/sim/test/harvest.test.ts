@@ -10,7 +10,7 @@ import {
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
-import { mainBaseMineralRouteCalibrations } from '../src/harvest-calibration.ts';
+import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
@@ -190,9 +190,16 @@ test('harvest timers use BW mineral and gas action frames', () => {
   assert.equal(e.timer[gasWorker], GAS_MINE_TICKS);
 });
 
-test('workers deposit immediately at depot docks even when a route has calibration slack', () => {
+test('workers deposit immediately at depot docks even when route diagnostics have slack', () => {
   const map = sliceMap();
-  const entry = mainBaseMineralRouteCalibrations(map).find((row) => row.slackFrames > 0)!;
+  const start = map.starts[0]!;
+  const entry = calibrateMineralRoute(
+    { kind: 'main', team: 0, owner: 0, x: start.x, y: start.y, resourceDir: -1 },
+    { ...map.resources[0]!, px: start.x * TILE + (TILE >> 1), py: (start.y - 5) * TILE + (TILE >> 1) },
+    0,
+    0,
+    mineralTimingProfile(Kind.SCV, Kind.CommandCenter),
+  );
   assert.ok(entry.slackFrames > 1);
   const s = makeState(map, 1, 1);
   const e = s.e;

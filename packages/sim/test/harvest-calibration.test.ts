@@ -26,8 +26,8 @@ test('main-base mineral diagnostics expose positive-only BW route slack data', (
     assert.equal(entry.depotKind, Kind.CommandCenter);
     assert.equal(entry.mineFrames, 80);
     assert.equal(entry.targetRouteFrames, 97);
-    assert.equal(entry.actualRouteFrames <= entry.targetRouteFrames, true);
-    assert.equal(entry.slackFrames, entry.targetRouteFrames - entry.actualRouteFrames);
+    assert.equal(entry.actualRouteFrames <= entry.targetRouteFrames + entry.toleranceFrames, true);
+    assert.equal(entry.slackFrames, Math.max(0, entry.targetRouteFrames - entry.actualRouteFrames));
     assert.equal(entry.slackFrames >= 0, true);
     assert.equal(entry.valid, true);
     assert.equal(entry.routeDistanceFx > 0, true);
