@@ -19,6 +19,15 @@ const find = (sim: Sim, kind: number): number => {
   throw new Error(`missing kind ${kind}`);
 };
 
+const countKind = (sim: Sim, kind: number): number => {
+  const e = sim.fullState().e;
+  let count = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === kind) count++;
+  }
+  return count;
+};
+
 test('protoss tech buildings require pylon power for placement', () => {
   const sim = protossSim();
   const s = sim.fullState();
@@ -62,6 +71,40 @@ test('unpowered protoss producers reject new work and pause existing queues', ()
   spawnUnit(s, Kind.Pylon, 0, e.x[nexus]! + fx(160), e.y[nexus]!);
   for (let i = 0; i < 3; i++) sim.step([]);
   assert.equal(e.prodKind[gateway], Kind.None);
+});
+
+test('protoss power and production resume through normal sim stepping', () => {
+  const sim = protossSim();
+  const s = sim.fullState();
+  const e = s.e;
+  const nexus = find(sim, Kind.Nexus);
+  const pylon = slotOf(spawnUnit(s, Kind.Pylon, 0, e.x[nexus]! + fx(160), e.y[nexus]!));
+  const gateway = slotOf(spawnUnit(s, Kind.Gateway, 0, e.x[nexus]! + fx(200), e.y[nexus]! + fx(128)));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const beforeZealots = countKind(sim, Kind.Zealot);
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [
+    { t: 'train', building: eid(e, gateway), kind: Kind.Zealot },
+  ] }]), [{ player: 0, index: 0, t: 'train', ok: true }]);
+
+  const started = e.prodTimer[gateway]!;
+  sim.step([]);
+  assert.equal(e.prodTimer[gateway], started - 1);
+
+  kill(s, pylon);
+  const paused = e.prodTimer[gateway]!;
+  for (let i = 0; i < 5; i++) sim.step([]);
+  assert.equal(e.prodTimer[gateway], paused);
+  assert.deepEqual(sim.step([{ player: 0, cmds: [
+    { t: 'train', building: eid(e, gateway), kind: Kind.Zealot },
+  ] }]), [{ player: 0, index: 0, t: 'train', ok: false, reason: 'missing-capability' }]);
+
+  spawnUnit(s, Kind.Pylon, 0, e.x[nexus]! + fx(160), e.y[nexus]!);
+  while (e.prodKind[gateway] !== Kind.None) sim.step([]);
+
+  assert.equal(countKind(sim, Kind.Zealot), beforeZealots + 1);
+  assert.equal(e.prodTimer[gateway], 0);
 });
 
 test('unpowered protoss research producers reject research', () => {

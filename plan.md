@@ -1279,3 +1279,6 @@ Completed:
   use the same legal gas/mineral spacing contract.
 - Added a sim data coverage test that fails if a non-empty `UnitDef.notes` entry is not either
   removed from the registry or copied into this roadmap for explicit follow-up.
+- Added a Protoss power + production scenario test that proves powered queues tick, unpowered
+  producers reject new work and pause existing queues, and restored power lets production complete
+  through normal sim stepping.
