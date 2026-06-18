@@ -588,6 +588,10 @@ export const TechDefs: Record<number, TechDef> = {
 
 export type AbilityTarget = 'self' | 'point' | 'entity';
 export type TargetTeam = 'own' | 'enemy' | 'any';
+export type AbilityStatusTimer = 'stim' | 'lockdown';
+export type AbilityExecution =
+  | { mode: 'caster-status'; timer: AbilityStatusTimer }
+  | { mode: 'target-status'; timer: AbilityStatusTimer };
 export type AbilityDef = {
   name: string;
   tech?: number;
@@ -606,6 +610,7 @@ export type AbilityDef = {
   duration: number;
   period: number;
   damage: number;
+  execution?: AbilityExecution;
 };
 
 export const Abilities: Record<number, AbilityDef> = {
@@ -613,6 +618,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Stim Pack', tech: Tech.StimPack, target: 'self', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Marine, Kind.Firebat],
     energyCost: 0, hpCost: 10, range: 0, radius: 0, duration: sec(12.6), period: 0, damage: 0,
+    execution: { mode: 'caster-status', timer: 'stim' },
   },
   [Ability.EMPShockwave]: {
     name: 'EMP Shockwave', tech: Tech.EMPShockwave, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
@@ -638,6 +644,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Lockdown', tech: Tech.Lockdown, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: Trait.Mechanical, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Ghost],
     energyCost: 100, hpCost: 0, range: tiles(8), radius: 0, duration: sec(43.8), period: 0, damage: 0,
+    execution: { mode: 'target-status', timer: 'lockdown' },
   },
   [Ability.YamatoGun]: {
     name: 'Yamato Gun', tech: Tech.YamatoCannon, target: 'entity', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: Role.Resource,

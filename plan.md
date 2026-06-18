@@ -1589,6 +1589,11 @@ Highest-impact LOC reductions:
        Consume, Spawn Broodling, Nuke, maybe Restoration if status clearing stays bespoke.
    - Expected win: the ability system becomes a table plus a handful of named exceptional handlers,
      while validation/UI/AI all read the same target/execution metadata.
+   - Completed:
+     - Added first-pass `AbilityDef.execution` metadata and a generic timer-status executor for
+       simple recurring spell shapes. `Stim Pack` now applies a caster status timer and `Lockdown`
+       applies a target status timer through descriptors while complex spells stay on named
+       handlers.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

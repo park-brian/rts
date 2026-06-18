@@ -1,5 +1,5 @@
 import type { Command } from '../commands.ts';
-import { Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits } from '../data.ts';
+import { Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits, type AbilityStatusTimer } from '../data.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
@@ -54,6 +54,31 @@ const tickEnergy = (s: State): void => {
     e.energyTimer[i] = e.energyTimer[i]! - 1;
     if (e.energyTimer[i]! <= 0) e.energy[i] = Math.min(e.energyMax[i]!, e.energy[i]! + 1);
   }
+};
+
+const applyStatusTimer = (
+  e: State['e'],
+  timer: AbilityStatusTimer,
+  target: number,
+  duration: number,
+): void => {
+  switch (timer) {
+    case 'stim':
+      e.stimTimer[target] = Math.max(e.stimTimer[target]!, duration);
+      return;
+    case 'lockdown':
+      e.lockdownTimer[target] = Math.max(e.lockdownTimer[target]!, duration);
+      return;
+  }
+};
+
+const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): boolean => {
+  const ability = Abilities[c.ability]!;
+  const execution = ability.execution;
+  if (!execution) return false;
+  const target = execution.mode === 'caster-status' ? slot : slotOf(c.target!);
+  applyStatusTimer(s.e, execution.timer, target, ability.duration);
+  return true;
 };
 
 const tickCloak = (s: State): void => {
@@ -193,10 +218,9 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     faceToward(e, slot, e.x[target]!, e.y[target]!);
   }
 
+  if (applyGenericExecution(s, slot, c)) return;
+
   switch (c.ability) {
-    case Ability.StimPack:
-      e.stimTimer[slot] = Math.max(e.stimTimer[slot]!, ability.duration);
-      break;
     case Ability.EMPShockwave:
       applyEmp(s, c.x!, c.y!, ability.radius);
       break;
@@ -211,9 +235,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     }
     case Ability.Irradiate:
       e.irradiateTimer[slotOf(c.target!)] = Math.max(e.irradiateTimer[slotOf(c.target!)]!, ability.duration);
-      break;
-    case Ability.Lockdown:
-      e.lockdownTimer[slotOf(c.target!)] = Math.max(e.lockdownTimer[slotOf(c.target!)]!, ability.duration);
       break;
     case Ability.YamatoGun:
       applyIndependentDamage(s, slotOf(c.target!), ability.damage);

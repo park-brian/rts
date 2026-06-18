@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Ability, Kind, Tech, Units, sec } from '../src/data.ts';
+import { Abilities, Ability, Kind, Tech, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { setTechLevel } from '../src/tech.ts';
@@ -46,6 +46,13 @@ test('stim costs hit points and speeds the next attack cooldown', () => {
   assert.equal(s.e.hp[m], Units[Kind.Marine]!.hp - 10);
   assert.ok(s.e.stimTimer[m]! > 0);
   assert.equal(s.e.wcd[m], 10);
+});
+
+test('simple timer abilities are descriptor-backed', () => {
+  assert.equal(Units[Kind.Marine]!.abilities.includes(Ability.StimPack), true);
+  assert.equal(Units[Kind.Ghost]!.abilities.includes(Ability.Lockdown), true);
+  assert.deepEqual(Abilities[Ability.StimPack]!.execution, { mode: 'caster-status', timer: 'stim' });
+  assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
 });
 
 test('ability validation rejects unaffordable energy casts', () => {
