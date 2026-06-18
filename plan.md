@@ -1287,3 +1287,6 @@ Completed:
   unloads without overlap.
 - Added a command-ingestion regression proving accepted mineral harvest orders immediately enter
   the mineral-walk collision class against workers that are harvesting or returning minerals.
+- Added a Zerg creep + placement scenario test that proves off-creep structures are rejected and
+  hidden from build masks until a creep-providing Hatchery finishes through normal sim stepping,
+  after which the same placement is accepted through shared validation.

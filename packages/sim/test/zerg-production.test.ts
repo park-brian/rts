@@ -1,16 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap, type MapDef } from '../src/map.ts';
 import { setupMatch } from '../src/setup.ts';
-import { count, eid, isAlive, kill, slotOf } from '../src/world.ts';
+import { count, eid, isAlive, kill, makeState, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { placementForStructure, validateCommand } from '../src/validation.ts';
+import { buildKindMask } from '../src/action-mask.ts';
 
 const zergSim = (): Sim => Sim.fromState(setupMatch(sliceMap(), 1, 1, [Zerg]));
+
+const openMap = (): MapDef => {
+  const w = 80;
+  const h = 80;
+  return {
+    name: 'zerg-creep-scenario',
+    w,
+    h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h),
+    starts: [],
+    resources: [],
+    teams: [],
+  };
+};
 
 const find = (sim: Sim, kind: number): number => {
   const e = sim.fullState().e;
@@ -135,6 +152,45 @@ test('zerg buildings other than hatcheries and extractors require creep', () => 
   assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'build', ok: false, reason: 'placement-blocked' }]);
   assert.equal(e.kind[drone], Kind.Drone);
   assert.equal(s.players.minerals[0], 1_000);
+});
+
+test('completed creep providers unlock shared placement validation and build masks', () => {
+  const sim = Sim.fromState(makeState(openMap(), 1, 118));
+  const s = sim.fullState();
+  const e = s.e;
+  s.players.minerals[0] = 2_000;
+  spawnUnit(s, Kind.Hatchery, 0, fx(320), fx(320)); // satisfies tech, but is far from the expansion.
+  const expansionDrone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(960), fx(960)));
+  const colonyDrone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(1_152), fx(960)));
+  const colony = [Kind.CreepColony] as const;
+  const colonyX = e.x[colonyDrone]!;
+  const colonyY = e.y[colonyDrone]!;
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'build', unit: eid(e, colonyDrone), kind: Kind.CreepColony, x: colonyX, y: colonyY }), {
+    ok: false,
+    reason: 'placement-blocked',
+  });
+  assert.deepEqual([...buildKindMask(s, 0, eid(e, colonyDrone), { kinds: colony, x: colonyX, y: colonyY })], [0]);
+
+  const hatcheryStarted = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, expansionDrone), kind: Kind.Hatchery, x: e.x[expansionDrone]!, y: e.y[expansionDrone]! },
+  ] }]);
+  assert.deepEqual(hatcheryStarted, [{ player: 0, index: 0, t: 'build', ok: true }]);
+  assert.equal(e.kind[expansionDrone], Kind.Hatchery);
+  assert.equal(e.built[expansionDrone], 0);
+  assert.deepEqual([...buildKindMask(s, 0, eid(e, colonyDrone), { kinds: colony, x: colonyX, y: colonyY })], [0]);
+
+  e.ctimer[expansionDrone] = 1;
+  sim.step([]);
+  assert.equal(e.built[expansionDrone], 1);
+  assert.deepEqual([...buildKindMask(s, 0, eid(e, colonyDrone), { kinds: colony, x: colonyX, y: colonyY })], [1]);
+
+  const colonyStarted = sim.step([{ player: 0, cmds: [
+    { t: 'build', unit: eid(e, colonyDrone), kind: Kind.CreepColony, x: colonyX, y: colonyY },
+  ] }]);
+  assert.deepEqual(colonyStarted, [{ player: 0, index: 0, t: 'build', ok: true }]);
+  assert.equal(e.kind[colonyDrone], Kind.CreepColony);
+  assert.equal(e.built[colonyDrone], 0);
 });
 
 test('zerg structure morphs require tech, refund on cancel, and finish in place', () => {
