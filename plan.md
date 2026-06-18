@@ -1608,6 +1608,8 @@ Highest-impact LOC reductions:
        still owned by effect ticking rather than spell-cast branching.
      - Added target direct-damage execution for `Yamato Gun`, preserving independent damage behavior
        while removing another single-spell cast branch.
+     - Added target energy-feedback execution for `Feedback`, so the generic path drains target
+       energy and applies matching independent damage.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

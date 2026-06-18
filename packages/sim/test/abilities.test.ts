@@ -57,6 +57,7 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
+  assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
@@ -197,15 +198,20 @@ test('feedback drains energy and deals matching damage', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 26 });
   const archon = spawn(Kind.DarkArchon, 0, fx(400), fx(400));
   const vessel = spawn(Kind.ScienceVessel, 1, fx(430), fx(400));
+  const matrixHp = 25;
   s.e.energy[slotOf(archon)] = 50;
   s.e.energy[slotOf(vessel)] = 80;
+  s.e.matrixHp[slotOf(vessel)] = matrixHp;
+  s.e.matrixTimer[slotOf(vessel)] = sec(10);
 
   sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: archon, ability: Ability.Feedback, target: vessel },
   ] }]);
 
   assert.equal(s.e.energy[slotOf(vessel)], 0);
-  assert.equal(s.e.hp[slotOf(vessel)], Units[Kind.ScienceVessel]!.hp - 80);
+  assert.equal(s.e.matrixHp[slotOf(vessel)], 0);
+  assert.equal(s.e.matrixTimer[slotOf(vessel)], 0);
+  assert.equal(s.e.hp[slotOf(vessel)], Units[Kind.ScienceVessel]!.hp - (80 - matrixHp));
 });
 
 test('yamato gun deals descriptor-backed target damage', () => {

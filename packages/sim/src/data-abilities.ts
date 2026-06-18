@@ -55,6 +55,7 @@ export type AbilityExecution =
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
   | { mode: 'target-damage' }
+  | { mode: 'target-energy-feedback' }
   | { mode: 'persistent-effect'; effect: EffectKind };
 export type AbilityDef = {
   name: string;
@@ -122,6 +123,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Feedback', target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: true, casters: [Kind.DarkArchon],
     energyCost: 50, hpCost: 0, range: tiles(10), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-energy-feedback' },
   },
   [Ability.StasisField]: {
     name: 'Stasis Field', tech: Tech.StasisField, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,

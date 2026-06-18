@@ -124,6 +124,13 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     case 'target-damage':
       applyIndependentDamage(s, slotOf(c.target!), ability.damage);
       break;
+    case 'target-energy-feedback': {
+      const target = slotOf(c.target!);
+      const drained = e.energy[target]!;
+      e.energy[target] = 0;
+      applyIndependentDamage(s, target, drained);
+      break;
+    }
     case 'persistent-effect':
       spawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
       break;
@@ -278,13 +285,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       const target = slotOf(c.target!);
       e.matrixHp[target] = Math.max(e.matrixHp[target]!, ability.damage);
       e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, ability.duration);
-      break;
-    }
-    case Ability.Feedback: {
-      const target = slotOf(c.target!);
-      const drained = e.energy[target]!;
-      e.energy[target] = 0;
-      applyIndependentDamage(s, target, drained);
       break;
     }
     case Ability.StasisField:
