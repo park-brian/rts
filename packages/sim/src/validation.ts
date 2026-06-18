@@ -19,13 +19,14 @@ import { hasPowerAt, isPowered, requiresPower } from './power.ts';
 import { hasCreepAt, requiresCreep } from './creep.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
 import { isDisabled } from './systems/status.ts';
-import { commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
+import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
 import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
+import { validateBasicUnitOrder } from './command-specs.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
   transportCapacity, unloadAnchorSlot, canUnloadAt,
@@ -445,18 +446,8 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'move':
-    case 'amove': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
-      if (isDisabled(e, slot)) return reject('missing-capability');
-      if (e.built[slot] !== 1) return reject('missing-capability');
-      if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
-      if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
-        return reject('missing-capability');
-      }
-      return { ok: true };
-    }
+    case 'amove':
+      return validateBasicUnitOrder(s, player, c);
     case 'attack': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
@@ -567,13 +558,8 @@ export const validateCommand = (
       }
       return { ok: true };
     }
-    case 'stop': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot)) return reject('missing-capability');
-      if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
-      return { ok: true };
-    }
+    case 'stop':
+      return validateBasicUnitOrder(s, player, c);
   }
 };
 

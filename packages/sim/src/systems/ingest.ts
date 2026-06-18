@@ -10,13 +10,14 @@ import { TechDefs } from '../data.ts';
 import { placementForStructure, snapRallyTarget, validateCommand } from '../validation.ts';
 import { addonPosition } from '../addon.ts';
 import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
-import { cancelPendingBuild, hasPendingBuild, refundBuildCost } from '../build-cost.ts';
+import { refundBuildCost } from '../build-cost.ts';
 import { castAbility } from './abilities.ts';
 import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
 import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 import { loadUnitInto } from '../cargo.ts';
+import { applyBasicUnitOrder, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
 import {
   GROUP_SLOT_SPACING,
   groupOffset,
@@ -95,10 +96,6 @@ const groupDestination = (
   const rank = plan.rank.get(moveRankKey(key, slot)) ?? 0;
   const offset = groupOffset(rank, plan.spacing.get(key) ?? GROUP_SLOT_SPACING);
   return { x: c.x + offset.x, y: c.y + offset.y };
-};
-
-const clearSettled = (s: State, slot: number): void => {
-  s.e.settled[slot] = 0;
 };
 
 const startProduction = (s: State, slot: number, kind: number, player: number): void => {
@@ -328,10 +325,6 @@ const cancelFoundation = (s: State, slot: number): void => {
   kill(s, slot);
 };
 
-const cancelPendingBeforeOrder = (s: State, slot: number): void => {
-  if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
-};
-
 const resumeConstruction = (s: State, worker: number, foundation: number): void => {
   const e = s.e;
   const foundationId = eid(e, foundation);
@@ -455,36 +448,20 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'move': {
-          const slot = slotOf(c.unit);
-          const dest = groupDestination(c, slot, player, moveGroups);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          e.order[slot] = Order.Move;
-          e.target[slot] = NONE;
-          e.tx[slot] = dest.x;
-          e.ty[slot] = dest.y;
+        case 'move':
+        case 'amove':
+        case 'stop':
+          applyBasicUnitOrder(s, player, c, {
+            destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),
+          });
           results.push({ player, index, t: c.t, ok: true });
           break;
-        }
         case 'attack': {
           const slot = slotOf(c.unit);
           cancelPendingBeforeOrder(s, slot);
           clearSettled(s, slot);
           e.order[slot] = Order.Attack;
           e.target[slot] = c.target;
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'amove': {
-          const slot = slotOf(c.unit);
-          const dest = groupDestination(c, slot, player, moveGroups);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          e.order[slot] = Order.AttackMove;
-          e.target[slot] = NONE;
-          e.tx[slot] = dest.x;
-          e.ty[slot] = dest.y;
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
@@ -532,15 +509,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
             e.rallyX[slot] = c.x;
             e.rallyY[slot] = c.y;
           }
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'stop': {
-          const slot = slotOf(c.unit);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          e.order[slot] = Order.Idle;
-          e.target[slot] = NONE;
           results.push({ player, index, t: c.t, ok: true });
           break;
         }

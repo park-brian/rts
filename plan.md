@@ -1540,6 +1540,10 @@ Highest-impact LOC reductions:
        complete/busy/powered checks, and affordability.
    - Expected win: fewer lines and fewer correctness holes. New command types get one local home
      instead of a validator branch, an ingest branch, UI option code, and AI legality workaround.
+   - Completed:
+     - Introduced the first internal `CommandSpec` table for the basic unit-order family (`move`,
+       `amove`, `stop`) and routed both `validateCommand` and `applyCommands` through it while keeping
+       public behavior stable.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.
@@ -1616,6 +1620,9 @@ Highest-impact LOC reductions:
        Queen Nest Zerg build-gate tests to remove repeated sim/resource/build-validation setup.
      - Migrated the remaining late-Zerg build-policy tests for Nydus Canal, Nydus endpoint expansion,
        Defiler Mound, and Ultralisk Cavern through the same scenario/build assertion helpers.
+     - The DSL proof now covers ability assertions and Zerg build-policy assertions, which is enough
+       to unblock the command-spec refactor. Additional test DSL migrations should be opportunistic,
+       not a prerequisite for the command-spec work.
 6. Replace scattered child/internal-product logic with descriptors.
    - Current shape: Scarabs, Interceptors, Spider Mines, and Nukes share concepts but appear as
      `specialAmmo`, child actors, production specials, UI labels, combat checks, and tests.
