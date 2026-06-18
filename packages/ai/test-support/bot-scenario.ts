@@ -1,16 +1,10 @@
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
 import {
-  Sim,
-  eid,
-  setTechLevel,
-  sliceMap,
-  slotOf,
-  spawnUnit,
   validateCommand,
   type Faction,
-  type State,
 } from '@rts/sim';
+import { simScenario, type SimScenario } from '../../sim/test-support/scenario.ts';
 
 export type BotCommands = ReturnType<ReturnType<typeof createBot>>;
 export type BotCommand = BotCommands[number];
@@ -23,47 +17,17 @@ type BotScenarioOptions = {
 
 type BotOptions = Parameters<typeof createBot>[1];
 
-export type BotScenario = {
-  readonly sim: Sim;
-  readonly state: State;
-  entity(kind: number, owner: number): number;
-  grant(player: number, tech: number): void;
-  pos(id: number): { x: number; y: number };
-  resources(player: number, minerals: number, gas?: number): void;
+export type BotScenario = SimScenario & {
   run(faction: Faction, player?: number, options?: BotOptions): BotCommands;
-  spawn(kind: number, owner: number, x: number, y: number): number;
 };
 
 export const botScenario = ({ factions, players = 2, seed }: BotScenarioOptions): BotScenario => {
-  const sim = new Sim({ map: sliceMap(), players, seed, ...(factions ? { factions } : {}) });
-  const state = sim.fullState();
+  const base = simScenario({ factions, players, seed });
 
   return {
-    sim,
-    state,
-    entity(kind: number, owner: number): number {
-      const e = state.e;
-      for (let i = 0; i < e.hi; i++) {
-        if (e.alive[i] === 1 && e.kind[i] === kind && e.owner[i] === owner) return eid(e, i);
-      }
-      throw new Error(`missing entity kind=${kind} owner=${owner}`);
-    },
-    grant(player: number, tech: number): void {
-      setTechLevel(state, player, tech, 1);
-    },
-    pos(id: number): { x: number; y: number } {
-      const slot = slotOf(id);
-      return { x: state.e.x[slot]!, y: state.e.y[slot]! };
-    },
-    resources(player: number, minerals: number, gas = 0): void {
-      state.players.minerals[player] = minerals;
-      state.players.gas[player] = gas;
-    },
+    ...base,
     run(faction: Faction, player = 0, options?: BotOptions): BotCommands {
-      return createBot(faction, options)(state, player);
-    },
-    spawn(kind: number, owner: number, x: number, y: number): number {
-      return spawnUnit(state, kind, owner, x, y);
+      return createBot(faction, options)(base.state, player);
     },
   };
 };

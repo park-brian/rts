@@ -1878,6 +1878,9 @@ Further concrete deletion opportunities found on review:
    - Started:
      - Added a shared app test harness for `Game` setup, entity lookup, selection, centering, and
        screen projection, then migrated `tap-semantics` and `hotkeys` off their local setup copies.
+     - Added a shared sim scenario harness for deterministic sim setup, entity lookup, spawning,
+       resource grants, tech grants, and position reads. The AI bot scenario helper now layers on
+       top of it, and `upgrades.test.ts` is the first migrated sim test file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
