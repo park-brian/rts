@@ -97,6 +97,63 @@ test('clearance-aware pathing lets small units through gaps large bodies cannot 
   assert.ok(tileY(large.e.y[ultra]!) < 3, 'ultralisk should stay on the near side of the doorway');
 });
 
+test('ground body clearance, not unit kind, determines one-cell gap passage', () => {
+  const w = 9;
+  const h = 7;
+  const walk = new Uint8Array(w * h).fill(1);
+  for (let x = 0; x < w; x++) if (x !== 4) walk[3 * w + x] = 0;
+  const map: MapDef = {
+    name: 'one-cell-clearance-audit', w, h, walk, build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+
+  const cases = [
+    { kind: Kind.Marine, label: 'small marine', canPass: true },
+    { kind: Kind.Hydralisk, label: 'medium hydralisk', canPass: true },
+    { kind: Kind.Dragoon, label: 'large dragoon', canPass: false },
+    { kind: Kind.SiegeTank, label: 'large siege tank', canPass: false },
+    { kind: Kind.Ultralisk, label: 'large ultralisk', canPass: false },
+  ] as const;
+
+  for (const c of cases) {
+    const s = makeState(map, 1, 150 + c.kind);
+    const slot = slotOf(spawnUnit(s, c.kind, 0, tc(4), tc(1)));
+    assert.equal(navPassableForKind(s, c.kind, 4, 3), c.canPass, `${c.label} one-cell passability`);
+    let arrived = false;
+    for (let t = 0; t < 240 && !arrived; t++) arrived = navigate(s, slot, tc(4), tc(5), fx(2));
+    assert.equal(arrived, c.canPass, `${c.label} route through one-cell gap`);
+    if (!c.canPass) assert.ok(tileY(s.e.y[slot]!) < 3, `${c.label} remains before the one-cell choke`);
+  }
+});
+
+test('large ground bodies pass through a two-cell gap when their footprint fits', () => {
+  const w = 10;
+  const h = 7;
+  const walk = new Uint8Array(w * h).fill(1);
+  for (let x = 0; x < w; x++) if (x !== 4 && x !== 5) walk[3 * w + x] = 0;
+  const map: MapDef = {
+    name: 'two-cell-clearance-audit', w, h, walk, build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h), starts: [], resources: [], teams: [],
+  };
+
+  const cases = [
+    { kind: Kind.Marine, label: 'small marine' },
+    { kind: Kind.Hydralisk, label: 'medium hydralisk' },
+    { kind: Kind.Dragoon, label: 'large dragoon' },
+    { kind: Kind.SiegeTank, label: 'large siege tank' },
+    { kind: Kind.Ultralisk, label: 'large ultralisk' },
+  ] as const;
+
+  for (const c of cases) {
+    const s = makeState(map, 1, 170 + c.kind);
+    const slot = slotOf(spawnUnit(s, c.kind, 0, tc(4), tc(1)));
+    assert.equal(navPassableForKind(s, c.kind, 4, 3), true, `${c.label} two-cell passability`);
+    let arrived = false;
+    for (let t = 0; t < 240 && !arrived; t++) arrived = navigate(s, slot, tc(4), tc(5), fx(2));
+    assert.equal(arrived, true, `${c.label} route through two-cell gap`);
+  }
+});
+
 test('clearance-aware pathing preserves diagonal no-corner-cutting', () => {
   const w = 3;
   const h = 3;
