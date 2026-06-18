@@ -1,7 +1,7 @@
-import { internalAmmoCapacity } from './derived.ts';
 import { Kind, Order, Units, sec, tiles, weaponForTarget } from './data.ts';
 import { spawnUnit } from './factory.ts';
 import { isqrt } from './fixed.ts';
+import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { eid, slotOf, type State } from './world.ts';
 import { faceToward } from './systems/move.ts';
 import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapon-mechanics.ts';
@@ -62,16 +62,16 @@ export const carrierCanTarget = (s: State, carrier: number, target: number): boo
 };
 
 export const carrierCanAttack = (s: State, carrier: number, target: number): boolean =>
-  s.e.specialAmmo[carrier]! > 0 && carrierCanTarget(s, carrier, target);
+  hasInternalProductReady(s, carrier, interceptorMechanic().childKind) && carrierCanTarget(s, carrier, target);
 
 export const launchInterceptor = (s: State, carrier: number, target: number): boolean => {
   const e = s.e;
   const mechanic = interceptorMechanic();
-  const capacity = internalAmmoCapacity(s, carrier, mechanic.childKind);
-  if (capacity <= 0 || e.specialAmmo[carrier]! <= 0) return false;
+  const capacity = internalProductCapacity(s, carrier, mechanic.childKind);
+  if (capacity <= 0 || !hasInternalProductReady(s, carrier, mechanic.childKind)) return false;
   const launched = launchedBy(s, carrier);
   if (launched >= capacity) return false;
-  e.specialAmmo[carrier] = e.specialAmmo[carrier]! - 1;
+  consumeInternalProduct(s, carrier, mechanic.childKind);
   faceToward(e, carrier, e.x[target]!, e.y[target]!);
   const bay = carrierBayPoint(s, carrier, launched);
   const id = spawnUnit(s, mechanic.childKind, e.owner[carrier]!, bay.x, bay.y);

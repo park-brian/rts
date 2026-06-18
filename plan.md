@@ -1766,6 +1766,8 @@ Highest-impact LOC reductions:
        mechanic flag without changing loaded infantry behavior.
      - Routed Scarab-launch ammo readiness and consumption through weapon-mechanic helpers backed by
        internal-product descriptors, removing Reaver combat/validation reads of raw `specialAmmo`.
+     - Routed Carrier Interceptor launch readiness, launch consumption, and return refill through
+       internal-product helpers while preserving deterministic bay/orbit behavior.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.

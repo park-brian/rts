@@ -96,6 +96,13 @@ export const consumeInternalProduct = (s: State, producer: number, productKind: 
   return true;
 };
 
+export const storeInternalProduct = (s: State, producer: number, productKind: number): boolean => {
+  const capacity = internalProductCapacity(s, producer, productKind);
+  if (capacity <= 0 || s.e.specialAmmo[producer]! >= capacity) return false;
+  s.e.specialAmmo[producer] = s.e.specialAmmo[producer]! + 1;
+  return true;
+};
+
 export const refillInternalProduct = (s: State, producer: number, productKind: number): void => {
   const capacity = internalProductCapacity(s, producer, productKind);
   if (capacity > 0) s.e.specialAmmo[producer] = Math.max(s.e.specialAmmo[producer]!, capacity);

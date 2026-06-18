@@ -1,7 +1,7 @@
 import type { State } from '../world.ts';
 import { isAlive, kill, NONE, slotOf } from '../world.ts';
 import { Kind, Order, Units, tiles } from '../data.ts';
-import { internalAmmoCapacity } from '../derived.ts';
+import { storeInternalProduct } from '../internal-products.ts';
 import { carrierBayPoint } from '../interceptor.ts';
 import { navigate } from '../pathing.ts';
 import { faceToward, within } from './move.ts';
@@ -24,7 +24,7 @@ const returnToCarrier = (s: State, interceptor: number, carrier: number): void =
   e.target[interceptor] = NONE;
   e.timer[interceptor] = -1;
   if (within(e, interceptor, bay.x, bay.y, RETURN_RANGE)) {
-    e.specialAmmo[carrier] = Math.min(internalAmmoCapacity(s, carrier, Kind.Interceptor), e.specialAmmo[carrier]! + 1);
+    storeInternalProduct(s, carrier, Kind.Interceptor);
     kill(s, interceptor);
     return;
   }

@@ -11,6 +11,7 @@ import {
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
+import { hasInternalProductReady, storeInternalProduct } from '../src/internal-products.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
@@ -264,6 +265,19 @@ test('carriers build interceptors as internal ammo', () => {
 
   assert.equal(e.specialAmmo[c], 1);
   assert.equal(e.prodKind[c], Kind.None);
+});
+
+test('carrier interceptor launch and return use internal product readiness', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 6051 });
+  const s = sim.fullState();
+  const e = s.e;
+  const carrier = slotOf(spawnUnit(s, Kind.Carrier, 0, fx(400), fx(400)));
+
+  assert.equal(hasInternalProductReady(s, carrier, Kind.Interceptor), false);
+  assert.equal(storeInternalProduct(s, carrier, Kind.Interceptor), true);
+  assert.equal(hasInternalProductReady(s, carrier, Kind.Interceptor), true);
+  assert.equal(storeInternalProduct(s, carrier, Kind.Interceptor), true);
+  assert.equal(e.specialAmmo[carrier], 2);
 });
 
 test('carrier capacity upgrade gates queued interceptors', () => {
