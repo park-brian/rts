@@ -12,6 +12,7 @@ import { isContained, sameTeam } from './cargo.ts';
 import { CREEP_RADIUS, providesCreep } from './creep.ts';
 import { LARVA_MAX, nearestLarvaSource } from './larva.ts';
 import { POWER_RADIUS } from './power.ts';
+import { entityWorkQueue } from './entity-work-queue.ts';
 
 export type EntityView = {
   id: number; kind: number; owner: number;
@@ -192,6 +193,19 @@ const coverageView = (s: State, i: number, radius: number): CoverageView => ({
   radius,
 });
 
+const queueView = (s: State, slot: number): QueueView | undefined => {
+  const work = entityWorkQueue(s, slot);
+  if (!work.production && !work.research) return undefined;
+  return {
+    id: eid(s.e, slot),
+    prodKind: work.production?.kind ?? Kind.None,
+    prodTimer: work.production?.remaining ?? 0,
+    prodQueued: work.production?.queued ?? 0,
+    researchKind: work.research?.tech ?? Kind.None,
+    researchTimer: work.research?.remaining ?? 0,
+  };
+};
+
 export const observe = (s: State, player: number): Observation => {
   if (!s.trackVision) throw new Error('observe: vision tracking is disabled for this State');
   const e = s.e; const m = s.map; const W = m.w;
@@ -235,15 +249,9 @@ export const observe = (s: State, player: number): Observation => {
       }
     }
     if (own && hasStatus(e, i)) statuses.push(statusView(e, i));
-    if (own && (e.prodKind[i] !== 0 || e.researchKind[i] !== 0)) {
-      queues.push({
-        id: eid(e, i),
-        prodKind: e.prodKind[i]!,
-        prodTimer: e.prodTimer[i]!,
-        prodQueued: e.prodQueued[i]!,
-        researchKind: e.researchKind[i]!,
-        researchTimer: e.researchTimer[i]!,
-      });
+    if (own) {
+      const queue = queueView(s, i);
+      if (queue) queues.push(queue);
     }
     if (!own) {
       if (isContained(s, i)) continue;

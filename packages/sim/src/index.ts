@@ -30,6 +30,7 @@ export * from './internal-products.ts';
 export * from './child-actors.ts';
 export * from './weapon-mechanics.ts';
 export * from './render-descriptors.ts';
+export * from './entity-work-queue.ts';
 export * from './derived.ts';
 export * from './rally.ts';
 export * from './ability-availability.ts';

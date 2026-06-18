@@ -8,12 +8,12 @@ import {
   validateCommand, transportCapacity, unloadAnchorSlot,
   canDetect, Factions,
   transformFor, isLiftedStructureFlags,
+  entityWorkQueue,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
 import { clearArmedCommand, isPlacementArmed, shouldToggleArmedCommand, ui, type CommandOption, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
-import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';

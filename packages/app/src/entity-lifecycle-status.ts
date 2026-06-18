@@ -3,9 +3,9 @@ import {
   armorUpgradeBonus, canDetect, isCloaked, isLiftedStructureFlags,
   shieldArmorBonus, upgradedCooldown, upgradedRange,
   upgradedSight, upgradedSpeed, weaponUpgradeBonus,
+  entityWorkQueue,
   type State, type Weapon,
 } from './sim.ts';
-import { entityWorkQueue } from './entity-work-queue.ts';
 import type { SelectionStatus } from './store.ts';
 
 const ORDER_LABELS: Record<number, string> = {

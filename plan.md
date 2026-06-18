@@ -1867,11 +1867,16 @@ Further concrete deletion opportunities found on review:
    - Current shape:
      - UI, observe, census, validation, production, and tests directly inspect `prodKind`,
        `prodTimer`, `prodQueued`, `researchKind`, `researchTimer`, and `specialAmmo`;
-     - `NuclearMissile`, `Scarab`, and `Interceptor` status labels are separate app logic.
+     - an app-side `entityWorkQueue` already centralizes selection labels for current production,
+       research, internal ammo readiness, and producer load, but sim `observe()` still rebuilds
+       queue state directly from typed arrays;
+     - `NuclearMissile`, `Scarab`, and `Interceptor` status labels should not remain app-owned.
    - Collapse shape:
-     - `entityWorkQueue(s, slot)` returns active work, queued work count, internal product capacity,
-       progress, label, and affordability context;
-     - `selectionCapabilities` and observe use that query.
+     - move the existing `entityWorkQueue(s, slot)` query into sim instead of creating a parallel
+       helper;
+     - app consumers import the sim-owned query, preserving existing selection/status shapes;
+     - `observe()` derives its stable `QueueView` from the sim query so RL/network observations and
+       UI status share one owner for current work.
    - Expected win: less app code and cleaner future support for multi-queue, addons, morphs, and
      internal ammo.
 8. Split data for navigation, not abstraction.

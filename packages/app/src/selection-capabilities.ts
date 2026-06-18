@@ -3,10 +3,10 @@ import {
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   internalProductDef, isLiftedStructureFlags, slotOf, transformFor, transformTargetsFor, transportCapacity,
   validateCommand, workerBuildKindsFor,
+  entityWorkQueue,
   type Command, type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
 import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
-import { entityWorkQueue } from './entity-work-queue.ts';
 import { entitySelectionName } from './entity-presentation.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { EMPTY_SELECTION_VIEW, OrderOptionId, type ArmedCommand, type CommandOption, type SelectionView } from './store.ts';
