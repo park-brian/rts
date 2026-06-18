@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBot } from '../src/bot.ts';
+import { botScenario, expectBotCasts, expectCommandType } from '../test-support/bot-scenario.ts';
 import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
@@ -56,18 +57,16 @@ const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): 
 };
 
 test('bot uses Stim when committing idle bio to defend', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 40 });
-  const s = sim.fullState();
-  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
-  const marine = spawnUnit(s, Kind.Marine, 0, base.x + fx(20), base.y);
-  spawnUnit(s, Kind.Marine, 1, base.x + fx(50), base.y);
-  grant(sim, 0, Tech.StimPack);
-  const bot = createBot(Terran);
+  const scenario = botScenario({ seed: 40 });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  scenario.spawn(Kind.Marine, 1, base.x + fx(50), base.y);
+  scenario.grant(0, Tech.StimPack);
 
-  const cmds = bot(s, 0);
+  const cmds = scenario.run(Terran);
 
-  assert.ok(cmds.some((c) => c.t === 'ability' && c.unit === marine && c.ability === Ability.StimPack));
-  assert.ok(commandTypes(cmds).includes('attack'));
+  expectBotCasts(cmds, marine, Ability.StimPack);
+  expectCommandType(cmds, 'attack');
 });
 
 test('bot sieges tanks when an enemy is in useful siege range', () => {

@@ -1607,6 +1607,11 @@ Highest-impact LOC reductions:
        bot policy choices.
    - Expected win: likely the largest raw LOC reduction. `bot-abilities.test.ts` should become a
      compact policy matrix plus a few bespoke scenario tests instead of thousands of setup lines.
+   - Completed:
+     - Added the first AI `botScenario` helper with shared sim setup, entity lookup, resource/tech
+       setup, spawning, bot execution, and command expectation helpers.
+     - Migrated the Stim bot ability test as the initial proof before expanding the DSL across larger
+       Zerg tech and command policy clusters.
 6. Replace scattered child/internal-product logic with descriptors.
    - Current shape: Scarabs, Interceptors, Spider Mines, and Nukes share concepts but appear as
      `specialAmmo`, child actors, production specials, UI labels, combat checks, and tests.
