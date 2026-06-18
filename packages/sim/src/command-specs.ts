@@ -32,6 +32,7 @@ import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon 
 import { queueProduction, queuedProductionCount } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
+import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -336,10 +337,11 @@ const validateAttack = (s: State, player: number, command: Extract<Command, { t:
   if (!isPowered(s, slot)) return reject('missing-capability');
   if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
   const attacker = Units[e.kind[slot]!]!;
+  const mechanic = weaponMechanicDef(e.kind[slot]!);
   const carrierAttack = e.kind[slot] === Kind.Carrier && isAlive(e, command.target) && carrierCanAttack(s, slot, slotOf(command.target));
   if (!hasAnyWeapon(attacker) && !carrierAttack) return reject('missing-capability');
   if (!canUseWeaponNow(s, slot)) return reject('missing-capability');
-  if (e.kind[slot] === Kind.Reaver && e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
+  if (!hasWeaponMechanicAmmo(s, slot, mechanic)) return reject('target-not-allowed');
   if (!isAlive(e, command.target)) return reject('target-not-found');
   const target = slotOf(command.target);
   if (isContained(s, target)) return reject('target-not-allowed');

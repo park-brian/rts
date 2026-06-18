@@ -1764,6 +1764,8 @@ Highest-impact LOC reductions:
      - Added a `postFire` suicide mechanic for Scourge, Infested Terran, and Spider Mine cleanup.
      - Routed Bunker contained-fire targeting and resolution through a `containerProvider` weapon
        mechanic flag without changing loaded infantry behavior.
+     - Routed Scarab-launch ammo readiness and consumption through weapon-mechanic helpers backed by
+       internal-product descriptors, removing Reaver combat/validation reads of raw `specialAmmo`.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.

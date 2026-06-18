@@ -14,7 +14,7 @@ import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
-import { WeaponMechanic, weaponMechanicDef } from '../src/weapon-mechanics.ts';
+import { WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef } from '../src/weapon-mechanics.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -63,6 +63,20 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(weaponMechanicDef(Kind.InfestedTerran)?.postFire, WeaponMechanic.SuicideOnFire);
   assert.equal(weaponMechanicDef(Kind.SpiderMine)?.postFire, WeaponMechanic.SuicideOnFire);
   assert.equal(weaponMechanicDef(Kind.Bunker)?.containerProvider, true);
+});
+
+test('scarab launch ammo readiness is internal-product backed', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 600 });
+  const s = sim.fullState();
+  const reaver = slotOf(spawnUnit(s, Kind.Reaver, 0, fx(400), fx(400)));
+  const mechanic = weaponMechanicDef(Kind.Reaver);
+
+  assert.equal(hasWeaponMechanicAmmo(s, reaver, mechanic), false);
+  s.e.specialAmmo[reaver] = 1;
+  assert.equal(hasWeaponMechanicAmmo(s, reaver, mechanic), true);
+  consumeWeaponMechanicAmmo(s, reaver, mechanic);
+  assert.equal(s.e.specialAmmo[reaver], 0);
+  assert.equal(hasWeaponMechanicAmmo(s, reaver, mechanic), false);
 });
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {

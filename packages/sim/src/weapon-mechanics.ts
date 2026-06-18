@@ -1,4 +1,6 @@
 import { Kind, sec, tiles } from './data.ts';
+import { consumeInternalProduct, hasInternalProductReady } from './internal-products.ts';
+import type { State } from './world.ts';
 
 export const WeaponMechanic = {
   ScarabLaunch: 1,
@@ -91,3 +93,14 @@ const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>
   WeaponMechanicByUnit[kind];
+
+export const hasWeaponMechanicAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): boolean => {
+  if (mechanic?.consumesAmmoOnFire !== true) return true;
+  return mechanic.childKind !== undefined && hasInternalProductReady(s, slot, mechanic.childKind);
+};
+
+export const consumeWeaponMechanicAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): void => {
+  if (mechanic?.consumesAmmoOnFire === true && mechanic.childKind !== undefined) {
+    consumeInternalProduct(s, slot, mechanic.childKind);
+  }
+};

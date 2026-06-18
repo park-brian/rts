@@ -23,19 +23,12 @@ import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launch
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
-import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from '../weapon-mechanics.ts';
+import {
+  WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
+} from '../weapon-mechanics.ts';
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
-
-const hasSpecialWeaponAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): boolean =>
-  mechanic?.consumesAmmoOnFire !== true || s.e.specialAmmo[slot]! > 0;
-
-const consumeSpecialWeaponAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): void => {
-  if (mechanic?.consumesAmmoOnFire === true && s.e.specialAmmo[slot]! > 0) {
-    s.e.specialAmmo[slot] = s.e.specialAmmo[slot]! - 1;
-  }
-};
 
 const ACID_SPORE_DURATION = sec(30);
 const ACID_SPORE_MAX = 9;
@@ -188,7 +181,7 @@ export const combat = (s: State, grid: Grid): void => {
     const interceptorLaunch = mechanic?.id === WeaponMechanic.InterceptorLaunch;
     if (!def || (!hasAnyWeapon(def) && !containerProvider && !interceptorLaunch)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
-    if (!containerProvider && !interceptorLaunch && !hasSpecialWeaponAmmo(s, i, mechanic)) continue;
+    if (!containerProvider && !interceptorLaunch && !hasWeaponMechanicAmmo(s, i, mechanic)) continue;
     if (!containerProvider && !canUseWeaponNow(s, i)) continue;
     if (isDisabled(e, i)) continue;
     if (!isPowered(s, i)) continue;
@@ -256,7 +249,7 @@ export const combat = (s: State, grid: Grid): void => {
             let hit = true;
             if (mechanic?.id === WeaponMechanic.ScarabLaunch) launchScarab(s, i, tgt);
             else hit = applyWeaponHit(s, tgt, weapon, i);
-            consumeSpecialWeaponAmmo(s, i, mechanic);
+            consumeWeaponMechanicAmmo(s, i, mechanic);
             if (hit) {
               applyMechanicOnHit(s, mechanic, i, tgt, weapon);
             }
