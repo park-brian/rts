@@ -53,6 +53,7 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.equal(Units[Kind.Medic]!.abilities.includes(Ability.Heal), true);
   assert.equal(Units[Kind.ShieldBattery]!.abilities.includes(Ability.ShieldRecharge), true);
   assert.deepEqual(Abilities[Ability.StimPack]!.execution, { mode: 'caster-status', timer: 'stim' });
+  assert.deepEqual(Abilities[Ability.PsionicStorm]!.execution, { mode: 'persistent-effect', effect: EffectKind.PsionicStorm });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
@@ -111,6 +112,18 @@ test('psionic storm creates persistent area damage for units but not structures'
     { t: 'ability', unit: templar, ability: Ability.PsionicStorm, x: fx(430), y: fx(400) },
   ] }]);
 
+  const storm = Abilities[Ability.PsionicStorm]!;
+  assert.equal(s.effects.hi, 1);
+  assert.equal(s.effects.alive[0], 1);
+  assert.equal(s.effects.kind[0], EffectKind.PsionicStorm);
+  assert.equal(s.effects.owner[0], 0);
+  assert.equal(s.effects.x[0], fx(430));
+  assert.equal(s.effects.y[0], fx(400));
+  assert.equal(s.effects.radius[0], storm.radius);
+  assert.equal(s.effects.timer[0], storm.duration - 1);
+  assert.equal(s.effects.period[0], storm.period);
+  assert.equal(s.effects.nextTick[0], storm.period - 1);
+  assert.equal(s.effects.damage[0], storm.damage);
   assert.equal(s.e.hp[slotOf(enemy)], Units[Kind.Medic]!.hp - 14);
   assert.equal(s.e.hp[slotOf(friendly)], Units[Kind.Medic]!.hp - 14);
   assert.equal(s.e.hp[slotOf(depot)], depotHp);

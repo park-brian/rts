@@ -271,9 +271,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     case Ability.EMPShockwave:
       applyEmp(s, c.x!, c.y!, ability.radius);
       break;
-    case Ability.PsionicStorm:
-      spawnEffect(s, EffectKind.PsionicStorm, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
-      break;
     case Ability.DefensiveMatrix: {
       const target = slotOf(c.target!);
       e.matrixHp[target] = Math.max(e.matrixHp[target]!, ability.damage);

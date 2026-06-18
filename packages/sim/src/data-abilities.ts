@@ -92,6 +92,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Psionic Storm', tech: Tech.PsionicStorm, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.HighTemplar],
     energyCost: 75, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(2.67), period: 8, damage: 14,
+    execution: { mode: 'persistent-effect', effect: EffectKind.PsionicStorm },
   },
   [Ability.DefensiveMatrix]: {
     name: 'Defensive Matrix', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,

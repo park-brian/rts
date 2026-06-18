@@ -1604,6 +1604,8 @@ Highest-impact LOC reductions:
      - Added a persistent point-effect execution descriptor for non-damaging map effects:
        `Disruption Web`, `Dark Swarm`, and `Scanner Sweep` now spawn their effects through the
        generic descriptor path while leaving effect ticking behavior unchanged.
+     - Moved `Psionic Storm` onto the same persistent-effect descriptor path, with damage cadence
+       still owned by effect ticking rather than spell-cast branching.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.
