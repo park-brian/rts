@@ -11,7 +11,9 @@ import {
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
-import { hasInternalProductReady, storeInternalProduct } from '../src/internal-products.ts';
+import {
+  canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
+} from '../src/internal-products.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
@@ -78,6 +80,23 @@ test('scarab launch ammo readiness is internal-product backed', () => {
   consumeWeaponMechanicAmmo(s, reaver, mechanic);
   assert.equal(s.e.specialAmmo[reaver], 0);
   assert.equal(hasWeaponMechanicAmmo(s, reaver, mechanic), false);
+});
+
+test('internal product queue and completion helpers preserve capacity semantics', () => {
+  const sim = new Sim({ map: sliceMap(), players: 1, seed: 6001 });
+  const s = sim.fullState();
+  const e = s.e;
+  const reaver = slotOf(spawnUnit(s, Kind.Reaver, 0, fx(400), fx(400)));
+
+  e.specialAmmo[reaver] = REAVER_SCARAB_CAPACITY - 1;
+  assert.equal(canQueueInternalProduct(s, reaver, Kind.Scarab), true);
+  assert.equal(canQueueInternalProduct(s, reaver, Kind.Scarab, 1), false);
+
+  assert.equal(completeInternalProduct(s, reaver, Kind.Scarab), true);
+  assert.equal(e.specialAmmo[reaver], REAVER_SCARAB_CAPACITY);
+  assert.equal(completeInternalProduct(s, reaver, Kind.Scarab), true);
+  assert.equal(e.specialAmmo[reaver], REAVER_SCARAB_CAPACITY);
+  assert.equal(completeInternalProduct(s, reaver, Kind.Interceptor), false);
 });
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {

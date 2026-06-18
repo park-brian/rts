@@ -21,8 +21,7 @@ import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './
 import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, queueResearch, techGas, techMinerals } from './tech.ts';
-import { internalAmmoCapacity } from './derived.ts';
-import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
+import { canQueueInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
@@ -151,8 +150,8 @@ const validateTrain = (
   if (!def || !building || !building.produces.includes(command.kind)) return reject('target-not-allowed');
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
   const queued = queuedProductionCount(e, slot);
-  const internalCapacity = internalAmmoCapacity(s, slot, command.kind);
-  if (internalCapacity > 0 && e.specialAmmo[slot]! + queued >= internalCapacity) return reject('queue-full');
+  const internalCapacity = internalProductCapacity(s, slot, command.kind);
+  if (internalCapacity > 0 && !canQueueInternalProduct(s, slot, command.kind, queued)) return reject('queue-full');
   if (queued >= MAX_QUEUE) return reject('queue-full');
   const costCount = productionCostCount(command.kind);
   if (s.players.minerals[player]! < def.minerals * costCount || s.players.gas[player]! < def.gas * costCount) {

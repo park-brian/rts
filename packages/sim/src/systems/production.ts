@@ -12,7 +12,7 @@ import { pickPatch, isResource } from './harvest.ts';
 import { effectiveSpeed } from './status.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
-import { internalAmmoCapacity } from '../derived.ts';
+import { completeInternalProduct } from '../internal-products.ts';
 import { resolveRallyEndpoint } from '../rally.ts';
 import { LARVA_MAX, countLarvae } from '../larva.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
@@ -159,9 +159,7 @@ const larvae = (s: State): void => {
 
 const finishInternalAmmo = (s: State, producer: number, kind: number): boolean => {
   const e = s.e;
-  const capacity = internalAmmoCapacity(s, producer, kind);
-  if (capacity <= 0) return false;
-  e.specialAmmo[producer] = Math.min(capacity, e.specialAmmo[producer]! + 1);
+  if (!completeInternalProduct(s, producer, kind)) return false;
   if (e.prodQueued[producer]! > 0) {
     e.prodQueued[producer] = e.prodQueued[producer]! - 1;
     e.prodTimer[producer] = Units[kind]!.buildTime;

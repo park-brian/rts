@@ -90,6 +90,16 @@ export const internalProductReadyCount = (s: State, producer: number, productKin
 export const hasInternalProductReady = (s: State, producer: number, productKind: number): boolean =>
   internalProductReadyCount(s, producer, productKind) > 0;
 
+export const canQueueInternalProduct = (
+  s: State,
+  producer: number,
+  productKind: number,
+  queued = 0,
+): boolean => {
+  const capacity = internalProductCapacity(s, producer, productKind);
+  return capacity > 0 && s.e.specialAmmo[producer]! + queued < capacity;
+};
+
 export const consumeInternalProduct = (s: State, producer: number, productKind: number): boolean => {
   if (!hasInternalProductReady(s, producer, productKind)) return false;
   s.e.specialAmmo[producer] = s.e.specialAmmo[producer]! - 1;
@@ -100,6 +110,13 @@ export const storeInternalProduct = (s: State, producer: number, productKind: nu
   const capacity = internalProductCapacity(s, producer, productKind);
   if (capacity <= 0 || s.e.specialAmmo[producer]! >= capacity) return false;
   s.e.specialAmmo[producer] = s.e.specialAmmo[producer]! + 1;
+  return true;
+};
+
+export const completeInternalProduct = (s: State, producer: number, productKind: number): boolean => {
+  const capacity = internalProductCapacity(s, producer, productKind);
+  if (capacity <= 0) return false;
+  s.e.specialAmmo[producer] = Math.min(capacity, s.e.specialAmmo[producer]! + 1);
   return true;
 };
 
