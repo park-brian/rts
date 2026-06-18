@@ -2926,20 +2926,27 @@ Implementation slices:
 5. Split producer rally state.
    - Prerequisite next slice: introduce a shared `isGatherTarget` / resource-rally predicate and use
      it from harvest validation, rally validation, smart-command candidates, masks, and focused
-     tests. Status: implemented for command validation, rally snapping/validation, setup defaults,
-     production rally resolution, harvest routing, resource-route collision checks, app smart
+     tests. Status: implemented for command validation, rally snapping/validation, production rally
+     resolution, harvest routing, resource-route collision checks, app smart
      commands, and focused sim/app tests. The predicate is split into shape-level
      `isGatherTarget` and player-aware `canPlayerGatherTarget`: neutral minerals are gatherable,
      completed friendly/allied gas collectors are gatherable, and hostile gas collectors are not.
      This landed before new rally state columns so "resource rally" has one authoritative meaning.
    - Status: implemented. Existing `rallyX/Y/Target` is now the unit/general rally, with new
      `workerRallyX/Y/Target` columns for resource/gather rally. Clone/serialize pick the columns up
-     through `ENTITY_COLUMNS`, hashes include them, snapshot version is bumped, setup stores default
-     mineral-line rally as worker rally, and both renderers draw typed rally endpoints.
+     through `ENTITY_COLUMNS`, hashes include them, snapshot version is bumped, and both renderers
+     draw typed rally endpoints. Setup does not store hidden default worker rally state anymore:
+     produced workers with no explicit worker or unit rally derive their nearest mineral-line
+     default through `producedUnitRallyIntent`.
    - Status: implemented. `resolveUnitRallyEndpoint` and `resolveWorkerRallyEndpoint` now split
      invalidation/retargeting: unit rally retargets friendly entities, worker rally retargets gather
      targets. Production uses worker rally only for workers and unit rally for non-workers, so
      resource rally no longer sends Zerglings/Marines into mineral lines.
+   - Status: implemented. Command Center, Nexus, and Hatchery-family worker defaults now live in the
+     shared production/rally intent path rather than setup-time state. Tests cover hidden-state-free
+     defaults for Terran, Protoss, and Zerg workers, explicit unit rally overriding the default for
+     workers, combat units ignoring mineral defaults, and the real production path assigning a new
+     worker to harvest.
 
 6. Decide and implement attack-move-follow.
    - Option A: reject attack-move entity targets until `intentTarget`/`combatTarget` split lands.

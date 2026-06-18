@@ -40,6 +40,10 @@ test('training a worker costs minerals, adds supply, and produces a unit', () =>
   const scvBefore = count(s, Kind.SCV, 0);
   const supBefore = s.players.supplyUsed[0]!;
   const minBefore = s.players.minerals[0]!;
+  const beforeSlots = new Set<number>();
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === 0 && s.e.kind[i] === Kind.SCV) beforeSlots.add(i);
+  }
 
   sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(s.e, cc), kind: Kind.SCV }] }]);
   assert.equal(s.players.minerals[0], minBefore - Units[Kind.SCV]!.minerals, 'cost deducted');
@@ -48,6 +52,13 @@ test('training a worker costs minerals, adds supply, and produces a unit', () =>
 
   assert.equal(count(s, Kind.SCV, 0), scvBefore + 1, 'one SCV produced');
   assert.equal(s.players.supplyUsed[0], supBefore + Units[Kind.SCV]!.supply, 'supply consumed on pop');
+  let produced = -1;
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === 0 && s.e.kind[i] === Kind.SCV && !beforeSlots.has(i)) produced = i;
+  }
+  assert.ok(produced >= 0, 'new SCV found');
+  assert.equal(s.e.order[produced], Order.Harvest, 'new SCV auto-gathers from default worker rally');
+  assert.notEqual(s.e.target[produced], NONE, 'new SCV has a harvest target');
 });
 
 test('production blocks at the supply cap', () => {

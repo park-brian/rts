@@ -8,7 +8,7 @@ import {
   rallyModeCandidates, repairModeCandidates, smartCommandCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { eid, makeState, NEUTRAL, slotOf } from '../src/world.ts';
+import { eid, makeState, NEUTRAL, NONE, slotOf } from '../src/world.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -270,6 +270,54 @@ test('produced non-workers use unit rally instead of worker resource rally', () 
     endpoint: { x: e.x[leader]!, y: e.y[leader]!, target: leader },
     intent: 'smart',
   });
+});
+
+test('town halls derive default worker mineral rally without storing hidden rally state', () => {
+  const cases = [
+    [Kind.CommandCenter, Kind.SCV],
+    [Kind.Nexus, Kind.Probe],
+    [Kind.Hatchery, Kind.Drone],
+  ] as const;
+
+  cases.forEach(([producerKind, workerKind], index) => {
+    const s = makeState(open(), 1, 1220 + index);
+    const e = s.e;
+    const producer = slotOf(spawnUnit(s, producerKind, 0, tc(8), tc(8)));
+    const worker = slotOf(spawnUnit(s, workerKind, 0, tc(8), tc(9)));
+    const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(11), tc(8)));
+
+    assert.equal(e.workerRallyTarget[producer], NONE);
+    assert.deepEqual(producedUnitRallyIntent(s, producer, worker), {
+      kind: 'gather-near',
+      x: e.x[mineral]!,
+      y: e.y[mineral]!,
+    });
+  });
+});
+
+test('default worker mineral rally yields to explicit unit rally and ignores combat units', () => {
+  const s = makeState(open(), 1, 1223);
+  const e = s.e;
+  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, tc(8), tc(8)));
+  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(9)));
+  const leader = slotOf(spawnUnit(s, Kind.Marine, 0, tc(12), tc(8)));
+  spawnUnit(s, Kind.Mineral, NEUTRAL, tc(10), tc(8));
+
+  e.rallyTarget[cc] = eid(e, leader);
+  e.rallyX[cc] = e.x[leader]!;
+  e.rallyY[cc] = e.y[leader]!;
+
+  assert.deepEqual(producedUnitRallyIntent(s, cc, scv), {
+    kind: 'travel',
+    endpoint: { x: e.x[leader]!, y: e.y[leader]!, target: leader },
+    intent: 'move',
+  });
+
+  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, tc(16), tc(8)));
+  const zergling = slotOf(spawnUnit(s, Kind.Zergling, 0, tc(16), tc(9)));
+  spawnUnit(s, Kind.Mineral, NEUTRAL, tc(18), tc(8));
+
+  assert.deepEqual(producedUnitRallyIntent(s, hatchery, zergling), { kind: 'none' });
 });
 
 test('produced units can instantiate load rally or default worker gather intent', () => {

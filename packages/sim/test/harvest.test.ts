@@ -6,12 +6,14 @@ import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/setup.ts';
 import { resourceSpawnCenterPx, sliceMap } from '../src/map.ts';
 import {
-  Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, bwRange,
+  Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, Units,
+  bwRange,
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
+import { producedUnitRallyIntent } from '../src/command-intent.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const open = (w: number, h: number): MapDef => ({
@@ -390,12 +392,25 @@ test('a refinery built on a geyser yields harvestable gas', () => {
   assert.ok(s.players.gas[0]! > before, 'gas accrues from the refinery');
 });
 
-test('a command center defaults its rally to the mineral line', () => {
+test('a command center derives produced-worker mineral rally without setup state', () => {
   const s = setupMatch(sliceMap(), 2, 1);
   const e = s.e;
   let cc = -1;
   for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.CommandCenter && e.owner[i] === 0) { cc = i; break; }
   assert.ok(cc >= 0);
-  assert.ok(e.workerRallyX[cc]! >= 0, 'worker rally point is set');
-  assert.ok((e.flags[slotOf(e.workerRallyTarget[cc]!)]! & Role.Resource) !== 0, 'worker rally target is a resource');
+  assert.equal(e.workerRallyTarget[cc], -1, 'setup does not store hidden worker rally target');
+
+  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, e.x[cc]!, e.y[cc]!));
+  const intent = producedUnitRallyIntent(s, cc, scv);
+  assert.equal(intent.kind, 'gather-near');
+  assert.ok(
+    intent.kind === 'gather-near' &&
+    Array.from({ length: e.hi }, (_, i) => i).some((i) =>
+      e.alive[i] === 1 &&
+      (e.flags[i]! & Role.Resource) !== 0 &&
+      Units[e.kind[i]!]!.resourceType === ResourceType.Minerals &&
+      e.x[i] === intent.x &&
+      e.y[i] === intent.y),
+    'produced worker intent points at a mineral patch',
+  );
 });

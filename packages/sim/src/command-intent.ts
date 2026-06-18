@@ -1,11 +1,13 @@
 import type { Command } from './commands.ts';
 import { ResourceType, Role, Units } from './data.ts';
 import { canAcceptCargo, sameTeam, transportCapacity } from './cargo.ts';
-import { resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint } from './rally.ts';
-import { canPlayerGatherTarget } from './resource-targets.ts';
+import {
+  producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
+} from './rally.ts';
+import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
 import { validateCommand } from './validation.ts';
-import { NONE, isAlive, isEnemy, slotOf, type State } from './world.ts';
+import { NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
 
 export type SmartCommandScheme = 'mobile' | 'desktop';
 
@@ -24,6 +26,16 @@ export type ProducedUnitRallyIntent =
 
 const endpointFromRally = (x: number, y: number, target: number): TravelEndpoint =>
   target === NONE ? { x, y } : { x, y, target };
+
+const defaultWorkerRallyEndpoint = (s: State, producer: number): RallyEndpoint | null => {
+  if (!producerSupportsWorkerRally(s, producer)) return null;
+  const e = s.e;
+  const owner = e.owner[producer]!;
+  const target = nearest(s, e.x[producer]!, e.y[producer]!, (sl) =>
+    canPlayerGatherTargetSlot(s, owner, sl) &&
+    Units[e.kind[sl]!]!.resourceType === ResourceType.Minerals);
+  return target === NONE ? null : { x: e.x[target]!, y: e.y[target]!, target };
+};
 
 const valid = (s: State, player: number, command: Command): Command[] =>
   validateCommand(s, player, command).ok ? [command] : [];
@@ -204,7 +216,10 @@ export const producedUnitRallyIntent = (
   }
 
   if (isWorker && !unitRally) {
-    return { kind: 'gather-near', x: e.x[unit]!, y: e.y[unit]! };
+    const fallback = defaultWorkerRallyEndpoint(s, producer);
+    return fallback
+      ? { kind: 'gather-near', x: fallback.x, y: fallback.y }
+      : { kind: 'gather-near', x: e.x[unit]!, y: e.y[unit]! };
   }
 
   if (!unitRally) return { kind: 'none' };
