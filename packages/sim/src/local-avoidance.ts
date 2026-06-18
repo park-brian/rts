@@ -16,6 +16,7 @@ import { workersCanShareResourceRouteCollision } from './worker-collision.ts';
 const TILE_FX = TILE * ONE;
 const AVOID_MARGIN = ONE * 6;
 const MAX_NEIGHBOR_RADIUS = ONE * 32;
+const LOOKAHEAD_TICKS = 2;
 
 let gridState: State | null = null;
 let gridTick = -1;
@@ -41,6 +42,12 @@ export const isLocalAvoidanceSolid = (s: State, slot: number): boolean => {
 };
 
 export const usesLocalAvoidance = isLocalAvoidanceSolid;
+
+const clampVelocity = (x: number, y: number, maxSpeed: number): { x: number; y: number } => {
+  const d = isqrt(x * x + y * y);
+  if (d === 0 || d <= maxSpeed) return { x, y };
+  return { x: Math.trunc((x * maxSpeed) / d), y: Math.trunc((y * maxSpeed) / d) };
+};
 
 export const prepareLocalAvoidance = (s: State): void => {
   if (gridState === s && gridTick === s.tick) return;
@@ -93,4 +100,65 @@ export const localAvoidancePenalty = (s: State, slot: number, nx: number, ny: nu
     }
   }
   return penalty;
+};
+
+export const localAvoidanceVelocity = (
+  s: State,
+  slot: number,
+  vx: number,
+  vy: number,
+  maxSpeed: number,
+): { x: number; y: number } => {
+  if (!usesLocalAvoidance(s, slot) || (vx === 0 && vy === 0)) return { x: vx, y: vy };
+  prepareLocalAvoidance(s);
+  const e = s.e;
+  const ri = Units[e.kind[slot]!]!.radius;
+  const span = Math.ceil((ri + MAX_NEIGHBOR_RADIUS + AVOID_MARGIN + maxSpeed * LOOKAHEAD_TICKS) / TILE_FX);
+  const futureX = e.x[slot]! + vx * LOOKAHEAD_TICKS;
+  const futureY = e.y[slot]! + vy * LOOKAHEAD_TICKS;
+  const cx = cell(futureX, cols);
+  const cy = cell(futureY, rows);
+  let ax = 0;
+  let ay = 0;
+
+  for (let gy = Math.max(0, cy - span); gy <= Math.min(rows - 1, cy + span); gy++) {
+    const row = gy * cols;
+    for (let gx = Math.max(0, cx - span); gx <= Math.min(cols - 1, cx + span); gx++) {
+      for (let j = head[row + gx]!; j >= 0; j = next[j]!) {
+        if (j === slot || !usesLocalAvoidance(s, j)) continue;
+        if (workersCanShareResourceRouteCollision(s, slot, j)) continue;
+        const min = ri + Units[e.kind[j]!]!.radius;
+        const avoid = min + AVOID_MARGIN;
+        const anchored = isPathingAnchor(s, j);
+        if (!anchored && vx * e.vx[j]! + vy * e.vy[j]! >= 0) continue;
+        const closing =
+          (e.x[j]! - e.x[slot]!) * (vx - e.vx[j]!) +
+          (e.y[j]! - e.y[slot]!) * (vy - e.vy[j]!);
+        if (closing <= 0) continue;
+        const jx = e.x[j]! + e.vx[j]! * LOOKAHEAD_TICKS;
+        const jy = e.y[j]! + e.vy[j]! * LOOKAHEAD_TICKS;
+        let dx = futureX - jx;
+        let dy = futureY - jy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= avoid * avoid) continue;
+        if (d2 === 0) {
+          dx = slot < j ? -ONE : ONE;
+          dy = 0;
+        }
+        const d = isqrt(dx * dx + dy * dy);
+        const close = avoid - d;
+        const weight = anchored ? 3 : 1;
+        const denom = Math.max(1, d);
+        ax += Math.trunc((dx * close * weight) / (denom * 2));
+        if (Math.abs(dy) <= ONE) {
+          ay += ((slot + j) & 1) === 0 ? -close * weight : close * weight;
+        } else {
+          ay += Math.trunc((dy * close * weight) / denom);
+        }
+      }
+    }
+  }
+
+  if (ax === 0 && ay === 0) return { x: vx, y: vy };
+  return clampVelocity(vx + Math.trunc(ax / 4), vy + Math.trunc(ay / 2), maxSpeed);
 };

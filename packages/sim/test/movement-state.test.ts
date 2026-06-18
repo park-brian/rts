@@ -13,6 +13,7 @@ import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts'
 import { applyTransform } from '../src/unit-transform.ts';
 import { tickStatusTimers } from '../src/systems/status.ts';
 import { navigate } from '../src/pathing.ts';
+import { localAvoidanceVelocity } from '../src/local-avoidance.ts';
 
 const setVelocity = (s: ReturnType<typeof makeState>, slot: number): void => {
   s.e.vx[slot] = fx(5);
@@ -95,6 +96,18 @@ test('ground arrival shaping eases exact destinations without overshoot', () => 
   assert.equal(arrived, false);
   assert.ok(s.e.x[marine]! < targetX, 'arrival easing should not overshoot the exact destination');
   assert.ok(s.e.vx[marine]! > 0 && s.e.vx[marine]! < fx(2), 'velocity should ease down inside the arrival band');
+});
+
+test('reciprocal avoidance adjusts velocity for predicted head-on overlap', () => {
+  const s = makeState(sliceMap(), 1, 208);
+  const a = slotOf(spawnUnit(s, Kind.Marine, 0, fx(10 * 32), fx(10 * 32)));
+  const b = slotOf(spawnUnit(s, Kind.Marine, 0, fx(10 * 32) + fx(28), fx(10 * 32)));
+  s.e.vx[b] = -fx(2);
+
+  const adjusted = localAvoidanceVelocity(s, a, fx(2), 0, fx(2));
+
+  assert.ok(adjusted.x > 0 && adjusted.x <= fx(2), 'head-on prediction should keep forward intent bounded');
+  assert.notEqual(adjusted.y, 0, 'head-on prediction should introduce deterministic lateral separation');
 });
 
 test('containment transitions clear persistent movement velocity', () => {

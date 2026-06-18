@@ -7,7 +7,7 @@ import type { MapDef } from './map.ts';
 import { Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { acceleratedStep, moveToward } from './systems/move.ts';
-import { localAvoidancePenalty, usesLocalAvoidance } from './local-avoidance.ts';
+import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './local-avoidance.ts';
 import {
   clearancePxForKind,
   downhill,
@@ -221,21 +221,24 @@ const moveTowardPass = (
     }
   };
 
-  consider(baseX, baseY, dist <= speed, 0);
+  const pref = avoid ? localAvoidanceVelocity(s, slot, baseX, baseY, speed) : { x: baseX, y: baseY };
+  const prefArrives = dist <= shapedSpeed && pref.x === baseX && pref.y === baseY;
+  consider(pref.x, pref.y, prefArrives, 0);
+  if (pref.x !== baseX || pref.y !== baseY) consider(baseX, baseY, dist <= shapedSpeed, 3);
 
   if (avoid) {
-    const px = -baseY;
-    const py = baseX;
+    const px = -pref.y;
+    const py = pref.x;
     const leftFirst = (slot & 1) === 0;
     const rankA = leftFirst ? 1 : 2;
     const rankB = leftFirst ? 2 : 1;
-    consider((baseX >> 1) + px, (baseY >> 1) + py, false, rankA);
-    consider((baseX >> 1) - px, (baseY >> 1) - py, false, rankB);
-    consider(baseX + (px >> 1), baseY + (py >> 1), false, rankA + 2);
-    consider(baseX - (px >> 1), baseY - (py >> 1), false, rankB + 2);
+    consider((pref.x >> 1) + px, (pref.y >> 1) + py, false, rankA);
+    consider((pref.x >> 1) - px, (pref.y >> 1) - py, false, rankB);
+    consider(pref.x + (px >> 1), pref.y + (py >> 1), false, rankA + 2);
+    consider(pref.x - (px >> 1), pref.y - (py >> 1), false, rankB + 2);
   }
 
-  const firstX = Math.abs(dx) >= Math.abs(dy);
+  const firstX = Math.abs(pref.x) >= Math.abs(pref.y);
   consider(firstX ? baseX : 0, firstX ? 0 : baseY, false, 7);
   consider(firstX ? 0 : baseX, firstX ? baseY : 0, false, 8);
 
