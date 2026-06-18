@@ -2874,6 +2874,9 @@ Implementation slices:
      Harvest fans out to every selected valid worker, Repair fans out to valid repairers for built
      targets, and unfinished construction keeps the existing nearest-valid-worker rule in shared
      sim code instead of app controller code.
+   - Status: immediate command-card Load candidates now resolve through `command-intent.ts`, so
+     mixed-selection transport/cargo pairing and validation filtering are shared with sim tests
+     instead of being rebuilt in the app selection presenter.
    - Status: action-mask follow-target coverage implemented. Entity target masks and caller-owned
      writers now accept the `move` head for targeted follow candidates, with validator-parity tests
      proving friendly non-resource targets are exposed while enemy, resource, and self targets are

@@ -1,7 +1,7 @@
 import {
   Abilities, Ability, Kind, NONE, ONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
-  internalProductDef, isLiftedStructureFlags, slotOf, transformFor, transformTargetsFor, transportCapacity,
+  internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformFor, transformTargetsFor,
   unloadAnchorSlot, validateCommand, workerBuildKindsFor,
   entityWorkQueue,
   illusionPresentation,
@@ -163,20 +163,6 @@ const transformCommandsForSelection = (
       }
     } else {
       commands.push(c);
-    }
-  }
-  return commands;
-};
-
-const loadCommandsForSelection = (s: State, player: number, selected: readonly number[]): Command[] => {
-  const e = s.e;
-  const transports = selected.filter((id) => isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
-  const units = selected.filter((id) => isAlive(e, id) && !transports.includes(id));
-  const commands: Command[] = [];
-  for (const transport of transports) {
-    for (const unit of units) {
-      const command: Command = { t: 'load', transport, unit };
-      if (validateCommand(s, player, command).ok) commands.push(command);
     }
   }
   return commands;
@@ -354,7 +340,7 @@ export const selectionCapabilities = (
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;
-  const loadCommands = loadCommandsForSelection(s, player, selected);
+  const loadCommands = loadSelectionCandidates(s, player, selected);
   const unloadCommands = unloadCommandsForSelection(s, player, selected);
   canLoad = loadCommands.length > 0;
   canUnload = unloadCommands.length > 0;

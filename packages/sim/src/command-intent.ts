@@ -1,6 +1,6 @@
 import type { Command } from './commands.ts';
 import { ResourceType, Role, Units } from './data.ts';
-import { canAcceptCargo, sameTeam } from './cargo.ts';
+import { canAcceptCargo, sameTeam, transportCapacity } from './cargo.ts';
 import { resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint } from './rally.ts';
 import { canPlayerGatherTarget } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
@@ -138,6 +138,24 @@ export const repairModeCandidates = (
   for (const actor of actors) {
     const command: Command = { t: 'repair', unit: actor, target };
     if (validateCommand(s, player, command).ok) commands.push(command);
+  }
+  return commands;
+};
+
+export const loadSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): Command[] => {
+  const e = s.e;
+  const transports = selected.filter((id) => isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
+  const commands: Command[] = [];
+  for (const transport of transports) {
+    for (const unit of selected) {
+      if (transports.includes(unit)) continue;
+      const command: Command = { t: 'load', transport, unit };
+      if (validateCommand(s, player, command).ok) commands.push(command);
+    }
   }
   return commands;
 };

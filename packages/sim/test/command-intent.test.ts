@@ -4,8 +4,8 @@ import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
-  attackModeCandidates, harvestModeCandidates, producedUnitRallyIntent, repairModeCandidates,
-  smartCommandCandidates,
+  attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
+  repairModeCandidates, smartCommandCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, makeState, NEUTRAL, slotOf } from '../src/world.ts';
@@ -164,6 +164,35 @@ test('armed repair mode picks the nearest valid worker for unfinished constructi
 
   assert.deepEqual(repairModeCandidates(s, 0, [far, near], depot), [
     { t: 'repair', unit: near, target: depot },
+  ]);
+});
+
+test('load command-card candidates load selected cargo into selected transports', () => {
+  const s = makeState(open(), 1, 1215);
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const firebat = spawnUnit(s, Kind.Firebat, 0, tc(9), tc(8));
+  const dropship = spawnUnit(s, Kind.Dropship, 0, tc(10), tc(8));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, tc(11), tc(8));
+
+  assert.deepEqual(loadSelectionCandidates(s, 0, [dropship, bunker, marine, firebat]), [
+    { t: 'load', transport: dropship, unit: marine },
+    { t: 'load', transport: dropship, unit: firebat },
+    { t: 'load', transport: bunker, unit: marine },
+    { t: 'load', transport: bunker, unit: firebat },
+  ]);
+});
+
+test('load command-card candidates ignore invalid cargo and non-selected transports', () => {
+  const s = makeState(open(), 1, 1216);
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const tank = spawnUnit(s, Kind.SiegeTank, 0, tc(9), tc(8));
+  const dropship = spawnUnit(s, Kind.Dropship, 0, tc(10), tc(8));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, tc(11), tc(8));
+
+  assert.deepEqual(loadSelectionCandidates(s, 0, [dropship, bunker, marine, tank]), [
+    { t: 'load', transport: dropship, unit: marine },
+    { t: 'load', transport: dropship, unit: tank },
+    { t: 'load', transport: bunker, unit: marine },
   ]);
 });
 
