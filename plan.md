@@ -1566,6 +1566,8 @@ Highest-impact LOC reductions:
   validation, construction, and movement share the same footprint query without a validation cycle.
 - Moved `research` into command specs and put research queue/cost mutation in `tech.ts`; addon
   liveness is now a shared `addon.ts` helper used by production, research, and command validation.
+- Moved `addon` into command specs and put add-on spawn/link/cost mutation in `addon.ts` beside
+  add-on parent compatibility, position, and active-parent helpers.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

@@ -24,7 +24,7 @@ import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
-import { isActiveAddon } from './addon.ts';
+import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -34,7 +34,7 @@ type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
 export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
-    | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'transform' | 'unload';
+    | 'addon' | 'amove' | 'land' | 'lift' | 'rally' | 'repair' | 'research' | 'stop' | 'transform' | 'unload';
 }>;
 
 type CommandSpecContext = {
@@ -155,6 +155,24 @@ const validateCancelBuild = (s: State, player: number, command: Extract<Command,
     return reject('target-not-allowed');
   }
   return { ok: true };
+};
+
+const validateAddon = (s: State, player: number, command: Extract<Command, { t: 'addon' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
+  if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
+  const def = Units[command.kind];
+  if (!def || !isAddonKind(command.kind) || addonParentKind(command.kind) !== e.kind[slot]) {
+    return reject('target-not-allowed');
+  }
+  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('queue-full');
+  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
+  if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
+  const pos = addonPosition(s, slot, command.kind);
+  const placement = placementForStructure(s, command.kind, pos.x, pos.y, NONE, player);
+  return placement.ok ? { ok: true } : reject(placement.reason);
 };
 
 const validateLoad = (s: State, player: number, command: Extract<Command, { t: 'load' }>): CommandValidation => {
@@ -343,6 +361,13 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   },
 };
 
+const addonSpec: CommandSpec<Extract<Command, { t: 'addon' }>> = {
+  validate: validateAddon,
+  apply(s, player, command): void {
+    startAddon(s, slotOf(command.building), command.kind, player);
+  },
+};
+
 const cancelBuildSpec: CommandSpec<Extract<Command, { t: 'cancelBuild' }>> = {
   validate: validateCancelBuild,
   apply(s, _player, command): void {
@@ -503,6 +528,7 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
 };
 
 export const commandSpecs = {
+  addon: addonSpec,
   attack: attackSpec,
   amove: amoveSpec,
   burrow: burrowSpec,
@@ -523,6 +549,7 @@ export const commandSpecs = {
 
 export const validateCommandSpec = (s: State, player: number, command: CommandSpecCommand): CommandValidation => {
   switch (command.t) {
+    case 'addon': return commandSpecs.addon.validate(s, player, command);
     case 'attack': return commandSpecs.attack.validate(s, player, command);
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
@@ -549,6 +576,9 @@ export const applyCommandSpec = (
   ctx: CommandSpecContext,
 ): void => {
   switch (command.t) {
+    case 'addon':
+      commandSpecs.addon.apply(s, player, command, ctx);
+      return;
     case 'attack':
       commandSpecs.attack.apply(s, player, command, ctx);
       return;

@@ -9,7 +9,7 @@ import {
   productionCostCount, productionCount, unitTraits,
   workerBuildKindsFor,
 } from './data.ts';
-import { addonParentKind, addonPosition, isActiveAddon, isAddonKind } from './addon.ts';
+import { isActiveAddon } from './addon.ts';
 import { snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
 import { hasPendingBuild } from './build-cost.ts';
 import { canDetect } from './detection.ts';
@@ -129,18 +129,7 @@ export const validateCommand = (
       return placement.ok ? { ok: true } : reject(placement.reason);
     }
     case 'addon': {
-      const slot = ownedSlot(s, c.building, player);
-      if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
-      if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
-      if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
-      const def = Units[c.kind];
-      if (!def || !isAddonKind(c.kind) || addonParentKind(c.kind) !== e.kind[slot]) return reject('target-not-allowed');
-      if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('queue-full');
-      if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-      if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
-      const pos = addonPosition(s, slot, c.kind);
-      const placement = placementForStructure(s, c.kind, pos.x, pos.y, NONE, player);
-      return placement.ok ? { ok: true } : reject(placement.reason);
+      return validateCommandSpec(s, player, c);
     }
     case 'lift': {
       return validateCommandSpec(s, player, c);

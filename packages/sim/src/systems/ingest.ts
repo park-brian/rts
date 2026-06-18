@@ -8,7 +8,6 @@ import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { validateCommand } from '../validation.ts';
 import { placementForStructure } from '../placement.ts';
-import { addonPosition } from '../addon.ts';
 import { castAbility } from './abilities.ts';
 import { spawnUnit } from '../factory.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
@@ -138,21 +137,6 @@ const startBuild = (s: State, slot: number, kind: number, x: number, y: number, 
   e.ty[slot] = y;
 };
 
-const startAddon = (s: State, parent: number, kind: number, player: number): void => {
-  const e = s.e;
-  const def = Units[kind]!;
-  const pos = addonPosition(s, parent, kind);
-  s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
-  s.players.gas[player] = s.players.gas[player]! - def.gas;
-  const addon = slotOf(spawnUnit(s, kind, player, pos.x, pos.y));
-  e.built[addon] = 0;
-  e.ctimer[addon] = def.buildTime;
-  e.target[addon] = eid(e, parent);
-  e.target[parent] = eid(e, addon);
-  e.buildCostMinerals[addon] = def.minerals;
-  e.buildCostGas[addon] = def.gas;
-};
-
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   let total = 0;
   for (const pc of batch) total += pc.cmds.length;
@@ -195,11 +179,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'addon': {
-          startAddon(s, slotOf(c.building), c.kind, player);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
+        case 'addon':
         case 'attack':
         case 'burrow':
         case 'cancelBuild':
