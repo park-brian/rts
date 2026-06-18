@@ -1885,6 +1885,8 @@ Further concrete deletion opportunities found on review:
        ability-specific add-on and loaded-silo helpers local to the test file.
      - Migrated `action-mask.test.ts` onto the shared sim scenario harness while keeping its
        validator/mask assertion helpers local to the file.
+     - Migrated `repair.test.ts` onto the shared sim scenario harness while keeping repair and
+       replay assertions local to the file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead

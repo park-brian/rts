@@ -1,20 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { eid, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, Units } from '../src/data.ts';
 import { repairCost } from '../src/repair.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 test('SCVs repair damaged mechanical units and spend resources', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 120 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 120 });
   const e = s.e;
-  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, fx(400), fx(400)));
-  const tank = slotOf(spawnUnit(s, Kind.SiegeTank, 0, fx(408), fx(400)));
+  const scv = slotOf(spawn(Kind.SCV, 0, fx(400), fx(400)));
+  const tank = slotOf(spawn(Kind.SiegeTank, 0, fx(408), fx(400)));
   e.hp[tank] = Units[Kind.SiegeTank]!.hp - 8;
   s.players.minerals[0] = 100;
   s.players.gas[0] = 100;
@@ -30,14 +27,13 @@ test('SCVs repair damaged mechanical units and spend resources', () => {
 });
 
 test('repair rejects invalid targets but allows SCVs to resume Terran foundations', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 121 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 121 });
   const e = s.e;
-  const scv = slotOf(spawnUnit(s, Kind.SCV, 0, fx(400), fx(400)));
-  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(430), fx(400)));
-  const depot = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(470), fx(400)));
-  const pylon = slotOf(spawnUnit(s, Kind.Pylon, 0, fx(490), fx(400)));
-  const tank = slotOf(spawnUnit(s, Kind.SiegeTank, 0, fx(510), fx(400)));
+  const scv = slotOf(spawn(Kind.SCV, 0, fx(400), fx(400)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(430), fx(400)));
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(470), fx(400)));
+  const pylon = slotOf(spawn(Kind.Pylon, 0, fx(490), fx(400)));
+  const tank = slotOf(spawn(Kind.SiegeTank, 0, fx(510), fx(400)));
   e.hp[marine] = Units[Kind.Marine]!.hp - 5;
   e.hp[tank] = Units[Kind.SiegeTank]!.hp - 5;
   e.built[depot] = 0;
