@@ -78,10 +78,14 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   mineral line as a resource arc around the depot edge, not as a straight row. Base/resource
   generation works in reusable cluster footprints: exact depot anchor, depot build footprint,
   resource footprints, and an enclosing reservation footprint used by procedural generation before
-  terrain or other features are stamped. BW approximate distance may seed the layout target, but
-  workers must still visibly dock using top-down physical contact. Equal route distance is the
-  first-order economy target: with a shared movement speed model, equal distance preserves relative
-  trip timing across SCVs, Drones, and Probes without per-unit placement hacks. Route timing
+  terrain or other features are stamped. Base cluster resource placement is scored against named
+  top-down dock-to-dock targets: minerals use the current three-worker band ending at 97px, while
+  gas uses the current exact 83px refinery-route target. These are generator targets, not hidden
+  runtime reach bonuses. Workers must still visibly dock using top-down physical contact. Equal
+  route distance is the first-order economy target: with a shared movement speed model, equal
+  distance preserves relative trip timing across SCVs, Drones, and Probes without per-unit
+  placement hacks. Gas still needs its own three-worker cadence validation; the current solver only
+  pins the refinery dock distance. Route timing
   diagnostics expose target BW-equivalent route frames, actual top-down dock-to-dock route frames,
   positive slack when the route is shorter, and an invalid flag when the top-down route is too long.
   Workers do not wait to hide short routes; they deposit immediately at physical depot contact. The
