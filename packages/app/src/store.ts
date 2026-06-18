@@ -50,14 +50,6 @@ export type SelectionView = {
     land: boolean;
     cancel: boolean;
   };
-  kinds: {
-    build: number[];
-    addon: number[];
-    transform: number[];
-    train: number[];
-    abilities: number[];
-    research: number[];
-  };
   options: {
     build: CommandOption[];
     addon: CommandOption[];
@@ -97,14 +89,6 @@ export const EMPTY_SELECTION_VIEW: SelectionView = {
     lift: false,
     land: false,
     cancel: false,
-  },
-  kinds: {
-    build: [],
-    addon: [],
-    transform: [],
-    train: [],
-    abilities: [],
-    research: [],
   },
   options: {
     build: [],

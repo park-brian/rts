@@ -7,6 +7,9 @@ import {
   select,
 } from '../test-support/harness.ts';
 
+const enabledOptionIds = (options: readonly { id: number; ok: boolean }[]): number[] =>
+  options.filter((option) => option.ok).map((option) => option.id);
+
 test('normal tap on an owned building selects it instead of commanding selected workers', () => {
   const g = freshGame();
   const cc = findEntity(g, Kind.CommandCenter, 0);
@@ -462,9 +465,10 @@ test('selected race workers publish their race build palette', () => {
 
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Pylon));
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Gateway));
-  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.SupplyDepot));
+  const buildIds = enabledOptionIds(ui.selectionView.value.options.build);
+  assert.ok(buildIds.includes(Kind.Pylon));
+  assert.ok(buildIds.includes(Kind.Gateway));
+  assert.ok(!buildIds.includes(Kind.SupplyDepot));
 });
 
 test('zerg worker command card hides lair-gated buildings until tech exists', () => {
@@ -476,10 +480,11 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
 
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.SpawningPool));
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.EvolutionChamber));
-  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.Spire));
-  assert.ok(!ui.selectionView.value.kinds.build.includes(Kind.QueensNest));
+  let buildIds = enabledOptionIds(ui.selectionView.value.options.build);
+  assert.ok(buildIds.includes(Kind.SpawningPool));
+  assert.ok(buildIds.includes(Kind.EvolutionChamber));
+  assert.ok(!buildIds.includes(Kind.Spire));
+  assert.ok(!buildIds.includes(Kind.QueensNest));
   assert.equal(ui.selectionView.value.options.build.find((o) => o.id === Kind.Spire)?.reason, 'missing-requirement');
   assert.equal(ui.selectionView.value.options.addon.length, 0);
 
@@ -489,8 +494,9 @@ test('zerg worker command card hides lair-gated buildings until tech exists', ()
   s.players.gas[0] = 1_000;
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.Spire));
-  assert.ok(ui.selectionView.value.kinds.build.includes(Kind.QueensNest));
+  buildIds = enabledOptionIds(ui.selectionView.value.options.build);
+  assert.ok(buildIds.includes(Kind.Spire));
+  assert.ok(buildIds.includes(Kind.QueensNest));
 });
 
 test('zerg structure morph commands are only offered once prerequisites and resources exist', () => {
@@ -501,7 +507,7 @@ test('zerg structure morph commands are only offered once prerequisites and reso
 
   g.fastForward(0);
 
-  assert.ok(!ui.selectionView.value.kinds.transform.includes(Kind.Lair));
+  assert.ok(!enabledOptionIds(ui.selectionView.value.options.transform).includes(Kind.Lair));
 
   const s = g.sim.fullState();
   const h = slotOf(hatchery);
@@ -510,7 +516,7 @@ test('zerg structure morph commands are only offered once prerequisites and reso
   s.players.gas[0] = 1_000;
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.transform.includes(Kind.Lair));
+  assert.ok(enabledOptionIds(ui.selectionView.value.options.transform).includes(Kind.Lair));
 
   g.transformSelected(Kind.Lair);
 
@@ -625,7 +631,7 @@ test('selected carriers publish interceptor build commands', () => {
 
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.train.includes(Kind.Interceptor));
+  assert.ok(enabledOptionIds(ui.selectionView.value.options.train).includes(Kind.Interceptor));
 });
 
 test('command card publishes disabled train and ability reasons', () => {
@@ -636,7 +642,7 @@ test('command card publishes disabled train and ability reasons', () => {
   select(g, [cc]);
   g.fastForward(0);
 
-  assert.ok(!ui.selectionView.value.kinds.train.includes(Kind.SCV));
+  assert.ok(!enabledOptionIds(ui.selectionView.value.options.train).includes(Kind.SCV));
   assert.equal(ui.selectionView.value.options.train.find((o) => o.id === Kind.SCV)?.reason, 'not-affordable');
   assert.equal(ui.selectionView.value.options.train.find((o) => o.id === Kind.SCV)?.commands, undefined);
 
@@ -646,13 +652,13 @@ test('command card publishes disabled train and ability reasons', () => {
   select(g, [templar]);
   g.fastForward(0);
 
-  assert.ok(!ui.selectionView.value.kinds.abilities.includes(Ability.PsionicStorm));
+  assert.ok(!enabledOptionIds(ui.selectionView.value.options.ability).includes(Ability.PsionicStorm));
   assert.equal(ui.selectionView.value.options.ability.find((o) => o.id === Ability.PsionicStorm)?.reason, 'missing-requirement');
 
   setTechLevel(s, 0, Tech.PsionicStorm, 1);
   g.fastForward(0);
 
-  assert.ok(ui.selectionView.value.kinds.abilities.includes(Ability.PsionicStorm));
+  assert.ok(enabledOptionIds(ui.selectionView.value.options.ability).includes(Ability.PsionicStorm));
 });
 
 test('nuclear command card surfaces silo missile state', () => {

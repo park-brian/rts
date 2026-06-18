@@ -1863,6 +1863,9 @@ Further concrete deletion opportunities found on review:
        `selection.options.order`; their command-card buttons and desktop hotkeys now execute the
        same option records, and the redundant direct `Game`/`CommandController` methods were
        removed.
+     - Removed the parallel `SelectionView.kinds` arrays; app tests now assert enabled
+       `selection.options.*` records directly, so command-card availability has one published
+       representation.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,

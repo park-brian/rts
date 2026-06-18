@@ -53,9 +53,6 @@ const addOption = (options: Map<number, OptionRecord>, id: number, result: Comma
   }
 };
 
-const optionKinds = (options: Map<number, OptionRecord>): number[] =>
-  [...options.values()].filter((o) => o.ok).map((o) => o.id).sort((a, b) => a - b);
-
 const sortedOptions = (options: Map<number, OptionRecord>): CommandOption[] =>
   [...options.values()]
     .sort((a, b) => a.id - b.id)
@@ -352,14 +349,6 @@ export const selectionCapabilities = (
       lift: canLift,
       land: canLand,
       cancel: canCancel,
-    },
-    kinds: {
-      build: optionKinds(buildOptions),
-      addon: optionKinds(addonOptions),
-      transform: optionKinds(transformOptions),
-      train: optionKinds(trainOptions),
-      abilities: optionKinds(abilityOptions),
-      research: optionKinds(researchOptions),
     },
     options: {
       build: sortedOptions(buildOptions),
