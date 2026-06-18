@@ -17,7 +17,7 @@
 import type { State } from '../world.ts';
 import { CAP, slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
-import { faceToward } from './move.ts';
+import { clearVelocity, faceToward } from './move.ts';
 import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
@@ -94,6 +94,14 @@ const patchCap = (s: State, worker: number, node: number, owner: number, speed: 
   return Math.max(2, Math.min(MAX_PER_PATCH, cap));
 };
 
+const shouldSpreadExplicitMineralTarget = (s: State, worker: number, node: number, owner: number, speed: number): boolean => {
+  const e = s.e;
+  return e.timer[worker]! === 0 &&
+    e.cargo[worker]! === 0 &&
+    Units[e.kind[node]!]!.resourceType === ResourceType.Minerals &&
+    minersOn(s, node, owner, worker) >= patchCap(s, worker, node, owner, speed);
+};
+
 /**
  * Pick the best free patch for a worker: fewest miners first (spread), then nearest
  * to (fromX,fromY). Skips patches at their derived cap; if all are saturated, returns
@@ -160,6 +168,7 @@ export const harvest = (s: State): void => {
       const dock = dockingPoint(s, i, depot, approachX, approachY);
       faceToward(e, i, e.x[depot]!, e.y[depot]!);
       if (atDockingPoint(s, i, depot, dock)) {
+        clearVelocity(e, i);
         const pool = e.cargoType[i]! === ResourceType.Gas ? s.players.gas : s.players.minerals;
         pool[owner] = pool[owner]! + e.cargo[i]!;
         e.cargo[i] = 0;
@@ -180,13 +189,21 @@ export const harvest = (s: State): void => {
       if (np === NONE) { e.order[i] = Order.Idle; e.target[i] = NONE; continue; }
       e.target[i] = eid(e, np);
     }
-    const node = slotOf(e.target[i]!);
+    let node = slotOf(e.target[i]!);
+    if (shouldSpreadExplicitMineralTarget(s, i, node, owner, speed)) {
+      const np = pickPatch(s, i, owner, speed, e.x[node]!, e.y[node]!);
+      if (np !== NONE && np !== node) {
+        e.target[i] = eid(e, np);
+        node = np;
+      }
+    }
     const depot = nearestDepot(e.x[node]!, e.y[node]!, owner);
     const approachX = depot === NONE ? e.x[i]! : e.x[depot]!;
     const approachY = depot === NONE ? e.y[i]! : e.y[depot]!;
     const dock = dockingPoint(s, i, node, approachX, approachY);
     faceToward(e, i, e.x[node]!, e.y[node]!);
     if (atDockingPoint(s, i, node, dock)) {
+      clearVelocity(e, i);
       if (e.timer[i]! > 0) {
         // We hold the patch (reserved): extract.
         e.timer[i] = e.timer[i]! - 1;

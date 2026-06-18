@@ -165,6 +165,39 @@ test('same-target production rallies use deterministic ground destination slots'
   assert.ok(marines.some((slot) => e.tx[slot] === x && e.ty[slot] === y), 'one unit owns the exact rally point');
 });
 
+test('sequential production rallies reserve existing destination slots', () => {
+  const s = makeState(open(64, 64), 1, 521);
+  const e = s.e;
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
+  const x = tc(35);
+  const y = tc(35);
+  e.rallyX[barracks] = x;
+  e.rallyY[barracks] = y;
+
+  e.prodKind[barracks] = Kind.Marine;
+  e.prodTimer[barracks] = 1;
+  stepWorld(s, []);
+
+  const first = (() => {
+    for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Marine) return i;
+    return -1;
+  })();
+  assert.ok(first >= 0, 'first marine produced');
+  assert.equal(e.tx[first], x);
+  assert.equal(e.ty[first], y);
+
+  e.prodKind[barracks] = Kind.Marine;
+  e.prodTimer[barracks] = 1;
+  stepWorld(s, []);
+
+  const marines: number[] = [];
+  for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Marine) marines.push(i);
+  assert.equal(marines.length, 2);
+  assert.equal(e.tx[first], x, 'existing rally destination is not re-slotted');
+  assert.equal(e.ty[first], y, 'existing rally destination is not re-slotted');
+  assert.equal(new Set(marines.map((slot) => `${e.tx[slot]},${e.ty[slot]}`)).size, 2, 'the second marine gets the next rally slot');
+});
+
 test('production rally to a loadable structure loads eligible spawned units', () => {
   const s = makeState(open(64, 64), 1, 53);
   const e = s.e;

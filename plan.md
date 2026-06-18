@@ -893,6 +893,14 @@ Remaining:
 - None in the current Phase 9 scope; future 8px path cells are a measured tuning option, not an
   active requirement.
 
+Phase 9 movement/economy follow-up completed after live play review:
+
+- SCV harvest reach remains the BW 10px data constant, but the top-down sim now requires physical
+  face-overlap docking instead of point-only diagonal corner contact, clears persistent movement
+  velocity while workers mine/deposit at docks, spreads explicit mineral-harvest commands over
+  nearby saturated patches, and reserves existing production-rally destination slots so sequentially
+  produced units do not jitter around one rally point.
+
 ## Phase 9B: Top-Down Spatial Semantics And Procedural Map Design
 
 Status: complete for the current shared-plateau generator.

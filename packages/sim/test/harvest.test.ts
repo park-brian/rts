@@ -9,7 +9,7 @@ import {
   Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, bwRange,
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
+import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
 
@@ -46,6 +46,8 @@ test('workers must physically dock before mining and deposit', () => {
   e.cargoType[miner] = ResourceType.Minerals;
   e.order[miner] = Order.Harvest;
   e.target[miner] = eid(e, node);
+  e.vx[miner] = 0;
+  e.vy[miner] = 0;
 
   assert.ok(topDownEdgeDistance(s, miner, depot) > 0);
   const depositStartY = e.y[miner]!;
@@ -74,6 +76,38 @@ test('workers do not mine from BW-compatible detached range', () => {
 
   assert.equal(e.timer[miner], 0, 'worker waits for visible top-down contact before mining');
   assert.ok(e.y[miner]! < fx(437), 'worker moves into actual contact');
+});
+
+test('diagonal mineral approaches dock on a face, not a point-contact corner', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, fx(200), fx(600));
+  const node = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, fx(400), fx(400)));
+  e.cargo[node] = 1_000_000;
+
+  const dock = topDownDockingPoint(
+    Kind.SCV,
+    Kind.Mineral,
+    e.x[node]!,
+    e.y[node]!,
+    e.flags[node]!,
+    fx(200),
+    fx(600),
+  );
+  const mineral = bodyBounds(Kind.Mineral);
+  const scv = bodyBounds(Kind.SCV);
+  const cornerX = e.x[node]! - mineral.left - scv.right;
+  const cornerY = e.y[node]! + mineral.down + scv.up;
+  assert.equal(dock.y, cornerY, 'the worker docks on the mineral face closest to the depot');
+  assert.ok(dock.x > cornerX, 'the worker overlaps the face instead of touching only the corner');
+
+  const miner = slotOf(spawnUnit(s, Kind.SCV, 0, dock.x, dock.y));
+  e.order[miner] = Order.Harvest;
+  e.target[miner] = eid(e, node);
+  stepWorld(s, []);
+
+  assert.equal(e.timer[miner], MINE_TICKS);
+  assert.equal(topDownEdgeDistance(s, miner, node), 0);
 });
 
 test('workers mine and deposit at paired dock targets on inner and outer mineral arcs', () => {
@@ -241,6 +275,33 @@ test('a patch is reserved while mined — at most one worker extracts at a time'
   }
   assert.equal(maxConcurrent, 1, 'reservation serializes extraction (rotation)');
   assert.ok(s.players.minerals[0]! > 0, 'minerals still accrue via rotation');
+});
+
+test('explicit mineral harvest commands spread over nearby patches when the target is saturated', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const patches = [
+    slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(10), tc(8))),
+    slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(8))),
+    slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(8))),
+    slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(16), tc(8))),
+  ];
+  for (const patch of patches) e.cargo[patch] = 1_000_000;
+
+  const workers: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const w = slotOf(spawnUnit(s, Kind.SCV, 0, tc(9 + i), tc(11)));
+    e.order[w] = Order.Harvest;
+    e.target[w] = eid(e, patches[1]!);
+    workers.push(w);
+  }
+
+  stepWorld(s, []);
+
+  const targets = workers.map((w) => slotOf(e.target[w]!));
+  assert.ok(new Set(targets).size > 1, 'workers fan out from the clicked patch');
+  assert.ok(targets.filter((target) => target === patches[1]).length < workers.length, 'not every worker queues on the clicked patch');
 });
 
 test('workers re-route to another patch when theirs depletes', () => {
