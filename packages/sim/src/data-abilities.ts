@@ -54,6 +54,7 @@ export type AbilityExecution =
   | { mode: 'target-status'; timer: AbilityStatusTimer }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
+  | { mode: 'target-damage' }
   | { mode: 'persistent-effect'; effect: EffectKind };
 export type AbilityDef = {
   name: string;
@@ -115,6 +116,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Yamato Gun', tech: Tech.YamatoCannon, target: 'entity', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: Role.Resource,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Battlecruiser],
     energyCost: 150, hpCost: 0, range: tiles(10), radius: 0, duration: 0, period: 0, damage: 260,
+    execution: { mode: 'target-damage' },
   },
   [Ability.Feedback]: {
     name: 'Feedback', target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,

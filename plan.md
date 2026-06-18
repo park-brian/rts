@@ -1606,6 +1606,8 @@ Highest-impact LOC reductions:
        generic descriptor path while leaving effect ticking behavior unchanged.
      - Moved `Psionic Storm` onto the same persistent-effect descriptor path, with damage cadence
        still owned by effect ticking rather than spell-cast branching.
+     - Added target direct-damage execution for `Yamato Gun`, preserving independent damage behavior
+       while removing another single-spell cast branch.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

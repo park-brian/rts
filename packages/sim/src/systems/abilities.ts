@@ -121,6 +121,9 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     case 'target-restore':
       applyTargetRestore(e, execution.pool, slotOf(c.target!), ability.damage);
       break;
+    case 'target-damage':
+      applyIndependentDamage(s, slotOf(c.target!), ability.damage);
+      break;
     case 'persistent-effect':
       spawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
       break;
@@ -277,9 +280,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, ability.duration);
       break;
     }
-    case Ability.YamatoGun:
-      applyIndependentDamage(s, slotOf(c.target!), ability.damage);
-      break;
     case Ability.Feedback: {
       const target = slotOf(c.target!);
       const drained = e.energy[target]!;

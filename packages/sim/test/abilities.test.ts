@@ -56,6 +56,7 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.PsionicStorm]!.execution, { mode: 'persistent-effect', effect: EffectKind.PsionicStorm });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
+  assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
@@ -205,6 +206,29 @@ test('feedback drains energy and deals matching damage', () => {
 
   assert.equal(s.e.energy[slotOf(vessel)], 0);
   assert.equal(s.e.hp[slotOf(vessel)], Units[Kind.ScienceVessel]!.hp - 80);
+});
+
+test('yamato gun deals descriptor-backed target damage', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 261 });
+  const battlecruiser = spawn(Kind.Battlecruiser, 0, fx(400), fx(400));
+  const target = spawn(Kind.ScienceVessel, 1, fx(650), fx(400));
+  s.e.energy[slotOf(battlecruiser)] = 150;
+  s.e.wcd[slotOf(battlecruiser)] = 999;
+  s.e.shield[slotOf(target)] = 40;
+  s.e.matrixHp[slotOf(target)] = 50;
+  s.e.matrixTimer[slotOf(target)] = sec(10);
+  grant(0, Tech.YamatoCannon);
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: battlecruiser, ability: Ability.YamatoGun, target },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.energy[slotOf(battlecruiser)], 0);
+  assert.equal(s.e.matrixHp[slotOf(target)], 0);
+  assert.equal(s.e.matrixTimer[slotOf(target)], 0);
+  assert.equal(s.e.shield[slotOf(target)], 0);
+  assert.equal(s.e.hp[slotOf(target)], Units[Kind.ScienceVessel]!.hp - (Abilities[Ability.YamatoGun]!.damage - 50 - 40));
 });
 
 test('plague damages but cannot kill', () => {
