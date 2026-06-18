@@ -39,6 +39,7 @@ export * from './pathing.ts';
 export * from './procedural.ts';
 export * from './factory.ts';
 export * from './systems/census.ts';
+export { readCollisionPressureStats, resetCollisionPressureStats, type CollisionPressureStats } from './systems/collision.ts';
 export * from './tick.ts';
 export * from './setup.ts';
 export * from './sim.ts';

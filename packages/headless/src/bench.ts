@@ -6,10 +6,41 @@ import { createBot } from '@rts/ai';
 import {
   Sim, Terran, Zerg, generateMap,
   Kind, Order, TILE, eid, fx, hashState, makeState, slotOf, spawnUnit, stepWorld,
-  type Command, type Controller, type Faction, type MapDef, type PlayerCommands,
+  COMMAND_HEADS,
+  abilityCandidates,
+  addonKindCandidates,
+  buildKindCandidates,
+  createBatchDecodeReservation,
+  createObservationBuffers,
+  decodeActionBatchInto,
+  liveEntityCandidates,
+  readCollisionPressureStats,
+  researchTechCandidates,
+  resetCollisionPressureStats,
+  trainKindCandidates,
+  transformKindCandidates,
+  writeAbilityMask,
+  writeAddonKindMask,
+  writeBuildKindMask,
+  writeCommandHeadMask,
+  writeEntityTargetMask,
+  writeObservation,
+  writeResearchTechMask,
+  writeTrainKindMask,
+  writeTransformKindMask,
+  type Command, type Controller, type EncodedAction, type Faction, type MapDef, type PlayerCommands,
 } from '@rts/sim';
 
-export type BenchCaseName = 'step-no-vision' | 'step-vision' | 'observe-results' | 'movement-deathball';
+export type BenchCaseName =
+  | 'step-no-vision'
+  | 'step-vision'
+  | 'observe-results'
+  | 'observe-buffer'
+  | 'observe-larva-stress'
+  | 'mask-generation'
+  | 'bot-generation'
+  | 'batch-sequential'
+  | 'movement-deathball';
 
 export type BenchResult = {
   name: BenchCaseName;
@@ -19,6 +50,10 @@ export type BenchResult = {
   vision: boolean;
   observations: number;
   observedEntities: number;
+  masks: number;
+  bufferObservations: number;
+  commandsGenerated: number;
+  envs?: number;
   commandResults: number;
   accepted: number;
   rejected: number;
@@ -27,6 +62,14 @@ export type BenchResult = {
   settled?: number;
   activeOrders?: number;
   distinctPositions?: number;
+  collisionTicks?: number;
+  collisionSolidUnits?: number;
+  collisionPairChecks?: number;
+  collisionResourceRoutePairSkips?: number;
+  collisionOverlapPairs?: number;
+  collisionMaxOverlapFx?: number;
+  collisionNudgedUnits?: number;
+  collisionBlockedNudges?: number;
   elapsedMs: number;
   ticksPerSecond: number;
 };
@@ -51,6 +94,11 @@ const CASES: BenchCase[] = [
   { name: 'step-no-vision', vision: false, observe: false, resultProbe: false },
   { name: 'step-vision', vision: true, observe: false, resultProbe: false },
   { name: 'observe-results', vision: true, observe: true, resultProbe: true },
+  { name: 'observe-buffer', vision: true, observe: false, resultProbe: false },
+  { name: 'observe-larva-stress', vision: true, observe: false, resultProbe: false },
+  { name: 'mask-generation', vision: true, observe: false, resultProbe: false },
+  { name: 'bot-generation', vision: false, observe: false, resultProbe: false },
+  { name: 'batch-sequential', vision: false, observe: false, resultProbe: false },
   { name: 'movement-deathball', vision: false, observe: false, resultProbe: false },
 ];
 
@@ -103,6 +151,7 @@ const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ti
   let commandResults = 0;
   let accepted = 0;
   let rejected = 0;
+  resetCollisionPressureStats();
   const start = performance.now();
   for (let i = 0; i < opts.ticks; i++) {
     const results = stepWorld(s, i === 0 ? batch : []);
@@ -121,6 +170,7 @@ const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ti
     if (s.e.order[slot] === Order.Move || s.e.order[slot] === Order.AttackMove) activeOrders++;
     positions.add(`${s.e.x[slot]},${s.e.y[slot]}`);
   }
+  const collision = readCollisionPressureStats();
 
   const elapsedMs = Math.max(0.001, performance.now() - start);
   return {
@@ -131,6 +181,9 @@ const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ti
     vision: false,
     observations: 0,
     observedEntities: 0,
+    masks: 0,
+    bufferObservations: 0,
+    commandsGenerated: 0,
     commandResults,
     accepted,
     rejected,
@@ -139,13 +192,107 @@ const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ti
     settled,
     activeOrders,
     distinctPositions: positions.size,
+    collisionTicks: collision.ticks,
+    collisionSolidUnits: collision.solidUnits,
+    collisionPairChecks: collision.pairChecks,
+    collisionResourceRoutePairSkips: collision.resourceRoutePairSkips,
+    collisionOverlapPairs: collision.overlapPairs,
+    collisionMaxOverlapFx: collision.maxOverlapFx,
+    collisionNudgedUnits: collision.nudgedUnits,
+    collisionBlockedNudges: collision.blockedNudges,
     elapsedMs: Number(elapsedMs.toFixed(3)),
     ticksPerSecond: Number((s.tick / (elapsedMs / 1000)).toFixed(1)),
   };
 };
 
+const runBatchSequentialCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  const envs = 4;
+  const sims = Array.from({ length: envs }, (_, i) => new Sim({
+    map: generateMap(FACTIONS.length / 2, opts.seed + i),
+    players: FACTIONS.length,
+    seed: opts.seed + i,
+    factions: FACTIONS,
+  }));
+  const controllers = sims.map(() => makeControllers());
+  let commandsGenerated = 0;
+  const start = performance.now();
+  for (let t = 0; t < opts.ticks; t++) {
+    for (let i = 0; i < sims.length; i++) {
+      const sim = sims[i]!;
+      if (sim.fullState().result.over) continue;
+      const batch = batchFor(sim, controllers[i]!, false);
+      for (const pc of batch) commandsGenerated += pc.cmds.length;
+      sim.step(batch);
+    }
+  }
+  const elapsedMs = Math.max(0.001, performance.now() - start);
+  const ticks = sims.reduce((n, sim) => n + sim.tick, 0);
+  const hash = sims.reduce((h, sim) => (Math.imul(h ^ sim.hash(), 16777619) >>> 0), 2166136261);
+  return {
+    name: 'batch-sequential',
+    seed: opts.seed,
+    ticks,
+    players: FACTIONS.length,
+    vision: false,
+    observations: 0,
+    observedEntities: 0,
+    masks: 0,
+    bufferObservations: 0,
+    commandsGenerated,
+    envs,
+    commandResults: 0,
+    accepted: 0,
+    rejected: 0,
+    hash,
+    elapsedMs: Number(elapsedMs.toFixed(3)),
+    ticksPerSecond: Number((ticks / (elapsedMs / 1000)).toFixed(1)),
+  };
+};
+
+const runObserveLarvaStressCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  const s = makeState(blankMap('Bench Larva Observation', 128, 128), 1, opts.seed);
+  s.trackVision = true;
+  s.vision[0]!.fill(2);
+  for (let i = 0; i < 32; i++) {
+    const x = tileCenter(8 + (i % 8) * 12);
+    const y = tileCenter(8 + ((i / 8) | 0) * 14);
+    spawnUnit(s, Kind.Hatchery, 0, x, y);
+    for (let n = 0; n < 3; n++) spawnUnit(s, Kind.Larva, 0, x + fx((n - 1) * 18), y + fx(24));
+  }
+  const buffers = createObservationBuffers(s.map, { entities: 192, larva: 64 });
+  let bufferObservations = 0;
+  let observedEntities = 0;
+  const start = performance.now();
+  for (let i = 0; i < opts.ticks; i++) {
+    const counts = writeObservation(s, 0, buffers);
+    bufferObservations++;
+    observedEntities += counts.entities;
+  }
+  const elapsedMs = Math.max(0.001, performance.now() - start);
+  return {
+    name: 'observe-larva-stress',
+    seed: opts.seed,
+    ticks: opts.ticks,
+    players: 1,
+    vision: true,
+    observations: 0,
+    observedEntities,
+    masks: 0,
+    bufferObservations,
+    commandsGenerated: 0,
+    commandResults: 0,
+    accepted: 0,
+    rejected: 0,
+    hash: hashState(s),
+    elapsedMs: Number(elapsedMs.toFixed(3)),
+    ticksPerSecond: Number((opts.ticks / (elapsedMs / 1000)).toFixed(1)),
+  };
+};
+
 const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
   if (bench.name === 'movement-deathball') return runMovementDeathballCase(opts);
+  if (bench.name === 'batch-sequential') return runBatchSequentialCase(opts);
+  if (bench.name === 'observe-larva-stress') return runObserveLarvaStressCase(opts);
   const players = FACTIONS.length;
   const sim = new Sim({
     map: generateMap(players / 2, opts.seed),
@@ -157,17 +304,35 @@ const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 't
   const controllers = makeControllers();
   let observations = 0;
   let observedEntities = 0;
+  let masks = 0;
+  let bufferObservations = 0;
+  let commandsGenerated = 0;
   let commandResults = 0;
   let accepted = 0;
   let rejected = 0;
+  const obsBuffers = Array.from({ length: players }, () => createObservationBuffers(sim.fullState().map));
+  const commandMaskScratch = new Uint8Array(COMMAND_HEADS.length);
+  const argMaskScratch = new Uint8Array(128);
+  const targetMaskScratch = new Uint8Array(64);
+  const batchDecodeScratch = createBatchDecodeReservation(sim.fullState(), 0);
+  const batchDecodeResults: ReturnType<typeof decodeActionBatchInto> = [];
+  const encodedActions: EncodedAction[] = [];
   const start = performance.now();
   for (let i = 0; i < opts.ticks && !sim.fullState().result.over; i++) {
-    const results = sim.step(batchFor(sim, controllers, bench.resultProbe));
-    if (bench.resultProbe) {
-      commandResults += results.length;
-      for (const result of results) {
-        if (result.ok) accepted++;
-        else rejected++;
+    if (bench.name === 'bot-generation') {
+      const state = sim.fullState();
+      for (let p = 0; p < players; p++) commandsGenerated += controllers[p]!(state, p).length;
+      sim.step([]);
+    } else {
+      const batch = batchFor(sim, controllers, bench.resultProbe);
+      for (const pc of batch) commandsGenerated += pc.cmds.length;
+      const results = sim.step(batch);
+      if (bench.resultProbe) {
+        commandResults += results.length;
+        for (const result of results) {
+          if (result.ok) accepted++;
+          else rejected++;
+        }
       }
     }
     if (bench.observe) {
@@ -175,6 +340,54 @@ const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 't
         const obs = sim.observe(p);
         observations++;
         observedEntities += obs.entities.length;
+      }
+    }
+    if (bench.name === 'observe-buffer') {
+      for (let p = 0; p < players; p++) {
+        const counts = writeObservation(sim.fullState(), p, obsBuffers[p]!);
+        bufferObservations++;
+        observedEntities += counts.entities;
+      }
+    }
+    if (bench.name === 'mask-generation') {
+      const state = sim.fullState();
+      const ids = liveEntityCandidates(state);
+      const targetIds = ids.length > targetMaskScratch.length ? ids.slice(0, targetMaskScratch.length) : ids;
+      for (let p = 0; p < players; p++) {
+        for (const id of ids) {
+          writeCommandHeadMask(commandMaskScratch, state, p, id);
+          masks += COMMAND_HEADS.length;
+          const slot = slotOf(id);
+          const x = state.e.x[slot]!;
+          const y = state.e.y[slot]!;
+          const train = trainKindCandidates(state, id);
+          writeTrainKindMask(argMaskScratch, state, p, id, train);
+          masks += train.length;
+          const build = buildKindCandidates(state, id);
+          writeBuildKindMask(argMaskScratch, state, p, id, { x, y, kinds: build });
+          masks += build.length;
+          const research = researchTechCandidates(state, id);
+          writeResearchTechMask(argMaskScratch, state, p, id, research);
+          masks += research.length;
+          const addons = addonKindCandidates(state, id);
+          writeAddonKindMask(argMaskScratch, state, p, id, addons);
+          masks += addons.length;
+          const transforms = transformKindCandidates(state, id);
+          writeTransformKindMask(argMaskScratch, state, p, id, transforms);
+          masks += transforms.length;
+          const abilities = abilityCandidates(state, id);
+          writeAbilityMask(argMaskScratch, state, p, id, { x, y }, abilities);
+          masks += abilities.length;
+          writeEntityTargetMask(targetMaskScratch, state, p, id, 'attack', targetIds);
+          masks += targetIds.length;
+        }
+        encodedActions.length = 0;
+        for (let j = 0; j < Math.min(4, ids.length); j++) {
+          const slot = slotOf(ids[j]!);
+          encodedActions.push({ head: 'move', actor: ids[j]!, x: state.e.x[slot]!, y: state.e.y[slot]! });
+        }
+        decodeActionBatchInto(state, p, encodedActions, batchDecodeResults, batchDecodeScratch);
+        masks += encodedActions.length;
       }
     }
   }
@@ -187,6 +400,9 @@ const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 't
     vision: bench.vision,
     observations,
     observedEntities,
+    masks,
+    bufferObservations,
+    commandsGenerated,
     commandResults,
     accepted,
     rejected,

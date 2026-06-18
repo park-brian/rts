@@ -5,8 +5,8 @@
 // the same clearance masks used by navigation. Deterministic.
 //
 // Scope: Mobile, non-Structure ground units that are not projectile actors. Workers
-// are solid; only worker pairs that are both on mineral harvest/return routes may
-// share space with each other. Air units fly over everything.
+// are solid; only same-owner worker pairs that are both on resource harvest/return
+// routes may share space with each other. Air units fly over everything.
 //
 // Performance: collision uses its OWN one-tile grid (not the coarse combat grid).
 // The interaction radius (≈ sum of two unit radii) is well under a tile, so a 3×3
@@ -35,6 +35,41 @@ const list = new Int32Array(CAP); // solid slots this tick (reused)
 const next = new Int32Array(CAP); // intrusive linked list within a grid cell
 let head = new Int32Array(0); // one cell per tile; grown to the largest map seen
 
+export type CollisionPressureStats = {
+  ticks: number;
+  solidUnits: number;
+  pairChecks: number;
+  resourceRoutePairSkips: number;
+  overlapPairs: number;
+  maxOverlapFx: number;
+  nudgedUnits: number;
+  blockedNudges: number;
+};
+
+const pressure: CollisionPressureStats = {
+  ticks: 0,
+  solidUnits: 0,
+  pairChecks: 0,
+  resourceRoutePairSkips: 0,
+  overlapPairs: 0,
+  maxOverlapFx: 0,
+  nudgedUnits: 0,
+  blockedNudges: 0,
+};
+
+export const resetCollisionPressureStats = (): void => {
+  pressure.ticks = 0;
+  pressure.solidUnits = 0;
+  pressure.pairChecks = 0;
+  pressure.resourceRoutePairSkips = 0;
+  pressure.overlapPairs = 0;
+  pressure.maxOverlapFx = 0;
+  pressure.nudgedUnits = 0;
+  pressure.blockedNudges = 0;
+};
+
+export const readCollisionPressureStats = (): CollisionPressureStats => ({ ...pressure });
+
 const canOccupy = (s: State, kind: number, xfx: number, yfx: number): boolean => {
   const w = pathW(s);
   const px = pathX(xfx);
@@ -45,6 +80,7 @@ const canOccupy = (s: State, kind: number, xfx: number, yfx: number): boolean =>
 
 export const collide = (s: State): void => {
   const e = s.e; const m = s.map; const W = m.w; const H = m.h;
+  pressure.ticks++;
 
   // 1) Gather the solid (colliding) units, resetting their nudges.
   let nl = 0;
@@ -53,6 +89,7 @@ export const collide = (s: State): void => {
     anchored[i] = isPathingAnchor(s, i) ? 1 : 0;
     if (isLocalAvoidanceSolid(s, i)) list[nl++] = i;
   }
+  pressure.solidUnits += nl;
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
 
   // 2) Bin solids into a one-tile grid.
@@ -76,14 +113,27 @@ export const collide = (s: State): void => {
       for (let gx = Math.max(0, cx - 1); gx <= x1; gx++) {
         for (let j = head[gy * W + gx]!; j >= 0; j = next[j]!) {
           if (j === i) continue;
-          if (workersCanShareResourceRouteCollision(s, i, j)) continue;
+          const uniquePair = j > i;
+          if (workersCanShareResourceRouteCollision(s, i, j)) {
+            if (uniquePair) pressure.resourceRoutePairSkips++;
+            continue;
+          }
+          if (uniquePair) pressure.pairChecks++;
           const min = ri + Units[e.kind[j]!]!.radius;
           const dx = e.x[i]! - e.x[j]!; const dy = e.y[i]! - e.y[j]!;
           const d2 = dx * dx + dy * dy;
-          if (anchored[i] === 1) continue;
-          if (d2 === 0) { ax += i < j ? -min : min; continue; } // exact overlap: deterministic side by slot
           if (d2 >= min * min) continue; // not overlapping
+          if (uniquePair) pressure.overlapPairs++;
+          if (d2 === 0) {
+            if (uniquePair && min > pressure.maxOverlapFx) pressure.maxOverlapFx = min;
+            if (anchored[i] === 1) continue;
+            ax += i < j ? -min : min;
+            continue;
+          } // exact overlap: deterministic side by slot
           const d = isqrt(d2);
+          const overlap = min - d;
+          if (uniquePair && overlap > pressure.maxOverlapFx) pressure.maxOverlapFx = overlap;
+          if (anchored[i] === 1) continue;
           const push = anchored[j] === 1 ? min - d : (min - d) >> 1; // anchored units keep their firing position
           ax += Math.trunc((dx * push) / d);
           ay += Math.trunc((dy * push) / d);
@@ -104,6 +154,11 @@ export const collide = (s: State): void => {
     const i = list[k]!;
     if (ndx[i] === 0 && ndy[i] === 0) continue;
     const nx = e.x[i]! + ndx[i]!; const ny = e.y[i]! + ndy[i]!;
-    if (canOccupy(s, e.kind[i]!, nx, ny)) { e.x[i] = nx; e.y[i] = ny; }
+    if (canOccupy(s, e.kind[i]!, nx, ny)) {
+      e.x[i] = nx; e.y[i] = ny;
+      pressure.nudgedUnits++;
+    } else {
+      pressure.blockedNudges++;
+    }
   }
 };
