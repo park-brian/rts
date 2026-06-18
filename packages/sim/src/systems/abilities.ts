@@ -3,6 +3,7 @@ import {
   Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
   type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetMarker,
 } from '../data.ts';
+import { isFreeAbilityToggleOff } from '../ability-execution.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
@@ -129,6 +130,12 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       const drained = e.energy[target]!;
       e.energy[target] = 0;
       applyIndependentDamage(s, target, drained);
+      break;
+    }
+    case 'self-toggle': {
+      const enabled = e[execution.flag][slot] !== 1;
+      e[execution.flag][slot] = enabled ? 1 : 0;
+      e.cloakTimer[slot] = enabled ? ability.period : 0;
       break;
     }
     case 'persistent-effect':
@@ -263,8 +270,7 @@ const recallUnits = (s: State, caster: number, x: number, y: number, radius: num
 export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const e = s.e;
   const ability = Abilities[c.ability]!;
-  const togglingCloakOff = (c.ability === Ability.PersonnelCloaking || c.ability === Ability.CloakingField) && e.cloakActive[slot] === 1;
-  if (!togglingCloakOff) {
+  if (!isFreeAbilityToggleOff(e, slot, ability)) {
     e.energy[slot] = e.energy[slot]! - ability.energyCost;
     e.hp[slot] = e.hp[slot]! - ability.hpCost;
   }
@@ -325,11 +331,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
       break;
     }
-    case Ability.PersonnelCloaking:
-    case Ability.CloakingField:
-      e.cloakActive[slot] = togglingCloakOff ? 0 : 1;
-      e.cloakTimer[slot] = togglingCloakOff ? 0 : ability.period;
-      break;
     case Ability.Restoration:
       restoreStatuses(s, slotOf(c.target!));
       break;

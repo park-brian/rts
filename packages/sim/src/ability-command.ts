@@ -11,6 +11,7 @@ import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
+import { isFreeAbilityToggleOff } from './ability-execution.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -42,10 +43,9 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
     return reject('invalid-ability');
   }
   if (!abilityTechAvailable(s, player, command.ability)) return reject('missing-requirement');
-  const togglingCloakOff = (command.ability === Ability.PersonnelCloaking || command.ability === Ability.CloakingField) &&
-    e.cloakActive[slot] === 1;
-  if (!togglingCloakOff && e.energy[slot]! < ability.energyCost) return reject('not-enough-energy');
-  if (!togglingCloakOff && e.hp[slot]! <= ability.hpCost) return reject('not-enough-hit-points');
+  const freeToggleOff = isFreeAbilityToggleOff(e, slot, ability);
+  if (!freeToggleOff && e.energy[slot]! < ability.energyCost) return reject('not-enough-energy');
+  if (!freeToggleOff && e.hp[slot]! <= ability.hpCost) return reject('not-enough-hit-points');
   if (command.ability === Ability.NuclearStrike && !hasReadyNuke(s, player)) return reject('missing-requirement');
   if (ability.target === 'self') return { ok: true };
   if (ability.target === 'point') {

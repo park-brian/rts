@@ -1610,6 +1610,8 @@ Highest-impact LOC reductions:
        while removing another single-spell cast branch.
      - Added target energy-feedback execution for `Feedback`, so the generic path drains target
        energy and applies matching independent damage.
+     - Added self-toggle execution for active cloak abilities, including descriptor-aware free
+       toggle-off validation/application.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

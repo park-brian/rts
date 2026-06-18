@@ -56,6 +56,7 @@ export type AbilityExecution =
   | { mode: 'target-restore'; pool: AbilityRestorePool }
   | { mode: 'target-damage' }
   | { mode: 'target-energy-feedback' }
+  | { mode: 'self-toggle'; flag: 'cloakActive' }
   | { mode: 'persistent-effect'; effect: EffectKind };
 export type AbilityDef = {
   name: string;
@@ -171,11 +172,13 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Personnel Cloaking', tech: Tech.PersonnelCloaking, target: 'self', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Ghost],
     energyCost: 25, hpCost: 0, range: 0, radius: 0, duration: 0, period: sec(1.08), damage: 0,
+    execution: { mode: 'self-toggle', flag: 'cloakActive' },
   },
   [Ability.CloakingField]: {
     name: 'Cloaking Field', tech: Tech.CloakingField, target: 'self', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Wraith],
     energyCost: 25, hpCost: 0, range: 0, radius: 0, duration: 0, period: sec(5.26), damage: 0,
+    execution: { mode: 'self-toggle', flag: 'cloakActive' },
   },
   [Ability.ScannerSweep]: {
     name: 'Scanner Sweep', target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,

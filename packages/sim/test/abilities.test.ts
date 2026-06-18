@@ -58,6 +58,8 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
+  assert.deepEqual(Abilities[Ability.PersonnelCloaking]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
+  assert.deepEqual(Abilities[Ability.CloakingField]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
@@ -372,6 +374,28 @@ test('active cloak toggles on, drains energy, and blocks attacks until revealed'
 
   for (let t = 0; t < sec(6); t++) sim.step([]);
   assert.equal(s.e.cloakActive[slotOf(wraith)], 0);
+});
+
+test('active cloak toggles off through descriptor execution without spending energy', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 311 });
+  const wraith = spawn(Kind.Wraith, 0, fx(400), fx(400));
+  const w = slotOf(wraith);
+  s.e.energy[w] = 26;
+  grant(0, Tech.CloakingField);
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: wraith, ability: Ability.CloakingField },
+  ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.cloakActive[w], 1);
+  assert.equal(s.e.energy[w], 1);
+  s.e.energy[w] = 0;
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: wraith, ability: Ability.CloakingField },
+  ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.cloakActive[w], 0);
+  assert.equal(s.e.cloakTimer[w], 0);
+  assert.equal(s.e.energy[w], 0);
 });
 
 test('scanner sweep reveals cloaked targets without a detector unit', () => {
