@@ -1864,6 +1864,9 @@ Further concrete deletion opportunities found on review:
      - Extracted selection ownership, selection geometry hit-testing, drag-box selection,
        visible-kind selection, pruning, and control-group coordination into `SelectionController`,
        while leaving command dispatch in `Game`/`TapSelectionController`.
+     - Extracted command queue ownership, placement ghost update/commit/cancel, command-card
+       execution, and selected-command dispatch into `CommandController` while preserving `Game`
+       wrappers for UI, hotkeys, input, and tests.
 6. Treat tests as product code for compression.
    - Current shape:
      - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,
@@ -1876,21 +1879,14 @@ Further concrete deletion opportunities found on review:
      - fewer end-to-end bespoke tests, kept only where behavior crosses multiple systems.
    - Expected win: largest immediate LOC reduction with the least gameplay risk.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
-   - Current shape:
-     - UI, observe, census, validation, production, and tests directly inspect `prodKind`,
-       `prodTimer`, `prodQueued`, `researchKind`, `researchTimer`, and `specialAmmo`;
-     - an app-side `entityWorkQueue` already centralizes selection labels for current production,
-       research, internal ammo readiness, and producer load, but sim `observe()` still rebuilds
-       queue state directly from typed arrays;
-     - `NuclearMissile`, `Scarab`, and `Interceptor` status labels should not remain app-owned.
-   - Collapse shape:
-     - move the existing `entityWorkQueue(s, slot)` query into sim instead of creating a parallel
-       helper;
-     - app consumers import the sim-owned query, preserving existing selection/status shapes;
+   - Completed:
+     - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
+       of creating a parallel helper;
+     - app consumers now import the sim-owned query, preserving existing selection/status shapes;
      - `observe()` derives its stable `QueueView` from the sim query so RL/network observations and
        UI status share one owner for current work.
-   - Expected win: less app code and cleaner future support for multi-queue, addons, morphs, and
-     internal ammo.
+   - Win: less app code and cleaner future support for multi-queue, addons, morphs, and internal
+     ammo.
 8. Split data for navigation, not abstraction.
    - Current shape:
      - `data.ts` is large, but much of it is honest static BW data.

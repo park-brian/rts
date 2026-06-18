@@ -2,22 +2,19 @@
 // controllers for camera, visibility, selection, input commands, and HUD publishing.
 
 import {
-  Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
-  slotOf, eid, isAlive, NEUTRAL, NONE, toReplay, mapFromSpec, parseReplay,
-  validateCommand, transportCapacity, unloadAnchorSlot,
+  Sim, generateMap, createBotControllers, FPS, TILE, Kind, toReplay, mapFromSpec, parseReplay,
   Factions,
-  transformFor, isLiftedStructureFlags,
-  entityWorkQueue,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
-import { clearArmedCommand, isPlacementArmed, shouldToggleArmedCommand, ui, type CommandOption, type Mode } from './store.ts';
+import { ui, type CommandOption, type Mode } from './store.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 import { CameraController } from './camera-controller.ts';
-import { PlacementController, type PlacementGhost } from './placement-controller.ts';
+import { type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
 import { VisibilityController } from './visibility-controller.ts';
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
+import { CommandController } from './command-controller.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -42,9 +39,8 @@ export class Game {
   private cameraController?: CameraController;
   private visibilityController?: VisibilityController;
   private selectionController?: SelectionController;
-  private readonly placementController = new PlacementController();
+  private commandController?: CommandController;
   private tapSelectionController?: TapSelectionController;
-  queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
   // replay viewer state (mode === 'replay')
@@ -72,17 +68,19 @@ export class Game {
   set explored(value: Uint8Array) { this.visibility().explored = value; }
   get selection(): Set<number> { return this.selectionState().selection; }
   set selection(value: Set<number>) { this.selectionState().selection = value; }
+  get queued(): Command[] { return this.commandState().queued; }
+  set queued(value: Command[]) { this.commandState().queued = value; }
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.selectionState().controlGroups;
   }
 
   get placementGhost(): PlacementGhost | null {
-    return this.placementController.ghost;
+    return this.commandState().placementGhost;
   }
 
   set placementGhost(ghost: PlacementGhost | null) {
-    this.placementController.ghost = ghost;
+    this.commandState().placementGhost = ghost;
   }
 
   private tapSelection(): TapSelectionController {
@@ -119,6 +117,17 @@ export class Game {
     return this.selectionController;
   }
 
+  private commandState(): CommandController {
+    this.commandController ??= new CommandController({
+      state: () => this.sim.fullState(),
+      human: () => this.human,
+      selection: () => this.selection,
+      firstSelected: (pred) => this.selectionState().firstSelected(pred),
+      screenToWorld: (sx, sy) => this.screenToWorld(sx, sy),
+    });
+    return this.commandController;
+  }
+
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
     this.restart(mode, seed);
   }
@@ -148,14 +157,13 @@ export class Game {
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selectionState().reset();
     resetControlGroupCounts(CONTROL_GROUP_COUNT);
-    this.queued = [];
-    this.placementController.clear();
+    this.commandState().reset();
     this.visibility().reset();
     ui.mode.value = mode;
     ui.perTeam.value = perTeam;
     ui.humanPlayer.value = this.humanPlayer;
     ui.playerRaces.value = [...this.playerRaceNames];
-    clearArmedCommand();
+    this.clearTargetModes();
     clearSelectionView();
     ui.hasReplay.value = false;
     this.camera().resetFrame();
@@ -179,7 +187,7 @@ export class Game {
     this.human = -1; // god view for analysis
     this.controllers = [];
     this.selectionState().clear();
-    this.queued = [];
+    this.commandState().reset();
     this.visibility().reset();
     this.replaySpeed = 1;
     this.paused = false;
@@ -319,9 +327,7 @@ export class Game {
   }
 
   private drainHuman(): Command[] {
-    const q = this.queued;
-    this.queued = [];
-    return q;
+    return this.commandState().drain();
   }
 
   private computeFog(): void {
@@ -359,7 +365,7 @@ export class Game {
   }
 
   private clearTargetModes(): void {
-    clearArmedCommand();
+    this.commandState().clearTargetModes();
   }
 
   assignControlGroup(index: number): boolean {
@@ -380,32 +386,15 @@ export class Game {
   }
 
   updatePlacementGhost(sx: number, sy: number): void {
-    const armed = ui.armedCommand.value;
-    const [wx, wy] = this.screenToWorld(sx, sy);
-    this.placementController.update({
-      state: this.sim.fullState(),
-      human: this.human,
-      armed,
-      worldX: wx,
-      worldY: wy,
-      firstSelected: (pred) => this.firstSelected(pred),
-    });
+    this.commandState().updatePlacementGhost(sx, sy);
   }
 
   commitPlacementGhost(): boolean {
-    const command = this.placementController.commit({
-      state: this.sim.fullState(),
-      armed: ui.armedCommand.value,
-      firstSelected: (pred) => this.firstSelected(pred),
-    });
-    if (!command) return false;
-    this.queued.push(command);
-    clearArmedCommand();
-    return true;
+    return this.commandState().commitPlacementGhost();
   }
 
   cancelPlacementGhost(): void {
-    this.placementController.clear();
+    this.commandState().cancelPlacementGhost();
   }
 
   hitTest(wx: number, wy: number): number {
@@ -425,243 +414,59 @@ export class Game {
   }
 
   stopSelected(): void {
-    const e = this.sim.fullState().e;
-    for (const id of this.selection) if (isAlive(e, id)) this.queued.push({ t: 'stop', unit: id });
-    this.clearTargetModes();
+    this.commandState().stopSelected();
   }
 
   cancelSelectedBuild(): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    for (const id of this.selection) {
-      const c: Command = { t: 'cancelBuild', building: id };
-      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
+    this.commandState().cancelSelectedBuild();
   }
 
   executeOption(option: CommandOption): boolean {
-    if (!option.ok) return false;
-    if (option.arm) {
-      const toggled = shouldToggleArmedCommand(option.arm, ui.armedCommand.value);
-      this.clearTargetModes();
-      if (!toggled) ui.armedCommand.value = option.arm;
-      return true;
-    }
-    if (!option.commands?.length) return false;
-    const s = this.sim.fullState();
-    let queued = false;
-    for (const command of option.commands) {
-      if (validateCommand(s, this.human, command).ok) {
-        this.queued.push(command);
-        queued = true;
-      }
-    }
-    if (queued) this.clearTargetModes();
-    return queued;
+    return this.commandState().executeOption(option);
   }
 
   trainSelected(kind: number): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    let best = -1;
-    let bestLoad = Infinity;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const slot = slotOf(id);
-      if ((e.flags[slot]! & Role.Producer) === 0 || !Units[e.kind[slot]!]!.produces.includes(kind)) continue;
-      const c: Command = { t: 'train', building: id, kind };
-      if (!validateCommand(s, this.human, c).ok) continue;
-      const load = entityWorkQueue(s, slot).producerLoad;
-      if (load < bestLoad) { best = id; bestLoad = load; }
-    }
-    if (best >= 0) this.queued.push({ t: 'train', building: best, kind });
+    this.commandState().trainSelected(kind);
   }
 
   researchSelected(tech: number): void {
-    const e = this.sim.fullState().e;
-    let best = -1;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'research', building: id, tech };
-      if (validateCommand(this.sim.fullState(), this.human, c).ok) { best = id; break; }
-    }
-    if (best >= 0) this.queued.push({ t: 'research', building: best, tech });
+    this.commandState().researchSelected(tech);
   }
 
   addonSelected(kind: number): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'addon', building: id, kind };
-      if (validateCommand(s, this.human, c).ok) {
-        this.queued.push(c);
-        break;
-      }
-    }
-    this.clearTargetModes();
+    this.commandState().addonSelected(kind);
   }
 
   liftSelected(): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'lift', building: id };
-      if (validateCommand(s, this.human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
+    this.commandState().liftSelected();
   }
 
   armLandSelected(): void {
-    const e = this.sim.fullState().e;
-    const slot = this.firstSelected((i) => isLiftedStructureFlags(e.flags[i]!));
-    this.clearTargetModes();
-    if (slot >= 0) {
-      ui.armedCommand.value = { t: 'land', kind: e.kind[slot]! };
-    }
+    this.commandState().armLandSelected();
   }
 
   transformSelected(kind: number): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    const used = new Set<number>();
-    const mergePairFor = (id: number): number => {
-      if (!isAlive(e, id)) return NONE;
-      const slot = slotOf(id);
-      for (const other of this.selection) {
-        if (other === id || used.has(other) || !isAlive(e, other)) continue;
-        const c: Command = { t: 'transform', unit: id, kind, target: other };
-        if (validateCommand(s, this.human, c).ok) return other;
-      }
-      return NONE;
-    };
-    for (const id of this.selection) {
-      if (used.has(id)) continue;
-      const c: Command = { t: 'transform', unit: id, kind };
-      if (!isAlive(e, id) || !validateCommand(s, this.human, c).ok) continue;
-      const transform = transformFor(e.kind[slotOf(id)]!, kind);
-      if (transform?.mode === 'merge') {
-        const partner = mergePairFor(id);
-        if (partner !== NONE) {
-          this.queued.push({ ...c, target: partner });
-          used.add(id);
-          used.add(partner);
-        } else {
-          this.queued.push(c);
-          used.add(id);
-        }
-      } else {
-        this.queued.push(c);
-      }
-    }
-    this.clearTargetModes();
+    this.commandState().transformSelected(kind);
   }
 
   castSelectedAbility(abilityId: number, target?: number, x?: number, y?: number): boolean {
-    const s = this.sim.fullState();
-    const e = s.e;
-    const ability = Abilities[abilityId];
-    if (!ability) return false;
-    if (ability.target === 'self') {
-      let cast = false;
-      for (const id of this.selection) {
-        const c: Command = { t: 'ability', unit: id, ability: abilityId };
-        if (isAlive(e, id) && validateCommand(s, this.human, c).ok) {
-          this.queued.push(c);
-          cast = true;
-        }
-      }
-      return cast;
-    }
-
-    let best: Command | null = null;
-    let bestD = Infinity;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = ability.target === 'point'
-        ? { t: 'ability', unit: id, ability: abilityId, x, y }
-        : { t: 'ability', unit: id, ability: abilityId, target };
-      if (!validateCommand(s, this.human, c).ok) continue;
-      const sl = slotOf(id);
-      const dx = e.x[sl]! - (x ?? (target !== undefined && isAlive(e, target) ? e.x[slotOf(target)]! : e.x[sl]!));
-      const dy = e.y[sl]! - (y ?? (target !== undefined && isAlive(e, target) ? e.y[slotOf(target)]! : e.y[sl]!));
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = c; }
-    }
-    if (!best) return false;
-    this.queued.push(best);
-    return true;
+    return this.commandState().castSelectedAbility(abilityId, target, x, y);
   }
 
   loadSelected(): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    const transports = [...this.selection].filter((id) =>
-      isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
-    const units = [...this.selection].filter((id) =>
-      isAlive(e, id) && !transports.includes(id));
-    for (const transport of transports) {
-      for (const unit of units) {
-        const c: Command = { t: 'load', transport, unit };
-        if (validateCommand(s, this.human, c).ok) this.queued.push(c);
-      }
-    }
-    this.clearTargetModes();
+    this.commandState().loadSelected();
   }
 
   unloadSelected(): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    const offsets = [
-      [0, 64], [64, 0], [-64, 0], [0, -64],
-      [64, 64], [-64, 64], [64, -64], [-64, -64],
-    ];
-    for (const transport of this.selection) {
-      if (!isAlive(e, transport)) continue;
-      const tslot = slotOf(transport);
-      const anchor = unloadAnchorSlot(s, tslot);
-      if (anchor === NONE) continue;
-      let n = 0;
-      for (let i = 0; i < e.hi; i++) {
-        if (e.alive[i] !== 1 || e.owner[i] !== this.human || e.container[i] !== transport) continue;
-        const [ox, oy] = offsets[n % offsets.length]!;
-        const ring = Math.trunc(n / offsets.length);
-        const c: Command = {
-          t: 'unload',
-          transport,
-          unit: eid(e, i),
-          x: e.x[anchor]! + (ox + ring * 24) * ONE,
-          y: e.y[anchor]! + oy * ONE,
-        };
-        if (validateCommand(s, this.human, c).ok) {
-          this.queued.push(c);
-          n++;
-        }
-      }
-    }
-    this.clearTargetModes();
+    this.commandState().unloadSelected();
   }
 
   burrowSelected(active: boolean): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    for (const id of this.selection) {
-      const c: Command = { t: 'burrow', unit: id, active };
-      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
+    this.commandState().burrowSelected(active);
   }
 
   mineSelected(): void {
-    const s = this.sim.fullState();
-    const e = s.e;
-    for (const id of this.selection) {
-      const c: Command = { t: 'mine', unit: id };
-      if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
+    this.commandState().mineSelected();
   }
 
   deselect(): void {
