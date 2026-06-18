@@ -1912,6 +1912,9 @@ Further concrete deletion opportunities found on review:
      - Migrated the normal-match setup portions of `validation.test.ts` onto the shared sim
        scenario harness while leaving the raw placement-boundary and live-resource placement tests
        unchanged.
+     - Migrated `transport.test.ts` onto the shared sim scenario harness while keeping cargo,
+       unload placement, visibility, serialization, replay parser, bunker, and nydus assertions
+       local to the file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
