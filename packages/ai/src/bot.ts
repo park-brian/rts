@@ -841,6 +841,13 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
   },
   {
+    ability: Ability.NuclearStrike,
+    target: 'enemy-point',
+    minScore: 650,
+    canCast: (s, player) => hasReadyNuke(s, player),
+    scorePoint: (s, player, x, y) => scoreNukeTarget(s, player, x, y),
+  },
+  {
     ability: Ability.PsionicStorm,
     target: 'enemy-point',
     minScore: 70,
@@ -909,7 +916,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Recall) && tryCastPolicy(s, player, cmds, caster, Ability.Recall, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.NuclearStrike) && maybeCastPointAbility(s, player, cmds, caster, Ability.NuclearStrike, scoreNukeTarget, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.NuclearStrike) && tryCastPolicy(s, player, cmds, caster, Ability.NuclearStrike, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.InfestCommandCenter) && tryCastPolicy(s, player, cmds, caster, Ability.InfestCommandCenter)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.SpawnBroodling) && tryCastPolicy(s, player, cmds, caster, Ability.SpawnBroodling)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Parasite) && tryCastPolicy(s, player, cmds, caster, Ability.Parasite)) { used.add(caster); continue; }
@@ -970,45 +977,6 @@ const tryCastPolicy = (
   }
   if (!bestCommand) return false;
   cmds.push(bestCommand);
-  return true;
-};
-
-const abilityThreshold = (abilityId: number): number => {
-  switch (abilityId) {
-    case Ability.NuclearStrike: return 650;
-    default: return 1;
-  }
-};
-
-const maybeCastPointAbility = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  caster: number,
-  abilityId: number,
-  scoreFn: (s: State, player: number, x: number, y: number) => number,
-  focusX = s.e.x[caster]!,
-  focusY = s.e.y[caster]!,
-): boolean => {
-  const e = s.e;
-  const ability = Abilities[abilityId]!;
-  if (!hasTechForAbility(s, player, abilityId)) return false;
-  if (abilityId === Ability.NuclearStrike && !hasReadyNuke(s, player)) return false;
-  if (e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestScore = abilityThreshold(abilityId);
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || !isEnemy(s, player, e.owner[i]!)) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const focusPenalty = Math.trunc(isqrt(distanceSq(e.x[i]!, e.y[i]!, focusX, focusY)) / (TILE * ONE));
-    const score = scoreFn(s, player, e.x[i]!, e.y[i]!) - focusPenalty;
-    if (score > bestScore) {
-      bestScore = score;
-      best = i;
-    }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId, x: e.x[best]!, y: e.y[best]! });
   return true;
 };
 

@@ -1625,6 +1625,8 @@ Highest-impact LOC reductions:
      score while deleting the bespoke scan helper.
    - Added a friendly-point policy mode and moved `Recall` into it, preserving its fight-proximity
      caster gate and distant friendly combat-cluster score.
+   - Moved `Nuclear Strike` into the enemy-point policy path with a ready-missile precondition and
+     removed the remaining generic point-cast helper.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
