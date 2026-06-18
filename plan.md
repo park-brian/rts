@@ -1759,6 +1759,9 @@ Highest-impact LOC reductions:
        or target footprint math themselves.
      - Moved cloaked-entity opacity policy into sim-exported render descriptors. Canvas and GL still
        choose their own sprite/body drawing paths, but share the same cloak presentation value.
+     - Moved selected entity life/construction bar policy into sim-exported render descriptors.
+       Renderers still choose exact thickness, offsets, and colors, but no longer duplicate selected,
+       resource, progress, and HP/shield fraction rules.
 
 Further concrete deletion opportunities found on review:
 

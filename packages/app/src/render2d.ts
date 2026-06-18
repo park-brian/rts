@@ -4,7 +4,8 @@
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, entityCloakOpacity, entityRenderHull, selectionBase, type MapDef,
+  requiresPower, requiresCreep, providesCreep, entityCloakOpacity, entityLifeBar, entityRenderHull,
+  selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -238,17 +239,12 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       }
     }
     // Health/progress bar, anchored above the visible body.
-    const maxLife = def.hp + def.shields;
-    const life = e.hp[i]! + e.shield[i]!;
-    if (selected && !isRes && kind !== Kind.Geyser && maxLife > 0) {
-      const progress = e.built[i] !== 1 && def.buildTime > 0
-        ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
-        : Math.max(0, life / maxLife);
-      const w = Math.max(2, hull.width);
-      const frac = Math.max(0, Math.min(1, progress));
-      ctx.fillStyle = '#000'; ctx.fillRect(hull.cx - w / 2, hull.y0 - 5, w, 3);
-      ctx.fillStyle = e.built[i] !== 1 ? '#49d0c0' : frac > 0.5 ? '#5aff7a' : frac > 0.25 ? '#ffd24e' : '#ff5a5a';
-      ctx.fillRect(hull.cx - w / 2, hull.y0 - 5, w * frac, 3);
+    const bar = entityLifeBar(s, i, selected);
+    if (bar) {
+      const y = bar.y - 5;
+      ctx.fillStyle = '#000'; ctx.fillRect(bar.x - bar.width / 2, y, bar.width, 3);
+      ctx.fillStyle = bar.kind === 'construction' ? '#49d0c0' : bar.fraction > 0.5 ? '#5aff7a' : bar.fraction > 0.25 ? '#ffd24e' : '#ff5a5a';
+      ctx.fillRect(bar.x - bar.width / 2, y, bar.width * bar.fraction, 3);
     }
   }
 

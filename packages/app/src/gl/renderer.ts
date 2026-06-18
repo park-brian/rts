@@ -14,7 +14,7 @@
 
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
-  resolveRallyEndpoint, entityCloakOpacity, entityRenderHull, selectionBase, type MapDef,
+  resolveRallyEndpoint, entityCloakOpacity, entityLifeBar, entityRenderHull, selectionBase, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
@@ -489,8 +489,6 @@ export class GlRenderer {
       const kind = e.kind[i]!;
       const def = Units[kind]!;
       const hull = entityRenderHull(kind, e.x[i]!, e.y[i]!);
-      const hpWidth = Math.max(2 / zoom, hull.width);
-      const hpTop = hull.y0 - 5 / zoom;
 
       const selected = game.selection.has(id);
       if (selected) {
@@ -522,19 +520,15 @@ export class GlRenderer {
           );
         }
       }
-      const maxLife = def.hp + def.shields;
-      const life = e.hp[i]! + e.shield[i]!;
-      const isResource = (def.roles & Role.Resource) !== 0 || kind === Kind.Geyser;
-      if (selected && !isResource && maxLife > 0) {
+      const bar = entityLifeBar(s, i, selected);
+      if (bar) {
         const th = 3 / zoom;
-        const progress = e.built[i] !== 1 && def.buildTime > 0
-          ? 1 - Math.max(0, e.ctimer[i]!) / def.buildTime
-          : Math.max(0, life / maxLife);
-        const frac = Math.max(0, Math.min(1, progress));
-        this.sprites.push(hull.cx, hpTop, hpWidth, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
-        const col = e.built[i] !== 1 ? [0.29, 0.82, 0.75] :
-          frac > 0.5 ? [0.35, 1, 0.48] : frac > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
-        this.sprites.push(hull.cx - hpWidth / 2 + (hpWidth * frac) / 2, hpTop, hpWidth * frac, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
+        const width = Math.max(2 / zoom, bar.width);
+        const y = bar.y - 5 / zoom;
+        this.sprites.push(bar.x, y, width, th, 0, white, 0, 0, 0, 0.85, 0, 0, 0);
+        const col = bar.kind === 'construction' ? [0.29, 0.82, 0.75] :
+          bar.fraction > 0.5 ? [0.35, 1, 0.48] : bar.fraction > 0.25 ? [1, 0.82, 0.3] : [1, 0.35, 0.3];
+        this.sprites.push(bar.x - width / 2 + (width * bar.fraction) / 2, y, width * bar.fraction, th, 0, white, col[0]!, col[1]!, col[2]!, 1, 0, 0, 0);
       }
     }
 

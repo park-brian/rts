@@ -37,6 +37,14 @@ export type SelectionBase =
   | { shape: 'circle'; radius: number; offsetX: number; offsetY: number }
   | { shape: 'rect'; width: number; height: number; offsetX: number; offsetY: number };
 
+export type EntityLifeBar = {
+  kind: 'construction' | 'life';
+  x: number;
+  y: number;
+  width: number;
+  fraction: number;
+};
+
 export type EffectVisibilityAffordance = {
   kind: 'scan' | 'nuke';
   x: number;
@@ -176,6 +184,28 @@ export const selectionBase = (kind: number): SelectionBase => {
     };
   }
   return { shape: 'circle', radius: def.radius / ONE, offsetX: 0, offsetY: 0 };
+};
+
+export const entityLifeBar = (s: State, slot: number, selected: boolean): EntityLifeBar | undefined => {
+  if (!selected) return undefined;
+  const e = s.e;
+  const kind = e.kind[slot]!;
+  const def = Units[kind];
+  if (!def || (def.roles & Role.Resource) !== 0 || kind === Kind.Geyser) return undefined;
+  const maxLife = def.hp + def.shields;
+  if (maxLife <= 0) return undefined;
+  const construction = e.built[slot] !== 1 && def.buildTime > 0;
+  const progress = construction
+    ? 1 - Math.max(0, e.ctimer[slot]!) / def.buildTime
+    : Math.max(0, (e.hp[slot]! + e.shield[slot]!) / maxLife);
+  const hull = entityRenderHull(kind, e.x[slot]!, e.y[slot]!);
+  return {
+    kind: construction ? 'construction' : 'life',
+    x: hull.cx,
+    y: hull.y0,
+    width: Math.max(2, hull.width),
+    fraction: Math.max(0, Math.min(1, progress)),
+  };
 };
 
 export const isZergCombatMorph = (s: State, slot: number): boolean => {

@@ -7,8 +7,8 @@ import { sliceMap } from '../src/map.ts';
 import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
-  effectVisibilityAffordances, entityCloakOpacity, entityPresentation, entityRenderHull, entitySelectionName,
-  selectionBase, workActivities,
+  effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
+  entitySelectionName, selectionBase, workActivities,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -115,6 +115,32 @@ test('entity render hulls and selection bases expose gameplay math', () => {
     offsetX: 0,
     offsetY: 0,
   });
+});
+
+test('entity life bars expose selected life and construction progress policy', () => {
+  const s = makeState(sliceMap(), 1, 82);
+  const e = s.e;
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(512), fx(448)));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, 0, fx(560), fx(448)));
+
+  assert.equal(entityLifeBar(s, marine, false), undefined);
+  assert.equal(entityLifeBar(s, mineral, true), undefined);
+
+  e.hp[marine] = Math.trunc(Units[Kind.Marine]!.hp / 2);
+  const life = entityLifeBar(s, marine, true)!;
+  const hull = entityRenderHull(Kind.Marine, e.x[marine]!, e.y[marine]!);
+  assert.equal(life.kind, 'life');
+  assert.equal(life.x, hull.cx);
+  assert.equal(life.y, hull.y0);
+  assert.equal(life.width, Math.max(2, hull.width));
+  assert.equal(life.fraction, e.hp[marine]! / Units[Kind.Marine]!.hp);
+
+  const depot = slotOf(spawnUnit(s, Kind.SupplyDepot, 0, fx(430), fx(400)));
+  e.built[depot] = 0;
+  e.ctimer[depot] = Math.trunc(Units[Kind.SupplyDepot]!.buildTime / 2);
+  const construction = entityLifeBar(s, depot, true)!;
+  assert.equal(construction.kind, 'construction');
+  assert.equal(construction.fraction, 1 - e.ctimer[depot]! / Units[Kind.SupplyDepot]!.buildTime);
 });
 
 test('effect visibility affordances expose scan and nuke presentation policy', () => {
