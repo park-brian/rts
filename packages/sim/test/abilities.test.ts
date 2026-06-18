@@ -137,6 +137,21 @@ test('defensive matrix absorbs incoming weapon damage before shields and hp', ()
   assert.equal(s.e.hp[z], Units[Kind.Zealot]!.hp);
 });
 
+test('irradiate sets its target timer through descriptor execution', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 241 });
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
+  const medic = spawn(Kind.Medic, 1, fx(430), fx(400));
+  s.e.energy[slotOf(vessel)] = 75;
+  grant(0, Tech.Irradiate);
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: vessel, ability: Ability.Irradiate, target: medic },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.irradiateTimer[slotOf(medic)], Abilities[Ability.Irradiate]!.duration - 1);
+});
+
 test('lockdown prevents a mechanical unit from moving or attacking', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 25 });
   const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
