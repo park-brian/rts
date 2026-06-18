@@ -1947,6 +1947,9 @@ Further concrete deletion opportunities found on review:
      - Extracted weapon/combat vocabulary from `data.ts` into `data-weapons.ts`, including weapon
        range, splash, damage multiplier data, and damage helpers, while preserving `data.ts`
        re-exports and leaving unit/ability/tech tables in place.
+     - Extracted research and upgrade vocabulary from `data.ts` into `data-tech.ts`, including
+       the `Tech` ids, `TechDefs`, and table-local tech helpers, while preserving the `data.ts`
+       public import surface for existing systems.
 
 Abstraction acceptance test:
 
