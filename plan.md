@@ -1619,6 +1619,8 @@ Highest-impact LOC reductions:
      `Yamato Gun`, and `Mind Control`.
    - Moved the remaining Queen enemy-entity pair, `Spawn Broodling` and `Infest Command Center`,
      into the policy path while keeping their existing scorers and validation gates.
+   - Moved `Irradiate` into the same enemy-entity policy path and deleted the old generic
+     entity-cast helper.
    - Added point-target policies for non-Nuke area spells: `EMP`, `Psionic Storm`, `Plague`,
      `Ensnare`, `Maelstrom`, `Stasis Field`, `Disruption Web`, and `Dark Swarm` now share
      the policy search path while preserving focus penalties.

@@ -793,6 +793,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scoreTarget: (s, player, target) => scoreBroodlingTarget(s, player, target),
   },
   {
+    ability: Ability.Irradiate,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreIrradiateTarget(s, player, target),
+  },
+  {
     ability: Ability.EMPShockwave,
     target: 'enemy-point',
     minScore: 100,
@@ -866,7 +872,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Feedback) && tryCastPolicy(s, player, cmds, caster, Ability.Feedback)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Lockdown) && tryCastPolicy(s, player, cmds, caster, Ability.Lockdown)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Irradiate) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Irradiate, scoreIrradiateTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Irradiate) && tryCastPolicy(s, player, cmds, caster, Ability.Irradiate)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.EMPShockwave) && tryCastPolicy(s, player, cmds, caster, Ability.EMPShockwave)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.PsionicStorm) && tryCastPolicy(s, player, cmds, caster, Ability.PsionicStorm, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Plague) && tryCastPolicy(s, player, cmds, caster, Ability.Plague, focusX, focusY)) { used.add(caster); continue; }
@@ -971,34 +977,6 @@ const maybeCastPointAbility = (
   }
   if (best === NONE) return false;
   cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId, x: e.x[best]!, y: e.y[best]! });
-  return true;
-};
-
-const maybeCastEntityAbility = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  caster: number,
-  abilityId: number,
-  scoreFn: (s: State, player: number, slot: number) => number,
-): boolean => {
-  const e = s.e;
-  const ability = Abilities[abilityId]!;
-  if (!hasTechForAbility(s, player, abilityId)) return false;
-  if (e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestScore = abilityThreshold(abilityId);
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || !isEnemy(s, player, e.owner[i]!)) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const score = scoreFn(s, player, i);
-    if (score > bestScore) {
-      bestScore = score;
-      best = i;
-    }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId, target: eid(e, best) });
   return true;
 };
 
