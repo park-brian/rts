@@ -11,7 +11,7 @@ import { Kind, Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { isContained } from './cargo.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
-import { workersCanShareMineralWalkCollision } from './worker-collision.ts';
+import { workersCanShareResourceRouteCollision } from './worker-collision.ts';
 
 const TILE_FX = TILE * ONE;
 const AVOID_MARGIN = ONE * 6;
@@ -74,7 +74,7 @@ export const localAvoidancePenalty = (s: State, slot: number, nx: number, ny: nu
     for (let gx = Math.max(0, cx - span); gx <= Math.min(cols - 1, cx + span); gx++) {
       for (let j = head[row + gx]!; j >= 0; j = next[j]!) {
         if (j === slot || !usesLocalAvoidance(s, j)) continue;
-        if (workersCanShareMineralWalkCollision(s, slot, j)) continue;
+        if (workersCanShareResourceRouteCollision(s, slot, j)) continue;
         const min = ri + Units[e.kind[j]!]!.radius;
         const avoid = min + AVOID_MARGIN;
         const dx = nx - e.x[j]!;

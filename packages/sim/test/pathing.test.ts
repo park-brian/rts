@@ -14,7 +14,7 @@ import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
 import { placementForStructure } from '../src/validation.ts';
 import { applyCommands } from '../src/systems/ingest.ts';
-import { workersCanShareMineralWalkCollision } from '../src/worker-collision.ts';
+import { workersCanShareResourceRouteCollision } from '../src/worker-collision.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
 const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery] as const;
@@ -433,7 +433,7 @@ test('same-target attack-move batches spread but worker move batches preserve ex
   assert.equal(s.e.ty[w2], targetY);
 });
 
-test('workers collide normally unless they are mineral-walking', () => {
+test('workers collide normally unless they are resource-route workers', () => {
   const s = makeState(blankMap('worker-collision', 16, 16), 1, 102);
   const e = s.e;
   const a = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
@@ -473,25 +473,42 @@ test('mineral-harvesting workers still collide with non-harvesting workers', () 
 
   stepWorld(s, []);
 
-  assert.notEqual(positionKey(s, miner), positionKey(s, idle), 'harvest route only phases against another mineral-route worker');
+  assert.notEqual(positionKey(s, miner), positionKey(s, idle), 'harvest route only phases against another resource-route worker');
 });
 
-test('gas-harvesting workers remain solid', () => {
+test('gas-harvesting workers can share collision with each other', () => {
   const s = makeState(blankMap('gas-worker-collision', 16, 16), 1, 104);
   const e = s.e;
   const refinery = slotOf(spawnUnit(s, Kind.Refinery, 0, tc(10), tc(8)));
+  const a = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const b = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  for (const worker of [a, b]) {
+    e.order[worker] = Order.Harvest;
+    e.target[worker] = eid(e, refinery);
+    e.stasisTimer[worker] = 1; // isolate collision from harvest steering for this one tick
+  }
+
+  stepWorld(s, []);
+
+  assert.equal(positionKey(s, a), positionKey(s, b), 'gas-harvesting workers may share space');
+});
+
+test('gas-harvesting workers still collide with non-harvesting workers', () => {
+  const s = makeState(blankMap('gas-worker-vs-idle-collision', 16, 16), 1, 108);
+  const e = s.e;
+  const refinery = slotOf(spawnUnit(s, Kind.Refinery, 0, tc(10), tc(8)));
   const gasWorker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
-  const blocker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const idle = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
   e.order[gasWorker] = Order.Harvest;
   e.target[gasWorker] = eid(e, refinery);
   e.stasisTimer[gasWorker] = 1; // isolate collision from harvest steering for this one tick
 
   stepWorld(s, []);
 
-  assert.notEqual(positionKey(s, gasWorker), positionKey(s, blocker), 'gas gather should not get mineral-walk phasing');
+  assert.notEqual(positionKey(s, gasWorker), positionKey(s, idle), 'gas routes still collide with non-harvesting workers');
 });
 
-test('returning mineral workers share collision with harvesting workers but not non-workers', () => {
+test('returning resource workers share collision with harvesting workers but not non-workers', () => {
   const s = makeState(blankMap('carrying-worker-collision', 16, 16), 1, 105);
   const e = s.e;
   const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
@@ -508,17 +525,17 @@ test('returning mineral workers share collision with harvesting workers but not 
 
   stepWorld(s, []);
 
-  assert.equal(positionKey(s, a), positionKey(s, b), 'returning and harvesting mineral workers may share space');
+  assert.equal(positionKey(s, a), positionKey(s, b), 'returning and harvesting resource workers may share space');
 
   const marine = slotOf(spawnUnit(s, Kind.Marine, 0, tc(8), tc(8)));
   const before = positionKey(s, a);
   stepWorld(s, []);
 
-  assert.notEqual(positionKey(s, a), before, 'mineral-carrying worker still collides with non-worker traffic');
-  assert.notEqual(positionKey(s, marine), before, 'non-worker traffic is still solid to mineral-carrying workers');
+  assert.notEqual(positionKey(s, a), before, 'resource-carrying worker still collides with non-worker traffic');
+  assert.notEqual(positionKey(s, marine), before, 'non-worker traffic is still solid to resource-carrying workers');
 });
 
-test('harvest commands immediately put workers on mineral-walk collision routes', () => {
+test('harvest commands immediately put workers on resource-route collision routes', () => {
   const s = makeState(blankMap('harvest-command-worker-collision', 16, 16), 1, 107);
   const e = s.e;
   const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
@@ -532,7 +549,27 @@ test('harvest commands immediately put workers on mineral-walk collision routes'
   const results = applyCommands(s, [{ player: 0, cmds: [{ t: 'harvest', unit: eid(e, fresh), patch: eid(e, mineral) }] }]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'harvest', ok: true }]);
-  assert.equal(workersCanShareMineralWalkCollision(s, fresh, returning), true);
+  assert.equal(workersCanShareResourceRouteCollision(s, fresh, returning), true);
+});
+
+test('returning gas workers share collision with gas harvesters', () => {
+  const s = makeState(blankMap('returning-gas-worker-collision', 16, 16), 1, 109);
+  const e = s.e;
+  const refinery = slotOf(spawnUnit(s, Kind.Refinery, 0, tc(10), tc(8)));
+  const returning = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const harvesting = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  e.order[returning] = Order.Harvest;
+  e.target[returning] = eid(e, refinery);
+  e.cargo[returning] = 8;
+  e.cargoType[returning] = ResourceType.Gas;
+  e.order[harvesting] = Order.Harvest;
+  e.target[harvesting] = eid(e, refinery);
+  e.stasisTimer[returning] = 1;
+  e.stasisTimer[harvesting] = 1;
+
+  stepWorld(s, []);
+
+  assert.equal(positionKey(s, returning), positionKey(s, harvesting), 'returning gas and harvesting gas workers may share space');
 });
 
 test('moving units face their current travel direction', () => {
