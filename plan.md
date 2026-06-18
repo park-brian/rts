@@ -1944,6 +1944,9 @@ Further concrete deletion opportunities found on review:
      - Extracted the stable core vocabulary from `data.ts` into `data-core.ts` and re-exported it
        through `data.ts` so existing imports keep working. The large unit, ability, tech, and
        weapon tables remain together for now because they are honest BW data, not duplicate logic.
+     - Extracted weapon/combat vocabulary from `data.ts` into `data-weapons.ts`, including weapon
+       range, splash, damage multiplier data, and damage helpers, while preserving `data.ts`
+       re-exports and leaving unit/ability/tech tables in place.
 
 Abstraction acceptance test:
 
