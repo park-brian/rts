@@ -16,6 +16,7 @@ import { EMPTY_SELECTION_VIEW, clearArmedCommand, isPlacementArmed, ui, type Mod
 import { isUserCommandableKind } from './child-actors.ts';
 import { selectionCapabilities } from './selection-capabilities.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
+import { entityWorkQueue } from './entity-work-queue.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -777,7 +778,8 @@ export class Game {
   }
 
   trainSelected(kind: number): void {
-    const e = this.sim.fullState().e;
+    const s = this.sim.fullState();
+    const e = s.e;
     let best = -1;
     let bestLoad = Infinity;
     for (const id of this.selection) {
@@ -785,9 +787,8 @@ export class Game {
       const slot = slotOf(id);
       if ((e.flags[slot]! & Role.Producer) === 0 || !Units[e.kind[slot]!]!.produces.includes(kind)) continue;
       const c: Command = { t: 'train', building: id, kind };
-      if (!validateCommand(this.sim.fullState(), this.human, c).ok) continue;
-      const queued = e.prodKind[slot] === Kind.None ? 0 : 1 + e.prodQueued[slot]!;
-      const load = queued * 1_000_000 + e.prodTimer[slot]!;
+      if (!validateCommand(s, this.human, c).ok) continue;
+      const load = entityWorkQueue(s, slot).producerLoad;
       if (load < bestLoad) { best = id; bestLoad = load; }
     }
     if (best >= 0) this.queued.push({ t: 'train', building: best, kind });

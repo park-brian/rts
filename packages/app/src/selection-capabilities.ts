@@ -6,6 +6,7 @@ import {
   type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
 import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
+import { entityWorkQueue } from './entity-work-queue.ts';
 import { entitySelectionName } from './entity-presentation.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { EMPTY_SELECTION_VIEW, type CommandOption, type SelectionView } from './store.ts';
@@ -54,9 +55,9 @@ const sortedOptions = (options: Map<number, CommandOption>): CommandOption[] =>
   [...options.values()].sort((a, b) => a.id - b.id);
 
 const nukeTrainOptionMeta = (s: State, slot: number): CommandOptionMeta => {
-  const e = s.e;
-  if (e.specialAmmo[slot]! > 0) return { label: 'Nuke Ready', detail: 'Ready' };
-  if (e.prodKind[slot] === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
+  const work = entityWorkQueue(s, slot);
+  if (work.internalReady?.t === 'internal-ready' && work.internalReady.kind === Kind.NuclearMissile) return { label: work.internalReady.label, detail: work.internalReady.detail };
+  if (work.active?.t === 'production' && work.active.kind === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
   return { label: 'Arm Nuke' };
 };
 

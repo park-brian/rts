@@ -1581,7 +1581,9 @@ Highest-impact LOC reductions:
        read-only query used by `Game` when publishing `selectionView`.
      - Extracted normal mobile tap and desktop smart-click command ranking into
        `smartCommandCandidates`, a pure read-only query used by `Game` before enqueueing commands.
-     - Remaining: move work-queue derivation out of `Game` before splitting controllers.
+     - Extracted producer/research/internal-ammo work derivation into `entityWorkQueue`, used by
+       lifecycle status, nuclear command-card metadata, and producer load ordering.
+     - Remaining: split `Game` controllers once the query boundaries settle.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.
@@ -1748,8 +1750,8 @@ LOC collapse order:
 2. Collapse `armedCommand` and `selectionView` in the app, because these remove impossible UI states
    and make later `Game` splitting meaningful. `armedCommand` and `selectionView` are complete.
 3. Add lifecycle/status, work-queue, and selection-capability queries, then slim `Game`.
-   `entityLifecycleStatus`, `selectionCapabilities`, and `smartCommandCandidates` are complete;
-   work-queue query remains.
+   `entityLifecycleStatus`, `selectionCapabilities`, `smartCommandCandidates`, and
+   `entityWorkQueue` are complete.
 4. Add command specs while keeping public `validateCommand`/`applyCommands` stable.
 5. Add ability descriptors and AI policies.
 6. Add internal-product/child-actor descriptors.

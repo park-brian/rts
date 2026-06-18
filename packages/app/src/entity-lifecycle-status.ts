@@ -1,10 +1,11 @@
 import {
-  FPS, Kind, ONE, Order, TechDefs, TILE, Units,
+  FPS, Kind, ONE, Order, TILE, Units,
   armorUpgradeBonus, canDetect, isCloaked, isLiftedStructureFlags,
-  nextTechLevel, shieldArmorBonus, techTime, upgradedCooldown, upgradedRange,
+  shieldArmorBonus, upgradedCooldown, upgradedRange,
   upgradedSight, upgradedSpeed, weaponUpgradeBonus,
   type State, type Weapon,
 } from './sim.ts';
+import { entityWorkQueue } from './entity-work-queue.ts';
 import type { SelectionStatus } from './store.ts';
 
 const ORDER_LABELS: Record<number, string> = {
@@ -93,25 +94,20 @@ export const entityLifecycleStatus = (s: State, slot: number, viewer: number): S
       stats,
     };
   }
-  const prod = e.prodKind[slot]!;
-  if (prod !== Kind.None) {
-    const prodDef = Units[prod]!;
-    const queued = e.prodQueued[slot]!;
+  const work = entityWorkQueue(s, slot);
+  if (work.active?.t === 'production') {
     return {
-      label: prod === Kind.NuclearMissile ? 'Arming' : prodDef.buildMethod === 'morph' ? 'Morphing' : 'Training',
-      detail: `${prodDef.name}${queued > 0 ? ` +${queued}` : ''}`,
-      progress: clampProgress(e.prodTimer[slot]!, prodDef.buildTime),
+      label: work.active.label,
+      detail: work.active.detail,
+      progress: clampProgress(work.active.remaining, work.active.total),
       stats,
     };
   }
-  const tech = e.researchKind[slot]!;
-  if (tech !== Kind.None) {
-    const techDef = TechDefs[tech]!;
-    const level = nextTechLevel(s, e.owner[slot]!, tech);
+  if (work.active?.t === 'research') {
     return {
-      label: 'Researching',
-      detail: techDef.name,
-      progress: clampProgress(e.researchTimer[slot]!, techTime(techDef, level)),
+      label: work.active.label,
+      detail: work.active.detail,
+      progress: clampProgress(work.active.remaining, work.active.total),
       stats,
     };
   }
