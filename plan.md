@@ -1829,6 +1829,9 @@ Further concrete deletion opportunities found on review:
      - keep them allocation-free and obvious.
    - Expected win: small raw LOC win, but large blind-spot reduction because AI, validation, and UI
      stop making subtly different "completed/available/in range" decisions.
+   - Started:
+     - Exported the sim-owned `hasCompletedKind`/`requirementsMet` helpers through `@rts/sim` and
+       removed AI's duplicate completed-kind implementation, including its add-on attachment rule.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Current shape:
      - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart
