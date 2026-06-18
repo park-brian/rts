@@ -590,10 +590,12 @@ export type AbilityTarget = 'self' | 'point' | 'entity';
 export type TargetTeam = 'own' | 'enemy' | 'any';
 export type AbilityStatusTimer = 'stim' | 'lockdown';
 export type AbilityTargetMarker = 'opticalFlare' | 'parasiteOwner';
+export type AbilityRestorePool = 'hp' | 'shield';
 export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
   | { mode: 'target-status'; timer: AbilityStatusTimer }
-  | { mode: 'target-marker'; marker: AbilityTargetMarker };
+  | { mode: 'target-marker'; marker: AbilityTargetMarker }
+  | { mode: 'target-restore'; pool: AbilityRestorePool };
 export type AbilityDef = {
   name: string;
   tech?: number;
@@ -717,6 +719,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Heal', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Medic],
     energyCost: 1, hpCost: 0, range: tiles(1), radius: 0, duration: 0, period: 0, damage: 2,
+    execution: { mode: 'target-restore', pool: 'hp' },
   },
   [Ability.Restoration]: {
     name: 'Restoration', tech: Tech.Restoration, target: 'entity', targetTeam: 'any', targetRolesAny: Role.Mobile, targetRolesNone: 0,
@@ -764,6 +767,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Recharge Shields', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ShieldBattery],
     energyCost: 1, hpCost: 0, range: tiles(4), radius: 0, duration: 0, period: 0, damage: 2,
+    execution: { mode: 'target-restore', pool: 'shield' },
   },
 };
 

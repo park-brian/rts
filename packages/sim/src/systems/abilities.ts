@@ -1,7 +1,7 @@
 import type { Command } from '../commands.ts';
 import {
   Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
-  type AbilityStatusTimer, type AbilityTargetMarker,
+  type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetMarker,
 } from '../data.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
@@ -86,6 +86,18 @@ const applyTargetMarker = (e: State['e'], marker: AbilityTargetMarker, target: n
   }
 };
 
+const applyTargetRestore = (e: State['e'], pool: AbilityRestorePool, target: number, amount: number): void => {
+  const def = Units[e.kind[target]!]!;
+  switch (pool) {
+    case 'hp':
+      e.hp[target] = Math.min(def.hp, e.hp[target]! + amount);
+      return;
+    case 'shield':
+      e.shield[target] = Math.min(def.shields, e.shield[target]! + amount);
+      return;
+  }
+};
+
 const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): boolean => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
@@ -99,6 +111,9 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       break;
     case 'target-marker':
       applyTargetMarker(e, execution.marker, target, e.owner[slot]!);
+      break;
+    case 'target-restore':
+      applyTargetRestore(e, execution.pool, target, ability.damage);
       break;
   }
   return true;
@@ -321,12 +336,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     case Ability.ScannerSweep:
       spawnEffect(s, EffectKind.ScannerSweep, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, 0);
       break;
-    case Ability.Heal: {
-      const target = slotOf(c.target!);
-      const def = Units[e.kind[target]!]!;
-      e.hp[target] = Math.min(def.hp, e.hp[target]! + ability.damage);
-      break;
-    }
     case Ability.Restoration:
       restoreStatuses(s, slotOf(c.target!));
       break;
@@ -372,12 +381,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       spawnEffect(s, EffectKind.NuclearStrike, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, ability.damage,
         eid(e, slot), e.x[slot]!, e.y[slot]!);
       break;
-    case Ability.ShieldRecharge: {
-      const target = slotOf(c.target!);
-      const def = Units[e.kind[target]!]!;
-      e.shield[target] = Math.min(def.shields, e.shield[target]! + ability.damage);
-      break;
-    }
   }
 };
 

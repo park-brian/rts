@@ -1597,6 +1597,8 @@ Highest-impact LOC reductions:
      - Extended descriptor execution to permanent target marker spells: `Optical Flare` now sets
        detector suppression and `Parasite` now records the caster owner through the generic marker
        path.
+     - Added target restore descriptors: `Heal` restores hit points and `Shield Recharge` restores
+       shields through the same capped restore path.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.
