@@ -3,7 +3,7 @@ import { tileX, tileY } from './pathing.ts';
 import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from './world.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from './flow.ts';
-import { topDownInteractionRect, type InteractionRect } from './spatial.ts';
+import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from './spatial.ts';
 import { isDisabled } from './systems/status.ts';
 import { clearVelocity } from './systems/move.ts';
 
@@ -104,10 +104,7 @@ export const canAcceptCargo = (s: State, transport: number, unit: number): boole
 };
 
 export const withinLoadRange = (s: State, transport: number, unit: number): boolean => {
-  const e = s.e;
-  const dx = e.x[transport]! - e.x[unit]!;
-  const dy = e.y[transport]! - e.y[unit]!;
-  return dx * dx + dy * dy <= LOAD_RANGE * LOAD_RANGE;
+  return withinTopDownEdgeRange(s, transport, unit, LOAD_RANGE);
 };
 
 export const loadUnitInto = (s: State, transport: number, unit: number): void => {

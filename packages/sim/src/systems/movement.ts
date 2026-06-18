@@ -11,6 +11,7 @@ import { placementForStructure } from '../placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../world.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 import { clearVelocity } from './move.ts';
+import { entityApproachPoint } from '../entity-approach.ts';
 
 const landIfArrived = (s: State, slot: number): void => {
   const e = s.e;
@@ -56,8 +57,9 @@ export const movement = (s: State): void => {
         e.target[i] = NONE;
       } else {
         const target = slotOf(targetId);
-        e.tx[i] = e.x[target]!;
-        e.ty[i] = e.y[target]!;
+        const p = entityApproachPoint(s, i, target);
+        e.tx[i] = p.x;
+        e.ty[i] = p.y;
         if (canAcceptCargo(s, target, i)) {
           if (withinLoadRange(s, target, i)) {
             loadUnitInto(s, target, i);

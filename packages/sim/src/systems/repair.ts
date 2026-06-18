@@ -7,6 +7,7 @@ import { faceToward } from './move.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial.ts';
+import { entityApproachPoint } from '../entity-approach.ts';
 
 export const repair = (s: State): void => {
   const e = s.e;
@@ -23,7 +24,8 @@ export const repair = (s: State): void => {
     }
     faceToward(e, i, e.x[target]!, e.y[target]!);
     if (!withinTopDownEdgeRange(s, i, target, BUILD_RANGE)) {
-      navigate(s, i, e.x[target]!, e.y[target]!, effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed));
+      const p = entityApproachPoint(s, i, target);
+      navigate(s, i, p.x, p.y, effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed));
       continue;
     }
     const amount = Math.min(REPAIR_RATE, def.hp - e.hp[target]!);

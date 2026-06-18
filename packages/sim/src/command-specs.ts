@@ -11,8 +11,8 @@ import {
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
 import {
-  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, canUnloadAt, cargoUsed, containedBy, isContained, loadUnitInto,
-  sameTeam, transportCapacity, unloadAnchorSlot, unloadUnit,
+  UNLOAD_RANGE, canLoadInto, canUnloadAt, cargoUsed, containedBy, isContained, loadUnitInto,
+  sameTeam, transportCapacity, unloadAnchorSlot, unloadUnit, withinLoadRange,
 } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { isPowered } from './power.ts';
@@ -33,6 +33,7 @@ import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import { clearVelocity } from './systems/move.ts';
+import { issueTravelOrder } from './travel-intent.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -236,7 +237,7 @@ const validateLoad = (s: State, player: number, command: Extract<Command, { t: '
   if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
   const unitSize = Units[e.kind[unit]!]!.cargoSize;
   if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
-  if (!withinRangeSq(e.x[transport]!, e.y[transport]!, e.x[unit]!, e.y[unit]!, LOAD_RANGE)) {
+  if (!withinLoadRange(s, transport, unit)) {
     return reject('target-out-of-range');
   }
   return { ok: true };
@@ -562,30 +563,22 @@ const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
 const moveSpec: CommandSpec<Extract<Command, { t: 'move' }>> = {
   validate: validateMoveLike,
   apply(s, player, command, ctx): void {
-    const e = s.e;
     const slot = slotOf(command.unit);
     const dest = ctx.destination(command, slot, player);
     cancelPendingBeforeOrder(s, slot);
     clearSettled(s, slot);
-    e.order[slot] = Order.Move;
-    e.target[slot] = NONE;
-    e.tx[slot] = dest.x;
-    e.ty[slot] = dest.y;
+    issueTravelOrder(s, slot, dest, 'move');
   },
 };
 
 const amoveSpec: CommandSpec<Extract<Command, { t: 'amove' }>> = {
   validate: validateMoveLike,
   apply(s, player, command, ctx): void {
-    const e = s.e;
     const slot = slotOf(command.unit);
     const dest = ctx.destination(command, slot, player);
     cancelPendingBeforeOrder(s, slot);
     clearSettled(s, slot);
-    e.order[slot] = Order.AttackMove;
-    e.target[slot] = NONE;
-    e.tx[slot] = dest.x;
-    e.ty[slot] = dest.y;
+    issueTravelOrder(s, slot, dest, 'attack-move');
   },
 };
 

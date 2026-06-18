@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { count, eid, kill, makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, TILE, Units, START_MINERALS, START_WORKERS } from '../src/data.ts';
+import { entityApproachPoint } from '../src/entity-approach.ts';
 import { fx } from '../src/fixed.ts';
 import { stepWorld } from '../src/tick.ts';
 import type { MapDef } from '../src/map.ts';
@@ -135,9 +136,10 @@ test('production unit-target rally follows target position when the unit spawns'
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
+  const p = entityApproachPoint(s, marine, target);
   assert.equal(e.order[marine], Order.AttackMove);
-  assert.equal(e.tx[marine], e.x[target]);
-  assert.equal(e.ty[marine], e.y[target]);
+  assert.equal(e.tx[marine], p.x);
+  assert.equal(e.ty[marine], p.y);
 });
 
 test('same-target production rallies use deterministic ground destination slots', () => {
@@ -258,7 +260,8 @@ test('invalidated entity rally retargets to the nearest valid resource', () => {
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
+  const p = entityApproachPoint(s, marine, patch);
   assert.equal(e.order[marine], Order.AttackMove);
-  assert.equal(e.tx[marine], e.x[patch]);
-  assert.equal(e.ty[marine], e.y[patch]);
+  assert.equal(e.tx[marine], p.x);
+  assert.equal(e.ty[marine], p.y);
 });

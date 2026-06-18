@@ -244,6 +244,23 @@ export const topDownInteractionRect = (kind: number, x: number, y: number, flags
   return bodyRect(kind, x, y);
 };
 
+export const topDownDockingRect = (
+  moverKind: number,
+  targetKind: number,
+  targetX: number,
+  targetY: number,
+  targetFlags: number,
+): InteractionRect => {
+  const mover = bodyBounds(moverKind);
+  const target = topDownInteractionRect(targetKind, targetX, targetY, targetFlags);
+  return {
+    x0: target.x0 - mover.right,
+    y0: target.y0 - mover.down,
+    x1: target.x1 + mover.left,
+    y1: target.y1 + mover.up,
+  };
+};
+
 export const topDownDockingPoint = (
   moverKind: number,
   targetKind: number,
@@ -253,12 +270,13 @@ export const topDownDockingPoint = (
   approachX: number,
   approachY: number,
 ): InteractionPoint => {
-  const mover = bodyBounds(moverKind);
   const target = topDownInteractionRect(targetKind, targetX, targetY, targetFlags);
-  const x0 = target.x0 - mover.right;
-  const x1 = target.x1 + mover.left;
-  const y0 = target.y0 - mover.down;
-  const y1 = target.y1 + mover.up;
+  const dock = topDownDockingRect(moverKind, targetKind, targetX, targetY, targetFlags);
+  const mover = bodyBounds(moverKind);
+  const x0 = dock.x0;
+  const x1 = dock.x1;
+  const y0 = dock.y0;
+  const y1 = dock.y1;
   const insideX = approachX >= x0 && approachX <= x1;
   const insideY = approachY >= y0 && approachY <= y1;
   if (insideX && insideY) return { x: approachX, y: approachY };

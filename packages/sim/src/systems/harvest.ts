@@ -22,7 +22,8 @@ import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
-import { topDownDockingPoint, withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
+import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
+import { entityApproachPoint } from '../entity-approach.ts';
 
 const HARVEST_DOCK_EPSILON = fx(1);
 
@@ -50,7 +51,7 @@ const dockingPoint = (
   approachY: number,
 ): InteractionPoint => {
   const e = s.e;
-  return topDownDockingPoint(e.kind[worker]!, e.kind[target]!, e.x[target]!, e.y[target]!, e.flags[target]!, approachX, approachY);
+  return entityApproachPoint(s, worker, target, approachX, approachY);
 };
 
 const atDockingPoint = (s: State, worker: number, target: number, p: InteractionPoint): boolean => {

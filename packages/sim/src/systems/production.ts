@@ -6,7 +6,7 @@
 import type { State } from '../world.ts';
 import { nearest, eid, slotOf, NONE } from '../world.ts';
 import { spawnUnit } from '../factory.ts';
-import { Kind, Order, ResourceType, Role, Units, hasAnyWeapon, isLarvaSourceKind, productionCount, sec } from '../data.ts';
+import { Kind, Order, ResourceType, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { pickPatch, isResource } from './harvest.ts';
 import { effectiveSpeed } from './status.ts';
@@ -18,6 +18,7 @@ import { LARVA_MAX, countLarvae } from '../larva.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
+import { issueTravelOrder } from '../travel-intent.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
@@ -30,10 +31,6 @@ type RallyMove = { slot: number; owner: number; order: number; x: number; y: num
 const rallyMoveKey = (move: Pick<RallyMove, 'owner' | 'order' | 'x' | 'y'>): string =>
   `${move.owner}:${move.order}:${move.x}:${move.y}`;
 
-const canAttackMoveByRally = (kind: number): boolean => {
-  const def = Units[kind];
-  return !!def && hasAnyWeapon(def);
-};
 
 /** Direct a freshly produced unit per its producer's rally (default worker = auto-mine). */
 const applyRally = (
@@ -63,23 +60,17 @@ const applyRally = (
     const np = pickPatch(s, slot, owner, speed, e.x[slot]!, e.y[slot]!);
     if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
   } else if (rally) {
+    const endpoint = target === NONE ? { x: rally.x, y: rally.y } : { x: rally.x, y: rally.y, target };
     if (target !== NONE && canAcceptCargo(s, target, slot)) {
       if (withinLoadRange(s, target, slot)) {
         loadUnitInto(s, target, slot);
         return;
       }
-      e.order[slot] = Order.Move;
-      e.target[slot] = eid(e, target);
-      e.tx[slot] = rally.x;
-      e.ty[slot] = rally.y;
+      issueTravelOrder(s, slot, endpoint, 'move');
       return;
     }
-    const order = canAttackMoveByRally(e.kind[slot]!) ? Order.AttackMove : Order.Move;
-    e.order[slot] = order;
-    e.target[slot] = NONE;
-    e.tx[slot] = rally.x;
-    e.ty[slot] = rally.y;
-    rallyMoves.push({ slot, owner, order, x: rally.x, y: rally.y });
+    const issued = issueTravelOrder(s, slot, endpoint, 'smart');
+    rallyMoves.push({ slot, owner, order: issued.order, x: issued.x, y: issued.y });
   }
 };
 

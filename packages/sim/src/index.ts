@@ -11,6 +11,8 @@ export * from './validation.ts';
 export * from './action-mask.ts';
 export * from './footprint.ts';
 export * from './spatial.ts';
+export * from './entity-approach.ts';
+export * from './travel-intent.ts';
 export * from './build-cost.ts';
 export * from './addon.ts';
 export * from './terran-mobility.ts';
