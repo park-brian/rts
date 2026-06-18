@@ -6,7 +6,7 @@ import type { State } from './world.ts';
 import type { MapDef } from './map.ts';
 import { Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
-import { moveToward } from './systems/move.ts';
+import { acceleratedStep, moveToward } from './systems/move.ts';
 import { localAvoidancePenalty, usesLocalAvoidance } from './local-avoidance.ts';
 import {
   clearancePxForKind,
@@ -232,11 +232,27 @@ const moveTowardPass = (
   consider(firstX ? 0 : baseX, firstX ? baseY : 0, false, 8);
 
   if (bestScore === -0x7fffffff) return false;
-  e.x[slot] = ox + bestX;
-  e.y[slot] = oy + bestY;
-  e.faceX[slot] = bestX;
-  e.faceY[slot] = bestY;
-  return bestArrived;
+  const step = acceleratedStep(e, slot, bestX, bestY, speed, bestArrived);
+  let nx = ox + step.x;
+  let ny = oy + step.y;
+  let arrived = bestArrived && step.x === bestX && step.y === bestY;
+  if (step.x === 0 && step.y === 0) return false;
+  if (!canStand(pass, w, h, unitSolid, nx, ny)) {
+    e.vx[slot] = bestX;
+    e.vy[slot] = bestY;
+    nx = ox + bestX;
+    ny = oy + bestY;
+    arrived = bestArrived;
+  }
+  e.x[slot] = nx;
+  e.y[slot] = ny;
+  e.faceX[slot] = e.x[slot]! - ox;
+  e.faceY[slot] = e.y[slot]! - oy;
+  if (arrived) {
+    e.vx[slot] = 0;
+    e.vy[slot] = 0;
+  }
+  return arrived;
 };
 
 const fieldProgress = (field: Int32Array, w: number, h: number, sx: number, sy: number, tx: number, ty: number): number => {

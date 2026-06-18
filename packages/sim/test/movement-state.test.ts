@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind } from '../src/data.ts';
+import { Kind, Order } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';
-import { makeState, slotOf } from '../src/world.ts';
+import { eid, hashState, makeState, slotOf } from '../src/world.ts';
 import { applyCommands } from '../src/systems/ingest.ts';
+import { stepWorld } from '../src/tick.ts';
 import { loadUnitInto, unloadUnit } from '../src/cargo.ts';
 import { setBurrowed } from '../src/burrow.ts';
 import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts';
@@ -32,6 +33,54 @@ test('stop commands clear persistent movement velocity', () => {
 
   assert.equal(result?.ok, true);
   assertVelocityCleared(s, slot);
+});
+
+test('ground movement accelerates through persisted velocity and stop prevents drift', () => {
+  const s = makeState(sliceMap(), 1, 205);
+  const id = spawnUnit(s, Kind.Marine, 0, fx(4 * 32), fx(4 * 32));
+  const slot = slotOf(id);
+  const x0 = s.e.x[slot]!;
+
+  stepWorld(s, [{ player: 0, cmds: [{ t: 'move', unit: id, x: fx(10 * 32), y: s.e.y[slot]! }] }]);
+  assert.equal(s.e.vx[slot], fx(1));
+  assert.equal(s.e.vy[slot], 0);
+  assert.equal(s.e.x[slot], x0 + fx(1));
+
+  stepWorld(s, [{ player: 0, cmds: [{ t: 'stop', unit: id }] }]);
+  assertVelocityCleared(s, slot);
+  const stopped = `${s.e.x[slot]},${s.e.y[slot]}`;
+  for (let t = 0; t < 8; t++) stepWorld(s, []);
+  assert.equal(`${s.e.x[slot]},${s.e.y[slot]}`, stopped);
+});
+
+test('crossing ground movers settle deterministically with bounded velocity', () => {
+  const run = (): { hash: number; stable: boolean } => {
+    const s = makeState(sliceMap(), 1, 206);
+    const a = slotOf(spawnUnit(s, Kind.Marine, 0, fx(5 * 32), fx(8 * 32)));
+    const b = slotOf(spawnUnit(s, Kind.Marine, 0, fx(8 * 32), fx(5 * 32)));
+    stepWorld(s, [{ player: 0, cmds: [
+      { t: 'move', unit: eid(s.e, a), x: fx(11 * 32), y: fx(8 * 32) },
+      { t: 'move', unit: eid(s.e, b), x: fx(8 * 32), y: fx(11 * 32) },
+    ] }]);
+    for (let t = 0; t < 220; t++) {
+      stepWorld(s, []);
+      assert.ok(Math.abs(s.e.vx[a]!) <= fx(2) && Math.abs(s.e.vy[a]!) <= fx(2));
+      assert.ok(Math.abs(s.e.vx[b]!) <= fx(2) && Math.abs(s.e.vy[b]!) <= fx(2));
+    }
+    const before = `${s.e.x[a]},${s.e.y[a]}|${s.e.x[b]},${s.e.y[b]}`;
+    for (let t = 0; t < 20; t++) stepWorld(s, []);
+    return {
+      hash: hashState(s),
+      stable: before === `${s.e.x[a]},${s.e.y[a]}|${s.e.x[b]},${s.e.y[b]}` &&
+        s.e.order[a] === Order.Idle &&
+        s.e.order[b] === Order.Idle,
+    };
+  };
+
+  const first = run();
+  const second = run();
+  assert.equal(first.stable, true);
+  assert.equal(first.hash, second.hash);
 });
 
 test('containment transitions clear persistent movement velocity', () => {
