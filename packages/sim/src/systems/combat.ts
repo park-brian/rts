@@ -18,18 +18,12 @@ import { upgradedRange } from '../derived.ts';
 import { isPowered } from '../power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
-import { topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial.ts';
+import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from '../weapon-mechanics.ts';
-
-const distSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
@@ -68,7 +62,7 @@ const nearestBounceTarget = (s: State, owner: number, from: number, excludeA: nu
   for (let i = 0; i < e.hi; i++) {
     if (i === excludeA || i === excludeB || e.alive[i] !== 1 || isContained(s, i)) continue;
     if (!isEnemy(s, owner, e.owner[i]!) || !canDetect(s, owner, i)) continue;
-    const d = distSq(e.x[from]!, e.y[from]!, e.x[i]!, e.y[i]!);
+    const d = distanceSq(e.x[from]!, e.y[from]!, e.x[i]!, e.y[i]!);
     if (d < bestD) { best = i; bestD = d; }
   }
   return best;
@@ -90,11 +84,11 @@ const distSqToSegment = (px: number, py: number, ax: number, ay: number, bx: num
   const wx = px - ax;
   const wy = py - ay;
   const len2 = vx * vx + vy * vy;
-  if (len2 === 0) return distSq(px, py, ax, ay);
+  if (len2 === 0) return distanceSq(px, py, ax, ay);
   const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
   const cx = ax + vx * t;
   const cy = ay + vy * t;
-  return distSq(px, py, cx, cy);
+  return distanceSq(px, py, cx, cy);
 };
 
 const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapon: Weapon): void => {

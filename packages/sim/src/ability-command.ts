@@ -10,6 +10,7 @@ import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
 import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
+import { withinRangeSq } from './spatial.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -18,12 +19,6 @@ type CommandValidation =
   | { ok: false; reason: CommandRejectReason };
 
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const distSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
 
 const ownedSlot = (s: State, id: number, player: number): number | null => {
   const e = s.e;
@@ -55,7 +50,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   if (ability.target === 'self') return { ok: true };
   if (ability.target === 'point') {
     if (typeof command.x !== 'number' || typeof command.y !== 'number') return reject('target-not-found');
-    if (distSq(e.x[slot]!, e.y[slot]!, command.x, command.y) > ability.range * ability.range) {
+    if (!withinRangeSq(e.x[slot]!, e.y[slot]!, command.x, command.y, ability.range)) {
       return reject('target-out-of-range');
     }
     return { ok: true };
@@ -63,7 +58,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   if (command.target === undefined || !isAlive(e, command.target)) return reject('target-not-found');
   const target = slotOf(command.target);
   if (isContained(s, target)) return reject('target-not-allowed');
-  if (distSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!) > ability.range * ability.range) {
+  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, ability.range)) {
     return reject('target-out-of-range');
   }
   if (ability.targetTeam === 'own' && e.owner[target] !== player) return reject('target-not-allowed');

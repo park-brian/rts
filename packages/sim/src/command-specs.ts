@@ -26,6 +26,7 @@ import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
+import { withinRangeSq } from './spatial.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 import { queueProduction, queuedProductionCount } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
@@ -59,11 +60,6 @@ type CommandSpec<C extends CommandSpecCommand> = {
 
 const RALLY_SNAP = fx(2 * TILE);
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-const distSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
 
 const ownedSlot = (s: State, id: number, player: number): number | null => {
   const e = s.e;
@@ -238,7 +234,7 @@ const validateLoad = (s: State, player: number, command: Extract<Command, { t: '
   if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
   const unitSize = Units[e.kind[unit]!]!.cargoSize;
   if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
-  if (distSq(e.x[transport]!, e.y[transport]!, e.x[unit]!, e.y[unit]!) > LOAD_RANGE * LOAD_RANGE) {
+  if (!withinRangeSq(e.x[transport]!, e.y[transport]!, e.x[unit]!, e.y[unit]!, LOAD_RANGE)) {
     return reject('target-out-of-range');
   }
   return { ok: true };
@@ -252,7 +248,7 @@ const validateUnload = (s: State, player: number, command: Extract<Command, { t:
   if (unit === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
   if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
   const anchor = unloadAnchorSlot(s, transport, command.x, command.y);
-  if (anchor === NONE || distSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y) > UNLOAD_RANGE * UNLOAD_RANGE) {
+  if (anchor === NONE || !withinRangeSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y, UNLOAD_RANGE)) {
     return reject('target-out-of-range');
   }
   if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');

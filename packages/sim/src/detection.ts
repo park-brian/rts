@@ -3,12 +3,7 @@ import type { State } from './world.ts';
 import { effectiveSight } from './systems/status.ts';
 import { isPowered } from './power.ts';
 import { isContained } from './cargo.ts';
-
-const distanceSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
+import { withinRangeSq } from './spatial.ts';
 
 export const updateCloakAuras = (s: State): void => {
   const e = s.e;
@@ -20,7 +15,7 @@ export const updateCloakAuras = (s: State): void => {
       if (i === arbiter || e.alive[i] !== 1 || isContained(s, i) || e.owner[i] !== owner || e.kind[i] === Kind.Arbiter) continue;
       const def = Units[e.kind[i]!];
       if (!def || (def.roles & Role.Mobile) === 0) continue;
-      if (distanceSq(e.x[arbiter]!, e.y[arbiter]!, e.x[i]!, e.y[i]!) <= CLOAK_AURA_RADIUS * CLOAK_AURA_RADIUS) e.cloakAura[i] = 1;
+      if (withinRangeSq(e.x[arbiter]!, e.y[arbiter]!, e.x[i]!, e.y[i]!, CLOAK_AURA_RADIUS)) e.cloakAura[i] = 1;
     }
   }
 };
@@ -40,7 +35,7 @@ const isScanned = (s: State, viewer: number, target: number): boolean => {
   const e = s.e;
   for (let i = 0; i < fx.hi; i++) {
     if (fx.alive[i] !== 1 || fx.kind[i] !== EffectKind.ScannerSweep || fx.owner[i] !== viewer) continue;
-    if (distanceSq(fx.x[i]!, fx.y[i]!, e.x[target]!, e.y[target]!) <= fx.radius[i]! * fx.radius[i]!) return true;
+    if (withinRangeSq(fx.x[i]!, fx.y[i]!, e.x[target]!, e.y[target]!, fx.radius[i]!)) return true;
   }
   return false;
 };
@@ -61,7 +56,7 @@ export const canDetect = (s: State, viewer: number, target: number): boolean => 
     if (!isPowered(s, i)) continue;
     if ((def.roles & (Role.Mobile | Role.Structure)) === 0) continue;
     const sight = tiles(effectiveSight(s, e, i, def.sight));
-    if (distanceSq(e.x[i]!, e.y[i]!, e.x[target]!, e.y[target]!) <= sight * sight) return true;
+    if (withinRangeSq(e.x[i]!, e.y[i]!, e.x[target]!, e.y[target]!, sight)) return true;
   }
   return false;
 };

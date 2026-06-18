@@ -1835,6 +1835,8 @@ Further concrete deletion opportunities found on review:
      - Added sim-owned allocation-free center-distance helpers `distanceSq` and `withinRangeSq`,
        then replaced local duplicates in creep coverage, Pylon power coverage, and merge partner
        selection.
+     - Replaced the remaining sim-side center-distance duplicates in detection, ability validation,
+       load/unload validation, spider mine wake-up, splash weapon hits, and combat special mechanics.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Current shape:
      - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart

@@ -4,14 +4,9 @@ import { applyWeaponDamage } from '../damage.ts';
 import { isContained } from '../cargo.ts';
 import { isLowGroundAttackingHigh } from '../terrain.ts';
 import { range } from '../rng.ts';
+import { distanceSq } from '../spatial.ts';
 
 const LOW_TO_HIGH_MISS_PERCENT = 53;
-
-const distSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
 
 const missesLowToHigh = (s: State, attacker: number, target: number): boolean =>
   isLowGroundAttackingHigh(s, attacker, target) && range(s.rng, 100) < LOW_TO_HIGH_MISS_PERCENT;
@@ -39,7 +34,7 @@ export const applyWeaponHit = (s: State, target: number, weapon: Weapon, attacke
   for (let i = 0; i < e.hi; i++) {
     if (i === target || e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Resource) !== 0) continue;
     if (((e.flags[i]! & Role.Air) !== 0) !== targetIsAir) continue;
-    const pct = splashDamagePercent(distSq(e.x[i]!, e.y[i]!, x, y), inner2, medium2, outer2);
+    const pct = splashDamagePercent(distanceSq(e.x[i]!, e.y[i]!, x, y), inner2, medium2, outer2);
     if (pct > 0) applyWeaponDamage(s, i, weapon, attacker, pct);
   }
   return true;
