@@ -1745,6 +1745,10 @@ Highest-impact LOC reductions:
        effect visibility, and presentation role;
      - renderers choose pixels, not rules.
    - Expected win: smaller app code and more trustworthy fallback/math renderer.
+   - Started:
+     - Moved entity lifecycle presentation classification into sim-exported render descriptors,
+       including zerg combat cocoon art, zerg/protoss/terran unfinished labels, and merge-summon
+       state. The app renderers now consume the descriptor and keep only pixel styling local.
 
 Further concrete deletion opportunities found on review:
 
