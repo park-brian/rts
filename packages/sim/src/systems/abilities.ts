@@ -1,7 +1,7 @@
 import type { Command } from '../commands.ts';
 import {
   Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
-  type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetMarker,
+  type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,
 } from '../data.ts';
 import { isFreeAbilityToggleOff } from '../ability-execution.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
@@ -124,6 +124,15 @@ const applyTargetRestore = (e: State['e'], pool: AbilityRestorePool, target: num
   }
 };
 
+const applyTargetBuffer = (e: State['e'], buffer: AbilityTargetBuffer, target: number, amount: number, duration: number): void => {
+  switch (buffer) {
+    case 'matrix':
+      e.matrixHp[target] = Math.max(e.matrixHp[target]!, amount);
+      e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, duration);
+      return;
+  }
+};
+
 const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): boolean => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
@@ -150,6 +159,9 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       break;
     case 'target-restore':
       applyTargetRestore(e, execution.pool, slotOf(c.target!), ability.damage);
+      break;
+    case 'target-buffer':
+      applyTargetBuffer(e, execution.buffer, slotOf(c.target!), ability.damage, ability.duration);
       break;
     case 'target-damage':
       applyIndependentDamage(s, slotOf(c.target!), ability.damage);
@@ -316,12 +328,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     case Ability.EMPShockwave:
       applyEmp(s, c.x!, c.y!, ability.radius);
       break;
-    case Ability.DefensiveMatrix: {
-      const target = slotOf(c.target!);
-      e.matrixHp[target] = Math.max(e.matrixHp[target]!, ability.damage);
-      e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, ability.duration);
-      break;
-    }
     case Ability.SpawnBroodling: {
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;

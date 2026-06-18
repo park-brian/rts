@@ -1614,6 +1614,8 @@ Highest-impact LOC reductions:
        toggle-off validation/application.
      - Added point area-status execution for `Stasis Field`, `Maelstrom`, `Ensnare`, and `Plague`,
        preserving team/role/trait filtering and existing Plague ticking.
+     - Added target timed-buffer execution for `Defensive Matrix`, preserving matrix hit point and
+       timer behavior while removing another cast branch.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

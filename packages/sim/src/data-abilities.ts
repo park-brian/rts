@@ -50,12 +50,14 @@ export type AbilityStatusTimer = 'stim' | 'lockdown' | 'irradiate';
 export type AbilityAreaStatusTimer = 'stasis' | 'maelstrom' | 'ensnare' | 'plague';
 export type AbilityTargetMarker = 'opticalFlare' | 'parasiteOwner';
 export type AbilityRestorePool = 'hp' | 'shield';
+export type AbilityTargetBuffer = 'matrix';
 export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
   | { mode: 'target-status'; timer: AbilityStatusTimer }
   | { mode: 'point-area-status'; timer: AbilityAreaStatusTimer; team: 'enemy' | 'any'; rolesAny: number; traitsAny: number }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
+  | { mode: 'target-buffer'; buffer: AbilityTargetBuffer }
   | { mode: 'target-damage' }
   | { mode: 'target-energy-feedback' }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
@@ -103,6 +105,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Defensive Matrix', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ScienceVessel],
     energyCost: 100, hpCost: 0, range: tiles(10), radius: 0, duration: sec(56.7), period: 0, damage: 250,
+    execution: { mode: 'target-buffer', buffer: 'matrix' },
   },
   [Ability.Irradiate]: {
     name: 'Irradiate', tech: Tech.Irradiate, target: 'entity', targetTeam: 'any', targetRolesAny: Role.Mobile, targetRolesNone: 0,

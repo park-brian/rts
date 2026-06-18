@@ -54,6 +54,7 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.equal(Units[Kind.ShieldBattery]!.abilities.includes(Ability.ShieldRecharge), true);
   assert.deepEqual(Abilities[Ability.StimPack]!.execution, { mode: 'caster-status', timer: 'stim' });
   assert.deepEqual(Abilities[Ability.PsionicStorm]!.execution, { mode: 'persistent-effect', effect: EffectKind.PsionicStorm });
+  assert.deepEqual(Abilities[Ability.DefensiveMatrix]!.execution, { mode: 'target-buffer', buffer: 'matrix' });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
   assert.deepEqual(Abilities[Ability.Irradiate]!.execution, { mode: 'target-status', timer: 'irradiate' });
   assert.deepEqual(Abilities[Ability.StasisField]!.execution, { mode: 'point-area-status', timer: 'stasis', team: 'any', rolesAny: Role.Mobile, traitsAny: 0 });
@@ -152,6 +153,7 @@ test('defensive matrix absorbs incoming weapon damage before shields and hp', ()
   ] }]);
   const z = slotOf(zealot);
   assert.equal(s.e.matrixHp[z], 250);
+  assert.equal(s.e.matrixTimer[z], Abilities[Ability.DefensiveMatrix]!.duration - 1);
 
   const enemy = spawn(Kind.Marine, 1, fx(450), fx(400));
   sim.step([{ player: 1, cmds: [{ t: 'attack', unit: enemy, target: zealot }] }]);
