@@ -3,7 +3,7 @@ import { ONE } from './fixed.ts';
 import { isCloaked } from './detection.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
-import { bodyBounds } from './spatial.ts';
+import { bodyBounds, distanceSqToRect } from './spatial.ts';
 import { eid, isAlive, NONE, slotOf, type State } from './world.ts';
 
 export type EntityPresentationState =
@@ -75,12 +75,6 @@ export type IllusionPresentation = {
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
-const distSqToRect = (x: number, y: number, x0: number, y0: number, x1: number, y1: number): number => {
-  const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
-  const dy = y < y0 ? y0 - y : y > y1 ? y - y1 : 0;
-  return dx * dx + dy * dy;
-};
-
 const structureWorkPoint = (s: State, worker: number, target: number): { x: number; y: number } => {
   const e = s.e;
   const fp = structureFootprint(e.kind[target]!, e.x[target]!, e.y[target]!);
@@ -107,7 +101,7 @@ const nearBuildFootprint = (s: State, worker: number, target: number): boolean =
   const e = s.e;
   const fp = structureFootprint(e.kind[target]!, e.x[target]!, e.y[target]!);
   const tileFx = TILE * ONE;
-  return distSqToRect(
+  return distanceSqToRect(
     e.x[worker]!,
     e.y[worker]!,
     fp.x0 * tileFx,

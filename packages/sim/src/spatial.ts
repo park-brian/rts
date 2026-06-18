@@ -24,6 +24,12 @@ export const distanceSq = (ax: number, ay: number, bx: number, by: number): numb
 export const withinRangeSq = (ax: number, ay: number, bx: number, by: number, range: number): boolean =>
   distanceSq(ax, ay, bx, by) <= range * range;
 
+export const distanceSqToRect = (x: number, y: number, x0: number, y0: number, x1: number, y1: number): number => {
+  const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
+  const dy = y < y0 ? y0 - y : y > y1 ? y - y1 : 0;
+  return dx * dx + dy * dy;
+};
+
 const bounds = (left: number, up: number, right: number, down: number): BodyBounds => ({
   left: fx(left),
   up: fx(up),

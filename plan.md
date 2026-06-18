@@ -1849,7 +1849,7 @@ Further concrete deletion opportunities found on review:
      - UI clicks dispatch `game.executeOption(option)` for instant commands or arm its target mode.
    - Expected win: fewer bespoke methods such as train/build/research/ability/transform/lift/land
      wiring in `Game`, and desktop hotkeys can invoke the same option records.
-   - Started:
+   - Completed:
      - Added executable command candidates to enabled train, add-on, transform, and research options.
        The command card and desktop hotkeys now route those option clicks through one
        `Game.executeOption` path.
@@ -1896,6 +1896,9 @@ Further concrete deletion opportunities found on review:
        load/unload validation, spider mine wake-up, splash weapon hits, and combat special mechanics.
      - Routed AI distance checks through the exported sim spatial helpers and replaced the bot's
        local ability-tech gate with a sim-owned helper that command validation also uses.
+     - Moved rectangle-point distance into the shared sim spatial helpers and replaced the local
+       construction-system and render-descriptor copies, keeping build-site range checks and
+       construction spark affordances on the same math primitive.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Completed shape:
      - `game-session.ts`: setup/restart/replay/human player;

@@ -17,6 +17,7 @@ import { clearBuildCost, refundBuildCost, transferBuildCost } from '../build-cos
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isAddonKind } from '../addon.ts';
 import { isContained } from '../cargo.ts';
+import { distanceSqToRect } from '../spatial.ts';
 
 const becomeFoundation = (s: State, slot: number, kind: number, x: number, y: number): void => {
   const e = s.e;
@@ -43,17 +44,11 @@ const requiresBuilder = (kind: number): boolean => {
   return !!def && def.race === 'terran' && def.buildMethod === 'worker';
 };
 
-const distSqToRect = (x: number, y: number, x0: number, y0: number, x1: number, y1: number): number => {
-  const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
-  const dy = y < y0 ? y0 - y : y > y1 ? y - y1 : 0;
-  return dx * dx + dy * dy;
-};
-
 const nearBuildFootprint = (s: State, worker: number, structure: number): boolean => {
   const e = s.e;
   const fp = structureFootprint(e.kind[structure]!, e.x[structure]!, e.y[structure]!);
   const tileFx = TILE * ONE;
-  return distSqToRect(
+  return distanceSqToRect(
     e.x[worker]!,
     e.y[worker]!,
     fp.x0 * tileFx,
