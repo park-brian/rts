@@ -745,6 +745,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     },
   },
   {
+    ability: Ability.Restoration,
+    target: 'friendly-entity',
+    minScore: 1,
+    scoreTarget: (s, _player, target) => scoreRestorationTarget(s, target),
+  },
+  {
     ability: Ability.Parasite,
     target: 'enemy-entity',
     minScore: 220,
@@ -857,7 +863,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (used.has(caster)) continue;
     const def = Units[s.e.kind[caster]!]!;
     if (def.abilities.includes(Ability.ShieldRecharge) && tryCastPolicy(s, player, cmds, caster, Ability.ShieldRecharge)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Restoration) && maybeCastRestoration(s, player, cmds, caster)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Restoration) && tryCastPolicy(s, player, cmds, caster, Ability.Restoration)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.ScannerSweep) && maybeCastScanner(s, player, cmds, caster)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Consume) && maybeCastConsume(s, player, cmds, caster)) { used.add(caster); continue; }
@@ -931,21 +937,6 @@ const abilityThreshold = (abilityId: number): number => {
     case Ability.NuclearStrike: return 650;
     default: return 1;
   }
-};
-
-const maybeCastRestoration = (s: State, player: number, cmds: Command[], caster: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.Restoration]!;
-  if (!hasTechForAbility(s, player, Ability.Restoration) || e.energy[caster]! < ability.energyCost) return false;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || (unitTraits(e.kind[i]!) & Trait.Biological) === 0) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    if (hasRestorableStatus(e, i)) {
-      cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.Restoration, target: eid(e, i) });
-      return true;
-    }
-  }
-  return false;
 };
 
 const maybeCastPointAbility = (
@@ -1067,6 +1058,9 @@ const scoreBroodlingTarget = (s: State, _player: number, slot: number): number =
 
 const scoreFeedbackTarget = (s: State, _player: number, slot: number): number =>
   s.e.energy[slot]! > 0 ? s.e.energy[slot]! * 2 : 0;
+
+const scoreRestorationTarget = (s: State, slot: number): number =>
+  (unitTraits(s.e.kind[slot]!) & Trait.Biological) !== 0 && hasRestorableStatus(s.e, slot) ? 2 : 0;
 
 const scoreParasiteTarget = (s: State, _player: number, slot: number): number => {
   if (s.e.parasiteOwner[slot]! !== 255) return 0;

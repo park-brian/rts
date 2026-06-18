@@ -1613,6 +1613,8 @@ Highest-impact LOC reductions:
    - Started with the friendly restore family: `Heal` and `Shield Recharge` now use a shared
      `AbilityPolicy`/`tryCastPolicy` path that scores targets and delegates legality to
      `validateCommand`.
+   - Moved `Restoration` into the friendly entity policy path, preserving the existing
+     status-clearing target preference while deleting the bespoke AI cast helper.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
