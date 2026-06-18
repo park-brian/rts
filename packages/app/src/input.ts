@@ -2,10 +2,9 @@
 // = pan + pinch-zoom; wheel = zoom (desktop). Maps to the model in docs/specs/ui-mobile.md.
 
 import type { Game } from './game.ts';
-import { isPlacementArmed, ui } from './store.ts';
+import { ui } from './store.ts';
 import { dispatchHotkey } from './hotkeys.ts';
-
-const TAP_SLOP = 8; // px movement under which a press counts as a tap
+import { InputGestureController, type InputPointer } from './input-controller.ts';
 
 export type DetachInput = () => void;
 type OptionalEventTarget = {
@@ -24,27 +23,11 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
     target.addEventListener(type, fn, options);
     cleanups.push(() => target.removeEventListener?.(type, fn, options));
   };
-  const pts = new Map<number, { x: number; y: number }>();
-  const buttons = new Map<number, number>();
-  let moved = false;
-  let start = { x: 0, y: 0 };
-  let pinchDist = 0;
-  let panMid = { x: 0, y: 0 };
-  let onMinimap = false; // dragging on the minimap to pan
-  let multiTouch = false; // once true, suppress tap/box until all pointers are up
-  let lastTapT = 0;
-  let lastTap = { x: 0, y: 0 };
-  let placing = false;
-  let middlePanId = -1;
-  let middlePanLast = { x: 0, y: 0 };
-  let pressHit = -1;
-
   const rect = (): DOMRect => canvas.getBoundingClientRect();
   const localPoint = (clientX: number, clientY: number): { x: number; y: number } => {
     const r = rect();
     return { x: clientX - r.left, y: clientY - r.top };
   };
-  const local = (e: PointerEvent): { x: number; y: number } => localPoint(e.clientX, e.clientY);
   const isDesktop = (): boolean => ui.controlScheme.value === 'desktop';
   const buttonOf = (e: PointerEvent): number => typeof e.button === 'number' ? e.button : 0;
   const optionalGlobalEvents = globalThis as OptionalEventTarget;
@@ -57,131 +40,36 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
     const h = typeof globalThis.innerHeight === 'number' ? globalThis.innerHeight : typeof r.height === 'number' ? r.height : game.viewH;
     game.setEdgePanPointerInRect(clientX, clientY, Math.max(1, w), Math.max(1, h));
   };
+  const gestures = new InputGestureController(game, { isDesktop, viewportEdgePan });
+  const pointerData = (event: PointerEvent): InputPointer => {
+    const p = localPoint(event.clientX, event.clientY);
+    return {
+      pointerId: event.pointerId,
+      x: p.x,
+      y: p.y,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      button: buttonOf(event),
+      shiftKey: event.shiftKey,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+    };
+  };
 
   on(canvas, 'pointerdown', (e) => {
     const event = e as PointerEvent;
     event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
-    const p = local(event);
-    const desktop = isDesktop();
-    const button = buttonOf(event);
-    if (desktop) viewportEdgePan(event.clientX, event.clientY);
-    pts.set(event.pointerId, p);
-    buttons.set(event.pointerId, button);
-    if (pts.size === 1) {
-      multiTouch = false;
-      start = p; moved = false; game.box = null; pressHit = -1;
-      if (desktop && button === 1) {
-        middlePanId = event.pointerId;
-        middlePanLast = p;
-        placing = false;
-        onMinimap = false;
-        game.cancelPlacementGhost();
-        return;
-      }
-      placing = isPlacementArmed(ui.armedCommand.value);
-      if (placing) {
-        onMinimap = false;
-        game.updatePlacementGhost(p.x, p.y);
-      } else if (!desktop || button === 0) {
-        onMinimap = game.minimapPan(p.x, p.y); // tap/drag the minimap to pan
-      } else {
-        onMinimap = false;
-      }
-      if (!placing && !onMinimap && (!desktop || button === 0 || button === 2)) {
-        const [wx, wy] = game.screenToWorld(p.x, p.y);
-        pressHit = game.hitTest(wx, wy);
-      }
-    } else if (pts.size === 2) {
-      multiTouch = true;
-      pressHit = -1;
-      placing = false;
-      game.cancelPlacementGhost();
-      game.box = null; // cancel any box once a second finger lands
-      const [a, b] = [...pts.values()];
-      pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      panMid = { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 };
-    }
+    gestures.pointerDown(pointerData(event));
   });
 
   on(canvas, 'pointermove', (e) => {
     const event = e as PointerEvent;
-    if (!pts.has(event.pointerId)) return;
-    const p = local(event);
-    if (isDesktop()) viewportEdgePan(event.clientX, event.clientY);
-    pts.set(event.pointerId, p);
-
-    if (pts.size === 1) {
-      if (multiTouch) return; // remaining finger after a pinch/pan cannot become a tap/box
-      if (middlePanId === event.pointerId) {
-        game.camX -= (p.x - middlePanLast.x) / game.zoom;
-        game.camY -= (p.y - middlePanLast.y) / game.zoom;
-        middlePanLast = p;
-        moved = true;
-        game.clampCamera();
-        return;
-      }
-      if (placing) { game.updatePlacementGhost(p.x, p.y); return; }
-      if (onMinimap) { game.minimapPan(p.x, p.y); return; } // drag-pan, no box select
-      if (isDesktop() && (buttons.get(event.pointerId) ?? 0) !== 0) return;
-      if (Math.hypot(p.x - start.x, p.y - start.y) > TAP_SLOP) moved = true;
-      if (moved) game.box = { x0: start.x, y0: start.y, x1: p.x, y1: p.y };
-    } else if (pts.size === 2) {
-      const [a, b] = [...pts.values()];
-      const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      const mid = { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 };
-      // pan
-      game.camX -= (mid.x - panMid.x) / game.zoom;
-      game.camY -= (mid.y - panMid.y) / game.zoom;
-      // pinch zoom about the midpoint
-      if (pinchDist > 0) zoomAt(game, mid.x, mid.y, dist / pinchDist);
-      pinchDist = dist; panMid = mid;
-      game.clampCamera();
-    }
+    gestures.pointerMove(pointerData(event));
   });
 
   const end = (event: PointerEvent): void => {
-    if (!pts.has(event.pointerId)) return;
-    const wasOne = pts.size === 1;
-    const p = local(event);
-    const button = buttons.get(event.pointerId) ?? buttonOf(event);
-    pts.delete(event.pointerId);
-    buttons.delete(event.pointerId);
-    if (wasOne) {
-      if (middlePanId === event.pointerId) {
-        middlePanId = -1; onMinimap = false; placing = false; game.box = null;
-      } else if (multiTouch) {
-        multiTouch = false; onMinimap = false; placing = false; game.cancelPlacementGhost(); game.box = null;
-      } else if (placing) {
-        game.updatePlacementGhost(p.x, p.y);
-        game.commitPlacementGhost();
-        placing = false;
-      } else if (onMinimap) { onMinimap = false; }
-      else if (!moved) {
-        const now = performance.now();
-        const dbl = now - lastTapT < 300 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 24;
-        lastTapT = now; lastTap = p;
-        const hitOpts = { preferredHit: pressHit };
-        if (isDesktop() && button === 2) game.desktopSmartTap(p.x, p.y, hitOpts);
-        else if (isDesktop()) {
-          if (dbl) game.selectAllByType(p.x, p.y, hitOpts);
-          else game.desktopSelectTap(p.x, p.y, { shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, preferredHit: pressHit });
-        } else if (dbl) game.selectAllByType(p.x, p.y, hitOpts); // double-tap: all of this type on screen
-        else game.tap(p.x, p.y, hitOpts);
-      } else if (game.box) {
-        game.boxSelect(game.box.x0, game.box.y0, game.box.x1, game.box.y1);
-      }
-      pressHit = -1;
-      game.box = null;
-    } else if (pts.size === 0) {
-      multiTouch = false;
-      middlePanId = -1;
-      pressHit = -1;
-      onMinimap = false;
-      placing = false;
-      game.cancelPlacementGhost();
-      game.box = null;
-    }
+    gestures.pointerEnd(pointerData(event));
   };
   on(canvas, 'pointerup', (e) => end(e as PointerEvent));
   on(canvas, 'pointercancel', (e) => end(e as PointerEvent));
@@ -224,10 +112,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
 
   return () => {
     for (let i = cleanups.length - 1; i >= 0; i--) cleanups[i]!();
-    pts.clear();
-    buttons.clear();
-    game.clearEdgePan();
-    game.box = null;
+    gestures.reset();
   };
 };
 

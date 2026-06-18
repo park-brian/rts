@@ -1589,7 +1589,10 @@ Highest-impact LOC reductions:
        selection mutation, pruning, and repeat-recall centering decisions behind stable `Game` wrappers.
      - Extracted `PlacementController`, which owns placement ghost derivation and build/land commit
        command construction behind stable `Game` wrappers for input and tests.
-     - Remaining: split input controllers once the placement boundary settles.
+     - Extracted `InputGestureController`, which owns pointer session state, placement drag/commit,
+       minimap drag, box select, desktop tap/right-click, middle-button pan, pinch pan/zoom, and
+       multi-touch suppression while `attachInput` remains the DOM wiring surface.
+     - Remaining: split direct tap/selection command policy out of `Game`.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.
