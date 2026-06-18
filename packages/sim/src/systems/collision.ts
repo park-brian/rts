@@ -5,7 +5,8 @@
 // the same clearance masks used by navigation. Deterministic.
 //
 // Scope: Mobile, non-Structure ground units that are not projectile actors. Workers
-// are solid except while mineral-walking; air units fly over everything.
+// are solid; only worker pairs that are both on mineral harvest/return routes may
+// share space with each other. Air units fly over everything.
 //
 // Performance: collision uses its OWN one-tile grid (not the coarse combat grid).
 // The interaction radius (≈ sum of two unit radii) is well under a tile, so a 3×3
@@ -22,6 +23,7 @@ import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../flo
 import { isContained } from '../cargo.ts';
 import { isPathingAnchor } from '../pathing-anchor.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { workersCanShareMineralWalkCollision } from '../worker-collision.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable
 const TILE_FX = TILE * ONE;
@@ -74,6 +76,7 @@ export const collide = (s: State): void => {
       for (let gx = Math.max(0, cx - 1); gx <= x1; gx++) {
         for (let j = head[gy * W + gx]!; j >= 0; j = next[j]!) {
           if (j === i) continue;
+          if (workersCanShareMineralWalkCollision(s, i, j)) continue;
           const min = ri + Units[e.kind[j]!]!.radius;
           const dx = e.x[i]! - e.x[j]!; const dy = e.y[i]! - e.y[j]!;
           const d2 = dx * dx + dy * dy;

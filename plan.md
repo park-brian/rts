@@ -875,9 +875,9 @@ Completed:
 - Added a `movement-deathball` case to the headless throughput benchmark. It reports command
   acceptance, unit count, distinct positions, active movement orders, and settled units alongside
   timing/hash data without making wall-clock timing a pass/fail gate.
-- Worker collision is now order-derived instead of role-wide: workers are solid during ordinary
-  move/build/repair/gas behavior, while a live mineral harvest target gives them the mineral-walk
-  collision exemption needed for smooth mineral-line routing.
+- Worker collision is now pairwise and order-derived instead of role-wide: workers are solid
+  during ordinary move/build/repair/gas behavior, while two workers that are both on mineral
+  harvest/return routes may share space for smooth mineral-line routing.
 
 Remaining:
 

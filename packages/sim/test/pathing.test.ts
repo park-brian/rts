@@ -8,7 +8,7 @@ import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
 import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
 import { resourceFootprintsOverlap, sliceMap, solveBaseCluster } from '../src/map.ts';
-import { Kind, Order, TILE } from '../src/data.ts';
+import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
@@ -442,19 +442,36 @@ test('workers collide normally unless they are mineral-walking', () => {
   assert.notEqual(positionKey(s, a), positionKey(s, b), 'ordinary workers should separate like solid bodies');
 });
 
-test('mineral-walking workers do not participate in collision cleanup', () => {
-  const s = makeState(blankMap('mineral-walk-collision', 16, 16), 1, 103);
+test('mineral-harvesting workers can share collision with each other', () => {
+  const s = makeState(blankMap('mineral-harvest-worker-collision', 16, 16), 1, 103);
+  const e = s.e;
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
+  const a = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const b = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  for (const worker of [a, b]) {
+    e.order[worker] = Order.Harvest;
+    e.target[worker] = eid(e, mineral);
+    e.stasisTimer[worker] = 1; // isolate collision from harvest steering for this one tick
+  }
+
+  stepWorld(s, []);
+
+  assert.equal(positionKey(s, a), positionKey(s, b), 'mineral-harvesting workers may share space');
+});
+
+test('mineral-harvesting workers still collide with non-harvesting workers', () => {
+  const s = makeState(blankMap('mineral-harvest-vs-idle-worker', 16, 16), 1, 106);
   const e = s.e;
   const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
   const miner = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
-  const blocker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const idle = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
   e.order[miner] = Order.Harvest;
   e.target[miner] = eid(e, mineral);
   e.stasisTimer[miner] = 1; // isolate collision from harvest steering for this one tick
 
   stepWorld(s, []);
 
-  assert.equal(positionKey(s, miner), positionKey(s, blocker), 'mineral-walking worker should stay collision-exempt');
+  assert.notEqual(positionKey(s, miner), positionKey(s, idle), 'harvest route only phases against another mineral-route worker');
 });
 
 test('gas-harvesting workers remain solid', () => {
@@ -470,6 +487,33 @@ test('gas-harvesting workers remain solid', () => {
   stepWorld(s, []);
 
   assert.notEqual(positionKey(s, gasWorker), positionKey(s, blocker), 'gas gather should not get mineral-walk phasing');
+});
+
+test('returning mineral workers share collision with harvesting workers but not non-workers', () => {
+  const s = makeState(blankMap('carrying-worker-collision', 16, 16), 1, 105);
+  const e = s.e;
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
+  const a = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const b = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  e.order[a] = Order.Harvest;
+  e.order[b] = Order.Harvest;
+  e.target[a] = eid(e, mineral);
+  e.target[b] = eid(e, mineral);
+  e.stasisTimer[a] = 1;
+  e.stasisTimer[b] = 1;
+  e.cargo[a] = 8;
+  e.cargoType[a] = ResourceType.Minerals;
+
+  stepWorld(s, []);
+
+  assert.equal(positionKey(s, a), positionKey(s, b), 'returning and harvesting mineral workers may share space');
+
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, tc(8), tc(8)));
+  const before = positionKey(s, a);
+  stepWorld(s, []);
+
+  assert.notEqual(positionKey(s, a), before, 'mineral-carrying worker still collides with non-worker traffic');
+  assert.notEqual(positionKey(s, marine), before, 'non-worker traffic is still solid to mineral-carrying workers');
 });
 
 test('moving units face their current travel direction', () => {

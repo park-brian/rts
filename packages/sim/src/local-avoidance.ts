@@ -11,7 +11,7 @@ import { Kind, Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { isContained } from './cargo.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
-import { isMineralWalkingWorker } from './worker-collision.ts';
+import { workersCanShareMineralWalkCollision } from './worker-collision.ts';
 
 const TILE_FX = TILE * ONE;
 const AVOID_MARGIN = ONE * 6;
@@ -37,8 +37,7 @@ export const isLocalAvoidanceSolid = (s: State, slot: number): boolean => {
   return e.alive[slot] === 1 &&
     e.burrowed[slot] !== 1 &&
     !isContained(s, slot) &&
-    isLocalAvoidanceSolidKind(e.kind[slot]!, e.flags[slot]!) &&
-    !isMineralWalkingWorker(s, slot);
+    isLocalAvoidanceSolidKind(e.kind[slot]!, e.flags[slot]!);
 };
 
 export const usesLocalAvoidance = isLocalAvoidanceSolid;
@@ -75,6 +74,7 @@ export const localAvoidancePenalty = (s: State, slot: number, nx: number, ny: nu
     for (let gx = Math.max(0, cx - span); gx <= Math.min(cols - 1, cx + span); gx++) {
       for (let j = head[row + gx]!; j >= 0; j = next[j]!) {
         if (j === slot || !usesLocalAvoidance(s, j)) continue;
+        if (workersCanShareMineralWalkCollision(s, slot, j)) continue;
         const min = ri + Units[e.kind[j]!]!.radius;
         const avoid = min + AVOID_MARGIN;
         const dx = nx - e.x[j]!;
