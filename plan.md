@@ -1616,6 +1616,8 @@ Highest-impact LOC reductions:
        preserving team/role/trait filtering and existing Plague ticking.
      - Added target timed-buffer execution for `Defensive Matrix`, preserving matrix hit point and
        timer behavior while removing another cast branch.
+     - Added point area-drain execution for `EMP Shockwave`, preserving shield/energy zeroing for
+       non-resource entities in radius.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.

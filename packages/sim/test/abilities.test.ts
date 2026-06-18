@@ -53,6 +53,7 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.equal(Units[Kind.Medic]!.abilities.includes(Ability.Heal), true);
   assert.equal(Units[Kind.ShieldBattery]!.abilities.includes(Ability.ShieldRecharge), true);
   assert.deepEqual(Abilities[Ability.StimPack]!.execution, { mode: 'caster-status', timer: 'stim' });
+  assert.deepEqual(Abilities[Ability.EMPShockwave]!.execution, { mode: 'point-area-drain' });
   assert.deepEqual(Abilities[Ability.PsionicStorm]!.execution, { mode: 'persistent-effect', effect: EffectKind.PsionicStorm });
   assert.deepEqual(Abilities[Ability.DefensiveMatrix]!.execution, { mode: 'target-buffer', buffer: 'matrix' });
   assert.deepEqual(Abilities[Ability.Lockdown]!.execution, { mode: 'target-status', timer: 'lockdown' });
@@ -93,8 +94,10 @@ test('EMP removes shields and energy in an area', () => {
   const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
   const zealot = spawn(Kind.Zealot, 1, fx(430), fx(400));
   const templar = spawn(Kind.HighTemplar, 1, fx(435), fx(400));
+  const mineral = spawn(Kind.Mineral, -1, fx(430), fx(405));
   s.e.energy[slotOf(vessel)] = 100;
   s.e.energy[slotOf(templar)] = 75;
+  s.e.energy[slotOf(mineral)] = 10;
   grant(0, Tech.EMPShockwave);
 
   sim.step([{ player: 0, cmds: [
@@ -105,6 +108,7 @@ test('EMP removes shields and energy in an area', () => {
   assert.equal(s.e.shield[slotOf(zealot)], 0);
   assert.equal(s.e.shield[slotOf(templar)], 0);
   assert.equal(s.e.energy[slotOf(templar)], 0);
+  assert.equal(s.e.energy[slotOf(mineral)], 10);
 });
 
 test('psionic storm creates persistent area damage for units but not structures', () => {

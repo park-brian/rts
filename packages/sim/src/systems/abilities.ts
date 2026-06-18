@@ -19,7 +19,7 @@ import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 
 const ENERGY_REGEN_TICKS = sec(1.78);
 
-const applyEmp = (s: State, x: number, y: number, radius: number): void => {
+const applyPointAreaDrain = (s: State, x: number, y: number, radius: number): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i) || !inRadius(s, i, x, y, radius)) continue;
@@ -153,6 +153,9 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
           (execution.rolesAny === 0 || (e.flags[target]! & execution.rolesAny) !== 0) &&
           (execution.traitsAny === 0 || (unitTraits(e.kind[target]!) & execution.traitsAny) !== 0),
         (target) => { applyAreaStatusTimer(e, execution.timer, target, ability.duration); });
+      break;
+    case 'point-area-drain':
+      applyPointAreaDrain(s, c.x!, c.y!, ability.radius);
       break;
     case 'target-marker':
       applyTargetMarker(e, execution.marker, slotOf(c.target!), e.owner[slot]!);
@@ -325,9 +328,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
   if (applyGenericExecution(s, slot, c)) return;
 
   switch (c.ability) {
-    case Ability.EMPShockwave:
-      applyEmp(s, c.x!, c.y!, ability.radius);
-      break;
     case Ability.SpawnBroodling: {
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;

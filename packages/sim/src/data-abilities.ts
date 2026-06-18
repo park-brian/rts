@@ -55,6 +55,7 @@ export type AbilityExecution =
   | { mode: 'caster-status'; timer: AbilityStatusTimer }
   | { mode: 'target-status'; timer: AbilityStatusTimer }
   | { mode: 'point-area-status'; timer: AbilityAreaStatusTimer; team: 'enemy' | 'any'; rolesAny: number; traitsAny: number }
+  | { mode: 'point-area-drain' }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
   | { mode: 'target-buffer'; buffer: AbilityTargetBuffer }
@@ -94,6 +95,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'EMP Shockwave', tech: Tech.EMPShockwave, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ScienceVessel],
     energyCost: 100, hpCost: 0, range: tiles(8), radius: fx(48), duration: 0, period: 0, damage: 0,
+    execution: { mode: 'point-area-drain' },
   },
   [Ability.PsionicStorm]: {
     name: 'Psionic Storm', tech: Tech.PsionicStorm, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
