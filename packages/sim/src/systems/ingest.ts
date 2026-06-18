@@ -449,6 +449,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           break;
         }
         case 'attack':
+        case 'harvest':
         case 'move':
         case 'amove':
         case 'rally':
@@ -462,16 +463,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           const slot = slotOf(c.unit);
           clearSettled(s, slot);
           castAbility(s, slot, c);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'harvest': {
-          const slot = slotOf(c.unit);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          e.order[slot] = Order.Harvest;
-          e.target[slot] = c.patch;
-          e.timer[slot] = 0;
           results.push({ player, index, t: c.t, ok: true });
           break;
         }

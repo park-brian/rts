@@ -1498,7 +1498,7 @@ Done when:
 
 ## Phase 13: LOC Collapse Without Losing Correctness
 
-Status: planned.
+Status: partial.
 
 Purpose: reduce the codebase by removing repeated representations, not by making dense clever code.
 The target shape is small enough to hold in one mental model: authoritative tables, deterministic
@@ -1548,6 +1548,10 @@ Highest-impact LOC reductions:
        special cases, and order application behavior.
      - Generalized the internal spec path beyond unit orders and moved `rally` into it, keeping rally
        target snapping and structure target validation in one command home.
+     - Moved `harvest` into the same command-spec path, preserving worker/resource validation and
+       mineral-walk order setup.
+   - Continue remaining command migrations in small command families before starting the larger
+     ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.

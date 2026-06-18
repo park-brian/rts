@@ -485,17 +485,7 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'harvest': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-      if (isDisabled(e, slot)) return reject('missing-capability');
-      if ((e.flags[slot]! & Role.Worker) === 0) return reject('missing-capability');
-      if (!isAlive(e, c.patch)) return reject('target-not-found');
-      const target = slotOf(c.patch);
-      const isResource = (e.flags[target]! & Role.Resource) !== 0;
-      const def = Units[e.kind[target]!]!;
-      if (!isResource || (def.resourceType === ResourceType.Gas && e.built[target] !== 1)) return reject('target-not-allowed');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'repair': {
       const slot = ownedSlot(s, c.unit, player);
