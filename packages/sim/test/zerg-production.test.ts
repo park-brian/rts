@@ -1,17 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap, type MapDef } from '../src/map.ts';
-import { setupMatch } from '../src/setup.ts';
-import { count, eid, isAlive, kill, makeState, slotOf } from '../src/world.ts';
+import type { MapDef } from '../src/map.ts';
+import { count, eid, isAlive, kill, makeState, slotOf, type State } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { setTechLevel } from '../src/tech.ts';
 import { placementForStructure, validateCommand } from '../src/validation.ts';
 import { buildKindMask } from '../src/action-mask.ts';
+import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
-const zergSim = (): Sim => Sim.fromState(setupMatch(sliceMap(), 1, 1, [Zerg]));
+const zergScenario = (): SimScenario => simScenario({ players: 1, seed: 1, factions: [Zerg] });
 
 const openMap = (): MapDef => {
   const w = 80;
@@ -29,16 +28,15 @@ const openMap = (): MapDef => {
   };
 };
 
-const find = (sim: Sim, kind: number): number => {
-  const e = sim.fullState().e;
+const find = (s: State, kind: number): number => {
+  const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === kind) return i;
   }
   throw new Error(`missing kind ${kind}`);
 };
 
-const nearbyBuildSpot = (sim: Sim, kind: number, origin: number): { x: number; y: number } => {
-  const s = sim.fullState();
+const nearbyBuildSpot = (s: State, kind: number, origin: number): { x: number; y: number } => {
   const e = s.e;
   const baseX = e.x[origin]!;
   const baseY = e.y[origin]!;
@@ -55,8 +53,7 @@ const nearbyBuildSpot = (sim: Sim, kind: number, origin: number): { x: number; y
 };
 
 test('zerg starts with overlord supply and three larvae', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { state: s } = zergScenario();
 
   assert.equal(count(s, Kind.Hatchery, 0), 1);
   assert.equal(count(s, Kind.Overlord, 0), 1);
@@ -65,12 +62,11 @@ test('zerg starts with overlord supply and three larvae', () => {
 });
 
 test('zerg units train from larva as eggs, not directly from hatcheries', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = zergScenario();
   const e = s.e;
-  const hatchery = find(sim, Kind.Hatchery);
-  const larva = find(sim, Kind.Larva);
-  spawnUnit(s, Kind.SpawningPool, 0, fx(700), fx(700));
+  const hatchery = find(s, Kind.Hatchery);
+  const larva = find(s, Kind.Larva);
+  spawn(Kind.SpawningPool, 0, fx(700), fx(700));
   const beforeMinerals = s.players.minerals[0]!;
 
   const rejected = sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, hatchery), kind: Kind.Drone }] }]);
@@ -84,11 +80,10 @@ test('zerg units train from larva as eggs, not directly from hatcheries', () => 
 });
 
 test('eggs hatch pair units and hatcheries replenish larvae up to three', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn } = zergScenario();
   const e = s.e;
-  spawnUnit(s, Kind.SpawningPool, 0, fx(700), fx(700));
-  const larva = find(sim, Kind.Larva);
+  spawn(Kind.SpawningPool, 0, fx(700), fx(700));
+  const larva = find(s, Kind.Larva);
 
   sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, larva), kind: Kind.Zergling }] }]);
   while (e.alive[larva] === 1 && e.kind[larva] === Kind.Egg) sim.step([]);
@@ -99,8 +94,7 @@ test('eggs hatch pair units and hatcheries replenish larvae up to three', () => 
 });
 
 test('hatchery larva generation respects the three-larva cap', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s } = zergScenario();
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.Larva) kill(s, i);
@@ -112,14 +106,13 @@ test('hatchery larva generation respects the three-larva cap', () => {
 });
 
 test('drones morph into zerg building foundations and cancel with partial refund', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = zergScenario();
   const e = s.e;
-  const hatchery = find(sim, Kind.Hatchery);
-  const { x, y } = nearbyBuildSpot(sim, Kind.SpawningPool, hatchery);
-  const drone = slotOf(spawnUnit(s, Kind.Drone, 0, x, y));
+  const hatchery = find(s, Kind.Hatchery);
+  const { x, y } = nearbyBuildSpot(s, Kind.SpawningPool, hatchery);
+  const drone = slotOf(spawn(Kind.Drone, 0, x, y));
   const id = eid(e, drone);
-  s.players.minerals[0] = 1_000;
+  resources(0, 1_000);
 
   const started = sim.step([{ player: 0, cmds: [
     { t: 'build', unit: id, kind: Kind.SpawningPool, x, y },
@@ -139,11 +132,10 @@ test('drones morph into zerg building foundations and cancel with partial refund
 });
 
 test('zerg buildings other than hatcheries and extractors require creep', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = zergScenario();
   const e = s.e;
-  const drone = slotOf(spawnUnit(s, Kind.Drone, 0, fx(1_600), fx(1_600)));
-  s.players.minerals[0] = 1_000;
+  const drone = slotOf(spawn(Kind.Drone, 0, fx(1_600), fx(1_600)));
+  resources(0, 1_000);
 
   const blocked = sim.step([{ player: 0, cmds: [
     { t: 'build', unit: eid(e, drone), kind: Kind.SpawningPool, x: fx(1_600), y: fx(1_600) },
@@ -194,20 +186,18 @@ test('completed creep providers unlock shared placement validation and build mas
 });
 
 test('zerg structure morphs require tech, refund on cancel, and finish in place', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = zergScenario();
   const e = s.e;
-  const hatchery = find(sim, Kind.Hatchery);
+  const hatchery = find(s, Kind.Hatchery);
   const id = eid(e, hatchery);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  resources(0, 1_000, 1_000);
 
   const blocked = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: id, kind: Kind.Lair }] }]);
 
   assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'transform', ok: false, reason: 'missing-requirement' }]);
   assert.equal(e.kind[hatchery], Kind.Hatchery);
 
-  spawnUnit(s, Kind.SpawningPool, 0, e.x[hatchery]! + fx(160), e.y[hatchery]!);
+  spawn(Kind.SpawningPool, 0, e.x[hatchery]! + fx(160), e.y[hatchery]!);
   const started = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: id, kind: Kind.Lair }] }]);
 
   assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
@@ -225,8 +215,7 @@ test('zerg structure morphs require tech, refund on cancel, and finish in place'
   assert.equal(e.morphFromKind[hatchery], Kind.None);
   assert.equal(s.players.minerals[0], 1_000 - Units[Kind.Lair]!.minerals + Math.trunc(Units[Kind.Lair]!.minerals * 3 / 4));
 
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  resources(0, 1_000, 1_000);
   sim.step([{ player: 0, cmds: [{ t: 'transform', unit: id, kind: Kind.Lair }] }]);
   while (e.built[hatchery] !== 1) sim.step([]);
 
@@ -236,20 +225,18 @@ test('zerg structure morphs require tech, refund on cancel, and finish in place'
 });
 
 test('zerg combat unit morphs are teched, inert while morphing, and cancel back to source', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources, grant } = zergScenario();
   const e = s.e;
-  const hydra = slotOf(spawnUnit(s, Kind.Hydralisk, 0, fx(500), fx(500)));
+  const hydra = slotOf(spawn(Kind.Hydralisk, 0, fx(500), fx(500)));
   const hydraId = eid(e, hydra);
-  spawnUnit(s, Kind.HydraliskDen, 0, fx(650), fx(500));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  spawn(Kind.HydraliskDen, 0, fx(650), fx(500));
+  resources(0, 1_000, 1_000);
 
   const blocked = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hydraId, kind: Kind.Lurker }] }]);
 
   assert.deepEqual(blocked, [{ player: 0, index: 0, t: 'transform', ok: false, reason: 'missing-requirement' }]);
 
-  setTechLevel(s, 0, Tech.LurkerAspect, 1);
+  grant(0, Tech.LurkerAspect);
   const started = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hydraId, kind: Kind.Lurker }] }]);
 
   assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
@@ -259,7 +246,7 @@ test('zerg combat unit morphs are teched, inert while morphing, and cancel back 
 
   const inert = sim.step([{ player: 0, cmds: [
     { t: 'move', unit: hydraId, x: fx(800), y: fx(500) },
-    { t: 'attack', unit: hydraId, target: spawnUnit(s, Kind.Marine, 1, fx(540), fx(500)) },
+    { t: 'attack', unit: hydraId, target: spawn(Kind.Marine, 1, fx(540), fx(500)) },
   ] }]);
   assert.deepEqual(inert, [
     { player: 0, index: 0, t: 'move', ok: false, reason: 'missing-capability' },
@@ -275,14 +262,12 @@ test('zerg combat unit morphs are teched, inert while morphing, and cancel back 
 });
 
 test('zerg combat unit morphs require supply for larger target forms', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { state: s, spawn, resources, grant } = zergScenario();
   const e = s.e;
-  spawnUnit(s, Kind.HydraliskDen, 0, fx(700), fx(700));
-  const hydra = slotOf(spawnUnit(s, Kind.Hydralisk, 0, fx(420), fx(400)));
-  setTechLevel(s, 0, Tech.LurkerAspect, 1);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  spawn(Kind.HydraliskDen, 0, fx(700), fx(700));
+  const hydra = slotOf(spawn(Kind.Hydralisk, 0, fx(420), fx(400)));
+  grant(0, Tech.LurkerAspect);
+  resources(0, 1_000, 1_000);
 
   s.players.supplyUsed[0] = s.players.supplyMax[0];
   assert.deepEqual(validateCommand(s, 0, { t: 'transform', unit: eid(e, hydra), kind: Kind.Lurker }), {
@@ -295,13 +280,11 @@ test('zerg combat unit morphs require supply for larger target forms', () => {
 });
 
 test('mutalisks morph into guardian or devourer only after greater spire', () => {
-  const sim = zergSim();
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = zergScenario();
   const e = s.e;
-  const muta = slotOf(spawnUnit(s, Kind.Mutalisk, 0, fx(500), fx(500)));
+  const muta = slotOf(spawn(Kind.Mutalisk, 0, fx(500), fx(500)));
   const mutaId = eid(e, muta);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  resources(0, 1_000, 1_000);
 
   const blocked = sim.step([{ player: 0, cmds: [
     { t: 'transform', unit: mutaId, kind: Kind.Guardian },
@@ -313,7 +296,7 @@ test('mutalisks morph into guardian or devourer only after greater spire', () =>
     { player: 0, index: 1, t: 'transform', ok: false, reason: 'missing-requirement' },
   ]);
 
-  spawnUnit(s, Kind.GreaterSpire, 0, fx(700), fx(500));
+  spawn(Kind.GreaterSpire, 0, fx(700), fx(500));
   const started = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: mutaId, kind: Kind.Devourer }] }]);
 
   assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
