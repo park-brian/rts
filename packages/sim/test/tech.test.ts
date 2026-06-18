@@ -1,18 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Ability, Kind, Tech, TechDefs } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/world.ts';
 import { getTechLevel } from '../src/tech.ts';
-
-const fund = (sim: Sim, player: number, minerals = 1000, gas = 1000): void => {
-  const s = sim.fullState();
-  s.players.minerals[player] = minerals;
-  s.players.gas[player] = gas;
-};
+import { simScenario } from '../test-support/scenario.ts';
 
 const finishResearch = (sim: Sim, building: number): void => {
   const e = sim.fullState().e;
@@ -23,11 +16,10 @@ const finishResearch = (sim: Sim, building: number): void => {
 };
 
 test('research unlocks an ability through shared command validation', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 70 });
-  const s = sim.fullState();
-  const academy = spawnUnit(s, Kind.Academy, 0, fx(350), fx(350));
-  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
-  fund(sim, 0);
+  const { sim, state: s, spawn, resources } = simScenario({ seed: 70 });
+  const academy = spawn(Kind.Academy, 0, fx(350), fx(350));
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  resources(0, 1000, 1000);
 
   let results = sim.step([{ player: 0, cmds: [{ t: 'ability', unit: marine, ability: Ability.StimPack }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: false, reason: 'missing-requirement' }]);
@@ -44,10 +36,9 @@ test('research unlocks an ability through shared command validation', () => {
 });
 
 test('research rejects duplicates while in progress and after max level', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 71 });
-  const s = sim.fullState();
-  const academy = spawnUnit(s, Kind.Academy, 0, fx(350), fx(350));
-  fund(sim, 0);
+  const { sim, spawn, resources } = simScenario({ seed: 71 });
+  const academy = spawn(Kind.Academy, 0, fx(350), fx(350));
+  resources(0, 1000, 1000);
 
   let results = sim.step([{ player: 0, cmds: [
     { t: 'research', building: academy, tech: Tech.StimPack },
@@ -64,10 +55,9 @@ test('research rejects duplicates while in progress and after max level', () => 
 });
 
 test('multi-level upgrades advance one researched level at a time', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 72 });
-  const s = sim.fullState();
-  const bay = spawnUnit(s, Kind.EngineeringBay, 0, fx(350), fx(350));
-  fund(sim, 0, 1000, 1000);
+  const { sim, state: s, spawn, resources } = simScenario({ seed: 72 });
+  const bay = spawn(Kind.EngineeringBay, 0, fx(350), fx(350));
+  resources(0, 1000, 1000);
 
   let results = sim.step([{ player: 0, cmds: [{ t: 'research', building: bay, tech: Tech.InfantryWeapons }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'research', ok: true }]);
@@ -83,11 +73,10 @@ test('multi-level upgrades advance one researched level at a time', () => {
 });
 
 test('byte serialization preserves completed and in-progress research', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 73 });
-  const s = sim.fullState();
-  const academy = spawnUnit(s, Kind.Academy, 0, fx(350), fx(350));
-  const bay = spawnUnit(s, Kind.EngineeringBay, 0, fx(390), fx(350));
-  fund(sim, 0);
+  const { sim, spawn, resources } = simScenario({ seed: 73 });
+  const academy = spawn(Kind.Academy, 0, fx(350), fx(350));
+  const bay = spawn(Kind.EngineeringBay, 0, fx(390), fx(350));
+  resources(0, 1000, 1000);
 
   sim.step([{ player: 0, cmds: [{ t: 'research', building: academy, tech: Tech.StimPack }] }]);
   finishResearch(sim, academy);
