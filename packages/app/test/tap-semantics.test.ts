@@ -688,6 +688,7 @@ test('command card publishes disabled train and ability reasons', () => {
 
   assert.ok(!ui.selectionView.value.kinds.train.includes(Kind.SCV));
   assert.equal(ui.selectionView.value.options.train.find((o) => o.id === Kind.SCV)?.reason, 'not-affordable');
+  assert.equal(ui.selectionView.value.options.train.find((o) => o.id === Kind.SCV)?.commands, undefined);
 
   const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(500), fx(500));
   const slot = slotOf(templar);

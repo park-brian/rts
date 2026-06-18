@@ -1806,6 +1806,11 @@ Further concrete deletion opportunities found on review:
      - UI clicks dispatch `game.executeOption(option)` for instant commands or arm its target mode.
    - Expected win: fewer bespoke methods such as train/build/research/ability/transform/lift/land
      wiring in `Game`, and desktop hotkeys can invoke the same option records.
+   - Started:
+     - Added executable command candidates to enabled train, add-on, transform, and research options.
+       The command card and desktop hotkeys now route those option clicks through one
+       `Game.executeOption` path, while placement and targeted abilities remain separate target-mode
+       affordances for later slices.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,

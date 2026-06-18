@@ -11,7 +11,7 @@ import {
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
-import { clearArmedCommand, isPlacementArmed, ui, type Mode } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -496,6 +496,20 @@ export class Game {
       if (isAlive(e, id) && validateCommand(s, this.human, c).ok) this.queued.push(c);
     }
     this.clearTargetModes();
+  }
+
+  executeOption(option: CommandOption): boolean {
+    if (!option.ok || !option.commands?.length) return false;
+    const s = this.sim.fullState();
+    let queued = false;
+    for (const command of option.commands) {
+      if (validateCommand(s, this.human, command).ok) {
+        this.queued.push(command);
+        queued = true;
+      }
+    }
+    if (queued) this.clearTargetModes();
+    return queued;
   }
 
   trainSelected(kind: number): void {

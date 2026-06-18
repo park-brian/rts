@@ -1,9 +1,9 @@
 import {
-  Abilities, Ability, Kind, Role, TechDefs, Units,
+  Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
-  internalProductDef, isLiftedStructureFlags, slotOf, transformTargetsFor, transportCapacity,
+  internalProductDef, isLiftedStructureFlags, slotOf, transformFor, transformTargetsFor, transportCapacity,
   validateCommand, workerBuildKindsFor,
-  type CommandRejectReason, type CommandValidation, type State,
+  type Command, type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
 import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
@@ -11,7 +11,8 @@ import { entitySelectionName } from './entity-presentation.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { EMPTY_SELECTION_VIEW, type CommandOption, type SelectionView } from './store.ts';
 
-type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
+type OptionRecord = CommandOption & { priority?: number };
+type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands'> & { priority?: number };
 type CanSeeEntity = (slot: number) => boolean;
 
 const TECH_IDS = Object.keys(TechDefs).map(Number);
@@ -36,10 +37,13 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
   'stale-entity': 16,
 };
 
-const addOption = (options: Map<number, CommandOption>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
+const addOption = (options: Map<number, OptionRecord>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
   const current = options.get(id);
   if (result.ok) {
-    options.set(id, { id, ok: true, ...meta });
+    const priority = meta.priority ?? 0;
+    if (!current?.ok || priority < (current.priority ?? Infinity)) {
+      options.set(id, { id, ok: true, ...meta, priority });
+    }
     return;
   }
   if (current?.ok) return;
@@ -48,11 +52,13 @@ const addOption = (options: Map<number, CommandOption>, id: number, result: Comm
   }
 };
 
-const optionKinds = (options: Map<number, CommandOption>): number[] =>
+const optionKinds = (options: Map<number, OptionRecord>): number[] =>
   [...options.values()].filter((o) => o.ok).map((o) => o.id).sort((a, b) => a - b);
 
-const sortedOptions = (options: Map<number, CommandOption>): CommandOption[] =>
-  [...options.values()].sort((a, b) => a.id - b.id);
+const sortedOptions = (options: Map<number, OptionRecord>): CommandOption[] =>
+  [...options.values()]
+    .sort((a, b) => a.id - b.id)
+    .map(({ priority: _priority, ...option }) => option);
 
 const trainOptionMeta = (s: State, slot: number, train: number): CommandOptionMeta => {
   const display = internalProductDef(s.e.kind[slot]!, train)?.display;
@@ -81,7 +87,7 @@ const addWorkerBuildOptions = (
   s: State,
   player: number,
   slot: number,
-  buildOptions: Map<number, CommandOption>,
+  buildOptions: Map<number, OptionRecord>,
 ): void => {
   const e = s.e;
   const kind = e.kind[slot]!;
@@ -96,6 +102,46 @@ const addWorkerBuildOptions = (
         : { ok: true });
     }
   }
+};
+
+const transformCommandsForSelection = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  kind: number,
+): Command[] => {
+  const e = s.e;
+  const used = new Set<number>();
+  const mergePairFor = (id: number): number => {
+    if (!isAlive(e, id)) return NONE;
+    for (const other of selected) {
+      if (other === id || used.has(other) || !isAlive(e, other)) continue;
+      const c: Command = { t: 'transform', unit: id, kind, target: other };
+      if (validateCommand(s, player, c).ok) return other;
+    }
+    return NONE;
+  };
+  const commands: Command[] = [];
+  for (const id of selected) {
+    if (used.has(id)) continue;
+    const c: Command = { t: 'transform', unit: id, kind };
+    if (!isAlive(e, id) || !validateCommand(s, player, c).ok) continue;
+    const transform = transformFor(e.kind[slotOf(id)]!, kind);
+    if (transform?.mode === 'merge') {
+      const partner = mergePairFor(id);
+      if (partner !== NONE) {
+        commands.push({ ...c, target: partner });
+        used.add(id);
+        used.add(partner);
+      } else {
+        commands.push(c);
+        used.add(id);
+      }
+    } else {
+      commands.push(c);
+    }
+  }
+  return commands;
 };
 
 export const selectionCapabilities = (
@@ -121,15 +167,15 @@ export const selectionCapabilities = (
   let canLift = false;
   let canLand = false;
   let canCancel = false;
-  const buildOptions = new Map<number, CommandOption>();
-  const addonOptions = new Map<number, CommandOption>();
-  const transformOptions = new Map<number, CommandOption>();
-  const trainOptions = new Map<number, CommandOption>();
-  const abilityOptions = new Map<number, CommandOption>();
-  const researchOptions = new Map<number, CommandOption>();
+  const buildOptions = new Map<number, OptionRecord>();
+  const addonOptions = new Map<number, OptionRecord>();
+  const transformOptions = new Map<number, OptionRecord>();
+  const trainOptions = new Map<number, OptionRecord>();
+  const abilityOptions = new Map<number, OptionRecord>();
+  const researchOptions = new Map<number, OptionRecord>();
   const selected = [...selectedIds].filter((id) => isAlive(e, id));
 
-  for (const id of selected) {
+  for (const [selectionIndex, id] of selected.entries()) {
     const slot = slotOf(id);
     if (e.owner[slot] !== player && !canSeeEntity(slot)) continue;
     count++;
@@ -149,13 +195,22 @@ export const selectionCapabilities = (
     if (completed) {
       for (const addon of ADDON_IDS) {
         if (addonParentKind(addon) !== k) continue;
-        const result = validateCommand(s, player, { t: 'addon', building: id, kind: addon });
-        if (result.ok || result.reason !== 'target-not-allowed') addOption(addonOptions, addon, result);
+        const command: Command = { t: 'addon', building: id, kind: addon };
+        const result = validateCommand(s, player, command);
+        if (result.ok || result.reason !== 'target-not-allowed') {
+          addOption(addonOptions, addon, result, { commands: result.ok ? [command] : undefined, priority: selectionIndex });
+        }
       }
       for (const train of Units[k]!.produces) {
-        const result = validateCommand(s, player, { t: 'train', building: id, kind: train });
+        const command: Command = { t: 'train', building: id, kind: train };
+        const result = validateCommand(s, player, command);
         if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
-        addOption(trainOptions, train, result, trainOptionMeta(s, slot, train));
+        const load = entityWorkQueue(s, slot).producerLoad;
+        addOption(trainOptions, train, result, {
+          ...trainOptionMeta(s, slot, train),
+          commands: result.ok ? [command] : undefined,
+          priority: load,
+        });
       }
       for (const target of transformTargetsFor(k)) {
         addOption(transformOptions, target, validateCommand(s, player, { t: 'transform', unit: id, kind: target }));
@@ -168,8 +223,11 @@ export const selectionCapabilities = (
       for (const tech of TECH_IDS) {
         const def = TechDefs[tech];
         if (!def?.producers.includes(k)) continue;
-        const result = validateCommand(s, player, { t: 'research', building: id, tech });
-        if (result.ok || result.reason !== 'target-not-allowed') addOption(researchOptions, tech, result);
+        const command: Command = { t: 'research', building: id, tech };
+        const result = validateCommand(s, player, command);
+        if (result.ok || result.reason !== 'target-not-allowed') {
+          addOption(researchOptions, tech, result, { commands: result.ok ? [command] : undefined, priority: selectionIndex });
+        }
       }
     }
     if (validateCommand(s, player, { t: 'burrow', unit: id, active: true }).ok) canBurrow = true;
@@ -190,6 +248,11 @@ export const selectionCapabilities = (
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] === 1 && e.owner[i] === player && e.container[i] === transport) canUnload = true;
     }
+  }
+
+  for (const option of transformOptions.values()) {
+    if (!option.ok) continue;
+    option.commands = transformCommandsForSelection(s, player, selected, option.id);
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;

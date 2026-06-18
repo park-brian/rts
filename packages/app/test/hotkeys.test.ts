@@ -69,6 +69,9 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.selection.clear();
   g.selection.add(barracks);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.train.find((o) => o.id === Kind.Marine)?.commands, [
+    { t: 'train', building: barracks, kind: Kind.Marine },
+  ]);
   assert.equal(dispatchHotkey(g, 'KeyM'), true);
   assert.deepEqual(g.queued.pop(), { t: 'train', building: barracks, kind: Kind.Marine });
 
@@ -76,6 +79,9 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.selection.clear();
   g.selection.add(academy);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.research.find((o) => o.id === Tech.StimPack)?.commands, [
+    { t: 'research', building: academy, tech: Tech.StimPack },
+  ]);
   assert.equal(dispatchHotkey(g, 'KeyT'), true);
   assert.deepEqual(g.queued.pop(), { t: 'research', building: academy, tech: Tech.StimPack });
 
@@ -83,6 +89,9 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.selection.clear();
   g.selection.add(factory);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.addon.find((o) => o.id === Kind.MachineShop)?.commands, [
+    { t: 'addon', building: factory, kind: Kind.MachineShop },
+  ]);
   assert.equal(dispatchHotkey(g, 'KeyM'), true);
   assert.deepEqual(g.queued.pop(), { t: 'addon', building: factory, kind: Kind.MachineShop });
 
@@ -97,6 +106,27 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.fastForward(0);
   assert.equal(dispatchHotkey(g, 'KeyL'), true);
   assert.deepEqual(ui.armedCommand.value, { t: 'land', kind: Kind.Barracks });
+});
+
+test('command options execute grouped transforms through the shared option path', () => {
+  resetHotkeys();
+  const g = new Game('play', 94);
+  ui.controlScheme.value = 'desktop';
+  ui.mode.value = 'play';
+  const s = g.sim.fullState();
+  const templarA = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
+  const templarB = spawnUnit(s, Kind.HighTemplar, 0, fx(430), fx(400));
+  g.selection.clear();
+  g.selection.add(templarA);
+  g.selection.add(templarB);
+  g.fastForward(0);
+
+  const option = ui.selectionView.value.options.transform.find((o) => o.id === Kind.Archon);
+  assert.deepEqual(option?.commands, [
+    { t: 'transform', unit: templarA, kind: Kind.Archon, target: templarB },
+  ]);
+  assert.equal(g.executeOption(option!), true);
+  assert.deepEqual(g.queued, [{ t: 'transform', unit: templarA, kind: Kind.Archon, target: templarB }]);
 });
 
 test('desktop control groups assign, recall, and add live selections', () => {

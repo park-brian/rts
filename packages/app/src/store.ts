@@ -1,13 +1,20 @@
 // Reactive HUD state (Preact signals). The game loop publishes into these; the UI
 // reads them. Keeps the framework out of the 60fps render path (canvas) entirely.
 import { signal } from '@preact/signals';
-import type { CommandRejectReason } from './sim.ts';
+import type { Command, CommandRejectReason } from './sim.ts';
 
 export type Mode = 'play' | 'spectate' | 'replay';
 export type TargetMode = 'none' | 'harvest' | 'repair';
 export type TargetVerb = Exclude<TargetMode, 'none'>;
 export type ControlScheme = 'mobile' | 'desktop';
-export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason; label?: string; detail?: string };
+export type CommandOption = {
+  id: number;
+  ok: boolean;
+  reason?: CommandRejectReason;
+  label?: string;
+  detail?: string;
+  commands?: Command[];
+};
 export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
 export type SelectionView = {
   count: number;

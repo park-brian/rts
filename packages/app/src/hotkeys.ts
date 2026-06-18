@@ -1,5 +1,6 @@
 import type { Game } from './game.ts';
 import { clearArmedCommand, ui } from './store.ts';
+import type { CommandOption } from './store.ts';
 import { Abilities, Ability, Kind, Tech } from './sim.ts';
 
 export type GlobalHotkeyAction =
@@ -345,31 +346,31 @@ const toggleTarget = (mode: 'harvest' | 'repair'): void => {
   if (active) ui.armedCommand.value = { t: 'target', mode };
 };
 
+const executeOption = (game: Game, options: CommandOption[], id: number): boolean => {
+  const option = options.find((o) => o.id === id);
+  if (!option) return false;
+  clearTargets();
+  return game.executeOption(option);
+};
+
 const fireAction = (game: Game, action: HotkeyAction): boolean => {
+  const selection = ui.selectionView.value;
   if (action.startsWith('build:')) {
     clearTargets();
     ui.armedCommand.value = { t: 'place', kind: Number(action.slice('build:'.length)) };
     return true;
   }
   if (action.startsWith('train:')) {
-    clearTargets();
-    game.trainSelected(Number(action.slice('train:'.length)));
-    return true;
+    return executeOption(game, selection.options.train, Number(action.slice('train:'.length)));
   }
   if (action.startsWith('addon:')) {
-    clearTargets();
-    game.addonSelected(Number(action.slice('addon:'.length)));
-    return true;
+    return executeOption(game, selection.options.addon, Number(action.slice('addon:'.length)));
   }
   if (action.startsWith('transform:')) {
-    clearTargets();
-    game.transformSelected(Number(action.slice('transform:'.length)));
-    return true;
+    return executeOption(game, selection.options.transform, Number(action.slice('transform:'.length)));
   }
   if (action.startsWith('research:')) {
-    clearTargets();
-    game.researchSelected(Number(action.slice('research:'.length)));
-    return true;
+    return executeOption(game, selection.options.research, Number(action.slice('research:'.length)));
   }
   if (action.startsWith('ability:')) {
     const ability = Number(action.slice('ability:'.length));

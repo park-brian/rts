@@ -572,6 +572,10 @@ const Hotbar = (p: { game: Game }) => {
       hotkeyAction={hotkeyAction} active={active} disabled={!option.ok}
       reason={option.ok ? undefined : option.reason} detail={option.detail} onClick={onClick} />);
   };
+  const executeOption = (option: CommandOption): void => {
+    clearTargets();
+    g.executeOption(option);
+  };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
       fontSize: '12px', whiteSpace: 'nowrap' }}>{armed.t === 'land' ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
@@ -580,18 +584,18 @@ const Hotbar = (p: { game: Game }) => {
     for (const option of selection.options.train) {
       const kind = option.id;
       addOptionButton('production', option, `Train ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.train(kind),
-        () => { clearTargets(); g.trainSelected(kind); });
+        () => executeOption(option));
     }
     for (const option of selection.options.addon) {
       const kind = option.id;
       addOptionButton('build', option, short(Units[kind]?.name ?? 'Add-on'), actionKey.addon(kind),
-        () => { clearTargets(); g.addonSelected(kind); });
+        () => executeOption(option));
     }
     for (const option of selection.options.transform) {
       const kind = option.id;
       const verb = kind === Kind.Archon || kind === Kind.DarkArchon ? 'Merge' : 'Morph';
       addOptionButton('production', option, `${verb} ${short(Units[kind]?.name ?? 'Unit')}`, actionKey.transform(kind),
-        () => { clearTargets(); g.transformSelected(kind); });
+        () => executeOption(option));
     }
     if (selection.can.build) {
       for (const option of selection.options.build) {
@@ -611,7 +615,7 @@ const Hotbar = (p: { game: Game }) => {
     for (const option of selection.options.research) {
       const tech = option.id;
       addOptionButton('tech', option, short(TechDefs[tech]?.name ?? 'Research'), actionKey.research(tech),
-        () => { clearTargets(); g.researchSelected(tech); });
+        () => executeOption(option));
     }
     for (const option of selection.options.ability) {
       const ability = option.id;
