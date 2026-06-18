@@ -1173,11 +1173,13 @@ Completed:
   diagnostics and validation. Clear dock-to-dock routes preserve their exact straight distance,
   while terrain/building detours can make mineral and gas routes invalid without adding hidden
   runtime wait compensation.
+- Added a headless map diagnostics overlay that emits serializable rect/point/line/marker data for
+  resource footprints, base reservations, interaction hulls, dock points, route targets, and
+  timing-valid/invalid markers.
 
 Remaining:
 
-- Add a debug/headless overlay for interaction hulls, docking points, route targets, base-site
-  reservations, resource footprints, and timing-valid/invalid markers.
+- Phase 9B map-resource route validation is complete for the current shared-plateau generator.
 
 ## Current BW-Fidelity Missing Inventory
 

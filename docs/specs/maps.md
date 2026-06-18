@@ -93,7 +93,9 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   to hide short routes; they deposit immediately at physical depot contact. The resource solver
   should hit the cheap top-down saturation distances directly. Procedural map generation rejects
   main-base mineral layouts with invalid routes or excessive route asymmetry, and base placement
-  retries deterministic local depot-anchor candidates before stamping resources.
+  retries deterministic local depot-anchor candidates before stamping resources. Headless map
+  diagnostics expose serializable rectangles, points, route lines, and timing markers for resource
+  footprints, base reservations, interaction hulls, dock points, and route-validity inspection.
 - **Start locations** — ordered (index 0 = south, 1 = north, …) with rotational symmetry.
 - **Base sites** — optional generated-map metadata for mains, naturals, islands, fortress sites,
   etc. A base site stores team/owner intent, depot center, depot footprint, whole-cluster
