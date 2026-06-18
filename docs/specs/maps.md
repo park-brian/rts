@@ -84,8 +84,8 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   runtime reach bonuses. Workers must still visibly dock using top-down physical contact. Equal
   route distance is the first-order economy target: with a shared movement speed model, equal
   distance preserves relative trip timing across SCVs, Drones, and Probes without per-unit
-  placement hacks. Gas still needs its own three-worker cadence validation; the current solver only
-  pins the refinery dock distance. Route timing
+  placement hacks. Gas cadence is validated as route frames against the built refinery harvest
+  hull. Route timing
   diagnostics expose target BW-equivalent route frames, actual top-down dock-to-dock route frames,
   positive slack when the route is shorter, and an invalid flag when the top-down route is too long.
   Workers do not wait to hide short routes; they deposit immediately at physical depot contact. The
