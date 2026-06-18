@@ -23,7 +23,6 @@ import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } 
 import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
-import { canBurrowSlot, hasBurrowAccess } from './burrow.ts';
 import { validateCommandSpec } from './command-specs.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
@@ -377,22 +376,10 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'burrow': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
-      if (!canBurrowSlot(s, slot)) return reject('missing-capability');
-      if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
-      if ((e.burrowed[slot] === 1) === c.active) return reject('target-not-allowed');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'mine': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
-      if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
-      if (getTechLevel(s, player, Tech.SpiderMines) <= 0) return reject('missing-requirement');
-      if (e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'load': {
       const transport = usableTransportSlot(s, c.transport, player);

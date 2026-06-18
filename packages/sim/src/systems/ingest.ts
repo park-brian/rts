@@ -267,24 +267,6 @@ const applyTransform = (s: State, slot: number, kind: number, target = NONE): vo
   else transformUnit(s, slot, kind);
 };
 
-const burrowUnit = (s: State, slot: number, active: boolean): void => {
-  const e = s.e;
-  clearSettled(s, slot);
-  e.burrowed[slot] = active ? 1 : 0;
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-};
-
-const laySpiderMine = (s: State, vulture: number): void => {
-  const e = s.e;
-  clearSettled(s, vulture);
-  e.specialAmmo[vulture] = e.specialAmmo[vulture]! - 1;
-  const mine = slotOf(spawnUnit(s, Kind.SpiderMine, e.owner[vulture]!, e.x[vulture]!, e.y[vulture]!));
-  e.burrowed[mine] = 1;
-  e.order[mine] = Order.Idle;
-  e.target[mine] = NONE;
-};
-
 const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   const e = s.e;
   clearSettled(s, unit);
@@ -401,16 +383,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'burrow': {
-          burrowUnit(s, slotOf(c.unit), c.active);
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'mine': {
-          laySpiderMine(s, slotOf(c.unit));
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'load': {
           const unit = slotOf(c.unit);
           loadUnitInto(s, slotOf(c.transport), unit);
@@ -428,7 +400,9 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           break;
         }
         case 'attack':
+        case 'burrow':
         case 'harvest':
+        case 'mine':
         case 'move':
         case 'amove':
         case 'rally':

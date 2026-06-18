@@ -1,5 +1,5 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import { Kind, Order, ResourceType, Role, TILE, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
+import { Kind, Order, ResourceType, Role, TILE, Tech, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
 import { cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import { fx } from './fixed.ts';
 import { commandMoveSpeed } from './terran-mobility.ts';
@@ -9,16 +9,18 @@ import { isContained, sameTeam } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
-import { canUseWeaponNow } from './burrow.ts';
+import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
+import { getTechLevel } from './tech.ts';
+import { laySpiderMine } from './spider-mine.ts';
 
 type CommandValidation =
   | { ok: true }
   | { ok: false; reason: CommandRejectReason };
 
 type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
-export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'harvest' | 'move' | 'amove' | 'rally' | 'repair' | 'stop' }>;
+export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'burrow' | 'harvest' | 'mine' | 'move' | 'amove' | 'rally' | 'repair' | 'stop' }>;
 
 type CommandSpecContext = {
   destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number };
@@ -90,6 +92,28 @@ const validateStop = (s: State, player: number, command: Extract<Command, { t: '
   if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
   if (isContained(s, slot)) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
+  return { ok: true };
+};
+
+const validateBurrow = (s: State, player: number, command: Extract<Command, { t: 'burrow' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (isContained(s, slot) || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
+  if (!canBurrowSlot(s, slot)) return reject('missing-capability');
+  if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
+  if ((e.burrowed[slot] === 1) === command.active) return reject('target-not-allowed');
+  return { ok: true };
+};
+
+const validateMine = (s: State, player: number, command: Extract<Command, { t: 'mine' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
+  if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
+  if (getTechLevel(s, player, Tech.SpiderMines) <= 0) return reject('missing-requirement');
+  if (e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
   return { ok: true };
 };
 
@@ -174,6 +198,13 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   },
 };
 
+const burrowSpec: CommandSpec<Extract<Command, { t: 'burrow' }>> = {
+  validate: validateBurrow,
+  apply(s, _player, command): void {
+    setBurrowed(s, slotOf(command.unit), command.active);
+  },
+};
+
 const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
   validate: validateHarvest,
   apply(s, _player, command): void {
@@ -184,6 +215,13 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
     e.order[slot] = Order.Harvest;
     e.target[slot] = command.patch;
     e.timer[slot] = 0;
+  },
+};
+
+const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
+  validate: validateMine,
+  apply(s, _player, command): void {
+    laySpiderMine(s, slotOf(command.unit));
   },
 };
 
@@ -268,7 +306,9 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
 export const commandSpecs = {
   attack: attackSpec,
   amove: amoveSpec,
+  burrow: burrowSpec,
   harvest: harvestSpec,
+  mine: mineSpec,
   move: moveSpec,
   rally: rallySpec,
   repair: repairSpec,
@@ -278,7 +318,9 @@ export const commandSpecs = {
 export const validateCommandSpec = (s: State, player: number, command: CommandSpecCommand): CommandValidation => {
   switch (command.t) {
     case 'attack': return commandSpecs.attack.validate(s, player, command);
+    case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
+    case 'mine': return commandSpecs.mine.validate(s, player, command);
     case 'move': return commandSpecs.move.validate(s, player, command);
     case 'amove': return commandSpecs.amove.validate(s, player, command);
     case 'rally': return commandSpecs.rally.validate(s, player, command);
@@ -297,8 +339,14 @@ export const applyCommandSpec = (
     case 'attack':
       commandSpecs.attack.apply(s, player, command, ctx);
       return;
+    case 'burrow':
+      commandSpecs.burrow.apply(s, player, command, ctx);
+      return;
     case 'harvest':
       commandSpecs.harvest.apply(s, player, command, ctx);
+      return;
+    case 'mine':
+      commandSpecs.mine.apply(s, player, command, ctx);
       return;
     case 'move':
       commandSpecs.move.apply(s, player, command, ctx);

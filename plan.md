@@ -1552,6 +1552,8 @@ Highest-impact LOC reductions:
        mineral-walk order setup.
      - Moved `repair` into the command-spec path and relocated paused Terran foundation resume into
        `repair.ts`, keeping SCV repair and construction continuation under one mechanic owner.
+     - Moved the tiny special-action family (`burrow`, `mine`) into command specs, with burrow state
+       mutation in `burrow.ts` and spider-mine laying in a small mechanic helper.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.

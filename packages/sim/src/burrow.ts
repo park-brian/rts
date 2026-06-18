@@ -1,6 +1,7 @@
-import { Kind, Role, Tech, Units } from './data.ts';
+import { Kind, Order, Role, Tech, Units } from './data.ts';
 import { getTechLevel } from './tech.ts';
 import type { State } from './world.ts';
+import { NONE } from './world.ts';
 
 const BURROWABLE = new Set<number>([
   Kind.Drone,
@@ -31,4 +32,12 @@ export const canUseWeaponNow = (s: State, slot: number): boolean => {
   if (e.kind[slot] === Kind.Lurker) return e.burrowed[slot] === 1;
   if (e.kind[slot] === Kind.SpiderMine) return e.burrowed[slot] !== 1;
   return e.burrowed[slot] !== 1;
+};
+
+export const setBurrowed = (s: State, slot: number, active: boolean): void => {
+  const e = s.e;
+  e.settled[slot] = 0;
+  e.burrowed[slot] = active ? 1 : 0;
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
 };
