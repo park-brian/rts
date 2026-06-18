@@ -13,6 +13,7 @@ test('throughput benchmark exposes stable representative case output', () => {
     'mask-generation',
     'bot-generation',
     'batch-sequential',
+    'movement-follow',
     'movement-deathball',
   ]);
 
@@ -72,7 +73,31 @@ test('throughput benchmark exposes stable representative case output', () => {
   assert.equal(batch.ticks, 32 * 4);
   assert.ok(batch.commandsGenerated > 0);
 
-  const movement = results[8]!;
+  const follow = results[8]!;
+  assert.equal(follow.name, 'movement-follow');
+  assert.equal(follow.players, 1);
+  assert.equal(follow.vision, false);
+  assert.equal(follow.units, 17);
+  assert.equal(follow.commandResults, 17);
+  assert.equal(follow.accepted, 17);
+  assert.equal(follow.rejected, 0);
+  assert.equal(follow.commandResults, follow.accepted + follow.rejected);
+  assert.equal(follow.targetsHeld, 16);
+  assert.ok(follow.leaderMoved! > 0);
+  assert.ok(follow.distinctPositions! > 1);
+  assert.ok(follow.settled! >= 0);
+  assert.ok(follow.activeOrders! >= 0);
+  assert.equal(follow.collisionTicks, follow.ticks);
+  assert.ok(follow.collisionSolidUnits! >= follow.units);
+  assert.ok(follow.collisionPairChecks! >= 0);
+  assert.ok(follow.collisionResourceRoutePairSkips! >= 0);
+  assert.ok(follow.collisionOverlapPairs! >= 0);
+  assert.ok(follow.collisionMaxOverlapFx! >= 0);
+  assert.ok(follow.collisionNudgedUnits! >= 0);
+  assert.ok(follow.collisionBlockedNudges! >= 0);
+
+  const movement = results[9]!;
+  assert.equal(movement.name, 'movement-deathball');
   assert.equal(movement.players, 1);
   assert.equal(movement.vision, false);
   assert.equal(movement.units, 32);

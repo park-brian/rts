@@ -3036,13 +3036,10 @@ Implementation slices:
      proving defense attacks match `attackModeCandidates`, attack waves use public point
      attack-move, and same-team Nydus load/unload commands are exposed by shared validation/action
      masks at the correct sequence point.
-   - Desktop right-click, desktop `A` plus left-click, and mobile explicit target modes should emit
-     the same command intents without app-only priority overrides outside the finite smart-command
-     grammar.
-   - Action masks should expose point travel, follow-capable entity travel, resource rally, and
-     interaction verbs without app-only exclusions.
-   - Bot logic should prefer typed intents: workers harvest/repair/build, combat units attack-move
-     or escort/follow, transports/loadables use load interactions.
+   - Status: complete for the current public surface. Desktop right-click, desktop `A` plus
+     left-click, mobile explicit target modes, action masks, and bot commands now pin the same
+     finite command-intent vocabulary. Escort/attack-move-follow remains deliberately unexposed
+     until it gets an explicit API/action-mask contract.
 
 9. Performance and determinism audit.
    - Follow slot recomputation must be bounded by local spatial queries or deterministic small
@@ -3051,6 +3048,16 @@ Implementation slices:
      must be cloned, serialized, hashed, and reset on spawn/free/death/containment/transform.
    - Benchmark movement-follow cases and the existing `movement-deathball` lane before accepting
      the representation split.
+   - Status: first audit slice complete. Follow slots are not persisted; `movement.ts` builds a
+     module-local scratch plan once per tick by grouping live followers by `intentTarget`, sorting
+     each target's followers by slot id, and passing deterministic rank/spacing to
+     `entityApproachPoint`. This is a bounded grouped scan, not all-pairs follower matching.
+   - Status: target-split state coverage confirmed. `intentTarget` and `combatTarget` are registered
+     in `ENTITY_COLUMNS`, and replay tests cover typed-column coverage plus serialize/hash/reset
+     behavior for those columns. No sticky follow-slot column exists, so there is no extra replay
+     state to clone, serialize, hash, or reset.
+   - Status: benchmark coverage started. `movement-follow` now exercises a moving leader with
+     same-target followers alongside the existing `movement-deathball` pressure lane.
 
 Open questions for review:
 
@@ -3061,7 +3068,10 @@ Open questions for review:
   target? Decision for current public UI/API: invalid target. Keep the armed command active and do
   not expose escort until it has an explicit command shape and action-mask contract.
 - Should follow slots be persisted per follower for smoothness, or derived from deterministic
-  target/follower rank each tick for lower state and easier replay stability?
+  target/follower rank each tick for lower state and easier replay stability? Decision for the
+  current implementation: derive them from deterministic target/follower rank each tick. This keeps
+  replay state smaller and avoids adding a sticky slot column unless profiling proves the scratch
+  plan is too costly or visually unstable.
 - Should `load` remain a separate explicit command plus explicit move-to-load, or become an
   interaction intent selected only after the player arms Load / uses a load hotkey?
 - How should invalidated worker resource rally retargeting choose between closest resource, closest

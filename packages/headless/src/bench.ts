@@ -40,6 +40,7 @@ export type BenchCaseName =
   | 'mask-generation'
   | 'bot-generation'
   | 'batch-sequential'
+  | 'movement-follow'
   | 'movement-deathball';
 
 export type BenchResult = {
@@ -62,6 +63,8 @@ export type BenchResult = {
   settled?: number;
   activeOrders?: number;
   distinctPositions?: number;
+  targetsHeld?: number;
+  leaderMoved?: number;
   collisionTicks?: number;
   collisionSolidUnits?: number;
   collisionPairChecks?: number;
@@ -99,10 +102,12 @@ const CASES: BenchCase[] = [
   { name: 'mask-generation', vision: true, observe: false, resultProbe: false },
   { name: 'bot-generation', vision: false, observe: false, resultProbe: false },
   { name: 'batch-sequential', vision: false, observe: false, resultProbe: false },
+  { name: 'movement-follow', vision: false, observe: false, resultProbe: false },
   { name: 'movement-deathball', vision: false, observe: false, resultProbe: false },
 ];
 
 const MOVEMENT_STRESS_UNITS = 32;
+const MOVEMENT_FOLLOWERS = 16;
 const MOVEMENT_KINDS: readonly number[] = [
   Kind.Marine, Kind.Firebat, Kind.Zealot, Kind.Hydralisk,
   Kind.Goliath, Kind.Dragoon, Kind.SiegeTank, Kind.Ultralisk,
@@ -205,6 +210,95 @@ const runMovementDeathballCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ti
   };
 };
 
+const runMovementFollowCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  const s = makeState(blankMap('Bench Movement Follow', 96, 96), 1, opts.seed);
+  const leader = spawnUnit(s, Kind.Marine, 0, tileCenter(44), tileCenter(44));
+  const leaderSlot = slotOf(leader);
+  const leaderStartX = s.e.x[leaderSlot]!;
+  const leaderStartY = s.e.y[leaderSlot]!;
+  const followers: number[] = [];
+  for (let i = 0; i < MOVEMENT_FOLLOWERS; i++) {
+    const x = tileCenter(18 + (i % 4) * 2);
+    const y = tileCenter(36 + ((i / 4) | 0) * 2);
+    followers.push(slotOf(spawnUnit(s, MOVEMENT_KINDS[i % MOVEMENT_KINDS.length]!, 0, x, y)));
+  }
+  const batch: PlayerCommands[] = [{
+    player: 0,
+    cmds: [
+      { t: 'move', unit: leader, x: tileCenter(62), y: tileCenter(50) },
+      ...followers.map((slot) => ({
+        t: 'move' as const,
+        unit: eid(s.e, slot),
+        x: s.e.x[leaderSlot]!,
+        y: s.e.y[leaderSlot]!,
+        target: leader,
+      })),
+    ],
+  }];
+
+  let commandResults = 0;
+  let accepted = 0;
+  let rejected = 0;
+  resetCollisionPressureStats();
+  const start = performance.now();
+  for (let i = 0; i < opts.ticks; i++) {
+    const results = stepWorld(s, i === 0 ? batch : []);
+    commandResults += results.length;
+    for (const result of results) {
+      if (result.ok) accepted++;
+      else rejected++;
+    }
+  }
+
+  let settled = 0;
+  let activeOrders = 0;
+  let targetsHeld = 0;
+  const positions = new Set<string>();
+  for (const slot of [leaderSlot, ...followers]) {
+    if (s.e.settled[slot] === 1) settled++;
+    if (s.e.order[slot] === Order.Move || s.e.order[slot] === Order.AttackMove) activeOrders++;
+    positions.add(`${s.e.x[slot]},${s.e.y[slot]}`);
+  }
+  for (const slot of followers) {
+    if (s.e.order[slot] === Order.Move && s.e.intentTarget[slot] === leader) targetsHeld++;
+  }
+  const collision = readCollisionPressureStats();
+
+  const elapsedMs = Math.max(0.001, performance.now() - start);
+  return {
+    name: 'movement-follow',
+    seed: opts.seed,
+    ticks: s.tick,
+    players: 1,
+    vision: false,
+    observations: 0,
+    observedEntities: 0,
+    masks: 0,
+    bufferObservations: 0,
+    commandsGenerated: 0,
+    commandResults,
+    accepted,
+    rejected,
+    hash: hashState(s),
+    units: followers.length + 1,
+    settled,
+    activeOrders,
+    distinctPositions: positions.size,
+    targetsHeld,
+    leaderMoved: Math.abs(s.e.x[leaderSlot]! - leaderStartX) + Math.abs(s.e.y[leaderSlot]! - leaderStartY),
+    collisionTicks: collision.ticks,
+    collisionSolidUnits: collision.solidUnits,
+    collisionPairChecks: collision.pairChecks,
+    collisionResourceRoutePairSkips: collision.resourceRoutePairSkips,
+    collisionOverlapPairs: collision.overlapPairs,
+    collisionMaxOverlapFx: collision.maxOverlapFx,
+    collisionNudgedUnits: collision.nudgedUnits,
+    collisionBlockedNudges: collision.blockedNudges,
+    elapsedMs: Number(elapsedMs.toFixed(3)),
+    ticksPerSecond: Number((s.tick / (elapsedMs / 1000)).toFixed(1)),
+  };
+};
+
 const runBatchSequentialCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
   const envs = 4;
   const sims = Array.from({ length: envs }, (_, i) => new Sim({
@@ -290,6 +384,7 @@ const runObserveLarvaStressCase = (opts: Required<Pick<BenchOptions, 'seed' | 't
 };
 
 const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  if (bench.name === 'movement-follow') return runMovementFollowCase(opts);
   if (bench.name === 'movement-deathball') return runMovementDeathballCase(opts);
   if (bench.name === 'batch-sequential') return runBatchSequentialCase(opts);
   if (bench.name === 'observe-larva-stress') return runObserveLarvaStressCase(opts);
