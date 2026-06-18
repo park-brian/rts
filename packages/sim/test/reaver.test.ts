@@ -14,6 +14,9 @@ import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived
 import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
 } from '../src/internal-products.ts';
+import {
+  childActorDef, isExternallySteeredChild, participatesInNormalCombat,
+} from '../src/child-actors.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
@@ -58,6 +61,12 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(interceptor?.childKind, Kind.Interceptor);
   assert.equal(interceptor?.launchRange, carrierLaunchRange());
   assert.equal(interceptor?.launchCooldown, interceptorLaunchCooldown());
+  assert.equal(childActorDef(Kind.Scarab)?.commandable, false);
+  assert.equal(participatesInNormalCombat(Kind.Scarab), false);
+  assert.equal(isExternallySteeredChild(Kind.Scarab, NONE), false);
+  assert.equal(childActorDef(Kind.Interceptor)?.commandable, false);
+  assert.equal(participatesInNormalCombat(Kind.Interceptor), true);
+  assert.equal(isExternallySteeredChild(Kind.Interceptor, 123), true);
 
   assert.equal(weaponMechanicDef(Kind.Lurker)?.onHit, WeaponMechanic.LurkerLineSplash);
   assert.equal(weaponMechanicDef(Kind.Mutalisk)?.onHit, WeaponMechanic.MutaliskBounce);

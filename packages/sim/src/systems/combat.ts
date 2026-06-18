@@ -23,6 +23,7 @@ import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launch
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { isExternallySteeredChild, participatesInNormalCombat } from '../child-actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
 } from '../weapon-mechanics.ts';
@@ -174,7 +175,7 @@ export const combat = (s: State, grid: Grid): void => {
   }
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || isContained(s, i)) continue;
-    if (e.kind[i] === Kind.Scarab) continue;
+    if (!participatesInNormalCombat(e.kind[i]!)) continue;
     const def = Units[e.kind[i]!];
     const mechanic = weaponMechanicDef(e.kind[i]!);
     const containerProvider = mechanic?.containerProvider === true;
@@ -236,7 +237,7 @@ export const combat = (s: State, grid: Grid): void => {
 
     faceToward(e, i, e.x[tgt]!, e.y[tgt]!);
     const weapon = weaponForTarget(def, Units[e.kind[tgt]!]!);
-    const childSystemSteers = e.kind[i] === Kind.Interceptor && e.home[i] !== NONE;
+    const childSystemSteers = isExternallySteeredChild(e.kind[i]!, e.home[i]!);
     if (!weapon) {
       if (order === Order.Attack) e.order[i] = Order.Idle;
       continue;

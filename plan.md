@@ -1773,6 +1773,9 @@ Highest-impact LOC reductions:
        internal-product helpers while preserving deterministic bay/orbit behavior.
      - Routed Nuclear Silo ready-missile lookup and launch consumption through internal-product
        helpers while preserving active add-on parent gating.
+     - Routed child actor normal-combat participation and homed external steering through
+       `ChildActorDef`, so combat no longer directly knows that Scarabs are projectile-system owned
+       or that homed Interceptors are steered by the interceptor system.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.
