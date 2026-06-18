@@ -22,6 +22,7 @@ import { internalProductCapacity } from './internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from './tech.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
+import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from './command-intent.ts';
 
 export const ACTION_SCHEMA_VERSION = 1;
 
@@ -721,6 +722,25 @@ export const entityTargetMask = (
   return writeEntityTargetMask(mask, s, player, actor, head, targets, opts);
 };
 
+const commandIntentTargetAllowed = (
+  s: State,
+  player: number,
+  actor: number,
+  head: Extract<CommandHead, 'harvest' | 'repair' | 'rally'>,
+  target: number,
+  point: { x: number; y: number },
+): boolean => {
+  switch (head) {
+    case 'harvest':
+      return harvestModeCandidates(s, player, [actor], target).length > 0;
+    case 'repair':
+      return repairModeCandidates(s, player, [actor], target).length > 0;
+    case 'rally':
+      return rallyModeCandidates(s, player, [actor], { hit: target, x: point.x, y: point.y })
+        .some((command) => command.t === 'rally' && command.target === target);
+  }
+};
+
 export const writeEntityTargetMask = (
   mask: Uint8Array,
   s: State,
@@ -732,7 +752,10 @@ export const writeEntityTargetMask = (
 ): Uint8Array => {
   const point = actorPoint(s, actor, opts);
   for (let i = 0; i < targets.length; i++) {
-    mask[i] = validateCommand(s, player, commandForResolvedPoint(actor, head, point, opts, targets[i]!)).ok ? 1 : 0;
+    const target = targets[i]!;
+    mask[i] = (head === 'harvest' || head === 'repair' || head === 'rally')
+      ? (commandIntentTargetAllowed(s, player, actor, head, target, point) ? 1 : 0)
+      : (validateCommand(s, player, commandForResolvedPoint(actor, head, point, opts, target)).ok ? 1 : 0);
   }
   return mask;
 };

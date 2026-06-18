@@ -2887,6 +2887,9 @@ Implementation slices:
    - Status: action-mask target legality now has command-intent parity coverage for smart-command,
      harvest, repair, load, and rally candidates. This keeps the RL/policy-facing entity target
      masks pinned to the same finite command vocabulary used by the app before changing mask internals.
+   - Status: entity-target masks for Harvest, Repair, and Rally now reuse the shared command-intent
+     candidate helpers directly. Rally masks only expose true targeted rally candidates, not point
+     fallback commands from invalid entity hits.
 
 3. Add public entity-travel command support.
    - Status: done for `{ t: 'move'; unit; x; y; target? }` plus replay/action encode/decode,
