@@ -383,19 +383,22 @@ test('researchSelected queues the first valid selected research producer', () =>
   assert.deepEqual(g.queued, [{ t: 'research', building: academy, tech: Tech.StimPack }]);
 });
 
-test('loadSelected queues selected loadable units into selected transports', () => {
+test('load order option queues selected loadable units into selected transports', () => {
   const g = freshGame();
   const s = g.sim.fullState();
   const dropship = spawnUnit(s, Kind.Dropship, 0, fx(400), fx(400));
   const marine = spawnUnit(s, Kind.Marine, 0, fx(420), fx(400));
   select(g, [dropship, marine]);
+  g.fastForward(0);
 
-  g.loadSelected();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Load);
+  assert.deepEqual(option?.commands, [{ t: 'load', transport: dropship, unit: marine }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'load', transport: dropship, unit: marine }]);
 });
 
-test('unloadSelected queues contained units around selected transports', () => {
+test('unload order option queues contained units around selected transports', () => {
   const g = freshGame();
   const s = g.sim.fullState();
   const dropship = spawnUnit(s, Kind.Dropship, 0, fx(400), fx(400));
@@ -403,8 +406,11 @@ test('unloadSelected queues contained units around selected transports', () => {
   g.sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: marine }] }]);
   g.queued = [];
   select(g, [dropship]);
+  g.fastForward(0);
 
-  g.unloadSelected();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Unload);
+  assert.equal(option?.commands?.length, 1);
+  assert.equal(g.executeOption(option!), true);
 
   assert.equal(g.queued.length, 1);
   const c = g.queued[0]!;
@@ -414,7 +420,7 @@ test('unloadSelected queues contained units around selected transports', () => {
   assert.equal(c.unit, marine);
 });
 
-test('unloadSelected sends nydus cargo to the remote network exit', () => {
+test('unload order option sends nydus cargo to the remote network exit', () => {
   const g = freshGame();
   const s = g.sim.fullState();
   const e = s.e;
@@ -424,8 +430,11 @@ test('unloadSelected sends nydus cargo to the remote network exit', () => {
   g.sim.step([{ player: 0, cmds: [{ t: 'load', transport: entrance, unit: marine }] }]);
   g.queued = [];
   select(g, [entrance]);
+  g.fastForward(0);
 
-  g.unloadSelected();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Unload);
+  assert.equal(option?.commands?.length, 1);
+  assert.equal(g.executeOption(option!), true);
 
   assert.equal(g.queued.length, 1);
   const c = g.queued[0]!;

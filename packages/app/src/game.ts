@@ -425,14 +425,6 @@ export class Game {
     return this.commandState().castSelectedAbility(abilityId, target, x, y);
   }
 
-  loadSelected(): void {
-    this.commandState().loadSelected();
-  }
-
-  unloadSelected(): void {
-    this.commandState().unloadSelected();
-  }
-
   deselect(): void {
     this.selection.clear();
     this.clearTargetModes();

@@ -19,6 +19,8 @@ export const OrderOptionId = {
   Lift: 9,
   Land: 10,
   Cancel: 11,
+  Load: 12,
+  Unload: 13,
 } as const;
 export type CommandOption = {
   id: number;

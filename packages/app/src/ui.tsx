@@ -604,12 +604,8 @@ const Hotbar = (p: { game: Game }) => {
       const def = Abilities[ability]!;
       addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), () => executeOption(option), activeArm(option));
     }
-    if (selection.can.load) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
-    }
-    if (selection.can.unload) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
-    }
+    addOrderButton(OrderOptionId.Load, 'Load');
+    addOrderButton(OrderOptionId.Unload, 'Unload');
     addOrderButton(OrderOptionId.Burrow, 'Burrow');
     addOrderButton(OrderOptionId.Unburrow, 'Unburrow');
     addOrderButton(OrderOptionId.Mine, 'Lay Mine');

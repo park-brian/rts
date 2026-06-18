@@ -1866,6 +1866,9 @@ Further concrete deletion opportunities found on review:
      - Removed the parallel `SelectionView.kinds` arrays; app tests now assert enabled
        `selection.options.*` records directly, so command-card availability has one published
        representation.
+     - Moved grouped load and unload generation into order options, including deterministic unload
+       ring placement and nydus exit anchoring. UI buttons and desktop hotkeys now execute those
+       option records, and the direct app load/unload wrappers were removed.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,

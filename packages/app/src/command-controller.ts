@@ -1,8 +1,8 @@
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { clearArmedCommand, shouldToggleArmedCommand, ui, type CommandOption } from './store.ts';
 import {
-  Abilities, NONE, ONE, Role, Units, eid, entityWorkQueue, isAlive,
-  slotOf, transformFor, transportCapacity, unloadAnchorSlot, validateCommand,
+  Abilities, NONE, Role, Units, entityWorkQueue, isAlive,
+  slotOf, transformFor, validateCommand,
   type Command, type State,
 } from './sim.ts';
 
@@ -224,56 +224,6 @@ export class CommandController {
     if (!best) return false;
     this.queued.push(best);
     return true;
-  }
-
-  loadSelected(): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    const selection = [...this.deps.selection()];
-    const transports = selection.filter((id) => isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
-    const units = selection.filter((id) => isAlive(e, id) && !transports.includes(id));
-    for (const transport of transports) {
-      for (const unit of units) {
-        const c: Command = { t: 'load', transport, unit };
-        if (validateCommand(s, human, c).ok) this.queued.push(c);
-      }
-    }
-    this.clearTargetModes();
-  }
-
-  unloadSelected(): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    const offsets = [
-      [0, 64], [64, 0], [-64, 0], [0, -64],
-      [64, 64], [-64, 64], [64, -64], [-64, -64],
-    ];
-    for (const transport of this.deps.selection()) {
-      if (!isAlive(e, transport)) continue;
-      const tslot = slotOf(transport);
-      const anchor = unloadAnchorSlot(s, tslot);
-      if (anchor === NONE) continue;
-      let n = 0;
-      for (let i = 0; i < e.hi; i++) {
-        if (e.alive[i] !== 1 || e.owner[i] !== human || e.container[i] !== transport) continue;
-        const [ox, oy] = offsets[n % offsets.length]!;
-        const ring = Math.trunc(n / offsets.length);
-        const c: Command = {
-          t: 'unload',
-          transport,
-          unit: eid(e, i),
-          x: e.x[anchor]! + (ox + ring * 24) * ONE,
-          y: e.y[anchor]! + oy * ONE,
-        };
-        if (validateCommand(s, human, c).ok) {
-          this.queued.push(c);
-          n++;
-        }
-      }
-    }
-    this.clearTargetModes();
   }
 
 }

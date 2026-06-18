@@ -1,8 +1,8 @@
 import {
-  Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
+  Abilities, Ability, Kind, NONE, ONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   internalProductDef, isLiftedStructureFlags, slotOf, transformFor, transformTargetsFor, transportCapacity,
-  validateCommand, workerBuildKindsFor,
+  unloadAnchorSlot, validateCommand, workerBuildKindsFor,
   entityWorkQueue,
   illusionPresentation,
   type Command, type CommandRejectReason, type CommandValidation, type State,
@@ -122,6 +122,11 @@ const armedOrderOption = (id: number, label: string, arm: ArmedCommand): Command
 const commandOrderOption = (id: number, label: string, commands: Command[]): CommandOption[] =>
   commands.length > 0 ? [{ id, ok: true, label, commands }] : [];
 
+const unloadOffsets: readonly (readonly [number, number])[] = [
+  [0, 64], [64, 0], [-64, 0], [0, -64],
+  [64, 64], [-64, 64], [64, -64], [-64, -64],
+];
+
 const transformCommandsForSelection = (
   s: State,
   player: number,
@@ -157,6 +162,49 @@ const transformCommandsForSelection = (
       }
     } else {
       commands.push(c);
+    }
+  }
+  return commands;
+};
+
+const loadCommandsForSelection = (s: State, player: number, selected: readonly number[]): Command[] => {
+  const e = s.e;
+  const transports = selected.filter((id) => isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
+  const units = selected.filter((id) => isAlive(e, id) && !transports.includes(id));
+  const commands: Command[] = [];
+  for (const transport of transports) {
+    for (const unit of units) {
+      const command: Command = { t: 'load', transport, unit };
+      if (validateCommand(s, player, command).ok) commands.push(command);
+    }
+  }
+  return commands;
+};
+
+const unloadCommandsForSelection = (s: State, player: number, selected: readonly number[]): Command[] => {
+  const e = s.e;
+  const commands: Command[] = [];
+  for (const transport of selected) {
+    if (!isAlive(e, transport)) continue;
+    const tslot = slotOf(transport);
+    const anchor = unloadAnchorSlot(s, tslot);
+    if (anchor === NONE) continue;
+    let n = 0;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== transport) continue;
+      const [ox, oy] = unloadOffsets[n % unloadOffsets.length]!;
+      const ring = Math.trunc(n / unloadOffsets.length);
+      const command: Command = {
+        t: 'unload',
+        transport,
+        unit: eid(e, i),
+        x: e.x[anchor]! + (ox + ring * 24) * ONE,
+        y: e.y[anchor]! + oy * ONE,
+      };
+      if (validateCommand(s, player, command).ok) {
+        commands.push(command);
+        n++;
+      }
     }
   }
   return commands;
@@ -292,18 +340,6 @@ export const selectionCapabilities = (
     }
   }
 
-  for (const transport of selected) {
-    const ts = slotOf(transport);
-    if (transportCapacity(s, ts) <= 0) continue;
-    for (const unit of selected) {
-      if (unit === transport) continue;
-      if (validateCommand(s, player, { t: 'load', transport, unit }).ok) canLoad = true;
-    }
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] === 1 && e.owner[i] === player && e.container[i] === transport) canUnload = true;
-    }
-  }
-
   for (const option of transformOptions.values()) {
     if (!option.ok) continue;
     option.commands = transformCommandsForSelection(s, player, selected, option.id);
@@ -317,10 +353,16 @@ export const selectionCapabilities = (
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;
+  const loadCommands = loadCommandsForSelection(s, player, selected);
+  const unloadCommands = unloadCommandsForSelection(s, player, selected);
+  canLoad = loadCommands.length > 0;
+  canUnload = unloadCommands.length > 0;
   const orderOptions: CommandOption[] = [
     ...(canRally ? [armedOrderOption(OrderOptionId.Rally, 'Set Rally', { t: 'rally' })] : []),
     ...(canHarvest ? [armedOrderOption(OrderOptionId.Harvest, 'Harvest', { t: 'target', mode: 'harvest' })] : []),
     ...(canRepair ? [armedOrderOption(OrderOptionId.Repair, 'Repair', { t: 'target', mode: 'repair' })] : []),
+    ...commandOrderOption(OrderOptionId.Load, 'Load', loadCommands),
+    ...commandOrderOption(OrderOptionId.Unload, 'Unload', unloadCommands),
     ...commandOrderOption(OrderOptionId.Burrow, 'Burrow', burrowCommands),
     ...commandOrderOption(OrderOptionId.Unburrow, 'Unburrow', unburrowCommands),
     ...commandOrderOption(OrderOptionId.Mine, 'Lay Mine', mineCommands),

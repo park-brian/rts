@@ -137,6 +137,31 @@ test('desktop cancel hotkey executes cancellable morph option before deselect', 
   assert.deepEqual([...g.selection], [hatchery]);
 });
 
+test('desktop load and unload hotkeys execute shared order options', () => {
+  resetHotkeys();
+  const g = desktopGame(97);
+  const s = g.sim.fullState();
+  const dropship = spawnUnit(s, Kind.Dropship, 0, fx(400), fx(400));
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(420), fx(400));
+  select(g, [dropship, marine]);
+  g.fastForward(0);
+
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Load)?.commands, [
+    { t: 'load', transport: dropship, unit: marine },
+  ]);
+  assert.equal(dispatchHotkey(g, 'KeyL'), true);
+  assert.deepEqual(g.queued.pop(), { t: 'load', transport: dropship, unit: marine });
+
+  g.sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: marine }] }]);
+  select(g, [dropship]);
+  g.fastForward(0);
+
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Unload);
+  assert.equal(option?.commands?.[0]?.t, 'unload');
+  assert.equal(dispatchHotkey(g, 'KeyU'), true);
+  assert.equal(g.queued.at(-1)?.t, 'unload');
+});
+
 test('desktop command-card hotkeys execute build and ability options through shared descriptors', () => {
   resetHotkeys();
   const g = desktopGame(95);

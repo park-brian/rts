@@ -1,5 +1,5 @@
 import type { Game } from './game.ts';
-import { clearArmedCommand, OrderOptionId, ui } from './store.ts';
+import { OrderOptionId, ui } from './store.ts';
 import type { CommandOption } from './store.ts';
 import { Ability, Kind, Tech } from './sim.ts';
 
@@ -339,10 +339,6 @@ export const hotkeyLabelForAction = (action: HotkeyAction): string =>
     .replace('Escape', 'Esc')
     .replace('Space', 'Space');
 
-const clearTargets = (): void => {
-  clearArmedCommand();
-};
-
 const executeOption = (game: Game, options: CommandOption[], id: number): boolean => {
   const option = options.find((o) => o.id === id);
   if (!option) return false;
@@ -362,6 +358,8 @@ export const orderHotkeyAction = (id: number): GlobalHotkeyAction | null => {
     case OrderOptionId.Lift: return 'lift';
     case OrderOptionId.Land: return 'land';
     case OrderOptionId.Cancel: return 'cancel';
+    case OrderOptionId.Load: return 'load';
+    case OrderOptionId.Unload: return 'unload';
     default: return null;
   }
 };
@@ -412,13 +410,9 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     case 'rally':
       return executeOption(game, selection.options.order, OrderOptionId.Rally);
     case 'load':
-      clearTargets();
-      game.loadSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Load);
     case 'unload':
-      clearTargets();
-      game.unloadSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Unload);
     case 'burrow':
       return executeOption(game, selection.options.order, OrderOptionId.Burrow);
     case 'unburrow':
@@ -448,9 +442,9 @@ const commandCardActions = (): HotkeyAction[] => {
     ...orderActions(selection.options.order, [OrderOptionId.Rally, OrderOptionId.Harvest, OrderOptionId.Repair]),
     ...optionActions(selection.options.research, actionKey.research),
     ...optionActions(selection.options.ability, actionKey.ability),
-    ...(selection.can.load ? ['load' as const] : []),
-    ...(selection.can.unload ? ['unload' as const] : []),
     ...orderActions(selection.options.order, [
+      OrderOptionId.Load,
+      OrderOptionId.Unload,
       OrderOptionId.Burrow,
       OrderOptionId.Unburrow,
       OrderOptionId.Mine,
