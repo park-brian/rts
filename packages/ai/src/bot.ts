@@ -713,7 +713,7 @@ type EntityAbilityPolicy = {
   ability: number;
   target: 'friendly-entity' | 'enemy-entity';
   minScore: number;
-  scoreTarget: (s: State, player: number, target: number) => number;
+  scoreTarget: (s: State, player: number, target: number, caster: number, focusX: number, focusY: number) => number;
 };
 type PointAbilityPolicy = {
   ability: number;
@@ -749,6 +749,12 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     target: 'friendly-entity',
     minScore: 1,
     scoreTarget: (s, _player, target) => scoreRestorationTarget(s, target),
+  },
+  {
+    ability: Ability.DefensiveMatrix,
+    target: 'friendly-entity',
+    minScore: 90,
+    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
   },
   {
     ability: Ability.Parasite,
@@ -886,7 +892,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.Maelstrom) && tryCastPolicy(s, player, cmds, caster, Ability.Maelstrom, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.StasisField) && tryCastPolicy(s, player, cmds, caster, Ability.StasisField, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.DisruptionWeb) && tryCastPolicy(s, player, cmds, caster, Ability.DisruptionWeb, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.DefensiveMatrix) && maybeCastMatrix(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.DefensiveMatrix) && tryCastPolicy(s, player, cmds, caster, Ability.DefensiveMatrix, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.PersonnelCloaking) && maybeCastCloak(s, cmds, caster, Ability.PersonnelCloaking, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.CloakingField) && maybeCastCloak(s, cmds, caster, Ability.CloakingField, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.DarkSwarm) && tryCastPolicy(s, player, cmds, caster, Ability.DarkSwarm, focusX, focusY)) used.add(caster);
@@ -919,7 +925,7 @@ const tryCastPolicy = (
     } else {
       if (policy.target === 'friendly-entity' && e.owner[i] !== player) continue;
       if (policy.target === 'enemy-entity' && !isEnemy(s, player, e.owner[i]!)) continue;
-      score = policy.scoreTarget(s, player, i);
+      score = policy.scoreTarget(s, player, i, caster, focusX, focusY);
       command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, target: eid(e, i) };
     }
     if (score <= bestScore) continue;
@@ -1089,25 +1095,13 @@ const scoreIrradiateTarget = (s: State, player: number, slot: number): number =>
     (target) => (unitTraits(e.kind[target]!) & Trait.Biological) !== 0 && (e.flags[target]! & Role.Mobile) !== 0 ? 70 : 0, 2);
 };
 
-const maybeCastMatrix = (s: State, player: number, cmds: Command[], caster: number, focusX: number, focusY: number): boolean => {
+const scoreMatrixTarget = (s: State, player: number, target: number, focusX: number, focusY: number): number => {
   const e = s.e;
-  const ability = Abilities[Ability.DefensiveMatrix]!;
-  if (!hasTechForAbility(s, player, Ability.DefensiveMatrix)) return false;
-  if (e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestScore = 90;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || (e.flags[i]! & Role.Mobile) === 0 || e.matrixTimer[i]! > 0) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const def = Units[e.kind[i]!]!;
-    const missing = Math.max(0, def.hp - e.hp[i]!) + Math.max(0, def.shields - e.shield[i]!);
-    const nearFight = distanceSq(e.x[i]!, e.y[i]!, focusX, focusY) <= (TILE * ONE * 7) ** 2 ? 80 : 0;
-    const score = missing + nearFight + (def.weapon || def.airWeapon ? 40 : 0);
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.DefensiveMatrix, target: eid(e, best) });
-  return true;
+  if (e.owner[target] !== player || (e.flags[target]! & Role.Mobile) === 0 || e.matrixTimer[target]! > 0) return 0;
+  const def = Units[e.kind[target]!]!;
+  const missing = Math.max(0, def.hp - e.hp[target]!) + Math.max(0, def.shields - e.shield[target]!);
+  const nearFight = distanceSq(e.x[target]!, e.y[target]!, focusX, focusY) <= (TILE * ONE * 7) ** 2 ? 80 : 0;
+  return missing + nearFight + (def.weapon || def.airWeapon ? 40 : 0);
 };
 
 const maybeCastScanner = (s: State, player: number, cmds: Command[], caster: number): boolean => {
