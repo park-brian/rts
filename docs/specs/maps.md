@@ -80,7 +80,7 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   resource footprints, and an enclosing reservation footprint used by procedural generation before
   terrain or other features are stamped. Base cluster resource placement is scored against named
   top-down dock-to-dock targets: minerals use the current three-worker band ending at 97px, while
-  gas uses the current exact 83px refinery-route target. These are generator targets, not hidden
+  gas uses the current exact 89px refinery-route target. These are generator targets, not hidden
   runtime reach bonuses. Workers must still visibly dock using top-down physical contact. Equal
   route distance is the first-order economy target: with a shared movement speed model, equal
   distance preserves relative trip timing across SCVs, Drones, and Probes without per-unit

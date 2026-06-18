@@ -1,6 +1,7 @@
-import { Kind, MINERAL_MINE_TICKS, TILE, Units } from './data.ts';
+import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from './data.ts';
 import { fx, isqrt } from './fixed.ts';
 import {
+  BASE_GAS_DOCK_DISTANCE_PX,
   resourceSpawnCenterPx,
   type BaseSiteKind,
   type MapDef,
@@ -14,6 +15,8 @@ const BASE_RESOURCE_EDGE_LIMIT_PX = 192;
 const DEFAULT_ROUTE_TOLERANCE_FRAMES = 1;
 const DEFAULT_BASE_ROUTE_SPREAD_FRAMES = 32;
 const DEFAULT_ORDER_ROUTE_SPREAD_FRAMES = 4;
+const DEFAULT_BASE_GAS_COUNT = 1;
+const DEFAULT_GAS_ROUTE_TOLERANCE_FRAMES = 1;
 
 export const BW_MINERAL_TRIP_FRAMES_TENTHS: Partial<Record<number, number>> = {
   [Kind.SCV]: 1767,
@@ -27,6 +30,17 @@ export type HarvestTimingProfile = {
   depotKind: number;
   targetTripFramesTenths: number;
   mineFrames: number;
+  toleranceFrames: number;
+};
+
+export type GasTimingProfile = {
+  name: string;
+  workerKind: number;
+  depotKind: number;
+  gasKind: number;
+  targetWorkers: number;
+  mineFrames: number;
+  targetRouteFrames: number;
   toleranceFrames: number;
 };
 
@@ -60,11 +74,41 @@ export type MineralRouteCalibration = {
   mineralDock: InteractionPoint;
 };
 
+export type GasRouteCalibration = {
+  baseIndex: number;
+  baseKind: BaseSiteKind | 'start';
+  resourceIndex: number;
+  workerKind: number;
+  depotKind: number;
+  gasKind: number;
+  targetWorkers: number;
+  mineFrames: number;
+  targetRouteFrames: number;
+  actualRouteFrames: number;
+  toleranceFrames: number;
+  valid: boolean;
+  routeDistanceFx: number;
+  depotCenter: InteractionPoint;
+  resourceCenter: InteractionPoint;
+  depotDock: InteractionPoint;
+  gasDock: InteractionPoint;
+};
+
 export type MineralRouteQualityIssue = {
   kind: 'missing-main-minerals' | 'invalid-route' | 'base-route-spread' | 'resource-order-route-spread';
   baseIndex?: number;
   resourceIndex?: number;
   resourceOrder?: number;
+  expected?: number;
+  actual?: number;
+  spread?: number;
+  limit?: number;
+};
+
+export type GasRouteQualityIssue = {
+  kind: 'missing-base-gas' | 'invalid-gas-route' | 'base-gas-route-spread';
+  baseIndex?: number;
+  resourceIndex?: number;
   expected?: number;
   actual?: number;
   spread?: number;
@@ -78,10 +122,22 @@ export type MineralRouteQualityOptions = {
   maxResourceOrderRouteSpreadFrames?: number;
 };
 
+export type GasRouteQualityOptions = {
+  profile?: GasTimingProfile;
+  expectedGasPerBase?: number;
+  maxBaseGasRouteSpreadFrames?: number;
+};
+
 export type MineralRouteQuality = {
   ok: boolean;
   entries: MineralRouteCalibration[];
   issues: MineralRouteQualityIssue[];
+};
+
+export type GasRouteQuality = {
+  ok: boolean;
+  entries: GasRouteCalibration[];
+  issues: GasRouteQualityIssue[];
 };
 
 type IndexedMineral = {
@@ -91,9 +147,13 @@ type IndexedMineral = {
   edgeDistance: number;
 };
 
+type IndexedGas = IndexedMineral;
+
 const tileCenterPx = (t: number): number => t * TILE + (TILE >> 1);
 const tileCenterFx = (t: number): number => fx(tileCenterPx(t));
 const ceilDiv = (n: number, d: number): number => Math.trunc((n + d - 1) / d);
+const routeFrames = (routeDistanceFx: number, workerKind: number): number =>
+  ceilDiv(2 * routeDistanceFx, Units[workerKind]!.speed);
 
 export const mineralTimingProfile = (
   workerKind: number,
@@ -111,6 +171,22 @@ export const mineralTimingProfile = (
     toleranceFrames,
   };
 };
+
+export const gasTimingProfile = (
+  workerKind: number,
+  depotKind: number,
+  gasKind = Kind.Refinery,
+  toleranceFrames = DEFAULT_GAS_ROUTE_TOLERANCE_FRAMES,
+): GasTimingProfile => ({
+  name: `${Units[workerKind]?.name ?? workerKind}->${Units[gasKind]?.name ?? gasKind}`,
+  workerKind,
+  depotKind,
+  gasKind,
+  targetWorkers: 3,
+  mineFrames: GAS_MINE_TICKS,
+  targetRouteFrames: routeFrames(fx(BASE_GAS_DOCK_DISTANCE_PX), workerKind),
+  toleranceFrames,
+});
 
 const targetRouteFrames = (profile: HarvestTimingProfile): number => {
   const routeTenths = Math.max(0, profile.targetTripFramesTenths - profile.mineFrames * 10);
@@ -132,6 +208,11 @@ const fallbackBase = (m: MapDef, start: StartLoc, index: number): HarvestCalibra
 const mainBases = (m: MapDef): HarvestCalibrationBase[] => {
   const bases = (m.bases ?? []).filter((base) => base.kind === 'main');
   if (bases.length > 0) return bases.map((base) => base);
+  return m.starts.map((start, index) => fallbackBase(m, start, index));
+};
+
+const economyBases = (m: MapDef): HarvestCalibrationBase[] => {
+  if ((m.bases ?? []).length > 0) return m.bases!.map((base) => base);
   return m.starts.map((start, index) => fallbackBase(m, start, index));
 };
 
@@ -169,6 +250,40 @@ const nearbyMinerals = (
     .sort((a, b) => a.center.x - b.center.x || a.center.y - b.center.y || a.index - b.index);
 };
 
+const nearbyGas = (
+  m: MapDef,
+  base: HarvestCalibrationBase,
+  profile: GasTimingProfile,
+  expected: number,
+): IndexedGas[] => {
+  const depotX = tileCenterPx(base.x);
+  const depotY = tileCenterPx(base.y);
+  return m.resources
+    .map((resource, index): IndexedGas | null => {
+      if (!resource.gas) return null;
+      const center = resourceSpawnCenterPx(resource);
+      if ((center.y - depotY) * base.resourceDir <= 0) return null;
+      const edgeDistance = bwApproxEdgeDistanceBetween(
+        profile.depotKind,
+        fx(depotX),
+        fx(depotY),
+        profile.gasKind,
+        fx(center.x),
+        fx(center.y),
+      );
+      if (edgeDistance > fx(BASE_RESOURCE_EDGE_LIMIT_PX)) return null;
+      return { index, resource, center, edgeDistance };
+    })
+    .filter((entry): entry is IndexedGas => entry !== null)
+    .sort((a, b) =>
+      a.edgeDistance - b.edgeDistance ||
+      a.center.x - b.center.x ||
+      a.center.y - b.center.y ||
+      a.index - b.index,
+    )
+    .slice(0, expected);
+};
+
 export const calibrateMineralRoute = (
   base: HarvestCalibrationBase,
   resource: ResourceSpawn,
@@ -202,7 +317,7 @@ export const calibrateMineralRoute = (
   const dx = mineralDock.x - depotDock.x;
   const dy = mineralDock.y - depotDock.y;
   const routeDistanceFx = isqrt(dx * dx + dy * dy);
-  const actualRouteFrames = ceilDiv(2 * routeDistanceFx, Units[profile.workerKind]!.speed);
+  const actualRouteFrames = routeFrames(routeDistanceFx, profile.workerKind);
   const target = targetRouteFrames(profile);
   const slackFrames = Math.max(0, target - actualRouteFrames);
   const valid = actualRouteFrames <= target + profile.toleranceFrames;
@@ -229,6 +344,62 @@ export const calibrateMineralRoute = (
   };
 };
 
+export const calibrateGasRoute = (
+  base: HarvestCalibrationBase,
+  resource: ResourceSpawn,
+  resourceIndex: number,
+  profile: GasTimingProfile,
+  baseIndex = 0,
+): GasRouteCalibration => {
+  if (!resource.gas) throw new Error('calibrateGasRoute requires a gas resource');
+  const depotCenter = { x: tileCenterFx(base.x), y: tileCenterFx(base.y) };
+  const center = resourceSpawnCenterPx(resource);
+  const resourceCenter = { x: fx(center.x), y: fx(center.y) };
+  const gasDock = topDownDockingPoint(
+    profile.workerKind,
+    profile.gasKind,
+    resourceCenter.x,
+    resourceCenter.y,
+    Units[profile.gasKind]!.roles,
+    depotCenter.x,
+    depotCenter.y,
+  );
+  const depotDock = topDownDockingPoint(
+    profile.workerKind,
+    profile.depotKind,
+    depotCenter.x,
+    depotCenter.y,
+    Units[profile.depotKind]!.roles,
+    resourceCenter.x,
+    resourceCenter.y,
+  );
+  const dx = gasDock.x - depotDock.x;
+  const dy = gasDock.y - depotDock.y;
+  const routeDistanceFx = isqrt(dx * dx + dy * dy);
+  const actualRouteFrames = routeFrames(routeDistanceFx, profile.workerKind);
+  const valid = Math.abs(actualRouteFrames - profile.targetRouteFrames) <= profile.toleranceFrames;
+
+  return {
+    baseIndex,
+    baseKind: base.kind,
+    resourceIndex,
+    workerKind: profile.workerKind,
+    depotKind: profile.depotKind,
+    gasKind: profile.gasKind,
+    targetWorkers: profile.targetWorkers,
+    mineFrames: profile.mineFrames,
+    targetRouteFrames: profile.targetRouteFrames,
+    actualRouteFrames,
+    toleranceFrames: profile.toleranceFrames,
+    valid,
+    routeDistanceFx,
+    depotCenter,
+    resourceCenter,
+    depotDock,
+    gasDock,
+  };
+};
+
 export const mainBaseMineralRouteCalibrations = (
   m: MapDef,
   profile: HarvestTimingProfile = mineralTimingProfile(Kind.SCV, Kind.CommandCenter),
@@ -238,6 +409,21 @@ export const mainBaseMineralRouteCalibrations = (
     const minerals = nearbyMinerals(m, base, profile);
     for (const [resourceOrder, mineral] of minerals.entries()) {
       out.push(calibrateMineralRoute(base, mineral.resource, mineral.index, resourceOrder, profile, baseIndex));
+    }
+  }
+  return out;
+};
+
+export const baseGasRouteCalibrations = (
+  m: MapDef,
+  profile: GasTimingProfile = gasTimingProfile(Kind.SCV, Kind.CommandCenter),
+  expectedGasPerBase = DEFAULT_BASE_GAS_COUNT,
+): GasRouteCalibration[] => {
+  const out: GasRouteCalibration[] = [];
+  for (const [baseIndex, base] of economyBases(m).entries()) {
+    const gasNodes = nearbyGas(m, base, profile, expectedGasPerBase);
+    for (const gas of gasNodes) {
+      out.push(calibrateGasRoute(base, gas.resource, gas.index, profile, baseIndex));
     }
   }
   return out;
@@ -294,5 +480,45 @@ export const mainBaseMineralRouteQuality = (
   return { ok: issues.length === 0, entries, issues };
 };
 
+export const baseGasRouteQuality = (
+  m: MapDef,
+  options: GasRouteQualityOptions = {},
+): GasRouteQuality => {
+  const profile = options.profile ?? gasTimingProfile(Kind.SCV, Kind.CommandCenter);
+  const expected = options.expectedGasPerBase ?? DEFAULT_BASE_GAS_COUNT;
+  const maxSpread = options.maxBaseGasRouteSpreadFrames ?? profile.toleranceFrames;
+  const bases = economyBases(m);
+  const entries = baseGasRouteCalibrations(m, profile, expected);
+  const issues: GasRouteQualityIssue[] = [];
+
+  for (let baseIndex = 0; baseIndex < bases.length; baseIndex++) {
+    const rows = entries.filter((entry) => entry.baseIndex === baseIndex);
+    if (rows.length !== expected) {
+      issues.push({ kind: 'missing-base-gas', baseIndex, expected, actual: rows.length });
+    }
+    for (const row of rows) {
+      if (!row.valid) {
+        issues.push({
+          kind: 'invalid-gas-route',
+          baseIndex,
+          resourceIndex: row.resourceIndex,
+          actual: row.actualRouteFrames,
+          limit: row.targetRouteFrames + row.toleranceFrames,
+        });
+      }
+    }
+    if (rows.length > 1) {
+      const actuals = rows.map((row) => row.actualRouteFrames);
+      const spread = Math.max(...actuals) - Math.min(...actuals);
+      if (spread > maxSpread) issues.push({ kind: 'base-gas-route-spread', baseIndex, spread, limit: maxSpread });
+    }
+  }
+
+  return { ok: issues.length === 0, entries, issues };
+};
+
 export const mainBaseMineralRoutesValid = (m: MapDef, options: MineralRouteQualityOptions = {}): boolean =>
   mainBaseMineralRouteQuality(m, options).ok;
+
+export const baseGasRoutesValid = (m: MapDef, options: GasRouteQualityOptions = {}): boolean =>
+  baseGasRouteQuality(m, options).ok;

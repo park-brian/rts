@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { generateMap } from '../src/procedural.ts';
 import { spawnUnit } from '../src/factory.ts';
 import {
+  baseGasRouteCalibrations,
+  baseGasRouteQuality,
+  baseGasRoutesValid,
   calibrateMineralRoute,
+  gasTimingProfile,
   mainBaseMineralRouteQuality,
   mainBaseMineralRouteCalibrations,
   mainBaseMineralRoutesValid,
@@ -52,6 +56,27 @@ test('generated main bases produce calibration rows for every main mineral patch
   }
 });
 
+test('base gas diagnostics validate the three-worker refinery cadence target', () => {
+  const map = generateMap(2, 44, { midfield: 'blocks' });
+  const bases = map.bases ?? [];
+  const profile = gasTimingProfile(Kind.SCV, Kind.CommandCenter);
+  const entries = baseGasRouteCalibrations(map, profile);
+
+  assert.equal(entries.length, bases.length);
+  assert.equal(baseGasRoutesValid(map), true);
+  for (const entry of entries) {
+    assert.equal(entry.workerKind, Kind.SCV);
+    assert.equal(entry.depotKind, Kind.CommandCenter);
+    assert.equal(entry.gasKind, Kind.Refinery);
+    assert.equal(entry.targetWorkers, 3);
+    assert.equal(entry.mineFrames, 37);
+    assert.equal(entry.targetRouteFrames, 89);
+    assert.equal(Math.abs(entry.actualRouteFrames - entry.targetRouteFrames) <= entry.toleranceFrames, true);
+    assert.equal(entry.valid, true);
+    assert.equal(entry.routeDistanceFx > 0, true);
+  }
+});
+
 test('main-base route quality reports invalid and overly asymmetric layouts', () => {
   const invalid = sliceMap();
   invalid.resources = invalid.resources.map((resource, index) =>
@@ -73,6 +98,20 @@ test('main-base route quality reports invalid and overly asymmetric layouts', ()
   assert.equal(asymmetricQuality.ok, false);
   assert.equal(asymmetricQuality.issues.some((issue) => issue.kind === 'base-route-spread'), true);
   assert.equal(asymmetricQuality.issues.some((issue) => issue.kind === 'resource-order-route-spread'), true);
+});
+
+test('gas route quality reports invalid refinery cadence layouts', () => {
+  const invalid = sliceMap();
+  const start = invalid.starts[0]!;
+  invalid.resources = invalid.resources.map((resource, index) =>
+    index === 8
+      ? { ...resource, px: start.x * TILE + (TILE >> 1), py: (start.y - 3) * TILE + (TILE >> 1) }
+      : resource,
+  );
+  const quality = baseGasRouteQuality(invalid);
+
+  assert.equal(quality.ok, false);
+  assert.equal(quality.issues.some((issue) => issue.kind === 'invalid-gas-route'), true);
 });
 
 test('calibration dock points are physical contact points, not detached BW range', () => {

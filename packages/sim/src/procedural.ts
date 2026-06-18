@@ -13,7 +13,7 @@ import {
   solveBaseCluster,
 } from './map.ts';
 import { makeRng, range, type Rng } from './rng.ts';
-import { mainBaseMineralRoutesValid } from './harvest-calibration.ts';
+import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
 export type MapPreset = 'teamPlateaus';
@@ -196,6 +196,25 @@ const mainClusterRouteQualityValid = (m: MapDef, kind: BaseSite['kind'], cluster
   return mainBaseMineralRoutesValid(probe);
 };
 
+const clusterGasRouteQualityValid = (m: MapDef, kind: BaseSite['kind'], cluster: BaseCluster): boolean => {
+  const probe: MapDef = {
+    ...m,
+    starts: [{ x: cluster.x, y: cluster.y }],
+    teams: [0],
+    resources: cluster.resources,
+    bases: [{
+      kind,
+      team: 0,
+      x: cluster.x,
+      y: cluster.y,
+      depotFootprint: cluster.depotFootprint,
+      reservation: cluster.reservation,
+      resourceDir: cluster.resourceDir,
+    }],
+  };
+  return baseGasRoutesValid(probe);
+};
+
 const clusterFits = (
   m: MapDef,
   cluster: BaseCluster,
@@ -206,7 +225,8 @@ const clusterFits = (
   footprintWalkable(m, cluster.reservation) &&
   blockedReservations.every((reservation) => !resourceFootprintsOverlap(cluster.reservation, reservation)) &&
   clusterResourcesClear(m, cluster) &&
-  mainClusterRouteQualityValid(m, kind, cluster);
+  mainClusterRouteQualityValid(m, kind, cluster) &&
+  clusterGasRouteQualityValid(m, kind, cluster);
 
 export const selectBaseCluster = (
   m: MapDef,
@@ -407,7 +427,7 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
 };
 
 const generatedMapValid = (m: MapDef): boolean =>
-  mapConnected(m) && mapResourcesValid(m) && mapBaseReservationsValid(m) && mainBaseMineralRoutesValid(m);
+  mapConnected(m) && mapResourcesValid(m) && mapBaseReservationsValid(m) && mainBaseMineralRoutesValid(m) && baseGasRoutesValid(m);
 
 /**
  * Generate a symmetric NvN map. `perTeam` players share each side's plateau

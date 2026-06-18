@@ -1158,9 +1158,13 @@ Completed:
   clusters must satisfy depot buildability, whole-reservation walkability/overlap, resource
   clearance, and main-base mineral route quality before they are committed to the map.
 - Replaced BW-approx base-resource placement scoring with explicit top-down dock-to-dock targets:
-  a bounded mineral band around the 97px saturation target and an 83px gas target. Slice-map tests
-  now verify physical dock arcs and non-overlapping resource footprints instead of BW approximate
-  edge-distance arcs.
+  a bounded mineral band around the 97px saturation target and an 89px built-refinery gas target.
+  Slice-map tests now verify physical dock arcs and non-overlapping resource footprints instead of
+  BW approximate edge-distance arcs.
+- Added gas-specific route calibration for base gas placement. The validator measures the built
+  Refinery harvest hull, labels the three-worker gas cadence target, rejects invalid refinery
+  routes during procedural cluster selection and final map validation, and keeps the rule as
+  placement validation rather than hidden runtime timing compensation.
 
 Remaining:
 
@@ -1168,7 +1172,6 @@ Remaining:
   a cluster's mineral routes are intrinsically too long, too short, or too asymmetric.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
-- Add gas-specific cadence validation for three-worker refinery saturation.
 - Add a debug/headless overlay for interaction hulls, docking points, route targets, base-site
   reservations, resource footprints, and timing-valid/invalid markers.
 

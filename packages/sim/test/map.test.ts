@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeState } from '../src/world.ts';
-import { Kind, TILE } from '../src/data.ts';
+import { Kind, TILE, Units } from '../src/data.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
@@ -39,7 +39,7 @@ test('slice map start resources keep integer grid footprints and bounded top-dow
       assert.equal(allFootprints.some((other) => resourceFootprintsOverlap(other, fp)), false);
       allFootprints.push(fp);
 
-      const d = baseResourceDockDistance(r.gas ? Kind.Geyser : Kind.Mineral, start.x, start.y, center.x, center.y);
+      const d = baseResourceDockDistance(r.gas ? Kind.Refinery : Kind.Mineral, start.x, start.y, center.x, center.y);
       (r.gas ? gasDistances : mineralDistances).push(d);
     }
 
@@ -51,7 +51,11 @@ test('slice map start resources keep integer grid footprints and bounded top-dow
     assert.ok(mineralDistances.every((d) =>
       d >= fx(BASE_MINERAL_DOCK_DISTANCE_PX - 28) && d <= fx(BASE_MINERAL_DOCK_DISTANCE_PX)),
     `mineral dock distances left the 3-worker band at start ${startIndex}: ${mineralDistances.map((d) => (d / ONE).toFixed(2)).join(', ')}`);
-    assert.ok(gasDistances.every((d) => Math.abs(d - fx(BASE_GAS_DOCK_DISTANCE_PX)) <= fx(1)));
+    const targetGasFrames = Math.trunc((2 * fx(BASE_GAS_DOCK_DISTANCE_PX) + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
+    assert.ok(gasDistances.every((d) => {
+      const frames = Math.trunc((2 * d + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
+      return Math.abs(frames - targetGasFrames) <= 1;
+    }));
 
     const placement = placementForStructure(makeState(map, 1, 1), Kind.CommandCenter, tc(start.x), tc(start.y));
     assert.equal(placement.ok, true, 'start depot remains legal against its resource grid');

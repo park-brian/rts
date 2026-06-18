@@ -58,7 +58,7 @@ export const buildable = (m: MapDef, tx: number, ty: number): boolean =>
   inBounds(m, tx, ty) && m.build[ty * m.w + tx] === 1;
 
 export const BASE_MINERAL_DOCK_DISTANCE_PX = 97;
-export const BASE_GAS_DOCK_DISTANCE_PX = 83;
+export const BASE_GAS_DOCK_DISTANCE_PX = 89;
 export const BASE_CLUSTER_RESERVATION_MARGIN_TILES = 1;
 
 export const BASE_MINERAL_ARC_OFFSETS = [
