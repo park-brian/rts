@@ -19,6 +19,17 @@ import { Kind, TILE } from '../src/data.ts';
 import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { topDownEdgeDistance } from '../src/spatial.ts';
 
+const withWalkBarrier = (map: ReturnType<typeof sliceMap>): ReturnType<typeof sliceMap> => ({
+  ...map,
+  walk: new Uint8Array(map.walk),
+  build: new Uint8Array(map.build),
+  elev: new Uint8Array(map.elev),
+  starts: map.starts.map((start) => ({ ...start })),
+  resources: map.resources.map((resource) => ({ ...resource })),
+  teams: [...map.teams],
+  bases: map.bases?.map((base) => ({ ...base })),
+});
+
 test('main-base mineral diagnostics expose positive-only BW route slack data', () => {
   const map = sliceMap();
   const profile = mineralTimingProfile(Kind.SCV, Kind.CommandCenter);
@@ -40,6 +51,33 @@ test('main-base mineral diagnostics expose positive-only BW route slack data', (
   for (const base of map.starts.keys()) {
     assert.equal(entries.filter((entry) => entry.baseIndex === base).length, 8);
   }
+});
+
+test('harvest route diagnostics use path-lattice detours instead of straight distance', () => {
+  const baseline = sliceMap();
+  const baselineMinerals = mainBaseMineralRouteCalibrations(baseline);
+  const baselineGas = baseGasRouteCalibrations(baseline);
+  const blocked = withWalkBarrier(sliceMap());
+
+  for (let x = 20; x < blocked.w; x++) {
+    const y = 81;
+    blocked.walk[y * blocked.w + x] = 0;
+    blocked.build[y * blocked.w + x] = 0;
+  }
+
+  const mineralQuality = mainBaseMineralRouteQuality(blocked);
+  const gasQuality = baseGasRouteQuality(blocked);
+  const blockedMinerals = mineralQuality.entries.filter((entry) => entry.baseIndex === 0);
+  const blockedGas = gasQuality.entries.find((entry) => entry.baseIndex === 0)!;
+
+  assert.equal(baselineMinerals.every((entry) => entry.valid), true);
+  assert.equal(baselineGas.every((entry) => entry.valid), true);
+  assert.equal(blockedMinerals.some((entry) =>
+    entry.actualRouteFrames > baselineMinerals[entry.resourceOrder]!.actualRouteFrames + 4,
+  ), true);
+  assert.equal(mineralQuality.issues.some((issue) => issue.kind === 'invalid-route' && issue.baseIndex === 0), true);
+  assert.equal(blockedGas.actualRouteFrames > baselineGas.find((entry) => entry.baseIndex === 0)!.actualRouteFrames + 4, true);
+  assert.equal(gasQuality.issues.some((issue) => issue.kind === 'invalid-gas-route' && issue.baseIndex === 0), true);
 });
 
 test('generated main bases produce calibration rows for every main mineral patch', () => {

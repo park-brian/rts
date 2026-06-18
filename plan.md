@@ -1169,11 +1169,13 @@ Completed:
   searches a small deterministic front/back adjustment set on the existing mineral/gas arc, rejects
   mineral candidates that exceed the timing target, preserves legal resource footprints, and keeps
   the final cluster reservation explicit for procedural validation.
+- Harvest route calibration now uses the same deterministic path lattice as movement for map
+  diagnostics and validation. Clear dock-to-dock routes preserve their exact straight distance,
+  while terrain/building detours can make mineral and gas routes invalid without adding hidden
+  runtime wait compensation.
 
 Remaining:
 
-- Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
-  can affect worker trips.
 - Add a debug/headless overlay for interaction hulls, docking points, route targets, base-site
   reservations, resource footprints, and timing-valid/invalid markers.
 

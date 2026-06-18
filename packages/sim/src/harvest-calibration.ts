@@ -1,5 +1,6 @@
 import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from './data.ts';
 import { fx, isqrt } from './fixed.ts';
+import { pathRouteDistance } from './pathing.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
   resourceSpawnCenterPx,
@@ -9,6 +10,7 @@ import {
   type StartLoc,
 } from './map.ts';
 import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from './spatial.ts';
+import { makeState, type State } from './world.ts';
 
 const MAIN_BASE_MINERAL_COUNT = 8;
 const BASE_RESOURCE_EDGE_LIMIT_PX = 192;
@@ -17,6 +19,7 @@ const DEFAULT_BASE_ROUTE_SPREAD_FRAMES = 32;
 const DEFAULT_ORDER_ROUTE_SPREAD_FRAMES = 4;
 const DEFAULT_BASE_GAS_COUNT = 1;
 const DEFAULT_GAS_ROUTE_TOLERANCE_FRAMES = 1;
+const UNREACHABLE_ROUTE_DISTANCE_FX = 0x3fffffff;
 
 export const BW_MINERAL_TRIP_FRAMES_TENTHS: Partial<Record<number, number>> = {
   [Kind.SCV]: 1767,
@@ -155,6 +158,22 @@ const ceilDiv = (n: number, d: number): number => Math.trunc((n + d - 1) / d);
 const routeFrames = (routeDistanceFx: number, workerKind: number): number =>
   ceilDiv(2 * routeDistanceFx, Units[workerKind]!.speed);
 
+const straightDistanceFx = (a: InteractionPoint, b: InteractionPoint): number => {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return isqrt(dx * dx + dy * dy);
+};
+
+const routeDistanceFx = (
+  routeState: State | undefined,
+  workerKind: number,
+  from: InteractionPoint,
+  to: InteractionPoint,
+): number =>
+  routeState === undefined
+    ? straightDistanceFx(from, to)
+    : pathRouteDistance(routeState, workerKind, from.x, from.y, to.x, to.y) ?? UNREACHABLE_ROUTE_DISTANCE_FX;
+
 export const mineralTimingProfile = (
   workerKind: number,
   depotKind: number,
@@ -291,6 +310,7 @@ export const calibrateMineralRoute = (
   resourceOrder: number,
   profile: HarvestTimingProfile,
   baseIndex = 0,
+  routeState?: State,
 ): MineralRouteCalibration => {
   if (resource.gas) throw new Error('calibrateMineralRoute requires a mineral resource');
   const depotCenter = { x: tileCenterFx(base.x), y: tileCenterFx(base.y) };
@@ -314,10 +334,8 @@ export const calibrateMineralRoute = (
     resourceCenter.x,
     resourceCenter.y,
   );
-  const dx = mineralDock.x - depotDock.x;
-  const dy = mineralDock.y - depotDock.y;
-  const routeDistanceFx = isqrt(dx * dx + dy * dy);
-  const actualRouteFrames = routeFrames(routeDistanceFx, profile.workerKind);
+  const distance = routeDistanceFx(routeState, profile.workerKind, depotDock, mineralDock);
+  const actualRouteFrames = routeFrames(distance, profile.workerKind);
   const target = targetRouteFrames(profile);
   const slackFrames = Math.max(0, target - actualRouteFrames);
   const valid = actualRouteFrames <= target + profile.toleranceFrames;
@@ -336,7 +354,7 @@ export const calibrateMineralRoute = (
     slackFrames,
     toleranceFrames: profile.toleranceFrames,
     valid,
-    routeDistanceFx,
+    routeDistanceFx: distance,
     depotCenter,
     resourceCenter,
     depotDock,
@@ -350,6 +368,7 @@ export const calibrateGasRoute = (
   resourceIndex: number,
   profile: GasTimingProfile,
   baseIndex = 0,
+  routeState?: State,
 ): GasRouteCalibration => {
   if (!resource.gas) throw new Error('calibrateGasRoute requires a gas resource');
   const depotCenter = { x: tileCenterFx(base.x), y: tileCenterFx(base.y) };
@@ -373,10 +392,8 @@ export const calibrateGasRoute = (
     resourceCenter.x,
     resourceCenter.y,
   );
-  const dx = gasDock.x - depotDock.x;
-  const dy = gasDock.y - depotDock.y;
-  const routeDistanceFx = isqrt(dx * dx + dy * dy);
-  const actualRouteFrames = routeFrames(routeDistanceFx, profile.workerKind);
+  const distance = routeDistanceFx(routeState, profile.workerKind, depotDock, gasDock);
+  const actualRouteFrames = routeFrames(distance, profile.workerKind);
   const valid = Math.abs(actualRouteFrames - profile.targetRouteFrames) <= profile.toleranceFrames;
 
   return {
@@ -392,7 +409,7 @@ export const calibrateGasRoute = (
     actualRouteFrames,
     toleranceFrames: profile.toleranceFrames,
     valid,
-    routeDistanceFx,
+    routeDistanceFx: distance,
     depotCenter,
     resourceCenter,
     depotDock,
@@ -405,10 +422,11 @@ export const mainBaseMineralRouteCalibrations = (
   profile: HarvestTimingProfile = mineralTimingProfile(Kind.SCV, Kind.CommandCenter),
 ): MineralRouteCalibration[] => {
   const out: MineralRouteCalibration[] = [];
+  const routeState = makeState(m, 1, 1);
   for (const [baseIndex, base] of mainBases(m).entries()) {
     const minerals = nearbyMinerals(m, base, profile);
     for (const [resourceOrder, mineral] of minerals.entries()) {
-      out.push(calibrateMineralRoute(base, mineral.resource, mineral.index, resourceOrder, profile, baseIndex));
+      out.push(calibrateMineralRoute(base, mineral.resource, mineral.index, resourceOrder, profile, baseIndex, routeState));
     }
   }
   return out;
@@ -420,10 +438,11 @@ export const baseGasRouteCalibrations = (
   expectedGasPerBase = DEFAULT_BASE_GAS_COUNT,
 ): GasRouteCalibration[] => {
   const out: GasRouteCalibration[] = [];
+  const routeState = makeState(m, 1, 1);
   for (const [baseIndex, base] of economyBases(m).entries()) {
     const gasNodes = nearbyGas(m, base, profile, expectedGasPerBase);
     for (const gas of gasNodes) {
-      out.push(calibrateGasRoute(base, gas.resource, gas.index, profile, baseIndex));
+      out.push(calibrateGasRoute(base, gas.resource, gas.index, profile, baseIndex, routeState));
     }
   }
   return out;

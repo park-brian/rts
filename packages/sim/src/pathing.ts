@@ -4,7 +4,7 @@
 
 import type { State } from './world.ts';
 import type { MapDef } from './map.ts';
-import { Role, TILE } from './data.ts';
+import { Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { moveToward } from './systems/move.ts';
 import { localAvoidancePenalty, usesLocalAvoidance } from './local-avoidance.ts';
@@ -12,9 +12,11 @@ import {
   clearancePxForKind,
   downhill,
   flowField,
+  INF,
   nearestPassablePathCell,
   navHasUnitSolid,
   navUnitSolid,
+  PATH_CELLS_PER_TILE,
   pathCenterFx,
   pathH,
   pathPass,
@@ -24,6 +26,7 @@ import {
 } from './flow.ts';
 
 const TILE_FX = TILE * ONE;
+const PATH_CELL_FX = TILE_FX / PATH_CELLS_PER_TILE;
 
 export const tileX = (xfx: number): number => Math.floor(xfx / TILE_FX);
 export const tileY = (yfx: number): number => Math.floor(yfx / TILE_FX);
@@ -106,6 +109,62 @@ const normalizedStep = (vx: number, vy: number, limit: number): { x: number; y: 
   if (d === 0) return { x: 0, y: 0 };
   if (d <= limit) return { x: vx, y: vy };
   return { x: Math.trunc((vx * limit) / d), y: Math.trunc((vy * limit) / d) };
+};
+
+const distFx = (x0: number, y0: number, x1: number, y1: number): number => {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  return isqrt(dx * dx + dy * dy);
+};
+
+const latticeCostToFx = (cost: number): number => Math.trunc((cost * PATH_CELL_FX + 5) / 10);
+
+/**
+ * Deterministic terrain/building route length between exact fixed-point locations
+ * over the same path lattice used by movement. Unit bodies are ignored: this is
+ * for static map validation, not live traffic simulation.
+ */
+export const pathRouteDistance = (
+  s: State,
+  kind: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): number | null => {
+  if ((Units[kind]?.roles ?? 0) & Role.Air) return distFx(x0, y0, x1, y1);
+
+  const clearancePx = clearancePxForKind(kind);
+  const pass = pathPass(s, clearancePx);
+  const w = pathW(s);
+  const h = pathH(s);
+  const sx = pathX(x0);
+  const sy = pathY(y0);
+  const gx = pathX(x1);
+  const gy = pathY(y1);
+  if (sx < 0 || sy < 0 || sx >= w || sy >= h || gx < 0 || gy < 0 || gx >= w || gy >= h) return null;
+
+  if (pass[sy * w + sx] === 1 && pass[gy * w + gx] === 1 && clearPathLine(pass, w, h, null, sx, sy, gx, gy)) {
+    return distFx(x0, y0, x1, y1);
+  }
+
+  const start = pass[sy * w + sx] === 1 ? sy * w + sx : nearestPassablePathCell(s, clearancePx, sx, sy, sx, sy);
+  const goal = nearestPassablePathCell(s, clearancePx, gx, gy, sx, sy);
+  if (start < 0 || goal < 0) return null;
+
+  const field = flowField(s, goal, clearancePx);
+  const cost = field[start]!;
+  if (cost === INF) return null;
+
+  const startX = start % w;
+  const startY = (start - startX) / w;
+  const goalX = goal % w;
+  const goalY = (goal - goalX) / w;
+  return (
+    distFx(x0, y0, pathCenterFx(startX), pathCenterFx(startY)) +
+    latticeCostToFx(cost) +
+    distFx(pathCenterFx(goalX), pathCenterFx(goalY), x1, y1)
+  );
 };
 
 const moveTowardPass = (
