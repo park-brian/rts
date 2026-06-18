@@ -6,7 +6,7 @@ import {
   isUserCommandableKind,
   readableProjectileRadius,
 } from '../src/child-actors.ts';
-import { Kind, ONE, eid, fx, slotOf, spawnUnit } from '../src/sim.ts';
+import { Kind, ONE, childActorDef, eid, fx, slotOf, spawnUnit } from '../src/sim.ts';
 
 const screenOf = (g: Game, id: number): { x: number; y: number } => {
   const e = g.sim.fullState().e;
@@ -20,6 +20,8 @@ const screenOf = (g: Game, id: number): { x: number; y: number } => {
 test('projectile child actor presentation stays readable without changing gameplay radius', () => {
   assert.equal(isProjectilePresentationKind(Kind.Scarab), true);
   assert.equal(isProjectilePresentationKind(Kind.Interceptor), false);
+  assert.equal(childActorDef(Kind.Scarab)?.presentation, 'projectile');
+  assert.equal(childActorDef(Kind.Interceptor)?.commandable, false);
   assert.equal(readableProjectileRadius(Kind.Scarab, 3, 0.5), 10);
   assert.equal(readableProjectileRadius(Kind.Marine, 8, 0.5), 8);
 });

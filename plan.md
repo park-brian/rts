@@ -1715,6 +1715,9 @@ Highest-impact LOC reductions:
        Reaver/Carrier capacity-upgrade helpers.
      - Routed Nuclear Silo ready/arming command-card labels and work status through descriptor
        display metadata instead of app-side `NuclearMissile` special cases.
+     - Added first-pass `ChildActorDef` descriptors for Scarabs and Interceptors, moving
+       commandability and projectile presentation facts out of the app helper while preserving
+       existing selection and renderer behavior.
 7. Replace combat's direct unit checks with weapon mechanic ids.
    - Current shape: combat is compact but has growing branches for Reaver, Carrier, Bunker, Lurker,
      Mutalisk, Devourer, and suicide units.
