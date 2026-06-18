@@ -1918,6 +1918,10 @@ Further concrete deletion opportunities found on review:
      - Migrated the observation setup portions of `state-api.test.ts` onto the shared sim scenario
        harness while leaving disabled-vision, serialization, hash-history, and replay lifecycle
        tests as direct `Sim` cases.
+     - Closed the remaining sim-test setup audit: direct setup left in `combat`, `reaver`,
+       `terrain`, and lower-level raw/math/lifecycle tests is intentional because those cases probe
+       exact geometry, custom maps, RNG/serialization, pathing, placement, or lifecycle semantics.
+       Further harness conversion there would be churn rather than meaningful compression.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
