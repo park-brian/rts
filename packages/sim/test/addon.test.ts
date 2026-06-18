@@ -1,23 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { eid, isAlive, kill, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
 import { Ability, Kind, Tech, Units } from '../src/data.ts';
 import { addonPosition } from '../src/addon.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/validation.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 test('terran parent buildings construct one linked add-on', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 130 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 130 });
   const e = s.e;
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(700), fx(700)));
+  resources(0, 1_000, 1_000);
   const pos = addonPosition(s, factory, Kind.MachineShop);
 
   const results = sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.MachineShop }] }]);
@@ -37,14 +33,12 @@ test('terran parent buildings construct one linked add-on', () => {
 });
 
 test('add-ons enforce parent type, prerequisites, placement, and cancel refunds', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 131 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 131 });
   const e = s.e;
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
-  const cc = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(1_300), fx(700)));
-  const academy = slotOf(spawnUnit(s, Kind.Academy, 0, fx(1_300), fx(900)));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(700), fx(700)));
+  const cc = slotOf(spawn(Kind.CommandCenter, 0, fx(1_300), fx(700)));
+  const academy = slotOf(spawn(Kind.Academy, 0, fx(1_300), fx(900)));
+  resources(0, 1_000, 1_000);
 
   const wrongParent = sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.ControlTower }] }]);
   assert.deepEqual(wrongParent, [{ player: 0, index: 0, t: 'addon', ok: false, reason: 'target-not-allowed' }]);
@@ -67,13 +61,11 @@ test('add-ons enforce parent type, prerequisites, placement, and cancel refunds'
 });
 
 test('completed add-ons require a live linked landed parent for validation', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 132 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 132 });
   const e = s.e;
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
-  const spareFactory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(1_100), fx(700)));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(700), fx(700)));
+  const spareFactory = slotOf(spawn(Kind.Factory, 0, fx(1_100), fx(700)));
+  resources(0, 1_000, 1_000);
   s.players.supplyMax[0] = 100;
 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.MachineShop }] }]), [
@@ -110,13 +102,11 @@ test('completed add-ons require a live linked landed parent for validation', () 
 });
 
 test('comsat scanner sweep requires a live linked landed command center', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 134 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 134 });
   const e = s.e;
-  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(700), fx(700)));
-  spawnUnit(s, Kind.Academy, 0, fx(900), fx(700));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
+  const commandCenter = slotOf(spawn(Kind.CommandCenter, 0, fx(700), fx(700)));
+  spawn(Kind.Academy, 0, fx(900), fx(700));
+  resources(0, 1_000, 1_000);
 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, commandCenter), kind: Kind.ComsatStation }] }]), [
     { player: 0, index: 0, t: 'addon', ok: true },
@@ -145,13 +135,11 @@ test('comsat scanner sweep requires a live linked landed command center', () => 
 });
 
 test('orphaned add-on production and research do not complete', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 133 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 133 });
   const e = s.e;
-  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(700), fx(700)));
-  const commandCenter = slotOf(spawnUnit(s, Kind.CommandCenter, 0, fx(1_200), fx(700)));
-  s.players.minerals[0] = 2_000;
-  s.players.gas[0] = 2_000;
+  const factory = slotOf(spawn(Kind.Factory, 0, fx(700), fx(700)));
+  const commandCenter = slotOf(spawn(Kind.CommandCenter, 0, fx(1_200), fx(700)));
+  resources(0, 2_000, 2_000);
 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'addon', building: eid(e, factory), kind: Kind.MachineShop }] }]), [
     { player: 0, index: 0, t: 'addon', ok: true },
@@ -163,7 +151,7 @@ test('orphaned add-on production and research do not complete', () => {
     { player: 0, index: 0, t: 'research', ok: true },
   ]);
 
-  const silo = slotOf(spawnUnit(s, Kind.NuclearSilo, 0, fx(1_280), fx(700)));
+  const silo = slotOf(spawn(Kind.NuclearSilo, 0, fx(1_280), fx(700)));
   e.target[commandCenter] = eid(e, silo);
   e.target[silo] = eid(e, commandCenter);
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, silo), kind: Kind.NuclearMissile }] }]), [

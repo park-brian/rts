@@ -1901,6 +1901,8 @@ Further concrete deletion opportunities found on review:
        behavior, frame advancement, and replay parser assertions local to the file.
      - Migrated `terran-mobility.test.ts` onto the shared sim scenario harness while keeping lift,
        land, placement rejection, and replay parser assertions local to the file.
+     - Migrated `addon.test.ts` onto the shared sim scenario harness while keeping add-on linkage,
+       refund, validation, orphaning, and replay parser assertions local to the file.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead
