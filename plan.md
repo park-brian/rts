@@ -1840,10 +1840,7 @@ Further concrete deletion opportunities found on review:
      - Routed AI distance checks through the exported sim spatial helpers and replaced the bot's
        local ability-tech gate with a sim-owned helper that command validation also uses.
 5. Split `Game` by responsibility only after collapsing UI state.
-   - Current shape:
-     - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart
-       commands, placement ghosts, command emission, HUD publishing, and selected status.
-   - Collapse shape:
+   - Completed shape:
      - `game-session.ts`: setup/restart/replay/human player;
      - `camera-controller.ts`: resize, screen/world transforms, zoom/pan/edge pan;
      - `visibility-controller.ts`: app fog cache, explored memory, tile visibility, and visible-entity
@@ -1851,10 +1848,7 @@ Further concrete deletion opportunities found on review:
      - `selection-controller.ts`: hit tests, drag selection, control groups;
      - `command-controller.ts`: armed command state, smart command candidates, dispatch;
      - `hud-publisher.ts`: writes `selectionView` and top-bar resources.
-  - Expected win: not necessarily fewer lines immediately, but each later compression becomes local
-     and testable. Do this after `selectionView`/`armedCommand`, otherwise it just spreads current
-     duplication across more files.
-   - Started:
+   - Completed:
      - Extracted camera, viewport, edge-pan, screen/world conversion, and minimap navigation into
        `CameraController` while keeping `Game`'s public camera fields and wrapper methods stable for
        renderers, input, and existing tests.
@@ -1881,6 +1875,9 @@ Further concrete deletion opportunities found on review:
        groups;
      - fewer end-to-end bespoke tests, kept only where behavior crosses multiple systems.
    - Expected win: largest immediate LOC reduction with the least gameplay risk.
+   - Started:
+     - Added a shared app test harness for `Game` setup, entity lookup, selection, centering, and
+       screen projection, then migrated `tap-semantics` and `hotkeys` off their local setup copies.
 7. Make "current production/research/internal work" a query, not direct UI state inspection.
    - Completed:
      - moved `entityWorkQueue(s, slot)` into sim (`packages/sim/src/entity-work-queue.ts`) instead

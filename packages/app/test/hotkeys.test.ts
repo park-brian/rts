@@ -1,28 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game } from '../src/game.ts';
 import { dispatchHotkey, resetHotkeys, setHotkey } from '../src/hotkeys.ts';
 import { OrderOptionId, ui } from '../src/store.ts';
-import { Ability, Kind, Tech, eid, fx, liftedStructureFlags, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
-
-const selectFirst = (g: Game, kind: number): number => {
-  const e = g.sim.fullState().e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] === 1 && e.kind[i] === kind && e.owner[i] === 0) {
-      const id = eid(e, i);
-      g.selection.clear();
-      g.selection.add(id);
-      return id;
-    }
-  }
-  throw new Error(`missing kind ${kind}`);
-};
+import { Ability, Kind, Tech, fx, liftedStructureFlags, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import { desktopGame, select, selectFirst } from '../test-support/harness.ts';
 
 test('desktop hotkeys arm commands and can be remapped', () => {
   resetHotkeys();
-  const g = new Game('play', 77);
-  ui.controlScheme.value = 'desktop';
-  ui.mode.value = 'play';
+  const g = desktopGame(77);
   selectFirst(g, Kind.SCV);
   g.fastForward(0);
   assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.AttackMove)?.arm, { t: 'attackMove' });
@@ -59,9 +44,7 @@ test('desktop hotkeys arm commands and can be remapped', () => {
 
 test('desktop stop hotkey queues validated stop commands', () => {
   resetHotkeys();
-  const g = new Game('play', 88);
-  ui.controlScheme.value = 'desktop';
-  ui.mode.value = 'play';
+  const g = desktopGame(88);
   const marine = spawnUnit(g.sim.fullState(), Kind.Marine, 0, fx(400), fx(400));
   g.selection.clear();
   g.selection.add(marine);
@@ -75,9 +58,7 @@ test('desktop stop hotkey queues validated stop commands', () => {
 
 test('desktop command-card hotkeys expose train, research, add-on, lift, and land actions', () => {
   resetHotkeys();
-  const g = new Game('play', 91);
-  ui.controlScheme.value = 'desktop';
-  ui.mode.value = 'play';
+  const g = desktopGame(91);
   const s = g.sim.fullState();
   const e = s.e;
   s.players.minerals[0] = 5_000;
@@ -135,9 +116,7 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
 
 test('desktop command-card hotkeys execute build and ability options through shared descriptors', () => {
   resetHotkeys();
-  const g = new Game('play', 95);
-  ui.controlScheme.value = 'desktop';
-  ui.mode.value = 'play';
+  const g = desktopGame(95);
   const s = g.sim.fullState();
   s.players.minerals[0] = 5_000;
   s.players.gas[0] = 5_000;
@@ -155,8 +134,7 @@ test('desktop command-card hotkeys execute build and ability options through sha
   ui.armedCommand.value = { t: 'none' };
   const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
   setTechLevel(s, 0, Tech.StimPack, 1);
-  g.selection.clear();
-  g.selection.add(marine);
+  select(g, [marine]);
   g.fastForward(0);
   assert.deepEqual(ui.selectionView.value.options.ability.find((o) => o.id === Ability.StimPack)?.commands, [
     { t: 'ability', unit: marine, ability: Ability.StimPack },
@@ -167,8 +145,7 @@ test('desktop command-card hotkeys execute build and ability options through sha
   const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(460), fx(400));
   s.e.energy[slotOf(templar)] = 75;
   setTechLevel(s, 0, Tech.PsionicStorm, 1);
-  g.selection.clear();
-  g.selection.add(templar);
+  select(g, [templar]);
   g.fastForward(0);
   assert.deepEqual(ui.selectionView.value.options.ability.find((o) => o.id === Ability.PsionicStorm)?.arm, {
     t: 'ability',
@@ -182,15 +159,11 @@ test('desktop command-card hotkeys execute build and ability options through sha
 
 test('command options execute grouped transforms through the shared option path', () => {
   resetHotkeys();
-  const g = new Game('play', 94);
-  ui.controlScheme.value = 'desktop';
-  ui.mode.value = 'play';
+  const g = desktopGame(94);
   const s = g.sim.fullState();
   const templarA = spawnUnit(s, Kind.HighTemplar, 0, fx(400), fx(400));
   const templarB = spawnUnit(s, Kind.HighTemplar, 0, fx(430), fx(400));
-  g.selection.clear();
-  g.selection.add(templarA);
-  g.selection.add(templarB);
+  select(g, [templarA, templarB]);
   g.fastForward(0);
 
   const option = ui.selectionView.value.options.transform.find((o) => o.id === Kind.Archon);
@@ -202,17 +175,15 @@ test('command options execute grouped transforms through the shared option path'
 });
 
 test('desktop control groups assign, recall, and add live selections', () => {
-  const g = new Game('play', 92);
+  const g = desktopGame(92);
   const marine = spawnUnit(g.sim.fullState(), Kind.Marine, 0, fx(400), fx(400));
   const firebat = spawnUnit(g.sim.fullState(), Kind.Firebat, 0, fx(430), fx(400));
 
-  g.selection.clear();
-  g.selection.add(marine);
+  select(g, [marine]);
   assert.equal(g.assignControlGroup(0), true);
   assert.equal(ui.controlGroupCounts.value[0], 1);
 
-  g.selection.clear();
-  g.selection.add(firebat);
+  select(g, [firebat]);
   assert.equal(g.assignControlGroup(1), true);
   assert.deepEqual(ui.controlGroupCounts.value.slice(0, 2), [1, 1]);
 
@@ -225,14 +196,12 @@ test('desktop control groups assign, recall, and add live selections', () => {
 });
 
 test('desktop control group counts prune dead members through HUD publishing', () => {
-  const g = new Game('play', 93);
+  const g = desktopGame(93);
   const s = g.sim.fullState();
   const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
   const firebat = spawnUnit(s, Kind.Firebat, 0, fx(430), fx(400));
 
-  g.selection.clear();
-  g.selection.add(marine);
-  g.selection.add(firebat);
+  select(g, [marine, firebat]);
   assert.equal(g.assignControlGroup(0), true);
   assert.equal(ui.controlGroupCounts.value[0], 2);
 
