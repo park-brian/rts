@@ -370,15 +370,18 @@ test('point ability target mode chooses a valid selected caster', () => {
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
-test('researchSelected queues the first valid selected research producer', () => {
+test('research option queues the first valid selected research producer', () => {
   const g = freshGame();
   const s = g.sim.fullState();
   const academy = spawnUnit(s, Kind.Academy, 0, fx(400), fx(400));
   s.players.minerals[0] = 200;
   s.players.gas[0] = 200;
   select(g, [academy]);
+  g.fastForward(0);
 
-  g.researchSelected(Tech.StimPack);
+  const option = ui.selectionView.value.options.research.find((o) => o.id === Tech.StimPack);
+  assert.deepEqual(option?.commands, [{ t: 'research', building: academy, tech: Tech.StimPack }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'research', building: academy, tech: Tech.StimPack }]);
 });
@@ -527,7 +530,9 @@ test('zerg structure morph commands are only offered once prerequisites and reso
 
   assert.ok(enabledOptionIds(ui.selectionView.value.options.transform).includes(Kind.Lair));
 
-  g.transformSelected(Kind.Lair);
+  const option = ui.selectionView.value.options.transform.find((o) => o.id === Kind.Lair);
+  assert.deepEqual(option?.commands, [{ t: 'transform', unit: hatchery, kind: Kind.Lair }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'transform', unit: hatchery, kind: Kind.Lair }]);
 });
@@ -600,8 +605,14 @@ test('group-selected templars queue paired merge commands', () => {
   const c = spawnUnit(s, Kind.HighTemplar, 0, fx(520), fx(400));
   const d = spawnUnit(s, Kind.HighTemplar, 0, fx(552), fx(400));
   select(g, [a, b, c, d]);
+  g.fastForward(0);
 
-  g.transformSelected(Kind.Archon);
+  const option = ui.selectionView.value.options.transform.find((o) => o.id === Kind.Archon);
+  assert.deepEqual(option?.commands, [
+    { t: 'transform', unit: a, kind: Kind.Archon, target: b },
+    { t: 'transform', unit: c, kind: Kind.Archon, target: d },
+  ]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [
     { t: 'transform', unit: a, kind: Kind.Archon, target: b },

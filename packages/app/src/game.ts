@@ -405,22 +405,6 @@ export class Game {
     return this.commandState().executeOption(option);
   }
 
-  trainSelected(kind: number): void {
-    this.commandState().trainSelected(kind);
-  }
-
-  researchSelected(tech: number): void {
-    this.commandState().researchSelected(tech);
-  }
-
-  addonSelected(kind: number): void {
-    this.commandState().addonSelected(kind);
-  }
-
-  transformSelected(kind: number): void {
-    this.commandState().transformSelected(kind);
-  }
-
   castSelectedAbility(abilityId: number, target?: number, x?: number, y?: number): boolean {
     return this.commandState().castSelectedAbility(abilityId, target, x, y);
   }

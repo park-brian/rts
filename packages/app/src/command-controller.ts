@@ -1,8 +1,7 @@
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { clearArmedCommand, shouldToggleArmedCommand, ui, type CommandOption } from './store.ts';
 import {
-  Abilities, NONE, Role, Units, entityWorkQueue, isAlive,
-  slotOf, transformFor, validateCommand,
+  Abilities, isAlive, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
 
@@ -95,95 +94,6 @@ export class CommandController {
     }
     if (queued) this.clearTargetModes();
     return queued;
-  }
-
-  trainSelected(kind: number): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    let best = -1;
-    let bestLoad = Infinity;
-    for (const id of this.deps.selection()) {
-      if (!isAlive(e, id)) continue;
-      const slot = slotOf(id);
-      if ((e.flags[slot]! & Role.Producer) === 0 || !Units[e.kind[slot]!]!.produces.includes(kind)) continue;
-      const c: Command = { t: 'train', building: id, kind };
-      if (!validateCommand(s, human, c).ok) continue;
-      const load = entityWorkQueue(s, slot).producerLoad;
-      if (load < bestLoad) {
-        best = id;
-        bestLoad = load;
-      }
-    }
-    if (best >= 0) this.queued.push({ t: 'train', building: best, kind });
-  }
-
-  researchSelected(tech: number): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    let best = -1;
-    for (const id of this.deps.selection()) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'research', building: id, tech };
-      if (validateCommand(s, human, c).ok) {
-        best = id;
-        break;
-      }
-    }
-    if (best >= 0) this.queued.push({ t: 'research', building: best, tech });
-  }
-
-  addonSelected(kind: number): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    for (const id of this.deps.selection()) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'addon', building: id, kind };
-      if (validateCommand(s, human, c).ok) {
-        this.queued.push(c);
-        break;
-      }
-    }
-    this.clearTargetModes();
-  }
-
-  transformSelected(kind: number): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    const selection = this.deps.selection();
-    const used = new Set<number>();
-    const mergePairFor = (id: number): number => {
-      if (!isAlive(e, id)) return NONE;
-      for (const other of selection) {
-        if (other === id || used.has(other) || !isAlive(e, other)) continue;
-        const c: Command = { t: 'transform', unit: id, kind, target: other };
-        if (validateCommand(s, human, c).ok) return other;
-      }
-      return NONE;
-    };
-    for (const id of selection) {
-      if (used.has(id)) continue;
-      const c: Command = { t: 'transform', unit: id, kind };
-      if (!isAlive(e, id) || !validateCommand(s, human, c).ok) continue;
-      const transform = transformFor(e.kind[slotOf(id)]!, kind);
-      if (transform?.mode === 'merge') {
-        const partner = mergePairFor(id);
-        if (partner !== NONE) {
-          this.queued.push({ ...c, target: partner });
-          used.add(id);
-          used.add(partner);
-        } else {
-          this.queued.push(c);
-          used.add(id);
-        }
-      } else {
-        this.queued.push(c);
-      }
-    }
-    this.clearTargetModes();
   }
 
   castSelectedAbility(abilityId: number, target?: number, x?: number, y?: number): boolean {

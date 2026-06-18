@@ -1869,6 +1869,10 @@ Further concrete deletion opportunities found on review:
      - Moved grouped load and unload generation into order options, including deterministic unload
        ring placement and nydus exit anchoring. UI buttons and desktop hotkeys now execute those
        option records, and the direct app load/unload wrappers were removed.
+     - Removed the remaining train/research/add-on/transform selected-command wrappers from the app
+       controller facade; tests now execute the published option records for research and grouped
+       transforms. Targeted ability casting remains as tap-resolution behavior, not a command-card
+       shortcut.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,
