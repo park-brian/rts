@@ -3032,6 +3032,10 @@ Implementation slices:
      enemy attack, friendly follow, mineral harvest, repair/continue construction, load, empty-point
      movement, and structure rally. Mobile's owned-entity selection interception remains explicit
      UX, not a command-intent mismatch.
+   - Status: bot/action-mask parity pinned. Scripted bot combat decisions now have focused tests
+     proving defense attacks match `attackModeCandidates`, attack waves use public point
+     attack-move, and same-team Nydus load/unload commands are exposed by shared validation/action
+     masks at the correct sequence point.
    - Desktop right-click, desktop `A` plus left-click, and mobile explicit target modes should emit
      the same command intents without app-only priority overrides outside the finite smart-command
      grammar.

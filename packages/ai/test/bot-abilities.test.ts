@@ -9,7 +9,11 @@ import {
   expectNoBotBuild,
   type BotScenario,
 } from '../test-support/bot-scenario.ts';
-import { Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, eid, slotOf, fx, setTechLevel, NONE, tileX, tileY, validateCommand, type State } from '@rts/sim';
+import {
+  Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
+  cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  tileY, validateCommand, type Command, type State,
+} from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
 
@@ -43,6 +47,49 @@ const findEntity = (sim: Sim, kind: number, owner: number): number => {
 
 const hasAbility = (cmds: ReturnType<ReturnType<typeof createBot>>, unit: number, ability: number): boolean =>
   cmds.some((c) => c.t === 'ability' && c.unit === unit && c.ability === ability);
+
+const assertPublicSurfaceExposes = (s: State, player: number, command: Command): void => {
+  assert.deepEqual(validateCommand(s, player, command), { ok: true });
+  const action = encodeCommand(command);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, player, action.actor, action), action.head), true);
+  switch (command.t) {
+    case 'attack':
+      assert.equal(entityTargetMask(s, player, command.unit, 'attack', [command.target])[0], 1);
+      break;
+    case 'move':
+      if (command.target !== undefined) {
+        assert.equal(entityTargetMask(s, player, command.unit, 'move', [command.target], command)[0], 1);
+      }
+      break;
+    case 'harvest':
+      assert.equal(entityTargetMask(s, player, command.unit, 'harvest', [command.patch])[0], 1);
+      break;
+    case 'repair':
+      assert.equal(entityTargetMask(s, player, command.unit, 'repair', [command.target])[0], 1);
+      break;
+    case 'rally':
+      if (command.target !== undefined) {
+        assert.equal(entityTargetMask(s, player, command.building, 'rally', [command.target], command)[0], 1);
+      }
+      break;
+    case 'load':
+      assert.equal(entityTargetMask(s, player, command.transport, 'load', [command.unit])[0], 1);
+      break;
+    case 'unload':
+      assert.equal(entityTargetMask(s, player, command.transport, 'unload', [command.unit], command)[0], 1);
+      break;
+    case 'ability':
+      if (command.target !== undefined) {
+        assert.equal(entityTargetMask(s, player, command.unit, 'ability', [command.target], command)[0], 1);
+      }
+      break;
+    case 'transform':
+      if (command.target !== undefined) {
+        assert.equal(entityTargetMask(s, player, command.unit, 'transform', [command.target], command)[0], 1);
+      }
+      break;
+  }
+};
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
 
@@ -100,6 +147,44 @@ test('bot uses Stim when committing idle bio to defend', () => {
 
   expectBotCasts(cmds, marine, Ability.StimPack);
   expectCommandType(cmds, 'attack');
+});
+
+test('bot defense attack commands match shared target attack intent', () => {
+  const scenario = botScenario({ seed: 4001 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0 })
+    .find((c): c is Extract<BotCommand, { t: 'attack' }> => c.t === 'attack' && c.unit === marine && c.target === enemy);
+
+  const targetSlot = slotOf(enemy);
+  assert.deepEqual(command ? [command] : [], attackModeCandidates(s, 0, marine, {
+    hit: enemy,
+    x: s.e.x[targetSlot]!,
+    y: s.e.y[targetSlot]!,
+  }));
+  assert.ok(command);
+  assertPublicSurfaceExposes(s, 0, command);
+});
+
+test('bot attack waves use public point attack-move intent', () => {
+  const scenario = botScenario({ seed: 4002 });
+  const s = scenario.state;
+  const e = s.e;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  const enemyDepot = scenario.entity(Kind.CommandCenter, 1);
+  const enemySlot = slotOf(enemyDepot);
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
+    .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
+  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: e.x[enemySlot]!, y: e.y[enemySlot]! });
+
+  assert.deepEqual(command ? [command] : [], expected);
+  assert.ok(command);
+  assertPublicSurfaceExposes(s, 0, command);
 });
 
 test('bot sieges tanks when an enemy is in useful siege range', () => {
@@ -2475,8 +2560,17 @@ test('bot uses a same-team nydus network to shortcut attack waves', () => {
 
   const cmds = createBot(Terran, { attackThreshold: 1 })(s, 0);
 
-  assert.ok(cmds.some((c) => c.t === 'load' && c.transport === eid(e, entrance) && c.unit === marine));
-  assert.ok(cmds.some((c) => c.t === 'unload' && c.transport === eid(e, entrance) && c.unit === marine));
+  const load = cmds.find((c): c is Extract<BotCommand, { t: 'load' }> =>
+    c.t === 'load' && c.transport === eid(e, entrance) && c.unit === marine);
+  const unload = cmds.find((c): c is Extract<BotCommand, { t: 'unload' }> =>
+    c.t === 'unload' && c.transport === eid(e, entrance) && c.unit === marine);
+  assert.ok(load);
+  assert.ok(unload);
+  assertPublicSurfaceExposes(s, 0, load);
+
+  const loadedBranch = Sim.fromState(cloneState(s));
+  loadedBranch.step([{ player: 0, cmds: [load] }]);
+  assertPublicSurfaceExposes(loadedBranch.fullState(), 0, unload);
 
   sim.step([{ player: 0, cmds }]);
   assert.equal(e.container[slotOf(marine)], NONE);
