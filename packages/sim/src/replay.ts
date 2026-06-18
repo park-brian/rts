@@ -193,12 +193,14 @@ const validateCommand = (x: unknown): Command => {
       return { t: 'cancelBuild', building: readNonNegativeInt(building, 'invalid cancelBuild command') };
     }
     case 'move': {
-      return {
+      const cmd: Command = {
         t: 'move',
         unit: readNonNegativeInt(unit, 'invalid move command'),
         x: readInt(xPos, 'invalid move command'),
         y: readInt(yPos, 'invalid move command'),
       };
+      if (r.target !== undefined) cmd.target = readNonNegativeInt(r.target, 'invalid move command');
+      return cmd;
     }
     case 'attack': {
       return {

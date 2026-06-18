@@ -202,7 +202,8 @@ export class InputGestureController {
     const hitOpts = { preferredHit: this.pressHit };
     if (this.isDesktop() && button === 2) this.game.desktopSmartTap(p.x, p.y, hitOpts);
     else if (this.isDesktop()) {
-      if (dbl) this.game.selectAllByType(p.x, p.y, hitOpts);
+      if (ui.armedCommand.value.t !== 'none') this.game.tap(p.x, p.y, hitOpts);
+      else if (dbl) this.game.selectAllByType(p.x, p.y, hitOpts);
       else this.game.desktopSelectTap(p.x, p.y, {
         shift: p.shiftKey,
         ctrl: p.ctrlKey || p.metaKey,

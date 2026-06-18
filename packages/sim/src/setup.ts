@@ -7,10 +7,11 @@ import { resourceSpawnCenterPx } from './map.ts';
 import type { State } from './world.ts';
 import { makeState, slotOf, eid, nearest, NEUTRAL, NONE } from './world.ts';
 import { spawnUnit } from './factory.ts';
-import { Kind, Order, Role, TILE, START_MINERALS, Terran, Units, isLarvaSourceKind, type Faction } from './data.ts';
+import { Kind, Order, TILE, START_MINERALS, Terran, Units, isLarvaSourceKind, type Faction } from './data.ts';
 import { census } from './systems/census.ts';
 import { pickPatch } from './systems/harvest.ts';
 import { fx } from './fixed.ts';
+import { isGatherTargetSlot } from './resource-targets.ts';
 
 const tilePx = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center
 
@@ -43,11 +44,11 @@ export const setupMatch = (
     s.players.minerals[p] = START_MINERALS;
 
     // Default rally = the mineral line, so produced workers auto-mine smoothly (SC2-style).
-    const line = nearest(s, cx, cy, (sl) => (e.flags[sl]! & Role.Resource) !== 0);
+    const line = nearest(s, cx, cy, (sl) => isGatherTargetSlot(s, sl));
     if (line !== NONE) {
-      e.rallyTarget[depot] = eid(e, line);
-      e.rallyX[depot] = e.x[line]!;
-      e.rallyY[depot] = e.y[line]!;
+      e.workerRallyTarget[depot] = eid(e, line);
+      e.workerRallyX[depot] = e.x[line]!;
+      e.workerRallyY[depot] = e.y[line]!;
     }
 
     if (isLarvaSourceKind(faction.depot)) {

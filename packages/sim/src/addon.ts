@@ -2,7 +2,7 @@ import { Kind, Units, tiles } from './data.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, slotOf } from './world.ts';
-import { spawnUnit } from './factory.ts';
+import { trySpawnUnit } from './factory.ts';
 
 export const addonParentKind = (addonKind: number): number => {
   switch (addonKind) {
@@ -47,13 +47,17 @@ export const startAddon = (s: State, parent: number, kind: number, player: numbe
   const e = s.e;
   const def = Units[kind]!;
   const pos = addonPosition(s, parent, kind);
+  const id = trySpawnUnit(s, kind, player, pos.x, pos.y);
+  if (id === NONE) return;
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;
-  const addon = slotOf(spawnUnit(s, kind, player, pos.x, pos.y));
+  const addon = slotOf(id);
   e.built[addon] = 0;
   e.ctimer[addon] = def.buildTime;
   e.target[addon] = eid(e, parent);
   e.target[parent] = eid(e, addon);
+  e.intentTarget[parent] = NONE;
+  e.combatTarget[parent] = NONE;
   e.buildCostMinerals[addon] = def.minerals;
   e.buildCostGas[addon] = def.gas;
 };

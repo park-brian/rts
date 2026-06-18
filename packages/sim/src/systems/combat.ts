@@ -31,6 +31,24 @@ import {
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
 
+const currentCombatTarget = (s: State, slot: number): number => {
+  const e = s.e;
+  return e.combatTarget[slot] !== NONE ? e.combatTarget[slot]! : e.target[slot]!;
+};
+
+const rememberCombatTarget = (s: State, slot: number, target: number): void => {
+  const id = eid(s.e, target);
+  s.e.combatTarget[slot] = id;
+  s.e.target[slot] = id; // compatibility mirror until legacy target readers are gone.
+};
+
+const clearCombatTarget = (s: State, slot: number): void => {
+  const e = s.e;
+  const old = e.combatTarget[slot]!;
+  e.combatTarget[slot] = NONE;
+  if (old === NONE || e.target[slot] === old) e.target[slot] = NONE;
+};
+
 const ACID_SPORE_DURATION = sec(30);
 const ACID_SPORE_MAX = 9;
 
@@ -199,24 +217,29 @@ export const combat = (s: State, grid: Grid): void => {
     const owner = e.owner[i]!;
     const sight = tiles(effectiveSight(s, e, i, def.sight));
     let tgt = NONE;
-    const rem = e.target[i]!;
+    const rem = currentCombatTarget(s, i);
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
           (containerProvider ? bunkerCanAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
+    } else if (e.combatTarget[i] !== NONE) {
+      clearCombatTarget(s, i);
     }
     if (tgt === NONE && order !== Order.Attack) {
       tgt = containerProvider ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
     }
-    if (tgt !== NONE) e.target[i] = eid(e, tgt); // remember for next tick
+    if (tgt !== NONE) rememberCombatTarget(s, i, tgt); // remember for next tick
 
     if (tgt === NONE) {
-      if (order === Order.Attack) e.order[i] = Order.Idle; // target gone
+      if (order === Order.Attack) {
+        e.order[i] = Order.Idle; // target gone
+        clearCombatTarget(s, i);
+      }
       else if (order === Order.AttackMove) {
         if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i)) {
           e.order[i] = Order.Idle;
-          e.target[i] = NONE;
+          clearCombatTarget(s, i);
         }
       }
       continue;
@@ -239,7 +262,10 @@ export const combat = (s: State, grid: Grid): void => {
     const weapon = weaponForTarget(def, Units[e.kind[tgt]!]!);
     const childSystemSteers = isExternallySteeredChild(e.kind[i]!, e.home[i]!);
     if (!weapon) {
-      if (order === Order.Attack) e.order[i] = Order.Idle;
+      if (order === Order.Attack) {
+        e.order[i] = Order.Idle;
+        clearCombatTarget(s, i);
+      }
       continue;
     }
     const range = upgradedRange(s, i, weapon);
@@ -248,8 +274,14 @@ export const combat = (s: State, grid: Grid): void => {
         if ((e.flags[tgt]! & Role.Air) !== 0 || !coveredByEffect(s, tgt, EffectKind.DarkSwarm) || range <= tiles(2)) {
           if (e.illusion[i] !== 1) {
             let hit = true;
-            if (mechanic?.id === WeaponMechanic.ScarabLaunch) launchScarab(s, i, tgt);
-            else hit = applyWeaponHit(s, tgt, weapon, i);
+            let fired = true;
+            if (mechanic?.id === WeaponMechanic.ScarabLaunch) {
+              fired = launchScarab(s, i, tgt);
+              hit = fired;
+            } else {
+              hit = applyWeaponHit(s, tgt, weapon, i);
+            }
+            if (!fired) continue;
             consumeWeaponMechanicAmmo(s, i, mechanic);
             if (hit) {
               applyMechanicOnHit(s, mechanic, i, tgt, weapon);

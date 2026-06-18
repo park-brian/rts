@@ -6,12 +6,12 @@ import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
 import { hasReadyNuke } from './nuke.ts';
 import type { State } from './world.ts';
-import { isAlive, isEnemy, slotOf } from './world.ts';
+import { isAlive, isEnemy, NONE, slotOf } from './world.ts';
 import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
-import { isFreeAbilityToggleOff } from './ability-execution.ts';
+import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -46,6 +46,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   const freeToggleOff = isFreeAbilityToggleOff(e, slot, ability);
   if (!freeToggleOff && e.energy[slot]! < ability.energyCost) return reject('not-enough-energy');
   if (!freeToggleOff && e.hp[slot]! <= ability.hpCost) return reject('not-enough-hit-points');
+  if (!abilityCapacityAvailable(s, command.ability)) return reject('capacity-full');
   if (command.ability === Ability.NuclearStrike && !hasReadyNuke(s, player)) return reject('missing-requirement');
   if (ability.target === 'self') return { ok: true };
   if (ability.target === 'point') {
@@ -92,5 +93,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
 export const applyAbilityCommand = (s: State, command: AbilityCommand): void => {
   const slot = slotOf(command.unit);
   s.e.settled[slot] = 0;
+  s.e.intentTarget[slot] = NONE;
+  s.e.combatTarget[slot] = NONE;
   castAbility(s, slot, command);
 };

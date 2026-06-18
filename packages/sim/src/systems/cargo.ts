@@ -17,5 +17,6 @@ export const cargo = (s: State): void => {
     clearVelocity(e, i);
     e.order[i] = Order.Idle;
     e.target[i] = NONE;
+    e.intentTarget[i] = NONE;
   }
 };

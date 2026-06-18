@@ -9,7 +9,7 @@ import { cloneState, hashState } from './world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './serialize.ts';
-import { observe, type Observation } from './observe.ts';
+import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './observe.ts';
 import { vision } from './systems/vision.ts';
 
 export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean; factions?: Faction[] };
@@ -68,6 +68,10 @@ export class Sim {
   /** Fog-limited observation for player `p` (fair-play view; RL/network seam). */
   observe(p: number): Observation {
     return observe(this.state, p);
+  }
+
+  writeObservation(p: number, out: ObservationBuffers): ObservationWriteCounts {
+    return writeObservation(this.state, p, out);
   }
 
   snapshot(): Snapshot {

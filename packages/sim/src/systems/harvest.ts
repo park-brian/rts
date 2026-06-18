@@ -15,7 +15,7 @@
 //  - If a worker's patch depletes or vanishes, it re-routes to the nearest free one.
 
 import type { State } from '../world.ts';
-import { CAP, slotOf, eid, nearest, kill, isAlive, NONE } from '../world.ts';
+import { CAP, slotOf, eid, nearest, kill, NONE } from '../world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
 import { clearVelocity, faceToward } from './move.ts';
 import { navigate } from '../pathing.ts';
@@ -24,6 +24,7 @@ import { isContained } from '../cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
 import { entityApproachPoint } from '../entity-approach.ts';
+import { canPlayerGatherTarget, isGatherTarget, isGatherTargetSlot } from '../resource-targets.ts';
 
 const HARVEST_DOCK_EPSILON = fx(1);
 
@@ -33,15 +34,13 @@ const HARVEST_DOCK_EPSILON = fx(1);
 const mineLock = new Int32Array(CAP);
 const depotList = new Int32Array(CAP);
 
-export const isResource = (e: State['e'], id: number): boolean =>
-  isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Resource) !== 0;
-
 const resourceSlotFromTarget = (s: State, id: number): number => {
   if (id === NONE) return NONE;
-  const slot = slotOf(id);
-  if (slot < 0 || slot >= s.e.hi) return NONE;
-  return (s.e.flags[slot]! & Role.Resource) !== 0 ? slot : NONE;
+  return isGatherTarget(s, id) ? slotOf(id) : NONE;
 };
+
+const workerTargetIsGatherable = (s: State, worker: number): boolean =>
+  canPlayerGatherTarget(s, s.e.owner[worker]!, s.e.target[worker]!);
 
 const dockingPoint = (
   s: State,
@@ -77,7 +76,7 @@ const minersOn = (s: State, node: number, owner: number, except: number): number
   for (let i = 0; i < e.hi; i++) {
     if (i === except || e.alive[i] !== 1 || isContained(s, i) || e.owner[i] !== owner) continue;
     if ((e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
-    if (isResource(e, e.target[i]!) && slotOf(e.target[i]!) === node) n++;
+    if (isGatherTarget(s, e.target[i]!) && slotOf(e.target[i]!) === node) n++;
   }
   return n;
 };
@@ -117,7 +116,7 @@ export const pickPatch = (
   let near = NONE; let nearD = Infinity;
   for (let i = 0; i < e.hi; i++) {
     // Auto-mining considers mineral patches only; gas (geysers/refineries) is assigned by command.
-    if (e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Resource) === 0 || Units[e.kind[i]!]!.resourceType !== ResourceType.Minerals) continue;
+    if (!isGatherTargetSlot(s, i) || Units[e.kind[i]!]!.resourceType !== ResourceType.Minerals) continue;
     const dx = e.x[i]! - fromX; const dy = e.y[i]! - fromY;
     const d = dx * dx + dy * dy;
     if (d < nearD) { nearD = d; near = i; }
@@ -138,7 +137,7 @@ export const harvest = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i)) continue;
     if ((e.flags[i]! & Role.ResourceDepot) !== 0) depotList[nDepots++] = i;
-    if ((e.flags[i]! & Role.Worker) !== 0 && e.order[i] === Order.Harvest && e.timer[i]! > 0 && isResource(e, e.target[i]!)) {
+    if ((e.flags[i]! & Role.Worker) !== 0 && e.order[i] === Order.Harvest && e.timer[i]! > 0 && isGatherTarget(s, e.target[i]!)) {
       mineLock[slotOf(e.target[i]!)] = i;
     }
   }
@@ -174,7 +173,7 @@ export const harvest = (s: State): void => {
         pool[owner] = pool[owner]! + e.cargo[i]!;
         e.cargo[i] = 0;
         e.timer[i] = 0;
-        if (!isResource(e, e.target[i]!)) {
+        if (!workerTargetIsGatherable(s, i)) {
           const np = pickPatch(s, i, owner, speed);
           e.target[i] = np === NONE ? NONE : eid(e, np);
         }
@@ -185,7 +184,7 @@ export const harvest = (s: State): void => {
     }
 
     // Going to mine: ensure we have a live patch assigned.
-    if (!isResource(e, e.target[i]!)) {
+    if (!workerTargetIsGatherable(s, i)) {
       const np = pickPatch(s, i, owner, speed);
       if (np === NONE) { e.order[i] = Order.Idle; e.target[i] = NONE; continue; }
       e.target[i] = eid(e, np);

@@ -39,8 +39,12 @@ export const issueTravelOrder = (
   e.order[slot] = order;
   e.tx[slot] = point.x;
   e.ty[slot] = point.y;
-  // Move can safely retain an entity destination because the movement system owns
-  // that target. Attack-move uses the same field for transient combat targets.
-  e.target[slot] = order === Order.Move && endpoint.target !== undefined ? eid(e, endpoint.target) : NONE;
+  // Movement intent owns intentTarget; transient enemy acquisition lives in combatTarget.
+  const targetId = (order === Order.Move || order === Order.AttackMove) && endpoint.target !== undefined
+    ? eid(e, endpoint.target)
+    : NONE;
+  e.intentTarget[slot] = targetId;
+  e.target[slot] = order === Order.Move ? targetId : NONE;
+  e.combatTarget[slot] = NONE;
   return { order, x: point.x, y: point.y };
 };

@@ -91,6 +91,21 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
   `Int32Array`/`Uint16Array`/etc., indexed by a generational `EntityId` (index + generation to
   catch stale references). Parallel arrays (SoA) for cache-friendly bulk passes. No per-entity
   object allocation, no pointer chasing in the tick.
+- **Performance contracts.** Some code is intentionally less "pretty" than an object-heavy or
+  collection-heavy rewrite because it is the measured fast shape:
+  - Entity/component storage stays SoA typed arrays with an explicit object-literal factory. Do not
+    dynamically build the entity store from column metadata in gameplay code; that changes V8 object
+    shape behavior and has already measured much slower.
+  - Hot systems may use module-local scratch arrays/maps when that avoids per-tick allocation. This
+    makes `stepWorld` synchronous and non-reentrant inside one JS module instance by design. Parallel
+    games scale through Workers/processes, not interleaved stepping in the same module.
+  - Ergonomic APIs may allocate for UI/tests/debugging. Training APIs must have caller-owned
+    buffers/scratch (`create...Buffers`, `write...`) before they are used in tight loops.
+  - Validator-backed masks are the correctness source for UI, AI, and RL. A faster mask may cache
+    candidate vocabularies or write into caller buffers, but it must still prove parity against
+    command validation; do not duplicate legality rules as an "optimization."
+  - Every performance-motivated shape needs a nearby comment or benchmark note. If readability and
+    throughput fight, preserve the fast shape and make the reason explicit.
 - **The tick pipeline** runs as ordered systems over the arrays:
   1. ingest & validate player commands → unit orders
   2. resource/economy update (mining, supply)

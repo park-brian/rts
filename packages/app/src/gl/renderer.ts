@@ -14,7 +14,7 @@
 
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
-  resolveRallyEndpoint, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
+  resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
   selectionBase, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
@@ -538,19 +538,23 @@ export class GlRenderer {
     for (const id of game.selection) {
       if (!isAlive(e, id)) continue;
       const i = slotOf(id);
-      if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
-      const rally = resolveRallyEndpoint(s, i);
-      if (!rally) continue;
+      if ((e.flags[i]! & Role.Structure) === 0) continue;
       const p = spritePlacement(e.kind[i]!);
       const bx = e.x[i]! / ONE + p.baseOffsetX; const by = e.y[i]! / ONE + p.baseOffsetY;
-      const rx = rally.x / ONE;
-      const ry = rally.y / ONE;
-      const dx = rx - bx; const dy = ry - by;
-      const len = Math.hypot(dx, dy);
-      if (len < 1) continue;
-      this.sprites.push((bx + rx) / 2, (by + ry) / 2, len, 1.5 / zoom, Math.atan2(dy, dx), white, 1, 0.88, 0.3, 0.85, 0, 0, 0);
-      const r = rally.target >= 0 ? Math.max(spritePlacement(e.kind[rally.target]!).visibleWidth, spritePlacement(e.kind[rally.target]!).visibleHeight) / 2 + 5 / zoom : 4 / zoom;
-      this.sprites.push(rx, ry, r * 2, r * 2, 0, ring, 1, 0.88, 0.3, 1, 0, 0, 0);
+      for (const [rally, alpha] of [
+        [resolveUnitRallyEndpoint(s, i), 0.85],
+        [resolveWorkerRallyEndpoint(s, i), 0.62],
+      ] as const) {
+        if (!rally) continue;
+        const rx = rally.x / ONE;
+        const ry = rally.y / ONE;
+        const dx = rx - bx; const dy = ry - by;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) continue;
+        this.sprites.push((bx + rx) / 2, (by + ry) / 2, len, 1.5 / zoom, Math.atan2(dy, dx), white, 1, 0.88, 0.3, alpha, 0, 0, 0);
+        const r = rally.target >= 0 ? Math.max(spritePlacement(e.kind[rally.target]!).visibleWidth, spritePlacement(e.kind[rally.target]!).visibleHeight) / 2 + 5 / zoom : 4 / zoom;
+        this.sprites.push(rx, ry, r * 2, r * 2, 0, ring, 1, 0.88, 0.3, Math.min(1, alpha + 0.15), 0, 0, 0);
+      }
     }
   }
 

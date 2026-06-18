@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OrderOptionId, ui } from '../src/store.ts';
-import { Ability, Kind, ONE, Tech, TILE, Units, canPlaceStructure, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import { Ability, Kind, NEUTRAL, ONE, Tech, TILE, Units, canPlaceStructure, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 import {
   centerOnEntity, findEntity, findOwnedWorkers, freshGame, screenOf, screenOfStructureFootprintEdge,
   select,
@@ -61,7 +61,7 @@ test('repair target mode resumes an unfinished own Terran foundation', () => {
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
-test('attack-move is an explicit target mode and consumes the next owned-entity tap', () => {
+test('attack-move target mode rejects friendly entity taps and stays armed', () => {
   const g = freshGame();
   const cc = findEntity(g, Kind.CommandCenter, 0);
   const workers = findOwnedWorkers(g);
@@ -72,8 +72,44 @@ test('attack-move is an explicit target mode and consumes the next owned-entity 
   g.tap(p.x, p.y);
 
   assert.deepEqual(new Set(g.selection), new Set(workers));
-  assert.equal(g.queued.length, workers.length);
-  assert.ok(g.queued.every((c) => c.t === 'amove'));
+  assert.deepEqual(g.queued, []);
+  assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
+});
+
+test('attack-move target mode attacks enemies and consumes the command', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(500), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, enemy);
+  g.fastForward(1);
+  ui.armedCommand.value = { t: 'attackMove' };
+
+  const p = screenOf(g, enemy);
+  g.tap(p.x, p.y);
+
+  assert.deepEqual([...g.selection], [marine]);
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
+test('attack-move target mode sends selected mobile units to empty ground', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  ui.armedCommand.value = { t: 'attackMove' };
+
+  g.tap(g.viewW / 2 + 80, g.viewH / 2 + 80);
+
+  assert.deepEqual(g.queued, [{
+    t: 'amove',
+    unit: marine,
+    x: ((g.camX + (g.viewW / 2 + 80) / g.zoom) * ONE) | 0,
+    y: ((g.camY + (g.viewH / 2 + 80) / g.zoom) * ONE) | 0,
+  }]);
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
@@ -253,6 +289,120 @@ test('desktop right click attacks enemies and moves on empty ground', () => {
   }]);
 });
 
+test('desktop right click keeps smart-command semantics while attack mode is armed', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  ui.armedCommand.value = { t: 'attackMove' };
+
+  g.desktopSmartTap(g.viewW / 2 + 80, g.viewH / 2 + 80);
+
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    x: ((g.camX + (g.viewW / 2 + 80) / g.zoom) * ONE) | 0,
+    y: ((g.camY + (g.viewH / 2 + 80) / g.zoom) * ONE) | 0,
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
+test('desktop right click follows ordinary friendly units', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const leader = spawnUnit(s, Kind.Marine, 0, fx(500), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, leader);
+  g.fastForward(1);
+
+  const p = screenOf(g, leader);
+  g.desktopSmartTap(p.x, p.y);
+
+  assert.equal(g.queued.length, 1);
+  assert.deepEqual(g.queued[0], {
+    t: 'move',
+    unit: marine,
+    x: ((g.camX + p.x / g.zoom) * ONE) | 0,
+    y: ((g.camY + p.y / g.zoom) * ONE) | 0,
+    target: leader,
+  });
+});
+
+test('desktop right click repairs before following repairable friendly structures', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const depot = spawnUnit(s, Kind.SupplyDepot, 0, fx(500), fx(400));
+  s.e.built[slotOf(depot)] = 0;
+  s.e.ctimer[slotOf(depot)] = 100;
+  select(g, [scv]);
+  centerOnEntity(g, depot);
+  g.fastForward(1);
+
+  const p = screenOf(g, depot);
+  g.desktopSmartTap(p.x, p.y);
+
+  assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: depot }]);
+});
+
+test('desktop right click loads units into nearby transports before following them', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, fx(408), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, bunker);
+  g.fastForward(1);
+
+  const p = screenOf(g, bunker);
+  g.desktopSmartTap(p.x, p.y, { preferredHit: bunker });
+
+  assert.deepEqual(g.queued, [{ t: 'load', transport: bunker, unit: marine }]);
+});
+
+test('desktop right click treats bare geysers as ground movement, not harvest targets', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const geyser = spawnUnit(s, Kind.Geyser, NEUTRAL, fx(520), fx(400));
+  select(g, [scv]);
+  centerOnEntity(g, geyser);
+  g.fastForward(1);
+
+  const p = screenOf(g, geyser);
+  g.desktopSmartTap(p.x, p.y, { preferredHit: geyser });
+
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: scv,
+    x: ((g.camX + p.x / g.zoom) * ONE) | 0,
+    y: ((g.camY + p.y / g.zoom) * ONE) | 0,
+  }]);
+});
+
+test('desktop right click attacks hostile gas collectors instead of harvesting them', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const enemyRefinery = spawnUnit(s, Kind.Refinery, 1, fx(520), fx(400));
+  select(g, [scv]);
+  centerOnEntity(g, enemyRefinery);
+  g.fastForward(1);
+
+  const p = screenOf(g, enemyRefinery);
+  g.desktopSmartTap(p.x, p.y, { preferredHit: enemyRefinery });
+
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: scv, target: enemyRefinery }]);
+});
+
 test('harvest target mode sends selected workers to an owned gas structure', () => {
   const g = freshGame();
   const s = g.sim.fullState();
@@ -306,6 +456,27 @@ test('explicit rally mode targets owned units instead of selecting them', () => 
     x: ((g.camX + p.x / g.zoom) * ONE) | 0,
     y: ((g.camY + p.y / g.zoom) * ONE) | 0,
     target: worker,
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
+test('explicit rally mode falls back to point rally for invalid resource targets', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const barracks = spawnUnit(s, Kind.Barracks, 0, fx(400), fx(400));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(520), fx(400));
+  select(g, [barracks]);
+  centerOnEntity(g, mineral);
+  ui.armedCommand.value = { t: 'rally' };
+
+  const p = screenOf(g, mineral);
+  g.tap(p.x, p.y, { preferredHit: mineral });
+
+  assert.deepEqual(g.queued, [{
+    t: 'rally',
+    building: barracks,
+    x: ((g.camX + p.x / g.zoom) * ONE) | 0,
+    y: ((g.camY + p.y / g.zoom) * ONE) | 0,
   }]);
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });

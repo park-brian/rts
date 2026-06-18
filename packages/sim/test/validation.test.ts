@@ -1,13 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { type MapDef } from '../src/map.ts';
-import { count, eid, kill, makeState, NEUTRAL, slotOf, type State } from '../src/world.ts';
+import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { Kind, Order, Role, TILE, Units } from '../src/data.ts';
+import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { snapBuildAnchor } from '../src/footprint.ts';
-import { placementForStructure } from '../src/validation.ts';
+import { placementForStructure, validateCommand } from '../src/validation.ts';
+import { canPlayerGatherTarget, isGatherTarget } from '../src/resource-targets.ts';
 import { simScenario } from '../test-support/scenario.ts';
+import type { Command } from '../src/commands.ts';
+import { stepWorld } from '../src/tick.ts';
+import { setTechLevel } from '../src/tech.ts';
 
 const findSlot = (s: State, pred: (slot: number) => boolean): number => {
   const e = s.e;
@@ -48,6 +52,156 @@ test('invalid commands do not mutate incompatible recipients', () => {
 
   assert.equal(s.e.order[marine], Order.Idle, 'marine ignored invalid harvest/own attack');
   assert.equal(s.e.order[cc], Order.Idle, 'structure ignored move command');
+});
+
+test('commands clear stale movement and combat targets at command boundaries', () => {
+  const s = makeState(open(), 2, 116);
+  const e = s.e;
+  const spawn = (kind: number, owner: number, x: number, y: number): number => spawnUnit(s, kind, owner, x, y);
+  s.players.minerals[0] = 10_000;
+  s.players.gas[0] = 10_000;
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  setTechLevel(s, 0, Tech.Burrow, 1);
+  setTechLevel(s, 0, Tech.SiegeTech, 1);
+
+  const staleTarget = spawn(Kind.Marine, 0, tc(3), tc(3));
+  const enemy = spawn(Kind.Zealot, 1, tc(7), tc(5));
+  spawn(Kind.CommandCenter, 0, tc(25), tc(15));
+  const mark = (id: number): number => {
+    const slot = slotOf(id);
+    e.intentTarget[slot] = staleTarget;
+    e.combatTarget[slot] = enemy;
+    return slot;
+  };
+  const stepOk = (cmd: Command): void => {
+    const result = stepWorld(s, [{ player: 0, cmds: [cmd] }]);
+    assert.equal(result[0]?.ok, true, `${cmd.t} should be accepted`);
+  };
+
+  const marine = spawn(Kind.Marine, 0, tc(5), tc(5));
+  stepOk({ t: 'attack', unit: marine, target: enemy });
+  assert.equal(e.intentTarget[mark(marine)], staleTarget, 'test should be able to dirty intent after attack');
+  assert.equal(e.combatTarget[slotOf(marine)], enemy);
+  stepOk({ t: 'attack', unit: marine, target: enemy });
+  assert.equal(e.intentTarget[slotOf(marine)], NONE);
+  assert.equal(e.combatTarget[slotOf(marine)], enemy);
+
+  const mover = spawn(Kind.Marine, 0, tc(5), tc(6));
+  mark(mover);
+  stepOk({ t: 'move', unit: mover, x: tc(6), y: tc(6) });
+  assert.equal(e.intentTarget[slotOf(mover)], NONE);
+  assert.equal(e.combatTarget[slotOf(mover)], NONE);
+
+  const attacker = spawn(Kind.Marine, 0, tc(25), tc(25));
+  mark(attacker);
+  stepOk({ t: 'amove', unit: attacker, x: tc(26), y: tc(25) });
+  assert.equal(e.intentTarget[slotOf(attacker)], NONE);
+  assert.equal(e.combatTarget[slotOf(attacker)], NONE);
+
+  const stopper = spawn(Kind.Marine, 0, tc(25), tc(27));
+  mark(stopper);
+  stepOk({ t: 'stop', unit: stopper });
+  assert.equal(e.intentTarget[slotOf(stopper)], NONE);
+  assert.equal(e.combatTarget[slotOf(stopper)], NONE);
+
+  const mineral = spawn(Kind.Mineral, NEUTRAL, tc(9), tc(5));
+  const harvester = spawn(Kind.SCV, 0, tc(8), tc(6));
+  mark(harvester);
+  stepOk({ t: 'harvest', unit: harvester, patch: mineral });
+  assert.equal(e.intentTarget[slotOf(harvester)], NONE);
+  assert.equal(e.combatTarget[slotOf(harvester)], NONE);
+
+  const depot = spawn(Kind.SupplyDepot, 0, tc(12), tc(5));
+  e.hp[slotOf(depot)] = Units[Kind.SupplyDepot]!.hp - 20;
+  const repairScv = spawn(Kind.SCV, 0, tc(11), tc(6));
+  mark(repairScv);
+  stepOk({ t: 'repair', unit: repairScv, target: depot });
+  assert.equal(e.intentTarget[slotOf(repairScv)], NONE);
+  assert.equal(e.combatTarget[slotOf(repairScv)], NONE);
+
+  const builder = spawn(Kind.SCV, 0, tc(16), tc(6));
+  mark(builder);
+  stepOk({ t: 'build', unit: builder, kind: Kind.SupplyDepot, x: tc(18), y: tc(6) });
+  assert.equal(e.intentTarget[slotOf(builder)], NONE);
+  assert.equal(e.combatTarget[slotOf(builder)], NONE);
+
+  const stimMarine = spawn(Kind.Marine, 0, tc(25), tc(29));
+  mark(stimMarine);
+  stepOk({ t: 'ability', unit: stimMarine, ability: Ability.StimPack });
+  assert.equal(e.intentTarget[slotOf(stimMarine)], NONE);
+  assert.equal(e.combatTarget[slotOf(stimMarine)], NONE);
+
+  const zergling = spawn(Kind.Zergling, 0, tc(7), tc(8));
+  mark(zergling);
+  stepOk({ t: 'burrow', unit: zergling, active: true });
+  assert.equal(e.intentTarget[slotOf(zergling)], NONE);
+  assert.equal(e.combatTarget[slotOf(zergling)], NONE);
+
+  const tank = spawn(Kind.SiegeTank, 0, tc(22), tc(29));
+  mark(tank);
+  stepOk({ t: 'transform', unit: tank, kind: Kind.SiegeTankSieged });
+  assert.equal(e.intentTarget[slotOf(tank)], NONE);
+  assert.equal(e.combatTarget[slotOf(tank)], NONE);
+
+  const commandCenter = spawn(Kind.CommandCenter, 0, tc(6), tc(18));
+  mark(commandCenter);
+  stepOk({ t: 'lift', building: commandCenter });
+  assert.equal(e.intentTarget[slotOf(commandCenter)], NONE);
+  assert.equal(e.combatTarget[slotOf(commandCenter)], NONE);
+
+  mark(commandCenter);
+  stepOk({ t: 'land', building: commandCenter, x: tc(6), y: tc(21) });
+  assert.equal(e.intentTarget[slotOf(commandCenter)], commandCenter);
+  assert.equal(e.combatTarget[slotOf(commandCenter)], NONE);
+});
+
+test('gather targets are complete resource actors, not bare geysers or unfinished collectors', () => {
+  const s = makeState(open(), 1, 104);
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(8), tc(8));
+  const geyser = spawnUnit(s, Kind.Geyser, NEUTRAL, tc(10), tc(8));
+  const refinery = spawnUnit(s, Kind.Refinery, 0, tc(12), tc(8));
+  const unfinishedRefinery = spawnUnit(s, Kind.Refinery, 0, tc(14), tc(8));
+  const scv = spawnUnit(s, Kind.SCV, 0, tc(8), tc(10));
+  s.e.built[slotOf(unfinishedRefinery)] = 0;
+
+  assert.equal(isGatherTarget(s, mineral), true);
+  assert.equal(isGatherTarget(s, refinery), true);
+  assert.equal(isGatherTarget(s, geyser), false);
+  assert.equal(isGatherTarget(s, unfinishedRefinery), false);
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: mineral }), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: refinery }), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: geyser }), {
+    ok: false,
+    reason: 'target-not-allowed',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: unfinishedRefinery }), {
+    ok: false,
+    reason: 'target-not-allowed',
+  });
+});
+
+test('gas gather targets must be friendly or allied, not hostile', () => {
+  const s = makeState(open(), 2, 105);
+  const scv = spawnUnit(s, Kind.SCV, 0, tc(8), tc(10));
+  const friendlyRefinery = spawnUnit(s, Kind.Refinery, 0, tc(10), tc(8));
+  const enemyRefinery = spawnUnit(s, Kind.Refinery, 1, tc(12), tc(8));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(8));
+
+  assert.equal(canPlayerGatherTarget(s, 0, friendlyRefinery), true);
+  assert.equal(canPlayerGatherTarget(s, 0, mineral), true);
+  assert.equal(isGatherTarget(s, enemyRefinery), true, 'hostile refinery has a gatherable shape');
+  assert.equal(canPlayerGatherTarget(s, 0, enemyRefinery), false, 'hostile refinery is not legal to gather');
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: friendlyRefinery }), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, { t: 'harvest', unit: scv, patch: enemyRefinery }), {
+    ok: false,
+    reason: 'target-not-allowed',
+  });
+  assert.deepEqual(validateCommand(s, 0, { t: 'rally', building: spawnUnit(s, Kind.CommandCenter, 0, tc(8), tc(14)), x: tc(12), y: tc(8), target: enemyRefinery }), {
+    ok: false,
+    reason: 'target-not-allowed',
+  });
 });
 
 test('build placement rejects occupied structures and resources without spending minerals', () => {

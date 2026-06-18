@@ -76,6 +76,8 @@ const transformUnit = (s: State, slot: number, kind: number): void => {
   setEntityKind(s, slot, kind);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
 };
 
 const startMorph = (s: State, slot: number, kind: number): void => {
@@ -92,6 +94,8 @@ const startMorph = (s: State, slot: number, kind: number): void => {
   e.ctimer[slot] = def.buildTime;
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
   e.prodKind[slot] = Kind.None;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
@@ -116,6 +120,8 @@ const startMerge = (s: State, slot: number, kind: number, partner: number): void
   e.ctimer[slot] = def.buildTime;
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
   e.prodKind[slot] = Kind.None;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;

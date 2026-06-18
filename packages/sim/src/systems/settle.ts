@@ -50,6 +50,7 @@ export const isSettledGroundUnit = (s: State, slot: number): boolean => {
     e.alive[slot] === 1 &&
     e.order[slot] === Order.Idle &&
     e.target[slot] === NONE &&
+    e.intentTarget[slot] === NONE &&
     e.burrowed[slot] !== 1 &&
     !isContained(s, slot) &&
     isLocalAvoidanceSolid(s, slot) &&
@@ -69,6 +70,7 @@ export const settleMovement = (s: State): void => {
       if (e.settled[i] === 1 && !isSettledGroundUnit(s, i)) {
         e.order[i] = Order.Move;
         e.target[i] = NONE;
+        e.intentTarget[i] = NONE;
         e.settled[i] = 0;
       }
       continue;
@@ -84,8 +86,17 @@ export const settleMovement = (s: State): void => {
       continue;
     }
 
+    const liveIntentTarget = e.intentTarget[i] !== NONE ? e.intentTarget[i]! : e.target[i]!;
+    if ((order === Order.Move || order === Order.AttackMove) && liveIntentTarget !== NONE) {
+      e.tx[i] = goal.x;
+      e.ty[i] = goal.y;
+      e.settled[i] = 1;
+      continue;
+    }
+
     e.order[i] = Order.Idle;
     e.target[i] = NONE;
+    e.intentTarget[i] = NONE;
     e.tx[i] = goal.x;
     e.ty[i] = goal.y;
     e.settled[i] = 1;

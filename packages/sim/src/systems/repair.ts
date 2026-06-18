@@ -14,13 +14,13 @@ export const repair = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i) || e.order[i] !== Order.Repair) continue;
     if (isDisabled(e, i) || e.kind[i] !== Kind.SCV || !isAlive(e, e.target[i]!)) {
-      e.order[i] = Order.Idle; e.target[i] = NONE; continue;
+      e.order[i] = Order.Idle; e.target[i] = NONE; e.intentTarget[i] = NONE; e.combatTarget[i] = NONE; continue;
     }
     const target = slotOf(e.target[i]!);
-    if (isContained(s, target)) { e.order[i] = Order.Idle; e.target[i] = NONE; continue; }
+    if (isContained(s, target)) { e.order[i] = Order.Idle; e.target[i] = NONE; e.intentTarget[i] = NONE; e.combatTarget[i] = NONE; continue; }
     const def = Units[e.kind[target]!];
     if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) {
-      e.order[i] = Order.Idle; e.target[i] = NONE; continue;
+      e.order[i] = Order.Idle; e.target[i] = NONE; e.intentTarget[i] = NONE; e.combatTarget[i] = NONE; continue;
     }
     faceToward(e, i, e.x[target]!, e.y[target]!);
     if (!withinTopDownEdgeRange(s, i, target, BUILD_RANGE)) {
@@ -32,7 +32,7 @@ export const repair = (s: State): void => {
     const cost = repairCost(e.kind[target]!, amount);
     const owner = e.owner[i]!;
     if (s.players.minerals[owner]! < cost.minerals || s.players.gas[owner]! < cost.gas) {
-      e.order[i] = Order.Idle; e.target[i] = NONE; continue;
+      e.order[i] = Order.Idle; e.target[i] = NONE; e.intentTarget[i] = NONE; e.combatTarget[i] = NONE; continue;
     }
     s.players.minerals[owner] = s.players.minerals[owner]! - cost.minerals;
     s.players.gas[owner] = s.players.gas[owner]! - cost.gas;

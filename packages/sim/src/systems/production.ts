@@ -4,21 +4,22 @@
 // auto-mines the nearest *resource* (by role).
 
 import type { State } from '../world.ts';
-import { nearest, eid, slotOf, NONE } from '../world.ts';
-import { spawnUnit } from '../factory.ts';
-import { Kind, Order, ResourceType, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
+import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../world.ts';
+import { trySpawnUnit } from '../factory.ts';
+import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
 import { fx, isqrt } from '../fixed.ts';
-import { pickPatch, isResource } from './harvest.ts';
+import { pickPatch } from './harvest.ts';
 import { effectiveSpeed } from './status.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { completeInternalProduct } from '../internal-products.ts';
-import { resolveRallyEndpoint } from '../rally.ts';
 import { LARVA_MAX, countLarvae } from '../larva.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
-import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
+import { isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
 import { issueTravelOrder } from '../travel-intent.ts';
+import { canPlayerGatherTargetSlot } from '../resource-targets.ts';
+import { producedUnitRallyIntent } from '../command-intent.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
@@ -31,45 +32,32 @@ type RallyMove = { slot: number; owner: number; order: number; x: number; y: num
 const rallyMoveKey = (move: Pick<RallyMove, 'owner' | 'order' | 'x' | 'y'>): string =>
   `${move.owner}:${move.order}:${move.x}:${move.y}`;
 
-
 /** Direct a freshly produced unit per its producer's rally (default worker = auto-mine). */
 const applyRally = (
   s: State,
   producer: number,
   slot: number,
   owner: number,
-  isWorker: boolean,
   speed: number,
   rallyMoves: RallyMove[],
 ): void => {
   const e = s.e;
-  const rally = resolveRallyEndpoint(s, producer, slot);
-  const target = rally?.target ?? NONE;
-  const targetIsResource = target !== NONE && isResource(e, eid(e, target));
   e.settled[slot] = 0;
-  if (isWorker && targetIsResource) {
-    const def = Units[e.kind[target]!]!;
-    if (def.resourceType === ResourceType.Gas) {
-      e.order[slot] = Order.Harvest;
-      e.target[slot] = eid(e, target);
+  const intent = producedUnitRallyIntent(s, producer, slot);
+  if (intent.kind === 'gather-target') {
+    e.order[slot] = Order.Harvest;
+    e.target[slot] = eid(e, intent.target);
+  } else if (intent.kind === 'gather-near') {
+    const np = pickPatch(s, slot, owner, speed, intent.x, intent.y);
+    if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
+  } else if (intent.kind === 'load') {
+    if (withinLoadRange(s, intent.transport, slot)) {
+      loadUnitInto(s, intent.transport, slot);
       return;
     }
-    const np = pickPatch(s, slot, owner, speed, rally!.x, rally!.y);
-    if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
-  } else if (isWorker && !rally) {
-    const np = pickPatch(s, slot, owner, speed, e.x[slot]!, e.y[slot]!);
-    if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
-  } else if (rally) {
-    const endpoint = target === NONE ? { x: rally.x, y: rally.y } : { x: rally.x, y: rally.y, target };
-    if (target !== NONE && canAcceptCargo(s, target, slot)) {
-      if (withinLoadRange(s, target, slot)) {
-        loadUnitInto(s, target, slot);
-        return;
-      }
-      issueTravelOrder(s, slot, endpoint, 'move');
-      return;
-    }
-    const issued = issueTravelOrder(s, slot, endpoint, 'smart');
+    issueTravelOrder(s, slot, intent.endpoint, 'move');
+  } else if (intent.kind === 'travel') {
+    const issued = issueTravelOrder(s, slot, intent.endpoint, intent.intent);
     rallyMoves.push({ slot, owner, order: issued.order, x: issued.x, y: issued.y });
   }
 };
@@ -77,11 +65,13 @@ const applyRally = (
 const nearestProducerForRally = (s: State, slot: number, owner: number): number =>
   nearest(s, s.e.x[slot]!, s.e.y[slot]!, (sl) => s.e.owner[sl] === owner && isLarvaSourceKind(s.e.kind[sl]!));
 
-const finishEgg = (s: State, slot: number, kind: number, rallyMoves: RallyMove[]): void => {
+const finishEgg = (s: State, slot: number, kind: number, rallyMoves: RallyMove[]): boolean => {
   const e = s.e;
   const def = Units[kind]!;
   const owner = e.owner[slot]!;
   const rally = nearestProducerForRally(s, slot, owner);
+  const count = productionCount(kind);
+  if (!canSpawnEntity(s, count - 1)) return false;
   e.kind[slot] = kind;
   e.hp[slot] = def.hp;
   e.shield[slot] = def.shields;
@@ -90,17 +80,20 @@ const finishEgg = (s: State, slot: number, kind: number, rallyMoves: RallyMove[]
   e.flags[slot] = def.roles;
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
   e.prodKind[slot] = Kind.None;
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
-  const isWorker = (def.roles & Role.Worker) !== 0;
-  if (rally !== NONE) applyRally(s, rally, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
+  if (rally !== NONE) applyRally(s, rally, slot, owner, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
 
-  for (let n = 1; n < productionCount(kind); n++) {
-    const id = spawnUnit(s, kind, owner, e.x[slot]! + fx(12 * n), e.y[slot]!);
+  for (let n = 1; n < count; n++) {
+    const id = trySpawnUnit(s, kind, owner, e.x[slot]! + fx(12 * n), e.y[slot]!);
+    if (id === NONE) return true;
     const extra = slotOf(id);
-    if (rally !== NONE) applyRally(s, rally, extra, owner, isWorker, effectiveSpeed(s, e, extra, def.speed), rallyMoves);
+    if (rally !== NONE) applyRally(s, rally, extra, owner, effectiveSpeed(s, e, extra, def.speed), rallyMoves);
   }
+  return true;
 };
 
 const matchingGroupRank = (x: number, y: number, cx: number, cy: number, spacing: number, maxRank: number): number => {
@@ -167,7 +160,7 @@ const assignRallyMoveSlots = (s: State, moves: readonly RallyMove[]): void => {
 const spawnLarva = (s: State, hatch: number, index: number): void => {
   const e = s.e;
   const [dx, dy] = LARVA_OFFSETS[index % LARVA_OFFSETS.length]!;
-  spawnUnit(s, Kind.Larva, e.owner[hatch]!, e.x[hatch]! + fx(dx), e.y[hatch]! + fx(dy));
+  trySpawnUnit(s, Kind.Larva, e.owner[hatch]!, e.x[hatch]! + fx(dx), e.y[hatch]! + fx(dy));
 };
 
 const larvae = (s: State): void => {
@@ -180,8 +173,9 @@ const larvae = (s: State): void => {
       e.timer[i] = e.timer[i]! - 1;
       if (e.timer[i]! > 0) continue;
     }
+    if (!canSpawnEntity(s)) continue;
     spawnLarva(s, i, n);
-    e.timer[i] = LARVA_INTERVAL;
+    if (canSpawnEntity(s) || countLarvae(s, i) > n) e.timer[i] = LARVA_INTERVAL;
   }
 };
 
@@ -216,12 +210,13 @@ export const production = (s: State): void => {
     const owner = e.owner[i]!;
     if (finishInternalAmmo(s, i, kind)) continue;
     if (e.kind[i] === Kind.Egg) {
-      finishEgg(s, i, kind, rallyMoves);
+      if (finishEgg(s, i, kind, rallyMoves)) continue;
       continue;
     }
+    if (!canSpawnEntity(s)) continue;
     const isWorker = (def.roles & Role.Worker) !== 0;
     const node = isWorker
-      ? nearest(s, e.x[i]!, e.y[i]!, (sl) => (e.flags[sl]! & Role.Resource) !== 0)
+      ? nearest(s, e.x[i]!, e.y[i]!, (sl) => canPlayerGatherTargetSlot(s, owner, sl))
       : NONE;
 
     // Exit position: a step toward the work (symmetric across bases), else +y.
@@ -235,9 +230,10 @@ export const production = (s: State): void => {
       sy = e.y[i]! + Math.trunc((dy * EXIT) / d);
     }
 
-    const id = spawnUnit(s, kind, owner, sx, sy);
+    const id = trySpawnUnit(s, kind, owner, sx, sy);
+    if (id === NONE) continue;
     const slot = slotOf(id);
-    applyRally(s, i, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
+    applyRally(s, i, slot, owner, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
 
     // Dequeue the next unit, or go idle.
     if (e.prodQueued[i]! > 0) {

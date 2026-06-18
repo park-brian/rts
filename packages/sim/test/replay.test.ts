@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
 import { generateMap } from '../src/procedural.ts';
-import { eid, ENTITY_COLUMNS, hashState, makeState, slotOf, type State } from '../src/world.ts';
+import { eid, ENTITY_COLUMNS, hashState, kill, makeState, slotOf, type State } from '../src/world.ts';
 import { sliceMap } from '../src/map.ts';
 import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
@@ -118,6 +118,33 @@ test('persistent movement velocity is serialized and hashed', () => {
 
   restored.e.vx[slot] = fx(4);
   assert.notEqual(hashState(restored), hash, 'velocity participates in desync hashes');
+});
+
+test('intent and combat target columns are serialized, hashed, and reset on reuse', () => {
+  const s = makeState(sliceMap(), 1, 991);
+  const unit = slotOf(spawnUnit(s, Kind.Marine, 0, fx(4 * 32), fx(4 * 32)));
+  const friend = spawnUnit(s, Kind.SCV, 0, fx(5 * 32), fx(4 * 32));
+  const enemy = spawnUnit(s, Kind.Zergling, 0, fx(6 * 32), fx(4 * 32));
+  s.e.intentTarget[unit] = friend;
+  s.e.combatTarget[unit] = enemy;
+  const hash = hashState(s);
+
+  const restored = deserializeState(serializeState(s));
+  assert.equal(restored.e.intentTarget[unit], friend);
+  assert.equal(restored.e.combatTarget[unit], enemy);
+  assert.equal(hashState(restored), hash, 'target-split columns round-trip into hashes');
+
+  restored.e.intentTarget[unit] = enemy;
+  assert.notEqual(hashState(restored), hash, 'intent target participates in desync hashes');
+  restored.e.intentTarget[unit] = friend;
+  restored.e.combatTarget[unit] = friend;
+  assert.notEqual(hashState(restored), hash, 'combat target participates in desync hashes');
+
+  kill(s, unit);
+  const reused = slotOf(spawnUnit(s, Kind.Marine, 0, fx(7 * 32), fx(4 * 32)));
+  assert.equal(reused, unit, 'slot reuse keeps the reset check meaningful');
+  assert.equal(s.e.intentTarget[reused], -1);
+  assert.equal(s.e.combatTarget[reused], -1);
 });
 
 test('replay round-trips through JSON (the on-disk / on-wire form)', () => {

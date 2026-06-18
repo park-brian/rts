@@ -1,6 +1,7 @@
 import type { State } from './world.ts';
 import { isAlive, NONE, slotOf } from './world.ts';
 import { Order, ResourceType, Role, Units } from './data.ts';
+import { isGatherTargetSlot } from './resource-targets.ts';
 
 const isWorkerResourceType = (type: number): boolean =>
   type === ResourceType.Minerals || type === ResourceType.Gas;
@@ -12,7 +13,7 @@ export const isResourceRouteWorker = (s: State, slot: number): boolean => {
   const targetId = e.target[slot]!;
   if (targetId === NONE || !isAlive(e, targetId)) return false;
   const target = slotOf(targetId);
-  if ((e.flags[target]! & Role.Resource) === 0) return false;
+  if (!isGatherTargetSlot(s, target)) return false;
   return isWorkerResourceType(Units[e.kind[target]!]?.resourceType ?? -1);
 };
 

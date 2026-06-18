@@ -50,7 +50,9 @@ export type Entities = {
   burrowed: Uint8Array;
   flags: Uint16Array; // Role bitflags (copied from the unit def at spawn)
   order: Uint8Array;
-  target: Int32Array; // EntityId or NONE (harvest node / attack target / depot)
+  target: Int32Array; // Legacy EntityId or NONE (current behavior source of truth)
+  intentTarget: Int32Array; // Future movement/interact/follow target, or NONE
+  combatTarget: Int32Array; // Future forced/acquired combat target, or NONE
   tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
   settled: Uint8Array; // post-collision move/attack-move has settled into place
@@ -76,9 +78,12 @@ export type Entities = {
   prodQueued: Int32Array; // additional queued units of prodKind
   researchKind: Uint16Array; // structure: in-progress Tech id (0 = idle)
   researchTimer: Int32Array;
-  rallyX: Int32Array; // structure rally point (fixed px); produced units head here
+  rallyX: Int32Array; // structure unit/general rally point (fixed px)
   rallyY: Int32Array;
-  rallyTarget: Int32Array; // rally onto an entity (resource → harvest), or NONE
+  rallyTarget: Int32Array; // unit/general rally onto an entity, or NONE
+  workerRallyX: Int32Array; // worker gather rally point, fixed px, or NONE
+  workerRallyY: Int32Array;
+  workerRallyTarget: Int32Array; // gather target EntityId, or NONE
 };
 
 // Single source of truth for the typed-array columns: every per-slot column lives
@@ -95,12 +100,14 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['cloakActive', 'u8'], ['cloakTimer', 'i32'],
   ['opticalFlare', 'u8'], ['parasiteOwner', 'u8'], ['illusion', 'u8'], ['lifeTimer', 'i32'],
   ['cloakAura', 'u8'], ['burrowed', 'u8'], ['flags', 'u16'], ['order', 'u8'],
-  ['target', 'i32'], ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
+  ['target', 'i32'], ['intentTarget', 'i32'], ['combatTarget', 'i32'],
+  ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['morphFromKind', 'u16'], ['buildCostMinerals', 'i32'],
   ['buildCostGas', 'i32'], ['specialAmmo', 'u8'], ['cargo', 'i32'],
   ['cargoType', 'u8'], ['container', 'i32'], ['home', 'i32'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
   ['researchKind', 'u16'], ['researchTimer', 'i32'],
   ['rallyX', 'i32'], ['rallyY', 'i32'], ['rallyTarget', 'i32'],
+  ['workerRallyX', 'i32'], ['workerRallyY', 'i32'], ['workerRallyTarget', 'i32'],
 ];
 
 export const EFFECT_CAP = 256;
@@ -164,6 +171,17 @@ export const isAlive = (e: Entities, id: number): boolean => {
 export const isEnemy = (s: State, a: number, b: number): boolean =>
   a < s.teams.length && b < s.teams.length && s.teams[a] !== s.teams[b];
 
+export const canSpawnEntity = (s: State, count = 1): boolean => s.e.freeTop >= count;
+
+export const freeEffectSlots = (s: State): number => {
+  const fx = s.effects;
+  let n = 0;
+  for (let i = 0; i < EFFECT_CAP; i++) if (fx.alive[i] === 0) n++;
+  return n;
+};
+
+export const canSpawnEffect = (s: State, count = 1): boolean => freeEffectSlots(s) >= count;
+
 // ---- construction ----
 // NOTE: built as an explicit object literal (not a loop over ENTITY_COLUMNS) so the
 // Entities object gets a fast, fixed hidden class. Adding columns via dynamic keys
@@ -210,6 +228,8 @@ const makeEntities = (): Entities => {
     flags: new Uint16Array(CAP),
     order: new Uint8Array(CAP),
     target: new Int32Array(CAP),
+    intentTarget: new Int32Array(CAP),
+    combatTarget: new Int32Array(CAP),
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
     settled: new Uint8Array(CAP),
@@ -238,6 +258,9 @@ const makeEntities = (): Entities => {
     rallyX: new Int32Array(CAP),
     rallyY: new Int32Array(CAP),
     rallyTarget: new Int32Array(CAP),
+    workerRallyX: new Int32Array(CAP),
+    workerRallyY: new Int32Array(CAP),
+    workerRallyTarget: new Int32Array(CAP),
   };
 };
 
@@ -297,8 +320,25 @@ export const spawn = (
   energyMax = 0,
   energy = 0,
 ): number => {
+  const id = trySpawn(s, kind, owner, x, y, hp, flags, shield, energyMax, energy);
+  if (id === NONE) throw new Error('entity capacity exceeded');
+  return id;
+};
+
+export const trySpawn = (
+  s: State,
+  kind: number,
+  owner: number,
+  x: number,
+  y: number,
+  hp = 0,
+  flags = 0,
+  shield = 0,
+  energyMax = 0,
+  energy = 0,
+): number => {
   const e = s.e;
-  if (e.freeTop === 0) throw new Error('entity capacity exceeded');
+  if (e.freeTop === 0) return NONE;
   const slot = e.free[--e.freeTop]!;
   if (slot + 1 > e.hi) e.hi = slot + 1;
   e.alive[slot] = 1;
@@ -333,6 +373,8 @@ export const spawn = (
   e.flags[slot] = flags;
   e.order[slot] = 0;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
   e.tx[slot] = 0;
   e.ty[slot] = 0;
   e.settled[slot] = 0;
@@ -361,10 +403,32 @@ export const spawn = (
   e.rallyX[slot] = NONE;
   e.rallyY[slot] = NONE;
   e.rallyTarget[slot] = NONE;
+  e.workerRallyX[slot] = NONE;
+  e.workerRallyY[slot] = NONE;
+  e.workerRallyTarget[slot] = NONE;
   return eid(e, slot);
 };
 
 export const spawnEffect = (
+  s: State,
+  kind: number,
+  owner: number,
+  x: number,
+  y: number,
+  radius: number,
+  timer: number,
+  period: number,
+  damage: number,
+  source = NONE,
+  sourceX = 0,
+  sourceY = 0,
+): number => {
+  const id = trySpawnEffect(s, kind, owner, x, y, radius, timer, period, damage, source, sourceX, sourceY);
+  if (id === NONE) throw new Error('effect capacity exceeded');
+  return id;
+};
+
+export const trySpawnEffect = (
   s: State,
   kind: number,
   owner: number,
@@ -383,7 +447,7 @@ export const spawnEffect = (
   for (let i = 0; i < EFFECT_CAP; i++) {
     if (fx.alive[i] === 0) { slot = i; break; }
   }
-  if (slot < 0) throw new Error('effect capacity exceeded');
+  if (slot < 0) return NONE;
   if (slot + 1 > fx.hi) fx.hi = slot + 1;
   fx.alive[slot] = 1;
   fx.kind[slot] = kind;
@@ -553,6 +617,8 @@ export const hashState = (s: State): number => {
     h = fold(h, e.burrowed[i]!);
     h = fold(h, e.order[i]!);
     h = fold(h, e.target[i]!);
+    h = fold(h, e.intentTarget[i]!);
+    h = fold(h, e.combatTarget[i]!);
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
     h = fold(h, e.settled[i]!);
@@ -581,6 +647,9 @@ export const hashState = (s: State): number => {
     h = fold(h, e.rallyTarget[i]!);
     h = fold(h, e.rallyX[i]!);
     h = fold(h, e.rallyY[i]!);
+    h = fold(h, e.workerRallyTarget[i]!);
+    h = fold(h, e.workerRallyX[i]!);
+    h = fold(h, e.workerRallyY[i]!);
   }
   const fx = s.effects;
   h = fold(h, fx.hi);

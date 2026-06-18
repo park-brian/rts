@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { spawnUnit } from '../src/factory.ts';
-import { count, eid, kill, slotOf } from '../src/world.ts';
-import { DamageType, Kind, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';
+import { count, eid, kill, NONE, slotOf } from '../src/world.ts';
+import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial.ts';
 import { applyWeaponDamage } from '../src/damage.ts';
 import { setTechLevel } from '../src/tech.ts';
+import { entityApproachPoint } from '../src/entity-approach.ts';
 
 test('two enemy marines fight and at least one dies', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 5 });
@@ -20,6 +21,9 @@ test('two enemy marines fight and at least one dies', () => {
     { player: 0, cmds: [{ t: 'attack', unit: a, target: b }] },
     { player: 1, cmds: [{ t: 'attack', unit: b, target: a }] },
   ]);
+  assert.equal(s.e.combatTarget[slotOf(a)], b);
+  assert.equal(s.e.target[slotOf(a)], b);
+  assert.equal(s.e.intentTarget[slotOf(a)], NONE);
   for (let t = 0; t < 200 && count(sim.fullState(), Kind.Marine, 0) + count(sim.fullState(), Kind.Marine, 1) === 2; t++) {
     sim.step([]);
   }
@@ -182,8 +186,44 @@ test('attack-move acquisition uses body edges for large targets', () => {
   sim.step([{ player: 0, cmds: [{ t: 'amove', unit: marine, x: fx(900), y: fx(400) }] }]);
 
   assert.ok(e.hp[target]! < hpBefore);
+  assert.equal(e.combatTarget[slotOf(marine)], cc);
   assert.equal(e.target[slotOf(marine)], cc);
   assert.ok(topDownEdgeDistanceSq(s, slotOf(marine), target) <= tiles(4) ** 2);
+});
+
+test('combat acquisition writes combatTarget without destroying movement intent', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 231 });
+  const s = sim.fullState();
+  const e = s.e;
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(400), fx(400)));
+  const leader = spawnUnit(s, Kind.Marine, 0, fx(460), fx(400));
+  const enemy = spawnUnit(s, Kind.Marine, 1, fx(430), fx(400));
+
+  e.order[marine] = Order.AttackMove;
+  e.tx[marine] = fx(900);
+  e.ty[marine] = fx(400);
+  e.intentTarget[marine] = leader;
+  e.target[marine] = NONE;
+  e.combatTarget[marine] = NONE;
+
+  sim.step([]);
+
+  assert.equal(e.combatTarget[marine], enemy);
+  assert.equal(e.target[marine], enemy);
+  assert.equal(e.intentTarget[marine], leader);
+
+  kill(s, slotOf(enemy));
+  e.x[slotOf(leader)] = fx(520);
+  e.y[slotOf(leader)] = fx(420);
+  sim.step([]);
+
+  assert.equal(e.combatTarget[marine], NONE);
+  assert.equal(e.target[marine], NONE);
+  assert.equal(e.intentTarget[marine], leader);
+  assert.equal(e.order[marine], Order.AttackMove);
+  const p = entityApproachPoint(s, marine, slotOf(leader));
+  assert.equal(e.tx[marine], p.x);
+  assert.equal(e.ty[marine], p.y);
 });
 
 test('attacking units face their current target', () => {

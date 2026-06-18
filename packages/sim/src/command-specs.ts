@@ -1,6 +1,6 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, MAX_QUEUE, Order, ResourceType, Role, TECH_CAP, TILE, Tech, TechDefs, Units,
+  Kind, MAX_QUEUE, Order, Role, TECH_CAP, TILE, Tech, TechDefs, Units,
   hasAnyWeapon, productionCostCount, productionCount, weaponForTarget,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
@@ -9,7 +9,7 @@ import {
   commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags, liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
-import { NONE, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
+import { NONE, canSpawnEntity, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
 import {
   UNLOAD_RANGE, canLoadInto, canUnloadAt, cargoUsed, containedBy, isContained, loadUnitInto,
   sameTeam, transportCapacity, unloadAnchorSlot, unloadUnit, withinLoadRange,
@@ -34,6 +34,8 @@ import { applyAbilityCommand, validateAbilityCommand } from './ability-command.t
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import { clearVelocity } from './systems/move.ts';
 import { issueTravelOrder } from './travel-intent.ts';
+import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
+import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from './rally.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -52,7 +54,7 @@ type CommandSpecValidationContext = {
 };
 
 type CommandSpecContext = CommandSpecValidationContext & {
-  destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number };
+  destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number; target?: number };
   reserveSupply?(kind: number): void;
 };
 
@@ -90,7 +92,7 @@ export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
 const canRallyToSlot = (s: State, player: number, source: number, target: number): boolean => {
   const e = s.e;
   if (target === source || e.alive[target] !== 1 || isContained(s, target)) return false;
-  if ((e.flags[target]! & Role.Resource) !== 0) return true;
+  if (isGatherTargetSlot(s, target)) return source !== NONE && producerSupportsWorkerRally(s, source) && canPlayerGatherTargetSlot(s, player, target);
   return sameTeam(s, player, e.owner[target]!);
 };
 
@@ -104,7 +106,7 @@ const withinRallySnap = (s: State, slot: number, x: number, y: number): boolean 
 export const snapRallyTarget = (s: State, player: number, x: number, y: number, source = NONE): number => {
   const e = s.e;
   const unit = nearest(s, x, y, (sl) =>
-    canRallyToSlot(s, player, source, sl) && (e.flags[sl]! & Role.Resource) === 0);
+    canRallyToSlot(s, player, source, sl) && !isGatherTargetSlot(s, sl));
   if (unit !== NONE && withinRallySnap(s, unit, x, y)) return eid(e, unit);
   const node = nearest(s, x, y, (sl) => canRallyToSlot(s, player, source, sl));
   return node !== NONE && withinRallySnap(s, node, x, y) ? eid(e, node) : NONE;
@@ -120,6 +122,12 @@ const validateMoveLike = (s: State, player: number, command: MoveLikeCommand): C
   if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
     return reject('missing-capability');
+  }
+  if (command.t === 'move' && command.target !== undefined) {
+    if (!isAlive(e, command.target)) return reject('target-not-found');
+    const target = slotOf(command.target);
+    if (target === slot || isContained(s, target) || !sameTeam(s, player, e.owner[target]!)) return reject('target-not-allowed');
+    if (isGatherTargetSlot(s, target)) return reject('target-not-allowed');
   }
   return { ok: true };
 };
@@ -155,6 +163,12 @@ const validateTrain = (
   const internalCapacity = internalProductCapacity(s, slot, command.kind);
   if (internalCapacity > 0 && !canQueueInternalProduct(s, slot, command.kind, queued)) return reject('queue-full');
   if (queued >= MAX_QUEUE) return reject('queue-full');
+  const entityCount = internalCapacity > 0
+    ? 0
+    : e.kind[slot] === Kind.Larva
+      ? Math.max(0, productionCount(command.kind) - 1)
+      : 1;
+  if (entityCount > 0 && !canSpawnEntity(s, entityCount)) return reject('capacity-full');
   const costCount = productionCostCount(command.kind);
   if (s.players.minerals[player]! < def.minerals * costCount || s.players.gas[player]! < def.gas * costCount) {
     return reject('not-affordable');
@@ -168,6 +182,8 @@ const validateBuild = (s: State, player: number, command: Extract<Command, { t: 
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
   if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  const def = Units[command.kind];
+  if (def && def.buildMethod !== 'morph' && !canSpawnEntity(s)) return reject('capacity-full');
   return validateWorkerBuild(s, player, slot, command.kind, command.x, command.y);
 };
 
@@ -190,6 +206,7 @@ const validateMine = (s: State, player: number, command: Extract<Command, { t: '
   if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
   if (internalProductCapacity(s, slot, Kind.SpiderMine) <= 0) return reject('missing-requirement');
   if (!hasInternalProductReady(s, slot, Kind.SpiderMine)) return reject('target-not-allowed');
+  if (!canSpawnEntity(s)) return reject('capacity-full');
   return { ok: true };
 };
 
@@ -218,6 +235,7 @@ const validateAddon = (s: State, player: number, command: Extract<Command, { t: 
   if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('queue-full');
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
   if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
+  if (!canSpawnEntity(s)) return reject('capacity-full');
   const pos = addonPosition(s, slot, command.kind);
   const placement = placementForStructure(s, command.kind, pos.x, pos.y, NONE, player);
   return placement.ok ? { ok: true } : reject(placement.reason);
@@ -361,9 +379,7 @@ const validateHarvest = (s: State, player: number, command: Extract<Command, { t
   if ((e.flags[slot]! & Role.Worker) === 0) return reject('missing-capability');
   if (!isAlive(e, command.patch)) return reject('target-not-found');
   const target = slotOf(command.patch);
-  const isResource = (e.flags[target]! & Role.Resource) !== 0;
-  const def = Units[e.kind[target]!]!;
-  if (!isResource || (def.resourceType === ResourceType.Gas && e.built[target] !== 1)) return reject('target-not-allowed');
+  if (!canPlayerGatherTargetSlot(s, player, target)) return reject('target-not-allowed');
   return { ok: true };
 };
 
@@ -407,6 +423,8 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
     clearSettled(s, slot);
     e.order[slot] = Order.Attack;
     e.target[slot] = command.target;
+    e.combatTarget[slot] = command.target;
+    e.intentTarget[slot] = NONE;
   },
 };
 
@@ -456,6 +474,8 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
     clearSettled(s, slot);
     e.order[slot] = Order.Harvest;
     e.target[slot] = command.patch;
+    e.intentTarget[slot] = NONE;
+    e.combatTarget[slot] = NONE;
     e.timer[slot] = 0;
   },
 };
@@ -514,6 +534,8 @@ const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
     const slot = slotOf(command.unit);
     cancelPendingBeforeOrder(s, slot);
     clearSettled(s, slot);
+    e.intentTarget[slot] = NONE;
+    e.combatTarget[slot] = NONE;
     const target = slotOf(command.target);
     if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
       resumeConstruction(s, slot, target);
@@ -548,14 +570,31 @@ const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
     const e = s.e;
     const slot = slotOf(command.building);
     const target = command.target ?? snapRallyTarget(s, player, command.x, command.y, slot);
-    e.rallyTarget[slot] = target;
     if (target !== NONE && isAlive(e, target)) {
       const targetSlot = slotOf(target);
+      if (isGatherTargetSlot(s, targetSlot)) {
+        e.workerRallyTarget[slot] = target;
+        e.workerRallyX[slot] = e.x[targetSlot]!;
+        e.workerRallyY[slot] = e.y[targetSlot]!;
+        return;
+      }
+      e.rallyTarget[slot] = target;
       e.rallyX[slot] = e.x[targetSlot]!;
       e.rallyY[slot] = e.y[targetSlot]!;
-    } else {
-      e.rallyX[slot] = command.x;
-      e.rallyY[slot] = command.y;
+      if (producerDirectlyProducesOnlyWorkers(s, slot)) {
+        e.workerRallyTarget[slot] = NONE;
+        e.workerRallyX[slot] = NONE;
+        e.workerRallyY[slot] = NONE;
+      }
+      return;
+    }
+    e.rallyTarget[slot] = NONE;
+    e.rallyX[slot] = command.x;
+    e.rallyY[slot] = command.y;
+    if (producerDirectlyProducesOnlyWorkers(s, slot)) {
+      e.workerRallyTarget[slot] = NONE;
+      e.workerRallyX[slot] = NONE;
+      e.workerRallyY[slot] = NONE;
     }
   },
 };
@@ -592,6 +631,8 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
     clearVelocity(e, slot);
     e.order[slot] = Order.Idle;
     e.target[slot] = NONE;
+    e.intentTarget[slot] = NONE;
+    e.combatTarget[slot] = NONE;
   },
 };
 

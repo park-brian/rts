@@ -85,6 +85,8 @@ export const beginWorkerBuild = (
   e.buildCostMinerals[workerSlot] = def.minerals;
   e.buildCostGas[workerSlot] = def.gas;
   e.target[workerSlot] = NONE;
+  e.intentTarget[workerSlot] = NONE;
+  e.combatTarget[workerSlot] = NONE;
   e.tx[workerSlot] = placement.x;
   e.ty[workerSlot] = placement.y;
 };

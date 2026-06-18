@@ -35,6 +35,7 @@ const becomeFoundation = (s: State, slot: number, kind: number, x: number, y: nu
   e.order[slot] = Order.Idle;
   e.buildKind[slot] = 0;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
   e.cargo[slot] = 0;
   e.cargoType[slot] = 0;
 };
@@ -89,9 +90,11 @@ const releaseWorker = (s: State, worker: number): void => {
   if (node !== NONE) {
     e.order[worker] = Order.Harvest;
     e.target[worker] = eid(e, node);
+    e.intentTarget[worker] = NONE;
   } else {
     e.order[worker] = Order.Idle;
     e.target[worker] = NONE;
+    e.intentTarget[worker] = NONE;
   }
 };
 
@@ -114,7 +117,13 @@ export const construction = (s: State): void => {
     if (isDisabled(e, i)) continue;
     const speed = effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed);
     if (e.buildKind[i] === Kind.None) {
-      if (e.target[i] === NONE || e.alive[slotOf(e.target[i]!)] !== 1) { e.order[i] = Order.Idle; e.target[i] = NONE; continue; }
+      if (e.target[i] === NONE || e.alive[slotOf(e.target[i]!)] !== 1) {
+        e.order[i] = Order.Idle;
+        e.target[i] = NONE;
+        e.intentTarget[i] = NONE;
+        e.combatTarget[i] = NONE;
+        continue;
+      }
       const st = slotOf(e.target[i]!);
       faceToward(e, i, e.x[st]!, e.y[st]!);
       if (!nearBuildFootprint(s, i, st)) {
@@ -135,10 +144,21 @@ export const construction = (s: State): void => {
         e.order[i] = Order.Idle;
         e.buildKind[i] = 0;
         e.target[i] = NONE;
+        e.intentTarget[i] = NONE;
+        e.combatTarget[i] = NONE;
         continue;
       }
       if (def.buildMethod === 'morph' && e.kind[i] === Kind.Drone) {
         becomeFoundation(s, i, kind, placement.x, placement.y);
+        continue;
+      }
+      if (e.freeTop <= 0) {
+        refundBuildCost(s, i);
+        e.order[i] = Order.Idle;
+        e.buildKind[i] = 0;
+        e.target[i] = NONE;
+        e.intentTarget[i] = NONE;
+        e.combatTarget[i] = NONE;
         continue;
       }
       const id = spawn(s, kind, e.owner[i]!, placement.x, placement.y, def.hp, def.roles, def.shields, def.energyMax, def.startEnergy);
@@ -172,7 +192,11 @@ export const construction = (s: State): void => {
         e.built[i] = 1;
         const worker = activeBuilder(s, i);
         if (worker !== NONE) releaseWorker(s, worker);
-        if (!isAddonKind(e.kind[i]!)) e.target[i] = NONE;
+        if (!isAddonKind(e.kind[i]!)) {
+          e.target[i] = NONE;
+          e.intentTarget[i] = NONE;
+          e.combatTarget[i] = NONE;
+        }
         e.morphFromKind[i] = Kind.None;
         clearBuildCost(e, i);
         // A finished gas structure consumes its geyser and starts holding gas to harvest.

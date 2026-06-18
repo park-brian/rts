@@ -2,7 +2,7 @@
 // explicit footprint/debug view. It draws gameplay truth, not sprite art.
 
 import {
-  TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
+  TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
   requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull,
   illusionPresentation, selectionBase, type MapDef,
@@ -255,19 +255,23 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   for (const id of game.selection) {
     if (!isAlive(e, id)) continue;
     const i = slotOf(id);
-    if ((e.flags[i]! & Role.Structure) === 0 || e.rallyX[i]! < 0) continue;
-    const rally = resolveRallyEndpoint(s, i);
-    if (!rally) continue;
+    if ((e.flags[i]! & Role.Structure) === 0) continue;
     const bx = e.x[i]! / ONE; const by = e.y[i]! / ONE;
-    const rx = rally.x / ONE;
-    const ry = rally.y / ONE;
-    ctx.strokeStyle = '#ffe14e'; ctx.lineWidth = 1.5 / game.zoom;
-    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(rx, ry); ctx.stroke();
-    ctx.strokeStyle = '#ffe14e';
-    ctx.lineWidth = 2 / game.zoom;
-    const targetDef = rally.target >= 0 ? Units[e.kind[rally.target]!] : undefined;
-    const r = targetDef ? Math.max(6 / game.zoom, targetDef.radius / ONE + 5 / game.zoom) : 4 / game.zoom;
-    ctx.beginPath(); ctx.arc(rx, ry, r, 0, Math.PI * 2); ctx.stroke();
+    for (const [rally, alpha] of [
+      [resolveUnitRallyEndpoint(s, i), 1],
+      [resolveWorkerRallyEndpoint(s, i), 0.72],
+    ] as const) {
+      if (!rally) continue;
+      const rx = rally.x / ONE;
+      const ry = rally.y / ONE;
+      ctx.strokeStyle = `rgba(255,225,78,${alpha})`; ctx.lineWidth = 1.5 / game.zoom;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(rx, ry); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,225,78,${alpha})`;
+      ctx.lineWidth = 2 / game.zoom;
+      const targetDef = rally.target >= 0 ? Units[e.kind[rally.target]!] : undefined;
+      const r = targetDef ? Math.max(6 / game.zoom, targetDef.radius / ONE + 5 / game.zoom) : 4 / game.zoom;
+      ctx.beginPath(); ctx.arc(rx, ry, r, 0, Math.PI * 2); ctx.stroke();
+    }
   }
 
   // Fog overlay (only non-fully-visible tiles, within view).

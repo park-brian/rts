@@ -1,7 +1,7 @@
 import type { State } from '../world.ts';
 import { eid, isAlive, isEnemy, kill, NONE, slotOf } from '../world.ts';
 import { Kind, Role, Units, weaponForTarget } from '../data.ts';
-import { spawnUnit } from '../factory.ts';
+import { trySpawnUnit } from '../factory.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
 import { navigate } from '../pathing.ts';
@@ -21,14 +21,16 @@ const validScarabTarget = (s: State, scarab: number, reaver: number, target: num
   return weaponForTarget(Units[e.kind[reaver]!]!, Units[e.kind[target]!]!) !== null;
 };
 
-export const launchScarab = (s: State, reaver: number, target: number): void => {
+export const launchScarab = (s: State, reaver: number, target: number): boolean => {
   const e = s.e;
-  const id = spawnUnit(s, Kind.Scarab, e.owner[reaver]!, e.x[reaver]!, e.y[reaver]!);
+  const id = trySpawnUnit(s, Kind.Scarab, e.owner[reaver]!, e.x[reaver]!, e.y[reaver]!);
+  if (id === NONE) return false;
   const scarab = slotOf(id);
   e.home[scarab] = eid(e, reaver);
   e.target[scarab] = eid(e, target);
   e.timer[scarab] = SCARAB_LIFETIME;
   faceToward(e, scarab, e.x[target]!, e.y[target]!);
+  return true;
 };
 
 const impactIfReady = (s: State, scarab: number, reaver: number, target: number): boolean => {

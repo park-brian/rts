@@ -3,13 +3,13 @@ import {
   Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
   type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,
 } from '../data.ts';
-import { isFreeAbilityToggleOff } from '../ability-execution.ts';
+import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
 import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
 import type { State } from '../world.ts';
-import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, spawnEffect } from '../world.ts';
-import { spawnUnit } from '../factory.ts';
+import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../world.ts';
+import { trySpawnUnit } from '../factory.ts';
 import { updateCloakAuras } from '../detection.ts';
 import { faceToward } from './move.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
@@ -183,7 +183,7 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       break;
     }
     case 'persistent-effect':
-      spawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
+      trySpawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
       break;
   }
   return true;
@@ -307,6 +307,8 @@ const recallUnits = (s: State, caster: number, x: number, y: number, radius: num
     e.y[i] = e.y[caster]! + fx(oy);
     e.order[i] = Order.Idle;
     e.target[i] = NONE;
+    e.intentTarget[i] = NONE;
+    e.combatTarget[i] = NONE;
     n++;
   }
 };
@@ -314,6 +316,7 @@ const recallUnits = (s: State, caster: number, x: number, y: number, radius: num
 export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const e = s.e;
   const ability = Abilities[c.ability]!;
+  if (!abilityCapacityAvailable(s, c.ability)) return;
   if (!isFreeAbilityToggleOff(e, slot, ability)) {
     e.energy[slot] = e.energy[slot]! - ability.energyCost;
     e.hp[slot] = e.hp[slot]! - ability.hpCost;
@@ -334,8 +337,9 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       const x = e.x[target]!;
       const y = e.y[target]!;
       kill(s, target);
-      const a = spawnUnit(s, Kind.Broodling, owner, x - 6, y);
-      const b = spawnUnit(s, Kind.Broodling, owner, x + 6, y);
+      const a = trySpawnUnit(s, Kind.Broodling, owner, x - 6, y);
+      const b = trySpawnUnit(s, Kind.Broodling, owner, x + 6, y);
+      if (a === NONE || b === NONE) break;
       e.lifeTimer[slotOf(a)] = sec(75.2);
       e.lifeTimer[slotOf(b)] = sec(75.2);
       break;
@@ -357,6 +361,8 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.owner[target] = e.owner[slot]!;
       e.order[target] = Order.Idle;
       e.target[target] = NONE;
+      e.intentTarget[target] = NONE;
+      e.combatTarget[target] = NONE;
       e.shield[slot] = 0;
       break;
     }
@@ -364,7 +370,8 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;
       for (const dx of [-fx(12), fx(12)]) {
-        const id = spawnUnit(s, e.kind[target]!, owner, e.x[target]! + dx, e.y[target]!);
+        const id = trySpawnUnit(s, e.kind[target]!, owner, e.x[target]! + dx, e.y[target]!);
+        if (id === NONE) break;
         const copy = slotOf(id);
         e.illusion[copy] = 1;
         e.lifeTimer[copy] = ability.duration;
@@ -385,11 +392,13 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       break;
     }
     case Ability.NuclearStrike:
+      if (trySpawnEffect(s, EffectKind.NuclearStrike, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, ability.damage,
+        eid(e, slot), e.x[slot]!, e.y[slot]!) === NONE) break;
       consumeReadyNuke(s, e.owner[slot]!);
       e.order[slot] = Order.Cast;
       e.target[slot] = NONE;
-      spawnEffect(s, EffectKind.NuclearStrike, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, ability.damage,
-        eid(e, slot), e.x[slot]!, e.y[slot]!);
+      e.intentTarget[slot] = NONE;
+      e.combatTarget[slot] = NONE;
       break;
   }
 };

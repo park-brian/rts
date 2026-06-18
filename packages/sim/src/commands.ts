@@ -20,6 +20,7 @@ export type CommandRejectReason =
   | 'not-affordable'
   | 'supply-blocked'
   | 'queue-full'
+  | 'capacity-full'
   | 'placement-blocked'
   | 'placement-off-map'
   | 'placement-requires-geyser'
@@ -38,7 +39,7 @@ export type Command =
   | { t: 'load'; transport: number; unit: number }
   | { t: 'unload'; transport: number; unit: number; x: number; y: number }
   | { t: 'cancelBuild'; building: number }
-  | { t: 'move'; unit: number; x: number; y: number }
+  | { t: 'move'; unit: number; x: number; y: number; target?: number }
   | { t: 'attack'; unit: number; target: number } // attack a specific entity
   | { t: 'amove'; unit: number; x: number; y: number } // attack-move to a point
   | { t: 'ability'; unit: number; ability: number; target?: number; x?: number; y?: number }

@@ -106,6 +106,74 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
+export const OBSERVATION_SCHEMA_VERSION = 1;
+export const OBS_ENTITY_STRIDE = 8; // id, kind, owner, x, y, hp, built, order
+export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
+export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
+export const OBS_STATUS_STRIDE = 20;
+export const OBS_EFFECT_STRIDE = 9; // id, kind, owner, x, y, radius, timer, period, damage
+export const OBS_LARVA_STRIDE = 4; // id, count, max, timer
+export const OBS_COVERAGE_STRIDE = 6; // id, kind, owner, x, y, radius
+export const OBS_SCALAR_STRIDE = 7; // schema, tick, player, minerals, gas, supplyUsed, supplyMax
+
+export type ObservationBufferLimits = {
+  entities?: number;
+  queues?: number;
+  cargo?: number;
+  cargoUnits?: number;
+  statuses?: number;
+  effects?: number;
+  larva?: number;
+  creep?: number;
+  power?: number;
+};
+
+export type ObservationBuffers = {
+  scalars: Int32Array;
+  tech: Uint8Array;
+  vision: Uint8Array;
+  entities: Int32Array;
+  queues: Int32Array;
+  cargo: Int32Array;
+  cargoUnits: Int32Array;
+  statuses: Int32Array;
+  effects: Int32Array;
+  larva: Int32Array;
+  creep: Int32Array;
+  power: Int32Array;
+};
+
+export type ObservationWriteCounts = {
+  entities: number;
+  queues: number;
+  cargo: number;
+  cargoUnits: number;
+  statuses: number;
+  effects: number;
+  larva: number;
+  creep: number;
+  power: number;
+  truncated: number;
+};
+
+export const createObservationBuffers = (
+  map: State['map'],
+  limits: ObservationBufferLimits = {},
+): ObservationBuffers => ({
+  scalars: new Int32Array(OBS_SCALAR_STRIDE),
+  tech: new Uint8Array(TECH_CAP),
+  vision: new Uint8Array(map.w * map.h),
+  entities: new Int32Array((limits.entities ?? 256) * OBS_ENTITY_STRIDE),
+  queues: new Int32Array((limits.queues ?? 64) * OBS_QUEUE_STRIDE),
+  cargo: new Int32Array((limits.cargo ?? 32) * OBS_CARGO_STRIDE),
+  cargoUnits: new Int32Array(limits.cargoUnits ?? 128),
+  statuses: new Int32Array((limits.statuses ?? 128) * OBS_STATUS_STRIDE),
+  effects: new Int32Array((limits.effects ?? 64) * OBS_EFFECT_STRIDE),
+  larva: new Int32Array((limits.larva ?? 32) * OBS_LARVA_STRIDE),
+  creep: new Int32Array((limits.creep ?? 64) * OBS_COVERAGE_STRIDE),
+  power: new Int32Array((limits.power ?? 64) * OBS_COVERAGE_STRIDE),
+});
+
 const hasStatus = (e: State['e'], i: number): boolean =>
   e.energyMax[i]! > 0 ||
   e.stimTimer[i]! > 0 ||
@@ -152,6 +220,30 @@ const statusView = (e: State['e'], i: number): StatusView => ({
   burrowed: e.burrowed[i]!,
 });
 
+const writeStatus = (out: Int32Array, row: number, e: State['e'], i: number): void => {
+  let p = row * OBS_STATUS_STRIDE;
+  out[p++] = eid(e, i);
+  out[p++] = e.energy[i]!;
+  out[p++] = e.energyMax[i]!;
+  out[p++] = e.stimTimer[i]!;
+  out[p++] = e.matrixHp[i]!;
+  out[p++] = e.matrixTimer[i]!;
+  out[p++] = e.irradiateTimer[i]!;
+  out[p++] = e.plagueTimer[i]!;
+  out[p++] = e.ensnareTimer[i]!;
+  out[p++] = e.lockdownTimer[i]!;
+  out[p++] = e.stasisTimer[i]!;
+  out[p++] = e.maelstromTimer[i]!;
+  out[p++] = e.acidSporeCount[i]!;
+  out[p++] = e.acidSporeTimer[i]!;
+  out[p++] = e.opticalFlare[i]!;
+  out[p++] = e.parasiteOwner[i]!;
+  out[p++] = e.illusion[i]!;
+  out[p++] = e.lifeTimer[i]!;
+  out[p++] = e.cloakActive[i]!;
+  out[p++] = e.burrowed[i]!;
+};
+
 const tileVisibilityAt = (s: State, player: number, x: number, y: number): number => {
   const tx = Math.floor(x / ONE / TILE);
   const ty = Math.floor(y / ONE / TILE);
@@ -193,6 +285,53 @@ const coverageView = (s: State, i: number, radius: number): CoverageView => ({
   radius,
 });
 
+const writeEntity = (out: Int32Array, row: number, s: State, i: number): void => {
+  const e = s.e;
+  let p = row * OBS_ENTITY_STRIDE;
+  out[p++] = eid(e, i);
+  out[p++] = e.kind[i]!;
+  out[p++] = e.owner[i]!;
+  out[p++] = e.x[i]!;
+  out[p++] = e.y[i]!;
+  out[p++] = e.hp[i]!;
+  out[p++] = e.built[i]!;
+  out[p++] = e.order[i]!;
+};
+
+const writeQueue = (out: Int32Array, row: number, q: QueueView): void => {
+  let p = row * OBS_QUEUE_STRIDE;
+  out[p++] = q.id;
+  out[p++] = q.prodKind;
+  out[p++] = q.prodTimer;
+  out[p++] = q.prodQueued;
+  out[p++] = q.researchKind;
+  out[p++] = q.researchTimer;
+};
+
+const writeEffect = (out: Int32Array, row: number, s: State, i: number): void => {
+  const fx = s.effects;
+  let p = row * OBS_EFFECT_STRIDE;
+  out[p++] = i;
+  out[p++] = fx.kind[i]!;
+  out[p++] = fx.owner[i]!;
+  out[p++] = fx.x[i]!;
+  out[p++] = fx.y[i]!;
+  out[p++] = fx.radius[i]!;
+  out[p++] = fx.timer[i]!;
+  out[p++] = fx.period[i]!;
+  out[p++] = fx.damage[i]!;
+};
+
+const writeCoverage = (out: Int32Array, row: number, s: State, i: number, radius: number): void => {
+  let p = row * OBS_COVERAGE_STRIDE;
+  out[p++] = eid(s.e, i);
+  out[p++] = s.e.kind[i]!;
+  out[p++] = s.e.owner[i]!;
+  out[p++] = s.e.x[i]!;
+  out[p++] = s.e.y[i]!;
+  out[p++] = radius;
+};
+
 const queueView = (s: State, slot: number): QueueView | undefined => {
   const work = entityWorkQueue(s, slot);
   if (!work.production && !work.research) return undefined;
@@ -203,6 +342,177 @@ const queueView = (s: State, slot: number): QueueView | undefined => {
     prodQueued: work.production?.queued ?? 0,
     researchKind: work.research?.tech ?? Kind.None,
     researchTimer: work.research?.remaining ?? 0,
+  };
+};
+
+const pushRow = (count: number, capacity: number): { row: number; truncated: number } =>
+  count < capacity ? { row: count, truncated: 0 } : { row: -1, truncated: 1 };
+
+// Training-facing observation writer. Keep this path caller-owned and mostly
+// linear; object allocation belongs in observe(), not here. Any optimization must
+// preserve object/buffer parity tests and fair-play visibility semantics.
+export const writeObservation = (s: State, player: number, out: ObservationBuffers): ObservationWriteCounts => {
+  if (!s.trackVision) throw new Error('writeObservation: vision tracking is disabled for this State');
+  const e = s.e;
+  const m = s.map;
+  const W = m.w;
+  const v = s.vision[player]!;
+  let entities = 0;
+  let queues = 0;
+  let cargo = 0;
+  let cargoUnits = 0;
+  let statuses = 0;
+  let effects = 0;
+  let larva = 0;
+  let creep = 0;
+  let power = 0;
+  let truncated = 0;
+  const entityCap = Math.trunc(out.entities.length / OBS_ENTITY_STRIDE);
+  const queueCap = Math.trunc(out.queues.length / OBS_QUEUE_STRIDE);
+  const cargoCap = Math.trunc(out.cargo.length / OBS_CARGO_STRIDE);
+  const statusCap = Math.trunc(out.statuses.length / OBS_STATUS_STRIDE);
+  const effectCap = Math.trunc(out.effects.length / OBS_EFFECT_STRIDE);
+  const larvaCap = Math.trunc(out.larva.length / OBS_LARVA_STRIDE);
+  const creepCap = Math.trunc(out.creep.length / OBS_COVERAGE_STRIDE);
+  const powerCap = Math.trunc(out.power.length / OBS_COVERAGE_STRIDE);
+
+  out.scalars[0] = OBSERVATION_SCHEMA_VERSION;
+  out.scalars[1] = s.tick;
+  out.scalars[2] = player;
+  out.scalars[3] = s.players.minerals[player]!;
+  out.scalars[4] = s.players.gas[player]!;
+  out.scalars[5] = s.players.supplyUsed[player]!;
+  out.scalars[6] = s.players.supplyMax[player]!;
+  out.tech.set(s.players.tech.subarray(player * TECH_CAP, (player + 1) * TECH_CAP));
+  out.vision.set(v);
+
+  for (let i = 0; i < s.effects.hi; i++) {
+    if (s.effects.alive[i] !== 1 || effectVisibility(s, player, i) <= 0) continue;
+    const pushed = pushRow(effects, effectCap);
+    truncated |= pushed.truncated;
+    if (pushed.row >= 0) writeEffect(out.effects, pushed.row, s, i);
+    effects++;
+  }
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1) continue;
+    const own = e.owner[i] === player;
+    if (e.built[i] === 1 && (own || tileVisibilityAt(s, player, e.x[i]!, e.y[i]!) === 2)) {
+      if (providesCreep(e.kind[i]!)) {
+        const pushed = pushRow(creep, creepCap);
+        truncated |= pushed.truncated;
+        if (pushed.row >= 0) writeCoverage(out.creep, pushed.row, s, i, CREEP_RADIUS);
+        creep++;
+      }
+      if (e.kind[i] === Kind.Pylon) {
+        const pushed = pushRow(power, powerCap);
+        truncated |= pushed.truncated;
+        if (pushed.row >= 0) writeCoverage(out.power, pushed.row, s, i, POWER_RADIUS);
+        power++;
+      }
+    }
+    const containerId = e.container[i]!;
+    if (own && containerId !== NONE && isAlive(e, containerId)) {
+      const containerSlot = slotOf(containerId);
+      const containerOwner = e.owner[containerSlot]!;
+      const usableContainer = containerOwner === player ||
+        (e.kind[containerSlot] === Kind.NydusCanal && sameTeam(s, player, containerOwner));
+      if (usableContainer) {
+        let row = -1;
+        const visibleCargoRows = Math.min(cargo, cargoCap);
+        for (let c = 0; c < visibleCargoRows; c++) {
+          if (out.cargo[c * OBS_CARGO_STRIDE] === containerId) { row = c; break; }
+        }
+        if (row < 0) {
+          const pushed = pushRow(cargo, cargoCap);
+          truncated |= pushed.truncated;
+          row = pushed.row;
+          if (row >= 0) {
+            const p = row * OBS_CARGO_STRIDE;
+            out.cargo[p] = containerId;
+            out.cargo[p + 1] = cargoUnits;
+            out.cargo[p + 2] = 0;
+          }
+          cargo++;
+        }
+        if (row >= 0) {
+          if (cargoUnits < out.cargoUnits.length) {
+            out.cargoUnits[cargoUnits] = eid(e, i);
+            out.cargo[row * OBS_CARGO_STRIDE + 2]++;
+          } else {
+            truncated = 1;
+          }
+        }
+        cargoUnits++;
+      }
+    }
+    if (own && hasStatus(e, i)) {
+      const pushed = pushRow(statuses, statusCap);
+      truncated |= pushed.truncated;
+      if (pushed.row >= 0) writeStatus(out.statuses, pushed.row, e, i);
+      statuses++;
+    }
+    if (own) {
+      const queue = queueView(s, i);
+      if (queue) {
+        const pushed = pushRow(queues, queueCap);
+        truncated |= pushed.truncated;
+        if (pushed.row >= 0) writeQueue(out.queues, pushed.row, queue);
+        queues++;
+      }
+    }
+    if (!own) {
+      if (isContained(s, i)) continue;
+      const tx = Math.floor(e.x[i]! / ONE / TILE);
+      const ty = Math.floor(e.y[i]! / ONE / TILE);
+      const visible = tx >= 0 && ty >= 0 && tx < W && ty < m.h && v[ty * W + tx] === 2;
+      if (!visible || !canDetect(s, player, i)) continue;
+    }
+    const pushed = pushRow(entities, entityCap);
+    truncated |= pushed.truncated;
+    if (pushed.row >= 0) writeEntity(out.entities, pushed.row, s, i);
+    entities++;
+  }
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1 || !isLarvaSourceKind(e.kind[i]!)) continue;
+    const pushed = pushRow(larva, larvaCap);
+    truncated |= pushed.truncated;
+    if (pushed.row >= 0) {
+      let p = pushed.row * OBS_LARVA_STRIDE;
+      out.larva[p++] = eid(e, i);
+      out.larva[p++] = 0;
+      out.larva[p++] = LARVA_MAX;
+      out.larva[p++] = e.timer[i]!;
+    }
+    larva++;
+  }
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== Kind.Larva) continue;
+    const source = nearestLarvaSource(s, i, player);
+    if (source === NONE) continue;
+    const sourceId = eid(e, source);
+    const visibleLarvaRows = Math.min(larva, larvaCap);
+    for (let row = 0; row < visibleLarvaRows; row++) {
+      const p = row * OBS_LARVA_STRIDE;
+      if (out.larva[p] === sourceId) {
+        out.larva[p + 1]++;
+        break;
+      }
+    }
+  }
+
+  return {
+    entities: Math.min(entities, entityCap),
+    queues: Math.min(queues, queueCap),
+    cargo: Math.min(cargo, cargoCap),
+    cargoUnits: Math.min(cargoUnits, out.cargoUnits.length),
+    statuses: Math.min(statuses, statusCap),
+    effects: Math.min(effects, effectCap),
+    larva: Math.min(larva, larvaCap),
+    creep: Math.min(creep, creepCap),
+    power: Math.min(power, powerCap),
+    truncated,
   };
 };
 

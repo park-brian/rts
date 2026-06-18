@@ -15,15 +15,18 @@ import {
   usesGroundMoveSlot,
 } from '../movement-slots.ts';
 
-const EMPTY_RESULTS: CommandResult[] = [];
 type MoveGroupPlan = {
   count: Map<string, number>;
   rank: Map<string, number>;
   spacing: Map<string, number>;
 };
 
+// Command ingestion is a boundary layer, not a per-entity tick system. The
+// Map/string-key plan keeps grouped human/bot command batches simple and stable.
+// If RL emits very large command batches every tick, replace this with a measured
+// numeric scratch table while preserving the same destination-slot tests.
 const moveGroupKey = (player: number, c: Command): string =>
-  (c.t === 'move' || c.t === 'amove') ? `${player}:${c.t}:${c.x}:${c.y}` : '';
+  (c.t === 'amove' || (c.t === 'move' && c.target === undefined)) ? `${player}:${c.t}:${c.x}:${c.y}` : '';
 
 const moveRankKey = (key: string, slot: number): string => `${key}:${slot}`;
 
@@ -31,7 +34,7 @@ const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan =>
   const rawCounts = new Map<string, number>();
   for (const { player, cmds } of batch) {
     for (const c of cmds) {
-      if (c.t !== 'move' && c.t !== 'amove') continue;
+      if (c.t !== 'amove' && (c.t !== 'move' || c.target !== undefined)) continue;
       const key = moveGroupKey(player, c);
       rawCounts.set(key, (rawCounts.get(key) ?? 0) + 1);
     }
@@ -48,7 +51,7 @@ const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan =>
   const groups = new Map<string, number[]>();
   for (const { player, cmds } of batch) {
     for (const c of cmds) {
-      if (c.t !== 'move' && c.t !== 'amove') continue;
+      if (c.t !== 'amove' && (c.t !== 'move' || c.target !== undefined)) continue;
       const key = moveGroupKey(player, c);
       if ((rawCounts.get(key) ?? 0) <= 1) continue;
       const valid = validateCommand(s, player, c);
@@ -80,7 +83,8 @@ const groupDestination = (
   slot: number,
   player: number,
   plan: MoveGroupPlan,
-): { x: number; y: number } => {
+): { x: number; y: number; target?: number } => {
+  if (c.t === 'move' && c.target !== undefined) return { x: c.x, y: c.y, target: slotOf(c.target) };
   const key = moveGroupKey(player, c);
   if ((plan.count.get(key) ?? 0) <= 1) return { x: c.x, y: c.y };
   const rank = plan.rank.get(moveRankKey(key, slot)) ?? 0;
@@ -91,7 +95,7 @@ const groupDestination = (
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
   let total = 0;
   for (const pc of batch) total += pc.cmds.length;
-  if (total === 0) return EMPTY_RESULTS;
+  if (total === 0) return [];
 
   const results: CommandResult[] = [];
   let reservedSupply: Int32Array | null = null;

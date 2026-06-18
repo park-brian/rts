@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { count, eid, kill, makeState, NEUTRAL, slotOf } from '../src/world.ts';
+import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, TILE, Units, START_MINERALS, START_WORKERS } from '../src/data.ts';
 import { entityApproachPoint } from '../src/entity-approach.ts';
@@ -138,8 +138,94 @@ test('production unit-target rally follows target position when the unit spawns'
   assert.ok(marine >= 0, 'marine produced');
   const p = entityApproachPoint(s, marine, target);
   assert.equal(e.order[marine], Order.AttackMove);
+  assert.equal(e.intentTarget[marine], targetId);
+  assert.equal(e.target[marine], NONE);
+  assert.equal(e.combatTarget[marine], NONE);
   assert.equal(e.tx[marine], p.x);
   assert.equal(e.ty[marine], p.y);
+
+  e.x[target] = fx(1040);
+  e.y[target] = fx(780);
+  const moved = entityApproachPoint(s, marine, target);
+  sim.step([]);
+
+  assert.equal(e.order[marine], Order.AttackMove);
+  assert.equal(e.intentTarget[marine], targetId);
+  assert.equal(e.tx[marine], moved.x);
+  assert.equal(e.ty[marine], moved.y);
+});
+
+test('resource rally is worker-only and does not overwrite hatchery unit rally', () => {
+  const s = makeState(open(64, 64), 1, 421);
+  const e = s.e;
+  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, tc(20), tc(20)));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(24), tc(20)));
+  const unitX = tc(28);
+  const unitY = tc(22);
+  e.cargo[mineral] = 1_000_000;
+  e.rallyX[hatchery] = unitX;
+  e.rallyY[hatchery] = unitY;
+
+  assert.deepEqual(stepWorld(s, [{ player: 0, cmds: [{
+    t: 'rally',
+    building: eid(e, hatchery),
+    x: e.x[mineral]!,
+    y: e.y[mineral]!,
+    target: eid(e, mineral),
+  }] }]), [{ player: 0, index: 0, t: 'rally', ok: true }]);
+
+  assert.equal(e.rallyX[hatchery], unitX, 'resource rally does not overwrite unit rally x');
+  assert.equal(e.rallyY[hatchery], unitY, 'resource rally does not overwrite unit rally y');
+  assert.equal(e.workerRallyTarget[hatchery], eid(e, mineral));
+
+  const droneEgg = slotOf(spawnUnit(s, Kind.Egg, 0, tc(20), tc(21)));
+  e.prodKind[droneEgg] = Kind.Drone;
+  e.prodTimer[droneEgg] = 1;
+  stepWorld(s, []);
+
+  assert.equal(e.kind[droneEgg], Kind.Drone);
+  assert.equal(e.order[droneEgg], Order.Harvest);
+  assert.equal(e.target[droneEgg], eid(e, mineral));
+
+  const zerglingEgg = slotOf(spawnUnit(s, Kind.Egg, 0, tc(20), tc(22)));
+  e.prodKind[zerglingEgg] = Kind.Zergling;
+  e.prodTimer[zerglingEgg] = 1;
+  stepWorld(s, []);
+
+  assert.equal(e.kind[zerglingEgg], Kind.Zergling);
+  assert.equal(e.order[zerglingEgg], Order.AttackMove);
+  assert.equal(e.tx[zerglingEgg], unitX);
+  assert.equal(e.ty[zerglingEgg], unitY);
+});
+
+test('non-worker producers cannot store resource rally targets', () => {
+  const s = makeState(open(64, 64), 1, 422);
+  const e = s.e;
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(24), tc(20)));
+
+  assert.deepEqual(stepWorld(s, [{ player: 0, cmds: [{
+    t: 'rally',
+    building: eid(e, barracks),
+    x: e.x[mineral]!,
+    y: e.y[mineral]!,
+    target: eid(e, mineral),
+  }] }]), [{ player: 0, index: 0, t: 'rally', ok: false, reason: 'target-not-allowed' }]);
+
+  assert.equal(e.rallyTarget[barracks], -1);
+  assert.equal(e.workerRallyTarget[barracks], -1);
+
+  assert.deepEqual(stepWorld(s, [{ player: 0, cmds: [{
+    t: 'rally',
+    building: eid(e, barracks),
+    x: e.x[mineral]!,
+    y: e.y[mineral]!,
+  }] }]), [{ player: 0, index: 0, t: 'rally', ok: true }]);
+
+  assert.equal(e.rallyTarget[barracks], -1, 'near-resource point rally should stay a point for barracks');
+  assert.equal(e.rallyX[barracks], e.x[mineral]);
+  assert.equal(e.rallyY[barracks], e.y[mineral]);
+  assert.equal(e.workerRallyTarget[barracks], -1);
 });
 
 test('same-target production rallies use deterministic ground destination slots', () => {
@@ -204,7 +290,7 @@ test('production rally to a loadable structure loads eligible spawned units', ()
   const s = makeState(open(64, 64), 1, 53);
   const e = s.e;
   const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
-  const bunker = slotOf(spawnUnit(s, Kind.Bunker, 0, tc(20), tc(21)));
+  const bunker = slotOf(spawnUnit(s, Kind.Bunker, 0, tc(30), tc(20)));
   e.rallyTarget[barracks] = eid(e, bunker);
   e.rallyX[barracks] = e.x[bunker]!;
   e.rallyY[barracks] = e.y[bunker]!;
@@ -216,6 +302,13 @@ test('production rally to a loadable structure loads eligible spawned units', ()
   let marine = -1;
   for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Marine) marine = i;
   assert.ok(marine >= 0, 'marine produced');
+  assert.equal(e.container[marine], NONE);
+  assert.equal(e.order[marine], Order.Move);
+  assert.equal(e.intentTarget[marine], eid(e, bunker));
+  e.target[marine] = NONE;
+
+  for (let t = 0; t < 180 && e.container[marine] === NONE; t++) stepWorld(s, []);
+
   assert.equal(e.container[marine], eid(e, bunker));
 });
 
@@ -226,9 +319,9 @@ test('zerg resource rally gives newly morphed workers a gather order', () => {
   const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(24), tc(20)));
   const egg = slotOf(spawnUnit(s, Kind.Egg, 0, tc(20), tc(21)));
   e.cargo[mineral] = 1_000_000;
-  e.rallyTarget[hatchery] = eid(e, mineral);
-  e.rallyX[hatchery] = e.x[mineral]!;
-  e.rallyY[hatchery] = e.y[mineral]!;
+  e.workerRallyTarget[hatchery] = eid(e, mineral);
+  e.workerRallyX[hatchery] = e.x[mineral]!;
+  e.workerRallyY[hatchery] = e.y[mineral]!;
   e.prodKind[egg] = Kind.Drone;
   e.prodTimer[egg] = 1;
 
@@ -239,14 +332,15 @@ test('zerg resource rally gives newly morphed workers a gather order', () => {
   assert.equal(e.target[egg], eid(e, mineral));
 });
 
-test('invalidated entity rally retargets to the nearest valid resource', () => {
+test('invalidated unit rally retargets to the nearest valid friendly entity', () => {
   const s = makeState(open(64, 64), 1, 51);
   const e = s.e;
   s.players.minerals[0] = 1_000;
   spawnUnit(s, Kind.SupplyDepot, 0, tc(40), tc(40));
+  const fallback = slotOf(spawnUnit(s, Kind.SCV, 0, tc(23), tc(20)));
   const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
   const original = slotOf(spawnUnit(s, Kind.SCV, 0, tc(22), tc(20)));
-  const patch = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(23), tc(20)));
+  spawnUnit(s, Kind.Mineral, NEUTRAL, tc(21), tc(20));
 
   stepWorld(s, [{ player: 0, cmds: [
     { t: 'rally', building: eid(e, barracks), x: e.x[original]!, y: e.y[original]!, target: eid(e, original) },
@@ -260,7 +354,7 @@ test('invalidated entity rally retargets to the nearest valid resource', () => {
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
-  const p = entityApproachPoint(s, marine, patch);
+  const p = entityApproachPoint(s, marine, fallback);
   assert.equal(e.order[marine], Order.AttackMove);
   assert.equal(e.tx[marine], p.x);
   assert.equal(e.ty[marine], p.y);

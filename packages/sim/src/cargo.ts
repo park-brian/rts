@@ -116,6 +116,8 @@ export const loadUnitInto = (s: State, transport: number, unit: number): void =>
   e.y[unit] = e.y[transport]!;
   e.order[unit] = Order.Idle;
   e.target[unit] = NONE;
+  e.intentTarget[unit] = NONE;
+  e.combatTarget[unit] = NONE;
 };
 
 export const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
@@ -127,6 +129,8 @@ export const unloadUnit = (s: State, unit: number, x: number, y: number): void =
   e.y[unit] = y;
   e.order[unit] = Order.Idle;
   e.target[unit] = NONE;
+  e.intentTarget[unit] = NONE;
+  e.combatTarget[unit] = NONE;
 };
 
 export const containedBy = (s: State, unit: number, transport: number): boolean =>

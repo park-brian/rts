@@ -1,8 +1,8 @@
 import { Kind, Order, Units, sec, tiles, weaponForTarget } from './data.ts';
-import { spawnUnit } from './factory.ts';
+import { trySpawnUnit } from './factory.ts';
 import { isqrt } from './fixed.ts';
 import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
-import { eid, slotOf, type State } from './world.ts';
+import { NONE, eid, slotOf, type State } from './world.ts';
 import { faceToward } from './systems/move.ts';
 import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapon-mechanics.ts';
 
@@ -71,10 +71,11 @@ export const launchInterceptor = (s: State, carrier: number, target: number): bo
   if (capacity <= 0 || !hasInternalProductReady(s, carrier, mechanic.childKind)) return false;
   const launched = launchedBy(s, carrier);
   if (launched >= capacity) return false;
-  consumeInternalProduct(s, carrier, mechanic.childKind);
   faceToward(e, carrier, e.x[target]!, e.y[target]!);
   const bay = carrierBayPoint(s, carrier, launched);
-  const id = spawnUnit(s, mechanic.childKind, e.owner[carrier]!, bay.x, bay.y);
+  const id = trySpawnUnit(s, mechanic.childKind, e.owner[carrier]!, bay.x, bay.y);
+  if (id === NONE) return false;
+  consumeInternalProduct(s, carrier, mechanic.childKind);
   const interceptor = slotOf(id);
   e.home[interceptor] = eid(e, carrier);
   e.order[interceptor] = Order.Attack;

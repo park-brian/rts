@@ -91,6 +91,8 @@ export const entityApproachPoint = (
   target: number,
   approachX = s.e.x[mover]!,
   approachY = s.e.y[mover]!,
+  rank = 0,
+  spacing = sideSpacing(s, mover),
 ): InteractionPoint => {
   const e = s.e;
   const base = topDownDockingPoint(
@@ -102,11 +104,22 @@ export const entityApproachPoint = (
     approachX,
     approachY,
   );
-  if (canUseApproachPoint(s, mover, target, base)) return base;
-
   const r = topDownDockingRect(e.kind[mover]!, e.kind[target]!, e.x[target]!, e.y[target]!, e.flags[target]!);
   const primary = dockingSide(base, r);
-  const spacing = sideSpacing(s, mover);
+
+  if (rank > 0) {
+    const slotsPerSide = SEARCH_RINGS * 2;
+    const sideRank = (rank - 1) % slotsPerSide;
+    const side = nextSide(primary, Math.trunc((rank - 1) / slotsPerSide));
+    const anchor = sideAnchor(base, side);
+    const ring = Math.trunc(sideRank / 2) + 1;
+    const direction = (sideRank & 1) === 0 ? 1 : -1;
+    const p = sideAt(s, mover, target, side, anchor + direction * ring * spacing);
+    if (canUseApproachPoint(s, mover, target, p)) return p;
+  }
+
+  if (canUseApproachPoint(s, mover, target, base)) return base;
+
   for (let sideIndex = 0; sideIndex < 4; sideIndex++) {
     const side = nextSide(primary, sideIndex);
     const anchor = sideAnchor(base, side);

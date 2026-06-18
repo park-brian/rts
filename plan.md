@@ -119,6 +119,10 @@ Completed:
   prerequisites, queue state, and resources allow them.
 - Normal pointer taps on empty ground now issue plain `move`; attack-move is explicit through the
   command card so mobile-first tap behavior stays unambiguous.
+- Armed attack-move taps now share one explicit command grammar: enemy entity taps queue validated
+  targeted `attack` commands, ground/neutral taps queue point `amove`, and friendly/allied entity
+  taps reject without clearing the armed command. Desktop `A` plus left-click uses the same path,
+  while right-click remains the smart-command grammar.
 - Structure rally now supports point, unit, building, and resource targets through the shared
   `rally` command/replay path. Rally mode snaps to valid entity targets, production resolves live
   target positions, and invalid entity rallies retarget to the nearest valid rally entity instead
@@ -893,14 +897,6 @@ Remaining:
 - None in the current Phase 9 scope; future 8px path cells are a measured tuning option, not an
   active requirement.
 
-Phase 9 movement/economy follow-up completed after live play review:
-
-- SCV harvest reach remains the BW 10px data constant, but the top-down sim now requires physical
-  face-overlap docking instead of point-only diagonal corner contact, clears persistent movement
-  velocity while workers mine/deposit at docks, spreads explicit mineral-harvest commands over
-  nearby saturated patches, and reserves existing production-rally destination slots so sequentially
-  produced units do not jitter around one rally point.
-
 ## Phase 9B: Top-Down Spatial Semantics And Procedural Map Design
 
 Status: complete for the current shared-plateau generator.
@@ -1195,7 +1191,8 @@ Remaining:
 
 ## Phase 11: Timed Transitions And Ability Execution Semantics
 
-Status: planned.
+Status: current timed-transition substrate implemented; broader timing and representation follow-ups
+remain tracked in the BW-fidelity inventory.
 
 Purpose: remove the current class of "instant but should take time" mechanics and replace ad hoc
 timer meanings with a small, explicit temporal model that stays deterministic, fast, and easy to
@@ -1557,7 +1554,7 @@ Highest-impact LOC reductions:
      - Generalized the internal spec path beyond unit orders and moved `rally` into it, keeping rally
        target snapping and structure target validation in one command home.
      - Moved `harvest` into the same command-spec path, preserving worker/resource validation and
-       mineral-walk order setup.
+       resource-route collision setup.
      - Moved `repair` into the command-spec path and relocated paused Terran foundation resume into
        `repair.ts`, keeping SCV repair and construction continuation under one mechanic owner.
      - Moved the tiny special-action family (`burrow`, `mine`) into command specs, with burrow state
@@ -2083,6 +2080,963 @@ Done when:
   checks across UI, AI, validation, combat, and production.
 - Benchmarks show no regression in hot sim paths.
 
+## Phase 14: Deterministic Training Substrate Hardening
+
+Status: implemented for the current substrate-hardening scope.
+
+Purpose: make the already-playable sim a robust substrate for replay, networking, fuzzing, and
+large batched ML loops. The goal is not another layer of clever abstraction. The goal is that any
+controller can ask one owner what is legal, emit commands, step safely, and receive observations
+without duplicating game rules or crashing the process.
+
+Architectural target:
+
+- Entity/effect creation is capacity-aware and deterministic. Normal gameplay pressure must return
+  command rejection or a documented capped no-op, not throw from deep inside a tick.
+- State capacity remains fixed for the lifetime of a `State`. Do not grow typed arrays in the
+  middle of gameplay; if capacities ever become configurable, they must be part of snapshot,
+  serialization, hash/replay compatibility, and benchmark metadata.
+- Command option discovery is complete enough for UI, scripted AI, network clients, and RL action
+  masks to share the same legality source.
+- Action schemas are stable and versioned. A policy-facing action must round-trip through
+  `Action -> Command -> replay` without an app- or trainer-owned command vocabulary.
+- Observation has two public shapes: an ergonomic immutable object for app/tests/debugging and a
+  preallocated buffer writer for high-throughput ML.
+- Buffer-backed masks and observations do not allocate in their write paths. Any allocation happens
+  in explicit `create...Buffers` / `create...Scratch` helpers.
+- Batch stepping has an explicit execution contract: either all scratch state is per-sim/per-batch,
+  or the API documents and enforces synchronous non-reentrant stepping per JS worker/module instance.
+- Benchmarks measure the surfaces that will actually dominate training: step, observe, mask
+  generation, scripted-bot command generation, and vectorized batches.
+
+Implementation:
+
+0. Establish baseline contracts and measurements first.
+   - Current risk:
+     - this phase touches universal interfaces, so it is easy to "improve" an API without knowing
+       whether step, observe, mask, or bot generation is the real bottleneck.
+   - Collapse shape:
+     - snapshot current `npm run bench` output before code changes;
+     - audit every public `Command['t']` and record whether it is UI-facing, policy-facing,
+       replay-only/internal, or deliberately unsupported by masks;
+     - add an action/observation schema version constant before adding new buffers;
+     - write down whether each mask represents one next command or a batch decode with reservations.
+   - Tests:
+     - a coverage test fails when a new command tag is added without an action-mask policy entry;
+     - benchmark smoke tests keep stable JSON fields for before/after comparison.
+
+1. Add capacity-safe allocation primitives.
+   - Current risk:
+     - `spawn` and `spawnEffect` throw on full entity/effect tables.
+     - production, larva, hallucinations, broodlings, nukes, and persistent effects can reach those
+       calls from ordinary command streams.
+   - Collapse shape:
+     - introduce small non-allocating queries such as `canSpawnEntity(s, count = 1)` and
+       `canSpawnEffect(s, count = 1)`;
+     - add narrow helpers such as `trySpawnUnit` / `trySpawnEffect` only where a command may have
+       been validated earlier but capacity changed before application;
+     - add an explicit capacity rejection reason, or document a single shared reason such as
+       `queue-full`, so UI/RL/debugging can distinguish global capacity exhaustion from normal
+       tech/resource/target illegality;
+     - keep existing `spawn` for map/init/test setup where throwing is the right invariant check;
+     - command specs reserve/check capacity before accepting commands that can create entities or
+       effects;
+     - multi-spawn actions reserve atomically: Spawn Broodling, Hallucination, Scarab/Interceptor
+       creation, and production-count units must not partially create their payload;
+     - apply paths re-check capacity before spending energy, HP, ammo, costs, or cooldowns when the
+       command was validated earlier in the same batch;
+     - timed autonomous systems use explicit deterministic semantics when capacity is exhausted:
+       production/internal ammo holds at ready and retries; larva generation leaves the timer ready
+       and retries; optional child actors do not consume ammo unless the actor is created; persistent
+       effects do not consume spell resources unless the effect slot is secured.
+   - Tests:
+     - fill entity/effect capacity, then verify production, larva, hallucination, broodling,
+       interceptor/scarab, nuke, and persistent spell paths reject or no-op deterministically;
+     - multi-spawn abilities either create all children or none;
+     - resource/energy/ammo costs are not consumed when capacity rejection prevents the effect;
+     - replay/hash tests prove exhaustion behavior is stable.
+
+2. Complete action masks through command specs.
+   - Current risk:
+     - `action-mask.ts` only covers core command heads plus train/build candidates.
+     - abilities, research, upgrades, add-ons, transforms, load/unload, lift/land, cancel, merge,
+       and target argument masks are still missing.
+     - masks can become correct but too slow if they brute-force `validateCommand` across every
+       entity, point, and argument every decision.
+     - masks can become unusable for ML if they expose bits without a stable action encoder/decoder.
+   - Collapse shape:
+     - define a compact versioned `ActionSchema` beside command specs, not in UI code;
+     - include stable command-head ids, argument vocabularies, entity-index mapping rules,
+       point-coordinate quantization, and `encodeAction` / `decodeAction` helpers that produce the
+       ordinary public `Command` union;
+     - expose masks for:
+       - command heads;
+       - selected actor/entity candidates;
+       - target entity candidates;
+       - target point legality helpers;
+       - kind/tech/ability/add-on/transform arguments;
+       - load/unload cargo arguments;
+       - cancel/lift/land/burrow/unburrow/toggle variants;
+     - derive production masks from shared option enumerators that use the same legality helpers as
+       command-card capabilities, with `validateCommand` parity tests as the truth check;
+     - avoid production mask algorithms that are O(all entities × all command heads × all args) in
+       normal use; brute-force validation is acceptable in tests and tiny debug helpers, not the
+       default ML path;
+     - provide both single-next-command masks and a small batch-decode context for reservations such
+       as supply, resources, effect capacity, and entity capacity across multiple decoded commands;
+     - only expose target entity candidates from the viewer's legal observation/visibility set, so
+       fog and undetected cloak cannot leak hidden ids through masks;
+     - keep masks factored and sparse-friendly so RL can decode autoregressively without building
+       giant dense action tensors for every head.
+   - Tests:
+     - matrix tests compare masks against `validateCommand` for every command family;
+     - fog/detection cases prove masks do not expose illegal hidden targets;
+     - tech/power/creep/cargo/capacity cases prove masks match gameplay state.
+     - encode/decode tests prove policy actions round-trip to public commands and replay records.
+
+3. Add a buffer-backed observation writer.
+   - Current risk:
+     - `observe()` allocates arrays, maps, copied tech, cargo records, queue records, status records,
+       effect records, and a copied vision plane on every call.
+     - a fast buffer API can drift from object `observe()` if both reimplement visibility and
+       feature selection separately.
+   - Collapse shape:
+     - keep `observe(player)` as the ergonomic fair-play object API;
+     - define a versioned observation schema with scalar, entity-list, spatial-plane, queue, cargo,
+       status, effect, larva, creep, power, and optional result/event sections;
+     - add an explicit `createObservationBuffers(map, limits)` allocator for ML callers;
+     - add `writeObservation(s, player, buffers, opts) -> counts` that fills typed arrays in a stable
+       order without per-call allocation;
+     - reuse the same visibility, detection, lifecycle, queue, cargo, larva, creep, and power query
+       helpers as `observe()` so fair-play semantics cannot drift;
+     - keep stale data beyond returned counts undefined by contract, and make consumers read only
+       count-delimited regions;
+     - make truncation explicit in returned counts/flags rather than silently losing entities.
+   - Tests:
+     - object observation and buffer observation agree on representative scenarios;
+     - hidden cloaked enemies, parasite/scanner detection, cargo, queues, creep, power, larva, and
+       effects have parity;
+     - repeated writes reuse caller buffers and do not alias mutable sim arrays unless explicitly
+       documented.
+     - truncation flags are set when buffers are too small, and no stale entries are counted.
+
+4. Make step results immutable or caller-owned.
+   - Current risk:
+     - empty command batches return a shared mutable `EMPTY_RESULTS` array and `Sim.lastCommandResults`
+       stores it.
+   - Collapse shape:
+     - return `readonly CommandResult[]` from public APIs and freeze the shared empty array in dev, or
+       return a fresh empty array when callers may mutate;
+     - prefer caller-owned result buffers only if benchmarks show result allocation matters.
+   - Tests:
+     - mutating a previous empty result cannot affect later steps or `lastCommandResults`.
+
+5. Define the batch/reentrancy contract.
+   - Current risk:
+     - grid, local-avoidance, and collision use module-global scratch arrays for speed.
+     - a future `stepBatch` could accidentally interleave sims and corrupt shared scratch while
+       still passing ordinary single-sim tests.
+   - Collapse shape:
+     - document current contract: `stepWorld` is synchronous and non-reentrant per JS worker/module
+       instance;
+     - add a small guard in debug/test mode to fail fast on nested steps;
+     - when implementing `stepBatch`, start with sequential stepping inside a worker/process because
+       it preserves the current high-performance scratch model;
+     - only move scratch into an explicit `StepScratch` object if measured batch throughput or
+       worker design requires multiple sims to be in-flight in the same module instance;
+     - do not make hot loops allocate closure/callback-heavy abstractions to solve a theoretical
+       parallelism problem.
+   - Tests:
+     - two independent sims stepped sequentially in one process preserve deterministic hashes;
+     - attempted nested stepping fails in debug/test mode instead of corrupting scratch state.
+
+6. Add ML-relevant benchmark lanes.
+   - Current risk:
+     - current `bench` is useful but mostly proves small step throughput.
+   - Collapse shape:
+     - add fixed-seed lanes for:
+       - step only;
+       - step plus full action-mask generation;
+       - step plus object observe;
+       - step plus buffer observe;
+       - scripted-bot command generation;
+       - N-env sequential batch stepping;
+     - emit stable JSON so regressions can be compared over time without machine-specific hard
+       thresholds.
+   - Tests:
+     - smoke-test output shape and deterministic hashes; avoid brittle timing assertions.
+     - keep a short checked-in benchmark-baseline note in this plan or a docs file when a slice
+       intentionally trades speed for correctness.
+
+7. Keep the scripted bot useful but off the sim hot path.
+   - Current risk:
+     - bot command generation allocates Sets/arrays and scans entities repeatedly.
+   - Collapse shape:
+     - keep bot code readable first, because it is not the engine;
+     - add reusable per-bot scratch only for proven hot generators used in behavior-cloning corpus
+       production;
+     - make benchmark data decide whether bot allocation matters before compressing it.
+   - Tests:
+     - existing bot behavior tests remain scenario-based; any bot scratch must be reset per player
+       and preserve deterministic commands.
+
+8. Add deterministic abuse/fuzz coverage.
+   - Current risk:
+     - the engine can pass targeted tests while still throwing on weird but legal-looking command
+       streams, stale ids, saturated capacity, or edge-map coordinates.
+   - Collapse shape:
+     - add a deterministic command-stream fuzzer that emits a mix of valid, invalid, stale,
+       wrong-owner, fog-illegal, capacity-stressing, and edge-coordinate commands;
+     - run the same seeded stream twice and compare hashes, command-result summaries, and final
+       winner state;
+     - bias some fuzz lanes toward near-capacity entity/effect tables and mixed command batches that
+       stress reservation semantics.
+   - Tests:
+     - no fuzz case may throw from normal `step`;
+     - deterministic replay/hash equality holds for every fuzz seed;
+     - command rejection reasons stay in the public `CommandRejectReason` vocabulary.
+
+Completed:
+
+- Added capacity-aware entity/effect allocation queries and `try` allocation paths while keeping
+  throwing `spawn`/`spawnEffect` for setup and invariant-checked tests.
+- Added explicit `capacity-full` rejection and wired capacity checks into train, build, add-on,
+  spider mine, and ability validation through the shared command path.
+- Made live gameplay spawn paths capacity-safe: production holds ready and retries, larva timers
+  stay ready, construction refunds if capacity fills before placement, spider mines/interceptors/
+  scarabs do not consume ammo when no child can be created, and effect-creating spells refuse
+  before spending energy or nuke ammo.
+- Removed the shared mutable empty command-result array; empty steps now return caller-isolated
+  result arrays.
+- Added a non-reentrant `stepWorld` guard that documents and enforces the module-level scratch
+  contract.
+- Added a versioned action schema with stable command heads, public `Command` encode/decode helpers,
+  command-policy coverage, and validator-backed masks for command heads, train/build/research/
+  add-on/transform/ability arguments, and target-entity candidates.
+- Added a versioned buffer-backed observation writer with typed-array row strides, count-delimited
+  output, truncation flags, and a `Sim.writeObservation` wrapper while preserving the ergonomic
+  object `observe()` API.
+- Added benchmark lanes for buffer observation, mask generation, bot command generation, and
+  sequential N-env batch stepping.
+- Added deterministic abuse/fuzz coverage plus focused capacity, action-schema, observation-buffer,
+  and benchmark tests.
+- Added a policy batch-decode reservation context that preserves single-command validator parity
+  while reserving minerals, gas, supply, entity slots, effect slots, caster energy/HP, and command
+  ammo across multiple decoded actions before they are submitted as a tick batch.
+
+Remaining:
+
+- None in the current Phase 14 scope. Future large-scale RL integration should benchmark whether
+  policy callers need preallocated reusable reservation arrays, but the correctness contract is now
+  represented and tested.
+
+Done when:
+
+- No accepted command or autonomous timed system can crash the sim because entity/effect capacity is
+  exhausted.
+- Every public command family has validator-backed mask coverage or is explicitly marked
+  non-policy-facing with a reason.
+- ML callers can observe into stable typed buffers without per-step object allocation.
+- Policy actions can be encoded, masked, decoded into public `Command`s, recorded in replays, and
+  replayed without trainer-only command semantics.
+- Batch stepping has a documented and test-covered scratch/reentrancy model.
+- `npm run bench` includes step, observe, masks, bot generation, and batch lanes.
+- Deterministic fuzz tests cover stale/illegal/capacity-stressed command streams without throws.
+- Existing replay/hash tests remain stable, and benchmark output shows no material hot-path
+  regression.
+
+## Phase 15: Training-Scale Performance Hardening
+
+Status: current performance-hardening slice implemented; command-ingestion scratch remains a
+measured follow-up.
+
+Purpose: preserve the clean correctness substrate from Phase 14 while making the policy-facing
+surfaces scale to many environments. The sim tick path is currently healthy; the next risk is
+accidentally using correctness-first convenience APIs in tight RL loops and paying avoidable
+allocation or non-linear scans.
+
+Performance contracts:
+
+- Gameplay tick systems stay typed-array/SoA, deterministic, and allocation-conscious. Do not
+  replace them with class-per-entity objects, dynamic component maps, or collection-heavy state.
+- Ergonomic APIs may allocate, but any API intended for per-env-step training must have a
+  caller-owned `write...` / `...Into` / resettable scratch form.
+- Action legality remains validator-backed. Faster masks can precompute vocabularies and reuse
+  buffers, but they must not fork the command rules.
+- Benchmark before and after each slice. Prefer stable hashes and shape counters over brittle wall
+  clock thresholds, but inspect the standalone `npm run bench` output for obvious regressions.
+
+Implementation slices:
+
+1. Action-mask allocation reduction.
+   - Precompute static producer vocabularies such as research techs by producer and add-ons by
+     parent kind at module load.
+   - Add caller-owned mask writers for command heads, train/build/research/add-on/transform/
+     ability arguments, and entity-target masks.
+   - Keep existing return-new-array helpers as compatibility wrappers around the writers.
+   - Avoid option-spread/object churn inside inner mask loops where practical.
+   - Tests: existing validator-parity action-mask tests must pass unchanged; add writer parity if
+     a future writer diverges from a wrapper.
+
+2. Batch-decode scratch reuse.
+   - Add a resettable `BatchDecodeReservation` path so policy loops can reuse reservation arrays
+     across decisions.
+   - Add an `Into` helper for decoded batch results so callers can reuse the result array.
+   - Keep the existing convenience decoder for tests and simple integrations.
+   - Tests: resource, supply, capacity, energy/HP, and ammo double-spend tests cover both wrapper
+     and scratch paths.
+
+3. Observation complexity cleanup.
+   - Keep object `observe()` ergonomic for tests/debugging.
+   - Keep `writeObservation()` allocation-free and mostly linear.
+   - Collapse larva reporting from source-by-source nested scans into source rows plus one nearest
+     lookup per larva, or into explicit larva-source ownership if the sim later stores that state.
+   - Tests: object/buffer observation parity and truncation tests continue to pass.
+
+4. Command-ingestion scratch path.
+   - Current grouped move planning uses `Map` and string keys, which is acceptable for human/UI
+     command volume.
+   - If large RL command batches make ingestion visible in profiles, replace this with numeric
+     keyed scratch tables or a caller-owned `MoveGroupPlan` without changing group-slot semantics.
+   - Tests: same-target deterministic destination-slot tests are the behavioral gate.
+
+5. Benchmark coverage.
+   - Extend the mask-generation benchmark to cover argument masks and batch decode, not only
+     command-head masks.
+   - Add an observation stress lane with multiple Zerg larva sources and a larger live entity count.
+   - Keep benchmark output JSON stable so before/after comparisons remain easy.
+
+Completed:
+
+- Added architecture and training-doc performance contracts explaining why typed arrays, scratch,
+  validator-backed masks, and caller-owned buffers are intentional.
+- Added precomputed research/add-on vocabularies and caller-owned action-mask writer APIs.
+- Added resettable batch-decode reservation scratch plus a decoded-batch `Into` helper.
+- Collapsed buffer-observation larva reporting to source rows plus one nearest-source lookup per
+  larva instead of source-by-source nested scans.
+- Removed option-spread allocation from inner ability/entity-target mask writer loops.
+- Added focused tests for caller-owned mask writers and decoded-batch scratch reuse.
+- Extended the headless benchmark with full argument-mask, batch-decode, and Zerg larva observation
+  stress coverage.
+
+Remaining:
+
+- Command-ingestion numeric scratch for very large same-tick command batches. Keep the current
+  Map/string-key implementation until benchmark evidence shows it matters; it is simpler and lives
+  at the command boundary, not inside per-entity systems.
+
+Done when:
+
+- `npm run typecheck`, focused sim tests, `npm test`, and standalone `npm run bench` pass.
+- Existing benchmark hashes remain stable.
+- Full-mask and batch-decode benchmark lanes exist, so future regressions are visible.
+- The performance contracts are documented in both code comments and architecture/training docs.
+
+## Phase 16: Pathfinding Reference Refinement
+
+Status: analysis and implementation plan captured; no `packages/pathfinding` code should be
+checked in or imported by the game.
+
+Purpose: use `packages/pathfinding` as a behavioral reference for smoother RTS movement while
+preserving the production sim's fixed-point, typed-array, deterministic, BW-specific architecture.
+The reference package feels better because it treats movement as "global preferred velocity plus
+reciprocal local velocity constraints plus residual pushout." Our sim has the right broad layers
+already, but its local steering is still a small candidate-position scorer with no persistent
+velocity state, so it can feel more grid-snappy and less fluid under traffic.
+
+Reference comparison:
+
+| Area | `packages/pathfinding` behavior | Current sim behavior | Decision |
+|------|---------------------------------|----------------------|----------|
+| Global route | Flow field from one Dijkstra sweep per goal; sampled as a continuous bilinear direction. | Clearance-aware 16px path lattice with cached distance fields; `navigate()` chooses a downhill neighbor cell or straight-line pass. | Keep sim lattice/caches, add smooth fixed-point flow-vector sampling over the existing distance field. |
+| Passability | Simple float grid plus stamped rectangular obstacles. | Build-tile map projected to path cells; building footprints, body clearance classes, resources, lifted structures, and firing anchors are already modeled. | Keep sim passability. It is more game-correct. |
+| Goal assignment | Group move assigns distinct spiral slots around a click. | Same-target move/attack-move batches assign deterministic slots, excluding workers and widening for large bodies. | Keep current command-boundary slotting; later improve slot assignment quality if crowd crossing remains visible. |
+| Local avoidance | ORCA/RVO: preferred velocity is adjusted by reciprocal half-plane constraints using neighbor velocity, radius, time horizon, and max speed. | Candidate-position scorer checks direct/perpendicular/axis steps against a static same-tick body grid. | Replace candidate scorer incrementally with a fixed-point reciprocal velocity solver, not by copying object-heavy ORCA code. |
+| Motion integration | Units store velocity; acceleration cap smooths heading changes. | Units write position directly each tick; only facing persists. | Add compact `vx`/`vy` movement columns or equivalent scratch-backed persisted velocity for mobile actors. Serialize/hash it if gameplay-affecting. |
+| Arrival | Quadratic arrival easing plus settle deadzone. | Movement runs full step until close, then post-collision settling marks idle. | Add arrival preferred-speed shaping before steering; keep existing post-collision settle as the authoritative idle transition. |
+| Pushout | ORCA first, then a few pushout iterations for residual static overlap. | Local avoidance first, then symmetric collision cleanup with pathing-anchor weighting. | Keep collision as the seatbelt, but reduce reliance on it after velocity avoidance lands. |
+| Worker resource walking | Reference ghosts same-team gather workers for the whole loop. | Sim currently phases only mineral-route workers; gas workers remain solid and can jam on identical refinery paths. | Generalize to same-team resource-route worker phasing for mineral and gas harvest loops, while keeping workers solid for build/repair/ordinary move and against non-workers/enemies. |
+| Performance shape | Float object arrays; fine for demo scale. | SoA typed arrays, fixed-point math, module-local scratch, hash/replay determinism. | Translate ideas, not code. No object-per-neighbor allocations inside the tick. |
+
+Non-negotiable constraints:
+
+- The production pathing implementation remains in `packages/sim`; `packages/pathfinding` is a
+  reference only.
+- Replay determinism wins over visual cleverness. No `Math.random`, wall-clock timing, object
+  iteration order dependencies, or platform-sensitive float state in the sim tick.
+- Keep pathing state SoA and capacity-bounded. New columns such as `vx`/`vy` are acceptable if they
+  reduce hidden behavior and make steering easier to reason about.
+- Keep terrain/building/resource/pathing-anchor clearance semantics in one place. Do not fork
+  passability just to make the velocity layer easier.
+- Collision remains as residual correction. The goal is to make overlap rare, not to delete pushout.
+- "BW-style blocking" primarily means action-state blocking: units that are rooted by firing,
+  deployment, burrow, construction, or other non-moving states should be authoritative local
+  obstacles. Units that can move while firing, such as capital ships/air movers, should not become
+  ground pathing anchors just because they are attacking.
+
+Implementation slices:
+
+1. Flow-field smoothing without changing state shape.
+   - Add a fixed-point flow sampling helper over the existing `flowField()` distance grid.
+   - For each candidate sample point, derive the downhill vector from neighboring integration costs
+     and bilinearly blend nearby cell vectors. Invalid corners fall back to the nearest valid vector,
+     then to straight goal steering.
+   - Keep `clearPathLine()` and direct target movement for genuinely clear short paths, but use the
+     smoothed vector when the flow field is active instead of always chasing the next cell center.
+   - Tests: add a wall-adjacent flow test proving the steering vector turns around the obstacle
+     instead of stepping hard from one compass direction to the next; existing route/hash tests must
+     remain deterministic.
+
+2. Persistent movement velocity.
+   - Add `vx`/`vy` entity columns for mobile actors or an explicitly persisted movement-velocity
+     table with serialization/hash coverage. Prefer entity columns because velocity affects future
+     avoidance and therefore gameplay.
+   - First land the state contract: clone/serialize/hash coverage plus hard resets on spawn/free,
+     containment, burrow, hard stop, completed land, death, and movement-disabling transitions.
+   - Then replace direct ground `moveToward` integration with "compute desired velocity from the
+     existing chosen step/candidate scorer, acceleration-limit toward it, integrate." Keep air units
+     on the old direct primitive until a dedicated air-behavior slice says otherwise.
+   - Reset velocity on spawn/free, containment, burrow, hard stop, completed land, death, and any
+     transition that disables movement.
+   - Tests: state-contract tests cover reset and serialization/hash; behavior tests cover stopped
+     units not drifting and crossing units having bounded turn oscillation.
+
+3. Arrival speed shaping.
+   - Compute preferred speed as full speed outside an arrival band and eased speed inside it.
+   - Use body radius and formation slot spacing to choose the band; avoid easing too early for
+     attack-move chase behavior where units should close to weapon/interaction range.
+   - Keep `settleMovement()` responsible for switching orders to idle after collision cleanup.
+   - Tests: a single mover should not overshoot/orbit a one-cell destination; group settle tests
+     should remain stable with fewer collision nudges.
+
+4. Fixed-point reciprocal avoidance prototype.
+   - Implement a small, allocation-free neighbor-velocity solver behind `local-avoidance.ts`.
+   - Start with the ORCA/RVO concept but represent lines/constraints in scratch typed arrays, using
+     deterministic fixed-point or tightly controlled integer approximations.
+   - Feed it preferred velocity, current velocity, radius, neighbor velocity, radius, and time
+     horizon. Include pathing anchors as one-sided or high-weight constraints so firing units stay
+     rooted.
+   - Keep a fallback candidate scorer for edge cases until the solver is proven by tests and
+     benchmarks.
+   - Tests: head-on swap, perpendicular crossing, dense group to distinct slots, movers around
+     rooted firing anchors, resource-route worker exceptions, and opposing choke traffic.
+
+5. Resource-route worker phasing.
+   - Rename the current mineral-walk helper to resource-route phasing so the rule is not hidden in
+     mineral-specific names.
+   - Treat same-team workers on active mineral or gas harvest/return routes as mutually non-solid
+     to each other. This includes workers pathing to a refinery, harvesting gas, and returning gas
+     to a depot, because refinery traffic commonly converges on identical lanes.
+   - Keep phasing pairwise and narrow: no phasing against enemy workers, combat units, buildings,
+     resources, ordinary moving workers, builders, repairers, or scouts.
+   - Feed the same predicate into local avoidance and collision so path choice and pushout agree.
+   - Tests: two gas workers assigned to the same refinery should not shove each other or deadlock;
+     gas workers should still collide with idle/build/repair workers and non-workers.
+
+6. Large-unit clearance audit.
+   - Make the gap rule data-driven by body clearance: a unit can pass only if its top-down collision
+     body fits through the pathing lattice. Do not add a special "large units cannot pass" rule.
+   - Add explicit tests for small, medium, and large ground bodies through one-cell and two-cell
+     gaps so the UX is predictable. The answer should come from the clearance mask, not from a unit
+     kind check.
+   - Use SC2 only as behavioral intuition here: large units like Siege Tanks/Thors do not squeeze
+     through gaps sized for a single small unit; if the gap is wide enough for their footprint, they
+     pass. Our sim should express the same idea through radius/footprint math.
+
+7. Collision-pressure telemetry and benchmark gates.
+   - Extend `movement-deathball` or add a focused pathing benchmark to report collision nudges,
+     max overlap before pushout, active movement orders, settled count, and distinct positions.
+   - Use this to prove velocity avoidance reduces pushout pressure rather than merely hiding bugs.
+   - Do not accept a slice that introduces O(n^2) all-pairs behavior; neighbor lookup must stay
+     spatial-grid bounded.
+
+8. Code cleanup after behavior is proven.
+   - Remove the old candidate scorer only after reciprocal velocity tests cover the same cases.
+   - Keep the architecture comments close to the code explaining why the movement model is layered:
+     route field -> preferred velocity -> local velocity constraints -> integrate -> collision
+     cleanup -> settle.
+   - Avoid exposing pathfinding package concepts directly in public APIs; command/AI/RL should still
+     talk in orders and world targets, not steering internals.
+
+Risks and mitigations:
+
+- Persistent velocity changes replay hashes. Mitigation: land it as a deliberate sim-version slice
+  with serialization/hash tests, not as an incidental movement tweak.
+- ORCA math can become float-heavy. Mitigation: prototype with deterministic fixed-point/integer
+  approximations and compare against package behavior in tests, not by importing the package.
+- Smooth flow sampling can route into blocked corners if invalid samples are blended carelessly.
+  Mitigation: reject invalid corners and keep the existing passability and no-corner-cutting checks
+  authoritative.
+- Better avoidance can make units too fluid compared with deliberate action-state blocking.
+  Mitigation: preserve rooted/pathing-anchor semantics for units that cannot move while acting,
+  preserve pairwise resource-worker exceptions, and keep collision cleanup as the residual guard.
+
+Done when:
+
+- Movement still passes all current pathing, worker-collision, combat-anchor, harvest, serialization,
+  replay/hash, and headless benchmark tests.
+- A new reference-inspired test set proves smooth flow sampling, acceleration-limited steering,
+  crossing-agent stability, and dense crowd progress.
+- Benchmark output shows no obvious throughput regression, and collision-pressure counters improve
+  or stay flat in deathball/choke cases.
+- The production sim imports nothing from `packages/pathfinding`.
+
+Completed:
+
+- Generalized worker collision phasing from mineral-only to resource-route workers. Same-team
+  workers on active mineral or gas harvest/return routes now phase through each other in both local
+  avoidance and collision, while remaining solid against idle/build/repair workers, non-workers,
+  enemies, structures, and resources.
+- Added a ground-clearance audit proving one-cell gaps admit small/medium bodies but reject large
+  Dragoon/Siege Tank/Ultralisk bodies, while two-cell gaps admit all tested ground body sizes via
+  the shared clearance mask rather than unit-kind special cases.
+- Added transient collision-pressure counters and exposed them through the `movement-deathball`
+  benchmark so future flow/velocity/avoidance changes can prove whether collision cleanup pressure
+  improves without affecting gameplay hash or serialized state.
+- Added fixed-point smooth flow-field sampling over the existing clearance-aware distance field.
+  `navigate()` uses the smoothed lookahead only when it preserves downhill field progress, falling
+  back to the old discrete cell-center route otherwise, so choke progress and no-corner-cutting stay
+  guarded by the existing passability rules.
+- Added persistent movement velocity columns with clone/serialize/hash coverage and hard-reset
+  contracts for stop, containment, burrow, lift/land, transforms, disabled status, death, and
+  spawn/free so later velocity steering can be deterministic instead of scratch-state behavior.
+- Added deterministic acceleration-limited ground movement integration on top of the existing
+  route/candidate scorer. Focused tests cover ramped `vx`/`vy`, stop-without-drift, and deterministic
+  crossing-unit settling; benchmark throughput stayed healthy, while collision-pressure counters
+  showed acceleration alone does not reduce deathball pushout pressure, leaving that job for the
+  reciprocal-avoidance slice.
+- Added exact-destination-only arrival speed shaping for ground movement before acceleration.
+  Intermediate flow-cell steering remains full-speed, while near-goal exact destinations ease down
+  to avoid overshoot/orbit. Focused tests cover no-overshoot behavior and existing group settle
+  tests remain stable; benchmark pressure improved versus pure acceleration but still leaves the
+  main overlap reduction target for reciprocal avoidance.
+- Added a narrow fixed-point reciprocal-avoidance preferred-velocity adjustment for closing
+  opposing/anchored ground interactions, while keeping the existing candidate scorer and collision
+  cleanup as fallbacks. Tests cover predicted head-on avoidance and existing choke/ramp/resource
+  phasing behavior; benchmark max overlap improved, but pair/nudge counters remain mixed, so this
+  stays a prototype until cleanup proves whether it should replace more of the old scorer.
+- Documented the layered movement pipeline in code near the hot path: route/flow, reciprocal
+  preferred velocity, fallback candidate scoring, persisted-velocity integration, collision cleanup,
+  and settle. The comment explicitly keeps the scorer/collision fallback authoritative while
+  reciprocal counters remain mixed.
+- Tightened worker-economy movement contracts after live play review: harvest docking now chooses
+  face overlap instead of point-only diagonal corner contact, workers zero persistent movement
+  velocity while mining/depositing at docks, explicit mineral harvest commands reuse the saturation
+  picker so a clicked patch fans workers across nearby minerals, and sequential production rallies
+  reserve already-occupied rally slots instead of sending every new unit to jitter around the same
+  point.
+- Generalized the same perimeter target contract beyond harvest: harvest/deposit, repair,
+  generic move-to-load, and production entity rallies now resolve to the closest usable point on
+  the target's body/footprint perimeter, stepping deterministically around occupied perimeter
+  points instead of routing units into structure centers.
+- Collapsed rally's armed-unit behavior into shared travel intent issuance: explicit move,
+  explicit attack-move, and production rally now assign orders through the same helper, with rally
+  using a command-equivalent `smart` intent instead of a rally-only attack-move special case.
+
+## Phase 17: Command Intent, Follow, And Rally Architecture
+
+Status: targeted move/follow, player-aware gather legality, typed producer rally, command-intent
+extraction, action-mask follow targets, deterministic same-target follow slots, and the
+intent/combat target split for normal movement and combat are implemented; internal
+attack-move-follow is now unblocked but not yet public UI/API behavior.
+
+Purpose: make mobile/desktop commands, explicit target modes, rally behavior, pathfinding, AI,
+RL masks, and replay semantics share one small set of intent concepts. The goal is to remove
+rally-specific combat/resource branches while preserving the StarCraft feel: normal left-click
+selects, armed-command left-click applies the selected command, desktop right-click is a contextual
+smart command, right-clicking an enemy unit attacks, right-clicking a loadable target loads,
+right-clicking an ordinary friendly unit follows, `A` plus left-click is attack-move, workers can
+be explicitly rallied directly to resources, and resource
+rally is never silently invented for non-resource targets.
+
+Core thesis:
+
+- Rally is not a unit order. Rally is a producer-owned spawn intent template.
+- A producer may need more than one rally slot. The clean split is a general/unit rally for spawned
+  non-workers and a worker/gather rally for spawned workers. Hatchery-family producers naturally
+  use both; Command Center/Nexus mostly use the worker rally; Barracks/Gateway-style producers use
+  the unit rally. A resource click should not overwrite the combat/unit rally unless we explicitly
+  choose that UX.
+- Unit-target movement is follow. A unit told to move to another unit should keep recomputing a
+  stable approach point around the target while the target remains valid, not walk to the target's
+  old center and forget why it moved.
+- Interaction commands are follow-until-interaction: harvest, repair/resume construction, load,
+  unload-to, and future heal/enter-Nydus-like interactions all share the same "approach entity,
+  then execute a verb" shape.
+- Combat targets and movement/follow targets are different concepts. Overloading one `target`
+  column for both makes attack-move-follow, escort, and rally-to-unit brittle because combat may
+  temporarily acquire an enemy while the original follow intent should remain alive.
+- Resource rally is a worker/gather rally, not a generic unit rally. It should only be stored when
+  the rally target is a resource or completed resource collector that shared validation considers a
+  gather target. Workers resolve it to harvest; non-workers should continue using the producer's
+  general/unit rally instead of silently converting the resource target into a combat rally.
+
+Vocabulary under review:
+
+```ts
+CommandIntent =
+  | { kind: 'travel'; mode: 'move' | 'attackMove'; endpoint: TravelEndpoint }
+  | { kind: 'interact'; verb: 'harvest' | 'repair' | 'load'; target: EntityId }
+  | { kind: 'attack'; target: EntityId }
+  | { kind: 'ability'; ability: AbilityId; target: AbilityTarget };
+
+TravelEndpoint =
+  | { kind: 'point'; x: Fx; y: Fx }
+  | { kind: 'follow'; target: EntityId };
+
+UnitRally =
+  | { kind: 'none' }
+  | { kind: 'point'; x: Fx; y: Fx }
+  | { kind: 'follow'; target: EntityId };
+
+WorkerRally =
+  | { kind: 'none' }
+  | { kind: 'resource'; target: EntityId };
+
+ProducerRally = {
+  unit: UnitRally;
+  worker: WorkerRally;
+};
+```
+
+The exact TypeScript shape can change, but the conceptual split should not: point travel, follow
+travel, verb interactions, combat targets, unit rally, and worker/resource rally need distinct
+names so systems stop guessing from overloaded fields.
+
+Review findings from the current code:
+
+- Implemented in the first slice: the public `move` command now supports an optional entity target,
+  replay/action encoding preserves it, validation accepts only friendly non-resource targets, and
+  command ingestion converts stable entity IDs into slot-local travel endpoints before issuing
+  `Order.Move`.
+- Implemented in the first slice: desktop smart right-click now uses a finite StarCraft grammar:
+  attack enemies, harvest resources, repair/continue repairable friends, load when valid, follow
+  ordinary friendly entities, or move to ground. It does not emit attack-move or arbitrary ability
+  behavior.
+- Implemented in the first slice: `Order.Move + target` now keeps the follow target, recomputes the
+  current approach point around a moving target, and settles at the approach point without clearing
+  the follow intent. This is still stateless follow; sticky multi-follower approach slots remain a
+  later performance/UX refinement.
+- Implemented after the first slice: resource-target validation now uses shared
+  `isGatherTarget` and player-aware `canPlayerGatherTarget` predicates. Neutral minerals are valid,
+  friendly/allied completed gas collectors are valid, bare geysers and hostile collectors are not,
+  and stale resource IDs are rechecked before slot conversion.
+- Implemented after the first slice: `rallyX/rallyY/rallyTarget` is now the unit/general rally,
+  with separate `workerRallyX/workerRallyY/workerRallyTarget` state for worker gather rally.
+  Production, rendering, setup defaults, invalidation, and focused tests use the typed split.
+- Implemented after the first extraction slice: `command-intent.ts` owns the finite smart-command
+  grammar and the produced-unit rally intent vocabulary. Production now asks for a typed spawn
+  intent, then performs the hot-path side effects, resource selection, cargo loading, and
+  destination-slot reservation locally.
+- Remaining duplication: validation entry points, action-mask option surfaces, AI policy choices,
+  and future command-card target modes still need to consume the shared command-intent vocabulary
+  more directly before richer follow or combat-target state is added.
+- Implemented after action-mask coverage: targeted follow movement now builds a deterministic
+  per-tick scratch plan for same-target ground followers and passes stable ranks into
+  `entityApproachPoint`, so several followers reserve distinct perimeter approach slots without
+  adding serialized state.
+- Remaining representation gap: movement/follow/load travel reads `intentTarget`, normal combat
+  reads `combatTarget`, and legacy `target` is now a compatibility mirror for older readers.
+  Attack-move-follow or escort is unblocked internally, but public command/UI exposure should stay
+  deferred until the internal follow endpoint behavior is tested.
+
+Behavior matrix to review:
+
+| Player action / stored intent | Worker result | Combat-capable unit result | Noncombat/nonworker result | Notes |
+|-------------------------------|---------------|----------------------------|----------------------------|-------|
+| Normal left-click entity | Select / inspect per control scheme | Select / inspect per control scheme | Select / inspect per control scheme | Left-click is selection unless a command mode is armed. |
+| Armed-command left-click valid target | Apply selected command | Apply selected command | Apply selected command or reject by validation | Build, rally, attack-move, harvest, repair, load, unload, and abilities all use this pattern. |
+| Right-click empty ground | Move to point | Move to point | Move to point | Ground right-click is movement. |
+| A + left-click ground | Attack-move point | Attack-move point | Move or reject by validation | Attack-move is explicit command mode, not right-click behavior and not a rally special case. |
+| Right-click enemy unit/building | Attack target if unit can attack | Attack target | Reject or move/follow only if unit truly cannot attack | This is targeted attack, not attack-move. |
+| Right-click friendly mobile unit | Follow target unless a higher-priority smart interaction applies | Follow target unless a higher-priority smart interaction applies | Follow target | Follow recomputes approach slot around moving target. Requires public command support for entity travel. |
+| Armed attack command on friendly unit | Reject/keep target mode or explicit escort if modeled | Reject/keep target mode or explicit escort if modeled | Reject | Do not confuse desktop smart right-click with the target click after arming Attack. |
+| Right-click resource/gas collector | Harvest if unit can gather | Reject if not gather-capable | Reject | Smart worker harvest. |
+| Right-click damaged/incomplete repairable friendly | Repair/resume if eligible | Reject unless unit can repair | Reject | Smart SCV repair/continue construction. |
+| Right-click loadable transport/bunker/Nydus | Load or move-to-load if eligible | Load or move-to-load if eligible | Reject or follow if not eligible | Smart load belongs in the finite right-click grammar. |
+| Explicit load/harvest/repair command | Same result as right-click when valid | Same result when valid | Reject when invalid | Explicit buttons/hotkeys remain available and should share validation with right-click. |
+| Structure unit-rally to point | Worker uses worker rally first, otherwise normal/default handling | Attack-move or move by unit capability | Move to point | Bases may still auto-mine workers when no worker rally exists. |
+| Structure unit-rally to unit/building | Worker uses worker rally first, otherwise follow/interact if valid | Attack-move-follow or move-follow by unit capability | Follow | This is the "rally is follow" rule. |
+| Structure worker-rally to resource | Harvest if produced unit is a worker | Use unit rally, not resource target | Use unit rally, not resource target | Resource rally must only be set from valid gather targets and should not become combat rally. |
+
+Left-click grammar checklist:
+
+- Normal left-click:
+  - entity: select / inspect per control scheme;
+  - ground drag: box select;
+  - Shift + entity: add/remove from selection;
+  - double-click entity: select same visible type in the local/on-screen scope;
+  - control groups remain hotkey-driven; left-click should not gain hidden group semantics.
+- Armed-command left-click:
+  - Attack / `A`: left-click ground issues attack-move; left-click enemy issues targeted attack;
+    left-click friendly should reject/keep target mode unless an explicit escort/attack-move-follow
+    feature has been implemented;
+  - Move, if exposed as an explicit command mode: left-click ground moves, left-click entity follows;
+  - Patrol, if/when implemented: left-click point/entity creates the patrol route/target;
+  - Hold/Stop: immediate commands, no world left-click target;
+  - Harvest: left-click valid resource/gas collector gathers;
+  - Repair: left-click repairable damaged friendly or incomplete Terran structure repairs/resumes;
+  - Load: left-click valid transport/bunker/Nydus target loads or moves-to-load;
+  - Unload: left-click ground/entity-valid unload point unloads through shared unload validation;
+  - Rally: left-click point/entity/resource sets unit rally, follow rally, or worker resource rally
+    according to the producer rally split;
+  - Build: left-click/pointer-up on valid snapped ground footprint places the building;
+  - Land: left-click/pointer-up on valid snapped ground footprint starts/continues landing;
+  - Point abilities: left-click ground/entity point casts through shared ability validation
+    (Scanner Sweep, Psionic Storm, Dark Swarm, Disruption Web, Nuke target, etc.);
+  - Entity abilities: left-click valid entity target casts through shared ability validation
+    (Yamato, Lockdown, Feedback, Spawn Broodling, Consume, etc.);
+  - Immediate/toggle abilities and transforms such as Stim, Burrow, Cloak, Siege, Stop, Hold,
+    Train, Research, and most production buttons apply immediately from the button/hotkey and do
+    not consume a world left-click.
+- Mobile should mirror the concept, not the mouse buttons: normal tap selects; once a command is
+  armed, the next tap applies it; mobile smart-command affordances should emit the same finite
+  smart-command intents as desktop right-click.
+
+Recommended answer for resource rally:
+
+- Store worker/resource rally in a separate producer slot only when the target passes shared
+  resource-rally validation.
+- For town-hall producers, workers resolve worker rally to harvest. This gives Hatchery/Lair/Hive,
+  Command Center, and Nexus the same worker-rally model without a Hatchery-only special case.
+- For Zerg producers that can create both workers and combat units, non-workers use the unit rally;
+  the worker rally remains available for future Drones.
+- For non-worker-only producers, resource clicks should not create worker rally unless the producer
+  can actually produce workers. They should either set a point/unit rally according to ordinary
+  rally rules or be rejected by resource-rally validation.
+- This is slightly more state than a single typed rally, but it prevents the worst UX ambiguity:
+  setting a mineral rally for Drones should not make every later Zergling walk into the mineral
+  line unless the player explicitly set the unit rally there too.
+
+Pathfinding contract for follow:
+
+- Follow targets resolve through a stable `approach slot` around the target's top-down body or
+  footprint, not the target center.
+- The slot should be deterministic and sticky:
+  - keep the assigned side/offset while the target moves and the slot remains reachable;
+  - recompute when the target moved far enough, the slot is blocked, the follower falls far behind,
+    or the target invalidates;
+  - group followers to the same target should reserve distinct slots around the target, analogous
+    to point rally/move destination slotting.
+- `entityApproachPoint` is the first version of this idea, but it is stateless. A true follow slice
+  should decide whether sticky approach slots need new columns/scratch state or can be derived from
+  deterministic rank assignment each tick without causing jitter.
+- Arrival for follow differs from arrival for point travel: reaching the current approach point
+  should settle the unit near the target, but it should not clear the follow intent while the target
+  remains valid.
+
+State representation decision under review:
+
+- Short-term: `Order.Move` with `target != NONE` can mean follow/move-to-load because the movement
+  system owns that target, while `Order.AttackMove` should continue to clear `target` because combat
+  uses the same column for acquired enemies.
+- Long-term cleaner model: split intent target from combat target, for example:
+  - `intentTarget`: follow/interact/rally-instantiated entity target;
+  - `combatTarget`: current acquired enemy or forced attack target;
+  - `intentMode` or named order helpers: point move, follow move, attack-move point, attack-move
+    follow, harvest, repair, load.
+- Do not add a broad `Order.Follow` unless it improves replay/action semantics. The deeper need is
+  separate movement-intent and combat-target state, not another enum value that still overloads
+  `target`.
+
+Implementation slices:
+
+1. Document and test current semantics before changing representation.
+   - Add scenario tests for right-click/move-to-friendly-unit, rally-to-friendly-unit, rally-to
+     resource, non-worker spawned from a resource-rallied producer, and loadable target rally.
+   - Tests should assert orders, target retention, approach point behavior, and no accidental
+     conversion of resource rally into combat rally.
+   - Add tests that capture the current gaps too: desktop right-click on a friendly unit degrades to
+     point move, ordinary `Order.Move + target` clears non-loadable targets, and single-slot rally
+     cannot retain resource-vs-unit intent after target invalidation. These tests should be marked
+     as expected failures only if the test harness supports that; otherwise document them as first
+     repair cases.
+
+2. Extract command-intent resolution.
+   - Introduce one module that maps validated commands and producer rally templates into
+     `CommandIntent`/`ProducerRally`/`UnitRally`/`WorkerRally`/`TravelEndpoint` concepts.
+   - `command-specs.ts`, production, UI command candidates, AI, replay, and action masks should call
+     into that same vocabulary instead of duplicating "if worker/resource/loadable" logic.
+   - Keep validation authoritative: resource rally can only target resources/resource collectors;
+     load interaction can only target valid cargo endpoints; harvest can only target harvestable
+     resources.
+   - Status: current extraction scope implemented. `command-intent.ts` now owns the finite
+     smart-command resolver for enemy attack, resource harvest, repair, load, friendly follow,
+     structure rally, and ground move; the app file is a thin re-export, and sim-level parity tests
+     cover the candidate priority. It also owns `producedUnitRallyIntent`, which maps typed producer
+     rally state into gather-near, gather-target, load, travel, or none for production. Remaining
+     extraction work is future AI/RL/action-mask callers and eventual target-mode command cards.
+   - Status: action-mask follow-target coverage implemented. Entity target masks and caller-owned
+     writers now accept the `move` head for targeted follow candidates, with validator-parity tests
+     proving friendly non-resource targets are exposed while enemy, resource, and self targets are
+     rejected.
+
+3. Add public entity-travel command support.
+   - Status: done for `{ t: 'move'; unit; x; y; target? }` plus replay/action encode/decode,
+     validator parity, and desktop smart command emission.
+   - Decide whether the public command is `{ t: 'move'; unit; x; y; target? }` or a new
+     `{ t: 'follow'; unit; target }` command. Prefer the smallest replay/action-schema change that
+     still makes the command log honest.
+   - Desktop right-click with units selected must emit only the finite StarCraft smart-command set:
+     attack enemy, harvest resource, repair/continue construction, load into valid transports or
+     structures, follow ordinary friendly units/buildings, or move to ground. It must not emit
+     attack-move or arbitrary ability behavior.
+   - Left-click applies the currently armed command mode. `A` plus left-click emits attack-move;
+     armed Harvest/Repair/Load/Unload/Rally/Ability/Build/Land modes should use the same selected
+     command application path. Armed-command left-click is not the same thing as right-click smart
+     command resolution.
+   - Mobile explicit target modes should use the same armed-command application path where possible,
+     with mobile-specific selection grammar layered above the shared command semantics.
+   - Replay parser, action masks, command validation, and command-card capability checks need the
+     same command shape before movement behavior changes.
+
+4. Add true follow semantics for entity-target travel.
+   - Status: deterministic same-target follow slots implemented for ground followers. Movement
+     derives a per-tick scratch plan keyed by live follow target id, ranks followers by slot, and
+     uses rank-aware perimeter approach points. Tests assert distinct destinations, target retention,
+     stable hashes, and no serialized state churn. Remaining work is the eventual
+     intent/combat-target split.
+   - Preserve a follow target until it invalidates instead of clearing it on first arrival.
+   - Recompute the current `tx/ty` from a stable approach slot when the target moves.
+   - Clear follow only on explicit stop/new command, target invalidation fallback, successful
+     one-shot interaction where the unit enters cargo, or a command-specific completion rule.
+   - Tests should cover a moving leader and a follower that continues tracking without orbiting or
+     jittering.
+
+5. Split producer rally state.
+   - Prerequisite next slice: introduce a shared `isGatherTarget` / resource-rally predicate and use
+     it from harvest validation, rally validation, smart-command candidates, masks, and focused
+     tests. Status: implemented for command validation, rally snapping/validation, setup defaults,
+     production rally resolution, harvest routing, resource-route collision checks, app smart
+     commands, and focused sim/app tests. The predicate is split into shape-level
+     `isGatherTarget` and player-aware `canPlayerGatherTarget`: neutral minerals are gatherable,
+     completed friendly/allied gas collectors are gatherable, and hostile gas collectors are not.
+     This landed before new rally state columns so "resource rally" has one authoritative meaning.
+   - Status: implemented. Existing `rallyX/Y/Target` is now the unit/general rally, with new
+     `workerRallyX/Y/Target` columns for resource/gather rally. Clone/serialize pick the columns up
+     through `ENTITY_COLUMNS`, hashes include them, snapshot version is bumped, setup stores default
+     mineral-line rally as worker rally, and both renderers draw typed rally endpoints.
+   - Status: implemented. `resolveUnitRallyEndpoint` and `resolveWorkerRallyEndpoint` now split
+     invalidation/retargeting: unit rally retargets friendly entities, worker rally retargets gather
+     targets. Production uses worker rally only for workers and unit rally for non-workers, so
+     resource rally no longer sends Zerglings/Marines into mineral lines.
+
+6. Decide and implement attack-move-follow.
+   - Option A: reject attack-move entity targets until `intentTarget`/`combatTarget` split lands.
+   - Option B: implement the split first, then allow `attackMove + follow target` so escorts follow
+     a friendly unit/building while acquiring/releasing enemy combat targets along the route.
+   - Pushback: do not emulate attack-move-follow by stuffing the friendly target into `target` and
+     letting combat overwrite it. That recreates the current ambiguity with a nicer name.
+   - Status: internal behavior unblocked. The intent/combat-target split exists for normal movement
+     and combat, so the next slice can support an internal AttackMove follow endpoint while keeping
+     public command/UI exposure deferred until behavior is validated.
+   - Status: internal behavior implemented. Travel issuance can retain an entity endpoint for
+     AttackMove in `intentTarget` while leaving legacy `target` free for the combat compatibility
+     mirror. Movement refreshes entity-follow destinations for both Move and AttackMove orders, and
+     settle treats AttackMove with a live `intentTarget` as a follow order rather than a completed
+     point order. Tests cover production unit-rally-to-unit AttackMove follow and an escort-shaped
+     AttackMove state that keeps following after combat acquisition/release. Public command/UI
+     exposure remains deferred.
+
+6A. Schema-first target split.
+   - Purpose: add room for the real split before changing behavior. The current `target` column is
+     still the source of truth; new columns must be cloned, serialized, hashed, reset, and observed
+     by coverage tests before systems read from them.
+   - Add `intentTarget` for movement/interact/follow intent and `combatTarget` for acquired or
+     forced enemy combat targets.
+   - Include both columns in `ENTITY_COLUMNS`, `makeEntities`, spawn reset, clone/serialize/hash,
+     snapshot versioning, and state API coverage.
+   - Do not change command application, movement, combat, harvest, repair, load, abilities, or
+     render behavior in this schema slice.
+   - Add tests proving `ENTITY_COLUMNS` covers the new columns, serialize/hash include them, and
+     spawn/free/reused slots reset them to `NONE`.
+   - Status: schema slice implemented with no behavior changes. `intentTarget` and `combatTarget`
+     are allocated as entity columns, reset on spawn/reuse, serialized in snapshot version 22,
+     cloned via `ENTITY_COLUMNS`, and included in desync hashes. Replay/state tests prove
+     round-trip, hash participation, and slot reuse reset.
+   - Status: movement follow/load migration implemented. `issueTravelOrder` mirrors move entity
+     targets into `intentTarget` and legacy `target`; movement, settle, and landing prefer
+     `intentTarget` with legacy fallback; containment, unload, stop, and egg completion clear stale
+     movement intent. Tests wipe legacy `target` during targeted follow and production rally-load
+     cases to prove `intentTarget` is the source of truth for recompute and load-on-arrival.
+   - Status: stale movement-intent cleanup implemented. Non-travel command/order boundaries such as
+     attack, harvest, repair/resume, build, burrow, transform, lift, addon/cancel paths, abilities,
+     production morphs, construction release/failure, and cargo containment clear `intentTarget`.
+     Landing remains the explicit exception because it is movement-to-self and stores the building's
+     own id in `intentTarget`. Validation tests cover representative command boundaries.
+   - After the target split slices:
+     - public exposure of attack-move-follow/escort should stay behind command-card/UI/API review;
+     - public commands, UI command cards, action masks, and observations should only expose richer
+       target semantics after the internal behavior is tested;
+     - replay/hash/bench coverage remains checked after each migration.
+   - Status: normal combat migration implemented. Direct attack seeds `combatTarget`, combat
+     acquisition reads `combatTarget` before the legacy compatibility mirror, acquired
+     Idle/AttackMove targets are remembered in `combatTarget`, and combat target invalidation
+     clears the mirrored legacy target without touching `intentTarget`. Focused combat tests prove
+     direct attack, attack-move acquisition, and a future attack-move-follow-shaped state where
+     movement intent survives enemy acquisition and release. Child actors that own their own target
+     semantics, such as scarabs, interceptors, and spider mines, intentionally remain outside this
+     normal-combat slice.
+   - Status: stale combat-target cleanup implemented. Travel issuance clears old `combatTarget`,
+     and command/order boundaries that replace combat intent clear both target halves unless the new
+     order is direct Attack. The boundary regression now dirties both `intentTarget` and
+     `combatTarget` before move, attack-move, stop, harvest, repair, build, ability, burrow,
+     transform, lift, and land commands, proving old enemy memory cannot resurrect through the new
+     column.
+
+7. Normalize resource rally across town halls.
+   - Treat Hatchery/Lair/Hive, Command Center/Orbital-like future variants, and Nexus as producers
+     that can instantiate worker gather from `RallyIntent.resource`.
+   - Make "default town-hall rally to nearby minerals" a producer default when no explicit rally is
+     set, not a hardcoded Hatchery or setup-only exception.
+   - Preserve resource rally targets for future workers even when combat units are produced from the
+     same Zerg producer.
+
+8. Update UI/AI/RL surfaces only after sim semantics are stable.
+   - Desktop right-click, desktop `A` plus left-click, and mobile explicit target modes should emit
+     the same command intents without app-only priority overrides outside the finite smart-command
+     grammar.
+   - Action masks should expose point travel, follow-capable entity travel, resource rally, and
+     interaction verbs without app-only exclusions.
+   - Bot logic should prefer typed intents: workers harvest/repair/build, combat units attack-move
+     or escort/follow, transports/loadables use load interactions.
+
+9. Performance and determinism audit.
+   - Follow slot recomputation must be bounded by local spatial queries or deterministic small
+     scans, not all-pairs work in the movement hot loop.
+   - Any new gameplay state such as `intentTarget`, `combatTarget`, or sticky follow-slot columns
+     must be cloned, serialized, hashed, and reset on spawn/free/death/containment/transform.
+   - Benchmark movement-follow cases and the existing `movement-deathball` lane before accepting
+     the representation split.
+
+Open questions for review:
+
+- Should setting a resource rally on a Hatchery-family producer also set/clear the unit rally, or
+  only the worker rally? Recommended default: only worker rally, because it avoids sending combat
+  units into mineral lines.
+- Should desktop attack-command on a friendly unit mean attack-move-follow, escort, or invalid
+  target? Brood War UI may not expose exactly this path, but our command grammar should be
+  consistent and not surprise mobile players.
+- Should follow slots be persisted per follower for smoothness, or derived from deterministic
+  target/follower rank each tick for lower state and easier replay stability?
+- Should `load` remain a separate explicit command plus explicit move-to-load, or become an
+  interaction intent selected only after the player arms Load / uses a load hotkey?
+- How should invalidated worker resource rally retargeting choose between closest resource, closest
+  owned resource collector, or reverting to no worker rally? It should not retarget to a friendly
+  combat unit.
+
+Done when:
+
+- The roadmap and tests describe the chosen intent model before code depends on it.
+- Production, explicit commands, right-click smart commands, armed-command left-click, rally, AI,
+  replay, and masks use the same intent vocabulary.
+- Following a moving unit/building is stable, deterministic, and does not path to centers.
+- Worker resource rally only stores gather targets and resolves to harvest only for workers.
+- General/unit rally and worker/resource rally no longer overwrite each other accidentally.
+- Combat acquisition no longer destroys movement/follow intent.
+- Focused tests, `npm run typecheck`, `npm test`, and `npm run bench` pass with no unexpected hash
+  churn.
+
 ## Current BW-Fidelity Missing Inventory
 
 This is the working list of "things that were actually in the game" which remain either partial,
@@ -2095,6 +3049,10 @@ approximated, or absent. Keep this list honest as mechanics land.
   - Phase 13 tracks the deeper LOC collapse: command specs, ability descriptors, AI policies,
     `armedCommand`, `selectionView`, scenario-test DSL, internal-product descriptors, child-actor
     descriptors, weapon mechanic ids, and render/query descriptors.
+  - Phase 14 tracks the training substrate contract: capacity-safe creation, complete action masks,
+    buffer-backed observations, immutable/caller-owned step results, and batch/reentrancy rules.
+  - Phase 17 tracks the command-intent/follow/rally split needed to stop overloading one `target`
+    column for movement intent, combat acquisition, resource rally, and cargo interactions.
 - Temporal mechanics:
   - Siege/unsiege and burrow/unburrow are currently instant; they need verified timed transition
     specs and shared busy-state validation.
@@ -2134,6 +3092,8 @@ approximated, or absent. Keep this list honest as mechanics land.
 - Maintenance/performance:
   - Split `Game` selection/input/HUD/replay responsibilities once command-card growth stabilizes.
   - Add event-stream benchmark coverage if the sim grows a public gameplay event stream.
+  - Add ML-relevant benchmark lanes for masks, object observation, buffer observation, bot command
+    generation, and N-env batch stepping.
 
 ## Phase 10: Performance And Maintainability Passes
 
@@ -2197,8 +3157,8 @@ Completed:
 - Added a transport unload + collision scenario test and shared unload placement helper: blocked
   terrain and occupied ground bodies reject without releasing cargo, while a nearby clear point
   unloads without overlap.
-- Added a command-ingestion regression proving accepted mineral harvest orders immediately enter
-  the mineral-walk collision class against workers that are harvesting or returning minerals.
+- Added a command-ingestion regression proving accepted harvest orders immediately enter the
+  resource-route collision class against workers that are harvesting or returning resources.
 - Added a Zerg creep + placement scenario test that proves off-creep structures are rejected and
   hidden from build masks until a creep-providing Hatchery finishes through normal sim stepping,
   after which the same placement is accepted through shared validation.

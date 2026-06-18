@@ -162,6 +162,19 @@ native infrastructure before it's the proven bottleneck.
 - Benchmark games/sec continuously (the `headless` package has a `bench` mode); throughput is a
   first-class, tracked metric that *drives* when we move between stages.
 
+Current substrate contract:
+- The sim step path is the first performance budget. Keep gameplay state in fixed typed arrays and
+  keep allocation out of systems that run every tick.
+- Object observations and convenience masks are allowed to allocate for readability and tests.
+  Training loops should prefer buffer writers and resettable scratch once they call a surface every
+  env-step across many envs.
+- Action masks must remain validator-backed. Faster training masks should precompute candidate
+  vocabularies and write into caller-owned arrays, not fork command legality.
+- Current fast-path surfaces include caller-owned action-mask writers, resettable batch-decode
+  reservation scratch, buffer observation, and a benchmarked larva observation stress lane. The
+  next measured slice, if large command batches make it matter, is numeric/scratch-backed grouped
+  command ingestion.
+
 ## 10. Evaluation
 
 - **Vs. scripted ladder:** win-rate per difficulty (the Unplugged `very_hard`-bot analog).

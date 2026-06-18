@@ -36,11 +36,15 @@ export const resumeConstruction = (s: State, worker: number, foundation: number)
     if (e.order[oldWorker] === Order.Build && e.target[oldWorker] === foundationId) {
       e.order[oldWorker] = Order.Idle;
       e.target[oldWorker] = NONE;
+      e.intentTarget[oldWorker] = NONE;
+      e.combatTarget[oldWorker] = NONE;
     }
   }
   e.order[worker] = Order.Build;
   e.buildKind[worker] = Kind.None;
   e.target[worker] = foundationId;
+  e.intentTarget[worker] = NONE;
+  e.combatTarget[worker] = NONE;
   e.target[foundation] = eid(e, worker);
   e.tx[worker] = e.x[foundation]!;
   e.ty[worker] = e.y[foundation]!;

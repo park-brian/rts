@@ -1,19 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Protoss, Tech, Units, Zerg } from '../src/data.ts';
+import { Ability, Kind, Protoss, Tech, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { eid, slotOf } from '../src/world.ts';
+import { EFFECT_CAP, eid, slotOf } from '../src/world.ts';
 import {
+  ACTION_SCHEMA_VERSION,
   COMMAND_HEADS,
+  COMMAND_MASK_POLICY,
+  abilityCandidates,
+  abilityMask,
+  addonKindCandidates,
+  addonKindMask,
   buildKindMask,
   commandForHead,
   commandHeadAllowed,
   commandHeadMask,
+  createBatchDecodeReservation,
+  decodeActionBatch,
+  decodeActionBatchInto,
+  decodeBatchAction,
+  decodeAction,
+  encodeCommand,
+  entityTargetMask,
+  resetBatchDecodeReservation,
+  researchTechCandidates,
+  researchTechMask,
   trainKindMask,
+  transformKindCandidates,
+  transformKindMask,
   type CommandMaskOptions,
+  writeAbilityMask,
+  writeAddonKindMask,
+  writeBuildKindMask,
+  writeCommandHeadMask,
+  writeEntityTargetMask,
+  writeResearchTechMask,
+  writeTrainKindMask,
+  writeTransformKindMask,
 } from '../src/action-mask.ts';
 import { validateCommand } from '../src/validation.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
+import type { Command } from '../src/commands.ts';
+
+const ALL_COMMAND_TAGS: readonly Command['t'][] = [
+  'train', 'research', 'build', 'addon', 'lift', 'land', 'transform', 'burrow', 'mine',
+  'load', 'unload', 'cancelBuild', 'move', 'attack', 'amove', 'ability', 'harvest',
+  'repair', 'rally', 'stop',
+];
 
 const assertMaskMatchesValidator = (
   scenario: SimScenario,
@@ -32,6 +65,123 @@ const assertMaskMatchesValidator = (
   }
   return mask;
 };
+
+test('action schema covers every public command tag', () => {
+  assert.equal(ACTION_SCHEMA_VERSION, 1);
+  assert.deepEqual(Object.keys(COMMAND_MASK_POLICY).sort(), [...ALL_COMMAND_TAGS].sort());
+  for (const head of COMMAND_HEADS) assert.ok(head.length > 0);
+});
+
+test('policy actions encode and decode through public commands', () => {
+  const commands: Command[] = [
+    { t: 'train', building: 10, kind: Kind.Marine },
+    { t: 'research', building: 11, tech: Tech.StimPack },
+    { t: 'build', unit: 12, kind: Kind.SupplyDepot, x: fx(10), y: fx(11) },
+    { t: 'addon', building: 13, kind: Kind.MachineShop },
+    { t: 'lift', building: 14 },
+    { t: 'land', building: 15, x: fx(12), y: fx(13) },
+    { t: 'transform', unit: 16, kind: Kind.Archon, target: 17 },
+    { t: 'burrow', unit: 18, active: false },
+    { t: 'mine', unit: 19 },
+    { t: 'load', transport: 20, unit: 21 },
+    { t: 'unload', transport: 22, unit: 23, x: fx(14), y: fx(15) },
+    { t: 'cancelBuild', building: 24 },
+    { t: 'move', unit: 25, x: fx(16), y: fx(17) },
+    { t: 'attack', unit: 26, target: 27 },
+    { t: 'amove', unit: 28, x: fx(18), y: fx(19) },
+    { t: 'ability', unit: 29, ability: 3, target: 30, x: fx(20), y: fx(21) },
+    { t: 'harvest', unit: 31, patch: 32 },
+    { t: 'repair', unit: 33, target: 34 },
+    { t: 'rally', building: 35, x: fx(22), y: fx(23), target: 36 },
+    { t: 'stop', unit: 37 },
+  ];
+  for (const command of commands) assert.deepEqual(decodeAction(encodeCommand(command)), command);
+});
+
+test('batch action decode reserves resources and supply across accepted actions', () => {
+  const scenario = simScenario({ players: 1, seed: 960 });
+  const { state: s, spawn } = scenario;
+  const barracks = spawn(Kind.Barracks, 0, fx(300), fx(300));
+  s.players.minerals[0] = Units[Kind.Marine]!.minerals;
+  s.players.supplyMax[0] = 200;
+  const action = { head: 'train' as const, actor: barracks, kind: Kind.Marine };
+
+  const results = decodeActionBatch(s, 0, [action, action]);
+
+  assert.equal(results[0]!.ok, true);
+  assert.deepEqual(results[1], { ok: false, command: decodeAction(action), reason: 'not-affordable' });
+  assert.equal(s.players.minerals[0], Units[Kind.Marine]!.minerals);
+});
+
+test('batch action decode can reuse caller-owned reservation and result arrays', () => {
+  const scenario = simScenario({ players: 1, seed: 963 });
+  const { state: s, spawn } = scenario;
+  const barracks = spawn(Kind.Barracks, 0, fx(300), fx(300));
+  s.players.minerals[0] = Units[Kind.Marine]!.minerals;
+  s.players.supplyMax[0] = 200;
+  const actions = [
+    { head: 'train' as const, actor: barracks, kind: Kind.Marine },
+    { head: 'train' as const, actor: barracks, kind: Kind.Marine },
+  ];
+  const ctx = createBatchDecodeReservation(s, 0);
+  const out: ReturnType<typeof decodeActionBatch> = [];
+
+  const first = decodeActionBatchInto(s, 0, actions, out, ctx);
+  const expected = decodeActionBatch(s, 0, actions);
+  assert.equal(first, out);
+  assert.deepEqual(first, expected);
+  assert.equal(ctx.energySlots.length, 0);
+
+  s.players.minerals[0] = Units[Kind.Marine]!.minerals * 2;
+  resetBatchDecodeReservation(s, 0, ctx);
+  decodeActionBatchInto(s, 0, actions, out, ctx);
+  assert.equal(out.every((result) => result.ok), true);
+});
+
+test('batch action decode reserves entity capacity and command ammo', () => {
+  const scenario = simScenario({ players: 1, seed: 961 });
+  const { state: s, spawn, grant } = scenario;
+  const e = s.e;
+  const vulture = spawn(Kind.Vulture, 0, fx(300), fx(300));
+  grant(0, Tech.SpiderMines, 1);
+  e.specialAmmo[slotOf(vulture)] = 2;
+  s.e.freeTop = 1;
+  const action = { head: 'mine' as const, actor: vulture };
+
+  let ctx = createBatchDecodeReservation(s, 0);
+  assert.equal(decodeBatchAction(s, ctx, action).ok, true);
+  assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'capacity-full' });
+
+  e.specialAmmo[slotOf(vulture)] = 1;
+  s.e.freeTop = 10;
+  ctx = createBatchDecodeReservation(s, 0);
+  assert.equal(decodeBatchAction(s, ctx, action).ok, true);
+  assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'target-not-allowed' });
+});
+
+test('batch action decode reserves effect capacity and caster energy', () => {
+  const scenario = simScenario({ players: 1, seed: 962, factions: [Protoss] });
+  const { state: s, spawn, grant } = scenario;
+  const e = s.e;
+  const templar = spawn(Kind.HighTemplar, 0, fx(300), fx(300));
+  grant(0, Tech.PsionicStorm, 1);
+  const action = { head: 'ability' as const, actor: templar, ability: Ability.PsionicStorm, x: fx(320), y: fx(300) };
+
+  e.energy[slotOf(templar)] = 150;
+  s.effects.alive.fill(1);
+  s.effects.alive[EFFECT_CAP - 1] = 0;
+  s.effects.hi = EFFECT_CAP;
+  let ctx = createBatchDecodeReservation(s, 0);
+  assert.equal(decodeBatchAction(s, ctx, action).ok, true);
+  assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'capacity-full' });
+
+  s.effects.alive.fill(0);
+  s.effects.hi = 0;
+  e.energy[slotOf(templar)] = 100;
+  ctx = createBatchDecodeReservation(s, 0);
+  assert.equal(decodeBatchAction(s, ctx, action).ok, true);
+  assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'not-enough-energy' });
+});
 
 const assertTrainMaskMatchesValidator = (
   scenario: SimScenario,
@@ -69,13 +219,34 @@ test('combat unit command mask exposes legal movement and target attack only', (
   const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
   const enemy = spawn(Kind.Zergling, 1, fx(430), fx(400));
 
+  const pointMask = assertMaskMatchesValidator(scenario, 0, marine, { x: fx(500), y: fx(400) });
+  assert.equal(commandHeadAllowed(pointMask, 'move'), true);
+
   const mask = assertMaskMatchesValidator(scenario, 0, marine, { target: enemy, x: fx(500), y: fx(400) });
 
-  assert.equal(commandHeadAllowed(mask, 'move'), true);
+  assert.equal(commandHeadAllowed(mask, 'move'), false);
   assert.equal(commandHeadAllowed(mask, 'amove'), true);
   assert.equal(commandHeadAllowed(mask, 'attack'), true);
   assert.equal(commandHeadAllowed(mask, 'harvest'), false);
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
+});
+
+test('entity target mask exposes targeted move follow candidates', () => {
+  const scenario = simScenario({ players: 2, seed: 964 });
+  const { state: s, spawn } = scenario;
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const friendly = spawn(Kind.SCV, 0, fx(440), fx(400));
+  const enemy = spawn(Kind.Zergling, 1, fx(480), fx(400));
+  const mineral = spawn(Kind.Mineral, -1, fx(520), fx(400));
+  const targets = [friendly, enemy, mineral, marine];
+  const opts = { x: fx(500), y: fx(400) };
+
+  const mask = entityTargetMask(s, 0, marine, 'move', targets, opts);
+
+  assert.deepEqual([...mask], targets.map((target) =>
+    validateCommand(s, 0, { t: 'move', unit: marine, x: opts.x, y: opts.y, target }).ok ? 1 : 0));
+  assert.deepEqual([...mask], [1, 0, 0, 0]);
+  assert.deepEqual([...writeEntityTargetMask(new Uint8Array(targets.length), s, 0, marine, 'move', targets, opts)], [...mask]);
 });
 
 test('worker command mask follows harvest and repair validation', () => {
@@ -170,6 +341,58 @@ test('command mask generation is deterministic and side-effect free', () => {
   assert.equal(attack.target, eid(s.e, slotOf(enemy)));
 });
 
+test('caller-owned mask writers match allocating wrappers', () => {
+  const scenario = simScenario({ players: 2, seed: 964, factions: [Protoss, Zerg] });
+  const { state: s, spawn, grant } = scenario;
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+  s.players.supplyMax[0] = 40;
+  const probe = spawn(Kind.Probe, 0, fx(900), fx(900));
+  const pylon = spawn(Kind.Pylon, 0, fx(1_000), fx(900));
+  const gateway = spawn(Kind.Gateway, 0, fx(1_064), fx(900));
+  const academy = spawn(Kind.Academy, 0, fx(300), fx(300));
+  const factory = spawn(Kind.Factory, 0, fx(500), fx(300));
+  const hydra = spawn(Kind.Hydralisk, 0, fx(700), fx(300));
+  const templar = spawn(Kind.HighTemplar, 0, fx(900), fx(300));
+  const enemy = spawn(Kind.Zergling, 1, fx(940), fx(300));
+  grant(0, Tech.LurkerAspect, 1);
+  grant(0, Tech.PsionicStorm, 1);
+
+  const commandOpts = { target: enemy, x: fx(940), y: fx(300) };
+  assert.deepEqual([...writeCommandHeadMask(new Uint8Array(COMMAND_HEADS.length), s, 0, templar, commandOpts)],
+    [...commandHeadMask(s, 0, templar, commandOpts)]);
+
+  const trainKinds = [Kind.Zealot, Kind.Dragoon] as const;
+  assert.deepEqual([...writeTrainKindMask(new Uint8Array(trainKinds.length), s, 0, gateway, trainKinds)],
+    [...trainKindMask(s, 0, gateway, trainKinds)]);
+
+  const buildKinds = [Kind.Gateway, Kind.Pylon] as const;
+  const buildOpts = { x: fx(1_064), y: fx(964), kinds: buildKinds };
+  assert.deepEqual([...writeBuildKindMask(new Uint8Array(buildKinds.length), s, 0, probe, buildOpts)],
+    [...buildKindMask(s, 0, probe, buildOpts)]);
+
+  const techs = researchTechCandidates(s, academy);
+  assert.deepEqual([...writeResearchTechMask(new Uint8Array(techs.length), s, 0, academy, techs)],
+    [...researchTechMask(s, 0, academy, techs)]);
+
+  const addons = addonKindCandidates(s, factory);
+  assert.deepEqual([...writeAddonKindMask(new Uint8Array(addons.length), s, 0, factory, addons)],
+    [...addonKindMask(s, 0, factory, addons)]);
+
+  const transforms = transformKindCandidates(s, hydra);
+  assert.deepEqual([...writeTransformKindMask(new Uint8Array(transforms.length), s, 0, hydra, transforms)],
+    [...transformKindMask(s, 0, hydra, transforms)]);
+
+  const abilities = abilityCandidates(s, templar);
+  const abilityOpts = { x: fx(940), y: fx(300) };
+  assert.deepEqual([...writeAbilityMask(new Uint8Array(abilities.length), s, 0, templar, abilityOpts, abilities)],
+    [...abilityMask(s, 0, templar, abilityOpts, abilities)]);
+
+  const targets = [enemy, pylon];
+  assert.deepEqual([...writeEntityTargetMask(new Uint8Array(targets.length), s, 0, templar, 'attack', targets)],
+    [...entityTargetMask(s, 0, templar, 'attack', targets)]);
+});
+
 test('train option mask follows larva requirements through shared validation', () => {
   const scenario = simScenario({ players: 1, seed: 956, factions: [Zerg] });
   const { state: s, spawn } = scenario;
@@ -231,4 +454,51 @@ test('macro option masks follow protoss power placement and producer legality', 
   const zealotKind = [Kind.Zealot] as const;
   assert.deepEqual([...assertTrainMaskMatchesValidator(scenario, 0, poweredGateway, zealotKind)], [1]);
   assert.deepEqual([...assertTrainMaskMatchesValidator(scenario, 0, unpoweredGateway, zealotKind)], [0]);
+});
+
+test('research, addon, transform, ability, and target masks follow shared validation', () => {
+  const scenario = simScenario({ players: 2, seed: 959, factions: [Protoss, Zerg] });
+  const { state: s, spawn, grant } = scenario;
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+  s.players.supplyMax[0] = 40;
+
+  const academy = spawn(Kind.Academy, 0, fx(300), fx(300));
+  const cc = spawn(Kind.CommandCenter, 0, fx(500), fx(300));
+  const factory = spawn(Kind.Factory, 0, fx(700), fx(300));
+  const hydra = spawn(Kind.Hydralisk, 0, fx(900), fx(300));
+  const templar = spawn(Kind.HighTemplar, 0, fx(1_100), fx(300));
+  const enemy = spawn(Kind.Zergling, 1, fx(1_140), fx(300));
+  grant(0, Tech.LurkerAspect, 1);
+  grant(0, Tech.PsionicStorm, 1);
+
+  const techs = researchTechCandidates(s, academy);
+  const techMask = researchTechMask(s, 0, academy, techs);
+  for (let i = 0; i < techs.length; i++) {
+    assert.equal(techMask[i], validateCommand(s, 0, { t: 'research', building: academy, tech: techs[i]! }).ok ? 1 : 0);
+  }
+
+  const addons = addonKindCandidates(s, factory);
+  const addonMask = addonKindMask(s, 0, factory, addons);
+  for (let i = 0; i < addons.length; i++) {
+    assert.equal(addonMask[i], validateCommand(s, 0, { t: 'addon', building: factory, kind: addons[i]! }).ok ? 1 : 0);
+  }
+  assert.ok(addonKindCandidates(s, cc).includes(Kind.ComsatStation));
+
+  const transforms = transformKindCandidates(s, hydra);
+  const transformMask = transformKindMask(s, 0, hydra, transforms);
+  for (let i = 0; i < transforms.length; i++) {
+    assert.equal(transformMask[i], validateCommand(s, 0, { t: 'transform', unit: hydra, kind: transforms[i]! }).ok ? 1 : 0);
+  }
+
+  const abilities = abilityCandidates(s, templar);
+  const spellMask = abilityMask(s, 0, templar, { x: fx(1_140), y: fx(300) }, abilities);
+  for (let i = 0; i < abilities.length; i++) {
+    assert.equal(spellMask[i], validateCommand(s, 0, { t: 'ability', unit: templar, ability: abilities[i]!, x: fx(1_140), y: fx(300) }).ok ? 1 : 0);
+  }
+
+  const targets = [enemy, templar];
+  const attackTargets = entityTargetMask(s, 0, templar, 'attack', targets);
+  assert.deepEqual([...attackTargets], targets.map((target) =>
+    validateCommand(s, 0, { t: 'attack', unit: templar, target }).ok ? 1 : 0));
 });

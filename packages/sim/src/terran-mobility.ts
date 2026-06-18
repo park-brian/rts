@@ -41,6 +41,8 @@ export const liftStructure = (s: State, slot: number): void => {
   e.flags[slot] = liftedStructureFlags(e.kind[slot]!);
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
 };
 
 export const startStructureLanding = (s: State, slot: number, x: number, y: number): void => {
@@ -49,6 +51,8 @@ export const startStructureLanding = (s: State, slot: number, x: number, y: numb
   clearVelocity(e, slot);
   e.order[slot] = Order.Move;
   e.target[slot] = eid(e, slot);
+  e.intentTarget[slot] = eid(e, slot);
+  e.combatTarget[slot] = NONE;
   e.tx[slot] = x;
   e.ty[slot] = y;
 };

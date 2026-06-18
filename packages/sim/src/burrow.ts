@@ -42,4 +42,6 @@ export const setBurrowed = (s: State, slot: number, active: boolean): void => {
   e.burrowed[slot] = active ? 1 : 0;
   e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
 };

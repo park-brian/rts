@@ -15,6 +15,7 @@ import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-an
 import { placementForStructure } from '../src/validation.ts';
 import { applyCommands } from '../src/systems/ingest.ts';
 import { workersCanShareResourceRouteCollision } from '../src/worker-collision.ts';
+import { entityApproachPoint } from '../src/entity-approach.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
 const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery] as const;
@@ -316,6 +317,102 @@ test('a group moving to one goal arrives, spreads, and settles', () => {
   assert.equal(a.hash, b.hash, 'group movement + separation must be deterministic');
 });
 
+test('targeted move follows a friendly entity by approaching its body', () => {
+  const s = makeState(blankMap('targeted-follow', 40, 24), 2, 781);
+  const follower = spawnUnit(s, Kind.Marine, 0, tc(6), tc(12));
+  const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(12));
+  const followerSlot = slotOf(follower);
+  const leaderSlot = slotOf(leader);
+
+  const results = applyCommands(s, [{ player: 0, cmds: [{
+    t: 'move',
+    unit: follower,
+    x: s.e.x[leaderSlot]!,
+    y: s.e.y[leaderSlot]!,
+    target: leader,
+  }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'move', ok: true }]);
+  assert.equal(s.e.order[followerSlot], Order.Move);
+  assert.equal(s.e.target[followerSlot], leader);
+  assert.equal(s.e.intentTarget[followerSlot], leader);
+  let p = entityApproachPoint(s, followerSlot, leaderSlot);
+  assert.equal(s.e.tx[followerSlot], p.x);
+  assert.equal(s.e.ty[followerSlot], p.y);
+
+  s.e.target[followerSlot] = NONE;
+  s.e.x[leaderSlot] = tc(18);
+  s.e.y[leaderSlot] = tc(8);
+  p = entityApproachPoint(s, followerSlot, leaderSlot);
+  stepWorld(s, []);
+
+  assert.equal(s.e.order[followerSlot], Order.Move);
+  assert.equal(s.e.target[followerSlot], NONE);
+  assert.equal(s.e.intentTarget[followerSlot], leader);
+  assert.equal(s.e.tx[followerSlot], p.x);
+  assert.equal(s.e.ty[followerSlot], p.y);
+});
+
+test('multiple targeted movers reserve distinct deterministic approach slots', () => {
+  const run = (): { hash: number; destinations: string[]; targetsHeld: boolean } => {
+    const s = makeState(blankMap('targeted-follow-slots', 48, 24), 1, 783);
+    const leader = spawnUnit(s, Kind.Marine, 0, tc(20), tc(12));
+    const leaderSlot = slotOf(leader);
+    const slots: number[] = [];
+    for (let i = 0; i < 4; i++) slots.push(slotOf(spawnUnit(s, Kind.Marine, 0, tc(6), tc(9 + i * 2))));
+
+    applyCommands(s, [{ player: 0, cmds: slots.map((slot) => ({
+      t: 'move' as const,
+      unit: eid(s.e, slot),
+      x: s.e.x[leaderSlot]!,
+      y: s.e.y[leaderSlot]!,
+      target: leader,
+    })) }]);
+    for (const slot of slots) s.e.target[slot] = NONE;
+    s.e.x[leaderSlot] = tc(24);
+    s.e.y[leaderSlot] = tc(12);
+    stepWorld(s, []);
+
+    const destinations = slots.map((slot) => `${s.e.tx[slot]},${s.e.ty[slot]}`);
+    const targetsHeld = slots.every((slot) =>
+      s.e.order[slot] === Order.Move &&
+      s.e.target[slot] === NONE &&
+      s.e.intentTarget[slot] === leader
+    );
+    return { hash: hashState(s), destinations, targetsHeld };
+  };
+
+  const a = run();
+  const b = run();
+
+  assert.equal(a.targetsHeld, true, 'followers should keep their entity target while recomputing approach slots');
+  assert.equal(new Set(a.destinations).size, a.destinations.length, 'same-target followers should not all reserve one approach point');
+  assert.deepEqual(a.destinations, b.destinations, 'follow approach slot assignment should be deterministic');
+  assert.equal(a.hash, b.hash, 'ranked follow recomputation should preserve deterministic state');
+});
+
+test('targeted move only accepts friendly non-resource entities', () => {
+  const s = makeState(blankMap('targeted-follow-validation', 40, 24), 2, 782);
+  const actor = spawnUnit(s, Kind.Marine, 0, tc(6), tc(12));
+  const friendly = spawnUnit(s, Kind.Marine, 0, tc(10), tc(12));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, tc(12), tc(12));
+  const mineral = spawnUnit(s, Kind.Mineral, 0, tc(14), tc(12));
+
+  const results = applyCommands(s, [{ player: 0, cmds: [
+    { t: 'move', unit: actor, x: tc(10), y: tc(12), target: friendly },
+    { t: 'move', unit: actor, x: tc(12), y: tc(12), target: enemy },
+    { t: 'move', unit: actor, x: tc(14), y: tc(12), target: mineral },
+    { t: 'move', unit: actor, x: tc(6), y: tc(12), target: actor },
+  ] }]);
+
+  assert.equal(results[0]?.ok, true);
+  assert.deepEqual(results.slice(1), [
+    { player: 0, index: 1, t: 'move', ok: false, reason: 'target-not-allowed' },
+    { player: 0, index: 2, t: 'move', ok: false, reason: 'target-not-allowed' },
+    { player: 0, index: 3, t: 'move', ok: false, reason: 'target-not-allowed' },
+  ]);
+});
+
 test('a mixed ground deathball settles into stable space', () => {
   const run = (): { hash: number; settled: number; stable: boolean; distinct: number } => {
     const s = makeState(blankMap('mixed-deathball', 80, 80), 1, 778);
@@ -444,6 +541,8 @@ test('settled ground units keep newly issued non-move orders', () => {
 
   assert.equal(s.e.order[marine], Order.Attack);
   assert.equal(s.e.target[marine], targetId);
+  assert.equal(s.e.combatTarget[marine], targetId);
+  assert.equal(s.e.intentTarget[marine], NONE);
   assert.equal(s.e.settled[marine], 0);
 });
 

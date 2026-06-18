@@ -35,6 +35,8 @@ export const cancelPendingBuild = (s: State, slot: number): void => {
   e.order[slot] = Order.Idle;
   e.buildKind[slot] = 0;
   e.target[slot] = NONE;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
 };
 
 export const cancelFoundation = (s: State, slot: number): void => {
@@ -48,6 +50,8 @@ export const cancelFoundation = (s: State, slot: number): void => {
     e.morphFromKind[slot] = Kind.None;
     e.order[slot] = Order.Idle;
     e.target[slot] = NONE;
+    e.intentTarget[slot] = NONE;
+    e.combatTarget[slot] = NONE;
     return;
   }
   const workerId = e.target[slot]!;
@@ -56,11 +60,17 @@ export const cancelFoundation = (s: State, slot: number): void => {
     if (e.order[worker] === Order.Build && e.target[worker] === eid(e, slot)) {
       e.order[worker] = Order.Idle;
       e.target[worker] = NONE;
+      e.intentTarget[worker] = NONE;
+      e.combatTarget[worker] = NONE;
     }
   }
   if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) {
     const parent = slotOf(e.target[slot]!);
-    if (e.target[parent] === eid(e, slot)) e.target[parent] = NONE;
+    if (e.target[parent] === eid(e, slot)) {
+      e.target[parent] = NONE;
+      e.intentTarget[parent] = NONE;
+      e.combatTarget[parent] = NONE;
+    }
   }
   refundBuildCost(s, slot, 3, 4);
   kill(s, slot);

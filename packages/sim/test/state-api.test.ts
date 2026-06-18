@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
+import {
+  OBS_ENTITY_STRIDE,
+  OBSERVATION_SCHEMA_VERSION,
+  createObservationBuffers,
+  writeObservation,
+} from '../src/observe.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, kill, slotOf, spawnEffect } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
@@ -39,6 +45,45 @@ test('observe returns a defensive own-player tech vector', () => {
 
   obs.tech[Tech.StimPack] = 0;
   assert.equal(sim.observe(0).tech[Tech.StimPack], 1, 'mutating observation does not mutate player tech');
+});
+
+test('buffer observation matches object observation for scalar, tech, vision, and entities', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ players: 2, seed: 2081, vision: true });
+  grant(0, Tech.StimPack);
+  const marine = spawn(Kind.Marine, 0, fx(500), fx(500));
+  const enemy = spawn(Kind.Zergling, 1, fx(530), fx(500));
+  sim.step([]);
+
+  const obs = sim.observe(0);
+  const buffers = createObservationBuffers(s.map, { entities: 32 });
+  const counts = writeObservation(s, 0, buffers);
+
+  assert.equal(buffers.scalars[0], OBSERVATION_SCHEMA_VERSION);
+  assert.equal(buffers.scalars[1], obs.tick);
+  assert.equal(buffers.scalars[2], obs.player);
+  assert.equal(buffers.scalars[3], obs.minerals);
+  assert.equal(buffers.scalars[4], obs.gas);
+  assert.equal(buffers.scalars[5], obs.supplyUsed);
+  assert.equal(buffers.scalars[6], obs.supplyMax);
+  assert.equal(buffers.tech[Tech.StimPack], 1);
+  assert.deepEqual([...buffers.vision], [...obs.vision]);
+  assert.equal(counts.entities, obs.entities.length);
+
+  const ids = new Set<number>();
+  for (let i = 0; i < counts.entities; i++) ids.add(buffers.entities[i * OBS_ENTITY_STRIDE]!);
+  assert.equal(ids.has(marine), true);
+  assert.equal(ids.has(enemy), obs.entities.some((e) => e.id === enemy));
+});
+
+test('buffer observation reports truncation and count-delimits stale rows', () => {
+  const { state: s, spawn } = simScenario({ players: 1, seed: 2082, vision: true });
+  spawn(Kind.Marine, 0, fx(500), fx(500));
+  spawn(Kind.Firebat, 0, fx(530), fx(500));
+
+  const buffers = createObservationBuffers(s.map, { entities: 1 });
+  const counts = writeObservation(s, 0, buffers);
+  assert.equal(counts.entities, 1);
+  assert.equal(counts.truncated, 1);
 });
 
 test('observe returns active own queues without leaking enemy queues', () => {

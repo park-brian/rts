@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeState, slotOf, eid, NEUTRAL } from '../src/world.ts';
+import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/setup.ts';
@@ -56,6 +56,31 @@ test('workers must physically dock before mining and deposit', () => {
 
   assert.equal(s.players.minerals[0], before, 'worker did not deposit from mineral range');
   assert.ok(e.y[miner]! > depositStartY, 'worker moved back toward the depot');
+});
+
+test('returning workers ignore stale resource ids even when the slot is reused', () => {
+  const s = makeState(open(24, 24), 1, 2);
+  const e = s.e;
+  const depot = slotOf(spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12)));
+  const oldNode = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(6), tc(12)));
+  const staleId = eid(e, oldNode);
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(12)));
+
+  kill(s, oldNode);
+  const reused = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(18), tc(12)));
+  assert.equal(reused, oldNode, 'test setup should reuse the killed resource slot');
+  assert.notEqual(eid(e, reused), staleId, 'reused slot must have a new generation');
+
+  e.order[worker] = Order.Harvest;
+  e.target[worker] = staleId;
+  e.cargo[worker] = MINE_AMOUNT;
+  e.cargoType[worker] = ResourceType.Minerals;
+
+  const before = e.x[worker]!;
+  stepWorld(s, []);
+
+  assert.ok(e.x[worker]! > before, 'worker returns toward the depot from its own side');
+  assert.ok(e.x[worker]! < e.x[depot]!, 'worker should not path toward a right-side docking point from stale source data');
 });
 
 test('workers do not mine from BW-compatible detached range', () => {
@@ -371,6 +396,6 @@ test('a command center defaults its rally to the mineral line', () => {
   let cc = -1;
   for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.CommandCenter && e.owner[i] === 0) { cc = i; break; }
   assert.ok(cc >= 0);
-  assert.ok(e.rallyX[cc]! >= 0, 'rally point is set');
-  assert.ok((e.flags[slotOf(e.rallyTarget[cc]!)]! & Role.Resource) !== 0, 'rally target is a resource');
+  assert.ok(e.workerRallyX[cc]! >= 0, 'worker rally point is set');
+  assert.ok((e.flags[slotOf(e.workerRallyTarget[cc]!)]! & Role.Resource) !== 0, 'worker rally target is a resource');
 });

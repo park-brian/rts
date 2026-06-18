@@ -1,6 +1,6 @@
 import type { Game } from './game.ts';
 import {
-  Abilities, NONE, ONE, Role, isAlive, sameTeam, slotOf, validateCommand,
+  Abilities, NONE, ONE, Role, canPlayerGatherTarget, isAlive, isEnemy, sameTeam, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
@@ -40,13 +40,16 @@ export class TapSelectionController {
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? g.hitTest(wx, wy);
 
     if (armed.t === 'rally') {
-      const rallyTarget = hit >= 0 && (((e.flags[slotOf(hit)]! & Role.Resource) !== 0) || sameTeam(s, g.human, e.owner[slotOf(hit)]!))
+      const rallyTarget = hit >= 0 && (canPlayerGatherTarget(s, g.human, hit) || sameTeam(s, g.human, e.owner[slotOf(hit)]!))
         ? hit
         : undefined;
       for (const id of g.selection) {
         if (isAlive(e, id) && (e.flags[slotOf(id)]! & Role.Structure) !== 0) {
-          g.queued.push(rallyTarget !== undefined
+          const targeted: Command | null = rallyTarget !== undefined
             ? { t: 'rally', building: id, x: tx, y: ty, target: rallyTarget }
+            : null;
+          g.queued.push(targeted && validateCommand(s, g.human, targeted).ok
+            ? targeted
             : { t: 'rally', building: id, x: tx, y: ty });
         }
       }
@@ -55,8 +58,7 @@ export class TapSelectionController {
     }
 
     if (armed.t === 'attackMove') {
-      for (const id of this.mobileSelection(e)) g.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
-      clearArmedCommand();
+      if (this.queueAttackMode(hit, tx, ty)) clearArmedCommand();
       return;
     }
 
@@ -117,10 +119,6 @@ export class TapSelectionController {
     const tx = (wx * ONE) | 0;
     const ty = (wy * ONE) | 0;
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? g.hitTest(wx, wy);
-    if (ui.armedCommand.value.t !== 'none') {
-      this.tap(sx, sy, opts);
-      return;
-    }
     let queued = false;
     const s = g.sim.fullState();
     for (const id of g.selection) {
@@ -200,6 +198,26 @@ export class TapSelectionController {
       const c: Command = { t: 'repair', unit: id, target };
       if (isAlive(e, id) && validateCommand(s, g.human, c).ok) {
         g.queued.push(c);
+        queued = true;
+      }
+    }
+    return queued;
+  }
+
+  private queueAttackMode(hit: number, x: number, y: number): boolean {
+    const g = this.game;
+    const s = g.sim.fullState();
+    const e = s.e;
+    const targetSlot = hit >= 0 && isAlive(e, hit) ? slotOf(hit) : -1;
+    if (targetSlot >= 0 && sameTeam(s, g.human, e.owner[targetSlot]!)) return false;
+    const attackTarget = targetSlot >= 0 && isEnemy(s, g.human, e.owner[targetSlot]!);
+    let queued = false;
+    for (const id of this.mobileSelection(e)) {
+      const command: Command = attackTarget
+        ? { t: 'attack', unit: id, target: hit }
+        : { t: 'amove', unit: id, x, y };
+      if (validateCommand(s, g.human, command).ok) {
+        g.queued.push(command);
         queued = true;
       }
     }

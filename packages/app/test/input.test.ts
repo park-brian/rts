@@ -28,6 +28,7 @@ const makeGame = (): {
   game: any;
   calls: { tap: number; box: number; minimap: number; desktopTap: number; smart: number; edge: number; clearEdge: number };
 } => {
+  ui.armedCommand.value = { t: 'none' };
   const calls = { tap: 0, box: 0, minimap: 0, desktopTap: 0, smart: 0, edge: 0, clearEdge: 0 };
   const game: any = {
     box: null,
@@ -135,6 +136,36 @@ test('desktop pointer routes left click to selection and right click to smart co
 
   assert.equal(calls.tap, 0);
   assert.equal(calls.desktopTap, 1);
+  assert.equal(calls.smart, 1);
+});
+
+test('desktop armed left click routes to command tap instead of selection', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  ui.controlScheme.value = 'desktop';
+  ui.armedCommand.value = { t: 'attackMove' };
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 20, 20));
+  canvas.fire('pointerup', pointer(1, 20, 20));
+
+  assert.equal(calls.tap, 1);
+  assert.equal(calls.desktopTap, 0);
+  assert.equal(calls.smart, 0);
+});
+
+test('desktop armed right click still routes to smart command', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  ui.controlScheme.value = 'desktop';
+  ui.armedCommand.value = { t: 'attackMove' };
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 20, 20, { button: 2 }));
+  canvas.fire('pointerup', pointer(1, 20, 20, { button: 2 }));
+
+  assert.equal(calls.tap, 0);
+  assert.equal(calls.desktopTap, 0);
   assert.equal(calls.smart, 1);
 });
 
