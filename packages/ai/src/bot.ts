@@ -711,7 +711,7 @@ const hasTechForAbility = (s: State, player: number, abilityId: number): boolean
 
 type AbilityPolicy = {
   ability: number;
-  target: 'friendly-entity';
+  target: 'friendly-entity' | 'enemy-entity';
   minScore: number;
   scoreTarget: (s: State, player: number, target: number) => number;
 };
@@ -737,6 +737,24 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
       return Units[e.kind[target]!]!.hp - e.hp[target]!;
     },
   },
+  {
+    ability: Ability.Parasite,
+    target: 'enemy-entity',
+    minScore: 220,
+    scoreTarget: (s, player, target) => scoreParasiteTarget(s, player, target),
+  },
+  {
+    ability: Ability.OpticalFlare,
+    target: 'enemy-entity',
+    minScore: 100,
+    scoreTarget: (s, player, target) => scoreOpticalFlareTarget(s, player, target),
+  },
+  {
+    ability: Ability.Lockdown,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreLockdownTarget(s, player, target),
+  },
 ];
 
 const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
@@ -759,10 +777,10 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.NuclearStrike) && maybeCastPointAbility(s, player, cmds, caster, Ability.NuclearStrike, scoreNukeTarget, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.InfestCommandCenter) && maybeCastEntityAbility(s, player, cmds, caster, Ability.InfestCommandCenter, scoreInfestTarget)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.SpawnBroodling) && maybeCastEntityAbility(s, player, cmds, caster, Ability.SpawnBroodling, scoreBroodlingTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Parasite) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Parasite, scoreParasiteTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Parasite) && tryCastPolicy(s, player, cmds, caster, Ability.Parasite)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Feedback) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Feedback, scoreFeedbackTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.OpticalFlare) && maybeCastEntityAbility(s, player, cmds, caster, Ability.OpticalFlare, scoreOpticalFlareTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Lockdown) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Lockdown, scoreLockdownTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Lockdown) && tryCastPolicy(s, player, cmds, caster, Ability.Lockdown)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Irradiate) && maybeCastEntityAbility(s, player, cmds, caster, Ability.Irradiate, scoreIrradiateTarget)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.EMPShockwave) && maybeCastPointAbility(s, player, cmds, caster, Ability.EMPShockwave, scoreEmpTarget)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.PsionicStorm) && maybeCastPointAbility(s, player, cmds, caster, Ability.PsionicStorm, scoreStormTarget, focusX, focusY)) { used.add(caster); continue; }
@@ -786,6 +804,8 @@ const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number
   let bestScore = policy.minScore;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
+    if (policy.target === 'friendly-entity' && e.owner[i] !== player) continue;
+    if (policy.target === 'enemy-entity' && !isEnemy(s, player, e.owner[i]!)) continue;
     const score = policy.scoreTarget(s, player, i);
     if (score <= bestScore) continue;
     const command: Command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, target: eid(e, i) };
@@ -810,8 +830,6 @@ const abilityThreshold = (abilityId: number): number => {
     case Ability.DisruptionWeb: return 70;
     case Ability.DarkSwarm: return 60;
     case Ability.ScannerSweep: return 1;
-    case Ability.Parasite: return 220;
-    case Ability.OpticalFlare: return 100;
     case Ability.InfestCommandCenter: return 1;
     case Ability.NuclearStrike: return 650;
     default: return 1;

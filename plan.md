@@ -1613,6 +1613,8 @@ Highest-impact LOC reductions:
    - Started with the friendly restore family: `Heal` and `Shield Recharge` now use a shared
      `AbilityPolicy`/`tryCastPolicy` path that scores targets and delegates legality to
      `validateCommand`.
+   - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
+     `Lockdown` now share the policy target-selection path.
 4. Replace `Game` command-option/status derivation with sim/app query modules.
    - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
      capability summaries, selected status text, group management, replay scrub, and command emission.
