@@ -2884,6 +2884,9 @@ Implementation slices:
      writers now accept the `move` head for targeted follow candidates, with validator-parity tests
      proving friendly non-resource targets are exposed while enemy, resource, and self targets are
      rejected.
+   - Status: action-mask target legality now has command-intent parity coverage for smart-command,
+     harvest, repair, load, and rally candidates. This keeps the RL/policy-facing entity target
+     masks pinned to the same finite command vocabulary used by the app before changing mask internals.
 
 3. Add public entity-travel command support.
    - Status: done for `{ t: 'move'; unit; x; y; target? }` plus replay/action encode/decode,

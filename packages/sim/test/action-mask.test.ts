@@ -41,6 +41,10 @@ import {
 import { validateCommand } from '../src/validation.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 import type { Command } from '../src/commands.ts';
+import {
+  harvestModeCandidates, loadSelectionCandidates, rallyModeCandidates, repairModeCandidates,
+  smartCommandCandidates,
+} from '../src/command-intent.ts';
 
 const ALL_COMMAND_TAGS: readonly Command['t'][] = [
   'train', 'research', 'build', 'addon', 'lift', 'land', 'transform', 'burrow', 'mine',
@@ -290,6 +294,45 @@ test('structure command mask allows rally without mobile commands', () => {
     ok: false,
     reason: 'incomplete-producer',
   });
+});
+
+test('command intent candidates agree with policy target mask legality', () => {
+  const scenario = simScenario({ players: 1, seed: 965 });
+  const { state: s, spawn } = scenario;
+  const e = s.e;
+  s.players.minerals[0] = 1_000;
+  const scv = spawn(Kind.SCV, 0, fx(400), fx(400));
+  const marine = spawn(Kind.Marine, 0, fx(430), fx(400));
+  const dropship = spawn(Kind.Dropship, 0, fx(455), fx(400));
+  const cc = spawn(Kind.CommandCenter, 0, fx(500), fx(400));
+  const mineral = spawn(Kind.Mineral, -1, fx(560), fx(400));
+  const tank = spawn(Kind.SiegeTank, 0, fx(620), fx(400));
+  e.hp[slotOf(tank)] = Units[Kind.SiegeTank]!.hp - 20;
+  const target = { hit: mineral, x: fx(560), y: fx(400) };
+
+  const smart = smartCommandCandidates(s, 0, scv, target, 'desktop');
+  assert.equal(smart[0]?.t, 'harvest');
+  assert.equal(entityTargetMask(s, 0, scv, 'harvest', [mineral], target)[0], 1);
+
+  for (const command of harvestModeCandidates(s, 0, [scv, marine], mineral)) {
+    if (command.t !== 'harvest') throw new Error('expected harvest candidate');
+    assert.equal(entityTargetMask(s, 0, command.unit, 'harvest', [mineral])[0], 1);
+  }
+  for (const command of repairModeCandidates(s, 0, [scv, marine], tank)) {
+    if (command.t !== 'repair') throw new Error('expected repair candidate');
+    assert.equal(entityTargetMask(s, 0, command.unit, 'repair', [tank])[0], 1);
+  }
+  for (const command of loadSelectionCandidates(s, 0, [dropship, marine, tank])) {
+    if (command.t !== 'load') throw new Error('expected load candidate');
+    assert.equal(entityTargetMask(s, 0, command.transport, 'load', [command.unit])[0], 1);
+  }
+  for (const command of rallyModeCandidates(s, 0, [cc, marine], target)) {
+    if (command.t !== 'rally') throw new Error('expected rally candidate');
+    assert.equal(entityTargetMask(s, 0, command.building, 'rally', [mineral], target)[0], command.target === mineral ? 1 : 0);
+  }
+
+  assert.equal(entityTargetMask(s, 0, marine, 'harvest', [mineral])[0], 0);
+  assert.equal(entityTargetMask(s, 0, marine, 'rally', [mineral], target)[0], 0);
 });
 
 test('special command mask bits are controlled by tech and unit state', () => {
