@@ -8,7 +8,8 @@ import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, t
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
 import {
-  HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, resetHotkeys, setHotkey, type HotkeyAction,
+  HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, orderHotkeyAction, resetHotkeys, setHotkey,
+  type HotkeyAction,
 } from './hotkeys.ts';
 
 const bar: Record<string, string> = {
@@ -545,7 +546,7 @@ const Hotbar = (p: { game: Game }) => {
     group: CommandGroupId,
     option: CommandOption,
     label: string,
-    hotkeyAction: HotkeyAction,
+    hotkeyAction: HotkeyAction | undefined,
     onClick: () => void,
     active = false,
   ): void => {
@@ -556,10 +557,11 @@ const Hotbar = (p: { game: Game }) => {
   const executeOption = (option: CommandOption): void => {
     g.executeOption(option);
   };
-  const addOrderButton = (id: number, label: string, hotkeyAction: HotkeyAction): void => {
+  const addOrderButton = (id: number, label: string): void => {
     const option = selection.options.order.find((o) => o.id === id);
+    const hotkeyAction = orderHotkeyAction(id);
     if (!option) return;
-    addOptionButton('orders', option, label, hotkeyAction, () => executeOption(option), activeArm(option));
+    addOptionButton('orders', option, label, hotkeyAction ?? undefined, () => executeOption(option), activeArm(option));
   };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
@@ -589,9 +591,9 @@ const Hotbar = (p: { game: Game }) => {
           () => executeOption(option));
       }
     }
-    addOrderButton(OrderOptionId.Rally, 'Set Rally', 'rally');
-    addOrderButton(OrderOptionId.Harvest, 'Harvest', 'harvest');
-    addOrderButton(OrderOptionId.Repair, 'Repair', 'repair');
+    addOrderButton(OrderOptionId.Rally, 'Set Rally');
+    addOrderButton(OrderOptionId.Harvest, 'Harvest');
+    addOrderButton(OrderOptionId.Repair, 'Repair');
     for (const option of selection.options.research) {
       const tech = option.id;
       addOptionButton('tech', option, short(TechDefs[tech]?.name ?? 'Research'), actionKey.research(tech),
@@ -608,28 +610,14 @@ const Hotbar = (p: { game: Game }) => {
     if (selection.can.unload) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unload" hotkeyAction="unload" onClick={() => g.unloadSelected()} />);
     }
-    if (selection.can.burrow) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Burrow" hotkeyAction="burrow" onClick={() => g.burrowSelected(true)} />);
-    }
-    if (selection.can.unburrow) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Unburrow" hotkeyAction="unburrow" onClick={() => g.burrowSelected(false)} />);
-    }
-    if (selection.can.mine) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lay Mine" hotkeyAction="mine" onClick={() => g.mineSelected()} />);
-    }
-    if (selection.can.lift) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
-    }
-    if (selection.can.land) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.armedCommand.value.t === 'land'} onClick={() => g.armLandSelected()} />);
-    }
-    if (selection.can.cancel) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
-    }
-    addOrderButton(OrderOptionId.AttackMove, 'Atk-Move', 'attackMove');
-    if (selection.can.stop) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
-    }
+    addOrderButton(OrderOptionId.Burrow, 'Burrow');
+    addOrderButton(OrderOptionId.Unburrow, 'Unburrow');
+    addOrderButton(OrderOptionId.Mine, 'Lay Mine');
+    addOrderButton(OrderOptionId.Lift, 'Lift Off');
+    addOrderButton(OrderOptionId.Land, 'Land');
+    addOrderButton(OrderOptionId.Cancel, 'Cancel');
+    addOrderButton(OrderOptionId.AttackMove, 'Atk-Move');
+    addOrderButton(OrderOptionId.Stop, 'Stop');
     addCommand('selection', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);
   } else {
     addCommand('empty', <span style={{ opacity: 0.5, alignSelf: 'center' }}>No selection</span>);

@@ -401,14 +401,6 @@ export class Game {
     this.selectionState().selectVisibleKind(kind);
   }
 
-  stopSelected(): void {
-    this.commandState().stopSelected();
-  }
-
-  cancelSelectedBuild(): void {
-    this.commandState().cancelSelectedBuild();
-  }
-
   executeOption(option: CommandOption): boolean {
     return this.commandState().executeOption(option);
   }
@@ -425,14 +417,6 @@ export class Game {
     this.commandState().addonSelected(kind);
   }
 
-  liftSelected(): void {
-    this.commandState().liftSelected();
-  }
-
-  armLandSelected(): void {
-    this.commandState().armLandSelected();
-  }
-
   transformSelected(kind: number): void {
     this.commandState().transformSelected(kind);
   }
@@ -447,14 +431,6 @@ export class Game {
 
   unloadSelected(): void {
     this.commandState().unloadSelected();
-  }
-
-  burrowSelected(active: boolean): void {
-    this.commandState().burrowSelected(active);
-  }
-
-  mineSelected(): void {
-    this.commandState().mineSelected();
   }
 
   deselect(): void {

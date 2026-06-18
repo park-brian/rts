@@ -1859,6 +1859,10 @@ Further concrete deletion opportunities found on review:
      - Added order target-mode descriptors for rally, attack-move, harvest, and repair. Their
        command-card buttons and desktop hotkeys now route through the same `Game.executeOption`
        arm/toggle path as build placement and targeted abilities.
+     - Moved stop, burrow, unburrow, lay mine, lift off, land, and cancel into
+       `selection.options.order`; their command-card buttons and desktop hotkeys now execute the
+       same option records, and the redundant direct `Game`/`CommandController` methods were
+       removed.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,

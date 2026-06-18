@@ -121,7 +121,9 @@ const abilityCommandsForSelection = (
 };
 
 const abilityArm = (ability: number): ArmedCommand => ({ t: 'ability', ability });
-const orderOption = (id: number, arm: ArmedCommand): CommandOption => ({ id, ok: true, arm });
+const armedOrderOption = (id: number, label: string, arm: ArmedCommand): CommandOption => ({ id, ok: true, label, arm });
+const commandOrderOption = (id: number, label: string, commands: Command[]): CommandOption[] =>
+  commands.length > 0 ? [{ id, ok: true, label, commands }] : [];
 
 const transformCommandsForSelection = (
   s: State,
@@ -186,6 +188,13 @@ export const selectionCapabilities = (
   let canLift = false;
   let canLand = false;
   let canCancel = false;
+  const stopCommands: Command[] = [];
+  const burrowCommands: Command[] = [];
+  const unburrowCommands: Command[] = [];
+  const mineCommands: Command[] = [];
+  const liftCommands: Command[] = [];
+  const cancelCommands: Command[] = [];
+  let landKind = NONE;
   const buildOptions = new Map<number, OptionRecord>();
   const addonOptions = new Map<number, OptionRecord>();
   const transformOptions = new Map<number, OptionRecord>();
@@ -204,7 +213,13 @@ export const selectionCapabilities = (
     kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
-    if (completed && validateCommand(s, player, { t: 'stop', unit: id }).ok) canStop = true;
+    if (completed) {
+      const command: Command = { t: 'stop', unit: id };
+      if (validateCommand(s, player, command).ok) {
+        canStop = true;
+        stopCommands.push(command);
+      }
+    }
     if (completed && (e.flags[slot]! & Role.Worker) !== 0) {
       if (e.illusion[slot] !== 1) canHarvest = true;
       addWorkerBuildOptions(s, player, slot, buildOptions);
@@ -249,12 +264,35 @@ export const selectionCapabilities = (
         }
       }
     }
-    if (validateCommand(s, player, { t: 'burrow', unit: id, active: true }).ok) canBurrow = true;
-    if (validateCommand(s, player, { t: 'burrow', unit: id, active: false }).ok) canUnburrow = true;
-    if (validateCommand(s, player, { t: 'mine', unit: id }).ok) canMine = true;
-    if (validateCommand(s, player, { t: 'lift', building: id }).ok) canLift = true;
-    if (isLiftedStructureFlags(e.flags[slot]!)) canLand = true;
-    if (validateCommand(s, player, { t: 'cancelBuild', building: id }).ok) canCancel = true;
+    const burrowCommand: Command = { t: 'burrow', unit: id, active: true };
+    if (validateCommand(s, player, burrowCommand).ok) {
+      canBurrow = true;
+      burrowCommands.push(burrowCommand);
+    }
+    const unburrowCommand: Command = { t: 'burrow', unit: id, active: false };
+    if (validateCommand(s, player, unburrowCommand).ok) {
+      canUnburrow = true;
+      unburrowCommands.push(unburrowCommand);
+    }
+    const mineCommand: Command = { t: 'mine', unit: id };
+    if (validateCommand(s, player, mineCommand).ok) {
+      canMine = true;
+      mineCommands.push(mineCommand);
+    }
+    const liftCommand: Command = { t: 'lift', building: id };
+    if (validateCommand(s, player, liftCommand).ok) {
+      canLift = true;
+      liftCommands.push(liftCommand);
+    }
+    if (isLiftedStructureFlags(e.flags[slot]!)) {
+      canLand = true;
+      if (landKind === NONE) landKind = k;
+    }
+    const cancelCommand: Command = { t: 'cancelBuild', building: id };
+    if (validateCommand(s, player, cancelCommand).ok) {
+      canCancel = true;
+      cancelCommands.push(cancelCommand);
+    }
   }
 
   for (const transport of selected) {
@@ -283,10 +321,17 @@ export const selectionCapabilities = (
 
   if (count === 0) return EMPTY_SELECTION_VIEW;
   const orderOptions: CommandOption[] = [
-    ...(canRally ? [orderOption(OrderOptionId.Rally, { t: 'rally' })] : []),
-    ...(canHarvest ? [orderOption(OrderOptionId.Harvest, { t: 'target', mode: 'harvest' })] : []),
-    ...(canRepair ? [orderOption(OrderOptionId.Repair, { t: 'target', mode: 'repair' })] : []),
-    ...(canAttackMove ? [orderOption(OrderOptionId.AttackMove, { t: 'attackMove' })] : []),
+    ...(canRally ? [armedOrderOption(OrderOptionId.Rally, 'Set Rally', { t: 'rally' })] : []),
+    ...(canHarvest ? [armedOrderOption(OrderOptionId.Harvest, 'Harvest', { t: 'target', mode: 'harvest' })] : []),
+    ...(canRepair ? [armedOrderOption(OrderOptionId.Repair, 'Repair', { t: 'target', mode: 'repair' })] : []),
+    ...commandOrderOption(OrderOptionId.Burrow, 'Burrow', burrowCommands),
+    ...commandOrderOption(OrderOptionId.Unburrow, 'Unburrow', unburrowCommands),
+    ...commandOrderOption(OrderOptionId.Mine, 'Lay Mine', mineCommands),
+    ...commandOrderOption(OrderOptionId.Lift, 'Lift Off', liftCommands),
+    ...(landKind !== NONE ? [armedOrderOption(OrderOptionId.Land, 'Land', { t: 'land', kind: landKind })] : []),
+    ...commandOrderOption(OrderOptionId.Cancel, 'Cancel', cancelCommands),
+    ...(canAttackMove ? [armedOrderOption(OrderOptionId.AttackMove, 'Atk-Move', { t: 'attackMove' })] : []),
+    ...commandOrderOption(OrderOptionId.Stop, 'Stop', stopCommands),
   ];
   return {
     count,

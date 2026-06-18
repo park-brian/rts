@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ui } from '../src/store.ts';
+import { OrderOptionId, ui } from '../src/store.ts';
 import { Ability, Kind, ONE, Tech, TILE, Units, canPlaceStructure, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 import {
   centerOnEntity, findEntity, findOwnedWorkers, freshGame, screenOf, screenOfStructureFootprintEdge,
@@ -437,15 +437,18 @@ test('unloadSelected sends nydus cargo to the remote network exit', () => {
   assert.ok(dx * dx + dy * dy <= fx(96) * fx(96));
 });
 
-test('mineSelected queues mine commands for selected charged vultures', () => {
+test('mine order option queues mine commands for selected charged vultures', () => {
   const g = freshGame();
   const s = g.sim.fullState();
   const vulture = spawnUnit(s, Kind.Vulture, 0, fx(400), fx(400));
   setTechLevel(s, 0, Tech.SpiderMines, 1);
   s.e.specialAmmo[slotOf(vulture)] = 1;
   select(g, [vulture]);
+  g.fastForward(0);
 
-  g.mineSelected();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Mine);
+  assert.deepEqual(option?.commands, [{ t: 'mine', unit: vulture }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'mine', unit: vulture }]);
 });
@@ -538,7 +541,9 @@ test('selected zerg structure morphs publish morphing label and cancel only', ()
   assert.equal(ui.selectionView.value.options.research.length, 0);
   assert.equal(ui.selectionView.value.options.transform.length, 0);
 
-  g.cancelSelectedBuild();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Cancel);
+  assert.deepEqual(option?.commands, [{ t: 'cancelBuild', building: hatchery }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: hatchery }]);
 });
@@ -565,7 +570,9 @@ test('selected protoss warp-ins publish warping label and cancel only', () => {
   assert.equal(ui.selectionView.value.options.research.length, 0);
   assert.equal(ui.selectionView.value.options.transform.length, 0);
 
-  g.cancelSelectedBuild();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Cancel);
+  assert.deepEqual(option?.commands, [{ t: 'cancelBuild', building: gateway }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: gateway }]);
 });
@@ -605,7 +612,8 @@ test('selected protoss merge summons are inert and not cancellable', () => {
   assert.equal(ui.selectionView.value.can.attackMove, false);
   assert.equal(ui.selectionView.value.can.stop, false);
 
-  g.cancelSelectedBuild();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Cancel);
+  assert.equal(option, undefined);
 
   assert.deepEqual(g.queued, []);
 });
@@ -767,7 +775,9 @@ test('selected zerg combat morphs present as cancellable cocoons', () => {
   assert.equal(ui.selectionView.value.can.attackMove, false);
   assert.equal(ui.selectionView.value.can.stop, false);
 
-  g.cancelSelectedBuild();
+  const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Cancel);
+  assert.deepEqual(option?.commands, [{ t: 'cancelBuild', building: hydra }]);
+  assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: hydra }]);
   g.fastForward(1);

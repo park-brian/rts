@@ -1,7 +1,7 @@
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { clearArmedCommand, shouldToggleArmedCommand, ui, type CommandOption } from './store.ts';
 import {
-  Abilities, NONE, ONE, Role, Units, eid, entityWorkQueue, isAlive, isLiftedStructureFlags,
+  Abilities, NONE, ONE, Role, Units, eid, entityWorkQueue, isAlive,
   slotOf, transformFor, transportCapacity, unloadAnchorSlot, validateCommand,
   type Command, type State,
 } from './sim.ts';
@@ -73,23 +73,6 @@ export class CommandController {
 
   cancelPlacementGhost(): void {
     this.placementController.clear();
-  }
-
-  stopSelected(): void {
-    const e = this.deps.state().e;
-    for (const id of this.deps.selection()) if (isAlive(e, id)) this.queued.push({ t: 'stop', unit: id });
-    this.clearTargetModes();
-  }
-
-  cancelSelectedBuild(): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    for (const id of this.deps.selection()) {
-      const c: Command = { t: 'cancelBuild', building: id };
-      if (isAlive(e, id) && validateCommand(s, human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
   }
 
   executeOption(option: CommandOption): boolean {
@@ -164,25 +147,6 @@ export class CommandController {
       }
     }
     this.clearTargetModes();
-  }
-
-  liftSelected(): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    for (const id of this.deps.selection()) {
-      if (!isAlive(e, id)) continue;
-      const c: Command = { t: 'lift', building: id };
-      if (validateCommand(s, human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
-  }
-
-  armLandSelected(): void {
-    const e = this.deps.state().e;
-    const slot = this.deps.firstSelected((i) => isLiftedStructureFlags(e.flags[i]!));
-    this.clearTargetModes();
-    if (slot >= 0) ui.armedCommand.value = { t: 'land', kind: e.kind[slot]! };
   }
 
   transformSelected(kind: number): void {
@@ -312,25 +276,4 @@ export class CommandController {
     this.clearTargetModes();
   }
 
-  burrowSelected(active: boolean): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    for (const id of this.deps.selection()) {
-      const c: Command = { t: 'burrow', unit: id, active };
-      if (isAlive(e, id) && validateCommand(s, human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
-  }
-
-  mineSelected(): void {
-    const s = this.deps.state();
-    const e = s.e;
-    const human = this.deps.human();
-    for (const id of this.deps.selection()) {
-      const c: Command = { t: 'mine', unit: id };
-      if (isAlive(e, id) && validateCommand(s, human, c).ok) this.queued.push(c);
-    }
-    this.clearTargetModes();
-  }
 }

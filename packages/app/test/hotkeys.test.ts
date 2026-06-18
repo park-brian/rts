@@ -114,6 +114,29 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   assert.deepEqual(ui.armedCommand.value, { t: 'land', kind: Kind.Barracks });
 });
 
+test('desktop cancel hotkey executes cancellable morph option before deselect', () => {
+  resetHotkeys();
+  const g = desktopGame(96);
+  const s = g.sim.fullState();
+  g.controllers = [null, null];
+  const hatchery = spawnUnit(s, Kind.Hatchery, 0, fx(700), fx(700));
+  spawnUnit(s, Kind.SpawningPool, 0, fx(860), fx(700));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const started = g.sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hatchery, kind: Kind.Lair }] }]);
+  assert.deepEqual(started, [{ player: 0, index: 0, t: 'transform', ok: true }]);
+  select(g, [hatchery]);
+  g.fastForward(0);
+
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Cancel)?.commands, [
+    { t: 'cancelBuild', building: hatchery },
+  ]);
+  assert.equal(dispatchHotkey(g, 'Escape'), true);
+  assert.deepEqual(g.queued, [{ t: 'cancelBuild', building: hatchery }]);
+  assert.deepEqual([...g.selection], [hatchery]);
+});
+
 test('desktop command-card hotkeys execute build and ability options through shared descriptors', () => {
   resetHotkeys();
   const g = desktopGame(95);

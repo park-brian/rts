@@ -12,6 +12,13 @@ export const OrderOptionId = {
   Harvest: 2,
   Repair: 3,
   AttackMove: 4,
+  Stop: 5,
+  Burrow: 6,
+  Unburrow: 7,
+  Mine: 8,
+  Lift: 9,
+  Land: 10,
+  Cancel: 11,
 } as const;
 export type CommandOption = {
   id: number;

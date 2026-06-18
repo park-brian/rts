@@ -16,6 +16,7 @@ export type GlobalHotkeyAction =
   | 'mine'
   | 'lift'
   | 'land'
+  | 'cancel'
   | 'deselect';
 export type HotkeyAction = GlobalHotkeyAction | string;
 
@@ -34,6 +35,7 @@ export const HOTKEY_ACTIONS: ReadonlyArray<{ id: GlobalHotkeyAction; label: stri
   { id: 'mine', label: 'Lay Mine' },
   { id: 'lift', label: 'Lift Off' },
   { id: 'land', label: 'Land' },
+  { id: 'cancel', label: 'Cancel' },
   { id: 'deselect', label: 'Deselect' },
 ];
 
@@ -50,6 +52,7 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   mine: 'KeyI',
   lift: 'KeyL',
   land: 'KeyL',
+  cancel: 'Escape',
   deselect: 'Escape',
 };
 
@@ -346,6 +349,37 @@ const executeOption = (game: Game, options: CommandOption[], id: number): boolea
   return game.executeOption(option);
 };
 
+export const orderHotkeyAction = (id: number): GlobalHotkeyAction | null => {
+  switch (id) {
+    case OrderOptionId.AttackMove: return 'attackMove';
+    case OrderOptionId.Stop: return 'stop';
+    case OrderOptionId.Harvest: return 'harvest';
+    case OrderOptionId.Repair: return 'repair';
+    case OrderOptionId.Rally: return 'rally';
+    case OrderOptionId.Burrow: return 'burrow';
+    case OrderOptionId.Unburrow: return 'unburrow';
+    case OrderOptionId.Mine: return 'mine';
+    case OrderOptionId.Lift: return 'lift';
+    case OrderOptionId.Land: return 'land';
+    case OrderOptionId.Cancel: return 'cancel';
+    default: return null;
+  }
+};
+
+const optionActions = (options: readonly CommandOption[], keyFor: (id: number) => HotkeyAction): HotkeyAction[] =>
+  options.filter((option) => option.ok).map((option) => keyFor(option.id));
+
+const orderActions = (options: readonly CommandOption[], ids: readonly number[]): HotkeyAction[] => {
+  const byId = new Map(options.filter((option) => option.ok).map((option) => [option.id, option]));
+  const actions: HotkeyAction[] = [];
+  for (const id of ids) {
+    if (!byId.has(id)) continue;
+    const action = orderHotkeyAction(id);
+    if (action) actions.push(action);
+  }
+  return actions;
+};
+
 const fireAction = (game: Game, action: HotkeyAction): boolean => {
   const selection = ui.selectionView.value;
   if (action.startsWith('build:')) {
@@ -370,9 +404,7 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     case 'attackMove':
       return executeOption(game, selection.options.order, OrderOptionId.AttackMove);
     case 'stop':
-      clearTargets();
-      game.stopSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Stop);
     case 'harvest':
       return executeOption(game, selection.options.order, OrderOptionId.Harvest);
     case 'repair':
@@ -388,25 +420,17 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
       game.unloadSelected();
       return true;
     case 'burrow':
-      clearTargets();
-      game.burrowSelected(true);
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Burrow);
     case 'unburrow':
-      clearTargets();
-      game.burrowSelected(false);
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Unburrow);
     case 'mine':
-      clearTargets();
-      game.mineSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Mine);
     case 'lift':
-      clearTargets();
-      game.liftSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Lift);
     case 'land':
-      clearTargets();
-      game.armLandSelected();
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Land);
+    case 'cancel':
+      return executeOption(game, selection.options.order, OrderOptionId.Cancel);
     case 'deselect':
       game.deselect();
       return true;
@@ -417,24 +441,25 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
 const commandCardActions = (): HotkeyAction[] => {
   const selection = ui.selectionView.value;
   return [
-    ...selection.kinds.train.map(actionKey.train),
-    ...selection.kinds.addon.map(actionKey.addon),
-    ...selection.kinds.transform.map(actionKey.transform),
-    ...selection.kinds.build.map(actionKey.build),
-    ...(selection.can.rally ? ['rally' as const] : []),
-    ...(selection.can.harvest ? ['harvest' as const] : []),
-    ...(selection.can.repair ? ['repair' as const] : []),
-    ...selection.kinds.research.map(actionKey.research),
-    ...selection.kinds.abilities.map(actionKey.ability),
+    ...optionActions(selection.options.train, actionKey.train),
+    ...optionActions(selection.options.addon, actionKey.addon),
+    ...optionActions(selection.options.transform, actionKey.transform),
+    ...optionActions(selection.options.build, actionKey.build),
+    ...orderActions(selection.options.order, [OrderOptionId.Rally, OrderOptionId.Harvest, OrderOptionId.Repair]),
+    ...optionActions(selection.options.research, actionKey.research),
+    ...optionActions(selection.options.ability, actionKey.ability),
     ...(selection.can.load ? ['load' as const] : []),
     ...(selection.can.unload ? ['unload' as const] : []),
-    ...(selection.can.burrow ? ['burrow' as const] : []),
-    ...(selection.can.unburrow ? ['unburrow' as const] : []),
-    ...(selection.can.mine ? ['mine' as const] : []),
-    ...(selection.can.lift ? ['lift' as const] : []),
-    ...(selection.can.land ? ['land' as const] : []),
-    ...(selection.can.attackMove ? ['attackMove' as const] : []),
-    ...(selection.can.stop ? ['stop' as const] : []),
+    ...orderActions(selection.options.order, [
+      OrderOptionId.Burrow,
+      OrderOptionId.Unburrow,
+      OrderOptionId.Mine,
+      OrderOptionId.Lift,
+      OrderOptionId.Land,
+      OrderOptionId.Cancel,
+      OrderOptionId.AttackMove,
+      OrderOptionId.Stop,
+    ]),
     'deselect',
   ];
 };
