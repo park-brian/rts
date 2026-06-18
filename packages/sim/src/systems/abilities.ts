@@ -72,6 +72,9 @@ const applyStatusTimer = (
     case 'lockdown':
       e.lockdownTimer[target] = Math.max(e.lockdownTimer[target]!, duration);
       return;
+    case 'irradiate':
+      e.irradiateTimer[target] = Math.max(e.irradiateTimer[target]!, duration);
+      return;
   }
 };
 
@@ -271,9 +274,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, ability.duration);
       break;
     }
-    case Ability.Irradiate:
-      e.irradiateTimer[slotOf(c.target!)] = Math.max(e.irradiateTimer[slotOf(c.target!)]!, ability.duration);
-      break;
     case Ability.YamatoGun:
       applyIndependentDamage(s, slotOf(c.target!), ability.damage);
       break;

@@ -46,7 +46,7 @@ export type EffectKind = (typeof EffectKind)[keyof typeof EffectKind];
 
 export type AbilityTarget = 'self' | 'point' | 'entity';
 export type TargetTeam = 'own' | 'enemy' | 'any';
-export type AbilityStatusTimer = 'stim' | 'lockdown';
+export type AbilityStatusTimer = 'stim' | 'lockdown' | 'irradiate';
 export type AbilityTargetMarker = 'opticalFlare' | 'parasiteOwner';
 export type AbilityRestorePool = 'hp' | 'shield';
 export type AbilityExecution =
@@ -101,6 +101,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Irradiate', tech: Tech.Irradiate, target: 'entity', targetTeam: 'any', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ScienceVessel],
     energyCost: 75, hpCost: 0, range: tiles(9), radius: fx(32), duration: sec(37.8), period: 8, damage: 9,
+    execution: { mode: 'target-status', timer: 'irradiate' },
   },
   [Ability.Lockdown]: {
     name: 'Lockdown', tech: Tech.Lockdown, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,

@@ -1599,6 +1599,8 @@ Highest-impact LOC reductions:
        path.
      - Added target restore descriptors: `Heal` restores hit points and `Shield Recharge` restores
        shields through the same capped restore path.
+     - Extended descriptor target timers to `Irradiate`, so the generic execution path owns the
+       target's damage-over-time timer while the existing tick system owns periodic splash damage.
 3. Replace AI's tactical casting chain with an ability policy table.
    - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
      `maybeCast*` and `score*` helpers.
@@ -1957,6 +1959,10 @@ Further concrete deletion opportunities found on review:
        `UnitDef`, `Units`, unit trait/weapon helpers, worker build palettes, larva source checks,
        and production count helpers, while keeping `data.ts` as the public barrel plus faction and
        economy constants.
+   - Closed for now:
+     - `data.ts` intentionally remains the compatibility barrel plus small faction/economy
+       constants. Do not split `data-economy.ts` or `data-factions.ts` unless a real second owner,
+       consumer, or validation/UI/AI deletion opportunity appears.
 
 Abstraction acceptance test:
 
