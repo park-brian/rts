@@ -5,9 +5,8 @@
 import type { State } from '../world.ts';
 import { eid, isAlive, kill, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
-import { Kind, Order, Role, TILE, Units, productionCostCount, productionCount } from '../data.ts';
+import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
-import { ONE } from '../fixed.ts';
 import { placementForStructure, snapRallyTarget, validateCommand } from '../validation.ts';
 import { addonPosition } from '../addon.ts';
 import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
@@ -17,12 +16,15 @@ import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
 import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
-import { bodyBounds } from '../spatial.ts';
+import { loadUnitInto } from '../cargo.ts';
+import {
+  GROUP_SLOT_SPACING,
+  groupOffset,
+  roundedGroupSpacing,
+  usesGroundMoveSlot,
+} from '../movement-slots.ts';
 
 const EMPTY_RESULTS: CommandResult[] = [];
-const GROUP_SLOT_SPACING = TILE * ONE;
-const GROUP_SLOT_SPACING_STEP = GROUP_SLOT_SPACING >> 1;
-
 type MoveGroupPlan = {
   count: Map<string, number>;
   rank: Map<string, number>;
@@ -33,41 +35,6 @@ const moveGroupKey = (player: number, c: Command): string =>
   (c.t === 'move' || c.t === 'amove') ? `${player}:${c.t}:${c.x}:${c.y}` : '';
 
 const moveRankKey = (key: string, slot: number): string => `${key}:${slot}`;
-
-const groupOffset = (rank: number, spacing: number): { x: number; y: number } => {
-  if (rank <= 0) return { x: 0, y: 0 };
-  let ring = 1;
-  while ((2 * ring + 1) * (2 * ring + 1) <= rank) ring++;
-  const side = 2 * ring;
-  const pos = rank - (2 * ring - 1) * (2 * ring - 1);
-  let gx = 0;
-  let gy = 0;
-  if (pos < side) {
-    gx = -ring + 1 + pos;
-    gy = -ring;
-  } else if (pos < side * 2) {
-    gx = ring;
-    gy = -ring + 1 + (pos - side);
-  } else if (pos < side * 3) {
-    gx = ring - 1 - (pos - side * 2);
-    gy = ring;
-  } else {
-    gx = -ring;
-    gy = ring - 1 - (pos - side * 3);
-  }
-  return { x: gx * spacing, y: gy * spacing };
-};
-
-const roundedGroupSpacing = (s: State, slots: number[]): number => {
-  let spacing = GROUP_SLOT_SPACING;
-  for (const slot of slots) {
-    const b = bodyBounds(s.e.kind[slot]!);
-    const body = Math.max(b.left + b.right, b.up + b.down) + (GROUP_SLOT_SPACING_STEP >> 1);
-    const rounded = Math.trunc((body + GROUP_SLOT_SPACING_STEP - 1) / GROUP_SLOT_SPACING_STEP) * GROUP_SLOT_SPACING_STEP;
-    spacing = Math.max(spacing, rounded);
-  }
-  return spacing;
-};
 
 const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan => {
   const rawCounts = new Map<string, number>();
@@ -97,7 +64,7 @@ const buildMoveGroupPlan = (s: State, batch: PlayerCommands[]): MoveGroupPlan =>
       if (!valid.ok) continue;
       const slot = slotOf(c.unit);
       const flags = s.e.flags[slot]!;
-      if ((flags & (Role.Worker | Role.Air)) !== 0) continue;
+      if (!usesGroundMoveSlot(flags)) continue;
       let group = groups.get(key);
       if (!group) {
         group = [];
@@ -322,16 +289,6 @@ const laySpiderMine = (s: State, vulture: number): void => {
   e.target[mine] = NONE;
 };
 
-const loadUnit = (s: State, transport: number, unit: number): void => {
-  const e = s.e;
-  clearSettled(s, unit);
-  e.container[unit] = eid(e, transport);
-  e.x[unit] = e.x[transport]!;
-  e.y[unit] = e.y[transport]!;
-  e.order[unit] = Order.Idle;
-  e.target[unit] = NONE;
-};
-
 const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   const e = s.e;
   clearSettled(s, unit);
@@ -483,7 +440,8 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           break;
         }
         case 'load': {
-          loadUnit(s, slotOf(c.transport), slotOf(c.unit));
+          const unit = slotOf(c.unit);
+          loadUnitInto(s, slotOf(c.transport), unit);
           results.push({ player, index, t: c.t, ok: true });
           break;
         }

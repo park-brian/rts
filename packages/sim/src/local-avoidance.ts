@@ -11,6 +11,7 @@ import { Kind, Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { isContained } from './cargo.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
+import { isMineralWalkingWorker } from './worker-collision.ts';
 
 const TILE_FX = TILE * ONE;
 const AVOID_MARGIN = ONE * 6;
@@ -26,18 +27,21 @@ const next = new Int32Array(CAP);
 const cell = (coord: number, n: number): number =>
   Math.min(n - 1, Math.max(0, Math.trunc(coord / TILE_FX)));
 
-export const isLocalAvoidanceSolid = (kind: number, fl: number): boolean =>
+export const isLocalAvoidanceSolidKind = (kind: number, fl: number): boolean =>
   kind !== Kind.Scarab &&
   (fl & Role.Mobile) !== 0 && (fl & Role.Structure) === 0 &&
-  (fl & Role.Worker) === 0 && (fl & Role.Air) === 0;
+  (fl & Role.Air) === 0;
 
-export const usesLocalAvoidance = (s: State, slot: number): boolean => {
+export const isLocalAvoidanceSolid = (s: State, slot: number): boolean => {
   const e = s.e;
   return e.alive[slot] === 1 &&
     e.burrowed[slot] !== 1 &&
     !isContained(s, slot) &&
-    isLocalAvoidanceSolid(e.kind[slot]!, e.flags[slot]!);
+    isLocalAvoidanceSolidKind(e.kind[slot]!, e.flags[slot]!) &&
+    !isMineralWalkingWorker(s, slot);
 };
+
+export const usesLocalAvoidance = isLocalAvoidanceSolid;
 
 export const prepareLocalAvoidance = (s: State): void => {
   if (gridState === s && gridTick === s.tick) return;

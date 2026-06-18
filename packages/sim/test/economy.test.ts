@@ -98,7 +98,7 @@ test('new production buildings default to no rally point', () => {
   assert.equal(e.order[marine], Order.Idle, 'no default move order to map origin');
 });
 
-test('production ground rally sends new units as move', () => {
+test('production ground rally sends armed units as attack-move', () => {
   const sim = new Sim({ map: sliceMap(), players: 1, seed: 41 });
   const s = sim.fullState();
   const e = s.e;
@@ -118,7 +118,7 @@ test('production ground rally sends new units as move', () => {
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
-  assert.equal(e.order[marine], Order.Move);
+  assert.equal(e.order[marine], Order.AttackMove);
   assert.equal(e.tx[marine], x);
   assert.equal(e.ty[marine], y);
 });
@@ -147,9 +147,73 @@ test('production unit-target rally follows target position when the unit spawns'
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
-  assert.equal(e.order[marine], Order.Move);
+  assert.equal(e.order[marine], Order.AttackMove);
   assert.equal(e.tx[marine], e.x[target]);
   assert.equal(e.ty[marine], e.y[target]);
+});
+
+test('same-target production rallies use deterministic ground destination slots', () => {
+  const s = makeState(open(64, 64), 1, 52);
+  const e = s.e;
+  const a = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
+  const b = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(23), tc(20)));
+  const x = tc(35);
+  const y = tc(35);
+  for (const barracks of [a, b]) {
+    e.rallyX[barracks] = x;
+    e.rallyY[barracks] = y;
+    e.prodKind[barracks] = Kind.Marine;
+    e.prodTimer[barracks] = 1;
+  }
+
+  stepWorld(s, []);
+
+  const marines: number[] = [];
+  for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Marine) marines.push(i);
+  assert.equal(marines.length, 2);
+  assert.equal(e.order[marines[0]!], Order.AttackMove);
+  assert.equal(e.order[marines[1]!], Order.AttackMove);
+  assert.notEqual(`${e.tx[marines[0]!]},${e.ty[marines[0]!]}`, `${e.tx[marines[1]!]},${e.ty[marines[1]!]}`);
+  assert.ok(marines.some((slot) => e.tx[slot] === x && e.ty[slot] === y), 'one unit owns the exact rally point');
+});
+
+test('production rally to a loadable structure loads eligible spawned units', () => {
+  const s = makeState(open(64, 64), 1, 53);
+  const e = s.e;
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, tc(20), tc(20)));
+  const bunker = slotOf(spawnUnit(s, Kind.Bunker, 0, tc(20), tc(21)));
+  e.rallyTarget[barracks] = eid(e, bunker);
+  e.rallyX[barracks] = e.x[bunker]!;
+  e.rallyY[barracks] = e.y[bunker]!;
+  e.prodKind[barracks] = Kind.Marine;
+  e.prodTimer[barracks] = 1;
+
+  stepWorld(s, []);
+
+  let marine = -1;
+  for (let i = 0; i < e.hi; i++) if (e.alive[i] === 1 && e.kind[i] === Kind.Marine) marine = i;
+  assert.ok(marine >= 0, 'marine produced');
+  assert.equal(e.container[marine], eid(e, bunker));
+});
+
+test('zerg resource rally gives newly morphed workers a gather order', () => {
+  const s = makeState(open(64, 64), 1, 54);
+  const e = s.e;
+  const hatchery = slotOf(spawnUnit(s, Kind.Hatchery, 0, tc(20), tc(20)));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(24), tc(20)));
+  const egg = slotOf(spawnUnit(s, Kind.Egg, 0, tc(20), tc(21)));
+  e.cargo[mineral] = 1_000_000;
+  e.rallyTarget[hatchery] = eid(e, mineral);
+  e.rallyX[hatchery] = e.x[mineral]!;
+  e.rallyY[hatchery] = e.y[mineral]!;
+  e.prodKind[egg] = Kind.Drone;
+  e.prodTimer[egg] = 1;
+
+  stepWorld(s, []);
+
+  assert.equal(e.kind[egg], Kind.Drone);
+  assert.equal(e.order[egg], Order.Harvest);
+  assert.equal(e.target[egg], eid(e, mineral));
 });
 
 test('invalidated entity rally retargets to the nearest valid resource', () => {
@@ -173,7 +237,7 @@ test('invalidated entity rally retargets to the nearest valid resource', () => {
     if (e.alive[i] === 1 && e.kind[i] === Kind.Marine && e.owner[i] === 0) marine = i;
   }
   assert.ok(marine >= 0, 'marine produced');
-  assert.equal(e.order[marine], Order.Move);
+  assert.equal(e.order[marine], Order.AttackMove);
   assert.equal(e.tx[marine], e.x[patch]);
   assert.equal(e.ty[marine], e.y[patch]);
 });

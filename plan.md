@@ -123,6 +123,10 @@ Completed:
   `rally` command/replay path. Rally mode snaps to valid entity targets, production resolves live
   target positions, and invalid entity rallies retarget to the nearest valid rally entity instead
   of collapsing to a stale point.
+- Production rally now resolves to command-equivalent default intents: armed units attack-move
+  toward point/unit/resource rallies with the same deterministic ground slot spread as direct
+  movement batches, workers use resource rallies as gather orders, and loadable structure/unit
+  rallies pull eligible produced units into cargo when capacity and range allow it.
 - Unit-target rally rendering now uses the same sim rally resolver and draws a yellow target ring
   around the resolved rally target.
 - Added a top-bar Math renderer toggle that forces the Canvas2D footprint-reference renderer,
@@ -871,6 +875,9 @@ Completed:
 - Added a `movement-deathball` case to the headless throughput benchmark. It reports command
   acceptance, unit count, distinct positions, active movement orders, and settled units alongside
   timing/hash data without making wall-clock timing a pass/fail gate.
+- Worker collision is now order-derived instead of role-wide: workers are solid during ordinary
+  move/build/repair/gas behavior, while a live mineral harvest target gives them the mineral-walk
+  collision exemption needed for smooth mineral-line routing.
 
 Remaining:
 

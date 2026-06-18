@@ -431,6 +431,47 @@ test('same-target attack-move batches spread but worker move batches preserve ex
   assert.equal(s.e.ty[w2], targetY);
 });
 
+test('workers collide normally unless they are mineral-walking', () => {
+  const s = makeState(blankMap('worker-collision', 16, 16), 1, 102);
+  const e = s.e;
+  const a = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const b = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+
+  stepWorld(s, []);
+
+  assert.notEqual(positionKey(s, a), positionKey(s, b), 'ordinary workers should separate like solid bodies');
+});
+
+test('mineral-walking workers do not participate in collision cleanup', () => {
+  const s = makeState(blankMap('mineral-walk-collision', 16, 16), 1, 103);
+  const e = s.e;
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, -1, tc(10), tc(8)));
+  const miner = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const blocker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  e.order[miner] = Order.Harvest;
+  e.target[miner] = eid(e, mineral);
+  e.stasisTimer[miner] = 1; // isolate collision from harvest steering for this one tick
+
+  stepWorld(s, []);
+
+  assert.equal(positionKey(s, miner), positionKey(s, blocker), 'mineral-walking worker should stay collision-exempt');
+});
+
+test('gas-harvesting workers remain solid', () => {
+  const s = makeState(blankMap('gas-worker-collision', 16, 16), 1, 104);
+  const e = s.e;
+  const refinery = slotOf(spawnUnit(s, Kind.Refinery, 0, tc(10), tc(8)));
+  const gasWorker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  const blocker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(8), tc(8)));
+  e.order[gasWorker] = Order.Harvest;
+  e.target[gasWorker] = eid(e, refinery);
+  e.stasisTimer[gasWorker] = 1; // isolate collision from harvest steering for this one tick
+
+  stepWorld(s, []);
+
+  assert.notEqual(positionKey(s, gasWorker), positionKey(s, blocker), 'gas gather should not get mineral-walk phasing');
+});
+
 test('moving units face their current travel direction', () => {
   const s = makeState(sliceMap(), 1, 12);
   const id = spawnUnit(s, Kind.Marine, 0, tc(12), tc(12));

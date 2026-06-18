@@ -205,7 +205,7 @@ export const combat = (s: State, grid: Grid): void => {
     if (tgt === NONE) {
       if (order === Order.Attack) e.order[i] = Order.Idle; // target gone
       else if (order === Order.AttackMove) {
-        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) {
+        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i)) {
           e.order[i] = Order.Idle;
           e.target[i] = NONE;
         }

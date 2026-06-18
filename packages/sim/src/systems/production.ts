@@ -6,7 +6,7 @@
 import type { State } from '../world.ts';
 import { nearest, eid, slotOf, NONE } from '../world.ts';
 import { spawnUnit } from '../factory.ts';
-import { Kind, Order, ResourceType, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
+import { Kind, Order, ResourceType, Role, Units, hasAnyWeapon, isLarvaSourceKind, productionCount, sec } from '../data.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { pickPatch, isResource } from './harvest.ts';
 import { effectiveSpeed } from './status.ts';
@@ -16,6 +16,8 @@ import { internalAmmoCapacity } from '../derived.ts';
 import { resolveRallyEndpoint } from '../rally.ts';
 import { LARVA_MAX, countLarvae } from '../larva.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
+import { canAcceptCargo, loadUnitInto, withinLoadRange } from '../cargo.ts';
+import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
@@ -23,12 +25,28 @@ const LARVA_OFFSETS: readonly [number, number][] = [
   [-32, 28], [0, 36], [32, 28],
 ];
 
+type RallyMove = { slot: number; owner: number; order: number; x: number; y: number };
+
+const canAttackMoveByRally = (kind: number): boolean => {
+  const def = Units[kind];
+  return !!def && hasAnyWeapon(def);
+};
+
 /** Direct a freshly produced unit per its producer's rally (default worker = auto-mine). */
-const applyRally = (s: State, producer: number, slot: number, owner: number, isWorker: boolean, speed: number): void => {
+const applyRally = (
+  s: State,
+  producer: number,
+  slot: number,
+  owner: number,
+  isWorker: boolean,
+  speed: number,
+  rallyMoves: RallyMove[],
+): void => {
   const e = s.e;
   const rally = resolveRallyEndpoint(s, producer, slot);
   const target = rally?.target ?? NONE;
   const targetIsResource = target !== NONE && isResource(e, eid(e, target));
+  e.settled[slot] = 0;
   if (isWorker && targetIsResource) {
     const def = Units[e.kind[target]!]!;
     if (def.resourceType === ResourceType.Gas) {
@@ -42,17 +60,30 @@ const applyRally = (s: State, producer: number, slot: number, owner: number, isW
     const np = pickPatch(s, slot, owner, speed, e.x[slot]!, e.y[slot]!);
     if (np !== NONE) { e.order[slot] = Order.Harvest; e.target[slot] = eid(e, np); }
   } else if (rally) {
-    e.order[slot] = Order.Move;
+    if (target !== NONE && canAcceptCargo(s, target, slot)) {
+      if (withinLoadRange(s, target, slot)) {
+        loadUnitInto(s, target, slot);
+        return;
+      }
+      e.order[slot] = Order.Move;
+      e.target[slot] = eid(e, target);
+      e.tx[slot] = rally.x;
+      e.ty[slot] = rally.y;
+      return;
+    }
+    const order = canAttackMoveByRally(e.kind[slot]!) ? Order.AttackMove : Order.Move;
+    e.order[slot] = order;
     e.target[slot] = NONE;
     e.tx[slot] = rally.x;
     e.ty[slot] = rally.y;
+    rallyMoves.push({ slot, owner, order, x: rally.x, y: rally.y });
   }
 };
 
 const nearestProducerForRally = (s: State, slot: number, owner: number): number =>
   nearest(s, s.e.x[slot]!, s.e.y[slot]!, (sl) => s.e.owner[sl] === owner && isLarvaSourceKind(s.e.kind[sl]!));
 
-const finishEgg = (s: State, slot: number, kind: number): void => {
+const finishEgg = (s: State, slot: number, kind: number, rallyMoves: RallyMove[]): void => {
   const e = s.e;
   const def = Units[kind]!;
   const owner = e.owner[slot]!;
@@ -69,12 +100,39 @@ const finishEgg = (s: State, slot: number, kind: number): void => {
   e.prodTimer[slot] = 0;
   e.prodQueued[slot] = 0;
   const isWorker = (def.roles & Role.Worker) !== 0;
-  if (rally !== NONE) applyRally(s, rally, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed));
+  if (rally !== NONE) applyRally(s, rally, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
 
   for (let n = 1; n < productionCount(kind); n++) {
     const id = spawnUnit(s, kind, owner, e.x[slot]! + fx(12 * n), e.y[slot]!);
     const extra = slotOf(id);
-    if (rally !== NONE) applyRally(s, rally, extra, owner, isWorker, effectiveSpeed(s, e, extra, def.speed));
+    if (rally !== NONE) applyRally(s, rally, extra, owner, isWorker, effectiveSpeed(s, e, extra, def.speed), rallyMoves);
+  }
+};
+
+const assignRallyMoveSlots = (s: State, moves: readonly RallyMove[]): void => {
+  if (moves.length <= 1) return;
+  const e = s.e;
+  const groups = new Map<string, number[]>();
+  for (const move of moves) {
+    if (e.alive[move.slot] !== 1 || e.order[move.slot] !== move.order || !usesGroundMoveSlot(e.flags[move.slot]!)) continue;
+    const key = `${move.owner}:${move.order}:${move.x}:${move.y}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = [];
+      groups.set(key, group);
+    }
+    group.push(move.slot);
+  }
+  for (const slots of groups.values()) {
+    if (slots.length <= 1) continue;
+    slots.sort((a, b) => a - b);
+    const spacing = roundedGroupSpacing(s, slots);
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]!;
+      const offset = groupOffset(i, spacing);
+      e.tx[slot] = e.tx[slot]! + offset.x;
+      e.ty[slot] = e.ty[slot]! + offset.y;
+    }
   }
 };
 
@@ -116,6 +174,7 @@ const finishInternalAmmo = (s: State, producer: number, kind: number): boolean =
 
 export const production = (s: State): void => {
   const e = s.e;
+  const rallyMoves: RallyMove[] = [];
   larvae(s);
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || e.prodKind[i] === Kind.None) continue;
@@ -131,7 +190,7 @@ export const production = (s: State): void => {
     const owner = e.owner[i]!;
     if (finishInternalAmmo(s, i, kind)) continue;
     if (e.kind[i] === Kind.Egg) {
-      finishEgg(s, i, kind);
+      finishEgg(s, i, kind, rallyMoves);
       continue;
     }
     const isWorker = (def.roles & Role.Worker) !== 0;
@@ -152,7 +211,7 @@ export const production = (s: State): void => {
 
     const id = spawnUnit(s, kind, owner, sx, sy);
     const slot = slotOf(id);
-    applyRally(s, i, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed));
+    applyRally(s, i, slot, owner, isWorker, effectiveSpeed(s, e, slot, def.speed), rallyMoves);
 
     // Dequeue the next unit, or go idle.
     if (e.prodQueued[i]! > 0) {
@@ -162,4 +221,5 @@ export const production = (s: State): void => {
       e.prodKind[i] = Kind.None;
     }
   }
+  assignRallyMoveSlots(s, rallyMoves);
 };

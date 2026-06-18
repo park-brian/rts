@@ -1,8 +1,9 @@
-import { Kind, Role, Tech, Units, tiles } from './data.ts';
+import { Kind, Order, Role, Tech, Units, tiles } from './data.ts';
 import { tileX, tileY } from './pathing.ts';
 import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from './world.ts';
 import { navPassable } from './flow.ts';
+import { isDisabled } from './systems/status.ts';
 
 export const LOAD_RANGE = tiles(2);
 export const UNLOAD_RANGE = tiles(3);
@@ -87,6 +88,34 @@ export const canLoadInto = (s: State, transport: number, unit: number): boolean 
   if (!canLoadUnit(s, unit)) return false;
   if (s.e.kind[transport] === Kind.Bunker) return BUNKER_LOADABLE.has(s.e.kind[unit]!);
   return true;
+};
+
+export const canAcceptCargo = (s: State, transport: number, unit: number): boolean => {
+  const e = s.e;
+  const sameOwner = e.owner[transport] === e.owner[unit];
+  const alliedNydus = e.kind[transport] === Kind.NydusCanal && sameTeam(s, e.owner[unit]!, e.owner[transport]!);
+  if (transport === unit || isContained(s, transport) || (!sameOwner && !alliedNydus)) return false;
+  const capacity = transportCapacity(s, transport);
+  if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport) || e.illusion[transport] === 1) return false;
+  if (!canLoadInto(s, transport, unit)) return false;
+  return cargoUsed(s, transport) + Units[e.kind[unit]!]!.cargoSize <= capacity;
+};
+
+export const withinLoadRange = (s: State, transport: number, unit: number): boolean => {
+  const e = s.e;
+  const dx = e.x[transport]! - e.x[unit]!;
+  const dy = e.y[transport]! - e.y[unit]!;
+  return dx * dx + dy * dy <= LOAD_RANGE * LOAD_RANGE;
+};
+
+export const loadUnitInto = (s: State, transport: number, unit: number): void => {
+  const e = s.e;
+  e.settled[unit] = 0;
+  e.container[unit] = eid(e, transport);
+  e.x[unit] = e.x[transport]!;
+  e.y[unit] = e.y[transport]!;
+  e.order[unit] = Order.Idle;
+  e.target[unit] = NONE;
 };
 
 export const containedBy = (s: State, unit: number, transport: number): boolean =>

@@ -4,9 +4,8 @@
 // apply) so pushes are symmetric and order-independent; integer math, clamped to
 // the same clearance masks used by navigation. Deterministic.
 //
-// Scope: Mobile, non-Structure units that are neither Workers, Air, nor projectile
-// actors. Workers are excluded so mineral bunching/mining ranges work; Air units
-// fly over everything.
+// Scope: Mobile, non-Structure ground units that are not projectile actors. Workers
+// are solid except while mineral-walking; air units fly over everything.
 //
 // Performance: collision uses its OWN one-tile grid (not the coarse combat grid).
 // The interaction radius (≈ sum of two unit radii) is well under a tile, so a 3×3
@@ -50,7 +49,7 @@ export const collide = (s: State): void => {
   for (let i = 0; i < e.hi; i++) {
     ndx[i] = 0; ndy[i] = 0;
     anchored[i] = isPathingAnchor(s, i) ? 1 : 0;
-    if (e.alive[i] === 1 && e.burrowed[i] !== 1 && !isContained(s, i) && isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) list[nl++] = i;
+    if (isLocalAvoidanceSolid(s, i)) list[nl++] = i;
   }
   if (nl === 0) return; // nothing collides (e.g. an economy game) — skip the grid build entirely
 

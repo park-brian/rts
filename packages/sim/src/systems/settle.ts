@@ -52,7 +52,7 @@ export const isSettledGroundUnit = (s: State, slot: number): boolean => {
     e.target[slot] === NONE &&
     e.burrowed[slot] !== 1 &&
     !isContained(s, slot) &&
-    isLocalAvoidanceSolid(e.kind[slot]!, e.flags[slot]!) &&
+    isLocalAvoidanceSolid(s, slot) &&
     closeSq(e.x[slot]!, e.y[slot]!, e.tx[slot]!, e.ty[slot]!, SETTLE_WAKE);
 };
 
@@ -60,7 +60,7 @@ export const settleMovement = (s: State): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1) continue;
-    if (isContained(s, i) || e.burrowed[i] === 1 || !isLocalAvoidanceSolid(e.kind[i]!, e.flags[i]!)) {
+    if (!isLocalAvoidanceSolid(s, i)) {
       e.settled[i] = 0;
       continue;
     }
