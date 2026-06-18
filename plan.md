@@ -1617,6 +1617,8 @@ Highest-impact LOC reductions:
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
      `Yamato Gun`, and `Mind Control`.
+   - Moved the remaining Queen enemy-entity pair, `Spawn Broodling` and `Infest Command Center`,
+     into the policy path while keeping their existing scorers and validation gates.
 4. Replace `Game` command-option/status derivation with sim/app query modules.
    - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
      capability summaries, selected status text, group management, replay scrub, and command emission.

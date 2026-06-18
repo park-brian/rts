@@ -773,6 +773,18 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     minScore: 1,
     scoreTarget: (s, player, target) => scoreFeedbackTarget(s, player, target),
   },
+  {
+    ability: Ability.InfestCommandCenter,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreInfestTarget(s, player, target),
+  },
+  {
+    ability: Ability.SpawnBroodling,
+    target: 'enemy-entity',
+    minScore: 1,
+    scoreTarget: (s, player, target) => scoreBroodlingTarget(s, player, target),
+  },
 ];
 
 const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
@@ -793,8 +805,8 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.NuclearStrike) && maybeCastPointAbility(s, player, cmds, caster, Ability.NuclearStrike, scoreNukeTarget, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.InfestCommandCenter) && maybeCastEntityAbility(s, player, cmds, caster, Ability.InfestCommandCenter, scoreInfestTarget)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.SpawnBroodling) && maybeCastEntityAbility(s, player, cmds, caster, Ability.SpawnBroodling, scoreBroodlingTarget)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.InfestCommandCenter) && tryCastPolicy(s, player, cmds, caster, Ability.InfestCommandCenter)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.SpawnBroodling) && tryCastPolicy(s, player, cmds, caster, Ability.SpawnBroodling)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Parasite) && tryCastPolicy(s, player, cmds, caster, Ability.Parasite)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Feedback) && tryCastPolicy(s, player, cmds, caster, Ability.Feedback)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.OpticalFlare) && tryCastPolicy(s, player, cmds, caster, Ability.OpticalFlare)) { used.add(caster); continue; }
@@ -847,7 +859,6 @@ const abilityThreshold = (abilityId: number): number => {
     case Ability.DisruptionWeb: return 70;
     case Ability.DarkSwarm: return 60;
     case Ability.ScannerSweep: return 1;
-    case Ability.InfestCommandCenter: return 1;
     case Ability.NuclearStrike: return 650;
     default: return 1;
   }
