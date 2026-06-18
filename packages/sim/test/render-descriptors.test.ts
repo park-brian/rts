@@ -7,8 +7,8 @@ import { sliceMap } from '../src/map.ts';
 import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
-  effectVisibilityAffordances, entityPresentation, entityRenderHull, entitySelectionName, selectionBase,
-  workActivities,
+  effectVisibilityAffordances, entityCloakOpacity, entityPresentation, entityRenderHull, entitySelectionName,
+  selectionBase, workActivities,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -64,6 +64,19 @@ test('entity lifecycle presentation is descriptor-backed in the sim', () => {
     artKind: Kind.Marine,
     selectionPrefix: '',
   });
+});
+
+test('entity cloak opacity exposes renderer-neutral cloak presentation policy', () => {
+  const s = makeState(sliceMap(), 1, 81);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(500), fx(400)));
+  const darkTemplar = slotOf(spawnUnit(s, Kind.DarkTemplar, 0, fx(540), fx(400)));
+  const wraith = slotOf(spawnUnit(s, Kind.Wraith, 0, fx(580), fx(400)));
+
+  assert.equal(entityCloakOpacity(s, marine), 1);
+  assert.equal(entityCloakOpacity(s, darkTemplar), 0.5);
+
+  s.e.cloakActive[wraith] = 1;
+  assert.equal(entityCloakOpacity(s, wraith), 0.5);
 });
 
 test('entity render hulls and selection bases expose gameplay math', () => {

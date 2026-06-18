@@ -1,5 +1,6 @@
 import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
+import { isCloaked } from './detection.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
 import { bodyBounds } from './spatial.ts';
@@ -113,6 +114,9 @@ const isUnfinished = (s: State, slot: number): boolean =>
 
 const isStructure = (s: State, slot: number): boolean =>
   (s.e.flags[slot]! & Role.Structure) !== 0;
+
+export const entityCloakOpacity = (s: State, slot: number): number =>
+  isCloaked(s, slot) ? 0.5 : 1;
 
 const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);
 

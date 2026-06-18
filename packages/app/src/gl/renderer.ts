@@ -13,8 +13,8 @@
 // diffing observable state frame-to-frame — cosmetic only, never the sim.
 
 import {
-  TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive, isCloaked,
-  resolveRallyEndpoint, entityRenderHull, selectionBase, type MapDef,
+  TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
+  resolveRallyEndpoint, entityCloakOpacity, entityRenderHull, selectionBase, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
@@ -356,7 +356,7 @@ export class GlRenderer {
       const illusion = illusionPresentation(state, game.human, i);
       const mergeSummon = presentation.state === 'protoss-merge-summon';
       const alpha = ((isStruct && e.built[i] !== 1) || mergeSummon ? 0.68 : 1) *
-        (isCloaked(state, i) ? 0.5 : 1) * illusion.alpha;
+        entityCloakOpacity(state, i) * illusion.alpha;
       const [tr, tg, tb] = teamColor(e.owner[i]!);
       const c = Math.cos(rot);
       const s = Math.sin(rot);

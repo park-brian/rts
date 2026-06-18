@@ -3,8 +3,8 @@
 
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveRallyEndpoint,
-  structureFootprint, isCloaked, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, entityRenderHull, selectionBase, type MapDef,
+  structureFootprint, POWER_RADIUS, CREEP_RADIUS,
+  requiresPower, requiresCreep, providesCreep, entityCloakOpacity, entityRenderHull, selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -125,7 +125,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const presentation = entityPresentation(s, i);
     const morphingCocoon = presentation.state === 'zerg-combat-morph';
     const mergeSummon = presentation.state === 'protoss-merge-summon';
-    const alpha = (isCloaked(s, i) ? 0.5 : 1) * illusion.alpha;
+    const alpha = entityCloakOpacity(s, i) * illusion.alpha;
     const hull = entityRenderHull(kind, e.x[i]!, e.y[i]!);
 
     if (hull.usesFootprint) {

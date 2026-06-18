@@ -1757,6 +1757,8 @@ Highest-impact LOC reductions:
      - Moved construction/repair work spark affordance policy into sim-exported render descriptors.
        The app renderers still own particle color and drawing, but no longer interpret worker orders
        or target footprint math themselves.
+     - Moved cloaked-entity opacity policy into sim-exported render descriptors. Canvas and GL still
+       choose their own sprite/body drawing paths, but share the same cloak presentation value.
 
 Further concrete deletion opportunities found on review:
 
