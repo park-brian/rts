@@ -16,14 +16,13 @@ import { clearArmedCommand, isPlacementArmed, shouldToggleArmedCommand, ui, type
 import { isUserCommandableKind } from './child-actors.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
 import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
+import { CameraController } from './camera-controller.ts';
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
 import { pointInBounds, selectableBounds } from './selection-geometry.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
-const EDGE_PAN_MARGIN = 24;
-const EDGE_PAN_SPEED = 560; // screen px/sec; converted to world px by zoom
 
 const normalizeRace = (race: string | undefined): FactionName =>
   race === 'protoss' || race === 'zerg' ? race : 'terran';
@@ -42,17 +41,13 @@ export class Game {
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   humanPlayer = 0;
 
-  camX = 0; camY = 0; zoom = 1; // camera (world px) + scale
-  viewW = 1; viewH = 1; // CSS px
-
   selection = new Set<number>();
+  private cameraController?: CameraController;
   private readonly controlGroupController = new ControlGroupController();
   private readonly placementController = new PlacementController();
   private tapSelectionController?: TapSelectionController;
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
-  private edgePanX = 0;
-  private edgePanY = 0;
 
   // replay viewer state (mode === 'replay')
   replay: Replay | null = null;
@@ -64,10 +59,20 @@ export class Game {
   explored!: Uint8Array;
   private acc = 0;
   private lastSel = 0;
-  private framed = false;
   private visibleEntityTick = -1;
   private visibleEntityHuman = -2;
   private visibleEntity = new Uint8Array(CAP);
+
+  get camX(): number { return this.camera().camX; }
+  set camX(value: number) { this.camera().camX = value; }
+  get camY(): number { return this.camera().camY; }
+  set camY(value: number) { this.camera().camY = value; }
+  get zoom(): number { return this.camera().zoom; }
+  set zoom(value: number) { this.camera().zoom = value; }
+  get viewW(): number { return this.camera().viewW; }
+  set viewW(value: number) { this.camera().viewW = value; }
+  get viewH(): number { return this.camera().viewH; }
+  set viewH(value: number) { this.camera().viewH = value; }
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.controlGroupController.groups;
@@ -84,6 +89,11 @@ export class Game {
   private tapSelection(): TapSelectionController {
     this.tapSelectionController ??= new TapSelectionController(this);
     return this.tapSelectionController;
+  }
+
+  private camera(): CameraController {
+    this.cameraController ??= new CameraController(() => this.map);
+    return this.cameraController;
   }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
@@ -128,7 +138,7 @@ export class Game {
     clearArmedCommand();
     clearSelectionView();
     ui.hasReplay.value = false;
-    this.framed = false;
+    this.camera().resetFrame();
     if (this.viewW > 1) this.frame();
   }
 
@@ -162,7 +172,7 @@ export class Game {
     ui.replaySpeed.value = 1;
     ui.paused.value = false;
     ui.over.value = false;
-    this.framed = false;
+    this.camera().resetFrame();
     if (this.viewW > 1) this.frame();
   }
 
@@ -200,56 +210,36 @@ export class Game {
   }
 
   resize(w: number, h: number): void {
-    this.viewW = w; this.viewH = h;
-    if (!this.framed && w > 1) this.frame();
-    else this.clampCamera();
+    this.camera().resize(w, h, this.human);
   }
 
   /** Pick a sensible default zoom and center on the player's base. */
   frame(): void {
-    this.zoom = Math.max(0.4, Math.min(2, this.viewW / (26 * TILE)));
-    const loc = this.map.starts[this.human < 0 ? 0 : this.human]!;
-    this.centerOn(loc.x * TILE + TILE / 2, loc.y * TILE + TILE / 2);
-    this.framed = true;
+    this.camera().frame(this.human);
   }
 
   centerOn(wx: number, wy: number): void {
-    this.camX = wx - this.viewW / this.zoom / 2;
-    this.camY = wy - this.viewH / this.zoom / 2;
-    this.clampCamera();
+    this.camera().centerOn(wx, wy);
   }
 
   clampCamera(): void {
-    const maxX = this.map.w * TILE - this.viewW / this.zoom;
-    const maxY = this.map.h * TILE - this.viewH / this.zoom;
-    this.camX = Math.max(0, Math.min(this.camX, Math.max(0, maxX)));
-    this.camY = Math.max(0, Math.min(this.camY, Math.max(0, maxY)));
+    this.camera().clamp();
   }
 
   setEdgePanPointer(sx: number, sy: number): void {
-    this.setEdgePanPointerInRect(sx, sy, this.viewW, this.viewH);
+    this.camera().setEdgePanPointer(sx, sy);
   }
 
   setEdgePanPointerInRect(sx: number, sy: number, w: number, h: number): void {
-    if (sx < 0 || sy < 0 || sx > w || sy > h) {
-      this.clearEdgePan();
-      return;
-    }
-    this.edgePanX = sx <= EDGE_PAN_MARGIN ? -1 : sx >= w - EDGE_PAN_MARGIN ? 1 : 0;
-    this.edgePanY = sy <= EDGE_PAN_MARGIN ? -1 : sy >= h - EDGE_PAN_MARGIN ? 1 : 0;
+    this.camera().setEdgePanPointerInRect(sx, sy, w, h);
   }
 
   clearEdgePan(): void {
-    this.edgePanX = 0;
-    this.edgePanY = 0;
+    this.camera().clearEdgePan();
   }
 
   private applyEdgePan(dt: number): void {
-    if (ui.controlScheme.value !== 'desktop' || (this.edgePanX === 0 && this.edgePanY === 0)) return;
-    const step = (EDGE_PAN_SPEED * dt) / 1000 / this.zoom;
-    this.camX += this.edgePanX * step;
-    this.camY += this.edgePanY * step;
-    this.clampCamera();
+    this.camera().applyEdgePan(dt, ui.controlScheme.value === 'desktop');
   }
 
   // ---- main loop step (called each rAF with the timestamp) ----
@@ -365,7 +355,7 @@ export class Game {
 
   // ---- selection & commands (called by input) ----
   screenToWorld(sx: number, sy: number): [number, number] {
-    return [this.camX + sx / this.zoom, this.camY + sy / this.zoom];
+    return this.camera().screenToWorld(sx, sy);
   }
 
   boxSelect(sx0: number, sy0: number, sx1: number, sy1: number): void {
@@ -735,18 +725,12 @@ export class Game {
 
   // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----
   minimapRect(): { ox: number; oy: number; W: number; H: number; scale: number } {
-    const m = this.map; const size = 116; const pad = 8;
-    const scale = size / Math.max(m.w, m.h);
-    const W = m.w * scale; const H = m.h * scale;
-    return { ox: this.viewW - W - pad, oy: this.viewH - H - pad, W, H, scale };
+    return this.camera().minimapRect();
   }
 
   /** If (sx,sy) is on the minimap, recenter the camera there. Returns true if handled. */
   minimapPan(sx: number, sy: number): boolean {
-    const r = this.minimapRect();
-    if (sx < r.ox - 2 || sy < r.oy - 2 || sx > r.ox + r.W + 2 || sy > r.oy + r.H + 2) return false;
-    this.centerOn(((sx - r.ox) / r.scale) * TILE, ((sy - r.oy) / r.scale) * TILE);
-    return true;
+    return this.camera().minimapPan(sx, sy);
   }
 
   private pruneSelection(): void {

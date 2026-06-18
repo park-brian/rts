@@ -1852,6 +1852,10 @@ Further concrete deletion opportunities found on review:
   - Expected win: not necessarily fewer lines immediately, but each later compression becomes local
      and testable. Do this after `selectionView`/`armedCommand`, otherwise it just spreads current
      duplication across more files.
+   - Started:
+     - Extracted camera, viewport, edge-pan, screen/world conversion, and minimap navigation into
+       `CameraController` while keeping `Game`'s public camera fields and wrapper methods stable for
+       renderers, input, and existing tests.
 6. Treat tests as product code for compression.
    - Current shape:
      - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,
