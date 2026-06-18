@@ -1832,6 +1832,9 @@ Further concrete deletion opportunities found on review:
    - Started:
      - Exported the sim-owned `hasCompletedKind`/`requirementsMet` helpers through `@rts/sim` and
        removed AI's duplicate completed-kind implementation, including its add-on attachment rule.
+     - Added sim-owned allocation-free center-distance helpers `distanceSq` and `withinRangeSq`,
+       then replaced local duplicates in creep coverage, Pylon power coverage, and merge partner
+       selection.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Current shape:
      - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart

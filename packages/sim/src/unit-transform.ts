@@ -3,6 +3,7 @@ import { isContained } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { NONE, isAlive, kill, slotOf, type State } from './world.ts';
 import { setEntityKind, setEntityKindFull } from './entity-kind.ts';
+import { distanceSq, withinRangeSq } from './spatial.ts';
 
 export type UnitTransform = {
   from: number;
@@ -36,12 +37,6 @@ export const transformTargetsFor = (from: number): number[] =>
 
 export const MERGE_RANGE = tiles(2);
 
-const distSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
-
 const validMergePartner = (s: State, slot: number, partner: number, to: number): boolean => {
   const e = s.e;
   const transform = transformFor(e.kind[slot]!, to);
@@ -49,7 +44,7 @@ const validMergePartner = (s: State, slot: number, partner: number, to: number):
   if (partner === slot || e.alive[partner] !== 1) return false;
   if (e.owner[partner] !== e.owner[slot] || e.kind[partner] !== e.kind[slot]) return false;
   if (e.built[partner] !== 1 || isContained(s, partner) || isDisabled(e, partner)) return false;
-  return distSq(e.x[slot]!, e.y[slot]!, e.x[partner]!, e.y[partner]!) <= MERGE_RANGE * MERGE_RANGE;
+  return withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[partner]!, e.y[partner]!, MERGE_RANGE);
 };
 
 export const mergePartnerFor = (s: State, slot: number, to: number, target = NONE): number => {
@@ -63,7 +58,7 @@ export const mergePartnerFor = (s: State, slot: number, to: number, target = NON
   let bestD = MERGE_RANGE * MERGE_RANGE + 1;
   for (let i = 0; i < e.hi; i++) {
     if (!validMergePartner(s, slot, i, to)) continue;
-    const d = distSq(e.x[slot]!, e.y[slot]!, e.x[i]!, e.y[i]!);
+    const d = distanceSq(e.x[slot]!, e.y[slot]!, e.x[i]!, e.y[i]!);
     if (d < bestD || (d === bestD && i < best)) { best = i; bestD = d; }
   }
   return best;

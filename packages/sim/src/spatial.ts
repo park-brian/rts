@@ -15,6 +15,15 @@ export type BodyBounds = {
   down: number;
 };
 
+export const distanceSq = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+};
+
+export const withinRangeSq = (ax: number, ay: number, bx: number, by: number, range: number): boolean =>
+  distanceSq(ax, ay, bx, by) <= range * range;
+
 const bounds = (left: number, up: number, right: number, down: number): BodyBounds => ({
   left: fx(left),
   up: fx(up),
