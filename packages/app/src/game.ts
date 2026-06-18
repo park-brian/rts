@@ -1,6 +1,5 @@
-// Game: drives the deterministic sim at a fixed timestep, owns the camera,
-// selection, and the human command queue, computes fog for the human player, and
-// publishes state through HUD helpers. Rendering and input live in sibling modules.
+// Game: drives the deterministic sim at a fixed timestep and wires the app
+// controllers for camera, visibility, selection, input commands, and HUD publishing.
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
@@ -13,14 +12,12 @@ import {
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
 import { clearArmedCommand, isPlacementArmed, shouldToggleArmedCommand, ui, type CommandOption, type Mode } from './store.ts';
-import { isUserCommandableKind } from './child-actors.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
-import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
 import { CameraController } from './camera-controller.ts';
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
 import { VisibilityController } from './visibility-controller.ts';
-import { pointInBounds, selectableBounds } from './selection-geometry.ts';
+import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -42,10 +39,9 @@ export class Game {
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   humanPlayer = 0;
 
-  selection = new Set<number>();
   private cameraController?: CameraController;
   private visibilityController?: VisibilityController;
-  private readonly controlGroupController = new ControlGroupController();
+  private selectionController?: SelectionController;
   private readonly placementController = new PlacementController();
   private tapSelectionController?: TapSelectionController;
   queued: Command[] = [];
@@ -74,9 +70,11 @@ export class Game {
   set visible(value: Uint8Array) { this.visibility().visible = value; }
   get explored(): Uint8Array { return this.visibility().explored; }
   set explored(value: Uint8Array) { this.visibility().explored = value; }
+  get selection(): Set<number> { return this.selectionState().selection; }
+  set selection(value: Set<number>) { this.selectionState().selection = value; }
 
   get controlGroups(): readonly ReadonlySet<number>[] {
-    return this.controlGroupController.groups;
+    return this.selectionState().controlGroups;
   }
 
   get placementGhost(): PlacementGhost | null {
@@ -100,6 +98,25 @@ export class Game {
   private visibility(): VisibilityController {
     this.visibilityController ??= new VisibilityController(() => this.map);
     return this.visibilityController;
+  }
+
+  private selectionState(): SelectionController {
+    this.selectionController ??= new SelectionController({
+      state: () => this.sim.fullState(),
+      human: () => this.human,
+      screenToWorld: (sx, sy) => this.screenToWorld(sx, sy),
+      canSeeEntity: (slot) => this.canSeeEntity(slot),
+      tileVisible: (tx, ty) => this.tileVisible(tx, ty),
+      viewport: () => ({
+        camX: this.camX,
+        camY: this.camY,
+        viewW: this.viewW,
+        viewH: this.viewH,
+        zoom: this.zoom,
+      }),
+      centerOn: (wx, wy) => this.centerOn(wx, wy),
+    });
+    return this.selectionController;
   }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
@@ -129,8 +146,7 @@ export class Game {
     const bots = createBotControllers(players, factions);
     this.human = mode === 'play' ? this.humanPlayer : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
-    this.selection.clear();
-    this.controlGroupController.reset();
+    this.selectionState().reset();
     resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.queued = [];
     this.placementController.clear();
@@ -162,7 +178,7 @@ export class Game {
     this.map = mapFromSpec(r.map);
     this.human = -1; // god view for analysis
     this.controllers = [];
-    this.selection.clear();
+    this.selectionState().clear();
     this.queued = [];
     this.visibility().reset();
     this.replaySpeed = 1;
@@ -188,7 +204,7 @@ export class Game {
     for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
     this.replayTick = target;
     this.paused = target >= r.frames.length;
-    this.selection.clear();
+    this.selectionState().clear();
     ui.replayTick.value = target;
     ui.paused.value = this.paused;
     this.computeFog();
@@ -326,7 +342,7 @@ export class Game {
   }
 
   boxSelect(sx0: number, sy0: number, sx1: number, sy1: number): void {
-    this.tapSelection().boxSelect(sx0, sy0, sx1, sy1);
+    this.selectionState().boxSelect(sx0, sy0, sx1, sy1);
   }
 
   /** A tap at screen (sx,sy): target an armed verb, select own entities, or smart-command. */
@@ -346,41 +362,21 @@ export class Game {
     clearArmedCommand();
   }
 
-  private centerOnSelection(): void {
-    const e = this.sim.fullState().e;
-    let x = 0;
-    let y = 0;
-    let n = 0;
-    for (const id of this.selection) {
-      if (!isAlive(e, id)) continue;
-      const slot = slotOf(id);
-      x += e.x[slot]! / ONE;
-      y += e.y[slot]! / ONE;
-      n++;
-    }
-    if (n > 0) this.centerOn(x / n, y / n);
-  }
-
   assignControlGroup(index: number): boolean {
-    const result = this.controlGroupController.assign(this.sim.fullState(), this.human, this.selection, index);
+    const result = this.selectionState().assignControlGroup(index);
     if (result.changed) this.publish();
     return result.ok;
   }
 
   recallControlGroup(index: number, add = false): boolean {
-    const result = this.controlGroupController.recall(this.sim.fullState(), this.human, this.selection, index, add);
+    const result = this.selectionState().recallControlGroup(index, add);
     if (result.ok) this.clearTargetModes();
     if (result.changed) this.publish();
-    if (result.shouldCenter) this.centerOnSelection();
     return result.ok;
   }
 
   private firstSelected(pred: (slot: number) => boolean): number {
-    const e = this.sim.fullState().e;
-    for (const id of this.selection) {
-      if (isAlive(e, id) && pred(slotOf(id))) return slotOf(id);
-    }
-    return -1;
+    return this.selectionState().firstSelected(pred);
   }
 
   updatePlacementGhost(sx: number, sy: number): void {
@@ -413,30 +409,19 @@ export class Game {
   }
 
   hitTest(wx: number, wy: number): number {
-    const e = this.sim.fullState().e;
-    let best = -1; let bestD = Infinity;
-    for (let i = 0; i < e.hi; i++) {
-      if (!this.isHitTestCandidate(i)) continue;
-      const b = selectableBounds(e.kind[i]!, e.x[i]!, e.y[i]!);
-      if (!pointInBounds(wx, wy, b)) continue;
-      const dx = b.cx - wx; const dy = b.cy - wy;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = eid(e, i); }
-    }
-    return best;
+    return this.selectionState().hitTest(wx, wy);
   }
 
   isHitTestCandidate(slot: number): boolean {
-    const e = this.sim.fullState().e;
-    if (e.alive[slot] !== 1 || e.container[slot] !== NONE) return false;
-    if (!isUserCommandableKind(e.kind[slot]!)) return false;
-    if (!this.canSeeEntity(slot)) return false;
-    if (this.human >= 0 && e.owner[slot] !== this.human) {
-      const tx = Math.floor(e.x[slot]! / ONE / TILE);
-      const ty = Math.floor(e.y[slot]! / ONE / TILE);
-      if (this.tileVisible(tx, ty) !== 2) return false;
-    }
-    return true;
+    return this.selectionState().isHitTestCandidate(slot);
+  }
+
+  isOwnedSelectable(id: number): boolean {
+    return this.selectionState().isOwnedSelectable(id);
+  }
+
+  selectVisibleKind(kind: number): void {
+    this.selectionState().selectVisibleKind(kind);
   }
 
   stopSelected(): void {
@@ -701,8 +686,7 @@ export class Game {
   }
 
   private pruneSelection(): void {
-    const e = this.sim.fullState().e;
-    for (const id of [...this.selection]) if (!isAlive(e, id)) this.selection.delete(id);
+    this.selectionState().prune();
   }
 
   private publish(): void {

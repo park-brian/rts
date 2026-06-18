@@ -1861,6 +1861,9 @@ Further concrete deletion opportunities found on review:
      - Extracted app fog memory, explored memory, tile visibility, and visible-entity caching into
        `VisibilityController` while keeping sim vision/detection authoritative and preserving
        `Game`'s public visibility wrappers for renderers, HUD, and tests.
+     - Extracted selection ownership, selection geometry hit-testing, drag-box selection,
+       visible-kind selection, pruning, and control-group coordination into `SelectionController`,
+       while leaving command dispatch in `Game`/`TapSelectionController`.
 6. Treat tests as product code for compression.
    - Current shape:
      - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,

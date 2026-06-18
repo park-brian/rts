@@ -1,10 +1,8 @@
 import type { Game } from './game.ts';
 import {
-  Abilities, NONE, ONE, Role, eid, isAlive, sameTeam, slotOf, validateCommand,
+  Abilities, NONE, ONE, Role, isAlive, sameTeam, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
-import { isUserCommandableKind } from './child-actors.ts';
-import { boundsIntersectsRect, selectableBounds } from './selection-geometry.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { clearArmedCommand, isPlacementArmed, ui } from './store.ts';
 
@@ -15,25 +13,6 @@ export class TapSelectionController {
 
   constructor(game: Game) {
     this.game = game;
-  }
-
-  boxSelect(sx0: number, sy0: number, sx1: number, sy1: number): void {
-    const g = this.game;
-    const [wx0, wy0] = g.screenToWorld(Math.min(sx0, sx1), Math.min(sy0, sy1));
-    const [wx1, wy1] = g.screenToWorld(Math.max(sx0, sx1), Math.max(sy0, sy1));
-    g.selection.clear();
-    if (g.human < 0) return;
-    const e = g.sim.fullState().e;
-    const buildings: number[] = [];
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== g.human) continue;
-      if (!isUserCommandableKind(e.kind[i]!)) continue;
-      const b = selectableBounds(e.kind[i]!, e.x[i]!, e.y[i]!);
-      if (!boundsIntersectsRect(b, wx0, wy0, wx1, wy1)) continue;
-      if ((e.flags[i]! & Role.Structure) !== 0) buildings.push(eid(e, i));
-      else g.selection.add(eid(e, i));
-    }
-    if (g.selection.size === 0) for (const id of buildings) g.selection.add(id);
   }
 
   tap(sx: number, sy: number, opts: TapOptions = {}): void {
@@ -90,7 +69,7 @@ export class TapSelectionController {
       return;
     }
 
-    if (this.isOwnedSelectable(e, hit)) {
+    if (g.isOwnedSelectable(hit)) {
       g.selection.clear();
       g.selection.add(hit);
       clearArmedCommand();
@@ -114,12 +93,12 @@ export class TapSelectionController {
     const e = g.sim.fullState().e;
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? g.hitTest(wx, wy);
     clearArmedCommand();
-    if (!this.isOwnedSelectable(e, hit)) {
+    if (!g.isOwnedSelectable(hit)) {
       if (!opts.shift) g.selection.clear();
       return;
     }
     if (opts.ctrl) {
-      this.selectVisibleKind(e.kind[slotOf(hit)]!);
+      g.selectVisibleKind(e.kind[slotOf(hit)]!);
       return;
     }
     if (opts.shift) {
@@ -163,7 +142,7 @@ export class TapSelectionController {
     if (hit < 0) return;
     const hs = slotOf(hit);
     if (e.owner[hs] !== g.human) return;
-    this.selectVisibleKind(e.kind[hs]!);
+    g.selectVisibleKind(e.kind[hs]!);
     clearArmedCommand();
   }
 
@@ -176,12 +155,6 @@ export class TapSelectionController {
       if ((e.flags[slotOf(id)]! & Role.Structure) === 0) ids.push(id);
     }
     return ids;
-  }
-
-  private isOwnedSelectable(e: State['e'], id: number): boolean {
-    const g = this.game;
-    if (id < 0 || g.human < 0) return false;
-    return isAlive(e, id) && e.owner[slotOf(id)] === g.human && isUserCommandableKind(e.kind[slotOf(id)]!);
   }
 
   private queueHarvestTarget(target: number): boolean {
@@ -237,21 +210,5 @@ export class TapSelectionController {
     const g = this.game;
     if (hit === undefined || hit < 0 || !isAlive(g.sim.fullState().e, hit)) return undefined;
     return g.isHitTestCandidate(slotOf(hit)) ? hit : undefined;
-  }
-
-  private selectVisibleKind(kind: number): void {
-    const g = this.game;
-    if (!isUserCommandableKind(kind)) return;
-    const e = g.sim.fullState().e;
-    const x0 = g.camX;
-    const y0 = g.camY;
-    const x1 = g.camX + g.viewW / g.zoom;
-    const y1 = g.camY + g.viewH / g.zoom;
-    g.selection.clear();
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== g.human || e.kind[i] !== kind) continue;
-      const b = selectableBounds(kind, e.x[i]!, e.y[i]!);
-      if (boundsIntersectsRect(b, x0, y0, x1, y1)) g.selection.add(eid(e, i));
-    }
   }
 }
