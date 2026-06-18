@@ -58,6 +58,7 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
 
   assert.equal(weaponMechanicDef(Kind.Lurker)?.onHit, WeaponMechanic.LurkerLineSplash);
   assert.equal(weaponMechanicDef(Kind.Mutalisk)?.onHit, WeaponMechanic.MutaliskBounce);
+  assert.equal(weaponMechanicDef(Kind.Devourer)?.onHit, WeaponMechanic.AcidSpores);
 });
 
 test('reavers build scarabs as internal ammo and require ammo to attack', () => {

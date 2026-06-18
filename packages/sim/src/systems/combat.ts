@@ -123,6 +123,9 @@ const applyMechanicOnHit = (s: State, mechanic: WeaponMechanicDef | undefined, a
     case WeaponMechanic.MutaliskBounce:
       applyMutaliskBounce(s, attacker, target, weapon);
       break;
+    case WeaponMechanic.AcidSpores:
+      applyAcidSpore(s, target);
+      break;
   }
 };
 
@@ -257,7 +260,6 @@ export const combat = (s: State, grid: Grid): void => {
             consumeSpecialWeaponAmmo(s, i, mechanic);
             if (hit) {
               applyMechanicOnHit(s, mechanic, i, tgt, weapon);
-              if (e.kind[i] === Kind.Devourer) applyAcidSpore(s, tgt);
             }
           }
           if (isSuicideAttacker(e.kind[i]!) && e.alive[i] === 1) kill(s, i);

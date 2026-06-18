@@ -5,6 +5,7 @@ export const WeaponMechanic = {
   InterceptorLaunch: 2,
   LurkerLineSplash: 3,
   MutaliskBounce: 4,
+  AcidSpores: 5,
 } as const;
 
 export type WeaponMechanicId = typeof WeaponMechanic[keyof typeof WeaponMechanic];
@@ -45,6 +46,11 @@ export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
     id: WeaponMechanic.MutaliskBounce,
     onHit: WeaponMechanic.MutaliskBounce,
   },
+  {
+    unit: Kind.Devourer,
+    id: WeaponMechanic.AcidSpores,
+    onHit: WeaponMechanic.AcidSpores,
+  },
 ] as const;
 
 const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
@@ -52,6 +58,7 @@ const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
   [Kind.Carrier]: WeaponMechanicDefs[1]!,
   [Kind.Lurker]: WeaponMechanicDefs[2]!,
   [Kind.Mutalisk]: WeaponMechanicDefs[3]!,
+  [Kind.Devourer]: WeaponMechanicDefs[4]!,
 };
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>
