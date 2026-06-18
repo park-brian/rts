@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { ui } from '../src/store.ts';
-import { Ability, Kind, ONE, Role, Tech, TILE, Units, canPlaceStructure, eid, fx, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
+import { Ability, Kind, ONE, Role, Tech, TILE, Units, canPlaceStructure, eid, fx, setTechLevel, slotOf, spawnUnit, structureFootprint } from '../src/sim.ts';
 
 const freshGame = (): Game => {
   const g = new Game('play', 1234);
@@ -45,10 +45,23 @@ const centerOnEntity = (g: Game, id: number): void => {
 const screenOf = (g: Game, id: number): { x: number; y: number } => {
   const e = g.sim.fullState().e;
   const slot = slotOf(id);
+  return screenOfWorld(g, e.x[slot]! / ONE, e.y[slot]! / ONE);
+};
+
+const screenOfWorld = (g: Game, wx: number, wy: number): { x: number; y: number } => {
   return {
-    x: (e.x[slot]! / ONE - g.camX) * g.zoom,
-    y: (e.y[slot]! / ONE - g.camY) * g.zoom,
+    x: (wx - g.camX) * g.zoom,
+    y: (wy - g.camY) * g.zoom,
   };
+};
+
+const screenOfStructureFootprintEdge = (g: Game, id: number): { x: number; y: number } => {
+  const e = g.sim.fullState().e;
+  const slot = slotOf(id);
+  const fp = structureFootprint(e.kind[slot]!, e.x[slot]!, e.y[slot]!);
+  const wx = ((fp.x0 + fp.x1 + 1) * TILE) / 2;
+  const wy = (fp.y1 + 1) * TILE - 1;
+  return screenOfWorld(g, wx, wy);
 };
 
 const select = (g: Game, ids: number[]): void => {
@@ -62,7 +75,7 @@ test('normal tap on an owned building selects it instead of commanding selected 
   const workers = findOwnedWorkers(g);
   select(g, workers);
 
-  const p = screenOf(g, cc);
+  const p = screenOfStructureFootprintEdge(g, cc);
   g.tap(p.x, p.y);
 
   assert.deepEqual([...g.selection], [cc]);
@@ -359,7 +372,7 @@ test('explicit rally mode targets owned units instead of selecting them', () => 
 test('box select prefers units but falls back to buildings when no units are inside', () => {
   const g = freshGame();
   const cc = findEntity(g, Kind.CommandCenter, 0);
-  const p = screenOf(g, cc);
+  const p = screenOfStructureFootprintEdge(g, cc);
 
   g.boxSelect(p.x - 2, p.y - 2, p.x + 2, p.y + 2);
 

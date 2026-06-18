@@ -37,6 +37,7 @@ const makeGame = (): {
     viewW: 800,
     viewH: 600,
     screenToWorld: (x: number, y: number): [number, number] => [x, y],
+    hitTest: () => -1,
     clampCamera: () => {},
     minimapPan: () => { calls.minimap++; return false; },
     tap: () => { calls.tap++; },
@@ -135,6 +136,26 @@ test('desktop pointer routes left click to selection and right click to smart co
   assert.equal(calls.tap, 0);
   assert.equal(calls.desktopTap, 1);
   assert.equal(calls.smart, 1);
+});
+
+test('desktop tap carries pointer-down hit through pointer-up for moving targets', () => {
+  const canvas = new FakeCanvas();
+  const { game, calls } = makeGame();
+  let hits = 0;
+  let preferred = -1;
+  game.hitTest = (): number => hits++ === 0 ? 77 : -1;
+  game.desktopSelectTap = (_x: number, _y: number, opts: { preferredHit?: number }): void => {
+    calls.desktopTap++;
+    preferred = opts.preferredHit ?? -1;
+  };
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 20, 20));
+  canvas.fire('pointerup', pointer(1, 20, 20));
+
+  assert.equal(calls.desktopTap, 1);
+  assert.equal(preferred, 77);
 });
 
 test('desktop mouse hover tracks screen-edge panning and clears on leave', () => {

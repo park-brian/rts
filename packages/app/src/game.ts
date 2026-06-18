@@ -14,6 +14,7 @@ import {
   upgradedRange, upgradedSpeed, upgradedCooldown, upgradedSight,
   nextTechLevel, techTime,
   isCloaked,
+  bodyBounds, structureFootprint,
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
   type CommandRejectReason, type CommandValidation, type Weapon,
@@ -51,6 +52,8 @@ const REASON_PRIORITY: Record<CommandRejectReason, number> = {
 };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail'>;
 const EMPTY_SELECTION_STATUS: SelectionStatus = { label: 'No selection', detail: '', progress: 0, stats: [] };
+type TapOptions = { shift?: boolean; ctrl?: boolean; preferredHit?: number };
+type SelectableBounds = { x0: number; y0: number; x1: number; y1: number; cx: number; cy: number };
 const ORDER_LABELS: Record<number, string> = {
   [Order.Idle]: 'Idle',
   [Order.Move]: 'Moving',
@@ -114,6 +117,39 @@ const fixedTile = (value: number): string => {
 };
 
 const pxPerSecond = (value: number): string => ((value / ONE) * FPS).toFixed(1);
+
+const usesFootprintBounds = (kind: number): boolean => {
+  const def = Units[kind]!;
+  return (def.roles & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser;
+};
+
+const selectableBounds = (kind: number, x: number, y: number): SelectableBounds => {
+  if (usesFootprintBounds(kind)) {
+    const fp = structureFootprint(kind, x, y);
+    const x0 = fp.x0 * TILE;
+    const y0 = fp.y0 * TILE;
+    const x1 = (fp.x1 + 1) * TILE;
+    const y1 = (fp.y1 + 1) * TILE;
+    return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+  const b = bodyBounds(kind);
+  const cx = x / ONE;
+  const cy = y / ONE;
+  return {
+    x0: cx - b.left / ONE,
+    y0: cy - b.up / ONE,
+    x1: cx + b.right / ONE,
+    y1: cy + b.down / ONE,
+    cx,
+    cy,
+  };
+};
+
+const pointInBounds = (x: number, y: number, b: SelectableBounds): boolean =>
+  x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+
+const boundsIntersectsRect = (b: SelectableBounds, x0: number, y0: number, x1: number, y1: number): boolean =>
+  b.x0 <= x1 && b.x1 >= x0 && b.y0 <= y1 && b.y1 >= y0;
 
 const weaponDetails = (s: State, slot: number, weapon: Weapon): string => {
   const bonus = weaponUpgradeBonus(s, slot, weapon);
@@ -569,8 +605,8 @@ export class Game {
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human) continue;
       if (!isUserCommandableKind(e.kind[i]!)) continue;
-      const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
-      if (x < wx0 || x > wx1 || y < wy0 || y > wy1) continue;
+      const b = selectableBounds(e.kind[i]!, e.x[i]!, e.y[i]!);
+      if (!boundsIntersectsRect(b, wx0, wy0, wx1, wy1)) continue;
       if ((e.flags[i]! & Role.Structure) !== 0) buildings.push(eid(e, i));
       else this.selection.add(eid(e, i));
     }
@@ -578,7 +614,7 @@ export class Game {
   }
 
   /** A tap at screen (sx,sy): target an armed verb, select own entities, or smart-command. */
-  tap(sx: number, sy: number): void {
+  tap(sx: number, sy: number, opts: TapOptions = {}): void {
     const [wx, wy] = this.screenToWorld(sx, sy);
     if (this.human < 0) return;
     const e = this.sim.fullState().e;
@@ -588,7 +624,7 @@ export class Game {
 
     if (ui.abilityTarget.value !== 0) {
       const ability = Abilities[ui.abilityTarget.value]!;
-      const hit = this.hitTest(wx, wy);
+      const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
       const ok = ability.target === 'point'
         ? this.castSelectedAbility(ui.abilityTarget.value, undefined, tx, ty)
         : hit >= 0 && this.castSelectedAbility(ui.abilityTarget.value, hit);
@@ -596,7 +632,7 @@ export class Game {
       return;
     }
 
-    const hit = this.hitTest(wx, wy);
+    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
 
     // Set-rally mode: point every selected structure's rally at the tapped spot or entity.
     if (ui.rally.value) {
@@ -669,11 +705,11 @@ export class Game {
     }
   }
 
-  desktopSelectTap(sx: number, sy: number, opts: { shift?: boolean; ctrl?: boolean } = {}): void {
+  desktopSelectTap(sx: number, sy: number, opts: TapOptions = {}): void {
     if (this.human < 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
-    const hit = this.hitTest(wx, wy);
+    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
     this.clearTargetModes();
     if (!this.isOwnedSelectable(e, hit)) {
       if (!opts.shift) this.selection.clear();
@@ -692,15 +728,15 @@ export class Game {
     this.selection.add(hit);
   }
 
-  desktopSmartTap(sx: number, sy: number): void {
+  desktopSmartTap(sx: number, sy: number, opts: TapOptions = {}): void {
     if (this.human < 0 || ui.placement.value !== 0 || this.selection.size === 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
     const tx = (wx * ONE) | 0;
     const ty = (wy * ONE) | 0;
-    const hit = this.hitTest(wx, wy);
+    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
     if (ui.abilityTarget.value !== 0 || ui.rally.value || ui.amove.value || ui.targetMode.value !== 'none') {
-      this.tap(sx, sy);
+      this.tap(sx, sy, opts);
       return;
     }
     let queued = false;
@@ -933,16 +969,33 @@ export class Game {
     const e = this.sim.fullState().e;
     let best = -1; let bestD = Infinity;
     for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-      if (!isUserCommandableKind(e.kind[i]!)) continue;
-      if (!this.canSeeEntity(i)) continue;
-      if (this.human >= 0 && e.owner[i] !== this.human && this.tileVisible(Math.floor(e.x[i]! / ONE / TILE), Math.floor(e.y[i]! / ONE / TILE)) !== 2) continue;
-      const r = Math.max(10, Units[e.kind[i]!]!.radius / ONE);
-      const dx = e.x[i]! / ONE - wx; const dy = e.y[i]! / ONE - wy;
+      if (!this.isHitTestCandidate(i)) continue;
+      const b = selectableBounds(e.kind[i]!, e.x[i]!, e.y[i]!);
+      if (!pointInBounds(wx, wy, b)) continue;
+      const dx = b.cx - wx; const dy = b.cy - wy;
       const d = dx * dx + dy * dy;
-      if (d <= r * r && d < bestD) { bestD = d; best = eid(e, i); }
+      if (d < bestD) { bestD = d; best = eid(e, i); }
     }
     return best;
+  }
+
+  private isHitTestCandidate(slot: number): boolean {
+    const e = this.sim.fullState().e;
+    if (e.alive[slot] !== 1 || e.container[slot] !== NONE) return false;
+    if (!isUserCommandableKind(e.kind[slot]!)) return false;
+    if (!this.canSeeEntity(slot)) return false;
+    if (this.human >= 0 && e.owner[slot] !== this.human) {
+      const tx = Math.floor(e.x[slot]! / ONE / TILE);
+      const ty = Math.floor(e.y[slot]! / ONE / TILE);
+      if (this.tileVisible(tx, ty) !== 2) return false;
+    }
+    return true;
+  }
+
+  private resolvePreferredHit(hit: number | undefined): number | undefined {
+    if (hit === undefined || hit < 0 || !isAlive(this.sim.fullState().e, hit)) return undefined;
+    const slot = slotOf(hit);
+    return this.isHitTestCandidate(slot) ? hit : undefined;
   }
 
   stopSelected(): void {
@@ -1172,11 +1225,11 @@ export class Game {
   }
 
   /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
-  selectAllByType(sx: number, sy: number): void {
+  selectAllByType(sx: number, sy: number, opts: TapOptions = {}): void {
     if (this.human < 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
-    const hit = this.hitTest(wx, wy);
+    const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
     if (hit < 0) return;
     const hs = slotOf(hit);
     if (e.owner[hs] !== this.human) return;
@@ -1193,8 +1246,8 @@ export class Game {
     this.selection.clear();
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== this.human || e.kind[i] !== kind) continue;
-      const x = e.x[i]! / ONE; const y = e.y[i]! / ONE;
-      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) this.selection.add(eid(e, i));
+      const b = selectableBounds(kind, e.x[i]!, e.y[i]!);
+      if (boundsIntersectsRect(b, x0, y0, x1, y1)) this.selection.add(eid(e, i));
     }
   }
 

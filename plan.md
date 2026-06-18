@@ -182,6 +182,10 @@ Completed:
 - GL and Math renderers now draw selected bases from authoritative gameplay unit radius and
   building/resource footprint metadata, so the fallback renderer remains the exact footprint
   reference instead of following sprite art bounds.
+- Selection hit-testing, drag-box selection, and double-click all-by-type selection now use the
+  same gameplay hulls shown by Math mode: mobile body bounds for units and exact tile footprints
+  for structures/resources. Pointer-up tap dispatch preserves the pointer-down entity hit so moving
+  targets cannot outrun a clean click.
 - Desktop command chrome now separates minimap, selected-entity status, and commands into fixed
   columns; commands flow through a two-row grid before horizontal scrolling, so control-group text
   and command buttons cannot overlap. Build command labels use the section label for the verb
@@ -891,7 +895,7 @@ Remaining:
 
 ## Phase 9B: Top-Down Spatial Semantics And Procedural Map Design
 
-Status: in progress.
+Status: complete for the current shared-plateau generator.
 
 Purpose: preserve StarCraft-equivalent rules, timings, and build-order math while making the
 actual motion and contact read correctly in our orthographic top-down game. BWAPI gives us
@@ -1205,6 +1209,8 @@ approximated, or absent. Keep this list honest as mechanics land.
     missile/presentation beyond the existing fog-safe warning affordance.
 - Visibility and UI presentation:
   - App-side spell fields and last-known/fog affordances.
+  - Keep click/drag selection geometry covered by tests whenever Math renderer hulls, sprite
+    placement, or body/footprint definitions change.
 - Macro/tech tree:
   - AI macro should continue filling race tech paths with validator-backed research/upgrade
     choices after the existing Protoss powered expansion and Zerg structure progression work.
@@ -1227,6 +1233,15 @@ Implementation:
 
 - Profile after each major slice with demo/headless benchmarks.
 - Keep derived fields out of hashes unless gameplay-affecting.
+- Split browser entrypoint wiring from app runtime boot. The browser `main.tsx` should only find
+  DOM nodes and call an injectable `bootApp` function; Node tests must be able to boot the same
+  app runtime with fake canvases, fake RAF, fake UI mounting, and a fake renderer.
+- Add an app startup smoke test that constructs the real default `Game`, resizes the playfield,
+  attaches input, and can step one update/render frame without a browser. This test must fail on
+  startup exceptions such as invalid procedural maps before any browser screenshot flow runs.
+- Keep browser/Playwright tests for final-mile CSS, canvas pixels, WebGL atlas behavior, and
+  visual screenshots only. Core layout, hit geometry, command-card capacity, viewport math, and
+  boot/runtime errors should be covered by Node tests first.
 - Move app selection/input/HUD/replay responsibilities into smaller modules once command-card
   complexity grows.
 - Add data coverage tests: every implemented `notes` item should either be removed or tracked in
@@ -1238,6 +1253,8 @@ Done when:
 
 - The codebase still has obvious extension points for the next SC mechanic.
 - Tests describe behavior rather than implementation accidents.
+- A single Node test can exercise the actual app boot path deeply enough to catch default game
+  startup failures, without opening a browser.
 
 Completed:
 
@@ -1251,3 +1268,12 @@ Completed:
 - Weapon damage upgrades now apply the documented BW per-unit increments for Protoss ground and
   Zerg melee/missile/flyer weapons, including Dragoon +2, DT/Archon +3, Ultralisk +3, Lurker +2,
   and Guardian/Devourer +2 per level.
+- Split the browser app into a thin `main.tsx`, a document bootstrap adapter, and an injectable
+  runtime boot path. Node tests can now boot the production sequence with fake canvases, fake RAF,
+  fake UI mounting, and a fake renderer.
+- Added a Node startup smoke that exercises document lookup, default `Game` construction,
+  procedural map generation, canvas resize, input attachment, a real pointer selection, one
+  update/render step, RAF scheduling, and cleanup without opening a browser. This harness caught
+  the invalid generated-map startup failure before the map fix was applied.
+- Mirrored depot/resource exclusion math in placement validation so north and south base clusters
+  use the same legal gas/mineral spacing contract.
