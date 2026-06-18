@@ -101,21 +101,30 @@ style: typed arrays, monomorphic code, and zero allocation in the hot loop run *
   7. death/cleanup, fog-of-vision update, event emission
 - **Spatial index.** A uniform grid / bucket structure (typed-array backed) for range queries
   (target acquisition, splash, selection, fog). Rebuilt or incrementally updated each tick.
-- **Pathfinding.** Tile-grid based (SC1-style 32px build tiles / 8px walk tiles), integer-only.
-  **Implemented:** a shared **flow field** per goal tile (one integer Dijkstra, cached per-map
-  and reused by every unit heading there — N units to one goal cost one field, not N A\* runs),
-  a line-of-sight shortcut for the open-terrain/final-approach common case, and **ground-unit
-  collision** (a two-pass, symmetric, walkable-clamped overlap resolve) so groups form a body
-  instead of stacking — workers and air units (`Role.Air`) are exempt. Collision uses its own
-  **one-tile grid** (built solid-only and lazily; skipped when no army is present): the
-  interaction radius is under a tile, so a 3×3 cell scan is provably sufficient and keeps few
-  units per cell — O(n·local-density) rather than the O(n²) a coarse grid hits when a death-ball
-  packs one cell. **Building footprints are
-  solid:** each State carries a transient "solid" grid (stamped from structures) that the field
-  and line-of-sight consult, so units route around buildings; the field cache is keyed per-State
-  and invalidated when the building layout changes (a cheap signature). Fields are a pure
-  function of (terrain + solid + goal), so determinism holds and forks rebuild their own context.
-  Still the first candidate for a future WASM port if profiling demands it.
+- **Pathfinding.** Integer-only, with 32px build tiles and an implemented 16px derived path
+  lattice (`PATH_CELLS_PER_TILE = 2`). True BW-style 8px walk cells remain a measured tuning
+  option, not the default. **Implemented:** shared **flow fields** keyed by path-cell goal and
+  unit body clearance (one integer Dijkstra per goal/clearance, reused by every unit heading
+  there), a line-of-sight shortcut for open-terrain/final-approach cases, and deterministic
+  same-target destination slots so groups do not collapse onto one pixel. Building footprints are
+  stamped into the transient pathing context from authoritative footprint metadata, and clearance
+  masks are derived from BW body bounds, so small units can use gaps that large bodies cannot.
+  Predictive local avoidance scores a tiny deterministic velocity candidate set before movement;
+  the symmetric collision pass is now cleanup, not steering. Collision uses its own **one-tile
+  grid** (built solid-only and lazily): the interaction radius is under a tile, so a 3×3 cell scan
+  is sufficient and keeps work O(n·local-density). Ground workers are ordinary solid units except
+  for the narrow mineral-line rule: a pair is ignored by avoidance/collision only when both workers
+  are on mineral harvest/return routes. Air units (`Role.Air`) fly over ground pathing and
+  collision. Fields are pure functions of terrain + stamped solids + goal + clearance, so
+  determinism holds and forks rebuild their own context. Still the first candidate for a future
+  WASM port if profiling demands it.
+
+  Movement-stress evidence for keeping 16px cells: the `movement-deathball` headless benchmark
+  was swept across seeds 7, 31, 99, 2026, and 4099 for 2,000 ticks. Every run accepted all 32
+  commands, settled all 32 mixed ground units, left zero active move orders, and ended with 32
+  distinct final positions. Throughput ranged from about 17.5k to 25.6k ticks/sec on this machine,
+  with deterministic per-seed hashes. That gives no current evidence that 8px cells are needed;
+  revisit only if visual reviews or new choke/ramp/resource tests expose a real precision miss.
 - **No I/O in core.** Logging, file access, rendering, and timing live in the host layers.
 - **Snapshot/restore.** State is plain typed-array buffers, so we can clone/serialize cheaply to
   fork games, save/load, and reset parallel envs fast. **Implemented:** in-memory
