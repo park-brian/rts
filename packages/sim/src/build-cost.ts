@@ -1,6 +1,7 @@
 import type { Entities, State } from './world.ts';
-import { NONE } from './world.ts';
-import { Order } from './data.ts';
+import { NONE, eid, isAlive, kill, slotOf } from './world.ts';
+import { Kind, Order } from './data.ts';
+import { setEntityKind } from './entity-kind.ts';
 
 export const hasPendingBuild = (e: Entities, slot: number): boolean =>
   e.order[slot] === Order.Build && e.buildKind[slot] !== 0;
@@ -34,6 +35,35 @@ export const cancelPendingBuild = (s: State, slot: number): void => {
   e.order[slot] = Order.Idle;
   e.buildKind[slot] = 0;
   e.target[slot] = NONE;
+};
+
+export const cancelFoundation = (s: State, slot: number): void => {
+  const e = s.e;
+  if (e.morphFromKind[slot] !== Kind.None) {
+    const original = e.morphFromKind[slot]!;
+    refundBuildCost(s, slot, 3, 4);
+    setEntityKind(s, slot, original);
+    e.built[slot] = 1;
+    e.ctimer[slot] = 0;
+    e.morphFromKind[slot] = Kind.None;
+    e.order[slot] = Order.Idle;
+    e.target[slot] = NONE;
+    return;
+  }
+  const workerId = e.target[slot]!;
+  if (workerId !== NONE && isAlive(e, workerId)) {
+    const worker = slotOf(workerId);
+    if (e.order[worker] === Order.Build && e.target[worker] === eid(e, slot)) {
+      e.order[worker] = Order.Idle;
+      e.target[worker] = NONE;
+    }
+  }
+  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) {
+    const parent = slotOf(e.target[slot]!);
+    if (e.target[parent] === eid(e, slot)) e.target[parent] = NONE;
+  }
+  refundBuildCost(s, slot, 3, 4);
+  kill(s, slot);
 };
 
 export const transferBuildCost = (e: Entities, from: number, to: number): void => {

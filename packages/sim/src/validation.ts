@@ -407,14 +407,7 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'cancelBuild': {
-      const slot = ownedSlot(s, c.building, player);
-      if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
-      if (e.morphFromKind[slot] !== Kind.None) return { ok: true };
-      if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] === 1 ||
-          (e.buildCostMinerals[slot] === 0 && e.buildCostGas[slot] === 0)) {
-        return reject('target-not-allowed');
-      }
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'move':
     case 'amove':

@@ -3,17 +3,17 @@
 // unaffordable, illegal target) are ignored.
 
 import type { State } from '../world.ts';
-import { eid, isAlive, kill, slotOf, NONE } from '../world.ts';
+import { eid, kill, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
 import { placementForStructure, validateCommand } from '../validation.ts';
 import { addonPosition } from '../addon.ts';
 import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
-import { refundBuildCost } from '../build-cost.ts';
 import { castAbility } from './abilities.ts';
 import { nextTechLevel, techGas, techMinerals, techTime } from '../tech.ts';
 import { spawnUnit } from '../factory.ts';
+import { setEntityKind, setEntityKindFull } from '../entity-kind.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 import { loadUnitInto } from '../cargo.ts';
 import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
@@ -185,28 +185,6 @@ const landBuilding = (s: State, slot: number, x: number, y: number): void => {
   e.ty[slot] = y;
 };
 
-const setEntityKind = (s: State, slot: number, kind: number): void => {
-  const def = Units[kind]!;
-  const e = s.e;
-  e.kind[slot] = kind;
-  e.flags[slot] = def.roles;
-  e.hp[slot] = Math.min(e.hp[slot]!, def.hp);
-  e.shield[slot] = Math.min(e.shield[slot]!, def.shields);
-  e.energyMax[slot] = def.energyMax;
-  e.energy[slot] = Math.min(e.energy[slot]!, def.energyMax);
-};
-
-const setEntityKindFull = (s: State, slot: number, kind: number): void => {
-  const def = Units[kind]!;
-  const e = s.e;
-  e.kind[slot] = kind;
-  e.flags[slot] = def.roles;
-  e.hp[slot] = def.hp;
-  e.shield[slot] = def.shields;
-  e.energyMax[slot] = def.energyMax;
-  e.energy[slot] = def.startEnergy;
-};
-
 const transformUnit = (s: State, slot: number, kind: number): void => {
   const e = s.e;
   clearSettled(s, slot);
@@ -275,35 +253,6 @@ const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   e.y[unit] = y;
   e.order[unit] = Order.Idle;
   e.target[unit] = NONE;
-};
-
-const cancelFoundation = (s: State, slot: number): void => {
-  const e = s.e;
-  if (e.morphFromKind[slot] !== Kind.None) {
-    const original = e.morphFromKind[slot]!;
-    refundBuildCost(s, slot, 3, 4);
-    setEntityKind(s, slot, original);
-    e.built[slot] = 1;
-    e.ctimer[slot] = 0;
-    e.morphFromKind[slot] = Kind.None;
-    e.order[slot] = Order.Idle;
-    e.target[slot] = NONE;
-    return;
-  }
-  const workerId = e.target[slot]!;
-  if (workerId !== NONE && isAlive(e, workerId)) {
-    const worker = slotOf(workerId);
-    if (e.order[worker] === Order.Build && e.target[worker] === eid(e, slot)) {
-      e.order[worker] = Order.Idle;
-      e.target[worker] = NONE;
-    }
-  }
-  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) {
-    const parent = slotOf(e.target[slot]!);
-    if (e.target[parent] === eid(e, slot)) e.target[parent] = NONE;
-  }
-  refundBuildCost(s, slot, 3, 4);
-  kill(s, slot);
 };
 
 export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[] => {
@@ -394,13 +343,9 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
-        case 'cancelBuild': {
-          cancelFoundation(s, slotOf(c.building));
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'attack':
         case 'burrow':
+        case 'cancelBuild':
         case 'harvest':
         case 'mine':
         case 'move':

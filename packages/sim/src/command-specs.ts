@@ -1,6 +1,6 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import { Kind, Order, ResourceType, Role, TILE, Tech, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
-import { cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
+import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import { fx } from './fixed.ts';
 import { commandMoveSpeed } from './terran-mobility.ts';
 import type { State } from './world.ts';
@@ -20,7 +20,9 @@ type CommandValidation =
   | { ok: false; reason: CommandRejectReason };
 
 type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
-export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'burrow' | 'harvest' | 'mine' | 'move' | 'amove' | 'rally' | 'repair' | 'stop' }>;
+export type CommandSpecCommand = Extract<Command, {
+  t: 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'mine' | 'move' | 'amove' | 'rally' | 'repair' | 'stop';
+}>;
 
 type CommandSpecContext = {
   destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number };
@@ -117,6 +119,18 @@ const validateMine = (s: State, player: number, command: Extract<Command, { t: '
   return { ok: true };
 };
 
+const validateCancelBuild = (s: State, player: number, command: Extract<Command, { t: 'cancelBuild' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if (e.morphFromKind[slot] !== Kind.None) return { ok: true };
+  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] === 1 ||
+      (e.buildCostMinerals[slot] === 0 && e.buildCostGas[slot] === 0)) {
+    return reject('target-not-allowed');
+  }
+  return { ok: true };
+};
+
 const validateAttack = (s: State, player: number, command: Extract<Command, { t: 'attack' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -195,6 +209,13 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
     clearSettled(s, slot);
     e.order[slot] = Order.Attack;
     e.target[slot] = command.target;
+  },
+};
+
+const cancelBuildSpec: CommandSpec<Extract<Command, { t: 'cancelBuild' }>> = {
+  validate: validateCancelBuild,
+  apply(s, _player, command): void {
+    cancelFoundation(s, slotOf(command.building));
   },
 };
 
@@ -307,6 +328,7 @@ export const commandSpecs = {
   attack: attackSpec,
   amove: amoveSpec,
   burrow: burrowSpec,
+  cancelBuild: cancelBuildSpec,
   harvest: harvestSpec,
   mine: mineSpec,
   move: moveSpec,
@@ -319,6 +341,7 @@ export const validateCommandSpec = (s: State, player: number, command: CommandSp
   switch (command.t) {
     case 'attack': return commandSpecs.attack.validate(s, player, command);
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
+    case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
     case 'mine': return commandSpecs.mine.validate(s, player, command);
     case 'move': return commandSpecs.move.validate(s, player, command);
@@ -341,6 +364,9 @@ export const applyCommandSpec = (
       return;
     case 'burrow':
       commandSpecs.burrow.apply(s, player, command, ctx);
+      return;
+    case 'cancelBuild':
+      commandSpecs.cancelBuild.apply(s, player, command, ctx);
       return;
     case 'harvest':
       commandSpecs.harvest.apply(s, player, command, ctx);

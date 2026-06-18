@@ -1554,6 +1554,8 @@ Highest-impact LOC reductions:
        `repair.ts`, keeping SCV repair and construction continuation under one mechanic owner.
      - Moved the tiny special-action family (`burrow`, `mine`) into command specs, with burrow state
        mutation in `burrow.ts` and spider-mine laying in a small mechanic helper.
+     - Moved `cancelBuild` into command specs and relocated foundation/morph cancellation into
+       `build-cost.ts`, keeping refundable build ledgers and cancel side effects together.
    - Continue remaining command migrations in small command families before starting the larger
      ability descriptor refactor.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
