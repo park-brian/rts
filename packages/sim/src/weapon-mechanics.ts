@@ -6,6 +6,7 @@ export const WeaponMechanic = {
   LurkerLineSplash: 3,
   MutaliskBounce: 4,
   AcidSpores: 5,
+  SuicideOnFire: 6,
 } as const;
 
 export type WeaponMechanicId = typeof WeaponMechanic[keyof typeof WeaponMechanic];
@@ -19,6 +20,7 @@ export type WeaponMechanicDef = {
   launchRange?: number;
   launchCooldown?: number;
   onHit?: WeaponMechanicId;
+  postFire?: WeaponMechanicId;
 };
 
 export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
@@ -51,6 +53,21 @@ export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
     id: WeaponMechanic.AcidSpores,
     onHit: WeaponMechanic.AcidSpores,
   },
+  {
+    unit: Kind.Scourge,
+    id: WeaponMechanic.SuicideOnFire,
+    postFire: WeaponMechanic.SuicideOnFire,
+  },
+  {
+    unit: Kind.InfestedTerran,
+    id: WeaponMechanic.SuicideOnFire,
+    postFire: WeaponMechanic.SuicideOnFire,
+  },
+  {
+    unit: Kind.SpiderMine,
+    id: WeaponMechanic.SuicideOnFire,
+    postFire: WeaponMechanic.SuicideOnFire,
+  },
 ] as const;
 
 const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
@@ -59,6 +76,9 @@ const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
   [Kind.Lurker]: WeaponMechanicDefs[2]!,
   [Kind.Mutalisk]: WeaponMechanicDefs[3]!,
   [Kind.Devourer]: WeaponMechanicDefs[4]!,
+  [Kind.Scourge]: WeaponMechanicDefs[5]!,
+  [Kind.InfestedTerran]: WeaponMechanicDefs[6]!,
+  [Kind.SpiderMine]: WeaponMechanicDefs[7]!,
 };
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>

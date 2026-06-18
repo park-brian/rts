@@ -34,9 +34,6 @@ const distSq = (ax: number, ay: number, bx: number, by: number): number => {
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
 
-const isSuicideAttacker = (kind: number): boolean =>
-  kind === Kind.Scourge || kind === Kind.InfestedTerran || kind === Kind.SpiderMine;
-
 const hasSpecialWeaponAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): boolean =>
   mechanic?.consumesAmmoOnFire !== true || s.e.specialAmmo[slot]! > 0;
 
@@ -125,6 +122,14 @@ const applyMechanicOnHit = (s: State, mechanic: WeaponMechanicDef | undefined, a
       break;
     case WeaponMechanic.AcidSpores:
       applyAcidSpore(s, target);
+      break;
+  }
+};
+
+const applyMechanicPostFire = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number): void => {
+  switch (mechanic?.postFire) {
+    case WeaponMechanic.SuicideOnFire:
+      if (s.e.alive[attacker] === 1) kill(s, attacker);
       break;
   }
 };
@@ -262,7 +267,7 @@ export const combat = (s: State, grid: Grid): void => {
               applyMechanicOnHit(s, mechanic, i, tgt, weapon);
             }
           }
-          if (isSuicideAttacker(e.kind[i]!) && e.alive[i] === 1) kill(s, i);
+          applyMechanicPostFire(s, mechanic, i);
         }
         e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
       }

@@ -1734,6 +1734,7 @@ Highest-impact LOC reductions:
      - Added `onHit` mechanic ids for Lurker line splash and Mutalisk bounce, replacing their
        direct post-hit unit checks with a small descriptor dispatch.
      - Routed Devourer acid-spore application through the same `onHit` mechanic dispatch.
+     - Added a `postFire` suicide mechanic for Scourge, Infested Terran, and Spider Mine cleanup.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.
