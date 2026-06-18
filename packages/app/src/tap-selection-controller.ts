@@ -1,6 +1,6 @@
 import type { Game } from './game.ts';
 import {
-  Abilities, NONE, ONE, Role, canPlayerGatherTarget, isAlive, isEnemy, sameTeam, slotOf, validateCommand,
+  Abilities, NONE, ONE, Role, attackModeCandidates, canPlayerGatherTarget, isAlive, sameTeam, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
@@ -208,15 +208,9 @@ export class TapSelectionController {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
-    const targetSlot = hit >= 0 && isAlive(e, hit) ? slotOf(hit) : -1;
-    if (targetSlot >= 0 && sameTeam(s, g.human, e.owner[targetSlot]!)) return false;
-    const attackTarget = targetSlot >= 0 && isEnemy(s, g.human, e.owner[targetSlot]!);
     let queued = false;
     for (const id of this.mobileSelection(e)) {
-      const command: Command = attackTarget
-        ? { t: 'attack', unit: id, target: hit }
-        : { t: 'amove', unit: id, x, y };
-      if (validateCommand(s, g.human, command).ok) {
+      for (const command of attackModeCandidates(s, g.human, id, { hit, x, y })) {
         g.queued.push(command);
         queued = true;
       }

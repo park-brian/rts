@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
-import { producedUnitRallyIntent, smartCommandCandidates } from '../src/command-intent.ts';
+import { attackModeCandidates, producedUnitRallyIntent, smartCommandCandidates } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, makeState, NEUTRAL, slotOf } from '../src/world.ts';
 
@@ -102,6 +102,25 @@ test('smart command gives structures targeted rally or point rally', () => {
   assert.deepEqual(smartCommandCandidates(s, 0, cc, { hit: -1, x: tc(14), y: tc(8) }, 'desktop'), [
     { t: 'rally', building: cc, x: tc(14), y: tc(8) },
   ]);
+});
+
+test('armed attack mode attacks enemies, amoves points, and rejects friendly targets', () => {
+  const s = makeState(open(), 2, 1211);
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const enemy = spawnUnit(s, Kind.Marine, 1, tc(10), tc(8));
+  const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(8));
+
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }), [
+    { t: 'attack', unit: marine, target: enemy },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(11), y: tc(8) }), [
+    { t: 'amove', unit: marine, x: tc(11), y: tc(8) },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: mineral, x: tc(14), y: tc(8) }), [
+    { t: 'amove', unit: marine, x: tc(14), y: tc(8) },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }), []);
 });
 
 test('produced worker rally intent distinguishes mineral spread from gas target harvest', () => {

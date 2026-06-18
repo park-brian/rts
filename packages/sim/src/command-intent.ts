@@ -1,6 +1,6 @@
 import type { Command } from './commands.ts';
 import { ResourceType, Role, Units } from './data.ts';
-import { canAcceptCargo } from './cargo.ts';
+import { canAcceptCargo, sameTeam } from './cargo.ts';
 import { resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint } from './rally.ts';
 import { canPlayerGatherTarget } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
@@ -75,6 +75,21 @@ export const smartCommandCandidates = (
 
   if (actorIsStructure) return valid(s, player, { t: 'rally', building: actor, x: target.x, y: target.y });
   return valid(s, player, { t: 'move', unit: actor, x: target.x, y: target.y });
+};
+
+export const attackModeCandidates = (
+  s: State,
+  player: number,
+  actor: number,
+  target: SmartCommandTarget,
+): Command[] => {
+  const e = s.e;
+  if (!isAlive(e, actor)) return [];
+  const targetSlot = target.hit >= 0 && isAlive(e, target.hit) ? slotOf(target.hit) : -1;
+  if (targetSlot >= 0 && sameTeam(s, player, e.owner[targetSlot]!)) return [];
+  return targetSlot >= 0 && isEnemy(s, player, e.owner[targetSlot]!)
+    ? valid(s, player, { t: 'attack', unit: actor, target: target.hit })
+    : valid(s, player, { t: 'amove', unit: actor, x: target.x, y: target.y });
 };
 
 export const producedUnitRallyIntent = (

@@ -2866,6 +2866,10 @@ Implementation slices:
      cover the candidate priority. It also owns `producedUnitRallyIntent`, which maps typed producer
      rally state into gather-near, gather-target, load, travel, or none for production. Remaining
      extraction work is future AI/RL/action-mask callers and eventual target-mode command cards.
+   - Status: armed attack-mode command resolution is now also shared. `attackModeCandidates` owns
+     the explicit target-mode grammar: enemy entity means targeted `attack`, point/neutral means
+     point `amove`, and friendly/allied entity means no command. The app queues those candidates
+     instead of duplicating combat target classification.
    - Status: action-mask follow-target coverage implemented. Entity target masks and caller-owned
      writers now accept the `move` head for targeted follow candidates, with validator-parity tests
      proving friendly non-resource targets are exposed while enemy, resource, and self targets are
