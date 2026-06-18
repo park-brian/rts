@@ -7,6 +7,12 @@ export type Mode = 'play' | 'spectate' | 'replay';
 export type TargetMode = 'none' | 'harvest' | 'repair';
 export type TargetVerb = Exclude<TargetMode, 'none'>;
 export type ControlScheme = 'mobile' | 'desktop';
+export const OrderOptionId = {
+  Rally: 1,
+  Harvest: 2,
+  Repair: 3,
+  AttackMove: 4,
+} as const;
 export type CommandOption = {
   id: number;
   ok: boolean;
@@ -52,6 +58,7 @@ export type SelectionView = {
     train: CommandOption[];
     ability: CommandOption[];
     research: CommandOption[];
+    order: CommandOption[];
   };
 };
 export type ArmedCommand =
@@ -99,6 +106,7 @@ export const EMPTY_SELECTION_VIEW: SelectionView = {
     train: [],
     ability: [],
     research: [],
+    order: [],
   },
 };
 
@@ -142,3 +150,15 @@ export const clearArmedCommand = (): void => {
 
 export const isPlacementArmed = (armed: ArmedCommand): armed is Extract<ArmedCommand, { t: 'place' | 'land' }> =>
   armed.t === 'place' || armed.t === 'land';
+
+export const sameArmedCommand = (a: ArmedCommand, b: ArmedCommand): boolean => {
+  if (a.t !== b.t) return false;
+  if (a.t === 'place' && b.t === 'place') return a.kind === b.kind;
+  if (a.t === 'land' && b.t === 'land') return a.kind === b.kind;
+  if (a.t === 'ability' && b.t === 'ability') return a.ability === b.ability;
+  if (a.t === 'target' && b.t === 'target') return a.mode === b.mode;
+  return true;
+};
+
+export const shouldToggleArmedCommand = (armed: ArmedCommand, current: ArmedCommand): boolean =>
+  armed.t !== 'place' && armed.t !== 'land' && sameArmedCommand(armed, current);

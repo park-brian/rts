@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { dispatchHotkey, resetHotkeys, setHotkey } from '../src/hotkeys.ts';
-import { ui } from '../src/store.ts';
+import { OrderOptionId, ui } from '../src/store.ts';
 import { Ability, Kind, Tech, eid, fx, liftedStructureFlags, setTechLevel, slotOf, spawnUnit } from '../src/sim.ts';
 
 const selectFirst = (g: Game, kind: number): number => {
@@ -25,9 +25,28 @@ test('desktop hotkeys arm commands and can be remapped', () => {
   ui.mode.value = 'play';
   selectFirst(g, Kind.SCV);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.AttackMove)?.arm, { t: 'attackMove' });
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Harvest)?.arm, {
+    t: 'target',
+    mode: 'harvest',
+  });
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Repair)?.arm, {
+    t: 'target',
+    mode: 'repair',
+  });
 
   assert.equal(dispatchHotkey(g, 'KeyA'), true);
   assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
+  assert.equal(dispatchHotkey(g, 'KeyA'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
+  assert.equal(dispatchHotkey(g, 'KeyG'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'target', mode: 'harvest' });
+  assert.equal(dispatchHotkey(g, 'KeyG'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
+  assert.equal(dispatchHotkey(g, 'KeyR'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'target', mode: 'repair' });
 
   ui.armedCommand.value = { t: 'none' };
   setHotkey('attackMove', 'KeyQ');
@@ -98,6 +117,12 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   g.selection.clear();
   g.selection.add(barracks);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Rally)?.arm, { t: 'rally' });
+  assert.equal(dispatchHotkey(g, 'KeyY'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'rally' });
+  assert.equal(dispatchHotkey(g, 'KeyY'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
   assert.equal(dispatchHotkey(g, 'KeyL'), true);
   assert.deepEqual(g.queued.pop(), { t: 'lift', building: barracks });
 

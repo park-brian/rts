@@ -9,7 +9,7 @@ import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { entitySelectionName } from './entity-presentation.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
-import { EMPTY_SELECTION_VIEW, type ArmedCommand, type CommandOption, type SelectionView } from './store.ts';
+import { EMPTY_SELECTION_VIEW, OrderOptionId, type ArmedCommand, type CommandOption, type SelectionView } from './store.ts';
 
 type OptionRecord = CommandOption & { priority?: number };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands' | 'arm'> & { priority?: number };
@@ -121,6 +121,7 @@ const abilityCommandsForSelection = (
 };
 
 const abilityArm = (ability: number): ArmedCommand => ({ t: 'ability', ability });
+const orderOption = (id: number, arm: ArmedCommand): CommandOption => ({ id, ok: true, arm });
 
 const transformCommandsForSelection = (
   s: State,
@@ -281,6 +282,12 @@ export const selectionCapabilities = (
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;
+  const orderOptions: CommandOption[] = [
+    ...(canRally ? [orderOption(OrderOptionId.Rally, { t: 'rally' })] : []),
+    ...(canHarvest ? [orderOption(OrderOptionId.Harvest, { t: 'target', mode: 'harvest' })] : []),
+    ...(canRepair ? [orderOption(OrderOptionId.Repair, { t: 'target', mode: 'repair' })] : []),
+    ...(canAttackMove ? [orderOption(OrderOptionId.AttackMove, { t: 'attackMove' })] : []),
+  ];
   return {
     count,
     kindName: count > 1 ? `${kindName} ×${count}` : kindName,
@@ -316,6 +323,7 @@ export const selectionCapabilities = (
       train: sortedOptions(trainOptions),
       ability: sortedOptions(abilityOptions),
       research: sortedOptions(researchOptions),
+      order: orderOptions,
     },
   };
 };

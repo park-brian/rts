@@ -11,7 +11,7 @@ import {
   type MapDef, type Command, type PlayerCommands, type Controller,
   type Replay, type MapSpec, type State, type Faction, type FactionName,
 } from './sim.ts';
-import { clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, shouldToggleArmedCommand, ui, type CommandOption, type Mode } from './store.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -501,10 +501,9 @@ export class Game {
   executeOption(option: CommandOption): boolean {
     if (!option.ok) return false;
     if (option.arm) {
-      const current = ui.armedCommand.value;
-      const sameAbility = option.arm.t === 'ability' && current.t === 'ability' && current.ability === option.arm.ability;
+      const toggled = shouldToggleArmedCommand(option.arm, ui.armedCommand.value);
       this.clearTargetModes();
-      if (!sameAbility) ui.armedCommand.value = option.arm;
+      if (!toggled) ui.armedCommand.value = option.arm;
       return true;
     }
     if (!option.commands?.length) return false;

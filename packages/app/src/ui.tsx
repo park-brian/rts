@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import { clearArmedCommand, isPlacementArmed, ui } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
 import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -539,21 +539,8 @@ const Hotbar = (p: { game: Game }) => {
   const clearTargets = (): void => {
     clearArmedCommand();
   };
-  const toggleRally = (): void => {
-    const active = ui.armedCommand.value.t !== 'rally';
-    clearTargets();
-    if (active) ui.armedCommand.value = { t: 'rally' };
-  };
-  const toggleAmove = (): void => {
-    const active = ui.armedCommand.value.t !== 'attackMove';
-    clearTargets();
-    if (active) ui.armedCommand.value = { t: 'attackMove' };
-  };
-  const toggleTarget = (mode: 'harvest' | 'repair'): void => {
-    const active = ui.armedCommand.value.t !== 'target' || ui.armedCommand.value.mode !== mode;
-    clearTargets();
-    if (active) ui.armedCommand.value = { t: 'target', mode };
-  };
+  const activeArm = (option: CommandOption): boolean =>
+    option.arm ? sameArmedCommand(option.arm, ui.armedCommand.value) : false;
   const addOptionButton = (
     group: CommandGroupId,
     option: CommandOption,
@@ -568,6 +555,11 @@ const Hotbar = (p: { game: Game }) => {
   };
   const executeOption = (option: CommandOption): void => {
     g.executeOption(option);
+  };
+  const addOrderButton = (id: number, label: string, hotkeyAction: HotkeyAction): void => {
+    const option = selection.options.order.find((o) => o.id === id);
+    if (!option) return;
+    addOptionButton('orders', option, label, hotkeyAction, () => executeOption(option), activeArm(option));
   };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
@@ -597,15 +589,9 @@ const Hotbar = (p: { game: Game }) => {
           () => executeOption(option));
       }
     }
-    if (selection.can.rally) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.armedCommand.value.t === 'rally'} onClick={toggleRally} />);
-    }
-    if (selection.can.harvest) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'harvest'} onClick={() => toggleTarget('harvest')} />);
-    }
-    if (selection.can.repair) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'repair'} onClick={() => toggleTarget('repair')} />);
-    }
+    addOrderButton(OrderOptionId.Rally, 'Set Rally', 'rally');
+    addOrderButton(OrderOptionId.Harvest, 'Harvest', 'harvest');
+    addOrderButton(OrderOptionId.Repair, 'Repair', 'repair');
     for (const option of selection.options.research) {
       const tech = option.id;
       addOptionButton('tech', option, short(TechDefs[tech]?.name ?? 'Research'), actionKey.research(tech),
@@ -614,8 +600,7 @@ const Hotbar = (p: { game: Game }) => {
     for (const option of selection.options.ability) {
       const ability = option.id;
       const def = Abilities[ability]!;
-      const active = ui.armedCommand.value.t === 'ability' && ui.armedCommand.value.ability === ability;
-      addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), () => executeOption(option), active);
+      addOptionButton('abilities', option, short(def.name), actionKey.ability(ability), () => executeOption(option), activeArm(option));
     }
     if (selection.can.load) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Load" hotkeyAction="load" onClick={() => g.loadSelected()} />);
@@ -641,9 +626,7 @@ const Hotbar = (p: { game: Game }) => {
     if (selection.can.cancel) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
     }
-    if (selection.can.attackMove) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.armedCommand.value.t === 'attackMove'} onClick={toggleAmove} />);
-    }
+    addOrderButton(OrderOptionId.AttackMove, 'Atk-Move', 'attackMove');
     if (selection.can.stop) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);
     }

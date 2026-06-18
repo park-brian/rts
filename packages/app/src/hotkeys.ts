@@ -1,5 +1,5 @@
 import type { Game } from './game.ts';
-import { clearArmedCommand, ui } from './store.ts';
+import { clearArmedCommand, OrderOptionId, ui } from './store.ts';
 import type { CommandOption } from './store.ts';
 import { Ability, Kind, Tech } from './sim.ts';
 
@@ -340,12 +340,6 @@ const clearTargets = (): void => {
   clearArmedCommand();
 };
 
-const toggleTarget = (mode: 'harvest' | 'repair'): void => {
-  const active = ui.armedCommand.value.t !== 'target' || ui.armedCommand.value.mode !== mode;
-  clearTargets();
-  if (active) ui.armedCommand.value = { t: 'target', mode };
-};
-
 const executeOption = (game: Game, options: CommandOption[], id: number): boolean => {
   const option = options.find((o) => o.id === id);
   if (!option) return false;
@@ -373,28 +367,18 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     return executeOption(game, selection.options.ability, Number(action.slice('ability:'.length)));
   }
   switch (action) {
-    case 'attackMove': {
-      const active = ui.armedCommand.value.t !== 'attackMove';
-      clearTargets();
-      if (active) ui.armedCommand.value = { t: 'attackMove' };
-      return true;
-    }
+    case 'attackMove':
+      return executeOption(game, selection.options.order, OrderOptionId.AttackMove);
     case 'stop':
       clearTargets();
       game.stopSelected();
       return true;
     case 'harvest':
-      toggleTarget('harvest');
-      return true;
+      return executeOption(game, selection.options.order, OrderOptionId.Harvest);
     case 'repair':
-      toggleTarget('repair');
-      return true;
-    case 'rally': {
-      const active = ui.armedCommand.value.t !== 'rally';
-      clearTargets();
-      if (active) ui.armedCommand.value = { t: 'rally' };
-      return true;
-    }
+      return executeOption(game, selection.options.order, OrderOptionId.Repair);
+    case 'rally':
+      return executeOption(game, selection.options.order, OrderOptionId.Rally);
     case 'load':
       clearTargets();
       game.loadSelected();

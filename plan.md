@@ -1812,8 +1812,10 @@ Further concrete deletion opportunities found on review:
        `Game.executeOption` path.
      - Added target-mode descriptors to enabled worker build and non-self ability options, plus
        command candidates for self abilities. Command-card clicks and desktop hotkeys now use
-       `Game.executeOption` for build and ability options too; rally, attack-move, harvest, and
-       repair remain explicit order buttons for a later order-option slice.
+       `Game.executeOption` for build and ability options too.
+     - Added order target-mode descriptors for rally, attack-move, harvest, and repair. Their
+       command-card buttons and desktop hotkeys now route through the same `Game.executeOption`
+       arm/toggle path as build placement and targeted abilities.
 4. Move common read helpers into a tiny query/math layer.
    - Current shape:
      - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,
