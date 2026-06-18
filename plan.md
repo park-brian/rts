@@ -1225,7 +1225,7 @@ approximated, or absent. Keep this list honest as mechanics land.
 
 ## Phase 10: Performance And Maintainability Passes
 
-Status: planned.
+Status: partial.
 
 Purpose: prevent SC fidelity from turning the engine into a slow or brittle rule pile.
 
@@ -1277,3 +1277,5 @@ Completed:
   the invalid generated-map startup failure before the map fix was applied.
 - Mirrored depot/resource exclusion math in placement validation so north and south base clusters
   use the same legal gas/mineral spacing contract.
+- Added a sim data coverage test that fails if a non-empty `UnitDef.notes` entry is not either
+  removed from the registry or copied into this roadmap for explicit follow-up.
