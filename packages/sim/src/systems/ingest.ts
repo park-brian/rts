@@ -7,7 +7,7 @@ import { eid, isAlive, kill, slotOf, NONE } from '../world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { Kind, Order, Units, productionCostCount, productionCount } from '../data.ts';
 import { TechDefs } from '../data.ts';
-import { placementForStructure, snapRallyTarget, validateCommand } from '../validation.ts';
+import { placementForStructure, validateCommand } from '../validation.ts';
 import { addonPosition } from '../addon.ts';
 import { landedStructureFlags, liftedStructureFlags } from '../terran-mobility.ts';
 import { refundBuildCost } from '../build-cost.ts';
@@ -17,7 +17,7 @@ import { spawnUnit } from '../factory.ts';
 import { canContinueConstructionKind } from '../repair.ts';
 import { mergePartnerFor, transformFor } from '../unit-transform.ts';
 import { loadUnitInto } from '../cargo.ts';
-import { applyBasicUnitOrder, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
+import { applyCommandSpec, cancelPendingBeforeOrder, clearSettled } from '../command-specs.ts';
 import {
   GROUP_SLOT_SPACING,
   groupOffset,
@@ -451,8 +451,9 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'attack':
         case 'move':
         case 'amove':
+        case 'rally':
         case 'stop':
-          applyBasicUnitOrder(s, player, c, {
+          applyCommandSpec(s, player, c, {
             destination: (command, slot, commandPlayer) => groupDestination(command, slot, commandPlayer, moveGroups),
           });
           results.push({ player, index, t: c.t, ok: true });
@@ -485,21 +486,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
             e.order[slot] = Order.Repair;
             e.target[slot] = c.target;
             e.timer[slot] = 0;
-          }
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
-        case 'rally': {
-          const slot = slotOf(c.building);
-          const target = c.target ?? snapRallyTarget(s, player, c.x, c.y, slot);
-          e.rallyTarget[slot] = target;
-          if (target !== NONE && isAlive(e, target)) {
-            const t = slotOf(target);
-            e.rallyX[slot] = e.x[t]!;
-            e.rallyY[slot] = e.y[t]!;
-          } else {
-            e.rallyX[slot] = c.x;
-            e.rallyY[slot] = c.y;
           }
           results.push({ player, index, t: c.t, ok: true });
           break;

@@ -1546,6 +1546,8 @@ Highest-impact LOC reductions:
        public behavior stable.
      - Expanded the same spec path to `attack`, preserving target legality, detection, carrier/reaver
        special cases, and order application behavior.
+     - Generalized the internal spec path beyond unit orders and moved `rally` into it, keeping rally
+       target snapping and structure target validation in one command home.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.

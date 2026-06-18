@@ -1,10 +1,11 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import { Kind, Order, Role, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
+import { Kind, Order, Role, TILE, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
 import { cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
+import { fx } from './fixed.ts';
 import { commandMoveSpeed } from './terran-mobility.ts';
 import type { State } from './world.ts';
-import { NONE, isAlive, isEnemy, slotOf } from './world.ts';
-import { isContained } from './cargo.ts';
+import { NONE, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
+import { isContained, sameTeam } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
@@ -16,17 +17,18 @@ type CommandValidation =
   | { ok: false; reason: CommandRejectReason };
 
 type MoveLikeCommand = Extract<Command, { t: 'move' | 'amove' }>;
-export type BasicUnitOrderCommand = Extract<Command, { t: 'attack' | 'move' | 'amove' | 'stop' }>;
+export type CommandSpecCommand = Extract<Command, { t: 'attack' | 'move' | 'amove' | 'rally' | 'stop' }>;
 
-type BasicUnitOrderContext = {
+type CommandSpecContext = {
   destination(command: MoveLikeCommand, slot: number, player: number): { x: number; y: number };
 };
 
-type CommandSpec<C extends BasicUnitOrderCommand> = {
-  apply(s: State, player: number, command: C, ctx: BasicUnitOrderContext): void;
+type CommandSpec<C extends CommandSpecCommand> = {
+  apply(s: State, player: number, command: C, ctx: CommandSpecContext): void;
   validate(s: State, player: number, command: C): CommandValidation;
 };
 
+const RALLY_SNAP = fx(2 * TILE);
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
 
 const ownedSlot = (s: State, id: number, player: number): number | null => {
@@ -42,6 +44,29 @@ export const clearSettled = (s: State, slot: number): void => {
 
 export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
+};
+
+const canRallyToSlot = (s: State, player: number, source: number, target: number): boolean => {
+  const e = s.e;
+  if (target === source || e.alive[target] !== 1 || isContained(s, target)) return false;
+  if ((e.flags[target]! & Role.Resource) !== 0) return true;
+  return sameTeam(s, player, e.owner[target]!);
+};
+
+const withinRallySnap = (s: State, slot: number, x: number, y: number): boolean => {
+  const e = s.e;
+  const dx = e.x[slot]! - x;
+  const dy = e.y[slot]! - y;
+  return dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP;
+};
+
+export const snapRallyTarget = (s: State, player: number, x: number, y: number, source = NONE): number => {
+  const e = s.e;
+  const unit = nearest(s, x, y, (sl) =>
+    canRallyToSlot(s, player, source, sl) && (e.flags[sl]! & Role.Resource) === 0);
+  if (unit !== NONE && withinRallySnap(s, unit, x, y)) return eid(e, unit);
+  const node = nearest(s, x, y, (sl) => canRallyToSlot(s, player, source, sl));
+  return node !== NONE && withinRallySnap(s, node, x, y) ? eid(e, node) : NONE;
 };
 
 const validateMoveLike = (s: State, player: number, command: MoveLikeCommand): CommandValidation => {
@@ -90,6 +115,19 @@ const validateAttack = (s: State, player: number, command: Extract<Command, { t:
   return { ok: true };
 };
 
+const validateRally = (s: State, player: number, command: Extract<Command, { t: 'rally' }>): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.building, player);
+  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
+  if (e.built[slot] !== 1) return reject('incomplete-producer');
+  if (command.target !== undefined) {
+    if (!isAlive(e, command.target)) return reject('target-not-found');
+    if (!canRallyToSlot(s, player, slot, slotOf(command.target))) return reject('target-not-allowed');
+  }
+  return { ok: true };
+};
+
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   validate: validateAttack,
   apply(s, _player, command): void {
@@ -99,6 +137,24 @@ const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
     clearSettled(s, slot);
     e.order[slot] = Order.Attack;
     e.target[slot] = command.target;
+  },
+};
+
+const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
+  validate: validateRally,
+  apply(s, player, command): void {
+    const e = s.e;
+    const slot = slotOf(command.building);
+    const target = command.target ?? snapRallyTarget(s, player, command.x, command.y, slot);
+    e.rallyTarget[slot] = target;
+    if (target !== NONE && isAlive(e, target)) {
+      const targetSlot = slotOf(target);
+      e.rallyX[slot] = e.x[targetSlot]!;
+      e.rallyY[slot] = e.y[targetSlot]!;
+    } else {
+      e.rallyX[slot] = command.x;
+      e.rallyY[slot] = command.y;
+    }
   },
 };
 
@@ -144,40 +200,45 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
   },
 };
 
-export const basicUnitOrderSpecs = {
+export const commandSpecs = {
   attack: attackSpec,
   amove: amoveSpec,
   move: moveSpec,
+  rally: rallySpec,
   stop: stopSpec,
 };
 
-export const validateBasicUnitOrder = (s: State, player: number, command: BasicUnitOrderCommand): CommandValidation => {
+export const validateCommandSpec = (s: State, player: number, command: CommandSpecCommand): CommandValidation => {
   switch (command.t) {
-    case 'attack': return basicUnitOrderSpecs.attack.validate(s, player, command);
-    case 'move': return basicUnitOrderSpecs.move.validate(s, player, command);
-    case 'amove': return basicUnitOrderSpecs.amove.validate(s, player, command);
-    case 'stop': return basicUnitOrderSpecs.stop.validate(s, player, command);
+    case 'attack': return commandSpecs.attack.validate(s, player, command);
+    case 'move': return commandSpecs.move.validate(s, player, command);
+    case 'amove': return commandSpecs.amove.validate(s, player, command);
+    case 'rally': return commandSpecs.rally.validate(s, player, command);
+    case 'stop': return commandSpecs.stop.validate(s, player, command);
   }
 };
 
-export const applyBasicUnitOrder = (
+export const applyCommandSpec = (
   s: State,
   player: number,
-  command: BasicUnitOrderCommand,
-  ctx: BasicUnitOrderContext,
+  command: CommandSpecCommand,
+  ctx: CommandSpecContext,
 ): void => {
   switch (command.t) {
     case 'attack':
-      basicUnitOrderSpecs.attack.apply(s, player, command, ctx);
+      commandSpecs.attack.apply(s, player, command, ctx);
       return;
     case 'move':
-      basicUnitOrderSpecs.move.apply(s, player, command, ctx);
+      commandSpecs.move.apply(s, player, command, ctx);
       return;
     case 'amove':
-      basicUnitOrderSpecs.amove.apply(s, player, command, ctx);
+      commandSpecs.amove.apply(s, player, command, ctx);
+      return;
+    case 'rally':
+      commandSpecs.rally.apply(s, player, command, ctx);
       return;
     case 'stop':
-      basicUnitOrderSpecs.stop.apply(s, player, command, ctx);
+      commandSpecs.stop.apply(s, player, command, ctx);
       return;
   }
 };

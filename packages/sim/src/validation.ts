@@ -3,7 +3,7 @@
 
 import type { Command, CommandRejectReason } from './commands.ts';
 import type { State } from './world.ts';
-import { eid, isAlive, isEnemy, nearest, slotOf, NONE } from './world.ts';
+import { isAlive, isEnemy, nearest, slotOf, NONE } from './world.ts';
 import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';
 import { fx } from './fixed.ts';
 import {
@@ -25,7 +25,7 @@ import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import { canBurrowSlot, hasBurrowAccess } from './burrow.ts';
-import { validateBasicUnitOrder } from './command-specs.ts';
+import { validateCommandSpec } from './command-specs.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
   transportCapacity, unloadAnchorSlot, canUnloadAt,
@@ -45,23 +45,9 @@ export type ValidationContext = {
   reservedSupply?: number;
 };
 
-const RALLY_SNAP = fx(2 * TILE);
-
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
+const GEYSER_PLACEMENT_SNAP = fx(2 * TILE);
 
-const canRallyToSlot = (s: State, player: number, source: number, target: number): boolean => {
-  const e = s.e;
-  if (target === source || e.alive[target] !== 1 || isContained(s, target)) return false;
-  if ((e.flags[target]! & Role.Resource) !== 0) return true;
-  return sameTeam(s, player, e.owner[target]!);
-};
-
-const withinRallySnap = (s: State, slot: number, x: number, y: number): boolean => {
-  const e = s.e;
-  const dx = e.x[slot]! - x;
-  const dy = e.y[slot]! - y;
-  return dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP;
-};
 const rejectPlace = (reason: CommandRejectReason): PlacementResult => ({ ok: false, reason });
 const distSq = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = ax - bx;
@@ -197,7 +183,7 @@ export const placementForStructure = (
     if (geyser === NONE) return rejectPlace('placement-requires-geyser');
     const dx = e.x[geyser]! - x;
     const dy = e.y[geyser]! - y;
-    if (dx * dx + dy * dy > RALLY_SNAP * RALLY_SNAP) return rejectPlace('placement-requires-geyser');
+    if (dx * dx + dy * dy > GEYSER_PLACEMENT_SNAP * GEYSER_PLACEMENT_SNAP) return rejectPlace('placement-requires-geyser');
     x = e.x[geyser]!;
     y = e.y[geyser]!;
   } else {
@@ -446,9 +432,9 @@ export const validateCommand = (
     }
     case 'move':
     case 'amove':
-      return validateBasicUnitOrder(s, player, c);
+      return validateCommandSpec(s, player, c);
     case 'attack':
-      return validateBasicUnitOrder(s, player, c);
+      return validateCommandSpec(s, player, c);
     case 'ability': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
@@ -528,26 +514,9 @@ export const validateCommand = (
       return { ok: true };
     }
     case 'rally': {
-      const slot = ownedSlot(s, c.building, player);
-      if (slot === null) return isAlive(e, c.building) ? reject('wrong-owner') : reject('stale-entity');
-      if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
-      if (e.built[slot] !== 1) return reject('incomplete-producer');
-      if (c.target !== undefined) {
-        if (!isAlive(e, c.target)) return reject('target-not-found');
-        if (!canRallyToSlot(s, player, slot, slotOf(c.target))) return reject('target-not-allowed');
-      }
-      return { ok: true };
+      return validateCommandSpec(s, player, c);
     }
     case 'stop':
-      return validateBasicUnitOrder(s, player, c);
+      return validateCommandSpec(s, player, c);
   }
-};
-
-export const snapRallyTarget = (s: State, player: number, x: number, y: number, source = NONE): number => {
-  const e = s.e;
-  const unit = nearest(s, x, y, (sl) =>
-    canRallyToSlot(s, player, source, sl) && (e.flags[sl]! & Role.Resource) === 0);
-  if (unit !== NONE && withinRallySnap(s, unit, x, y)) return eid(e, unit);
-  const node = nearest(s, x, y, (sl) => canRallyToSlot(s, player, source, sl));
-  return node !== NONE && withinRallySnap(s, node, x, y) ? eid(e, node) : NONE;
 };
