@@ -1638,6 +1638,10 @@ Highest-impact LOC reductions:
    - Added point-target policies for non-Nuke area spells: `EMP`, `Psionic Storm`, `Plague`,
      `Ensnare`, `Maelstrom`, `Stasis Field`, `Disruption Web`, and `Dark Swarm` now share
      the policy search path while preserving focus penalties.
+   - The tactical policy table now owns target/point/entity spell casting. Active cloak toggles
+     (`Personnel Cloaking`, `Cloaking Field`) intentionally remain in the bespoke
+     `maybeCastCloak` self-toggle path for now because they are combat-timing decisions rather
+     than target-selection policies.
 4. Replace `Game` command-option/status derivation with sim/app query modules.
    - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
      capability summaries, selected status text, group management, replay scrub, and command emission.
@@ -1704,6 +1708,13 @@ Highest-impact LOC reductions:
        presentation role.
    - Expected win: fewer special checks and clearer ownership. This is more about preventing future
      growth than deleting hundreds of lines immediately.
+   - Completed:
+     - Added first-pass `InternalProductDef` descriptors for trainable internal ammo: Reaver
+       Scarabs, Carrier Interceptors, and Nuclear Silo missiles.
+     - Routed `internalAmmoCapacity` through the descriptor table while preserving the existing
+       Reaver/Carrier capacity-upgrade helpers.
+     - Routed Nuclear Silo ready/arming command-card labels and work status through descriptor
+       display metadata instead of app-side `NuclearMissile` special cases.
 7. Replace combat's direct unit checks with weapon mechanic ids.
    - Current shape: combat is compact but has growing branches for Reaver, Carrier, Bunker, Lurker,
      Mutalisk, Devourer, and suicide units.

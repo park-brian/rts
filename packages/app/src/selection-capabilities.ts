@@ -1,7 +1,7 @@
 import {
   Abilities, Ability, Kind, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
-  isLiftedStructureFlags, slotOf, transformTargetsFor, transportCapacity,
+  internalProductDef, isLiftedStructureFlags, slotOf, transformTargetsFor, transportCapacity,
   validateCommand, workerBuildKindsFor,
   type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
@@ -54,11 +54,17 @@ const optionKinds = (options: Map<number, CommandOption>): number[] =>
 const sortedOptions = (options: Map<number, CommandOption>): CommandOption[] =>
   [...options.values()].sort((a, b) => a.id - b.id);
 
-const nukeTrainOptionMeta = (s: State, slot: number): CommandOptionMeta => {
+const trainOptionMeta = (s: State, slot: number, train: number): CommandOptionMeta => {
+  const display = internalProductDef(s.e.kind[slot]!, train)?.display;
+  if (!display) return {};
   const work = entityWorkQueue(s, slot);
-  if (work.internalReady?.t === 'internal-ready' && work.internalReady.kind === Kind.NuclearMissile) return { label: work.internalReady.label, detail: work.internalReady.detail };
-  if (work.active?.t === 'production' && work.active.kind === Kind.NuclearMissile) return { label: 'Arming Nuke', detail: 'Arming' };
-  return { label: 'Arm Nuke' };
+  if (work.internalReady?.t === 'internal-ready' && work.internalReady.kind === train) {
+    return { label: work.internalReady.label, detail: work.internalReady.detail };
+  }
+  if (work.active?.t === 'production' && work.active.kind === train && display.optionActiveLabel) {
+    return { label: display.optionActiveLabel, detail: display.optionActiveDetail };
+  }
+  return display.trainLabel ? { label: display.trainLabel } : {};
 };
 
 const abilityAvailability = (s: State, player: number, slot: number, abilityId: number): CommandValidation => {
@@ -149,8 +155,7 @@ export const selectionCapabilities = (
       for (const train of Units[k]!.produces) {
         const result = validateCommand(s, player, { t: 'train', building: id, kind: train });
         if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
-        const meta = k === Kind.NuclearSilo && train === Kind.NuclearMissile ? nukeTrainOptionMeta(s, slot) : {};
-        addOption(trainOptions, train, result, meta);
+        addOption(trainOptions, train, result, trainOptionMeta(s, slot, train));
       }
       for (const target of transformTargetsFor(k)) {
         addOption(transformOptions, target, validateCommand(s, player, { t: 'transform', unit: id, kind: target }));

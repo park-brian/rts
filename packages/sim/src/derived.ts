@@ -1,10 +1,10 @@
 import {
-  CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
-  REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Role, Tech, Units, WeaponRangeUpgradePx, bwRange,
+  Kind, Role, Tech, Units, WeaponRangeUpgradePx, bwRange,
   unitTraits, Trait, type Weapon,
 } from './data.ts';
 import type { State } from './world.ts';
 import { getTechLevel } from './tech.ts';
+import { internalProductCapacity } from './internal-products.ts';
 
 const level = (s: State, owner: number, tech: number): number =>
   owner < s.teams.length ? getTechLevel(s, owner, tech) : 0;
@@ -130,15 +130,11 @@ export const upgradedEnergyMax = (s: State, slot: number, baseMax: number): numb
 };
 
 export const reaverScarabCapacity = (s: State, slot: number): number =>
-  level(s, s.e.owner[slot]!, Tech.ReaverCapacity) > 0 ? REAVER_SCARAB_UPGRADED_CAPACITY : REAVER_SCARAB_CAPACITY;
+  internalProductCapacity(s, slot, Kind.Scarab);
 
 export const carrierInterceptorCapacity = (s: State, slot: number): number =>
-  level(s, s.e.owner[slot]!, Tech.CarrierCapacity) > 0 ? CARRIER_INTERCEPTOR_UPGRADED_CAPACITY : CARRIER_INTERCEPTOR_CAPACITY;
+  internalProductCapacity(s, slot, Kind.Interceptor);
 
 export const internalAmmoCapacity = (s: State, producer: number, kind: number): number => {
-  const producerKind = s.e.kind[producer]!;
-  if (producerKind === Kind.Reaver && kind === Kind.Scarab) return reaverScarabCapacity(s, producer);
-  if (producerKind === Kind.Carrier && kind === Kind.Interceptor) return carrierInterceptorCapacity(s, producer);
-  if (producerKind === Kind.NuclearSilo && kind === Kind.NuclearMissile) return 1;
-  return 0;
+  return internalProductCapacity(s, producer, kind);
 };
