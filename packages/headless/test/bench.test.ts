@@ -14,6 +14,7 @@ test('throughput benchmark exposes stable representative case output', () => {
     'bot-generation',
     'batch-sequential',
     'movement-follow',
+    'movement-follow-churn',
     'movement-deathball',
   ]);
 
@@ -96,7 +97,32 @@ test('throughput benchmark exposes stable representative case output', () => {
   assert.ok(follow.collisionNudgedUnits! >= 0);
   assert.ok(follow.collisionBlockedNudges! >= 0);
 
-  const movement = results[9]!;
+  const churn = results[9]!;
+  assert.equal(churn.name, 'movement-follow-churn');
+  assert.equal(churn.players, 2);
+  assert.equal(churn.vision, false);
+  assert.equal(churn.units, 26);
+  assert.equal(churn.commandResults, 14);
+  assert.equal(churn.accepted, 14);
+  assert.equal(churn.rejected, 0);
+  assert.equal(churn.commandResults, churn.accepted + churn.rejected);
+  assert.equal(churn.targetsHeld, 24);
+  assert.equal(churn.attackMoveFollowers, 12);
+  assert.ok(churn.combatTargetTicks! > 0);
+  assert.ok(churn.leaderMoved! > 0);
+  assert.ok(churn.distinctPositions! > 1);
+  assert.ok(churn.settled! >= 0);
+  assert.ok(churn.activeOrders! >= 0);
+  assert.equal(churn.collisionTicks, churn.ticks);
+  assert.ok(churn.collisionSolidUnits! >= churn.units);
+  assert.ok(churn.collisionPairChecks! >= 0);
+  assert.ok(churn.collisionResourceRoutePairSkips! >= 0);
+  assert.ok(churn.collisionOverlapPairs! >= 0);
+  assert.ok(churn.collisionMaxOverlapFx! >= 0);
+  assert.ok(churn.collisionNudgedUnits! >= 0);
+  assert.ok(churn.collisionBlockedNudges! >= 0);
+
+  const movement = results[10]!;
   assert.equal(movement.name, 'movement-deathball');
   assert.equal(movement.players, 1);
   assert.equal(movement.vision, false);

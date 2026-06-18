@@ -3058,6 +3058,14 @@ Implementation slices:
      state to clone, serialize, hash, or reset.
    - Status: benchmark coverage started. `movement-follow` now exercises a moving leader with
      same-target followers alongside the existing `movement-deathball` pressure lane.
+   - Status: combat-churn coverage added. `movement-follow-churn` now exercises two mixed follow
+     groups, including internal `Order.AttackMove + intentTarget` followers, while temporary enemy
+     targets appear and disappear. The benchmark records combat-target ticks, target retention,
+     leader movement, and collision pressure so the representation split has both steady-follow and
+     combat-churn measurements.
+   - Status: complete for the current representation split. Further work should be driven by the
+     benchmark counters or by a deliberate public escort/attack-move-follow API design, not by adding
+     sticky follow state preemptively.
 
 Open questions for review:
 

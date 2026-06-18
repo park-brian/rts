@@ -5,7 +5,7 @@
 import { createBot } from '@rts/ai';
 import {
   Sim, Terran, Zerg, generateMap,
-  Kind, Order, TILE, eid, fx, hashState, makeState, slotOf, spawnUnit, stepWorld,
+  Kind, Order, TILE, eid, fx, hashState, kill, makeState, NONE, slotOf, spawnUnit, stepWorld,
   COMMAND_HEADS,
   abilityCandidates,
   addonKindCandidates,
@@ -41,6 +41,7 @@ export type BenchCaseName =
   | 'bot-generation'
   | 'batch-sequential'
   | 'movement-follow'
+  | 'movement-follow-churn'
   | 'movement-deathball';
 
 export type BenchResult = {
@@ -65,6 +66,8 @@ export type BenchResult = {
   distinctPositions?: number;
   targetsHeld?: number;
   leaderMoved?: number;
+  combatTargetTicks?: number;
+  attackMoveFollowers?: number;
   collisionTicks?: number;
   collisionSolidUnits?: number;
   collisionPairChecks?: number;
@@ -103,11 +106,13 @@ const CASES: BenchCase[] = [
   { name: 'bot-generation', vision: false, observe: false, resultProbe: false },
   { name: 'batch-sequential', vision: false, observe: false, resultProbe: false },
   { name: 'movement-follow', vision: false, observe: false, resultProbe: false },
+  { name: 'movement-follow-churn', vision: false, observe: false, resultProbe: false },
   { name: 'movement-deathball', vision: false, observe: false, resultProbe: false },
 ];
 
 const MOVEMENT_STRESS_UNITS = 32;
 const MOVEMENT_FOLLOWERS = 16;
+const MOVEMENT_CHURN_FOLLOWERS = 24;
 const MOVEMENT_KINDS: readonly number[] = [
   Kind.Marine, Kind.Firebat, Kind.Zealot, Kind.Hydralisk,
   Kind.Goliath, Kind.Dragoon, Kind.SiegeTank, Kind.Ultralisk,
@@ -299,6 +304,146 @@ const runMovementFollowCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks
   };
 };
 
+const runMovementFollowChurnCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
+  const s = makeState(blankMap('Bench Movement Follow Churn', 128, 96), 2, opts.seed);
+  const leaders = [
+    spawnUnit(s, Kind.Marine, 0, tileCenter(48), tileCenter(40)),
+    spawnUnit(s, Kind.Dragoon, 0, tileCenter(54), tileCenter(54)),
+  ];
+  const leaderSlots = leaders.map((id) => slotOf(id));
+  const leaderStarts = leaderSlots.map((slot) => ({ x: s.e.x[slot]!, y: s.e.y[slot]! }));
+  const followers: number[] = [];
+  const attackFollowers: number[] = [];
+  const moveFollowers: { slot: number; target: number; targetSlot: number }[] = [];
+  for (let i = 0; i < MOVEMENT_CHURN_FOLLOWERS; i++) {
+    const group = i < MOVEMENT_CHURN_FOLLOWERS / 2 ? 0 : 1;
+    const local = i % (MOVEMENT_CHURN_FOLLOWERS / 2);
+    const x = tileCenter(20 + group * 10 + (local % 4) * 2);
+    const y = tileCenter(34 + ((local / 4) | 0) * 2 + group * 12);
+    const slot = slotOf(spawnUnit(s, MOVEMENT_KINDS[i % MOVEMENT_KINDS.length]!, 0, x, y));
+    followers.push(slot);
+    const target = leaders[group]!;
+    const targetSlot = leaderSlots[group]!;
+    if ((i & 1) === 1) {
+      s.e.order[slot] = Order.AttackMove;
+      s.e.tx[slot] = s.e.x[targetSlot]!;
+      s.e.ty[slot] = s.e.y[targetSlot]!;
+      s.e.target[slot] = NONE;
+      s.e.intentTarget[slot] = target;
+      s.e.combatTarget[slot] = NONE;
+      attackFollowers.push(slot);
+    } else {
+      moveFollowers.push({ slot, target, targetSlot });
+    }
+  }
+  const batch: PlayerCommands[] = [{
+    player: 0,
+    cmds: [
+      { t: 'move', unit: leaders[0]!, x: tileCenter(72), y: tileCenter(42) },
+      { t: 'move', unit: leaders[1]!, x: tileCenter(78), y: tileCenter(58) },
+      ...moveFollowers.map(({ slot, target, targetSlot }) => ({
+        t: 'move' as const,
+        unit: eid(s.e, slot),
+        x: s.e.x[targetSlot]!,
+        y: s.e.y[targetSlot]!,
+        target,
+      })),
+    ],
+  }];
+
+  let commandResults = 0;
+  let accepted = 0;
+  let rejected = 0;
+  let combatTargetTicks = 0;
+  const churnEnemies: number[] = [];
+  const cleanupEnemies = (): void => {
+    while (churnEnemies.length > 0) {
+      const slot = churnEnemies.pop()!;
+      if (s.e.alive[slot] === 1) kill(s, slot);
+    }
+  };
+  const spawnChurnEnemies = (): void => {
+    cleanupEnemies();
+    for (let i = 0; i < leaders.length; i++) {
+      const anchor = attackFollowers[i * (attackFollowers.length / leaders.length)]!;
+      const enemy = slotOf(spawnUnit(s, Kind.Marine, 1, s.e.x[anchor]! + fx(48), s.e.y[anchor]!));
+      s.e.hp[enemy] = fx(160);
+      s.e.wcd[enemy] = 1_000_000;
+      churnEnemies.push(enemy);
+    }
+  };
+
+  resetCollisionPressureStats();
+  const start = performance.now();
+  for (let i = 0; i < opts.ticks; i++) {
+    if (i % 80 === 8) spawnChurnEnemies();
+    const results = stepWorld(s, i === 0 ? batch : []);
+    commandResults += results.length;
+    for (const result of results) {
+      if (result.ok) accepted++;
+      else rejected++;
+    }
+    if (attackFollowers.some((slot) => s.e.combatTarget[slot] !== NONE)) combatTargetTicks++;
+    if (i % 80 === 36) cleanupEnemies();
+  }
+  cleanupEnemies();
+
+  let settled = 0;
+  let activeOrders = 0;
+  let targetsHeld = 0;
+  const positions = new Set<string>();
+  for (const slot of [...leaderSlots, ...followers]) {
+    if (s.e.settled[slot] === 1) settled++;
+    if (s.e.order[slot] === Order.Move || s.e.order[slot] === Order.AttackMove) activeOrders++;
+    positions.add(`${s.e.x[slot]},${s.e.y[slot]}`);
+  }
+  for (const slot of followers) {
+    const target = s.e.intentTarget[slot]!;
+    const followsLeader = target === leaders[0] || target === leaders[1];
+    const followsOrder = s.e.order[slot] === Order.Move || s.e.order[slot] === Order.AttackMove;
+    if (followsLeader && followsOrder) targetsHeld++;
+  }
+  const leaderMoved = leaderSlots.reduce((total, slot, i) =>
+    total + Math.abs(s.e.x[slot]! - leaderStarts[i]!.x) + Math.abs(s.e.y[slot]! - leaderStarts[i]!.y), 0);
+  const collision = readCollisionPressureStats();
+
+  const elapsedMs = Math.max(0.001, performance.now() - start);
+  return {
+    name: 'movement-follow-churn',
+    seed: opts.seed,
+    ticks: s.tick,
+    players: 2,
+    vision: false,
+    observations: 0,
+    observedEntities: 0,
+    masks: 0,
+    bufferObservations: 0,
+    commandsGenerated: 0,
+    commandResults,
+    accepted,
+    rejected,
+    hash: hashState(s),
+    units: followers.length + leaders.length,
+    settled,
+    activeOrders,
+    distinctPositions: positions.size,
+    targetsHeld,
+    leaderMoved,
+    combatTargetTicks,
+    attackMoveFollowers: attackFollowers.length,
+    collisionTicks: collision.ticks,
+    collisionSolidUnits: collision.solidUnits,
+    collisionPairChecks: collision.pairChecks,
+    collisionResourceRoutePairSkips: collision.resourceRoutePairSkips,
+    collisionOverlapPairs: collision.overlapPairs,
+    collisionMaxOverlapFx: collision.maxOverlapFx,
+    collisionNudgedUnits: collision.nudgedUnits,
+    collisionBlockedNudges: collision.blockedNudges,
+    elapsedMs: Number(elapsedMs.toFixed(3)),
+    ticksPerSecond: Number((s.tick / (elapsedMs / 1000)).toFixed(1)),
+  };
+};
+
 const runBatchSequentialCase = (opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
   const envs = 4;
   const sims = Array.from({ length: envs }, (_, i) => new Sim({
@@ -385,6 +530,7 @@ const runObserveLarvaStressCase = (opts: Required<Pick<BenchOptions, 'seed' | 't
 
 const runCase = (bench: BenchCase, opts: Required<Pick<BenchOptions, 'seed' | 'ticks'>>): BenchResult => {
   if (bench.name === 'movement-follow') return runMovementFollowCase(opts);
+  if (bench.name === 'movement-follow-churn') return runMovementFollowChurnCase(opts);
   if (bench.name === 'movement-deathball') return runMovementDeathballCase(opts);
   if (bench.name === 'batch-sequential') return runBatchSequentialCase(opts);
   if (bench.name === 'observe-larva-stress') return runObserveLarvaStressCase(opts);
