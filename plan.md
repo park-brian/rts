@@ -1940,6 +1940,10 @@ Further concrete deletion opportunities found on review:
        descriptors into separate data modules if navigation suffers;
      - do not over-normalize unit data into tiny fragments unless it lets validation/UI/AI delete code.
    - Expected win: readability, not necessarily raw LOC. Data lines are cheaper than duplicate logic.
+   - Started:
+     - Extracted the stable core vocabulary from `data.ts` into `data-core.ts` and re-exported it
+       through `data.ts` so existing imports keep working. The large unit, ability, tech, and
+       weapon tables remain together for now because they are honest BW data, not duplicate logic.
 
 Abstraction acceptance test:
 
