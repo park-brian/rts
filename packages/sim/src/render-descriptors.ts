@@ -1,4 +1,4 @@
-import { Kind, Role, TILE, Units } from './data.ts';
+import { EffectKind, Kind, Role, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
 import { structureFootprint } from './footprint.ts';
 import { bodyBounds } from './spatial.ts';
@@ -34,6 +34,19 @@ export type EntityRenderHull = {
 export type SelectionBase =
   | { shape: 'circle'; radius: number; offsetX: number; offsetY: number }
   | { shape: 'rect'; width: number; height: number; offsetX: number; offsetY: number };
+
+export type EffectVisibilityAffordance = {
+  kind: 'scan' | 'nuke';
+  x: number;
+  y: number;
+  radius: number;
+  timer: number;
+};
+
+export type EffectVisibilityQuery = {
+  viewer: number;
+  tileVisible: (tx: number, ty: number) => number;
+};
 
 const isUnfinished = (s: State, slot: number): boolean =>
   s.e.alive[slot] === 1 && s.e.built[slot] !== 1;
@@ -169,3 +182,36 @@ export const entityPresentation = (s: State, slot: number): EntityPresentationDe
 
 export const entitySelectionName = (s: State, slot: number): string =>
   `${entityPresentation(s, slot).selectionPrefix}${Units[s.e.kind[slot]!]!.name}`;
+
+export const effectVisibilityAffordances = (
+  s: State,
+  query: EffectVisibilityQuery,
+  out: EffectVisibilityAffordance[] = [],
+): EffectVisibilityAffordance[] => {
+  out.length = 0;
+  const fx = s.effects;
+  for (let i = 0; i < fx.hi; i++) {
+    if (fx.alive[i] !== 1) continue;
+    const effectKind = fx.kind[i]!;
+    const kind = effectKind === EffectKind.ScannerSweep
+      ? 'scan'
+      : effectKind === EffectKind.NuclearStrike
+      ? 'nuke'
+      : undefined;
+    if (!kind) continue;
+    const tx = Math.trunc(fx.x[i]! / (ONE * TILE));
+    const ty = Math.trunc(fx.y[i]! / (ONE * TILE));
+    const vis = query.viewer < 0 ? 2 : query.tileVisible(tx, ty);
+    const owned = query.viewer >= 0 && fx.owner[i] === query.viewer;
+    if (kind === 'scan' && !owned && vis !== 2) continue;
+    if (kind === 'nuke' && !owned && vis === 0) continue;
+    out.push({
+      kind,
+      x: fx.x[i]! / ONE,
+      y: fx.y[i]! / ONE,
+      radius: fx.radius[i]! / ONE,
+      timer: fx.timer[i]!,
+    });
+  }
+  return out;
+};

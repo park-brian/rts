@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, TILE, Units } from '../src/data.ts';
+import { EffectKind, Kind, TILE, Units } from '../src/data.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';
-import { makeState, slotOf } from '../src/world.ts';
+import { makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
-  entityPresentation, entityRenderHull, entitySelectionName, selectionBase,
+  effectVisibilityAffordances, entityPresentation, entityRenderHull, entitySelectionName, selectionBase,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -101,4 +101,28 @@ test('entity render hulls and selection bases expose gameplay math', () => {
     offsetX: 0,
     offsetY: 0,
   });
+});
+
+test('effect visibility affordances expose scan and nuke presentation policy', () => {
+  const s = makeState(sliceMap(), 2, 78);
+  const farX = fx(54 * TILE + TILE / 2);
+  const farY = fx(54 * TILE + TILE / 2);
+  spawnEffect(s, EffectKind.ScannerSweep, 1, farX, farY, fx(5 * TILE), 20, 0, 0);
+
+  const hidden = effectVisibilityAffordances(s, { viewer: 0, tileVisible: () => 0 });
+  assert.deepEqual(hidden, []);
+
+  spawnEffect(s, EffectKind.ScannerSweep, 0, farX, farY, fx(5 * TILE), 20, 0, 0);
+  const owned = effectVisibilityAffordances(s, { viewer: 0, tileVisible: () => 0 });
+  assert.equal(owned.length, 1);
+  assert.equal(owned[0]?.kind, 'scan');
+  assert.equal(owned[0]?.x, farX / ONE);
+
+  const nukeState = makeState(sliceMap(), 2, 79);
+  spawnEffect(nukeState, EffectKind.NuclearStrike, 1, farX, farY, fx(6 * TILE), 40, 0, 500);
+  assert.deepEqual(effectVisibilityAffordances(nukeState, { viewer: 0, tileVisible: () => 0 }), []);
+  const explored = effectVisibilityAffordances(nukeState, { viewer: 0, tileVisible: () => 1 });
+  assert.equal(explored.length, 1);
+  assert.equal(explored[0]?.kind, 'nuke');
+  assert.equal(explored[0]?.timer, 40);
 });

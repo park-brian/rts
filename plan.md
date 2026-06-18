@@ -1752,6 +1752,8 @@ Highest-impact LOC reductions:
      - Moved gameplay render hulls and selection bases into sim-exported render descriptors. App
        selection hit tests, Canvas2D math rendering, and GL selected health bars now share the same
        footprint/body math while sprite pixel placement remains app-owned.
+     - Moved scan/nuke effect visibility affordance policy into a sim-exported render descriptor
+       query. The app still supplies viewer tile visibility and renderers still own pixel styling.
 
 Further concrete deletion opportunities found on review:
 
