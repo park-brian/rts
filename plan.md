@@ -1544,6 +1544,8 @@ Highest-impact LOC reductions:
      - Introduced the first internal `CommandSpec` table for the basic unit-order family (`move`,
        `amove`, `stop`) and routed both `validateCommand` and `applyCommands` through it while keeping
        public behavior stable.
+     - Expanded the same spec path to `attack`, preserving target legality, detection, carrier/reaver
+       special cases, and order application behavior.
 2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
    - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
      casting is a second long ordered switch/chain.
@@ -1599,7 +1601,7 @@ Highest-impact LOC reductions:
      - Extracted `TapSelectionController`, which owns mobile tap, desktop select/smart tap, box select,
        double-tap select-all, preferred-hit validation, and harvest/repair target-mode command policy
        behind stable `Game` wrappers.
-     - Remaining: introduce the scenario/test DSL before the command-spec refactor.
+     - Command-spec refactor is now underway after the scenario DSL proof.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.

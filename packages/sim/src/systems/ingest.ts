@@ -448,6 +448,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           results.push({ player, index, t: c.t, ok: true });
           break;
         }
+        case 'attack':
         case 'move':
         case 'amove':
         case 'stop':
@@ -456,15 +457,6 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
           });
           results.push({ player, index, t: c.t, ok: true });
           break;
-        case 'attack': {
-          const slot = slotOf(c.unit);
-          cancelPendingBeforeOrder(s, slot);
-          clearSettled(s, slot);
-          e.order[slot] = Order.Attack;
-          e.target[slot] = c.target;
-          results.push({ player, index, t: c.t, ok: true });
-          break;
-        }
         case 'ability': {
           const slot = slotOf(c.unit);
           clearSettled(s, slot);

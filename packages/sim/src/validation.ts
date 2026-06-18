@@ -8,7 +8,7 @@ import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';
 import { fx } from './fixed.ts';
 import {
   Ability, Abilities, Kind, MAX_QUEUE, Order, ResourceType, Role, TECH_CAP, Tech, TechDefs, TILE, Units,
-  hasAnyWeapon, productionCostCount, productionCount, unitTraits, weaponForTarget,
+  productionCostCount, productionCount, unitTraits,
   workerBuildKindsFor,
 } from './data.ts';
 import { activeAddonParentSlot, addonParentKind, addonPosition, isAddonKind } from './addon.ts';
@@ -24,8 +24,7 @@ import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } 
 import { internalAmmoCapacity } from './derived.ts';
 import { hasReadyNuke } from './nuke.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
-import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess } from './burrow.ts';
-import { carrierCanAttack } from './interceptor.ts';
+import { canBurrowSlot, hasBurrowAccess } from './burrow.ts';
 import { validateBasicUnitOrder } from './command-specs.ts';
 import {
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, containedBy, isContained, sameTeam,
@@ -448,27 +447,8 @@ export const validateCommand = (
     case 'move':
     case 'amove':
       return validateBasicUnitOrder(s, player, c);
-    case 'attack': {
-      const slot = ownedSlot(s, c.unit, player);
-      if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
-      if (isContained(s, slot)) return reject('missing-capability');
-      if (isDisabled(e, slot)) return reject('missing-capability');
-      if (e.built[slot] !== 1) return reject('missing-capability');
-      if (!isPowered(s, slot)) return reject('missing-capability');
-      if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
-      const attacker = Units[e.kind[slot]!]!;
-      const carrierAttack = e.kind[slot] === Kind.Carrier && isAlive(e, c.target) && carrierCanAttack(s, slot, slotOf(c.target));
-      if (!hasAnyWeapon(attacker) && !carrierAttack) return reject('missing-capability');
-      if (!canUseWeaponNow(s, slot)) return reject('missing-capability');
-      if (e.kind[slot] === Kind.Reaver && e.specialAmmo[slot]! <= 0) return reject('target-not-allowed');
-      if (!isAlive(e, c.target)) return reject('target-not-found');
-      const target = slotOf(c.target);
-      if (isContained(s, target)) return reject('target-not-allowed');
-      if (!isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
-      if (!canDetect(s, player, target)) return reject('target-not-allowed');
-      if (!carrierAttack && !weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
-      return { ok: true };
-    }
+    case 'attack':
+      return validateBasicUnitOrder(s, player, c);
     case 'ability': {
       const slot = ownedSlot(s, c.unit, player);
       if (slot === null) return isAlive(e, c.unit) ? reject('wrong-owner') : reject('stale-entity');
