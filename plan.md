@@ -1846,6 +1846,8 @@ Further concrete deletion opportunities found on review:
    - Collapse shape:
      - `game-session.ts`: setup/restart/replay/human player;
      - `camera-controller.ts`: resize, screen/world transforms, zoom/pan/edge pan;
+     - `visibility-controller.ts`: app fog cache, explored memory, tile visibility, and visible-entity
+       cache, while sim vision/detection remain authoritative;
      - `selection-controller.ts`: hit tests, drag selection, control groups;
      - `command-controller.ts`: armed command state, smart command candidates, dispatch;
      - `hud-publisher.ts`: writes `selectionView` and top-bar resources.
@@ -1856,6 +1858,9 @@ Further concrete deletion opportunities found on review:
      - Extracted camera, viewport, edge-pan, screen/world conversion, and minimap navigation into
        `CameraController` while keeping `Game`'s public camera fields and wrapper methods stable for
        renderers, input, and existing tests.
+     - Extracted app fog memory, explored memory, tile visibility, and visible-entity caching into
+       `VisibilityController` while keeping sim vision/detection authoritative and preserving
+       `Game`'s public visibility wrappers for renderers, HUD, and tests.
 6. Treat tests as product code for compression.
    - Current shape:
      - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,

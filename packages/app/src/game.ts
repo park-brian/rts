@@ -4,9 +4,9 @@
 
 import {
   Sim, generateMap, createBotControllers, FPS, TILE, ONE, Abilities, Ability, Kind, Units, Role,
-  slotOf, eid, isAlive, NEUTRAL, NONE, CAP, toReplay, mapFromSpec, parseReplay,
+  slotOf, eid, isAlive, NEUTRAL, NONE, toReplay, mapFromSpec, parseReplay,
   validateCommand, transportCapacity, unloadAnchorSlot,
-  canDetect, Factions,
+  Factions,
   transformFor, isLiftedStructureFlags,
   entityWorkQueue,
   type MapDef, type Command, type PlayerCommands, type Controller,
@@ -19,6 +19,7 @@ import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-con
 import { CameraController } from './camera-controller.ts';
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
+import { VisibilityController } from './visibility-controller.ts';
 import { pointInBounds, selectableBounds } from './selection-geometry.ts';
 
 const TICK_MS = 1000 / FPS;
@@ -43,6 +44,7 @@ export class Game {
 
   selection = new Set<number>();
   private cameraController?: CameraController;
+  private visibilityController?: VisibilityController;
   private readonly controlGroupController = new ControlGroupController();
   private readonly placementController = new PlacementController();
   private tapSelectionController?: TapSelectionController;
@@ -55,13 +57,8 @@ export class Game {
   replaySpeed = 1;
   paused = false;
 
-  visible!: Uint8Array; // per-tile, human vision this frame
-  explored!: Uint8Array;
   private acc = 0;
   private lastSel = 0;
-  private visibleEntityTick = -1;
-  private visibleEntityHuman = -2;
-  private visibleEntity = new Uint8Array(CAP);
 
   get camX(): number { return this.camera().camX; }
   set camX(value: number) { this.camera().camX = value; }
@@ -73,6 +70,10 @@ export class Game {
   set viewW(value: number) { this.camera().viewW = value; }
   get viewH(): number { return this.camera().viewH; }
   set viewH(value: number) { this.camera().viewH = value; }
+  get visible(): Uint8Array { return this.visibility().visible; }
+  set visible(value: Uint8Array) { this.visibility().visible = value; }
+  get explored(): Uint8Array { return this.visibility().explored; }
+  set explored(value: Uint8Array) { this.visibility().explored = value; }
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.controlGroupController.groups;
@@ -94,6 +95,11 @@ export class Game {
   private camera(): CameraController {
     this.cameraController ??= new CameraController(() => this.map);
     return this.cameraController;
+  }
+
+  private visibility(): VisibilityController {
+    this.visibilityController ??= new VisibilityController(() => this.map);
+    return this.visibilityController;
   }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
@@ -128,9 +134,7 @@ export class Game {
     resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.queued = [];
     this.placementController.clear();
-    this.visible = new Uint8Array(this.map.w * this.map.h);
-    this.explored = new Uint8Array(this.map.w * this.map.h);
-    this.visibleEntityTick = -1;
+    this.visibility().reset();
     ui.mode.value = mode;
     ui.perTeam.value = perTeam;
     ui.humanPlayer.value = this.humanPlayer;
@@ -160,9 +164,7 @@ export class Game {
     this.controllers = [];
     this.selection.clear();
     this.queued = [];
-    this.visible = new Uint8Array(this.map.w * this.map.h);
-    this.explored = new Uint8Array(this.map.w * this.map.h);
-    this.visibleEntityTick = -1;
+    this.visibility().reset();
     this.replaySpeed = 1;
     this.paused = false;
     this.seekReplay(0);
@@ -306,51 +308,16 @@ export class Game {
     return q;
   }
 
-  // ---- fog of war: mirror the sim's per-player vision (computed deterministically
-  // in the tick pipeline), so the renderer and the policy/network see the same fog. ----
   private computeFog(): void {
-    const vis = this.visible;
-    if (this.human < 0) { vis.fill(2); this.explored.fill(2); return; } // spectate: see all
-    const v = this.sim.fullState().vision[this.human]!;
-    for (let t = 0; t < vis.length; t++) {
-      vis[t] = v[t]!;
-      if (v[t]! >= 1) this.explored[t] = 1; // accumulate explored memory
-    }
+    this.visibility().compute(this.sim.fullState(), this.human);
   }
 
   tileVisible(tx: number, ty: number): number {
-    if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return 0;
-    const v = this.visible[ty * this.map.w + tx]!;
-    return v === 2 ? 2 : this.explored[ty * this.map.w + tx]! === 1 ? 1 : 0;
+    return this.visibility().tileVisible(tx, ty);
   }
 
   canSeeEntity(slot: number): boolean {
-    this.refreshEntityVisibility();
-    return this.visibleEntity[slot] === 1;
-  }
-
-  private refreshEntityVisibility(): void {
-    const s = this.sim.fullState();
-    if (this.visibleEntityTick === s.tick && this.visibleEntityHuman === this.human) return;
-    const e = s.e;
-    this.visibleEntity.fill(0, 0, e.hi);
-    this.visibleEntityTick = s.tick;
-    this.visibleEntityHuman = this.human;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-      if (this.human < 0) { this.visibleEntity[i] = 1; continue; }
-      const tx = Math.floor(e.x[i]! / ONE / TILE);
-      const ty = Math.floor(e.y[i]! / ONE / TILE);
-      const vis = this.tileVisible(tx, ty);
-      const def = Units[e.kind[i]!]!;
-      if ((def.roles & Role.Resource) !== 0 || e.kind[i] === Kind.Geyser) {
-        if (vis !== 0) this.visibleEntity[i] = 1;
-      } else if (e.owner[i] === this.human) {
-        this.visibleEntity[i] = 1;
-      } else if (vis === 2 && canDetect(s, this.human, i)) {
-        this.visibleEntity[i] = 1;
-      }
-    }
+    return this.visibility().canSeeEntity(this.sim.fullState(), this.human, slot);
   }
 
   // ---- selection & commands (called by input) ----
