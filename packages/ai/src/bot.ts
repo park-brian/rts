@@ -709,14 +709,47 @@ const hasTechForAbility = (s: State, player: number, abilityId: number): boolean
   return !ability?.tech || getTechLevel(s, player, ability.tech) > 0;
 };
 
+type AbilityPolicy = {
+  ability: number;
+  target: 'friendly-entity';
+  minScore: number;
+  scoreTarget: (s: State, player: number, target: number) => number;
+};
+
+const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
+  {
+    ability: Ability.ShieldRecharge,
+    target: 'friendly-entity',
+    minScore: 8,
+    scoreTarget: (s, player, target) => {
+      const e = s.e;
+      if (e.owner[target] !== player || (e.flags[target]! & Role.Mobile) === 0) return 0;
+      return Units[e.kind[target]!]!.shields - e.shield[target]!;
+    },
+  },
+  {
+    ability: Ability.Heal,
+    target: 'friendly-entity',
+    minScore: 6,
+    scoreTarget: (s, player, target) => {
+      const e = s.e;
+      if (e.owner[target] !== player || (unitTraits(e.kind[target]!) & Trait.Biological) === 0) return 0;
+      return Units[e.kind[target]!]!.hp - e.hp[target]!;
+    },
+  },
+];
+
+const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
+  TACTICAL_ABILITY_POLICIES.find((policy) => policy.ability === abilityId);
+
 const castTacticalAbilities = (s: State, player: number, cmds: Command[], casters: number[], focusX: number, focusY: number): void => {
   const used = new Set<number>();
   for (const caster of casters) {
     if (used.has(caster)) continue;
     const def = Units[s.e.kind[caster]!]!;
-    if (def.abilities.includes(Ability.ShieldRecharge) && maybeCastShieldRecharge(s, player, cmds, caster)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.ShieldRecharge) && tryCastPolicy(s, player, cmds, caster, Ability.ShieldRecharge)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Restoration) && maybeCastRestoration(s, player, cmds, caster)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Heal) && maybeCastHeal(s, player, cmds, caster)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Heal) && tryCastPolicy(s, player, cmds, caster, Ability.Heal)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.ScannerSweep) && maybeCastScanner(s, player, cmds, caster)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Consume) && maybeCastConsume(s, player, cmds, caster)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Hallucination) && maybeCastHallucination(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
@@ -745,6 +778,26 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
   }
 };
 
+const tryCastPolicy = (s: State, player: number, cmds: Command[], caster: number, abilityId: number): boolean => {
+  const policy = tacticalAbilityPolicy(abilityId);
+  if (!policy) return false;
+  const e = s.e;
+  let bestCommand: Command | null = null;
+  let bestScore = policy.minScore;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
+    const score = policy.scoreTarget(s, player, i);
+    if (score <= bestScore) continue;
+    const command: Command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, target: eid(e, i) };
+    if (!validateCommand(s, player, command).ok) continue;
+    bestScore = score;
+    bestCommand = command;
+  }
+  if (!bestCommand) return false;
+  cmds.push(bestCommand);
+  return true;
+};
+
 const abilityThreshold = (abilityId: number): number => {
   switch (abilityId) {
     case Ability.MindControl: return 180;
@@ -763,40 +816,6 @@ const abilityThreshold = (abilityId: number): number => {
     case Ability.NuclearStrike: return 650;
     default: return 1;
   }
-};
-
-const maybeCastHeal = (s: State, player: number, cmds: Command[], caster: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.Heal]!;
-  if (!hasTechForAbility(s, player, Ability.Heal) || e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestMissing = 6;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || (unitTraits(e.kind[i]!) & Trait.Biological) === 0) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const missing = Units[e.kind[i]!]!.hp - e.hp[i]!;
-    if (missing > bestMissing) { bestMissing = missing; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.Heal, target: eid(e, best) });
-  return true;
-};
-
-const maybeCastShieldRecharge = (s: State, player: number, cmds: Command[], caster: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.ShieldRecharge]!;
-  if (e.energy[caster]! < ability.energyCost) return false;
-  let best = NONE;
-  let bestMissing = 8;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || (e.flags[i]! & Role.Mobile) === 0) continue;
-    if (distanceSq(e.x[caster]!, e.y[caster]!, e.x[i]!, e.y[i]!) > ability.range * ability.range) continue;
-    const missing = Units[e.kind[i]!]!.shields - e.shield[i]!;
-    if (missing > bestMissing) { bestMissing = missing; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.ShieldRecharge, target: eid(e, best) });
-  return true;
 };
 
 const maybeCastRestoration = (s: State, player: number, cmds: Command[], caster: number): boolean => {

@@ -1610,6 +1610,9 @@ Highest-impact LOC reductions:
        emission.
    - Expected win: bot intelligence stays hand-authored, but the code becomes a compact list of
      strategic preferences instead of a procedural spell script.
+   - Started with the friendly restore family: `Heal` and `Shield Recharge` now use a shared
+     `AbilityPolicy`/`tryCastPolicy` path that scores targets and delegates legality to
+     `validateCommand`.
 4. Replace `Game` command-option/status derivation with sim/app query modules.
    - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
      capability summaries, selected status text, group management, replay scrub, and command emission.

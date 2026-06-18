@@ -2309,6 +2309,7 @@ test('bot recharges damaged Protoss shields with Shield Batteries', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 581 });
   const s = sim.fullState();
   spawnUnit(s, Kind.Nexus, 0, fx(400), fx(400));
+  spawnUnit(s, Kind.Pylon, 0, fx(360), fx(400));
   const battery = spawnUnit(s, Kind.ShieldBattery, 0, fx(400), fx(400));
   const zealot = spawnUnit(s, Kind.Zealot, 0, fx(430), fx(400));
   s.e.energy[slotOf(battery)] = 50;
