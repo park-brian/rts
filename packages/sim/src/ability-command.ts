@@ -4,13 +4,13 @@ import { isActiveAddon } from './addon.ts';
 import { isContained } from './cargo.ts';
 import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
-import { getTechLevel } from './tech.ts';
 import { hasReadyNuke } from './nuke.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
 import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq } from './spatial.ts';
+import { abilityTechAvailable } from './ability-availability.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -41,7 +41,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   if (!ability || !caster.abilities.includes(command.ability) || !ability.casters.includes(e.kind[slot]!)) {
     return reject('invalid-ability');
   }
-  if (ability.tech !== undefined && getTechLevel(s, player, ability.tech) <= 0) return reject('missing-requirement');
+  if (!abilityTechAvailable(s, player, command.ability)) return reject('missing-requirement');
   const togglingCloakOff = (command.ability === Ability.PersonnelCloaking || command.ability === Ability.CloakingField) &&
     e.cloakActive[slot] === 1;
   if (!togglingCloakOff && e.energy[slot]! < ability.energyCost) return reject('not-enough-energy');

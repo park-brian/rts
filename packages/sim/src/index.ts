@@ -32,6 +32,7 @@ export * from './weapon-mechanics.ts';
 export * from './render-descriptors.ts';
 export * from './derived.ts';
 export * from './rally.ts';
+export * from './ability-availability.ts';
 export * from './world.ts';
 export * from './pathing.ts';
 export * from './procedural.ts';

@@ -11,6 +11,8 @@ import {
   addonParentKind, hasAnyWeapon, hasCompletedKind, hasReadyNuke, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
   techGas, techMinerals,
+  abilityTechAvailable,
+  distanceSq, withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 
@@ -480,7 +482,6 @@ const maybeQueueNydusEndpoint = (
   if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
 
   const e = s.e;
-  const endpointRangeSq = UNLOAD_RANGE * UNLOAD_RANGE;
   let completedOwnEndpoints = 0;
   let hasEndpointNearFocus = false;
   let hasPendingEndpoint = false;
@@ -490,7 +491,7 @@ const maybeQueueNydusEndpoint = (
       if (!sameTeam(s, player, e.owner[i]!)) continue;
       if (e.built[i] === 1) {
         if (e.owner[i] === player) completedOwnEndpoints++;
-        if (distanceSq(e.x[i]!, e.y[i]!, focusX, focusY) <= endpointRangeSq) hasEndpointNearFocus = true;
+        if (withinRangeSq(e.x[i]!, e.y[i]!, focusX, focusY, UNLOAD_RANGE)) hasEndpointNearFocus = true;
       } else if (e.owner[i] === player) {
         hasPendingEndpoint = true;
       }
@@ -592,7 +593,7 @@ const maybeStim = (s: State, cmds: Command[], slot: number): void => {
   const e = s.e;
   const def = Units[e.kind[slot]!]!;
   if (!def.abilities.includes(Ability.StimPack)) return;
-  if (!hasTechForAbility(s, e.owner[slot]!, Ability.StimPack)) return;
+  if (!abilityTechAvailable(s, e.owner[slot]!, Ability.StimPack)) return;
   if (e.stimTimer[slot]! > 0 || e.hp[slot]! <= 20) return;
   cmds.push({ t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });
 };
@@ -604,9 +605,7 @@ const maybeTransformForFight = (s: State, cmds: Command[], slot: number, focusX:
   const owner = e.owner[slot]!;
   if (kind === Kind.SiegeTank && getTechLevel(s, owner, Tech.SiegeTech) <= 0) return false;
   const weapon = Units[Kind.SiegeTankSieged]!.weapon!;
-  const dx = focusX - e.x[slot]!;
-  const dy = focusY - e.y[slot]!;
-  const d2 = dx * dx + dy * dy;
+  const d2 = distanceSq(focusX, focusY, e.x[slot]!, e.y[slot]!);
   const min = weapon.minRange ?? 0;
   const usefulSiege = d2 >= min * min && d2 <= weapon.range * weapon.range;
   if (kind === Kind.SiegeTank && usefulSiege) {
@@ -625,7 +624,7 @@ const maybeBurrowForFight = (s: State, cmds: Command[], slot: number, target: nu
   if (e.kind[slot] !== Kind.Lurker || e.burrowed[slot] === 1) return false;
   const weapon = Units[Kind.Lurker]!.weapon!;
   if (!weaponForTarget(Units[Kind.Lurker]!, Units[e.kind[target]!]!)) return false;
-  if (distanceSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!) > weapon.range * weapon.range) return false;
+  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, weapon.range)) return false;
   cmds.push({ t: 'burrow', unit: eid(e, slot), active: true });
   return true;
 };
@@ -635,7 +634,7 @@ const maybeLaySpiderMine = (s: State, cmds: Command[], slot: number, target: num
   if (e.kind[slot] !== Kind.Vulture || e.specialAmmo[slot]! <= 0) return false;
   if (getTechLevel(s, e.owner[slot]!, Tech.SpiderMines) <= 0) return false;
   if ((e.flags[target]! & (Role.Mobile | Role.Air | Role.Structure | Role.Resource)) !== Role.Mobile) return false;
-  if (distanceSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!) > (TILE * ONE * 4) ** 2) return false;
+  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, TILE * ONE * 4)) return false;
   cmds.push({ t: 'mine', unit: eid(e, slot) });
   return true;
 };
@@ -687,16 +686,11 @@ const nydusUnloadPoint = (s: State, exit: number, focusX: number, focusY: number
     [e.x[exit]!, e.y[exit]! - step],
   ];
   for (const [x, y] of options) {
-    if (distanceSq(e.x[exit]!, e.y[exit]!, x, y) <= UNLOAD_RANGE * UNLOAD_RANGE && unloadPassable(s, x, y)) {
+    if (withinRangeSq(e.x[exit]!, e.y[exit]!, x, y, UNLOAD_RANGE) && unloadPassable(s, x, y)) {
       return { x, y };
     }
   }
   return null;
-};
-
-const hasTechForAbility = (s: State, player: number, abilityId: number): boolean => {
-  const ability = Abilities[abilityId];
-  return !ability?.tech || getTechLevel(s, player, ability.tech) > 0;
 };
 
 type EntityAbilityPolicy = {
@@ -884,7 +878,7 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     target: 'friendly-point',
     minScore: 180,
     canCast: (s, _player, caster, focusX, focusY) =>
-      distanceSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY) <= (TILE * ONE * 12) ** 2,
+      withinRangeSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY, TILE * ONE * 12),
     scorePoint: (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
   },
 ];
@@ -975,7 +969,7 @@ const scoreEmpTarget = (s: State, player: number, x: number, y: number): number 
   const radius = Abilities[Ability.EMPShockwave]!.radius;
   let score = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || distanceSq(e.x[i]!, e.y[i]!, x, y) > radius * radius) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
     const value = e.shield[i]! + e.energy[i]! * 2;
     if (isEnemy(s, player, e.owner[i]!)) score += value;
     else if (e.owner[i] === player) score -= value;
@@ -1001,7 +995,7 @@ const scoreStormTarget = (s: State, player: number, x: number, y: number): numbe
   const radius = Abilities[Ability.PsionicStorm]!.radius;
   let score = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || distanceSq(e.x[i]!, e.y[i]!, x, y) > radius * radius) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
     const def = Units[e.kind[i]!]!;
     if ((def.roles & Role.Mobile) === 0) continue;
     const value = Math.min(112, e.hp[i]! + e.shield[i]!);
@@ -1038,7 +1032,7 @@ const scoreDarkSwarmTarget = (s: State, player: number, x: number, y: number): n
   let friendlyMelee = 0;
   let enemyRanged = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || distanceSq(e.x[i]!, e.y[i]!, x, y) > radius * radius) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
     const def = Units[e.kind[i]!]!;
     const groundWeapon = def.weapon;
     if (e.owner[i] === player && groundWeapon && groundWeapon.range <= TILE * ONE * 2) friendlyMelee += 60;
@@ -1106,16 +1100,16 @@ const scoreMatrixTarget = (s: State, player: number, target: number, focusX: num
   if (e.owner[target] !== player || (e.flags[target]! & Role.Mobile) === 0 || e.matrixTimer[target]! > 0) return 0;
   const def = Units[e.kind[target]!]!;
   const missing = Math.max(0, def.hp - e.hp[target]!) + Math.max(0, def.shields - e.shield[target]!);
-  const nearFight = distanceSq(e.x[target]!, e.y[target]!, focusX, focusY) <= (TILE * ONE * 7) ** 2 ? 80 : 0;
+  const nearFight = withinRangeSq(e.x[target]!, e.y[target]!, focusX, focusY, TILE * ONE * 7) ? 80 : 0;
   return missing + nearFight + (def.weapon || def.airWeapon ? 40 : 0);
 };
 
 const maybeCastCloak = (s: State, cmds: Command[], caster: number, abilityId: number, focusX: number, focusY: number): boolean => {
   const e = s.e;
   const ability = Abilities[abilityId]!;
-  if (!hasTechForAbility(s, e.owner[caster]!, abilityId)) return false;
+  if (!abilityTechAvailable(s, e.owner[caster]!, abilityId)) return false;
   if (e.cloakActive[caster] === 1 || e.energy[caster]! < ability.energyCost + 1) return false;
-  if (distanceSq(e.x[caster]!, e.y[caster]!, focusX, focusY) > (TILE * ONE * 10) ** 2) return false;
+  if (!withinRangeSq(e.x[caster]!, e.y[caster]!, focusX, focusY, TILE * ONE * 10)) return false;
   cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId });
   return true;
 };
@@ -1125,7 +1119,7 @@ const scoreHallucinationTarget = (s: State, player: number, target: number, focu
   const def = Units[e.kind[target]!]!;
   if (e.owner[target] !== player || e.illusion[target] === 1 || (e.flags[target]! & Role.Mobile) === 0) return 0;
   if (!(def.weapon || def.airWeapon)) return 0;
-  const nearFight = distanceSq(e.x[target]!, e.y[target]!, focusX, focusY) <= (TILE * ONE * 10) ** 2 ? 80 : 0;
+  const nearFight = withinRangeSq(e.x[target]!, e.y[target]!, focusX, focusY, TILE * ONE * 10) ? 80 : 0;
   return nearFight + e.hp[target]! + e.shield[target]! + def.supply * 8;
 };
 
@@ -1145,7 +1139,7 @@ const scoreFriendlyRecallCluster = (s: State, player: number, x: number, y: numb
   const e = s.e;
   let score = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || distanceSq(e.x[i]!, e.y[i]!, x, y) > radius * radius) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
     if ((e.flags[i]! & Role.Mobile) === 0 || !(Units[e.kind[i]!]!.weapon || Units[e.kind[i]!]!.airWeapon)) continue;
     score += 70 + Math.min(80, e.hp[i]! + e.shield[i]!);
   }
@@ -1164,7 +1158,7 @@ const scoreArea = (
   const e = s.e;
   let score = 0;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || distanceSq(e.x[i]!, e.y[i]!, x, y) > radius * radius) continue;
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
     const v = value(i);
     if (v <= 0) continue;
     if (isEnemy(s, player, e.owner[i]!)) score += v;
@@ -1178,15 +1172,6 @@ const hasRestorableStatus = (e: State['e'], slot: number): boolean =>
   e.lockdownTimer[slot]! > 0 || e.maelstromTimer[slot]! > 0 || e.opticalFlare[slot] === 1 ||
   e.parasiteOwner[slot]! !== 255;
 
-const distanceSq = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-};
-
 const withinTiles = (s: State, slot: number, x: number, y: number, t: number): boolean => {
-  const dx = s.e.x[slot]! - x;
-  const dy = s.e.y[slot]! - y;
-  const r = t * TILE * ONE;
-  return dx * dx + dy * dy <= r * r;
+  return withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, t * TILE * ONE);
 };

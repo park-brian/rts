@@ -1837,6 +1837,8 @@ Further concrete deletion opportunities found on review:
        selection.
      - Replaced the remaining sim-side center-distance duplicates in detection, ability validation,
        load/unload validation, spider mine wake-up, splash weapon hits, and combat special mechanics.
+     - Routed AI distance checks through the exported sim spatial helpers and replaced the bot's
+       local ability-tech gate with a sim-owned helper that command validation also uses.
 5. Split `Game` by responsibility only after collapsing UI state.
    - Current shape:
      - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart
