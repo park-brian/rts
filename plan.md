@@ -1585,7 +1585,9 @@ Highest-impact LOC reductions:
        lifecycle status, nuclear command-card metadata, and producer load ordering.
      - Extracted resource/time/result/control-group/selection publication into `publishHud`, so
        `Game` supplies state and visibility while HUD signal writes live in one app-side module.
-     - Remaining: split input/placement/control-group controllers once the HUD boundary settles.
+     - Extracted `ControlGroupController`, which owns group storage, live filtering, assign/recall
+       selection mutation, pruning, and repeat-recall centering decisions behind stable `Game` wrappers.
+     - Remaining: split input/placement controllers once the control-group boundary settles.
 5. Introduce a scenario/test DSL.
    - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
      advance frames, search commands, and assert command results.

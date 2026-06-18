@@ -17,12 +17,12 @@ import { isUserCommandableKind } from './child-actors.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
+import { CONTROL_GROUP_COUNT, ControlGroupController } from './control-group-controller.ts';
 
 const TICK_MS = 1000 / FPS;
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
 const EDGE_PAN_MARGIN = 24;
 const EDGE_PAN_SPEED = 560; // screen px/sec; converted to world px by zoom
-const CONTROL_GROUPS = 10;
 type TapOptions = { shift?: boolean; ctrl?: boolean; preferredHit?: number };
 type SelectableBounds = { x0: number; y0: number; x1: number; y1: number; cx: number; cy: number };
 
@@ -80,7 +80,7 @@ export class Game {
   viewW = 1; viewH = 1; // CSS px
 
   selection = new Set<number>();
-  controlGroups: Set<number>[] = Array.from({ length: CONTROL_GROUPS }, () => new Set<number>());
+  private readonly controlGroupController = new ControlGroupController();
   queued: Command[] = [];
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
   placementGhost: { kind: number; x: number; y: number; ok: boolean } | null = null;
@@ -101,8 +101,10 @@ export class Game {
   private visibleEntityTick = -1;
   private visibleEntityHuman = -2;
   private visibleEntity = new Uint8Array(CAP);
-  private lastControlGroup = -1;
-  private lastControlGroupT = 0;
+
+  get controlGroups(): readonly ReadonlySet<number>[] {
+    return this.controlGroupController.groups;
+  }
 
   constructor(mode: Mode = 'play', seed = (Math.random() * 1e9) | 0) {
     this.restart(mode, seed);
@@ -132,8 +134,8 @@ export class Game {
     this.human = mode === 'play' ? this.humanPlayer : -1;
     this.controllers = Array.from({ length: players }, (_, p) => (mode === 'play' && p === this.humanPlayer ? null : bots[p]!));
     this.selection.clear();
-    for (const group of this.controlGroups) group.clear();
-    resetControlGroupCounts(CONTROL_GROUPS);
+    this.controlGroupController.reset();
+    resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.queued = [];
     this.placementGhost = null;
     this.visible = new Uint8Array(this.map.w * this.map.h);
@@ -538,15 +540,6 @@ export class Game {
     clearArmedCommand();
   }
 
-  private liveGroup(group: Set<number>): number[] {
-    const e = this.sim.fullState().e;
-    const live: number[] = [];
-    for (const id of group) {
-      if (isAlive(e, id) && e.owner[slotOf(id)] === this.human && e.container[slotOf(id)] === NONE) live.push(id);
-    }
-    return live;
-  }
-
   private centerOnSelection(): void {
     const e = this.sim.fullState().e;
     let x = 0;
@@ -563,30 +556,17 @@ export class Game {
   }
 
   assignControlGroup(index: number): boolean {
-    if (index < 0 || index >= CONTROL_GROUPS || this.selection.size === 0) return false;
-    this.controlGroups[index] = new Set(this.liveGroup(this.selection));
-    this.publish();
-    return this.controlGroups[index]!.size > 0;
+    const result = this.controlGroupController.assign(this.sim.fullState(), this.human, this.selection, index);
+    if (result.changed) this.publish();
+    return result.ok;
   }
 
   recallControlGroup(index: number, add = false): boolean {
-    if (index < 0 || index >= CONTROL_GROUPS) return false;
-    const live = this.liveGroup(this.controlGroups[index]!);
-    this.controlGroups[index] = new Set(live);
-    if (live.length === 0) {
-      this.publish();
-      return false;
-    }
-    if (!add) this.selection.clear();
-    for (const id of live) this.selection.add(id);
-    this.clearTargetModes();
-    this.publish();
-
-    const now = performance.now();
-    if (!add && this.lastControlGroup === index && now - this.lastControlGroupT < 450) this.centerOnSelection();
-    this.lastControlGroup = index;
-    this.lastControlGroupT = now;
-    return true;
+    const result = this.controlGroupController.recall(this.sim.fullState(), this.human, this.selection, index, add);
+    if (result.ok) this.clearTargetModes();
+    if (result.changed) this.publish();
+    if (result.shouldCenter) this.centerOnSelection();
+    return result.ok;
   }
 
   private firstSelected(pred: (slot: number) => boolean): number {
