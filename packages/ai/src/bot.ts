@@ -718,9 +718,9 @@ type EntityAbilityPolicy = {
 };
 type PointAbilityPolicy = {
   ability: number;
-  target: 'enemy-point';
+  target: 'enemy-point' | 'friendly-point';
   minScore: number;
-  canCast?: (s: State, player: number, caster: number) => boolean;
+  canCast?: (s: State, player: number, caster: number, focusX: number, focusY: number) => boolean;
   scorePoint: (s: State, player: number, x: number, y: number) => number;
 };
 type AbilityPolicy = EntityAbilityPolicy | PointAbilityPolicy;
@@ -882,6 +882,14 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     minScore: 60,
     scorePoint: (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y),
   },
+  {
+    ability: Ability.Recall,
+    target: 'friendly-point',
+    minScore: 180,
+    canCast: (s, _player, caster, focusX, focusY) =>
+      distanceSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY) <= (TILE * ONE * 12) ** 2,
+    scorePoint: (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
+  },
 ];
 
 const tacticalAbilityPolicy = (abilityId: number): AbilityPolicy | undefined =>
@@ -898,7 +906,7 @@ const castTacticalAbilities = (s: State, player: number, cmds: Command[], caster
     if (def.abilities.includes(Ability.ScannerSweep) && tryCastPolicy(s, player, cmds, caster, Ability.ScannerSweep)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Consume) && tryCastPolicy(s, player, cmds, caster, Ability.Consume)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.Hallucination) && tryCastPolicy(s, player, cmds, caster, Ability.Hallucination, focusX, focusY)) { used.add(caster); continue; }
-    if (def.abilities.includes(Ability.Recall) && maybeCastRecall(s, player, cmds, caster, focusX, focusY)) { used.add(caster); continue; }
+    if (def.abilities.includes(Ability.Recall) && tryCastPolicy(s, player, cmds, caster, Ability.Recall, focusX, focusY)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.MindControl) && tryCastPolicy(s, player, cmds, caster, Ability.MindControl)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.YamatoGun) && tryCastPolicy(s, player, cmds, caster, Ability.YamatoGun)) { used.add(caster); continue; }
     if (def.abilities.includes(Ability.NuclearStrike) && maybeCastPointAbility(s, player, cmds, caster, Ability.NuclearStrike, scoreNukeTarget, focusX, focusY)) { used.add(caster); continue; }
@@ -934,7 +942,7 @@ const tryCastPolicy = (
 ): boolean => {
   const policy = tacticalAbilityPolicy(abilityId);
   if (!policy) return false;
-  if (policy.canCast && !policy.canCast(s, player, caster)) return false;
+  if (policy.canCast && !policy.canCast(s, player, caster, focusX, focusY)) return false;
   const e = s.e;
   let bestCommand: Command | null = null;
   let bestScore = policy.minScore;
@@ -942,9 +950,11 @@ const tryCastPolicy = (
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
     let command: Command;
     let score: number;
-    if (policy.target === 'enemy-point') {
-      if (!isEnemy(s, player, e.owner[i]!)) continue;
-      const focusPenalty = Math.trunc(isqrt(distanceSq(e.x[i]!, e.y[i]!, focusX, focusY)) / (TILE * ONE));
+    if ('scorePoint' in policy) {
+      if (policy.target === 'enemy-point' && !isEnemy(s, player, e.owner[i]!)) continue;
+      if (policy.target === 'friendly-point' && e.owner[i] !== player) continue;
+      if (policy.target === 'friendly-point' && distanceSq(e.x[i]!, e.y[i]!, e.x[caster]!, e.y[caster]!) < (TILE * ONE * 8) ** 2) continue;
+      const focusPenalty = policy.target === 'enemy-point' ? Math.trunc(isqrt(distanceSq(e.x[i]!, e.y[i]!, focusX, focusY)) / (TILE * ONE)) : 0;
       score = policy.scorePoint(s, player, e.x[i]!, e.y[i]!) - focusPenalty;
       command = { t: 'ability', unit: eid(e, caster), ability: policy.ability, x: e.x[i]!, y: e.y[i]! };
     } else {
@@ -1149,24 +1159,6 @@ const maybeCastCloak = (s: State, cmds: Command[], caster: number, abilityId: nu
   if (e.cloakActive[caster] === 1 || e.energy[caster]! < ability.energyCost + 1) return false;
   if (distanceSq(e.x[caster]!, e.y[caster]!, focusX, focusY) > (TILE * ONE * 10) ** 2) return false;
   cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId });
-  return true;
-};
-
-const maybeCastRecall = (s: State, player: number, cmds: Command[], caster: number, focusX: number, focusY: number): boolean => {
-  const e = s.e;
-  const ability = Abilities[Ability.Recall]!;
-  if (!hasTechForAbility(s, player, Ability.Recall) || e.energy[caster]! < ability.energyCost) return false;
-  if (distanceSq(e.x[caster]!, e.y[caster]!, focusX, focusY) > (TILE * ONE * 12) ** 2) return false;
-  let best = NONE;
-  let bestScore = 180;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || (e.flags[i]! & Role.Mobile) === 0 || i === caster) continue;
-    if (distanceSq(e.x[i]!, e.y[i]!, e.x[caster]!, e.y[caster]!) < (TILE * ONE * 8) ** 2) continue;
-    const score = scoreFriendlyRecallCluster(s, player, e.x[i]!, e.y[i]!, ability.radius);
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  if (best === NONE) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: Ability.Recall, x: e.x[best]!, y: e.y[best]! });
   return true;
 };
 

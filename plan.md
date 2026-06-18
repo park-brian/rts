@@ -1623,6 +1623,8 @@ Highest-impact LOC reductions:
      friendly entity policy path while preserving its energy-deficit gate and expendable-unit score.
    - Moved `Scanner Sweep` into the enemy-point policy path, preserving its cloaked-undetected target
      score while deleting the bespoke scan helper.
+   - Added a friendly-point policy mode and moved `Recall` into it, preserving its fight-proximity
+     caster gate and distant friendly combat-cluster score.
    - Extended policies to descriptor-backed enemy entity spells: `Parasite`, `Optical Flare`, and
      `Lockdown` now share the policy target-selection path.
    - Moved plain high-value enemy entity spells into the same policy path: `Feedback`,
