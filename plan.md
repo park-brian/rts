@@ -1776,6 +1776,8 @@ Highest-impact LOC reductions:
      - Routed child actor normal-combat participation and homed external steering through
        `ChildActorDef`, so combat no longer directly knows that Scarabs are projectile-system owned
        or that homed Interceptors are steered by the interceptor system.
+     - Replaced the hand-indexed weapon-mechanic lookup with a self-indexed descriptor map and an
+       invariant test, preventing `WeaponMechanicDefs` from drifting away from runtime lookup.
 8. Move app-only presentation truth into render descriptors.
    - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
      sparks, selection bars, and footprint rendering each have local interpretation.

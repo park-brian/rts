@@ -20,7 +20,10 @@ import {
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
-import { WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef } from '../src/weapon-mechanics.ts';
+import {
+  WeaponMechanic, WeaponMechanicByUnit, WeaponMechanicDefs, consumeWeaponMechanicAmmo,
+  hasWeaponMechanicAmmo, weaponMechanicDef,
+} from '../src/weapon-mechanics.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
@@ -51,6 +54,10 @@ const distSq = (ax: number, ay: number, bx: number, by: number): number => {
 };
 
 test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
+  assert.equal(new Set(WeaponMechanicDefs.map((def) => def.unit)).size, WeaponMechanicDefs.length);
+  assert.equal(Object.keys(WeaponMechanicByUnit).length, WeaponMechanicDefs.length);
+  for (const def of WeaponMechanicDefs) assert.equal(WeaponMechanicByUnit[def.unit], def);
+
   const scarab = weaponMechanicDef(Kind.Reaver);
   assert.equal(scarab?.id, WeaponMechanic.ScarabLaunch);
   assert.equal(scarab?.childKind, Kind.Scarab);

@@ -79,17 +79,16 @@ export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
   },
 ] as const;
 
-const WeaponMechanicByUnit: Partial<Record<number, WeaponMechanicDef>> = {
-  [Kind.Reaver]: WeaponMechanicDefs[0]!,
-  [Kind.Carrier]: WeaponMechanicDefs[1]!,
-  [Kind.Lurker]: WeaponMechanicDefs[2]!,
-  [Kind.Mutalisk]: WeaponMechanicDefs[3]!,
-  [Kind.Devourer]: WeaponMechanicDefs[4]!,
-  [Kind.Scourge]: WeaponMechanicDefs[5]!,
-  [Kind.InfestedTerran]: WeaponMechanicDefs[6]!,
-  [Kind.SpiderMine]: WeaponMechanicDefs[7]!,
-  [Kind.Bunker]: WeaponMechanicDefs[8]!,
+const indexWeaponMechanics = (defs: readonly WeaponMechanicDef[]): Partial<Record<number, WeaponMechanicDef>> => {
+  const byUnit: Partial<Record<number, WeaponMechanicDef>> = {};
+  for (const def of defs) {
+    if (byUnit[def.unit] !== undefined) throw new Error(`duplicate weapon mechanic for unit kind ${def.unit}`);
+    byUnit[def.unit] = def;
+  }
+  return byUnit;
 };
+
+export const WeaponMechanicByUnit = indexWeaponMechanics(WeaponMechanicDefs);
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>
   WeaponMechanicByUnit[kind];
