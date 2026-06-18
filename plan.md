@@ -1157,11 +1157,13 @@ Completed:
 - Added deterministic local base-anchor retry before procedural resource stamping. Candidate
   clusters must satisfy depot buildability, whole-reservation walkability/overlap, resource
   clearance, and main-base mineral route quality before they are committed to the map.
+- Replaced BW-approx base-resource placement scoring with explicit top-down dock-to-dock targets:
+  a bounded mineral band around the 97px saturation target and an 83px gas target. Slice-map tests
+  now verify physical dock arcs and non-overlapping resource footprints instead of BW approximate
+  edge-distance arcs.
 
 Remaining:
 
-- Replace BW-approx resource placement with direct top-down mineral/gas dock-distance targets for
-  cheap saturation-equivalent economy behavior.
 - Broaden base/resource repair from local depot-anchor retry into resource-geometry adjustment when
   a cluster's mineral routes are intrinsically too long, too short, or too asymmetric.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
@@ -1176,8 +1178,6 @@ This is the working list of "things that were actually in the game" which remain
 approximated, or absent. Keep this list honest as mechanics land.
 
 - Top-down spatial semantics:
-  - Replace remaining BW-approx harvest placement with direct top-down mineral/gas dock-distance
-    targets and keep route slack as diagnostics only.
   - Audit ability target ranges separately; combat/repair/harvest/scarab final reach checks now
     use named top-down edge metrics, while ability validation still intentionally uses caster/point
     center ranges until each spell gets its own geometry decision.
