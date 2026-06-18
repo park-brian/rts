@@ -1,13 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
 import { count, eid, kill, makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, TILE, Units, START_MINERALS, START_WORKERS } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { stepWorld } from '../src/tick.ts';
 import type { MapDef } from '../src/map.ts';
+import { simScenario } from '../test-support/scenario.ts';
 
 const open = (w: number, h: number): MapDef => ({
   name: 'open', w, h, walk: new Uint8Array(w * h).fill(1), build: new Uint8Array(w * h).fill(1),
@@ -17,8 +16,7 @@ const open = (w: number, h: number): MapDef => ({
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 
 test('workers auto-mine and minerals accumulate', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 1 });
-  const s = sim.fullState();
+  const { sim, state: s } = simScenario({ players: 1, seed: 1 });
   assert.equal(s.players.minerals[0], START_MINERALS);
   assert.equal(count(s, Kind.SCV, 0), START_WORKERS);
 
@@ -31,18 +29,12 @@ test('workers auto-mine and minerals accumulate', () => {
 });
 
 test('training a worker costs minerals, adds supply, and produces a unit', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 2 });
-  const s = sim.fullState();
+  const { sim, state: s, entity } = simScenario({ players: 1, seed: 2 });
 
   // Mine first so we can afford it.
   for (let t = 0; t < 200; t++) sim.step([]);
 
-  // Find the command center.
-  let cc = -1;
-  for (let i = 0; i < s.e.hi; i++) {
-    if (s.e.alive[i] === 1 && s.e.kind[i] === Kind.CommandCenter && s.e.owner[i] === 0) cc = i;
-  }
-  assert.ok(cc >= 0, 'command center exists');
+  const cc = slotOf(entity(Kind.CommandCenter, 0));
 
   const scvBefore = count(s, Kind.SCV, 0);
   const supBefore = s.players.supplyUsed[0]!;
@@ -58,8 +50,7 @@ test('training a worker costs minerals, adds supply, and produces a unit', () =>
 });
 
 test('production blocks at the supply cap', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 3 });
-  const s = sim.fullState();
+  const { sim, state: s } = simScenario({ players: 1, seed: 3 });
   // Run a long time mining; without supply depots, supply caps at the CC's supply.
   for (let t = 0; t < 6000; t++) {
     // train whenever possible
@@ -80,11 +71,10 @@ test('production blocks at the supply cap', () => {
 });
 
 test('new production buildings default to no rally point', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 4 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 4 });
   const e = s.e;
-  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(700), fx(700)));
-  s.players.minerals[0] = 1_000;
+  const barracks = slotOf(spawn(Kind.Barracks, 0, fx(700), fx(700)));
+  resources(0, 1_000);
 
   assert.equal(e.rallyX[barracks], -1);
   sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(e, barracks), kind: Kind.Marine }] }]);
@@ -99,13 +89,12 @@ test('new production buildings default to no rally point', () => {
 });
 
 test('production ground rally sends armed units as attack-move', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 41 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 41 });
   const e = s.e;
-  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(700), fx(700)));
+  const barracks = slotOf(spawn(Kind.Barracks, 0, fx(700), fx(700)));
   const x = fx(900);
   const y = fx(740);
-  s.players.minerals[0] = 1_000;
+  resources(0, 1_000);
 
   sim.step([{ player: 0, cmds: [
     { t: 'rally', building: eid(e, barracks), x, y },
@@ -124,13 +113,12 @@ test('production ground rally sends armed units as attack-move', () => {
 });
 
 test('production unit-target rally follows target position when the unit spawns', () => {
-  const sim = new Sim({ map: sliceMap(), players: 1, seed: 42 });
-  const s = sim.fullState();
+  const { sim, state: s, spawn, resources } = simScenario({ players: 1, seed: 42 });
   const e = s.e;
-  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(700), fx(700)));
-  const target = slotOf(spawnUnit(s, Kind.SCV, 0, fx(900), fx(740)));
+  const barracks = slotOf(spawn(Kind.Barracks, 0, fx(700), fx(700)));
+  const target = slotOf(spawn(Kind.SCV, 0, fx(900), fx(740)));
   const targetId = eid(e, target);
-  s.players.minerals[0] = 1_000;
+  resources(0, 1_000);
 
   sim.step([{ player: 0, cmds: [
     { t: 'rally', building: eid(e, barracks), x: e.x[target]!, y: e.y[target]!, target: targetId },
