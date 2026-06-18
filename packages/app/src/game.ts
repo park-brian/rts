@@ -19,7 +19,7 @@ import {
   type Replay, type MapSpec, type State, type Faction, type FactionName,
   type CommandRejectReason, type CommandValidation, type Weapon,
 } from './sim.ts';
-import { ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, ui, type CommandOption, type Mode, type SelectionStatus } from './store.ts';
 import { illusionPresentation } from './illusion-presentation.ts';
 import { isUserCommandableKind } from './child-actors.ts';
 import { entitySelectionName } from './entity-presentation.ts';
@@ -347,12 +347,7 @@ export class Game {
     ui.perTeam.value = perTeam;
     ui.humanPlayer.value = this.humanPlayer;
     ui.playerRaces.value = [...this.playerRaceNames];
-    ui.placement.value = 0;
-    ui.land.value = false;
-    ui.amove.value = false;
-    ui.rally.value = false;
-    ui.abilityTarget.value = 0;
-    ui.targetMode.value = 'none';
+    clearArmedCommand();
     clearSelectionUi();
     ui.hasReplay.value = false;
     this.framed = false;
@@ -620,22 +615,23 @@ export class Game {
     const e = this.sim.fullState().e;
     const tx = (wx * ONE) | 0; const ty = (wy * ONE) | 0;
 
-    if (ui.placement.value !== 0) return;
+    if (isPlacementArmed(ui.armedCommand.value)) return;
 
-    if (ui.abilityTarget.value !== 0) {
-      const ability = Abilities[ui.abilityTarget.value]!;
+    const armed = ui.armedCommand.value;
+    if (armed.t === 'ability') {
+      const ability = Abilities[armed.ability]!;
       const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
       const ok = ability.target === 'point'
-        ? this.castSelectedAbility(ui.abilityTarget.value, undefined, tx, ty)
-        : hit >= 0 && this.castSelectedAbility(ui.abilityTarget.value, hit);
-      if (ok) ui.abilityTarget.value = 0;
+        ? this.castSelectedAbility(armed.ability, undefined, tx, ty)
+        : hit >= 0 && this.castSelectedAbility(armed.ability, hit);
+      if (ok) clearArmedCommand();
       return;
     }
 
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
 
     // Set-rally mode: point every selected structure's rally at the tapped spot or entity.
-    if (ui.rally.value) {
+    if (armed.t === 'rally') {
       const rallyTarget = hit >= 0 && (((e.flags[slotOf(hit)]! & Role.Resource) !== 0) || sameTeam(this.sim.fullState(), this.human, e.owner[slotOf(hit)]!))
         ? hit
         : undefined;
@@ -646,28 +642,24 @@ export class Game {
             : { t: 'rally', building: id, x: tx, y: ty });
         }
       }
-      ui.rally.value = false;
-      ui.abilityTarget.value = 0;
-      ui.targetMode.value = 'none';
+      clearArmedCommand();
       return;
     }
 
     // Attack-move is an explicit target mode: the next world tap is its destination,
     // even if the tap lands on an owned selectable entity.
-    if (ui.amove.value) {
+    if (armed.t === 'attackMove') {
       for (const id of this.mobileSelection(e)) this.queued.push({ t: 'amove', unit: id, x: tx, y: ty });
-      ui.amove.value = false;
-      ui.abilityTarget.value = 0;
-      ui.targetMode.value = 'none';
+      clearArmedCommand();
       return;
     }
 
-    if (ui.targetMode.value === 'harvest') {
-      if (hit >= 0 && this.queueHarvestTarget(hit)) ui.targetMode.value = 'none';
+    if (armed.t === 'target' && armed.mode === 'harvest') {
+      if (hit >= 0 && this.queueHarvestTarget(hit)) clearArmedCommand();
       return;
     }
-    if (ui.targetMode.value === 'repair') {
-      if (hit >= 0 && this.queueRepairTarget(hit)) ui.targetMode.value = 'none';
+    if (armed.t === 'target' && armed.mode === 'repair') {
+      if (hit >= 0 && this.queueRepairTarget(hit)) clearArmedCommand();
       return;
     }
 
@@ -675,7 +667,7 @@ export class Game {
     // target commands (repair/load/future spells) must be armed from the hotbar first.
     if (this.isOwnedSelectable(e, hit)) {
       this.selection.clear(); this.selection.add(hit);
-      ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+      clearArmedCommand();
       return;
     }
 
@@ -729,13 +721,13 @@ export class Game {
   }
 
   desktopSmartTap(sx: number, sy: number, opts: TapOptions = {}): void {
-    if (this.human < 0 || ui.placement.value !== 0 || this.selection.size === 0) return;
+    if (this.human < 0 || isPlacementArmed(ui.armedCommand.value) || this.selection.size === 0) return;
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
     const tx = (wx * ONE) | 0;
     const ty = (wy * ONE) | 0;
     const hit = this.resolvePreferredHit(opts.preferredHit) ?? this.hitTest(wx, wy);
-    if (ui.abilityTarget.value !== 0 || ui.rally.value || ui.amove.value || ui.targetMode.value !== 'none') {
+    if (ui.armedCommand.value.t !== 'none') {
       this.tap(sx, sy, opts);
       return;
     }
@@ -772,12 +764,7 @@ export class Game {
   }
 
   private clearTargetModes(): void {
-    ui.placement.value = 0;
-    ui.land.value = false;
-    ui.amove.value = false;
-    ui.rally.value = false;
-    ui.abilityTarget.value = 0;
-    ui.targetMode.value = 'none';
+    clearArmedCommand();
   }
 
   private liveGroup(group: Set<number>): number[] {
@@ -842,16 +829,17 @@ export class Game {
   }
 
   updatePlacementGhost(sx: number, sy: number): void {
-    if (this.human < 0 || ui.placement.value === 0) {
+    const armed = ui.armedCommand.value;
+    if (this.human < 0 || !isPlacementArmed(armed)) {
       this.placementGhost = null;
       return;
     }
     const [wx, wy] = this.screenToWorld(sx, sy);
     const e = this.sim.fullState().e;
-    const kind = ui.placement.value;
+    const kind = armed.kind;
     const tx = (wx * ONE) | 0;
     const ty = (wy * ONE) | 0;
-    if (ui.land.value) {
+    if (armed.t === 'land') {
       const building = this.firstSelected((i) => e.kind[i] === kind && isLiftedStructureFlags(e.flags[i]!));
       if (building < 0) {
         this.placementGhost = null;
@@ -878,23 +866,20 @@ export class Game {
   commitPlacementGhost(): boolean {
     const ghost = this.placementGhost;
     const e = this.sim.fullState().e;
-    if (!ghost || !ghost.ok || ui.placement.value === 0) return false;
-    if (ui.land.value) {
+    const armed = ui.armedCommand.value;
+    if (!ghost || !ghost.ok || !isPlacementArmed(armed)) return false;
+    if (armed.t === 'land') {
       const building = this.firstSelected((i) => e.kind[i] === ghost.kind && isLiftedStructureFlags(e.flags[i]!));
       if (building < 0) return false;
       this.queued.push({ t: 'land', building: eid(e, building), x: ghost.x, y: ghost.y });
-      ui.placement.value = 0;
-      ui.land.value = false;
+      clearArmedCommand();
       this.placementGhost = null;
       return true;
     }
     const worker = this.firstSelected((i) => (e.flags[i]! & Role.Worker) !== 0);
     if (worker < 0) return false;
     this.queued.push({ t: 'build', unit: eid(e, worker), kind: ghost.kind, x: ghost.x, y: ghost.y });
-    ui.placement.value = 0;
-    ui.land.value = false;
-    ui.abilityTarget.value = 0;
-    ui.targetMode.value = 'none';
+    clearArmedCommand();
     this.placementGhost = null;
     return true;
   }
@@ -1072,8 +1057,7 @@ export class Game {
     const slot = this.firstSelected((i) => isLiftedStructureFlags(e.flags[i]!));
     this.clearTargetModes();
     if (slot >= 0) {
-      ui.placement.value = e.kind[slot]!;
-      ui.land.value = true;
+      ui.armedCommand.value = { t: 'land', kind: e.kind[slot]! };
     }
   }
 
@@ -1235,7 +1219,7 @@ export class Game {
     if (e.owner[hs] !== this.human) return;
     const kind = e.kind[hs]!;
     this.selectVisibleKind(kind);
-    ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    clearArmedCommand();
   }
 
   private selectVisibleKind(kind: number): void {

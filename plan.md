@@ -1185,11 +1185,592 @@ Remaining:
 
 - Phase 9B map-resource route validation is complete for the current shared-plateau generator.
 
+## Phase 11: Timed Transitions And Ability Execution Semantics
+
+Status: planned.
+
+Purpose: remove the current class of "instant but should take time" mechanics and replace ad hoc
+timer meanings with a small, explicit temporal model that stays deterministic, fast, and easy to
+reason about from UI, AI, replay, and future networking.
+
+Why this matters:
+
+- The core typed-array architecture is still correct, but several columns now carry multiple
+  meanings depending on unit kind: `built`/`ctimer` means construction, Zerg morph, and Archon
+  summoning; `timer` means harvest extraction, larva spawn countdown, Scarab lifetime, and
+  Interceptor return state; `specialAmmo` means Spider Mines, Scarabs, Interceptors, and Nuclear
+  Missiles.
+- This is still performant, but it is becoming cognitively expensive. New BW mechanics can pass
+  local tests while accidentally violating command masks, collision, AI action legality,
+  observations, cancellation, or replay/hash invariants.
+- The fix should not be a generic event bus or object-oriented entity model. Keep the SoA hot path.
+  Add only the typed columns and helpers needed to make lifecycle state explicit.
+
+Source timing/data already present in local docs and sim tables:
+
+| Mechanic | Source value we have | Current implementation | Fidelity decision |
+|---|---:|---|---|
+| Factory unit production | Factory 50.4s build; Vulture 12.6s, Tank 31.5s, Goliath 25.2s | `prodKind`/`prodTimer` queue | Keep; production queue is sound. |
+| Nuclear Missile production | 200M/200G, 37.8s, held by Nuclear Silo | internal ammo through production | Keep; name internal ammo better. |
+| Reaver Scarab production | 15M, 4.0s, capacity 5/10, damage 100/125 | internal ammo through production | Keep; formalize as internal product/ammo. |
+| Carrier Interceptor production | 25M, 12.6s, capacity 4/8 | internal ammo through production | Keep; formalize as internal product/ammo. |
+| Archon/Dark Archon merge | 12.6s merge, no extra resource cost, consumes two Templars | `built=0` + `ctimer`; partner killed | Behavior is mostly right; move to explicit timed transition/completion. |
+| Zerg combat morphs | Lurker 40s, Guardian 40s, Devourer 40s | `built=0` + `ctimer` morph | Behavior is mostly right; move to explicit timed transition/completion. |
+| Zerg structure morphs | Lair 100s, Hive 120s, Greater Spire 120s, colonies 20s | `built=0` + `ctimer` morph | Keep cancel/refund behavior; make lifecycle state explicit. |
+| Burrow research | 100M/100G, 100.8s | researched, but burrow/unburrow toggles instantly | Add timed burrow/unburrow transition after sourcing frame count. |
+| Siege Tech research | 150M/150G, 50.4s | researched, but siege/unsiege toggles instantly | Add timed siege/unsiege transition after sourcing frame count. |
+| Stim Pack | 10 HP, 12.6s duration | entity status timer | Keep. |
+| Lockdown | 100 energy, range 8, 43.8s status | entity status timer | Keep; verify all systems use `isDisabled`. |
+| Stasis Field | 100 energy, range 9, about 37.8-43.8s in local docs/specs | entity status timer | Reconcile docs/spec mismatch, then keep as status. |
+| Maelstrom | 100 energy, range 10, about 7.48/7.56s | entity status timer | Keep. |
+| Psionic Storm | 75 energy, range 9, 2.67s, 8-frame period, 112 total damage | persistent effect | Keep; verify period/damage total. |
+| Defensive Matrix | 100 energy, range 10, 250 HP, 56.7s | entity status pool/timer | Keep. |
+| Irradiate | 75 energy, range 9, 25.2-37.8s mismatch in local docs/data, 32px radius | entity status/dot | Reconcile docs/spec/data before changing. |
+| Ensnare | 75 energy, range 9, 25.2s | entity status timer | Keep. |
+| Plague | 150 energy, range 9, 25.2s, periodic damage, cannot kill | entity status/dot | Keep; verify min-1-HP invariant remains covered. |
+| Dark Swarm | 100 energy, range 9, 37.8s | persistent effect | Keep. |
+| Disruption Web | 125 energy, range 9, local docs say 15.12s, sim uses 37.8s | persistent effect | Fix after source reconciliation. |
+| Scanner Sweep | 50 energy, global, local docs say about 6.8-11s, sim uses 8.4s | persistent effect | Accept provisional; document exact source when chosen. |
+| Nuclear Strike channel | local docs say Ghost channels about 14.5s; sim uses 8.4s effect delay | `Order.Cast` + effect | Fix timing and cancellation semantics after source reconciliation. |
+| Yamato Gun | 150 energy, range 10, 260 damage | instant damage | Add windup/cast execution before damage after sourcing cast frames. |
+
+Implementation:
+
+- Add a small explicit entity transition primitive:
+  - new typed columns such as `transitionKind`, `transitionTargetKind`, `transitionTimer`, and
+    `transitionSourceKind` if cancellation/rollback needs it;
+  - no object allocation in hot loops;
+  - all columns added to clone, serialize, hash, observe/action masks where gameplay-affecting.
+- Define transition specs in data, not switch piles:
+  - `deploy`: Siege Tank <-> Siege Mode, preserves HP/shields/energy, locks orders while deploying;
+  - `burrow`: burrow/unburrow, locks orders while changing visibility/collision state;
+  - `merge`: High Templar -> Archon and Dark Templar -> Dark Archon, consumes partner, no cancel;
+  - `morph`: Hydralisk/Mutalisk and Zerg structure morphs, preserves existing cancel/refund rules;
+  - `instant`: only for truly instant state changes, and every instant entry must be intentional.
+- Add one shared busy predicate:
+  - `isTransitioning(s, slot)` blocks movement, attack, casting, harvest, repair, build, cargo load,
+    unload, mine-lay, transform, and stop semantics as appropriate;
+  - UI command cards, AI action masks, replay validation, and command ingestion must all see the same
+    rejection reason through `validateCommand`.
+- Rename or split the completion system:
+  - keep worker build approach/SCV construction logic separate from generic unfinished entity
+    completion;
+  - make `construction` no longer silently mean Archon summoning and Zerg morph completion.
+- Add an ability execution model with a tiny set of modes:
+  - `instant`: immediate effects such as Feedback, Consume, Restoration, Parasite, Optical Flare;
+  - `status`: target/area status durations such as Lockdown, Stasis, Maelstrom, Matrix, Ensnare,
+    Plague, Irradiate;
+  - `persistentArea`: Storm, Dark Swarm, Disruption Web, Scanner Sweep, Nuclear warning/impact;
+  - `channel`: Nuclear Strike and any future ability cancelled by moving, disabling, or killing the
+    caster;
+  - `windup`: Yamato Gun and any spell that should spend energy, face/lock the caster, then resolve
+    later if still valid;
+  - `projectile`: future missile/volley cases where travel time or interception matters.
+- Formalize internal ammo as a first-class producer result:
+  - keep `specialAmmo` if that remains the cheapest column, but route writes through helpers such as
+    `queueInternalProduct`, `finishInternalProduct`, and `consumeInternalAmmo`;
+  - cover Scarabs, Interceptors, Spider Mines, and Nuclear Missiles without direct random writes.
+- Keep deterministic ordering:
+  - command ingestion starts transitions and ability executions;
+  - transition advancement runs before normal orders, so newly completed forms are available
+    deterministically on that tick;
+  - status/effect ticking remains one ordered system with no unordered maps in gameplay mutation.
+
+Stats and source work before implementation:
+
+- Reconcile local doc/spec mismatches:
+  - Stasis duration: `docs/research/sc1-spells-upgrades.md` says about 43.8s; `data.ts` uses 37.8s.
+  - Irradiate duration: research doc says 25.2s for the damage window; `data.ts` uses 37.8s.
+  - Disruption Web duration: research doc says 15.12s; `data.ts` uses 37.8s.
+  - Nuclear Strike channel: research doc says about 14.5s; `data.ts` uses 8.4s.
+- Source missing animation/cast frame counts before coding:
+  - Siege Tank siege and unsiege deploy duration.
+  - Burrow and unburrow duration by unit class, or a verified shared BW value if one exists.
+  - Yamato Gun cast/windup frames and whether interruption after energy spend cancels damage.
+  - Spider Mine wake-up/acquire/leap timing if we want more than the current acquire/detonate model.
+  - Carrier Interceptor exact attack-pass cadence if current orbit/return behavior proves materially
+    different under tests.
+- `tmp/bwapi` is not present in the current workspace, so these missing values must be sourced from
+  committed docs, restored BWAPI references, or a new documented research note before implementation.
+
+Tests and proof:
+
+- Siege transform tests:
+  - accepted command starts a transition, does not immediately change weapon/move capability;
+  - tank cannot move/fire/cast/load while deploying;
+  - completion changes kind once, preserves HP/cooldowns/facing consistently, and hashes/serializes.
+- Burrow tests:
+  - burrow/unburrow are not instant;
+  - visibility/collision/attack capability changes at the chosen transition point;
+  - Lurker attack gating remains correct and AI does not issue impossible orders mid-transition.
+- Morph/merge regression tests:
+  - Archon merge remains uncancellable, consumes exactly two templars, preserves supply semantics;
+  - Zerg morph cancel/refund still restores the source kind and cost ledger;
+  - unfinished morphs cannot attack, move, cast, load, or be used as completed producers.
+- Ability execution tests:
+  - duration effects tick exactly from source values;
+  - Yamato windup delays damage and cancels correctly if the caster dies/is disabled if BW says so;
+  - Nuclear Strike uses the verified channel duration, consumes the missile at the correct point, and
+    cancels or completes through one shared channel path.
+- Architecture tests:
+  - every new entity column is covered by clone/serialize/hash registry tests;
+  - action masks expose no command during `isTransitioning` unless explicitly allowed;
+  - replay hash tests cover at least one transition and one delayed ability.
+
+Done when:
+
+- No implemented self-state transform that takes time in BW is represented as an instant kind/flag
+  flip unless the roadmap names it as an intentional approximation.
+- Timed transitions, production, research, channelled abilities, persistent effects, and status
+  durations have separate, named ownership in the code.
+- The command card and AI masks derive transition/cast legality from shared validation, not UI or bot
+  special cases.
+- Full `npm run typecheck`, `npm test`, and the relevant headless benchmark pass without measurable
+  regression in no-vision and vision stepping.
+
+## Phase 12: Architecture Compression And Blind-Spot Reduction
+
+Status: planned.
+
+Purpose: keep the codebase understandable at a glance as BW fidelity grows. This is not a rewrite:
+the deterministic SoA sim, typed-array hot loops, fixed tick pipeline, command stream, shared
+validation, and data tables are the right foundation. The rework is about making each gameplay
+concept have one owner, one vocabulary, and one public derived view so UI, AI, tests, replay, and
+future networking do not each rediscover slightly different truths.
+
+What is already elegant and should be preserved:
+
+- `Command` is the universal boundary for UI, AI, replay, future network input, and RL actions.
+- `validateCommand` is already the authoritative legality gate. This is valuable even though the
+  file is large, because it prevents app-only command behavior from becoming a second ruleset.
+- Validator-backed action masks are the right interface for RL and headless AI. They should expand
+  from command heads into richer ability/research/build/train option summaries, not be bypassed.
+- The `World`/`Entities` typed-array registry is fast, deterministic, cloneable, serializable, and
+  hashable. Avoid replacing it with object graphs or allocation-heavy event systems.
+- The fixed system order in `tick.ts` is a strength. Temporal mechanics should become more explicit
+  inside that order rather than adding hidden callbacks.
+- `data.ts`, `TechDefs`, `AbilityDefs`, footprint metadata, and derived stat helpers are the right
+  direction: BW quirks belong in data or named mechanics, not scattered UI conditionals.
+- Scarabs and Interceptors as child actors are conceptually correct. The issue is not the concept;
+  it is that child actor commandability, presentation, ammo, and lifecycle are not yet described in
+  one place.
+
+Where representation is currently duplicated or at risk of drifting:
+
+- Entity lifecycle is represented in multiple places:
+  - sim columns such as `built`, `ctimer`, `morphFromKind`, `prodKind`, and `prodTimer`;
+  - app presentation helpers for unfinished, morphing, and merging entities;
+  - selected-unit status text;
+  - health/progress bars in render code;
+  - command-card availability and labels.
+  This should collapse into one sim-side derived lifecycle/status helper.
+- Command capability is represented in multiple layers:
+  - `validateCommand`;
+  - `action-mask`;
+  - `Game.refreshSelectionSummary`;
+  - command-card option construction;
+  - AI tactical and macro checks.
+  Validation should remain authoritative, but option discovery should move out of `Game` into a
+  shared selection-capability/query module.
+- Ability semantics are split across data, the large ability execution switch, AI casting heuristics,
+  UI option metadata, and effect rendering. Every ability should have an execution mode and optional
+  AI policy/presentation descriptors so adding one spell does not require hunting five files.
+- Internal ammunition is overloaded:
+  - Spider Mines, Scarabs, Interceptors, and Nuclear Missiles all use `specialAmmo`;
+  - production completion, combat launch, nuke consumption, UI ammo labels, and AI checks know pieces
+    of that story.
+  Keep the cheap column if useful, but route all reads/writes through named internal-product helpers.
+- App presentation has gameplay-shaped special cases:
+  - Scarab projectile presentation and Scarab/Interceptor non-commandability are hardcoded in
+    app-side child actor helpers;
+  - construction/repair spark geometry duplicates build range and footprint math from sim-side
+    worker construction/repair logic;
+  - Scanner Sweep and Nuclear Strike affordances are hardcoded effect presentations.
+  These are read-only today, but they are blind spots because visual truth can diverge from sim truth.
+- Combat has accumulating unit-specific branches:
+  - Reaver ammo, Carrier Interceptors, Bunker contained fire, Lurker line splash, Mutalisk bounce,
+    Devourer acid spores, and suicide attackers are all real BW mechanics;
+  - the smell is not that they exist, but that they live as direct `Kind.X` checks in the hot combat
+    loop instead of behind named weapon delivery/on-hit mechanic ids.
+- AI has too much duplicated BW knowledge:
+  - direct race tech arrays are acceptable as strategy preferences;
+  - direct ability thresholds, target filters, energy/range checks, and ordered casting chains should
+    gradually move into ability policy descriptors backed by validation.
+- Upgrade effects are centralized, which is good, but still switch-heavy. Range, speed, energy,
+  armor, shield, and weapon effects should become table-driven where the table is clearer than a
+  switch.
+- `validation.ts`, `ingest.ts`, and `production.ts` are doing too much. Their public entry points can
+  stay stable, but the internals should split by command family/system responsibility.
+
+Acceptable special cases versus architectural debt:
+
+- BW contains true special mechanics. Carrier, Reaver, Lurker, Bunker, Nydus, Spider Mine, Creep,
+  Pylon power, addon attachment, larva, burrow, cloak, and Archon merge should not be forced into a
+  fake generic model.
+- A special case is acceptable when it is represented as a named mechanic with data, tests, and one
+  owner.
+- A special case is architectural debt when UI, AI, validation, combat, presentation, and production
+  each check `kind === X` for different fragments of the same mechanic.
+- Prefer "small closed sets" over abstraction soup: `abilityExecutionMode`, `weaponDelivery`,
+  `onHitEffect`, `entityLifecycle`, `childActorRole`, `internalProductKind`, and `rallyTargetKind`
+  are enough. Do not invent a generic component framework unless a second concrete mechanic needs it.
+
+Rework slices:
+
+1. Add a sim-side entity lifecycle/status query.
+   - Return stable states such as `complete`, `constructing`, `morphing`, `merging`, `training`,
+     `researching`, `transitioning`, `channeling`, and `dead`.
+   - Include progress numerator/denominator, display kind, source/target kind, busy flags, and
+     cancelability.
+   - Replace app lifecycle interpretation, selected status progress, render progress bars, and command
+     card lifecycle labels with this helper.
+2. Add entity roles and commandability helpers.
+   - Define child/projectile/user-commandable roles in sim data or derived helpers.
+   - Replace app-side `Kind.Scarab`/`Kind.Interceptor` commandability checks.
+   - Make fallback/math render use the same footprint, base radius, cloak, child actor, and
+     completion-state helpers as gameplay diagnostics.
+3. Centralize selection capability and command option discovery.
+   - Keep `validateCommand` as the final authority.
+   - Move build/train/research/ability/transform/load/unload option enumeration out of `Game`.
+   - Return compact option records with command, hotkey id, enabled reason, affordability, target mode,
+     and representative actor.
+   - Feed mobile command cards, desktop command grid, AI action masks, and tests from the same query.
+4. Split validation by command family without changing the public API.
+   - Keep `validateCommand(s, player, cmd)` as the only external entry point.
+   - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,
+     transform, and cancel validators.
+   - Share predicates such as `isBusy`, `isTransitioning`, `isDisabled`, `canReceiveOrder`,
+     `canTargetEntity`, `canUseProducer`, and `canPay`.
+5. Split command ingestion by command family without changing replay semantics.
+   - Keep deterministic command ordering and stable rejection behavior.
+   - Move side effects into small apply functions that pair with validation families.
+   - Prevent one command handler from directly knowing unrelated concepts such as rally, morph,
+     production, cargo, and spell execution.
+6. Split production into named sub-systems.
+   - Keep producer queues, internal products/ammo, larva spawn, spawn rally, gather rally, and load
+     rally as separate named responsibilities.
+   - Add helpers for internal products so Scarabs, Interceptors, Spider Mines, and Nukes cannot drift.
+7. Introduce weapon delivery and on-hit mechanic ids.
+   - Keep the combat loop data-oriented and allocation-free.
+   - Move Reaver, Carrier, Bunker, Lurker, Mutalisk, Devourer, suicide, and future splash behaviors
+     behind tiny closed-set mechanics.
+   - Tests should prove each special weapon path through one named mechanic, not through scattered
+     kind checks.
+8. Introduce ability execution descriptors and AI policy descriptors.
+   - Every ability gets an execution mode: `instant`, `status`, `persistentArea`, `channel`, `windup`,
+     or `projectile`.
+   - AI heuristics can remain hand-authored, but they should attach to ability policy records rather
+     than a single long ordered casting chain.
+   - UI, AI, and validation should all agree on target mode, range shape, required tech, energy,
+     duration, and whether the caster is locked.
+9. Add effect presentation descriptors.
+   - Effects such as Scanner Sweep, Nuclear Strike, Storm, Swarm, Web, Plague/Irradiate overlays, and
+     future detection affordances should declare visibility, radius, duration/progress, and render
+     category in one table.
+   - The app renderer can stay app-side, but it should consume effect descriptors rather than branch
+     on each effect kind.
+10. Gradually table-drive derived upgrade effects.
+    - Do this only where it clarifies. Some centralized switches are acceptable until the table is
+      simpler than the code.
+    - Priority: range, speed, energy maximum, spell unlocks, weapon/armor/shield increments, and unit
+      morph/producer unlocks.
+11. Add architecture guard tests.
+    - Every gameplay-affecting entity column must be covered by clone, serialize, hash, observe, and
+      replay tests.
+    - App commandability should not hardcode child actor kinds.
+    - Every ability should have an execution mode and target descriptor.
+    - Every internal product should be produced, consumed, serialized, and exposed through one helper.
+    - Benchmark no-vision and vision stepping after any hot-loop architecture change.
+
+Done when:
+
+- A teammate can answer these questions from one helper/table each:
+  - What is this entity?
+  - What can it legally do now?
+  - What is it doing now?
+  - How should it be selected, drawn, targeted, and exposed to AI/RL?
+- UI, AI, renderer, and tests no longer reimplement lifecycle, commandability, or ability target rules.
+- Unit-specific BW quirks still exist, but they are named mechanics with data and tests rather than
+  scattered conditionals.
+- `Game` is mostly orchestration: input, selection, camera, renderer wiring, and sim command dispatch,
+  not a second rules engine.
+- Hot loops remain typed-array friendly, deterministic, and benchmarked.
+
+## Phase 13: LOC Collapse Without Losing Correctness
+
+Status: planned.
+
+Purpose: reduce the codebase by removing repeated representations, not by making dense clever code.
+The target shape is small enough to hold in one mental model: authoritative tables, deterministic
+state, command specs, tick systems, and derived queries. If a future teammate must grep five files to
+understand one mechanic, the code has not collapsed far enough.
+
+The engine should conceptually collapse to these layers:
+
+- State:
+  - `World`, `Entities`, `Players`, `Effects`, map, replay command stream, and deterministic hashes.
+  - This remains typed-array/SoA. Do not trade clarity for object allocation in hot loops.
+- Data:
+  - unit, weapon, ability, tech, upgrade, footprint, role, transition, internal-product, child-actor,
+    and effect-presentation definitions.
+  - Data should answer "what is possible" before code answers "how does it mutate state."
+- Commands:
+  - one public command vocabulary;
+  - one validation path;
+  - one application path;
+  - one option-discovery path for UI/AI/RL.
+- Systems:
+  - ordered deterministic mutations: movement, combat, production, research, ability/status/effect,
+    visibility, construction/transition, harvest, cargo, and cleanup.
+- Queries:
+  - lifecycle/status, commandability, selection capability, target classification, combat capability,
+    render affordances, and AI-visible option masks.
+  - Queries are where app/AI/test code should look. They should not write gameplay state.
+
+Highest-impact LOC reductions:
+
+1. Replace parallel validation/application switches with command specs.
+   - Current shape: `validation.ts` and `systems/ingest.ts` both switch over every command type, each
+     with repeated actor lookup, ownership, busy/capability checks, and result plumbing.
+   - Collapse shape:
+     - keep `validateCommand` and `applyCommands` public;
+     - define a small `CommandSpec` table keyed by command tag;
+     - each spec has `actor`, `reserve`, `validate`, and `apply`;
+     - shared preflight helpers handle player existence, live entity lookup, ownership, containment,
+       complete/busy/powered checks, and affordability.
+   - Expected win: fewer lines and fewer correctness holes. New command types get one local home
+     instead of a validator branch, an ingest branch, UI option code, and AI legality workaround.
+2. Replace ability switch piles with ability execution descriptors plus tiny effect handlers.
+   - Current shape: ability legality is mostly data-driven, but execution is a large switch and AI
+     casting is a second long ordered switch/chain.
+   - Collapse shape:
+     - `AbilityDef` gains execution mode, target shape, status/effect id, duration, period, damage,
+       caster lock/channel policy, and optional special handler id;
+     - generic execution covers self toggle, single target status, point area status, persistent area,
+       direct damage, energy/shield/hp transfer, and channel/windup;
+     - only truly special abilities keep named handlers: Recall, Hallucination, Mind Control, Infest,
+       Consume, Spawn Broodling, Nuke, maybe Restoration if status clearing stays bespoke.
+   - Expected win: the ability system becomes a table plus a handful of named exceptional handlers,
+     while validation/UI/AI all read the same target/execution metadata.
+3. Replace AI's tactical casting chain with an ability policy table.
+   - Current shape: `bot.ts` has a one-line branch for almost every ability, then many near-identical
+     `maybeCast*` and `score*` helpers.
+   - Collapse shape:
+     - one ordered `AbilityPolicy[]`;
+     - each policy names the ability, minimum score, target search mode, scorer, friendly-fire policy,
+       focus penalty, and special precondition;
+     - one `tryCastPolicy` handles energy, tech, range, detection, `validateCommand`, and command
+       emission.
+   - Expected win: bot intelligence stays hand-authored, but the code becomes a compact list of
+     strategic preferences instead of a procedural spell script.
+4. Replace `Game` command-option/status derivation with sim/app query modules.
+   - Current shape: `Game` owns camera/input, selection, command modes, placement ghosts, command-card
+     capability summaries, selected status text, group management, replay scrub, and command emission.
+   - Collapse shape:
+     - `Game` keeps orchestration and stateful input/camera concerns;
+     - `selectionCapabilities(s, player, selectedIds)` builds command-card/desktop-grid options;
+     - `entityLifecycleStatus(s, slot)` builds selected status and progress;
+     - `smartCommandCandidates(s, player, actor, targetOrPoint, scheme)` returns ranked commands for
+       mobile/desktop input.
+   - Expected win: the app stops being a second rules engine, and both mobile and desktop controls
+     become policy over shared command candidates.
+5. Introduce a scenario/test DSL.
+   - Current shape: tests repeatedly create sims, find bases, spawn units, set resources, grant tech,
+     advance frames, search commands, and assert command results.
+   - Collapse shape:
+     - shared builders such as `scenario().race(Zerg).minerals(1000).unit(Kind.Hydralisk).tech(...)`;
+     - helpers such as `expectAccepted(command)`, `expectRejected(command, reason)`,
+       `expectBotCasts(Ability.X)`, `advanceUntil(predicate, limit)`, and `entity(kind, owner)`;
+     - table-driven cases for tech prerequisites, ability target restrictions, upgrade effects, and
+       bot policy choices.
+   - Expected win: likely the largest raw LOC reduction. `bot-abilities.test.ts` should become a
+     compact policy matrix plus a few bespoke scenario tests instead of thousands of setup lines.
+6. Replace scattered child/internal-product logic with descriptors.
+   - Current shape: Scarabs, Interceptors, Spider Mines, and Nukes share concepts but appear as
+     `specialAmmo`, child actors, production specials, UI labels, combat checks, and tests.
+   - Collapse shape:
+     - `InternalProductDef` describes producer, product, capacity tech, cost, build time, display, and
+       consumption mode;
+     - `ChildActorDef` describes commandability, home slot, launch/return/orbit/despawn behavior, and
+       presentation role.
+   - Expected win: fewer special checks and clearer ownership. This is more about preventing future
+     growth than deleting hundreds of lines immediately.
+7. Replace combat's direct unit checks with weapon mechanic ids.
+   - Current shape: combat is compact but has growing branches for Reaver, Carrier, Bunker, Lurker,
+     Mutalisk, Devourer, and suicide units.
+   - Collapse shape:
+     - weapon definitions include `delivery`, `onHit`, `ammo`, `containerProvider`, and splash id;
+     - the combat loop dispatches to a tiny closed set of mechanic handlers.
+   - Expected win: moderate LOC reduction, large readability win, and better fit for future Valkyrie,
+     missile, splash, and projectile fidelity.
+8. Move app-only presentation truth into render descriptors.
+   - Current shape: cloak opacity, effect affordances, child projectile commandability, construction
+     sparks, selection bars, and footprint rendering each have local interpretation.
+   - Collapse shape:
+     - sim exports pure read-only descriptors for lifecycle, footprint/base hull, commandability,
+       effect visibility, and presentation role;
+     - renderers choose pixels, not rules.
+   - Expected win: smaller app code and more trustworthy fallback/math renderer.
+
+Further concrete deletion opportunities found on review:
+
+1. Collapse target-mode booleans into one discriminated union.
+   - Current shape:
+     - `ui.placement`, `ui.land`, `ui.amove`, `ui.rally`, `ui.abilityTarget`, and `ui.targetMode`
+       can represent impossible mixed states;
+     - `Game.clearTargetModes`, UI toggle handlers, placement commit, tap handling, desktop smart tap,
+       and tests all reset the same scattered fields.
+   - Collapse shape:
+     - one `armedCommand` signal, for example:
+     `none | place(kind) | land(kind) | ability(id) | rally | attackMove | targetVerb(harvest|repair)`;
+     - a single `armCommand`, `clearArmedCommand`, and `isArmed(kind)` helper.
+   - Expected win: fewer UI states, less reset boilerplate, cleaner tap semantics, and fewer tests
+     that only prove impossible combinations were cleared correctly.
+   - Completed:
+     - Replaced the six app target-mode fields with one `armedCommand` union.
+     - Migrated input, hotkeys, command-card active states, tap handling, desktop smart command
+       routing, placement ghost preview/commit, and interaction tests to the single state.
+     - Validation: `npm run typecheck` and `npm test` passed.
+2. Collapse selection UI signals into one selection view snapshot.
+   - Current shape:
+     - `store.ts` exposes separate signals for `selCanBuild`, `selCanRally`, `selBuildKinds`,
+       `selBuildOptions`, `selCanLoad`, `selCanUnload`, `selCanBurrow`, and many more;
+     - `clearSelectionUi` and `refreshSelectionSummary` write a long list of fields every frame.
+   - Collapse shape:
+     - one `selectionView` signal with `{ count, label, status, commandGroups, controlGroups }`;
+     - booleans such as "can build" and "can stop" are derived from command groups, not separately
+       stored;
+     - UI renders command groups directly instead of pairing `selCanX` booleans with `selXOptions`.
+   - Expected win: lower app LOC and no risk that `selCanX` disagrees with `selXOptions`.
+3. Make command options actual command candidates.
+   - Current shape:
+     - command-card options mostly carry `{ id, ok, reason, label, detail }`;
+     - button handlers know how to turn each id back into a command through many `Game` methods.
+   - Collapse shape:
+     - `CommandOption` carries a `command` or a target-mode descriptor plus hotkey/action metadata;
+     - UI clicks dispatch `game.executeOption(option)` for instant commands or arm its target mode.
+   - Expected win: fewer bespoke methods such as train/build/research/ability/transform/lift/land
+     wiring in `Game`, and desktop hotkeys can invoke the same option records.
+4. Move common read helpers into a tiny query/math layer.
+   - Current shape:
+     - `distSq`/`distanceSq` is duplicated in detection, creep, power, validation, unit transform,
+       combat, mines, weapon hit, app activity, and AI bot code;
+     - `hasCompletedKind` exists in both validation and AI;
+     - ability tech availability is repeated in AI despite existing sim tech/ability data.
+   - Collapse shape:
+     - add boring shared helpers such as `distanceSq`, `withinRangeSq`, `completedKindCount`,
+       `hasCompletedKind`, `requirementsMet`, `abilityAvailable`, `completedProducers`, and
+       `liveOwnedSlots`;
+     - keep them allocation-free and obvious.
+   - Expected win: small raw LOC win, but large blind-spot reduction because AI, validation, and UI
+     stop making subtly different "completed/available/in range" decisions.
+5. Split `Game` by responsibility only after collapsing UI state.
+   - Current shape:
+     - `Game` mixes setup/restart, replay, camera, edge/middle-pan, selection, control groups, smart
+       commands, placement ghosts, command emission, HUD publishing, and selected status.
+   - Collapse shape:
+     - `game-session.ts`: setup/restart/replay/human player;
+     - `camera-controller.ts`: resize, screen/world transforms, zoom/pan/edge pan;
+     - `selection-controller.ts`: hit tests, drag selection, control groups;
+     - `command-controller.ts`: armed command state, smart command candidates, dispatch;
+     - `hud-publisher.ts`: writes `selectionView` and top-bar resources.
+  - Expected win: not necessarily fewer lines immediately, but each later compression becomes local
+     and testable. Do this after `selectionView`/`armedCommand`, otherwise it just spreads current
+     duplication across more files.
+6. Treat tests as product code for compression.
+   - Current shape:
+     - bot and app tests repeat setup, entity finding, resource grants, tech grants, command search,
+       and frame advancement;
+     - the biggest test files are mostly ceremony.
+   - Collapse shape:
+     - one shared sim scenario builder and one app interaction harness;
+     - matrix tests for ability policy, tech prerequisites, command rejection reasons, and UI command
+       groups;
+     - fewer end-to-end bespoke tests, kept only where behavior crosses multiple systems.
+   - Expected win: largest immediate LOC reduction with the least gameplay risk.
+7. Make "current production/research/internal work" a query, not direct UI state inspection.
+   - Current shape:
+     - UI, observe, census, validation, production, and tests directly inspect `prodKind`,
+       `prodTimer`, `prodQueued`, `researchKind`, `researchTimer`, and `specialAmmo`;
+     - `NuclearMissile`, `Scarab`, and `Interceptor` status labels are separate app logic.
+   - Collapse shape:
+     - `entityWorkQueue(s, slot)` returns active work, queued work count, internal product capacity,
+       progress, label, and affordability context;
+     - `selectionCapabilities` and observe use that query.
+   - Expected win: less app code and cleaner future support for multi-queue, addons, morphs, and
+     internal ammo.
+8. Split data for navigation, not abstraction.
+   - Current shape:
+     - `data.ts` is large, but much of it is honest static BW data.
+   - Collapse shape:
+     - keep generated-looking tables as tables;
+     - move enums/constants, unit defs, ability defs, tech defs, upgrade effects, and mechanic
+       descriptors into separate data modules if navigation suffers;
+     - do not over-normalize unit data into tiny fragments unless it lets validation/UI/AI delete code.
+   - Expected win: readability, not necessarily raw LOC. Data lines are cheaper than duplicate logic.
+
+Abstraction acceptance test:
+
+- A new abstraction must delete or prevent more code than it adds.
+- It must make an existing concept have one owner.
+- It must be usable by at least two consumers, usually sim + UI, sim + AI, or UI + tests.
+- It must not allocate in hot loops unless the caller explicitly asks for a view object outside the
+  tick path.
+- It must keep validation authoritative. Convenience helpers can enumerate options, but command
+  execution still goes through `validateCommand`.
+
+What not to do:
+
+- Do not replace typed arrays with class-per-unit objects.
+- Do not introduce a generic ECS/component framework just to avoid `Kind.X` appearing anywhere.
+- Do not hide hot-loop behavior behind allocation-heavy callbacks.
+- Do not delete tests before the scenario DSL exists. First make the tests shorter, then remove
+  redundant cases that are covered by tables.
+- Do not merge all systems into one generic "process mechanics" runner. BW has real domain
+  boundaries, and the fixed tick order is valuable.
+
+LOC collapse order:
+
+1. Build the test/scenario DSL first, because it makes all later refactors safer and may remove the
+   most raw lines immediately.
+2. Collapse `armedCommand` and `selectionView` in the app, because these remove impossible UI states
+   and make later `Game` splitting meaningful. `armedCommand` is complete; `selectionView` remains.
+3. Add lifecycle/status, work-queue, and selection-capability queries, then slim `Game`.
+4. Add command specs while keeping public `validateCommand`/`applyCommands` stable.
+5. Add ability descriptors and AI policies.
+6. Add internal-product/child-actor descriptors.
+7. Add weapon mechanic ids.
+8. Table-drive upgrade effects only after the above removes the larger sources of duplication.
+
+Done when:
+
+- Production code has fewer large god files, but public APIs remain stable for tests, replay, and app.
+- Test LOC drops because scenarios and matrix cases express intent directly.
+- Adding a normal ability, upgrade, internal product, or command mostly edits one table and one test
+  matrix.
+- Adding a truly special BW mechanic creates one named handler plus data, not scattered `Kind.X`
+  checks across UI, AI, validation, combat, and production.
+- Benchmarks show no regression in hot sim paths.
+
 ## Current BW-Fidelity Missing Inventory
 
 This is the working list of "things that were actually in the game" which remain either partial,
 approximated, or absent. Keep this list honest as mechanics land.
 
+- Architecture and representation:
+  - Entity lifecycle, command capability, child actor roles, internal ammo, ability execution, and
+    effect presentation are still represented in more than one place. Phase 12 is the consolidation
+    plan to reduce blind spots before the remaining BW mechanics make these seams harder to see.
+  - Phase 13 tracks the deeper LOC collapse: command specs, ability descriptors, AI policies,
+    `armedCommand`, `selectionView`, scenario-test DSL, internal-product descriptors, child-actor
+    descriptors, weapon mechanic ids, and render/query descriptors.
+- Temporal mechanics:
+  - Siege/unsiege and burrow/unburrow are currently instant; they need verified timed transition
+    specs and shared busy-state validation.
+  - Ability execution needs explicit instant/status/persistent-area/channel/windup/projectile modes;
+    Yamato and Nuclear Strike are the current highest-risk examples.
+  - `timer`, `ctimer`, `built`, and `specialAmmo` are overloaded enough that future mechanics should
+    route through named helpers/columns rather than writing those fields directly.
 - Top-down spatial semantics:
   - Audit ability target ranges separately; combat/repair/harvest/scarab final reach checks now
     use named top-down edge metrics, while ability validation still intentionally uses caster/point

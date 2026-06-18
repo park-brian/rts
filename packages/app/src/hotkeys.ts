@@ -1,5 +1,5 @@
 import type { Game } from './game.ts';
-import { ui } from './store.ts';
+import { clearArmedCommand, ui } from './store.ts';
 import { Abilities, Ability, Kind, Tech } from './sim.ts';
 
 export type GlobalHotkeyAction =
@@ -336,24 +336,19 @@ export const hotkeyLabelForAction = (action: HotkeyAction): string =>
     .replace('Space', 'Space');
 
 const clearTargets = (): void => {
-  ui.placement.value = 0;
-  ui.land.value = false;
-  ui.rally.value = false;
-  ui.amove.value = false;
-  ui.abilityTarget.value = 0;
-  ui.targetMode.value = 'none';
+  clearArmedCommand();
 };
 
 const toggleTarget = (mode: 'harvest' | 'repair'): void => {
-  const active = ui.targetMode.value !== mode;
+  const active = ui.armedCommand.value.t !== 'target' || ui.armedCommand.value.mode !== mode;
   clearTargets();
-  ui.targetMode.value = active ? mode : 'none';
+  if (active) ui.armedCommand.value = { t: 'target', mode };
 };
 
 const fireAction = (game: Game, action: HotkeyAction): boolean => {
   if (action.startsWith('build:')) {
     clearTargets();
-    ui.placement.value = Number(action.slice('build:'.length));
+    ui.armedCommand.value = { t: 'place', kind: Number(action.slice('build:'.length)) };
     return true;
   }
   if (action.startsWith('train:')) {
@@ -382,14 +377,14 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     if (!def) return false;
     clearTargets();
     if (def.target === 'self') game.castSelectedAbility(ability);
-    else ui.abilityTarget.value = ability;
+    else ui.armedCommand.value = { t: 'ability', ability };
     return true;
   }
   switch (action) {
     case 'attackMove': {
-      const active = !ui.amove.value;
+      const active = ui.armedCommand.value.t !== 'attackMove';
       clearTargets();
-      ui.amove.value = active;
+      if (active) ui.armedCommand.value = { t: 'attackMove' };
       return true;
     }
     case 'stop':
@@ -403,9 +398,9 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
       toggleTarget('repair');
       return true;
     case 'rally': {
-      const active = !ui.rally.value;
+      const active = ui.armedCommand.value.t !== 'rally';
       clearTargets();
-      ui.rally.value = active;
+      if (active) ui.armedCommand.value = { t: 'rally' };
       return true;
     }
     case 'load':

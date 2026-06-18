@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import { ui } from './store.ts';
+import { clearArmedCommand, isPlacementArmed, ui } from './store.ts';
 import { Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, shownSupply, type FactionName } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -525,35 +525,36 @@ const Hotbar = (p: { game: Game }) => {
   const width = useViewportWidth();
   const metrics = commandLayoutMetrics(ui.controlScheme.value, width);
   if (ui.mode.value !== 'play') return null;
-  const place = ui.placement.value;
+  const armed = ui.armedCommand.value;
+  const place = isPlacementArmed(armed) ? armed.kind : 0;
   const commands: CommandItem[] = [];
   let nextCommandKey = 0;
   const addCommand = (group: CommandGroupId, node: VNode): void => {
     commands.push({ group, key: `${group}-${nextCommandKey++}`, node });
   };
   const clearTargets = (): void => {
-    ui.placement.value = 0; ui.land.value = false; ui.rally.value = false; ui.amove.value = false; ui.abilityTarget.value = 0; ui.targetMode.value = 'none';
+    clearArmedCommand();
   };
-  const placeKind = (kind: number): void => { clearTargets(); ui.placement.value = kind; };
+  const placeKind = (kind: number): void => { ui.armedCommand.value = { t: 'place', kind }; };
   const toggleRally = (): void => {
-    const active = !ui.rally.value;
+    const active = ui.armedCommand.value.t !== 'rally';
     clearTargets();
-    ui.rally.value = active;
+    if (active) ui.armedCommand.value = { t: 'rally' };
   };
   const toggleAmove = (): void => {
-    const active = !ui.amove.value;
+    const active = ui.armedCommand.value.t !== 'attackMove';
     clearTargets();
-    ui.amove.value = active;
+    if (active) ui.armedCommand.value = { t: 'attackMove' };
   };
   const toggleTarget = (mode: 'harvest' | 'repair'): void => {
-    const active = ui.targetMode.value !== mode;
+    const active = ui.armedCommand.value.t !== 'target' || ui.armedCommand.value.mode !== mode;
     clearTargets();
-    ui.targetMode.value = active ? mode : 'none';
+    if (active) ui.armedCommand.value = { t: 'target', mode };
   };
   const toggleAbility = (ability: number): void => {
-    const active = ui.abilityTarget.value !== ability;
+    const active = ui.armedCommand.value.t !== 'ability' || ui.armedCommand.value.ability !== ability;
     clearTargets();
-    ui.abilityTarget.value = active ? ability : 0;
+    if (active) ui.armedCommand.value = { t: 'ability', ability };
   };
   const addOptionButton = (
     group: CommandGroupId,
@@ -569,7 +570,7 @@ const Hotbar = (p: { game: Game }) => {
   };
   if (place !== 0) {
     addCommand('placement', <span style={{ opacity: 0.8, alignSelf: 'center', flex: '0 0 auto',
-      fontSize: '12px', whiteSpace: 'nowrap' }}>{ui.land.value ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
+      fontSize: '12px', whiteSpace: 'nowrap' }}>{armed.t === 'land' ? 'Land' : 'Place'} {Kind ? name(place) : ''}</span>);
     addCommand('placement', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={clearTargets} />);
   } else if (ui.selCount.value > 0) {
     for (const option of ui.selTrainOptions.value) {
@@ -595,13 +596,13 @@ const Hotbar = (p: { game: Game }) => {
       }
     }
     if (ui.selCanRally.value) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.rally.value} onClick={toggleRally} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Set Rally" hotkeyAction="rally" active={ui.armedCommand.value.t === 'rally'} onClick={toggleRally} />);
     }
     if (ui.selCanHarvest.value) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.targetMode.value === 'harvest'} onClick={() => toggleTarget('harvest')} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Harvest" hotkeyAction="harvest" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'harvest'} onClick={() => toggleTarget('harvest')} />);
     }
     if (ui.selCanRepair.value) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.targetMode.value === 'repair'} onClick={() => toggleTarget('repair')} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Repair" hotkeyAction="repair" active={ui.armedCommand.value.t === 'target' && ui.armedCommand.value.mode === 'repair'} onClick={() => toggleTarget('repair')} />);
     }
     for (const option of ui.selResearchOptions.value) {
       const tech = option.id;
@@ -611,7 +612,7 @@ const Hotbar = (p: { game: Game }) => {
     for (const option of ui.selAbilityOptions.value) {
       const ability = option.id;
       const def = Abilities[ability]!;
-      const active = ui.abilityTarget.value === ability;
+      const active = ui.armedCommand.value.t === 'ability' && ui.armedCommand.value.ability === ability;
       const cast = (): void => {
         if (def.target === 'self') {
           g.castSelectedAbility(ability);
@@ -640,13 +641,13 @@ const Hotbar = (p: { game: Game }) => {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Lift Off" hotkeyAction="lift" onClick={() => g.liftSelected()} />);
     }
     if (ui.selCanLand.value) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.land.value} onClick={() => g.armLandSelected()} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Land" hotkeyAction="land" active={ui.armedCommand.value.t === 'land'} onClick={() => g.armLandSelected()} />);
     }
     if (ui.selCanCancel.value) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Cancel" onClick={() => { clearTargets(); g.cancelSelectedBuild(); }} />);
     }
     if (ui.selCanAttackMove.value) {
-      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.amove.value} onClick={toggleAmove} />);
+      addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Atk-Move" hotkeyAction="attackMove" active={ui.armedCommand.value.t === 'attackMove'} onClick={toggleAmove} />);
     }
     if (ui.selCanStop.value) {
       addCommand('orders', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Stop" hotkeyAction="stop" onClick={() => g.stopSelected()} />);

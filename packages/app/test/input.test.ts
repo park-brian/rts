@@ -92,11 +92,11 @@ test('build placement drag updates ghost and commits on pointer up', () => {
   attachInput(canvas as any, game);
 
   ui.controlScheme.value = 'mobile';
-  ui.placement.value = 1;
+  ui.armedCommand.value = { t: 'place', kind: 1 };
   canvas.fire('pointerdown', pointer(1, 20, 20));
   canvas.fire('pointermove', pointer(1, 60, 60));
   canvas.fire('pointerup', pointer(1, 70, 70));
-  ui.placement.value = 0;
+  ui.armedCommand.value = { t: 'none' };
 
   assert.deepEqual(updates, [[20, 20], [60, 60], [70, 70]]);
   assert.equal(commits, 1);

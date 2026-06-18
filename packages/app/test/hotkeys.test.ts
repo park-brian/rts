@@ -27,15 +27,15 @@ test('desktop hotkeys arm commands and can be remapped', () => {
   g.fastForward(0);
 
   assert.equal(dispatchHotkey(g, 'KeyA'), true);
-  assert.equal(ui.amove.value, true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
 
-  ui.amove.value = false;
+  ui.armedCommand.value = { t: 'none' };
   setHotkey('attackMove', 'KeyQ');
 
   assert.equal(dispatchHotkey(g, 'KeyA'), false);
-  assert.equal(ui.amove.value, false);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
   assert.equal(dispatchHotkey(g, 'KeyQ'), true);
-  assert.equal(ui.amove.value, true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
 });
 
 test('desktop stop hotkey queues validated stop commands', () => {
@@ -96,8 +96,7 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   e.flags[slot] = liftedStructureFlags(Kind.Barracks);
   g.fastForward(0);
   assert.equal(dispatchHotkey(g, 'KeyL'), true);
-  assert.equal(ui.land.value, true);
-  assert.equal(ui.placement.value, Kind.Barracks);
+  assert.deepEqual(ui.armedCommand.value, { t: 'land', kind: Kind.Barracks });
 });
 
 test('desktop control groups assign, recall, and add live selections', () => {

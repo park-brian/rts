@@ -5,9 +5,18 @@ import type { CommandRejectReason } from './sim.ts';
 
 export type Mode = 'play' | 'spectate' | 'replay';
 export type TargetMode = 'none' | 'harvest' | 'repair';
+export type TargetVerb = Exclude<TargetMode, 'none'>;
 export type ControlScheme = 'mobile' | 'desktop';
 export type CommandOption = { id: number; ok: boolean; reason?: CommandRejectReason; label?: string; detail?: string };
 export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
+export type ArmedCommand =
+  | { t: 'none' }
+  | { t: 'place'; kind: number }
+  | { t: 'land'; kind: number }
+  | { t: 'attackMove' }
+  | { t: 'rally' }
+  | { t: 'ability'; ability: number }
+  | { t: 'target'; mode: TargetVerb };
 
 const initialControlScheme = (): ControlScheme => {
   try {
@@ -68,10 +77,12 @@ export const ui = {
   selCanLift: signal(false),
   selCanLand: signal(false),
   selCanCancel: signal(false),
-  placement: signal(0), // build-placement kind in progress (0 = none)
-  land: signal(false), // land-placement mode for a lifted Terran structure
-  amove: signal(false), // attack-move targeting armed
-  rally: signal(false), // set-rally-point targeting armed
-  abilityTarget: signal(0), // ability id whose target is armed (0 = none)
-  targetMode: signal<TargetMode>('none'), // explicit friendly/resource target verb
+  armedCommand: signal<ArmedCommand>({ t: 'none' }),
 };
+
+export const clearArmedCommand = (): void => {
+  ui.armedCommand.value = { t: 'none' };
+};
+
+export const isPlacementArmed = (armed: ArmedCommand): armed is Extract<ArmedCommand, { t: 'place' | 'land' }> =>
+  armed.t === 'place' || armed.t === 'land';

@@ -10,11 +10,7 @@ const freshGame = (): Game => {
   const cc = findEntity(g, Kind.CommandCenter, 0);
   centerOnEntity(g, cc);
   g.queued = [];
-  ui.placement.value = 0;
-  ui.rally.value = false;
-  ui.amove.value = false;
-  ui.abilityTarget.value = 0;
-  ui.targetMode.value = 'none';
+  ui.armedCommand.value = { t: 'none' };
   ui.controlScheme.value = 'mobile';
   return g;
 };
@@ -110,14 +106,14 @@ test('repair target mode resumes an unfinished own Terran foundation', () => {
   e.ctimer[slotOf(depot)] = 100;
   select(g, [scv]);
   centerOnEntity(g, depot);
-  ui.targetMode.value = 'repair';
+  ui.armedCommand.value = { t: 'target', mode: 'repair' };
 
   const p = screenOf(g, depot);
   g.tap(p.x, p.y);
 
   assert.deepEqual([...g.selection], [scv]);
   assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: depot }]);
-  assert.equal(ui.targetMode.value, 'none');
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('attack-move is an explicit target mode and consumes the next owned-entity tap', () => {
@@ -125,7 +121,7 @@ test('attack-move is an explicit target mode and consumes the next owned-entity 
   const cc = findEntity(g, Kind.CommandCenter, 0);
   const workers = findOwnedWorkers(g);
   select(g, workers);
-  ui.amove.value = true;
+  ui.armedCommand.value = { t: 'attackMove' };
 
   const p = screenOf(g, cc);
   g.tap(p.x, p.y);
@@ -133,7 +129,7 @@ test('attack-move is an explicit target mode and consumes the next owned-entity 
   assert.deepEqual(new Set(g.selection), new Set(workers));
   assert.equal(g.queued.length, workers.length);
   assert.ok(g.queued.every((c) => c.t === 'amove'));
-  assert.equal(ui.amove.value, false);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('production buildings set rally on a normal ground tap', () => {
@@ -158,7 +154,7 @@ test('build placement ghost previews shared placement and commits on release', (
   const s = g.sim.fullState();
   const w = slotOf(worker);
   select(g, [worker]);
-  ui.placement.value = Kind.SupplyDepot;
+  ui.armedCommand.value = { t: 'place', kind: Kind.SupplyDepot };
 
   let candidate: { x: number; y: number } | null = null;
   for (let ty = 2; ty < g.map.h - 2 && !candidate; ty++) {
@@ -183,7 +179,7 @@ test('build placement ghost previews shared placement and commits on release', (
   const committed = g.commitPlacementGhost();
 
   assert.equal(committed, true);
-  assert.equal(ui.placement.value, 0);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
   assert.equal(g.placementGhost, null);
   assert.equal(g.queued.length, 1);
   const command = g.queued[0]!;
@@ -199,12 +195,12 @@ test('normal tap no longer commits build placement blindly', () => {
   const g = freshGame();
   const worker = findOwnedWorkers(g)[0]!;
   select(g, [worker]);
-  ui.placement.value = Kind.SupplyDepot;
+  ui.armedCommand.value = { t: 'place', kind: Kind.SupplyDepot };
 
   g.tap(g.viewW / 2, g.viewH / 2);
 
   assert.deepEqual(g.queued, []);
-  assert.equal(ui.placement.value, Kind.SupplyDepot);
+  assert.deepEqual(ui.armedCommand.value, { t: 'place', kind: Kind.SupplyDepot });
 });
 
 test('invalid build placement ghost does not commit or exit placement mode', () => {
@@ -212,7 +208,7 @@ test('invalid build placement ghost does not commit or exit placement mode', () 
   const worker = findOwnedWorkers(g)[0]!;
   const cc = findEntity(g, Kind.CommandCenter, 0);
   select(g, [worker]);
-  ui.placement.value = Kind.SupplyDepot;
+  ui.armedCommand.value = { t: 'place', kind: Kind.SupplyDepot };
   centerOnEntity(g, cc);
 
   const p = screenOf(g, cc);
@@ -221,7 +217,7 @@ test('invalid build placement ghost does not commit or exit placement mode', () 
   assert.equal(g.placementGhost?.ok, false);
   assert.equal(g.commitPlacementGhost(), false);
   assert.deepEqual(g.queued, []);
-  assert.equal(ui.placement.value, Kind.SupplyDepot);
+  assert.deepEqual(ui.armedCommand.value, { t: 'place', kind: Kind.SupplyDepot });
 });
 
 test('selected buildings do not publish mobile attack-move or stop commands', () => {
@@ -320,14 +316,14 @@ test('harvest target mode sends selected workers to an owned gas structure', () 
   select(g, [scv]);
   centerOnEntity(g, refinery);
   g.fastForward(1);
-  ui.targetMode.value = 'harvest';
+  ui.armedCommand.value = { t: 'target', mode: 'harvest' };
 
   const p = screenOf(g, refinery);
   g.tap(p.x, p.y);
 
   assert.deepEqual([...g.selection], [scv]);
   assert.deepEqual(g.queued, [{ t: 'harvest', unit: scv, patch: refinery }]);
-  assert.equal(ui.targetMode.value, 'none');
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('normal empty-ground tap moves selected mobile units', () => {
@@ -353,7 +349,7 @@ test('explicit rally mode targets owned units instead of selecting them', () => 
   const worker = findOwnedWorkers(g)[0]!;
   select(g, [cc]);
   centerOnEntity(g, worker);
-  ui.rally.value = true;
+  ui.armedCommand.value = { t: 'rally' };
 
   const p = screenOf(g, worker);
   g.tap(p.x, p.y);
@@ -366,7 +362,7 @@ test('explicit rally mode targets owned units instead of selecting them', () => 
     y: ((g.camY + p.y / g.zoom) * ONE) | 0,
     target: worker,
   }]);
-  assert.equal(ui.rally.value, false);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('box select prefers units but falls back to buildings when no units are inside', () => {
@@ -398,14 +394,14 @@ test('entity ability target mode consumes owned-entity taps instead of selecting
   s.e.energy[slotOf(vessel)] = 100;
   select(g, [vessel]);
   centerOnEntity(g, goliath);
-  ui.abilityTarget.value = Ability.DefensiveMatrix;
+  ui.armedCommand.value = { t: 'ability', ability: Ability.DefensiveMatrix };
 
   const p = screenOf(g, goliath);
   g.tap(p.x, p.y);
 
   assert.deepEqual([...g.selection], [vessel]);
   assert.deepEqual(g.queued, [{ t: 'ability', unit: vessel, ability: Ability.DefensiveMatrix, target: goliath }]);
-  assert.equal(ui.abilityTarget.value, 0);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('point ability target mode chooses a valid selected caster', () => {
@@ -418,7 +414,7 @@ test('point ability target mode chooses a valid selected caster', () => {
   setTechLevel(s, 0, Tech.PsionicStorm, 1);
   select(g, [far, near]);
   centerOnEntity(g, near);
-  ui.abilityTarget.value = Ability.PsionicStorm;
+  ui.armedCommand.value = { t: 'ability', ability: Ability.PsionicStorm };
 
   const p = screenOf(g, near);
   g.tap(p.x + 30, p.y);
@@ -426,7 +422,7 @@ test('point ability target mode chooses a valid selected caster', () => {
   assert.equal(g.queued.length, 1);
   assert.equal(g.queued[0]!.t, 'ability');
   assert.equal(g.queued[0]!.unit, near);
-  assert.equal(ui.abilityTarget.value, 0);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('researchSelected queues the first valid selected research producer', () => {

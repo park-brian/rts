@@ -2,7 +2,7 @@
 // = pan + pinch-zoom; wheel = zoom (desktop). Maps to the model in docs/specs/ui-mobile.md.
 
 import type { Game } from './game.ts';
-import { ui } from './store.ts';
+import { isPlacementArmed, ui } from './store.ts';
 import { dispatchHotkey } from './hotkeys.ts';
 
 const TAP_SLOP = 8; // px movement under which a press counts as a tap
@@ -79,7 +79,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
         game.cancelPlacementGhost();
         return;
       }
-      placing = ui.placement.value !== 0;
+      placing = isPlacementArmed(ui.armedCommand.value);
       if (placing) {
         onMinimap = false;
         game.updatePlacementGhost(p.x, p.y);
