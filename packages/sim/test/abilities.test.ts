@@ -4,6 +4,7 @@ import { Abilities, Ability, EffectKind, Kind, Role, Tech, Trait, Units, sec } f
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { canDetect } from '../src/detection.ts';
+import { consumeReadyNuke, hasReadyNuke, readyNukeSilo } from '../src/nuke.ts';
 import { validateCommand } from '../src/validation.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
@@ -757,6 +758,23 @@ test('queen can infest a damaged Terran command center', () => {
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'train', building: cc, kind: Kind.InfestedTerran }] }]), [
     { player: 0, index: 0, t: 'train', ok: true },
   ]);
+});
+
+test('ready nuke lookup and consumption are internal-product backed', () => {
+  const { state: s, spawn } = simScenario({ players: 1, seed: 3931 });
+  const parent = spawn(Kind.CommandCenter, 0, fx(320), fx(400));
+  const silo = spawn(Kind.NuclearSilo, 0, fx(400), fx(400));
+  const slot = slotOf(silo);
+
+  s.e.specialAmmo[slot] = 1;
+  assert.equal(hasReadyNuke(s, 0), false, 'orphaned silo missile is not launch-ready');
+
+  linkAddon(s, parent, silo);
+  assert.equal(readyNukeSilo(s, 0), slot);
+  assert.equal(hasReadyNuke(s, 0), true);
+  assert.equal(consumeReadyNuke(s, 0), true);
+  assert.equal(s.e.specialAmmo[slot], 0);
+  assert.equal(hasReadyNuke(s, 0), false);
 });
 
 test('nuclear strike consumes a missile and deals delayed area damage', () => {
