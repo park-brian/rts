@@ -5,6 +5,7 @@ import { Kind, TILE, Units } from '../src/data.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
+  BASE_MINERAL_ARC_OFFSETS,
   BASE_MINERAL_DOCK_DISTANCE_PX,
   baseResourceDockDistance,
   resourceFootprintsOverlap,
@@ -71,4 +72,16 @@ test('base cluster solver exposes exact depot and whole-cluster footprints', () 
   for (const fp of [cluster.depotFootprint, ...cluster.resourceFootprints]) {
     assert.equal(resourceFootprintsOverlap(cluster.reservation, fp), true);
   }
+});
+
+test('base cluster solver repairs resource centers before rejecting an anchor', () => {
+  const start = { x: 32, y: 82 };
+  const cluster = solveBaseCluster(start, -1);
+  const minerals = cluster.resources.filter((resource) => !resource.gas);
+
+  assert.equal(minerals.some((resource, index) => {
+    const nominal = BASE_MINERAL_ARC_OFFSETS[index]!;
+    const center = resourceSpawnCenterPx(resource);
+    return center.y !== (start.y - nominal.dy) * TILE + (TILE >> 1);
+  }), true);
 });

@@ -78,10 +78,12 @@ per-map fields (exact serialization TBD — likely compact typed arrays + JSON h
   mineral line as a resource arc around the depot edge, not as a straight row. Base/resource
   generation works in reusable cluster footprints: exact depot anchor, depot build footprint,
   resource footprints, and an enclosing reservation footprint used by procedural generation before
-  terrain or other features are stamped. Base cluster resource placement is scored against named
-  top-down dock-to-dock targets: minerals use the current three-worker band ending at 97px, while
-  gas uses the current exact 89px refinery-route target. These are generator targets, not hidden
-  runtime reach bonuses. Workers must still visibly dock using top-down physical contact. Equal
+  terrain or other features are stamped. The solver may nudge resource centers along the arc before
+  rejecting an otherwise usable depot anchor, but it must keep the legal initial resource
+  footprints and whole-cluster reservation explicit. Base cluster resource placement is scored
+  against named top-down dock-to-dock targets: minerals use the current three-worker band ending
+  at 97px, while gas uses the current exact 89px refinery-route target. These are generator
+  targets, not hidden runtime reach bonuses. Workers must still visibly dock using top-down physical contact. Equal
   route distance is the first-order economy target: with a shared movement speed model, equal
   distance preserves relative trip timing across SCVs, Drones, and Probes without per-unit
   placement hacks. Gas cadence is validated as route frames against the built refinery harvest

@@ -1165,11 +1165,13 @@ Completed:
   Refinery harvest hull, labels the three-worker gas cadence target, rejects invalid refinery
   routes during procedural cluster selection and final map validation, and keeps the rule as
   placement validation rather than hidden runtime timing compensation.
+- Base clusters now repair resource-center geometry before rejecting a depot anchor. The solver
+  searches a small deterministic front/back adjustment set on the existing mineral/gas arc, rejects
+  mineral candidates that exceed the timing target, preserves legal resource footprints, and keeps
+  the final cluster reservation explicit for procedural validation.
 
 Remaining:
 
-- Broaden base/resource repair from local depot-anchor retry into resource-geometry adjustment when
-  a cluster's mineral routes are intrinsically too long, too short, or too asymmetric.
 - Move harvest timing from straight edge distance to path-lattice route cost once obstacles/ramps
   can affect worker trips.
 - Add a debug/headless overlay for interaction hulls, docking points, route targets, base-site

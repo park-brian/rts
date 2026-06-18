@@ -5,7 +5,7 @@
 // See docs/specs/maps.md.
 
 import { Kind, PATCH_AMOUNT, TILE, Units } from './data.ts';
-import { fx, isqrt } from './fixed.ts';
+import { fx, isqrt, ONE } from './fixed.ts';
 import { topDownDockingPoint } from './spatial.ts';
 
 export type ResourceSpawn = { x: number; y: number; amount: number; gas: boolean; px?: number; py?: number };
@@ -74,6 +74,14 @@ export const BASE_MINERAL_ARC_OFFSETS = [
 export const BASE_GAS_ARC_OFFSET = { dx: 6, dy: 5 } as const;
 
 const tileCenterPx = (t: number): number => t * TILE + (TILE >> 1);
+const CENTER_DY_REPAIRS = [0, 1, -1] as const;
+
+type ResourceCandidate = {
+  resource: ResourceSpawn;
+  footprint: ResourceFootprint;
+  distance: number;
+  score: number;
+};
 
 export const resourceSpawnCenterPx = (r: ResourceSpawn): { x: number; y: number } => {
   if (r.px !== undefined && r.py !== undefined) return { x: r.px, y: r.py };
@@ -183,6 +191,103 @@ const resourceFromCenterTile = (centerX: number, centerY: number, amount: number
   gas,
 });
 
+const resourceCandidate = (
+  depotFootprint: ResourceFootprint,
+  start: StartLoc,
+  frontDir: -1 | 1,
+  centerX: number,
+  centerDy: number,
+  amount: number,
+  gas: boolean,
+  repairCost: number,
+): ResourceCandidate | null => {
+  const centerY = start.y + frontDir * centerDy;
+  const resource = resourceFromCenterTile(centerX, centerY, amount, gas);
+  if (!legalStartResourceTile(depotFootprint, { x: resource.x, y: resource.y }, gas, frontDir)) return null;
+  const kind = gas ? Kind.Refinery : Kind.Mineral;
+  const target = gas ? BASE_GAS_DOCK_DISTANCE_PX : BASE_MINERAL_DOCK_DISTANCE_PX;
+  const distance = baseResourceDockDistance(kind, start.x, start.y, resource.px!, resource.py!);
+  if (!gas && distance > fx(target)) return null;
+  const error = Math.abs(distance - fx(target));
+  return {
+    resource,
+    footprint: resourceSpawnFootprint(resource),
+    distance,
+    score: error + repairCost * ONE,
+  };
+};
+
+const bestGasCandidate = (depotFootprint: ResourceFootprint, start: StartLoc, frontDir: -1 | 1): ResourceCandidate => {
+  let best: ResourceCandidate | null = null;
+  for (const dyRepair of CENTER_DY_REPAIRS) {
+    const candidate = resourceCandidate(
+      depotFootprint,
+      start,
+      frontDir,
+      start.x + BASE_GAS_ARC_OFFSET.dx,
+      BASE_GAS_ARC_OFFSET.dy + dyRepair,
+      0,
+      true,
+      Math.abs(dyRepair),
+    );
+    if (candidate === null) continue;
+    if (best === null || candidate.score < best.score || (candidate.score === best.score && candidate.distance < best.distance)) {
+      best = candidate;
+    }
+  }
+  if (best === null) throw new Error('solveBaseCluster: no legal gas arc position');
+  return best;
+};
+
+const mineralCandidates = (
+  depotFootprint: ResourceFootprint,
+  start: StartLoc,
+  frontDir: -1 | 1,
+  gas: ResourceCandidate,
+): ResourceCandidate[][] =>
+  BASE_MINERAL_ARC_OFFSETS.map(({ dx, dy }) =>
+    CENTER_DY_REPAIRS
+      .map((dyRepair) =>
+        resourceCandidate(depotFootprint, start, frontDir, start.x + dx, dy + dyRepair, PATCH_AMOUNT, false, Math.abs(dyRepair)),
+      )
+      .filter((candidate): candidate is ResourceCandidate =>
+        candidate !== null && !resourceFootprintsOverlap(candidate.footprint, gas.footprint),
+      )
+      .sort((a, b) => a.score - b.score || a.distance - b.distance || a.resource.y - b.resource.y || a.resource.x - b.resource.x),
+  );
+
+const solveMineralArc = (sets: ResourceCandidate[][]): ResourceCandidate[] => {
+  if (sets.some((set) => set.length === 0)) throw new Error('solveBaseCluster: no legal mineral arc position');
+  const chosen: ResourceCandidate[] = new Array(sets.length);
+  const used: ResourceFootprint[] = [];
+  let best: ResourceCandidate[] | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  const search = (index: number, score: number, minDistance: number, maxDistance: number): void => {
+    if (score >= bestScore) return;
+    if (index === sets.length) {
+      const spread = maxDistance - minDistance;
+      const total = score + spread * 4;
+      if (total < bestScore) {
+        bestScore = total;
+        best = [...chosen];
+      }
+      return;
+    }
+    for (const candidate of sets[index]!) {
+      if (used.some((fp) => resourceFootprintsOverlap(fp, candidate.footprint))) continue;
+      chosen[index] = candidate;
+      used.push(candidate.footprint);
+      search(index + 1, score + candidate.score, Math.min(minDistance, candidate.distance), Math.max(maxDistance, candidate.distance));
+      used.pop();
+    }
+  };
+
+  search(0, 0, Number.POSITIVE_INFINITY, 0);
+  if (best === null) throw new Error('solveBaseCluster: no non-overlapping mineral arc position');
+  return best;
+};
+
 const clusterReservation = (depot: ResourceFootprint, resources: ResourceSpawn[]): ResourceFootprint =>
   expandResourceFootprint(
     resourceFootprintBounds([depot, ...resources.map(resourceSpawnFootprint)]),
@@ -191,11 +296,11 @@ const clusterReservation = (depot: ResourceFootprint, resources: ResourceSpawn[]
 
 export const solveBaseCluster = (start: StartLoc, frontDir: -1 | 1): BaseCluster => {
   const depotFootprint = baseDepotFootprint(start);
+  const gas = bestGasCandidate(depotFootprint, start, frontDir);
+  const minerals = solveMineralArc(mineralCandidates(depotFootprint, start, frontDir, gas));
   const resources = [
-    ...BASE_MINERAL_ARC_OFFSETS.map(({ dx, dy }) =>
-      resourceFromCenterTile(start.x + dx, start.y + frontDir * dy, PATCH_AMOUNT, false),
-    ),
-    resourceFromCenterTile(start.x + BASE_GAS_ARC_OFFSET.dx, start.y + frontDir * BASE_GAS_ARC_OFFSET.dy, 0, true),
+    ...minerals.map((candidate) => candidate.resource),
+    gas.resource,
   ];
   for (const resource of resources) {
     if (!legalStartResourceTile(depotFootprint, { x: resource.x, y: resource.y }, resource.gas, frontDir)) {

@@ -8,7 +8,7 @@ import { spawnUnit } from '../src/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
-import { validateCommand } from '../src/validation.ts';
+import { placementForStructure, validateCommand } from '../src/validation.ts';
 
 const zergSim = (): Sim => Sim.fromState(setupMatch(sliceMap(), 1, 1, [Zerg]));
 
@@ -18,6 +18,23 @@ const find = (sim: Sim, kind: number): number => {
     if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === kind) return i;
   }
   throw new Error(`missing kind ${kind}`);
+};
+
+const nearbyBuildSpot = (sim: Sim, kind: number, origin: number): { x: number; y: number } => {
+  const s = sim.fullState();
+  const e = s.e;
+  const baseX = e.x[origin]!;
+  const baseY = e.y[origin]!;
+
+  for (const dy of [0, -32, 32, -64, 64]) {
+    for (const dx of [160, 192, 128, 224, 96, 256]) {
+      const x = baseX + fx(dx);
+      const y = baseY + fx(dy);
+      if (placementForStructure(s, kind, x, y).ok) return { x, y };
+    }
+  }
+
+  throw new Error(`no legal build spot near kind ${e.kind[origin]}`);
 };
 
 test('zerg starts with overlord supply and three larvae', () => {
@@ -82,8 +99,7 @@ test('drones morph into zerg building foundations and cancel with partial refund
   const s = sim.fullState();
   const e = s.e;
   const hatchery = find(sim, Kind.Hatchery);
-  const x = e.x[hatchery]! + fx(160);
-  const y = e.y[hatchery]!;
+  const { x, y } = nearbyBuildSpot(sim, Kind.SpawningPool, hatchery);
   const drone = slotOf(spawnUnit(s, Kind.Drone, 0, x, y));
   const id = eid(e, drone);
   s.players.minerals[0] = 1_000;
