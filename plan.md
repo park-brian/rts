@@ -1549,6 +1549,9 @@ Rework slices:
    - Build command legality now lives in `build-command.ts`, including ownership, entity-capacity,
      worker-build, affordability, prerequisite, and placement gates while `command-specs.ts` keeps
      placement recheck and `beginWorkerBuild` side effects unchanged.
+   - Add-on command legality now lives in `addon-command.ts`, preserving parent-kind, landed-parent,
+     prerequisite, affordability, entity-capacity, queue, and placement gates while `command-specs.ts`
+     keeps `startAddon` side effects unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.

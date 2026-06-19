@@ -24,7 +24,7 @@ import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
-import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
+import { isActiveAddon, startAddon } from './addon.ts';
 import { queueProduction } from './production-queue.ts';
 import { beginWorkerBuild, validateBuildCommand } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
@@ -37,6 +37,7 @@ import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 import { validateCancelBuildCommand } from './cancel-command.ts';
 import { validateHarvestCommand } from './harvest-command.ts';
 import { validateRepairCommand } from './repair-command.ts';
+import { validateAddonCommand } from './addon-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
@@ -138,25 +139,6 @@ const validateMine = (s: State, player: number, command: Extract<Command, { t: '
   return { ok: true };
 };
 
-const validateAddon = (s: State, player: number, command: Extract<Command, { t: 'addon' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
-  if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
-  const def = Units[command.kind];
-  if (!def || !isAddonKind(command.kind) || addonParentKind(command.kind) !== e.kind[slot]) {
-    return reject('target-not-allowed');
-  }
-  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('queue-full');
-  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-  if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
-  if (!canSpawnEntity(s)) return reject('capacity-full');
-  const pos = addonPosition(s, slot, command.kind);
-  const placement = placementForStructure(s, command.kind, pos.x, pos.y, NONE, player);
-  return placement.ok ? { ok: true } : reject(placement.reason);
-};
-
 const validateTransform = (s: State, player: number, command: Extract<Command, { t: 'transform' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -247,7 +229,7 @@ const abilitySpec: CommandSpec<Extract<Command, { t: 'ability' }>> = {
 };
 
 const addonSpec: CommandSpec<Extract<Command, { t: 'addon' }>> = {
-  validate: validateAddon,
+  validate: validateAddonCommand,
   apply(s, player, command): void {
     startAddon(s, slotOf(command.building), command.kind, player);
   },
