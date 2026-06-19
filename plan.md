@@ -46,7 +46,6 @@ not rediscover slightly different rules.
 Remaining work:
 
 - Finish splitting `command-specs.ts` validation by command family:
-  - move / attack-move;
   - transform / morph / merge.
 - Extract shared command predicates where they reduce drift:
   - `isBusy`;
@@ -244,6 +243,7 @@ Done when:
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.
 - Extracted lift / land command validation.
+- Extracted move / attack-move command validation.
 
 ## Review Checklist
 

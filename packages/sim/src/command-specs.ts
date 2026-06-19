@@ -1,16 +1,14 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, Order, Role, Units,
+  Kind, Order, Units,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import {
-  commandMoveSpeed, liftStructure, startStructureLanding,
+  liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, isAlive, slotOf } from './world.ts';
-import {
-  isContained, loadUnitInto, sameTeam, unloadUnit,
-} from './cargo.ts';
+import { isContained, loadUnitInto, unloadUnit } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { setBurrowed } from './burrow.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
@@ -40,6 +38,7 @@ import { validateAttackCommand } from './attack-command.ts';
 import { validateBurrowCommand } from './burrow-command.ts';
 import { validateStopCommand } from './stop-command.ts';
 import { validateLandCommand, validateLiftCommand } from './terran-mobility-command.ts';
+import { validateMoveCommand } from './move-command.ts';
 
 export { snapRallyTarget };
 
@@ -84,26 +83,6 @@ export const clearSettled = (s: State, slot: number): void => {
 
 export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
-};
-
-const validateMoveLike = (s: State, player: number, command: MoveLikeCommand): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || e.burrowed[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot)) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('missing-capability');
-  if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
-  if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
-    return reject('missing-capability');
-  }
-  if (command.t === 'move' && command.target !== undefined) {
-    if (!isAlive(e, command.target)) return reject('target-not-found');
-    const target = slotOf(command.target);
-    if (target === slot || isContained(s, target) || !sameTeam(s, player, e.owner[target]!)) return reject('target-not-allowed');
-    if (isGatherTargetSlot(s, target)) return reject('target-not-allowed');
-  }
-  return { ok: true };
 };
 
 const validateTransform = (s: State, player: number, command: Extract<Command, { t: 'transform' }>): CommandValidation => {
@@ -316,7 +295,7 @@ const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
 };
 
 const moveSpec: CommandSpec<Extract<Command, { t: 'move' }>> = {
-  validate: validateMoveLike,
+  validate: validateMoveCommand,
   apply(s, player, command, ctx): void {
     const slot = slotOf(command.unit);
     const dest = ctx.destination(command, slot, player);
@@ -327,7 +306,7 @@ const moveSpec: CommandSpec<Extract<Command, { t: 'move' }>> = {
 };
 
 const amoveSpec: CommandSpec<Extract<Command, { t: 'amove' }>> = {
-  validate: validateMoveLike,
+  validate: validateMoveCommand,
   apply(s, player, command, ctx): void {
     const slot = slotOf(command.unit);
     const dest = ctx.destination(command, slot, player);
