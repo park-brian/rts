@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ACTIVE_CLOAK_ABILITIES, TACTICAL_ABILITY_POLICIES, createBot } from '../src/index.ts';
+import { ACTIVE_CLOAK_ABILITIES, TACTICAL_ABILITY_POLICIES, collectBotFacts, createBot, missingStructureKinds } from '../src/index.ts';
 import {
   botScenario,
   expectBotBuildsLegal,
@@ -194,6 +194,58 @@ const ZERG_HIVE_TECH = [...ZERG_LAIR_TECH, Kind.DefilerMound] as const;
 const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number }, kinds: readonly number[]): void => {
   kinds.forEach((kind, i) => scenario.spawn(kind, 0, base.x + fx(120 + i * 40), base.y));
 };
+
+test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
+  const scenario = botScenario({ seed: 800, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  const enemy = scenario.spawn(Kind.Marine, 1, base.x + fx(40), base.y);
+
+  const facts = collectBotFacts(scenario.state, 0, Zerg);
+
+  assert.equal(facts.primaryBase, slotOf(hatchery));
+  assert.ok(facts.bases.includes(slotOf(hatchery)));
+  assert.equal(facts.idleLarvae.length, 3);
+  assert.ok(facts.visibleEnemies.includes(slotOf(enemy)));
+  assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
+  assert.equal(facts.risk.vision, 'omniscient');
+  assert.equal(facts.risk.visible[tileY(base.y) * facts.risk.w + tileX(base.x)]!, 1);
+  assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+});
+
+test('bot risk uses visible-map enemies when fog tracking is active', () => {
+  const scenario = botScenario({ seed: 802, factions: [Zerg, Terran], vision: true });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  const enemy = scenario.spawn(Kind.Marine, 1, base.x + fx(40), base.y);
+  const vision = scenario.state.vision[0]!;
+  vision.fill(0);
+  vision[tileY(base.y) * scenario.state.map.w + tileX(base.x)] = 2;
+
+  let facts = collectBotFacts(scenario.state, 0, Zerg);
+  assert.equal(facts.risk.vision, 'visible');
+  assert.deepEqual(facts.visibleEnemies, []);
+  assert.deepEqual(facts.baseThreats, []);
+  assert.equal(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]!, 0);
+
+  vision[tileY(base.y) * scenario.state.map.w + tileX(base.x + fx(40))] = 2;
+  facts = collectBotFacts(scenario.state, 0, Zerg);
+  assert.deepEqual(facts.visibleEnemies, [slotOf(enemy)]);
+  assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
+  assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+});
+
+test('bot facts count completed and pending structures for rebuild planning', () => {
+  const { scenario, base } = zergBuildScenario(801);
+  const drone = scenario.spawn(Kind.Drone, 0, base.x - fx(32), base.y);
+  scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  scenario.state.e.buildKind[slotOf(drone)] = Kind.HydraliskDen;
+
+  const facts = collectBotFacts(scenario.state, 0, Zerg);
+
+  assert.deepEqual(missingStructureKinds(facts, [Kind.SpawningPool, Kind.HydraliskDen]), []);
+  assert.deepEqual(missingStructureKinds(facts, [Kind.EvolutionChamber]), [Kind.EvolutionChamber]);
+});
 
 test('bot uses Stim when committing idle bio to defend', () => {
   const scenario = botScenario({ seed: 40 });

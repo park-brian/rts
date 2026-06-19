@@ -435,7 +435,44 @@ Remaining work:
   - `BotFacts`: a cheap per-tick summary derived from `State`, not a second sim. It should include
     own bases, workers, larvae, idle production, supply, resources, tech/producers, available army,
     local threats, visible enemy composition, last-known enemy positions, inferred invisible threats,
-    unsafe/blocked expansion sites, and destroyed prerequisite structures that must be rebuilt.
+    unsafe/blocked expansion sites, destroyed prerequisite structures that must be rebuilt, and a
+    tile risk matrix over the currently visible map or the whole map when the controller runs with
+    god vision.
+  - Risk matrix usage must stay advisory, shared, and cheap. It is a tactical cost field, not a
+    second pathfinder and not a command validator. Expansion should score site and route risk;
+    defense should sum local risk around bases, workers, and production; scouting should prefer
+    high-value unknown areas but avoid known lethal paths; harassment should choose exposed
+    low-risk targets and retreat paths; combat should use it to select rally/siege/engage areas;
+    worker/build intents should avoid sending builders through known kill zones when alternatives
+    exist. Unknown fog is not safe: later memory should layer last-seen and suspected invisible risk
+    onto the visible matrix with deterministic decay.
+  - Spatial response must be emergent from shared fields and incident classes, not a catalog of
+    one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
+    sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
+    to: hostile capability appears or is inferred in a region; a protected asset is threatened; the
+    bot estimates time-to-impact, route safety, detection needs, and available response groups; then
+    it emits `defend-base`, `intercept`, `evacuate-workers`, `get-detection`, `clear-site`,
+    `retreat`, `contain`, or `counterattack` intents.
+  - Add a `TacticalIncident` layer after `BotFacts`: incidents should be produced from visible
+    enemies, risk-field changes, recent damage/deaths, blocked builders, last-seen memory, and
+    protected-zone membership. Incident examples are `base-intrusion`, `mineral-line-harass`,
+    `invisible-damage`, `transport-drop`, `nydus-breach`, `siege-containment`, `static-threat-zone`,
+    `route-trap`, `expansion-blocked`, and `army-under-kite`. The response should be selected by
+    incident severity and response fit, not by hard-coded unit names.
+  - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
+    anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
+    value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
+    implementation as a compact visible/god weapon-risk map, then add layers only when a director
+    consumes them and tests prove the behavior.
+  - Tactical responses should use hysteresis and expiry. A drop or Nydus breach should keep a
+    defense intent alive long enough for units to arrive; a vanished threat should decay into
+    scout/detection memory rather than instantly pulling every defender home forever. This prevents
+    jitter while still reacting to unexpected events.
+  - Combat squads should be assigned by role and response fit: fast interceptors for drops and
+    kiting, detectors plus guards for invisible/burrowed threats, siege breakers/flankers for static
+    range fields, workers only for emergency mineral-line defense or repair, and harassment groups
+    only when home-defense reservations leave enough force. Spatial fields decide whether to engage,
+    flank, contain, retreat, or counterattack.
   - `BotMemory`: tiny deterministic controller memory for facts that cannot be read from the current
     frame alone: failed expansion attempts and reasons, suspected cloaked/burrowed threat zones,
     last-seen enemy tech/composition, reserved expansion sites, scout reports, and ongoing intents.
@@ -480,6 +517,10 @@ Remaining work:
     and expansion lifecycle; then migrate Terran/Protoss production capacity; then move tech,
     counters, harassment, and combat squads into directors. Keep each step validator-backed and
     benchmarked, and delete old priority-ladder branches as their intents take over.
+  - First fact/risk slice is done: `packages/ai/src/macro.ts` now owns the bot intent/failure
+    vocabulary, deterministic bot memory shape, `BotFacts`, fog-aware visible enemy collection,
+    completed-or-pending structure summaries for rebuild planning, and a compact weapon-risk tile
+    matrix that covers visible map state or the whole map in god-vision mode.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -580,6 +621,9 @@ Done when:
   coverage.
 - Added Evolution Chamber to the Zerg bot structure macro and named the Zerg macro-prefix fixtures
   so build coverage reflects every current Zerg research producer before later tech structures.
+- Added the first bot intent/facts foundation: bot macro vocabulary, deterministic memory shape,
+  fog-aware visible-enemy facts, completed/pending structure summaries, and a compact risk matrix
+  for visible-map or god-vision tactical scoring.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

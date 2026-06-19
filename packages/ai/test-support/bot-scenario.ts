@@ -13,6 +13,7 @@ type BotScenarioOptions = {
   factions?: Faction[];
   players?: number;
   seed: number;
+  vision?: boolean;
 };
 
 type BotOptions = Parameters<typeof createBot>[1];
@@ -21,8 +22,8 @@ export type BotScenario = SimScenario & {
   run(faction: Faction, player?: number, options?: BotOptions): BotCommands;
 };
 
-export const botScenario = ({ factions, players = 2, seed }: BotScenarioOptions): BotScenario => {
-  const base = simScenario({ factions, players, seed });
+export const botScenario = ({ factions, players = 2, seed, vision }: BotScenarioOptions): BotScenario => {
+  const base = simScenario({ factions, players, seed, ...(vision !== undefined ? { vision } : {}) });
 
   return {
     ...base,
