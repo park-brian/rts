@@ -713,6 +713,9 @@ Remaining work:
       `attack-wave` / `counterattack` intent with a `waiting: insufficient-force` result instead of
       vanishing until the commitment timer fires, while committed pressure that cannot issue is
       classified as blocked for the future scheduler.
+    - Tactical-outcome reason slice is done: tactical defense outcome classification now lives with
+      the tactical executor, so `get-detection` waits report `missing-detection` while ordinary
+      `defend-base` / `clear-site` no-command outcomes remain `insufficient-force`.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

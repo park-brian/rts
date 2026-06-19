@@ -28,6 +28,7 @@ import {
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
+  tacticalIntentResult,
   tacticalResponseBudget,
 } from '../src/index.ts';
 import {
@@ -414,6 +415,21 @@ test('live bot planner reports waiting pressure intent before commitment', () =>
   assert.ok(pressure);
   assert.deepEqual(pressure.result, { status: 'waiting', reason: 'insufficient-force' });
   assert.equal(plan.commands.some((cmd) => cmd.t === 'attack' || cmd.t === 'amove'), false);
+});
+
+test('tactical intent results distinguish missing detection from missing force', () => {
+  assert.deepEqual(
+    tacticalIntentResult({ kind: 'get-detection', urgency: 80 }, false),
+    { status: 'waiting', reason: 'missing-detection' },
+  );
+  assert.deepEqual(
+    tacticalIntentResult({ kind: 'defend-base', urgency: 80 }, false),
+    { status: 'waiting', reason: 'insufficient-force' },
+  );
+  assert.deepEqual(
+    tacticalIntentResult({ kind: 'clear-site', urgency: 80 }, true),
+    { status: 'done' },
+  );
 });
 
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {

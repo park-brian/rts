@@ -9,7 +9,7 @@ import { executePressureIntent, proposePressureIntent, type PressureScheduleResu
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
-import { executeTacticalDefense, proposeTacticalDefense } from './macro-tactics.ts';
+import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
 import { createBotMemory, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
 import type { BotIntent, BotIntentRecord, BotIntentResult } from './macro-intents.ts';
@@ -35,9 +35,6 @@ const rankIntentRecords = (records: BotIntentRecord[]): BotIntentRecord[] =>
 
 const done: BotIntentResult = { status: 'done' };
 const waitingForForce: BotIntentResult = { status: 'waiting', reason: 'insufficient-force' };
-
-const intentResult = (issued: boolean): BotIntentResult =>
-  issued ? done : waitingForForce;
 
 const pressureIntentResult = (
   result: Pick<PressureScheduleResult, 'decision' | 'focus' | 'issued'>,
@@ -97,7 +94,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     if (defenseProposal.intent) {
       intentResults.push({
         intent: defenseProposal.intent,
-        result: intentResult(cmds.length > defenseCommandStart),
+        result: tacticalIntentResult(defenseProposal.intent, cmds.length > defenseCommandStart),
       });
     }
     const pressureReserve = combatReserve(

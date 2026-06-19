@@ -8,7 +8,7 @@ import {
   rememberTacticalIncidents,
   type TacticalIncident,
 } from './macro-incidents.ts';
-import type { BotIntent } from './macro-intents.ts';
+import type { BotIntent, BotIntentResult } from './macro-intents.ts';
 import type { BotFacts } from './macro.ts';
 import type { BotMemory } from './macro-memory.ts';
 import { combatReserve, type CombatReserve } from './macro-reserve.ts';
@@ -43,6 +43,14 @@ const tacticalIntent = (incident: TacticalIncident): BotIntent => ({
   y: incident.y,
   expiresAt: incident.expiresAt,
 });
+
+export const tacticalIntentResult = (intent: BotIntent, issued: boolean): BotIntentResult => {
+  if (issued) return { status: 'done' };
+  return {
+    status: 'waiting',
+    reason: intent.kind === 'get-detection' ? 'missing-detection' : 'insufficient-force',
+  };
+};
 
 export const proposeTacticalDefense = (
   s: State,
