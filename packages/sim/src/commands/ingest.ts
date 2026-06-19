@@ -119,6 +119,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'burrow':
         case 'cancelBuild':
         case 'harvest':
+        case 'hold':
         case 'land':
         case 'lift':
         case 'load':

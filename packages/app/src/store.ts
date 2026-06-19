@@ -21,6 +21,7 @@ export const OrderOptionId = {
   Cancel: 11,
   Load: 12,
   Unload: 13,
+  Hold: 14,
 } as const;
 export type CommandOption = {
   id: number;
@@ -44,6 +45,7 @@ export type SelectionView = {
     harvest: boolean;
     repair: boolean;
     attackMove: boolean;
+    hold: boolean;
     stop: boolean;
     burrow: boolean;
     unburrow: boolean;
@@ -84,6 +86,7 @@ export const EMPTY_SELECTION_VIEW: SelectionView = {
     harvest: false,
     repair: false,
     attackMove: false,
+    hold: false,
     stop: false,
     burrow: false,
     unburrow: false,

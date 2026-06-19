@@ -14,6 +14,7 @@ import { applyTrainCommand, validateTrainCommand } from './production.ts';
 import { applyResearchCommand, validateResearchCommand } from './research.ts';
 import { applyAttackCommand, validateAttackCommand } from './attack.ts';
 import { applyBurrowCommand, validateBurrowCommand } from './burrow.ts';
+import { applyHoldCommand, validateHoldCommand } from './hold.ts';
 import { applyStopCommand, validateStopCommand } from './stop.ts';
 import {
   applyLandCommand,
@@ -35,7 +36,7 @@ export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
     | 'ability' | 'addon' | 'amove' | 'build' | 'land' | 'lift' | 'rally' | 'repair' | 'research'
-    | 'stop' | 'train' | 'transform' | 'unload';
+    | 'hold' | 'stop' | 'train' | 'transform' | 'unload';
 }>;
 
 type CommandSpecValidationContext = {
@@ -196,6 +197,13 @@ const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
   },
 };
 
+const holdSpec: CommandSpec<Extract<Command, { t: 'hold' }>> = {
+  validate: validateHoldCommand,
+  apply(s, _player, command): void {
+    applyHoldCommand(s, command);
+  },
+};
+
 export const commandSpecs = {
   ability: abilitySpec,
   addon: addonSpec,
@@ -205,6 +213,7 @@ export const commandSpecs = {
   burrow: burrowSpec,
   cancelBuild: cancelBuildSpec,
   harvest: harvestSpec,
+  hold: holdSpec,
   land: landSpec,
   lift: liftSpec,
   load: loadSpec,
@@ -233,6 +242,7 @@ export const validateCommandSpec = (
     case 'burrow': return commandSpecs.burrow.validate(s, player, command);
     case 'cancelBuild': return commandSpecs.cancelBuild.validate(s, player, command);
     case 'harvest': return commandSpecs.harvest.validate(s, player, command);
+    case 'hold': return commandSpecs.hold.validate(s, player, command);
     case 'land': return commandSpecs.land.validate(s, player, command);
     case 'lift': return commandSpecs.lift.validate(s, player, command);
     case 'load': return commandSpecs.load.validate(s, player, command);
@@ -276,6 +286,9 @@ export const applyCommandSpec = (
       return;
     case 'harvest':
       commandSpecs.harvest.apply(s, player, command, ctx);
+      return;
+    case 'hold':
+      commandSpecs.hold.apply(s, player, command, ctx);
       return;
     case 'land':
       commandSpecs.land.apply(s, player, command, ctx);

@@ -171,10 +171,10 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
 - **`packages/app`** also: a **deselect** button, **double-tap to select all of a type on
   screen**, **minimap drag-to-pan**, **Set Rally** / **Build Gas** commands, and a gas readout.
   Desktop controls use left-click selection, right-click smart commands, `A` plus left-click
-  attack mode, Shift-queued travel, remappable hotkeys, edge pan, scroll zoom, middle-click pan,
-  hotgroups, and visible queued waypoints. Mobile controls keep single-tap selection/command-card
-  grammar, with a compact **Queue** toggle that appends validated move/follow and attack-move point
-  travel through the same sim command path as desktop Shift.
+  attack mode, Hold Position, Shift-queued travel, remappable hotkeys, edge pan, scroll zoom,
+  middle-click pan, hotgroups, and visible queued waypoints. Mobile controls keep single-tap
+  selection/command-card grammar, with a compact **Queue** toggle that appends validated
+  move/follow and attack-move point travel through the same sim command path as desktop Shift.
 
 Verified by `node --test` (33 tests: fixed-point, RNG, economy, combat, **replay-hash &
 snapshot/restore & byte-serialize determinism**, **group pathfinding (arrives + fans out,

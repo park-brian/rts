@@ -84,6 +84,7 @@ export const selectionCapabilities = (
   let canHarvest = false;
   let canRepair = false;
   let canAttackMove = false;
+  let canHold = false;
   let canStop = false;
   let canBurrow = false;
   let canUnburrow = false;
@@ -92,6 +93,7 @@ export const selectionCapabilities = (
   let canLand = false;
   let canCancel = false;
   const stopCommands: Command[] = [];
+  const holdCommands: Command[] = [];
   const burrowCommands: Command[] = [];
   const unburrowCommands: Command[] = [];
   const mineCommands: Command[] = [];
@@ -122,6 +124,11 @@ export const selectionCapabilities = (
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
     if (ready) {
+      const holdCommand: Command = { t: 'hold', unit: id };
+      if (validateCommand(s, player, holdCommand).ok) {
+        canHold = true;
+        holdCommands.push(holdCommand);
+      }
       const command: Command = { t: 'stop', unit: id };
       if (validateCommand(s, player, command).ok) {
         canStop = true;
@@ -237,6 +244,7 @@ export const selectionCapabilities = (
     ...(landKind !== NONE ? [armedOrderOption(OrderOptionId.Land, 'Land', { t: 'land', kind: landKind })] : []),
     ...commandOrderOption(OrderOptionId.Cancel, 'Cancel', cancelCommands),
     ...(canAttackMove ? [armedOrderOption(OrderOptionId.AttackMove, 'Atk-Move', { t: 'attackMove' })] : []),
+    ...commandOrderOption(OrderOptionId.Hold, 'Hold', holdCommands),
     ...commandOrderOption(OrderOptionId.Stop, 'Stop', stopCommands),
   ];
   return {
@@ -251,6 +259,7 @@ export const selectionCapabilities = (
       harvest: canHarvest,
       repair: canRepair,
       attackMove: canAttackMove,
+      hold: canHold,
       stop: canStop,
       burrow: canBurrow,
       unburrow: canUnburrow,

@@ -42,13 +42,16 @@ test('desktop hotkeys arm commands and can be remapped', () => {
   assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
 });
 
-test('desktop stop hotkey queues validated stop commands', () => {
+test('desktop hold and stop hotkeys queue validated order commands', () => {
   resetHotkeys();
   const g = desktopGame(88);
   const marine = spawnUnit(g.sim.fullState(), Kind.Marine, 0, fx(400), fx(400));
   g.selection.clear();
   g.selection.add(marine);
   g.fastForward(0);
+
+  assert.equal(dispatchHotkey(g, 'KeyH'), true);
+  assert.deepEqual(g.queued.pop(), { t: 'hold', unit: marine });
 
   assert.equal(dispatchHotkey(g, 'KeyS'), true);
 

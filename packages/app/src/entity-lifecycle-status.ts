@@ -17,6 +17,7 @@ const ORDER_LABELS: Record<number, string> = {
   [Order.Build]: 'Building',
   [Order.Cast]: 'Casting',
   [Order.Repair]: 'Repairing',
+  [Order.Hold]: 'Holding',
 };
 
 const orderLabel = (order: number): string => ORDER_LABELS[order] ?? 'Acting';

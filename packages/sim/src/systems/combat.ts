@@ -1,7 +1,8 @@
 // Combat: any unit with a weapon acquires and engages enemies. Order semantics:
 //   Attack      -> chase + hit a specific target until it dies
 //   AttackMove  -> advance toward a point, engaging enemies met en route
-//   Idle        -> hold, but defend by engaging enemies within sight
+//   Hold        -> fire at enemies in range without chasing
+//   Idle        -> defend by engaging enemies within sight
 // Units on Move/Harvest/Build do not fire (they're busy).
 
 import type { State } from '../entity/world.ts';
@@ -206,7 +207,8 @@ export const combat = (s: State, grid: Grid): void => {
     if ((e.flags[i]! & Role.Air) === 0 && coveredByEffect(s, i, EffectKind.DisruptionWeb)) continue;
 
     const order = e.order[i]!;
-    const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle;
+    const holdPosition = order === Order.Hold;
+    const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle || holdPosition;
     if (!engaging) continue;
 
     // Keep the current target while it's still valid — for Attack, chase it at any
@@ -228,7 +230,7 @@ export const combat = (s: State, grid: Grid): void => {
     if (tgt === NONE && order !== Order.Attack) {
       tgt = containerProvider ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
     }
-    if (tgt !== NONE) rememberCombatTarget(s, i, tgt); // remember for next tick
+    if (tgt !== NONE && !holdPosition) rememberCombatTarget(s, i, tgt); // remember for next tick
 
     if (tgt === NONE) {
       if (order === Order.Attack) {
@@ -251,6 +253,8 @@ export const combat = (s: State, grid: Grid): void => {
     if (interceptorLaunch) {
       if (withinTopDownEdgeRange(s, i, tgt, carrierLaunchRange())) {
         if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorLaunchCooldown();
+      } else if (holdPosition) {
+        clearCombatTarget(s, i);
       } else {
         navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed));
       }
@@ -290,6 +294,8 @@ export const combat = (s: State, grid: Grid): void => {
         }
         e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
       }
+    } else if (holdPosition) {
+      clearCombatTarget(s, i);
     } else if (!childSystemSteers) {
       navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed)); // approach
     }

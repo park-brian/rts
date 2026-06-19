@@ -30,5 +30,8 @@ export const isPathingAnchor = (s: State, slot: number): boolean => {
   if ((flags & Role.Mobile) === 0 || (flags & (Role.Structure | Role.Air)) !== 0) return false;
   if (!inFiringLockout(s, slot)) return false;
   const order = e.order[slot]!;
-  return order === Order.Attack || order === Order.AttackMove || order === Order.Idle;
+  return order === Order.Attack ||
+    order === Order.AttackMove ||
+    order === Order.Hold ||
+    order === Order.Idle;
 };

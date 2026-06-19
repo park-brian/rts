@@ -260,6 +260,9 @@ const validateCommand = (x: unknown): Command => {
     case 'stop': {
       return { t: 'stop', unit: readNonNegativeInt(unit, 'invalid stop command') };
     }
+    case 'hold': {
+      return { t: 'hold', unit: readNonNegativeInt(unit, 'invalid hold command') };
+    }
     default:
       return fail(`unknown command type ${t}`);
   }
