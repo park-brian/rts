@@ -6,7 +6,7 @@ import type { CommandResult, PlayerCommands } from './commands/types.ts';
 import { census } from './systems/census.ts';
 import { applyCommands } from './commands/ingest.ts';
 import { construction } from './systems/construction.ts';
-import { production } from './systems/production.ts';
+import { production } from './systems/production/index.ts';
 import { research } from './systems/research.ts';
 import { harvest } from './systems/harvest.ts';
 import { abilities } from './systems/abilities.ts';

@@ -357,6 +357,8 @@ Done when:
   now mainly retains shared dispatch plus rally/train context handling.
 - Moved rally and train apply logic into their command-family modules, leaving `commands/specs.ts`
   as the command registry plus the remaining shared move-destination and supply-reservation context.
+- Moved the production tick system to `systems/production/index.ts` as a no-behavior staging step
+  for later larva, completion placement, spawn-rally, and internal-product extraction.
 
 ## Review Checklist
 

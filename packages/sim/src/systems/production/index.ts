@@ -3,23 +3,23 @@
 // system does no supply bookkeeping. Race-agnostic: a produced *worker* (by role)
 // auto-mines the nearest *resource* (by role).
 
-import type { State } from '../entity/world.ts';
-import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../entity/world.ts';
-import { trySpawnUnit } from '../entity/factory.ts';
-import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
-import { fx, isqrt } from '../fixed.ts';
-import { pickPatch } from './harvest.ts';
-import { effectiveSpeed } from './status.ts';
-import { isPowered } from '../power.ts';
-import { isLiftedStructureFlags } from '../terran-mobility.ts';
-import { completeInternalProduct } from '../internal-products.ts';
-import { LARVA_MAX, countLarvae } from '../larva.ts';
-import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
-import { isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
-import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
-import { issueTravelOrder } from '../travel-intent.ts';
-import { canPlayerGatherTargetSlot } from '../resource-targets.ts';
-import { producedUnitRallyIntent } from '../commands/intent.ts';
+import type { State } from '../../entity/world.ts';
+import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../../entity/world.ts';
+import { trySpawnUnit } from '../../entity/factory.ts';
+import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount, sec } from '../../data.ts';
+import { fx, isqrt } from '../../fixed.ts';
+import { pickPatch } from '../harvest.ts';
+import { effectiveSpeed } from '../status.ts';
+import { isPowered } from '../../power.ts';
+import { isLiftedStructureFlags } from '../../terran-mobility.ts';
+import { completeInternalProduct } from '../../internal-products.ts';
+import { LARVA_MAX, countLarvae } from '../../larva.ts';
+import { activeAddonParentSlot, isAddonKind } from '../../addon.ts';
+import { isContained, loadUnitInto, withinLoadRange } from '../../cargo.ts';
+import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../../movement-slots.ts';
+import { issueTravelOrder } from '../../travel-intent.ts';
+import { canPlayerGatherTargetSlot } from '../../resource-targets.ts';
+import { producedUnitRallyIntent } from '../../commands/intent.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);
