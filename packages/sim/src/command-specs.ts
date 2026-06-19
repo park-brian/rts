@@ -34,6 +34,7 @@ import { issueTravelOrder } from './travel-intent.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
 import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
+import { validateCancelBuildCommand } from './cancel-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
@@ -141,18 +142,6 @@ const validateMine = (s: State, player: number, command: Extract<Command, { t: '
   if (internalProductCapacity(s, slot, Kind.SpiderMine) <= 0) return reject('missing-requirement');
   if (!hasInternalProductReady(s, slot, Kind.SpiderMine)) return reject('target-not-allowed');
   if (!canSpawnEntity(s)) return reject('capacity-full');
-  return { ok: true };
-};
-
-const validateCancelBuild = (s: State, player: number, command: Extract<Command, { t: 'cancelBuild' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if (e.morphFromKind[slot] !== Kind.None) return { ok: true };
-  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] === 1 ||
-      (e.buildCostMinerals[slot] === 0 && e.buildCostGas[slot] === 0)) {
-    return reject('target-not-allowed');
-  }
   return { ok: true };
 };
 
@@ -303,7 +292,7 @@ const addonSpec: CommandSpec<Extract<Command, { t: 'addon' }>> = {
 };
 
 const cancelBuildSpec: CommandSpec<Extract<Command, { t: 'cancelBuild' }>> = {
-  validate: validateCancelBuild,
+  validate: validateCancelBuildCommand,
   apply(s, _player, command): void {
     cancelFoundation(s, slotOf(command.building));
   },

@@ -1535,6 +1535,9 @@ Rework slices:
    - Research command legality now lives in `research-command.ts`, preserving active add-on,
      power, lifted-building, duplicate/max-level, prerequisite, level-scaled cost, and research apply
      behavior in `command-specs.ts`.
+   - Cancel-build legality now lives in `cancel-command.ts`, preserving unfinished foundation,
+     morph-cancel, stale/wrong-owner, and target-not-allowed behavior while `command-specs.ts` keeps
+     cancel apply/refund behavior unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.
