@@ -7,7 +7,7 @@ import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { snapBuildAnchor } from '../src/spatial/footprint.ts';
 import { placementForStructure, validateCommand } from '../src/commands/validate.ts';
-import { canPlayerGatherTarget, isGatherTarget } from '../src/resource-targets.ts';
+import { canPlayerGatherTarget, isGatherTarget } from '../src/mechanics/resources.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command } from '../src/commands/types.ts';
 import { stepWorld } from '../src/tick.ts';

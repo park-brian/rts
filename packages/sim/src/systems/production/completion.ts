@@ -3,7 +3,7 @@ import type { State } from '../../entity/world.ts';
 import { canSpawnEntity, nearest, NONE, slotOf } from '../../entity/world.ts';
 import { trySpawnUnit } from '../../entity/factory.ts';
 import { fx, isqrt } from '../../fixed.ts';
-import { canPlayerGatherTargetSlot } from '../../resource-targets.ts';
+import { canPlayerGatherTargetSlot } from '../../mechanics/resources.ts';
 import { effectiveSpeed } from '../status.ts';
 import { applySpawnRally, type RallyMove } from './rally.ts';
 import { finishCurrentProduction } from './queue.ts';

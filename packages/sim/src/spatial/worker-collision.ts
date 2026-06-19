@@ -1,7 +1,7 @@
 import type { State } from '../entity/world.ts';
 import { isAlive, NONE, slotOf } from '../entity/world.ts';
 import { Order, ResourceType, Role, Units } from '../data.ts';
-import { isGatherTargetSlot } from '../resource-targets.ts';
+import { isGatherTargetSlot } from '../mechanics/resources.ts';
 
 const isWorkerResourceType = (type: number): boolean =>
   type === ResourceType.Minerals || type === ResourceType.Gas;

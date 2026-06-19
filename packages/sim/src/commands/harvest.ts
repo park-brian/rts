@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Order, Role } from '../data.ts';
-import { canPlayerGatherTargetSlot } from '../resource-targets.ts';
+import { canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
 import {

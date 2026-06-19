@@ -24,7 +24,7 @@ import { isContained } from '../cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
-import { canPlayerGatherTarget, isGatherTarget, isGatherTargetSlot } from '../resource-targets.ts';
+import { canPlayerGatherTarget, isGatherTarget, isGatherTargetSlot } from '../mechanics/resources.ts';
 
 const HARVEST_DOCK_EPSILON = fx(1);
 

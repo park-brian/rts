@@ -39,7 +39,7 @@ export * from './entity/work-queue.ts';
 export * from './entity/lifecycle.ts';
 export * from './mechanics/upgrades.ts';
 export * from './rally.ts';
-export * from './resource-targets.ts';
+export * from './mechanics/resources.ts';
 export * from './ability-availability.ts';
 export * from './entity/world.ts';
 export * from './spatial/pathing.ts';

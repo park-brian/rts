@@ -1,7 +1,7 @@
 import { Role, Units, isLarvaSourceKind } from './data.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { isAlive, nearest, slotOf, NONE, type State } from './entity/world.ts';
-import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
+import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './mechanics/resources.ts';
 
 export type RallyEndpoint = { x: number; y: number; target: number };
 

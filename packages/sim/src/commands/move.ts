@@ -2,7 +2,7 @@ import type { Command } from './types.ts';
 import { Kind, Role } from '../data.ts';
 import { isContained, sameTeam } from '../cargo.ts';
 import { commandMoveSpeed } from '../terran-mobility.ts';
-import { isGatherTargetSlot } from '../resource-targets.ts';
+import { isGatherTargetSlot } from '../mechanics/resources.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, slotOf } from '../entity/world.ts';
 import { issueTravelOrder } from '../travel-intent.ts';

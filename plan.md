@@ -435,6 +435,8 @@ Done when:
   export while removing another root-level map concern.
 - Moved match setup under `map/setup.ts`, since it is the map-to-initial-state bridge rather than
   a runtime system.
+- Moved shared resource/gather-target legality under `mechanics/resources.ts`, giving harvest,
+  rally, command validation, worker phasing, and production rally one resource-rule owner.
 
 ## Review Checklist
 
