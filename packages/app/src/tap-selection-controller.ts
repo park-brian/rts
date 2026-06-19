@@ -47,7 +47,7 @@ export class TapSelectionController {
     }
 
     if (armed.t === 'attackMove') {
-      if (this.queueAttackMode(hit, tx, ty)) clearArmedCommand();
+      if (this.queueAttackMode(hit, tx, ty, opts.shift === true)) clearArmedCommand();
       return;
     }
 
@@ -111,7 +111,9 @@ export class TapSelectionController {
     let queued = false;
     const s = g.sim.fullState();
     for (const id of g.selection) {
-      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'desktop');
+      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'desktop', {
+        queueTravel: opts.shift === true,
+      });
       if (command) {
         g.queued.push(command);
         queued = true;
@@ -174,13 +176,13 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queueAttackMode(hit: number, x: number, y: number): boolean {
+  private queueAttackMode(hit: number, x: number, y: number, queueTravel = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
     let queued = false;
     for (const id of this.mobileSelection(e)) {
-      for (const command of attackModeCandidates(s, g.human, id, { hit, x, y })) {
+      for (const command of attackModeCandidates(s, g.human, id, { hit, x, y }, { queueTravel })) {
         g.queued.push(command);
         queued = true;
       }

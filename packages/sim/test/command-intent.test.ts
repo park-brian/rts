@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Ability, Kind, Tech, TILE, Units } from '../src/data/index.ts';
+import { Ability, Kind, Order, Tech, TILE, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map/core.ts';
 import {
@@ -127,6 +127,29 @@ test('armed attack mode attacks enemies, amoves points, and rejects friendly tar
     { t: 'amove', unit: marine, x: tc(14), y: tc(8) },
   ]);
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }), []);
+});
+
+test('queued smart intent only appends validated travel commands', () => {
+  const s = makeState(open(), 2, 12115);
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
+  const enemy = spawnUnit(s, Kind.Marine, 1, tc(10), tc(8));
+  const slot = slotOf(marine);
+
+  assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }, 'desktop', { queueTravel: true }), [
+    { t: 'move', unit: marine, x: tc(12), y: tc(8), target: leader, queue: true },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(11), y: tc(8) }, { queueTravel: true }), [
+    { t: 'amove', unit: marine, x: tc(11), y: tc(8), queue: true },
+  ]);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueTravel: true }), [
+    { t: 'attack', unit: marine, target: enemy },
+  ]);
+
+  s.e.order[slot] = Order.Move;
+  s.e.orderQueueLen[slot] = 4;
+  assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, 'desktop', { queueTravel: true }), []);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, { queueTravel: true }), []);
 });
 
 test('armed harvest mode queues every selected valid worker for a gather target', () => {

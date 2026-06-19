@@ -133,9 +133,13 @@ Remaining work:
   - AI/RL visibility slice is done for queued travel: object observations and caller-owned
     observation buffers expose own queued travel orders, encoded actions preserve the `queue` flag
     for move / attack-move, and command masks can ask the shared validator for append-vs-replace
-    legality. Remaining queue work: wire desktop Shift and mobile queue mode through the app,
-    show queued waypoints/orders in the renderer, and extend append semantics to the other command
-    families with explicit interruption tests.
+    legality.
+  - Desktop Shift slice is done for queued travel: Shift-right-click smart move/follow and
+    Shift-armed attack-move point commands set the shared `queue` flag after validator-backed
+    command-intent checks, while enemy attacks and other non-travel smart commands keep their
+    current immediate semantics. Remaining queue work: add mobile queue mode, show queued
+    waypoints/orders in the renderer, and extend append semantics to the other command families
+    with explicit interruption tests.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
 - Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only

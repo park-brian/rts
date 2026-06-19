@@ -199,7 +199,7 @@ export class InputGestureController {
     const dbl = now - this.lastTapT < 300 && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < 24;
     this.lastTapT = now;
     this.lastTap = p;
-    const hitOpts = { preferredHit: this.pressHit };
+    const hitOpts = { preferredHit: this.pressHit, shift: p.shiftKey };
     if (this.isDesktop() && button === 2) this.game.desktopSmartTap(p.x, p.y, hitOpts);
     else if (this.isDesktop()) {
       if (ui.armedCommand.value.t !== 'none') this.game.tap(p.x, p.y, hitOpts);

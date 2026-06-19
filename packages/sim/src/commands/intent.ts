@@ -24,6 +24,10 @@ export type SmartCommandTarget = {
   y: number;
 };
 
+export type SmartCommandOptions = {
+  queueTravel?: boolean;
+};
+
 export type ProducedUnitRallyIntent =
   | { kind: 'none' }
   | { kind: 'gather-near'; x: number; y: number }
@@ -127,12 +131,21 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
+const queueTravelCommand = <T extends Extract<Command, { t: 'move' | 'amove' }>>(
+  command: T,
+  opts: SmartCommandOptions,
+): T => {
+  if (opts.queueTravel !== true) return command;
+  return { ...command, queue: true };
+};
+
 export const smartCommandCandidates = (
   s: State,
   player: number,
   actor: number,
   target: SmartCommandTarget,
   scheme: SmartCommandScheme,
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   void scheme;
   const e = s.e;
@@ -158,7 +171,7 @@ export const smartCommandCandidates = (
     if (actorIsStructure) {
       commands.push({ t: 'rally', building: actor, x: target.x, y: target.y, target: target.hit });
     } else {
-      commands.push({ t: 'move', unit: actor, x: target.x, y: target.y, target: target.hit });
+      commands.push(queueTravelCommand({ t: 'move', unit: actor, x: target.x, y: target.y, target: target.hit }, opts));
     }
 
     const candidate = firstValid(s, player, commands);
@@ -166,7 +179,7 @@ export const smartCommandCandidates = (
   }
 
   if (actorIsStructure) return valid(s, player, { t: 'rally', building: actor, x: target.x, y: target.y });
-  return valid(s, player, { t: 'move', unit: actor, x: target.x, y: target.y });
+  return valid(s, player, queueTravelCommand({ t: 'move', unit: actor, x: target.x, y: target.y }, opts));
 };
 
 export const attackModeCandidates = (
@@ -174,6 +187,7 @@ export const attackModeCandidates = (
   player: number,
   actor: number,
   target: SmartCommandTarget,
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   const e = s.e;
   if (!isAlive(e, actor)) return [];
@@ -181,7 +195,7 @@ export const attackModeCandidates = (
   if (targetSlot >= 0 && sameTeam(s, player, e.owner[targetSlot]!)) return [];
   return targetSlot >= 0 && isEnemy(s, player, e.owner[targetSlot]!)
     ? valid(s, player, { t: 'attack', unit: actor, target: target.hit })
-    : valid(s, player, { t: 'amove', unit: actor, x: target.x, y: target.y });
+    : valid(s, player, queueTravelCommand({ t: 'amove', unit: actor, x: target.x, y: target.y }, opts));
 };
 
 export const harvestModeCandidates = (

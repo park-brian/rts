@@ -297,6 +297,43 @@ test('desktop right click attacks enemies and moves on empty ground', () => {
   }]);
 });
 
+test('desktop shift right click queues travel commands only', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const leader = spawnUnit(s, Kind.Marine, 0, fx(500), fx(400));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(560), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, leader);
+  g.fastForward(1);
+
+  const ground = { x: g.viewW / 2 + 80, y: g.viewH / 2 + 80 };
+  g.desktopSmartTap(ground.x, ground.y, { shift: true });
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    ...fixedPointAt(g, ground),
+    queue: true,
+  }]);
+
+  g.queued = [];
+  const leaderPoint = screenOf(g, leader);
+  g.desktopSmartTap(leaderPoint.x, leaderPoint.y, { shift: true });
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    ...fixedPointAt(g, leaderPoint),
+    target: leader,
+    queue: true,
+  }]);
+
+  g.queued = [];
+  const enemyPoint = screenOf(g, enemy);
+  g.desktopSmartTap(enemyPoint.x, enemyPoint.y, { shift: true });
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+});
+
 test('desktop right click keeps smart-command semantics while attack mode is armed', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
@@ -315,6 +352,34 @@ test('desktop right click keeps smart-command semantics while attack mode is arm
     y: ((g.camY + (g.viewH / 2 + 80) / g.zoom) * ONE) | 0,
   }]);
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
+test('desktop shift armed attack-move queues point travel but not target attacks', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(500), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, enemy);
+  g.fastForward(1);
+  ui.armedCommand.value = { t: 'attackMove' };
+
+  const ground = { x: g.viewW / 2 + 80, y: g.viewH / 2 + 80 };
+  g.tap(ground.x, ground.y, { shift: true });
+  assert.deepEqual(g.queued, [{
+    t: 'amove',
+    unit: marine,
+    ...fixedPointAt(g, ground),
+    queue: true,
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
+  g.queued = [];
+  ui.armedCommand.value = { t: 'attackMove' };
+  const enemyPoint = screenOf(g, enemy);
+  g.tap(enemyPoint.x, enemyPoint.y, { shift: true });
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
 });
 
 test('desktop right click follows ordinary friendly units', () => {

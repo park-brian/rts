@@ -169,6 +169,31 @@ test('desktop armed right click still routes to smart command', () => {
   assert.equal(calls.smart, 1);
 });
 
+test('desktop shift reaches smart and armed command taps', () => {
+  const canvas = new FakeCanvas();
+  const { game } = makeGame();
+  const seen: Array<{ path: string; shift?: boolean }> = [];
+  game.desktopSmartTap = (_x: number, _y: number, opts: { shift?: boolean }): void => {
+    seen.push({ path: 'smart', shift: opts.shift });
+  };
+  game.tap = (_x: number, _y: number, opts: { shift?: boolean }): void => {
+    seen.push({ path: 'tap', shift: opts.shift });
+  };
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('pointerdown', pointer(1, 20, 20, { button: 2, shiftKey: true }));
+  canvas.fire('pointerup', pointer(1, 20, 20, { button: 2, shiftKey: true }));
+  ui.armedCommand.value = { t: 'attackMove' };
+  canvas.fire('pointerdown', pointer(2, 40, 40, { shiftKey: true }));
+  canvas.fire('pointerup', pointer(2, 40, 40, { shiftKey: true }));
+
+  assert.deepEqual(seen, [
+    { path: 'smart', shift: true },
+    { path: 'tap', shift: true },
+  ]);
+});
+
 test('desktop tap carries pointer-down hit through pointer-up for moving targets', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
