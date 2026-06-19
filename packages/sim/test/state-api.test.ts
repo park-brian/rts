@@ -87,6 +87,59 @@ test('buffer observation reports truncation and count-delimits stale rows', () =
   assert.equal(counts.truncated, 1);
 });
 
+test('observe exposes own active order intent without leaking enemy destinations', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 2083, vision: true });
+  const overlord = spawn(Kind.Overlord, 0, fx(500), fx(500));
+  const enemy = spawn(Kind.SCV, 1, fx(540), fx(500));
+
+  sim.step([
+    { player: 0, cmds: [{ t: 'patrol', unit: overlord, x: fx(700), y: fx(520) }] },
+    { player: 1, cmds: [{ t: 'move', unit: enemy, x: fx(900), y: fx(500) }] },
+  ]);
+
+  const obs = sim.observe(0);
+  const ownView = obs.entities.find((v) => v.id === overlord)!;
+  assert.equal(ownView.order, Order.Patrol);
+  assert.equal(ownView.orderTarget, NONE);
+  assert.equal(ownView.intentTarget, NONE);
+  assert.equal(ownView.combatTarget, NONE);
+  assert.equal(ownView.tx, fx(700));
+  assert.equal(ownView.ty, fx(520));
+  assert.equal(ownView.patrolX, fx(500));
+  assert.equal(ownView.patrolY, fx(500));
+
+  const enemyView = obs.entities.find((v) => v.id === enemy)!;
+  assert.equal(enemyView.orderTarget, NONE);
+  assert.equal(enemyView.intentTarget, NONE);
+  assert.equal(enemyView.combatTarget, NONE);
+  assert.equal(enemyView.tx, 0);
+  assert.equal(enemyView.ty, 0);
+  assert.equal(enemyView.patrolX, 0);
+  assert.equal(enemyView.patrolY, 0);
+
+  const buffers = createObservationBuffers(s.map, { entities: 32 });
+  const counts = writeObservation(s, 0, buffers);
+  const rowFor = (id: number): number => {
+    for (let i = 0; i < counts.entities; i++) {
+      if (buffers.entities[i * OBS_ENTITY_STRIDE] === id) return i * OBS_ENTITY_STRIDE;
+    }
+    return -1;
+  };
+  const ownRow = rowFor(overlord);
+  const enemyRow = rowFor(enemy);
+  assert.notEqual(ownRow, -1);
+  assert.notEqual(enemyRow, -1);
+  assert.deepEqual([...buffers.entities.slice(ownRow + 7, ownRow + 15)], [
+    Order.Patrol, NONE, NONE, NONE, fx(700), fx(520), fx(500), fx(500),
+  ]);
+  assert.deepEqual([...buffers.entities.slice(enemyRow + 8, enemyRow + 15)], [
+    NONE, NONE, NONE, 0, 0, 0, 0,
+  ]);
+
+  ownView.tx = 0;
+  assert.equal(sim.observe(0).entities.find((v) => v.id === overlord)!.tx, fx(700));
+});
+
 test('observe returns active own queues without leaking enemy queues', () => {
   const { sim, state: s, spawn } = simScenario({ players: 2, seed: 209, vision: true });
   const e = s.e;

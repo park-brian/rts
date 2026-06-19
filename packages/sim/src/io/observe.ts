@@ -5,7 +5,7 @@
 
 import type { State } from '../entity/world.ts';
 import { eid, isAlive, NEUTRAL, NONE, slotOf } from '../entity/world.ts';
-import { EffectKind, Kind, TECH_CAP, Units, TILE, isLarvaSourceKind } from '../data/index.ts';
+import { EffectKind, Kind, TECH_CAP, TILE, isLarvaSourceKind } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { canDetect } from '../mechanics/detection.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
@@ -18,7 +18,14 @@ import { ORDER_QUEUE_CAP, queuedTravelOrderAt } from '../entity/order-queue.ts';
 export type EntityView = {
   id: number; kind: number; owner: number;
   x: number; y: number; hp: number; built: number; order: number;
+  orderTarget: number; intentTarget: number; combatTarget: number;
+  tx: number; ty: number; patrolX: number; patrolY: number;
 };
+
+type EntityIntentView = Pick<
+  EntityView,
+  'orderTarget' | 'intentTarget' | 'combatTarget' | 'tx' | 'ty' | 'patrolX' | 'patrolY'
+>;
 
 export type QueueView = {
   id: number;
@@ -120,8 +127,10 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 2;
-export const OBS_ENTITY_STRIDE = 8; // id, kind, owner, x, y, hp, built, order
+export const OBSERVATION_SCHEMA_VERSION = 3;
+// id, kind, owner, x, y, hp, built, order, orderTarget, intentTarget,
+// combatTarget, tx, ty, patrolX, patrolY
+export const OBS_ENTITY_STRIDE = 15;
 export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
 export const OBS_ORDER_QUEUE_STRIDE = 2 + ORDER_QUEUE_CAP * 4; // id, len, then order,target,x,y per queued travel entry
 export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
@@ -304,8 +313,33 @@ const coverageView = (s: State, i: number, radius: number): CoverageView => ({
   radius,
 });
 
-const writeEntity = (out: Int32Array, row: number, s: State, i: number): void => {
+const hiddenEntityIntent = {
+  orderTarget: NONE,
+  intentTarget: NONE,
+  combatTarget: NONE,
+  tx: 0,
+  ty: 0,
+  patrolX: 0,
+  patrolY: 0,
+} satisfies EntityIntentView;
+
+const entityIntentView = (
+  e: State['e'],
+  i: number,
+  own: boolean,
+): EntityIntentView => own ? {
+  orderTarget: e.target[i]!,
+  intentTarget: e.intentTarget[i]!,
+  combatTarget: e.combatTarget[i]!,
+  tx: e.tx[i]!,
+  ty: e.ty[i]!,
+  patrolX: e.patrolX[i]!,
+  patrolY: e.patrolY[i]!,
+} : hiddenEntityIntent;
+
+const writeEntity = (out: Int32Array, row: number, s: State, i: number, own: boolean): void => {
   const e = s.e;
+  const intent = entityIntentView(e, i, own);
   let p = row * OBS_ENTITY_STRIDE;
   out[p++] = eid(e, i);
   out[p++] = e.kind[i]!;
@@ -315,6 +349,13 @@ const writeEntity = (out: Int32Array, row: number, s: State, i: number): void =>
   out[p++] = e.hp[i]!;
   out[p++] = e.built[i]!;
   out[p++] = e.order[i]!;
+  out[p++] = intent.orderTarget;
+  out[p++] = intent.intentTarget;
+  out[p++] = intent.combatTarget;
+  out[p++] = intent.tx;
+  out[p++] = intent.ty;
+  out[p++] = intent.patrolX;
+  out[p++] = intent.patrolY;
 };
 
 const writeQueue = (out: Int32Array, row: number, q: QueueView): void => {
@@ -527,7 +568,7 @@ export const writeObservation = (s: State, player: number, out: ObservationBuffe
     }
     const pushed = pushRow(entities, entityCap);
     truncated |= pushed.truncated;
-    if (pushed.row >= 0) writeEntity(out.entities, pushed.row, s, i);
+    if (pushed.row >= 0) writeEntity(out.entities, pushed.row, s, i, own);
     entities++;
   }
 
@@ -635,6 +676,7 @@ export const observe = (s: State, player: number): Observation => {
     entities.push({
       id: eid(e, i), kind: e.kind[i]!, owner: e.owner[i]!,
       x: e.x[i]!, y: e.y[i]!, hp: e.hp[i]!, built: e.built[i]!, order: e.order[i]!,
+      ...entityIntentView(e, i, own),
     });
   }
   const larvaCounts = new Map<number, number>();

@@ -277,6 +277,9 @@ Remaining work:
 - Keep validator/action-mask parity for every command family and ability target mode.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
+  - Active order observation slice is done: object observations and caller-owned entity buffers now
+    expose own command target, intent target, combat target, destination point, and Patrol return
+    endpoint, while visible enemy rows keep those intent fields hidden to avoid leaking future plans.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
 - Add ML benchmark lanes for:
   - action masks;
@@ -530,6 +533,8 @@ Done when:
   range without chasing.
 - Added Patrol as a first-class command/card/hotkey action with serialized route endpoints and
   combat-aware two-point movement.
+- Exposed active own order intent in fair-play object and buffer observations while preserving
+  hidden enemy destination/target secrecy.
 
 ## Review Checklist
 
