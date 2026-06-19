@@ -126,9 +126,9 @@ Remaining work:
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
   cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
   producer version of the same idea, not a separate UI-only concept.
-- Continue splitting production into named sub-systems for queueing, refunds, and completion
-  placement. Larva ticking, produced-unit rally policy, and internal-product completion are already
-  split out.
+- Continue splitting production refunds into a named sub-system. Queue advancement, larva ticking,
+  produced-unit rally policy, internal-product completion, egg completion, and normal unit
+  completion placement are already split out.
 - Route Spider Mines, Scarabs, Interceptors, and Nuclear Missiles through named internal-product
   helpers so `specialAmmo` does not become a hidden multi-purpose protocol.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
@@ -363,6 +363,8 @@ Done when:
 - Extracted produced-unit rally handling and deterministic rally move slot assignment into
   `systems/production/rally.ts`, keeping load, gather, travel, and slot grouping policy together.
 - Extracted internal-product production completion into `systems/production/internal-products.ts`.
+- Extracted shared production queue advancement and normal/egg product completion placement into
+  `systems/production/queue.ts` and `systems/production/completion.ts`.
 
 ## Review Checklist
 
