@@ -499,8 +499,12 @@ Remaining work:
     - Commitment-memory slice is done: valid tactical responder assignments now persist for a short,
       deterministic window using entity ids, refresh while the incident stays active or remembered,
       and re-rank only after expiry or when assigned units leave the retaskable candidate set.
-      Remaining reservation work: expose leftover force to lower-priority harass, attack, scout, and
-      counterattack directors instead of suppressing all offense while any incident exists.
+    - Leftover-attack slice is done: the live bot now sends only uncommitted retaskable army into
+      attack waves while a tactical incident is active, so small base intrusions do not freeze all
+      map pressure. Offensive spell casting still stays suppressed during active defense until caster
+      reservations are explicit.
+      Remaining reservation work: expose leftover force to lower-priority harass, scout, and
+      counterattack directors as those directors become first-class intents.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first

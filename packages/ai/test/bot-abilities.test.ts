@@ -401,6 +401,26 @@ test('bot does not pull every army unit for a small base intrusion', () => {
   assert.deepEqual(attacks.map((c) => c.unit), marines.slice(0, 2));
 });
 
+test('bot attacks with uncommitted army while a small defense squad responds', () => {
+  const scenario = botScenario({ seed: 816 });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marines = Array.from({ length: 6 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
+
+  const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 4 });
+  const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
+    c.t === 'attack' && c.target === enemy);
+  const offense = cmds.filter((c): c is Extract<BotCommand, { t: 'amove' }> =>
+    c.t === 'amove' && c.x === scenario.pos(enemyBase).x && c.y === scenario.pos(enemyBase).y);
+
+  assert.equal(defense.length, 2);
+  assert.equal(offense.length, 4);
+  assert.deepEqual(defense.map((c) => c.unit), marines.slice(0, 2));
+  assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
+});
+
 test('bot keeps defending remembered incidents after vision drops', () => {
   const scenario = botScenario({ seed: 812, vision: true });
   const s = scenario.state;

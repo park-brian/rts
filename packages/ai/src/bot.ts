@@ -450,11 +450,15 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const memory = prepareMemory(p, s.tick);
     const incident = rememberTacticalIncidents(memory, visibleIncidents, s.tick)[0];
     const threat = incident ? incidentTarget(s, incident) : NONE;
+    let attackCandidates = retaskableArmy;
     if (incident) {
       const focusX = threat !== NONE ? e.x[threat]! : incident.x;
       const focusY = threat !== NONE ? e.y[threat]! : incident.y;
       if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
-      for (const a of commitTacticalResponders(s, memory, retaskableArmy, incident, threat, s.tick)) {
+      const defenders = commitTacticalResponders(s, memory, retaskableArmy, incident, threat, s.tick);
+      const defenderSet = new Set(defenders);
+      attackCandidates = retaskableArmy.filter((slot) => !defenderSet.has(slot));
+      for (const a of defenders) {
         if (threat !== NONE && maybeLaySpiderMine(s, cmds, a, threat)) continue;
         if (threat !== NONE && maybeBurrowForFight(s, cmds, a, threat)) continue;
         if (maybeTransformForFight(s, cmds, a, focusX, focusY)) continue;
@@ -465,7 +469,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
           cmds.push({ t: 'amove', unit: eid(e, a), x: focusX, y: focusY });
         }
       }
-    } else if (army >= c.attackThreshold) {
+    }
+
+    if ((incident ? attackCandidates.length : army) >= c.attackThreshold) {
       // 6) Offense: send idle army to the nearest enemy structure (else any enemy).
       let tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
       if (tgt === NONE) tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!));
@@ -474,8 +480,8 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
           builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, e.x[tgt]!, e.y[tgt]!);
           minerals = budget.minerals;
         }
-        castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
-        for (const a of retaskableArmy) {
+        if (!incident) castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
+        for (const a of attackCandidates) {
           if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) continue;
           if (maybeLaySpiderMine(s, cmds, a, tgt)) continue;
           if (maybeBurrowForFight(s, cmds, a, tgt)) continue;
