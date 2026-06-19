@@ -38,9 +38,7 @@ const currentCombatTarget = (s: State, slot: number): number => {
 };
 
 const rememberCombatTarget = (s: State, slot: number, target: number): void => {
-  const id = eid(s.e, target);
-  s.e.combatTarget[slot] = id;
-  s.e.target[slot] = id; // compatibility mirror until legacy target readers are gone.
+  s.e.combatTarget[slot] = eid(s.e, target);
 };
 
 const clearCombatTarget = (s: State, slot: number): void => {

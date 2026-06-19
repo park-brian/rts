@@ -1,13 +1,18 @@
 import { Order, Role, Units, weaponForTarget } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
-import { isAlive, slotOf, type State } from '../entity/world.ts';
+import { isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 import { effectiveCooldown } from '../systems/status.ts';
+
+const firingTarget = (s: State, slot: number): number => {
+  const e = s.e;
+  return e.combatTarget[slot] !== NONE ? e.combatTarget[slot]! : e.target[slot]!;
+};
 
 export const FIRING_PATHING_LOCKOUT_TICKS = 4;
 
 const inFiringLockout = (s: State, slot: number): boolean => {
   const e = s.e;
-  const target = e.target[slot]!;
+  const target = firingTarget(s, slot);
   if (e.wcd[slot]! <= 0 || !isAlive(e, target)) return false;
   const attacker = Units[e.kind[slot]!]!;
   const victim = Units[e.kind[slotOf(target)]!]!;

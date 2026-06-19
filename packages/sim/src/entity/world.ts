@@ -51,9 +51,9 @@ export type Entities = {
   burrowed: Uint8Array;
   flags: Uint16Array; // Role bitflags (copied from the unit def at spawn)
   order: Uint8Array;
-  target: Int32Array; // Legacy EntityId or NONE (current behavior source of truth)
-  intentTarget: Int32Array; // Future movement/interact/follow target, or NONE
-  combatTarget: Int32Array; // Future forced/acquired combat target, or NONE
+  target: Int32Array; // Command-owned EntityId or NONE; acquired combat lives in combatTarget.
+  intentTarget: Int32Array; // Movement/interact/follow target, or NONE.
+  combatTarget: Int32Array; // Forced/acquired combat target, or NONE.
   orderQueueLen: Uint8Array;
   orderQueue0: Uint8Array;
   orderQueue1: Uint8Array;

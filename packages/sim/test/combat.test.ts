@@ -187,7 +187,7 @@ test('attack-move acquisition uses body edges for large targets', () => {
 
   assert.ok(e.hp[target]! < hpBefore);
   assert.equal(e.combatTarget[slotOf(marine)], cc);
-  assert.equal(e.target[slotOf(marine)], cc);
+  assert.equal(e.target[slotOf(marine)], NONE);
   assert.ok(topDownEdgeDistanceSq(s, slotOf(marine), target) <= tiles(4) ** 2);
 });
 
@@ -209,7 +209,7 @@ test('combat acquisition writes combatTarget without destroying movement intent'
   sim.step([]);
 
   assert.equal(e.combatTarget[marine], enemy);
-  assert.equal(e.target[marine], enemy);
+  assert.equal(e.target[marine], NONE);
   assert.equal(e.intentTarget[marine], leader);
 
   kill(s, slotOf(enemy));

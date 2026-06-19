@@ -12,6 +12,7 @@ import { Kind, Order, ResourceType, TILE } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map/core.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/spatial/pathing-anchor.ts';
+import { isSettledGroundUnit } from '../src/systems/settle.ts';
 import { placementForStructure } from '../src/commands/validate.ts';
 import { applyCommands } from '../src/commands/ingest.ts';
 import { workersCanShareResourceRouteCollision } from '../src/spatial/worker-collision.ts';
@@ -623,6 +624,26 @@ test('settled ground units keep newly issued non-move orders', () => {
   assert.equal(s.e.combatTarget[marine], targetId);
   assert.equal(s.e.intentTarget[marine], NONE);
   assert.equal(s.e.settled[marine], 0);
+});
+
+test('acquired combat targets keep firing units out of settled movement state', () => {
+  const s = makeState(sliceMap(), 2, 191);
+  const marineId = spawnUnit(s, Kind.Marine, 0, tc(20), tc(20));
+  const targetId = spawnUnit(s, Kind.Zealot, 1, tc(22), tc(20));
+  const marine = slotOf(marineId);
+  const e = s.e;
+
+  e.order[marine] = Order.Idle;
+  e.target[marine] = NONE;
+  e.intentTarget[marine] = NONE;
+  e.combatTarget[marine] = targetId;
+  e.wcd[marine] = 15;
+  e.settled[marine] = 1;
+  e.tx[marine] = e.x[marine]!;
+  e.ty[marine] = e.y[marine]!;
+
+  assert.equal(isPathingAnchor(s, marine), true);
+  assert.equal(isSettledGroundUnit(s, marine), false);
 });
 
 test('same-target move batches assign deterministic destination slots', () => {

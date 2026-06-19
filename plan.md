@@ -503,6 +503,9 @@ Done when:
 - Added the first deterministic queued-order kernel for travel commands: move, follow, and
   attack-move can append to a four-entry per-entity queue, queued orders are serialized/hashed, replay
   JSON preserves the `queue` flag, and normal replacement commands clear queued travel.
+- Removed the acquired-combat-target compatibility mirror: transient combat acquisition now stays in
+  `combatTarget`, while pathing anchors read that owner directly and `target` remains for
+  command-owned entity targets such as harvest, build, repair, direct attack, add-ons, and cargo.
 
 ## Review Checklist
 
