@@ -10,7 +10,9 @@ import type { Command, CommandRejectReason } from '../src/commands.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
-type EntityKey = 'marine' | 'enemy' | 'friendly' | 'firebat' | 'mutalisk' | 'depot' | 'hidden' | 'reaver' | 'stale';
+type EntityKey =
+  | 'marine' | 'enemy' | 'friendly' | 'firebat' | 'mutalisk' | 'depot' | 'hidden'
+  | 'reaver' | 'contained' | 'disabled' | 'unfinished' | 'stale';
 type AttackCase = { unit: EntityKey | number; target: EntityKey | number };
 
 const expectAttack = (input: AttackCase, expected: Expected): void => {
@@ -25,11 +27,30 @@ const expectAttack = (input: AttackCase, expected: Expected): void => {
   const depot = scenario.spawn(Kind.SupplyDepot, 0, fx(280), fx(300));
   const hidden = scenario.spawn(Kind.Zergling, 1, fx(360), fx(300));
   const reaver = scenario.spawn(Kind.Reaver, 0, fx(300), fx(360));
+  const contained = scenario.spawn(Kind.Marine, 0, fx(300), fx(390));
+  const disabled = scenario.spawn(Kind.Marine, 0, fx(330), fx(390));
+  const unfinished = scenario.spawn(Kind.Marine, 0, fx(360), fx(390));
 
   e.burrowed[slotOf(hidden)] = 1;
+  e.container[slotOf(contained)] = scenario.spawn(Kind.Dropship, 0, fx(300), fx(420));
+  e.lockdownTimer[slotOf(disabled)] = 10;
+  e.built[slotOf(unfinished)] = 0;
   kill(s, enemy);
 
-  const ids = { marine, enemy, friendly, firebat, mutalisk, depot, hidden, reaver, stale: enemy };
+  const ids = {
+    marine,
+    enemy,
+    friendly,
+    firebat,
+    mutalisk,
+    depot,
+    hidden,
+    reaver,
+    contained,
+    disabled,
+    unfinished,
+    stale: enemy,
+  };
   const resolve = (value: EntityKey | number): number => typeof value === 'number' ? value : ids[value];
   const resolved: AttackCommand = { t: 'attack', unit: resolve(input.unit), target: resolve(input.target) };
 
@@ -45,6 +66,18 @@ test('targeted attack validation lives in the attack command module', () => {
   });
   expectAttack({ unit: 999_999, target: 'mutalisk' }, { ok: false, reason: 'stale-entity' });
   expectAttack({ unit: 'depot', target: 'mutalisk' }, {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  expectAttack({ unit: 'contained', target: 'mutalisk' }, {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  expectAttack({ unit: 'disabled', target: 'mutalisk' }, {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  expectAttack({ unit: 'unfinished', target: 'mutalisk' }, {
     ok: false,
     reason: 'missing-capability',
   });

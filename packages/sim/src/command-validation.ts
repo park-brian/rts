@@ -1,6 +1,8 @@
 import type { CommandRejectReason } from './commands.ts';
 import { isActiveAddon } from './addon.ts';
+import { isContained } from './cargo.ts';
 import { isPowered } from './power.ts';
+import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { isAlive, slotOf } from './world.ts';
@@ -35,6 +37,10 @@ type ProducerUseOptions = {
   rejectLifted?: boolean;
   rejectIllusion?: boolean;
   missingRoleReason?: CommandRejectReason;
+};
+
+type ReceiveOrderOptions = {
+  rejectBurrowed?: boolean;
 };
 
 export type ResourceAmount = {
@@ -74,5 +80,21 @@ export const canUseProducer = (
   if (options.rejectLifted && isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
   if (options.requireActiveAddon && !isActiveAddon(s, slot)) return reject('missing-capability');
   if (options.requirePowered && !isPowered(s, slot)) return reject('missing-capability');
+  return { ok: true, slot };
+};
+
+export const canReceiveOrder = (
+  s: State,
+  player: number,
+  id: number,
+  options: ReceiveOrderOptions = {},
+): SlotCommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, id, player);
+  if (slot === null) return rejectMissingOwnedSlot(s, id);
+  if (isContained(s, slot)) return reject('missing-capability');
+  if (options.rejectBurrowed && e.burrowed[slot] === 1) return reject('missing-capability');
+  if (isDisabled(e, slot)) return reject('missing-capability');
+  if (e.built[slot] !== 1) return reject('missing-capability');
   return { ok: true, slot };
 };

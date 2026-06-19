@@ -49,7 +49,6 @@ Remaining work:
   - `isBusy`;
   - `isTransitioning`;
   - `isDisabled`;
-  - `canReceiveOrder`;
   - `canTargetEntity`;
 - Split command ingestion by command family without changing replay semantics.
 - Split production into named sub-systems for queueing, internal products, larva spawn, spawn rally,
@@ -245,6 +244,7 @@ Done when:
 - Finished command actor ownership / stale entity gate migration.
 - Extracted shared producer preflight for train, research, and add-on validation.
 - Extracted shared validation-time affordability checks.
+- Began shared direct-order preflight with `canReceiveOrder` for move and attack validation.
 
 ## Review Checklist
 

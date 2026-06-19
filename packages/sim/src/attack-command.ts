@@ -5,21 +5,18 @@ import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
 import { canUseWeaponNow } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
-import { isDisabled } from './systems/status.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
 
 export const validateAttackCommand = (s: State, player: number, command: AttackCommand): CommandValidation => {
   const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
-  if (isContained(s, slot)) return reject('missing-capability');
-  if (isDisabled(e, slot)) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('missing-capability');
+  const actor = canReceiveOrder(s, player, command.unit);
+  if (!actor.ok) return actor;
+  const slot = actor.slot;
   if (!isPowered(s, slot)) return reject('missing-capability');
   if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
   const attacker = Units[e.kind[slot]!]!;
