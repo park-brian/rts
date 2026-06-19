@@ -458,6 +458,8 @@ Remaining work:
     Move button after the selection/hotkey path already existed.
   - Command-union surface audit is done: an app test keys off `COMMAND_TYPES` and verifies every sim
     command type has a player-facing selection, command-card, armed-command, or smart-tap path.
+  - Worker expansion town-hall exposure is already guarded: app tap semantics prove SCV, Probe, and
+    Drone build cards expose Command Center, Nexus, and Hatchery as armed placement options.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
@@ -512,6 +514,8 @@ Done when:
   and Armory, with producer, duplicate, queue, and budget coverage.
 - Added Terran bot producer reservations for add-on/research chains so one command batch cannot
   ask the same parent/add-on pair to both build an add-on and research from that chain.
+- Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
+  treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.
