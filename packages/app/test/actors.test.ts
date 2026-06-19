@@ -30,6 +30,7 @@ test('projectile actor presentation stays readable without changing gameplay rad
 test('internal actors do not steal selection hit tests', () => {
   assert.equal(isUserCommandableKind(Kind.Scarab), false);
   assert.equal(isUserCommandableKind(Kind.Interceptor), false);
+  assert.equal(isUserCommandableKind(Kind.SpiderMine), false);
   assert.equal(isUserCommandableKind(Kind.Larva), true);
 
   const g = new Game('play', 7331);
@@ -37,19 +38,24 @@ test('internal actors do not steal selection hit tests', () => {
   const s = g.sim.fullState();
   const scarab = spawnUnit(s, Kind.Scarab, 0, fx(1200), fx(1200));
   const interceptor = spawnUnit(s, Kind.Interceptor, 0, fx(1240), fx(1200));
+  const mine = spawnUnit(s, Kind.SpiderMine, 0, fx(1280), fx(1200));
   const scarabSlot = slotOf(scarab);
   const interceptorSlot = slotOf(interceptor);
+  const mineSlot = slotOf(mine);
   g.centerOn(1200, 1200);
 
   assert.equal(g.canSeeEntity(scarabSlot), true);
   assert.equal(g.canSeeEntity(interceptorSlot), true);
+  assert.equal(g.canSeeEntity(mineSlot), true);
   assert.notEqual(g.hitTest(1200, 1200), scarab);
   assert.notEqual(g.hitTest(1240, 1200), interceptor);
+  assert.notEqual(g.hitTest(1280, 1200), mine);
 
   const p = screenOf(g, scarab);
-  g.boxSelect(p.x - 20, p.y - 20, p.x + 60, p.y + 20);
+  g.boxSelect(p.x - 20, p.y - 20, p.x + 100, p.y + 20);
 
   assert.equal(g.selection.has(eid(s.e, scarabSlot)), false);
   assert.equal(g.selection.has(eid(s.e, interceptorSlot)), false);
+  assert.equal(g.selection.has(eid(s.e, mineSlot)), false);
   assert.equal(g.selection.size, 0);
 });

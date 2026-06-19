@@ -191,6 +191,10 @@ Migration plan:
 - Fold Spider Mine wakeup into the same actor-lifecycle vocabulary only after proving the trigger
   phase can express "stationary burrowed sensor becomes normal attacker" without hiding the BW rules
   for detection, air exclusion, target validity, wake range, and splash.
+  - Descriptor proof slice is done: Spider Mine now has actor metadata for non-commandability,
+    stationary-trigger lifecycle, normal post-wake combat participation, trigger range, target
+    policy, and wake order. The explicit mine tick remains the interpreter until a shared actor
+    lifecycle loop is demonstrably clearer than the current short deterministic scan.
 - Treat buildings as actors with capabilities: production, add-ons, lift/land movement, cargo,
   Nydus transport, detector/static weapon, power/creep provider, resource depot, and rally/gather
   policy. Avoid building-only special cases when the same capability could be read from data.
@@ -1330,6 +1334,9 @@ Done when:
 - Promoted Scarab and Interceptor descriptors from child actor terminology to actor metadata under
   `mechanics/actors.ts`, adding explicit lifecycle and steering fields, deleting the temporary
   old-path module, and migrating app/tests/renderers off the old public names.
+- Added Spider Mine to the actor descriptor table with indexed actor lookup, descriptor-owned wake
+  range/target/order metadata, and app selection coverage proving non-commandable actors do not
+  steal hit tests.
 - Moved shared active-effect radius and coverage helpers under `mechanics/effects.ts`, deleting the
   old root helper path while preserving the stable package export.
 - Collapsed the root production queue helper into `commands/production.ts`, so train validation,

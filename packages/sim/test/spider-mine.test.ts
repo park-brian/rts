@@ -11,6 +11,13 @@ import {
   internalProductReadyCount,
   refillInternalProduct,
 } from '../src/mechanics/internal-products.ts';
+import {
+  ActorDefByKind,
+  actorDef,
+  actorTrigger,
+  isUserCommandableKind,
+  participatesInNormalCombat,
+} from '../src/mechanics/actors.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { validateMineCommand } from '../src/commands/mine.ts';
@@ -48,6 +55,20 @@ test('spider mine charges are internal product descriptor-backed', () => {
   assert.equal(internalProductReadyCount(s, vulture, Kind.SpiderMine), SPIDER_MINE_CHARGES);
   assert.equal(consumeInternalProduct(s, vulture, Kind.SpiderMine), true);
   assert.equal(internalProductReadyCount(s, vulture, Kind.SpiderMine), SPIDER_MINE_CHARGES - 1);
+});
+
+test('spider mine wakeup is actor descriptor-backed', () => {
+  assert.equal(ActorDefByKind[Kind.SpiderMine], actorDef(Kind.SpiderMine));
+  assert.equal(actorDef(Kind.SpiderMine)?.commandable, false);
+  assert.equal(actorDef(Kind.SpiderMine)?.lifecycle, 'stationary-trigger');
+  assert.equal(actorDef(Kind.SpiderMine)?.steering, 'normal');
+  assert.equal(isUserCommandableKind(Kind.SpiderMine), false);
+  assert.equal(participatesInNormalCombat(Kind.SpiderMine), true);
+  assert.deepEqual(actorTrigger(Kind.SpiderMine), {
+    range: tiles(3),
+    target: 'enemy-detected-ground-mobile',
+    wakeOrder: Order.Attack,
+  });
 });
 
 test('vultures lay researched spider mines with finite charges', () => {
