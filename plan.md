@@ -245,18 +245,20 @@ Remaining work:
     and descriptor-driven area statuses through one helper.
   - Radial falloff slice is done: weapon splash and Nuclear Strike damage bands now measure the
     target entity's top-down interaction hull against the impact point, sharing one falloff helper
-    instead of center-distance branches. Remaining: audit non-radial mechanics separately,
-    especially Lurker line width, Mutalisk bounce selection, and Spider Mine wake range.
+    instead of center-distance branches.
   - Spider Mine wake range slice is done: burrowed mines acquire ground targets by top-down
     entity-to-entity hull distance, with a regression proving body-edge wakeup when the target
-    center remains outside the trigger circle. Remaining non-radial audits: Lurker line width and
-    Mutalisk bounce selection.
+    center remains outside the trigger circle.
   - Mutalisk bounce selection slice is done: bounce chaining now picks nearby enemies by top-down
     entity hull distance, with a large-body regression covering targets whose centers are outside
-    bounce range. Remaining non-radial audit: Lurker line width.
+    bounce range.
   - Lurker line-width slice is done: spine splash now measures the target entity's top-down
     interaction rectangle against the line segment from lurker to target, with a regression proving
     body-edge hits when the target center is outside the old one-tile line check.
+  - Ability and weapon geometry audit slice is complete for point target reach, point-area
+    membership, radial falloff, Spider Mine wake range, Mutalisk bounce selection, and Lurker line
+    width. Future geometry work should come from newly discovered mechanics, not the old
+    center-distance audit list.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
