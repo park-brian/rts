@@ -4,6 +4,7 @@ import { Ability, EffectKind, Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { CAP, canSpawnEntity, eid, spawnEffect, slotOf } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
+import type { CommandResult } from '../src/commands/types.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
@@ -24,6 +25,25 @@ test('empty command steps return caller-isolated result arrays', () => {
   const second = sim.step([]);
   assert.equal(second.length, 0);
   assert.equal(sim.lastCommandResults.length, 0);
+});
+
+test('step command receipts are caller-owned while last results are immutable snapshots', () => {
+  const { sim } = simScenario({ players: 1, seed: 1405 });
+  const results = sim.step([{ player: 0, cmds: [{ t: 'stop', unit: eid(sim.state.e, 1) }] }]);
+
+  assert.equal(results.length, 1);
+  assert.notEqual(sim.lastCommandResults, results);
+  assert.deepEqual(sim.lastCommandResults, results);
+  assert.equal(Object.isFrozen(sim.lastCommandResults), true);
+  assert.equal(Object.isFrozen(sim.lastCommandResults[0]), true);
+
+  results.push({ player: 0, index: 1, t: 'stop', ok: true });
+  assert.equal(sim.lastCommandResults.length, 1);
+  (results[0] as CommandResult & { t: 'move' }).t = 'move';
+  assert.equal(sim.lastCommandResults[0]?.t, 'stop');
+  assert.throws(() => {
+    (sim.lastCommandResults as CommandResult[]).push({ player: 0, index: 2, t: 'stop', ok: true });
+  }, /Cannot add property|object is not extensible|read only/);
 });
 
 test('entity-capacity command validation rejects spawning commands without throwing', () => {

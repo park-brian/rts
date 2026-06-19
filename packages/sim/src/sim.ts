@@ -21,6 +21,11 @@ const cloneBatch = (batch: PlayerCommands[]): PlayerCommands[] =>
     .filter((pc) => pc.cmds.length > 0)
     .map((pc) => ({ player: pc.player, cmds: pc.cmds.map((c) => ({ ...c }) as Command) }));
 
+const EMPTY_COMMAND_RESULTS: readonly Readonly<CommandResult>[] = Object.freeze([]);
+
+const snapshotCommandResults = (results: readonly CommandResult[]): readonly Readonly<CommandResult>[] =>
+  Object.freeze(results.map((result) => Object.freeze({ ...result } as CommandResult)));
+
 export class Sim {
   state: State;
   seed = 0;
@@ -28,7 +33,7 @@ export class Sim {
   /** Per-tick recorded command batches (frames[t] applied at tick t), or null when not recording. */
   frames: PlayerCommands[][] | null = null;
   /** Deterministic receipts for the most recent step's command batch. */
-  lastCommandResults: CommandResult[] = [];
+  lastCommandResults: readonly Readonly<CommandResult>[] = EMPTY_COMMAND_RESULTS;
 
   constructor(opts: SimOptions) {
     this.factions = Array.from({ length: opts.players }, (_, i) => opts.factions?.[i] ?? Terran);
@@ -45,7 +50,7 @@ export class Sim {
     sim.seed = 0;
     sim.factions = [];
     sim.frames = null;
-    sim.lastCommandResults = [];
+    sim.lastCommandResults = EMPTY_COMMAND_RESULTS;
     return sim;
   }
 
@@ -56,8 +61,9 @@ export class Sim {
   /** Advance one logical tick with this tick's commands (one bundle per player). */
   step(batch: PlayerCommands[] = []): CommandResult[] {
     if (this.frames && !this.state.result.over) this.frames.push(cloneBatch(batch));
-    this.lastCommandResults = stepWorld(this.state, batch);
-    return this.lastCommandResults;
+    const results = stepWorld(this.state, batch);
+    this.lastCommandResults = results.length > 0 ? snapshotCommandResults(results) : EMPTY_COMMAND_RESULTS;
+    return results;
   }
 
   /** Full god-view state (rendering / scripted AI). */

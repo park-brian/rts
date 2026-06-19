@@ -292,6 +292,9 @@ Remaining work:
     generation, and four-env sequential batch stepping.
 - Add event-stream benchmark coverage if a public gameplay event stream grows.
 - Keep step results caller-owned or immutable so batch training cannot corrupt state between envs.
+  - Step result ownership slice is done: `Sim.step()` returns the raw caller-owned result array from
+    the tick, while `sim.lastCommandResults` stores an immutable per-tick snapshot so external
+    trainers, app code, or tests cannot mutate the retained command receipt.
 
 Done when:
 
@@ -545,6 +548,8 @@ Done when:
   observations, bot generation, and N-env batch stepping as completed roadmap coverage.
 - Exposed first-class Move on the command card and desktop hotkeys, closing the most obvious
   player-available sim command missing from the UI surface.
+- Made `Sim.lastCommandResults` an immutable snapshot while preserving caller-owned `Sim.step()`
+  receipts for batch trainers and headless loops.
 
 ## Review Checklist
 
