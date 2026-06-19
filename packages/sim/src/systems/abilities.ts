@@ -4,7 +4,7 @@ import {
   type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,
 } from '../data.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
-import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../damage.ts';
+import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../mechanics/damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
 import { distanceSq } from '../spatial.ts';

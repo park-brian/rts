@@ -379,6 +379,8 @@ Done when:
   old root `power.ts` helper while preserving the stable package export.
 - Moved Terran add-on parent linkage, placement, and start helpers under `mechanics/addons.ts`,
   deleting the old root `addon.ts` helper while preserving the stable package export.
+- Moved shared weapon, spell, plague, matrix, and nuke damage application under
+  `mechanics/damage.ts`, deleting the old root `damage.ts` helper.
 
 ## Review Checklist
 

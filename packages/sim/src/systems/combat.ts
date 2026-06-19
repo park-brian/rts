@@ -7,7 +7,7 @@
 import type { State } from '../entity/world.ts';
 import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../entity/world.ts';
 import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type Weapon, weaponForTarget } from '../data.ts';
-import { applyWeaponDamage } from '../damage.ts';
+import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
 import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../grid.ts';

@@ -4,7 +4,7 @@ import { Abilities, Ability, EffectKind, Kind, Order, Role, SplashPx, Tech, Trai
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/detection.ts';
-import { applyIndependentDamage } from '../src/damage.ts';
+import { applyIndependentDamage } from '../src/mechanics/damage.ts';
 import { consumeReadyNuke, hasReadyNuke, readyNukeSilo } from '../src/mechanics/nuke.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
