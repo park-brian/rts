@@ -31,10 +31,11 @@ import { applyAbilityCommand, validateAbilityCommand } from './ability-command.t
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import { clearVelocity } from './systems/move.ts';
 import { issueTravelOrder } from './travel-intent.ts';
-import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
+import { isGatherTargetSlot } from './resource-targets.ts';
 import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 import { validateCancelBuildCommand } from './cancel-command.ts';
+import { validateHarvestCommand } from './harvest-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
@@ -232,19 +233,6 @@ const validateAttack = (s: State, player: number, command: Extract<Command, { t:
   return { ok: true };
 };
 
-const validateHarvest = (s: State, player: number, command: Extract<Command, { t: 'harvest' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot)) return reject('missing-capability');
-  if ((e.flags[slot]! & Role.Worker) === 0) return reject('missing-capability');
-  if (!isAlive(e, command.patch)) return reject('target-not-found');
-  const target = slotOf(command.patch);
-  if (!canPlayerGatherTargetSlot(s, player, target)) return reject('target-not-allowed');
-  return { ok: true };
-};
-
 const validateRepair = (s: State, player: number, command: Extract<Command, { t: 'repair' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -315,7 +303,7 @@ const buildSpec: CommandSpec<Extract<Command, { t: 'build' }>> = {
 };
 
 const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
-  validate: validateHarvest,
+  validate: validateHarvestCommand,
   apply(s, _player, command): void {
     const e = s.e;
     const slot = slotOf(command.unit);

@@ -1538,6 +1538,9 @@ Rework slices:
    - Cancel-build legality now lives in `cancel-command.ts`, preserving unfinished foundation,
      morph-cancel, stale/wrong-owner, and target-not-allowed behavior while `command-specs.ts` keeps
      cancel apply/refund behavior unchanged.
+   - Harvest command legality now lives in `harvest-command.ts`, preserving worker/burrow/illusion,
+     stale/wrong-owner, disabled-unit, and resource target gates while `command-specs.ts` keeps harvest
+     order side effects unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.
