@@ -426,6 +426,60 @@ Remaining work:
     producer after Hydralisk Den, and the Zerg build tests use named macro prefixes so Spire,
     Queen's Nest, Nydus, Defiler Mound, and Ultralisk Cavern scenarios cannot silently skip earlier
     tech producers.
+- Replace the current single-pass scripted bot priority ladder with a small intent/macro engine.
+  Real SC2 tournament bots and full-game research agents usually win with hierarchy rather than one
+  flat action chooser: directors read game facts, propose macro/tactical intents, a scheduler
+  arbitrates scarce resources and actors, and executors emit validated game commands. Use that
+  architecture, but keep it deterministic, typed-array friendly where it touches hot sim data, and
+  much smaller than a general behavior-tree framework.
+  - `BotFacts`: a cheap per-tick summary derived from `State`, not a second sim. It should include
+    own bases, workers, larvae, idle production, supply, resources, tech/producers, available army,
+    local threats, visible enemy composition, last-known enemy positions, inferred invisible threats,
+    unsafe/blocked expansion sites, and destroyed prerequisite structures that must be rebuilt.
+  - `BotMemory`: tiny deterministic controller memory for facts that cannot be read from the current
+    frame alone: failed expansion attempts and reasons, suspected cloaked/burrowed threat zones,
+    last-seen enemy tech/composition, reserved expansion sites, scout reports, and ongoing intents.
+    Memory must update from observed state and tick order only; replay determinism still comes from
+    the command stream.
+  - Directors propose intents only; they do not spend resources or emit commands directly. Initial
+    directors should be `DefenseDirector`, `EconomyDirector`, `ProductionDirector`, `TechDirector`,
+    `ExpansionDirector`, `CombatDirector`, `HarassDirector`, and `CounterDirector`.
+  - Intents are game concepts with urgency, actor needs, costs, and expiry, for example
+    `defend-base`, `get-detection`, `clear-site`, `rebuild-tech`, `add-production`, `expand`,
+    `spend-larva`, `train-counter`, `research-upgrade`, `attack-wave`, `harass`, and `retreat`.
+  - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
+    squads, spell casters, and locations for the current command batch. Lower-priority intents see
+    only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
+    one producer/builder cannot be overbooked before the sim applies commands.
+  - Executors are the only layer that emits `Command`s. They must use `validateCommand` and shared
+    command helpers so AI, UI, replay, and future RL masks keep one legality surface.
+  - Intent outcomes should be explicit: `done`, `waiting`, `blocked`, or `failed`. Avoid encoding
+    every weird case directly; classify failures as `unsafe-location`, `occupied-location`,
+    `missing-detection`, `missing-prerequisite`, `insufficient-force`, `no-builder`, `no-producer`,
+    `no-production-capacity`, `supply-blocked`, `resource-starved`, or `path-blocked`, then let
+    directors react with follow-up intents.
+  - Expansion must be a lifecycle, not a one-shot build command: choose site, scout/verify when
+    uncertain, reserve builder/resources/site, execute, monitor blocked/path/unsafe outcomes, clear
+    or detect if needed, choose another site when better, and retry without command spam.
+  - Defense must outrank normal macro. If a base or mineral line is attacked, if workers are dying
+    without a visible attacker, or if an expansion builder encounters an invisible/burrowed blocker,
+    the bot should create `defend-base`, `get-detection`, `clear-site`, or `retreat-workers`
+    intents before spending on optional tech.
+  - Race macro should share the same intent machinery while preserving real race differences:
+    Terran/Protoss add production structures when income exceeds queue capacity; Zerg adds Hatchery
+    capacity and expands because more simultaneous production means more larvae. Tech prerequisites
+    should be rebuilt ASAP if destroyed, but unique prerequisite buildings such as Spawning Pool,
+    Hydralisk Den, Evolution Chamber, Cybernetics Core, Academy, Engineering Bay, and Armory should
+    not be duplicated unless a later strategy explicitly asks for redundancy.
+  - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
+    become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
+    `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
+    idle producers/larvae exist and safe spending options are available.
+  - Migration order: first add the vocabulary and pure fact helpers beside the current bot; next
+    migrate defense and destroyed-prerequisite rebuilds; then migrate Zerg larva/Hatchery capacity
+    and expansion lifecycle; then migrate Terran/Protoss production capacity; then move tech,
+    counters, harassment, and combat squads into directors. Keep each step validator-backed and
+    benchmarked, and delete old priority-ladder branches as their intents take over.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
