@@ -5,6 +5,7 @@ export * from './macro-build.ts';
 export * from './macro-capacity.ts';
 export * from './macro-combat.ts';
 export * from './macro-defense.ts';
+export * from './macro-intents.ts';
 export * from './macro-morph.ts';
 export * from './macro-nydus.ts';
 export * from './macro-placement.ts';

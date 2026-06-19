@@ -729,10 +729,13 @@ Remaining work:
     and benchmarked, and delete old priority-ladder branches as their intents take over. Do not use
     the roadmap validator subagent for routine continuation; it slows iteration and usually agrees
     with the local code/test evidence anyway.
-  - First fact/risk slice is done: `packages/ai/src/macro.ts` now owns the bot intent/failure
-    vocabulary, deterministic bot memory shape, `BotFacts`, fog-aware visible enemy collection,
-    completed-or-pending structure summaries for rebuild planning, and a compact weapon-risk tile
-    matrix that covers visible map state or the whole map in god-vision mode.
+  - First fact/risk slice is done: `packages/ai/src/macro.ts` now owns the deterministic bot memory
+    shape, `BotFacts`, fog-aware visible enemy collection, completed-or-pending structure summaries
+    for rebuild planning, and a compact weapon-risk tile matrix that covers visible map state or the
+    whole map in god-vision mode.
+  - Intent-vocabulary ownership slice is done: `packages/ai/src/macro-intents.ts` now owns bot
+    intent kinds, failure reasons, intent rows, and intent results, giving future directors a pure
+    type home instead of packing future scheduler language into the facts/risk module.
   - Pressure-policy extraction slice is done: attack-wave commitment and focus selection now live in
     `packages/ai/src/macro-pressure.ts`, with the explicit rule that freezing is worse than sending a
     usable force to create pressure after a deterministic wait. Under fair fog, pressure uses known
@@ -933,6 +936,8 @@ Done when:
 - Exposed pressure commitment as an explicit idle/waiting/commit decision with a forced marker for
   waited-out under-threshold attacks, making the no-freeze policy testable for future intent
   scheduling.
+- Moved the bot intent/failure vocabulary into `packages/ai/src/macro-intents.ts`, leaving
+  `macro.ts` focused on facts, memory, risk, and tactical incidents.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.
