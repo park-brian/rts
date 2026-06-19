@@ -638,6 +638,9 @@ Remaining work:
     should be rebuilt ASAP if destroyed, but unique prerequisite buildings such as Spawning Pool,
     Hydralisk Den, Evolution Chamber, Cybernetics Core, Academy, Engineering Bay, and Armory should
     not be duplicated unless a later strategy explicitly asks for redundancy.
+    - First Zerg capacity slice is done: after normal larva spending, a larva-starved Zerg bot with
+      a large mineral bank adds bounded repeatable Hatchery capacity through shared build validation,
+      while pending Hatcheries and remaining idle larvae suppress the anti-float build.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while

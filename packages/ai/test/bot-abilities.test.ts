@@ -209,6 +209,25 @@ const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number 
   kinds.forEach((kind, i) => scenario.spawn(kind, 0, base.x + fx(120 + i * 40), base.y));
 };
 
+const zergMacroHatcheryScenario = (seed: number): BotScenario => {
+  const scenario = botScenario({ seed, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  makeHive(scenario, hatchery);
+  spawnZergTechChain(scenario, base, [
+    Kind.SpawningPool,
+    Kind.HydraliskDen,
+    Kind.EvolutionChamber,
+    Kind.Spire,
+    Kind.QueensNest,
+    Kind.NydusCanal,
+    Kind.DefilerMound,
+    Kind.UltraliskCavern,
+  ]);
+  scenario.resources(0, 1_200, 1_000);
+  return scenario;
+};
+
 const riskIndex = (risk: ReturnType<typeof collectBotFacts>['risk'], x: number, y: number): number =>
   tileY(y) * risk.w + tileX(x);
 const protectedRegion = (facts: ReturnType<typeof collectBotFacts>, kind: 'base' | 'mineral-line') => {
@@ -1145,6 +1164,30 @@ test('zerg bot respects nydus endpoint local network, duplicate, pending, and bu
   broke.scenario.resources(0, Units[Kind.NydusCanal]!.minerals - 1, 1_000);
 
   expectNoBotBuild(broke.scenario, Zerg, Kind.NydusCanal, zergNydusEndpointOptions);
+});
+
+test('zerg bot adds macro hatcheries when larva-starved with a mineral bank', () => {
+  const scenario = zergMacroHatcheryScenario(506);
+
+  const build = expectBotBuildsLegal(scenario, Zerg, Kind.Hatchery, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 });
+
+  assert.equal(build.kind, Kind.Hatchery);
+});
+
+test('zerg bot does not add macro hatcheries while one is already pending', () => {
+  const scenario = zergMacroHatcheryScenario(507);
+  const drone = scenario.entity(Kind.Drone, 0);
+  scenario.state.e.buildKind[slotOf(drone)] = Kind.Hatchery;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.Hatchery), false);
+});
+
+test('zerg bot does not add macro hatcheries while idle larvae remain', () => {
+  const scenario = zergMacroHatcheryScenario(508);
+  const s = scenario.state;
+  s.players.supplyUsed[0] = s.players.supplyMax[0]!;
+
+  assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(s, 0), Kind.Hatchery), false);
 });
 
 test('zerg bot places a legal defiler mound after a completed hive', () => {
