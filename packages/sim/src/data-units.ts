@@ -654,13 +654,13 @@ export const isLarvaSourceKind = (kind: number): boolean =>
 
 export const WorkerBuildKinds: Record<WorkerRace, number[]> = {
   terran: [
-    Kind.SupplyDepot, Kind.Refinery, Kind.Barracks, Kind.EngineeringBay, Kind.Bunker, Kind.Academy,
-    Kind.Factory, Kind.Armory, Kind.Starport, Kind.ScienceFacility,
+    Kind.CommandCenter, Kind.SupplyDepot, Kind.Refinery, Kind.Barracks, Kind.EngineeringBay, Kind.MissileTurret,
+    Kind.Bunker, Kind.Academy, Kind.Factory, Kind.Armory, Kind.Starport, Kind.ScienceFacility,
   ],
   protoss: [
-    Kind.Pylon, Kind.Assimilator, Kind.Gateway, Kind.Forge, Kind.PhotonCannon, Kind.CyberneticsCore,
-    Kind.ShieldBattery, Kind.RoboticsFacility, Kind.Stargate, Kind.CitadelOfAdun, Kind.TemplarArchives,
-    Kind.RoboticsSupportBay, Kind.Observatory, Kind.FleetBeacon, Kind.ArbiterTribunal,
+    Kind.Nexus, Kind.Pylon, Kind.Assimilator, Kind.Gateway, Kind.Forge, Kind.PhotonCannon,
+    Kind.CyberneticsCore, Kind.ShieldBattery, Kind.RoboticsFacility, Kind.Stargate, Kind.CitadelOfAdun,
+    Kind.TemplarArchives, Kind.RoboticsSupportBay, Kind.Observatory, Kind.FleetBeacon, Kind.ArbiterTribunal,
   ],
   zerg: [
     Kind.Hatchery, Kind.Extractor, Kind.SpawningPool, Kind.EvolutionChamber, Kind.CreepColony,

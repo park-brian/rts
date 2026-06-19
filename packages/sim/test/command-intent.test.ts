@@ -363,6 +363,26 @@ test('worker build command-card options expose sim-owned availability records', 
 
   let depot = workerBuildSelectionOptions(s, 0, [marine, scv]).find((o) => o.id === Kind.SupplyDepot);
   assert.deepEqual(depot, { id: Kind.SupplyDepot, ok: true, representative: scv });
+  assert.deepEqual(
+    workerBuildSelectionOptions(s, 0, [scv]).find((o) => o.id === Kind.CommandCenter),
+    { id: Kind.CommandCenter, ok: true, representative: scv },
+  );
+
+  const expansionCases = [
+    [Kind.Probe, Kind.Nexus],
+    [Kind.Drone, Kind.Hatchery],
+  ] as const;
+  expansionCases.forEach(([workerKind, townHallKind], index) => {
+    const expansionState = makeState(open(), 1, 1240 + index);
+    expansionState.players.minerals[0] = Units[townHallKind]!.minerals;
+    expansionState.players.gas[0] = Units[townHallKind]!.gas;
+    const worker = spawnUnit(expansionState, workerKind, 0, tc(8), tc(8));
+
+    assert.deepEqual(
+      workerBuildSelectionOptions(expansionState, 0, [worker]).find((o) => o.id === townHallKind),
+      { id: townHallKind, ok: true, representative: worker },
+    );
+  });
 
   s.players.minerals[0] = 0;
   depot = workerBuildSelectionOptions(s, 0, [scv]).find((o) => o.id === Kind.SupplyDepot);

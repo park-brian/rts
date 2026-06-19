@@ -766,6 +766,30 @@ test('selected race workers publish their race build palette', () => {
   assert.ok(!buildIds.includes(Kind.SupplyDepot));
 });
 
+test('worker command cards expose expansion town halls for all races', () => {
+  const cases = [
+    ['terran', Kind.SCV, Kind.CommandCenter],
+    ['protoss', Kind.Probe, Kind.Nexus],
+    ['zerg', Kind.Drone, Kind.Hatchery],
+  ] as const;
+
+  cases.forEach(([race, workerKind, townHallKind], index) => {
+    const g = freshGame();
+    g.restart('play', 2250 + index, 1, [race, 'terran'], 0);
+    const s = g.sim.fullState();
+    s.players.minerals[0] = Units[townHallKind]!.minerals;
+    s.players.gas[0] = Units[townHallKind]!.gas;
+    const worker = findEntity(g, workerKind, 0);
+    select(g, [worker]);
+
+    g.fastForward(0);
+
+    const option = ui.selectionView.value.options.build.find((o) => o.id === townHallKind);
+    assert.equal(option?.ok, true);
+    assert.deepEqual(option?.arm, { t: 'place', kind: townHallKind });
+  });
+});
+
 test('zerg worker command card hides lair-gated buildings until tech exists', () => {
   const g = freshGame();
   g.restart('play', 3333, 1, ['zerg', 'terran'], 0);
