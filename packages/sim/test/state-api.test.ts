@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import {
   OBS_ENTITY_STRIDE,
+  OBS_ORDER_QUEUE_STRIDE,
   OBSERVATION_SCHEMA_VERSION,
   createObservationBuffers,
   writeObservation,
 } from '../src/io/observe.ts';
 import { sliceMap } from '../src/map/core.ts';
-import { eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
+import { NONE, eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data/index.ts';
+import { Ability, EffectKind, Kind, Order, Tech, TILE } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { CREEP_RADIUS } from '../src/mechanics/creep.ts';
 import { LARVA_MAX } from '../src/mechanics/larva.ts';
@@ -113,6 +114,46 @@ test('observe returns active own queues without leaking enemy queues', () => {
   const differentKind: number = Kind.Ghost;
   queue.prodKind = differentKind;
   assert.equal(sim.observe(0).queues[0]!.prodKind, Kind.Marine, 'mutating observation queue does not mutate sim queue');
+});
+
+test('observe returns active own queued travel orders without leaking enemy queues', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 2091, vision: true });
+  const marine = spawn(Kind.Marine, 0, fx(500), fx(500));
+  const friendly = spawn(Kind.SCV, 0, fx(560), fx(500));
+  const enemy = spawn(Kind.Marine, 1, fx(600), fx(500));
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(700), y: fx(500) },
+    { t: 'amove', unit: marine, x: fx(740), y: fx(520), queue: true },
+    { t: 'move', unit: marine, x: fx(780), y: fx(500), target: friendly, queue: true },
+  ] }, { player: 1, cmds: [
+    { t: 'move', unit: enemy, x: fx(620), y: fx(500) },
+    { t: 'amove', unit: enemy, x: fx(640), y: fx(500), queue: true },
+  ] }]);
+
+  const obs = sim.observe(0);
+  assert.deepEqual(obs.orderQueues, [{
+    id: marine,
+    entries: [
+      { order: Order.AttackMove, target: NONE, x: fx(740), y: fx(520) },
+      { order: Order.Move, target: friendly, x: fx(780), y: fx(500) },
+    ],
+  }]);
+
+  obs.orderQueues[0]!.entries[0]!.x = 0;
+  assert.equal(sim.observe(0).orderQueues[0]!.entries[0]!.x, fx(740), 'mutating observation order queue does not mutate sim queue');
+
+  const buffers = createObservationBuffers(s.map, { orderQueues: 4 });
+  const counts = writeObservation(s, 0, buffers);
+  assert.equal(counts.orderQueues, 1);
+  const row = 0;
+  let p = row * OBS_ORDER_QUEUE_STRIDE;
+  assert.equal(buffers.orderQueues[p++], marine);
+  assert.equal(buffers.orderQueues[p++], 2);
+  assert.deepEqual([...buffers.orderQueues.slice(p, p + 8)], [
+    Order.AttackMove, NONE, fx(740), fx(520),
+    Order.Move, friendly, fx(780), fx(500),
+  ]);
 });
 
 test('observe returns usable own cargo without leaking enemy cargo', () => {

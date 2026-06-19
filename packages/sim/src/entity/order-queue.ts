@@ -67,6 +67,15 @@ export const clearOrderQueue = (e: Entities, slot: number): void => {
 export const canQueueOrder = (e: Entities, slot: number): boolean =>
   e.orderQueueLen[slot]! < ORDER_QUEUE_CAP;
 
+export const queuedTravelOrderAt = (e: Entities, slot: number, i: number): QueuedTravelOrder | undefined => {
+  if (i < 0 || i >= e.orderQueueLen[slot]!) return undefined;
+  const order = orderColumn(e, i)[slot]! as QueuedTravelOrder['order'];
+  const target = targetColumn(e, i)[slot]!;
+  const x = xColumn(e, i)[slot]!;
+  const y = yColumn(e, i)[slot]!;
+  return target === NONE ? { order, x, y } : { order, x, y, target };
+};
+
 export const setCurrentTravelOrder = (
   s: State,
   slot: number,

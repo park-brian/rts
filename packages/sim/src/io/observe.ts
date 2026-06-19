@@ -13,6 +13,7 @@ import { CREEP_RADIUS, providesCreep } from '../mechanics/creep.ts';
 import { LARVA_MAX, nearestLarvaSource } from '../mechanics/larva.ts';
 import { POWER_RADIUS } from '../mechanics/power.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
+import { ORDER_QUEUE_CAP, queuedTravelOrderAt } from '../entity/order-queue.ts';
 
 export type EntityView = {
   id: number; kind: number; owner: number;
@@ -26,6 +27,18 @@ export type QueueView = {
   prodQueued: number;
   researchKind: number;
   researchTimer: number;
+};
+
+export type OrderQueueEntryView = {
+  order: number;
+  target: number;
+  x: number;
+  y: number;
+};
+
+export type OrderQueueView = {
+  id: number;
+  entries: OrderQueueEntryView[];
 };
 
 export type CargoView = {
@@ -96,6 +109,7 @@ export type Observation = {
   supplyMax: number;
   tech: Uint8Array; // completed tech/upgrade levels for this player only
   queues: QueueView[]; // own active production/research queues
+  orderQueues: OrderQueueView[]; // own queued travel orders
   cargo: CargoView[]; // own contained units grouped by usable transport/garrison
   statuses: StatusView[]; // sparse own energy/status records
   effects: EffectView[]; // fair-play active spatial effects
@@ -106,9 +120,10 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 1;
+export const OBSERVATION_SCHEMA_VERSION = 2;
 export const OBS_ENTITY_STRIDE = 8; // id, kind, owner, x, y, hp, built, order
 export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
+export const OBS_ORDER_QUEUE_STRIDE = 2 + ORDER_QUEUE_CAP * 4; // id, len, then order,target,x,y per queued travel entry
 export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
 export const OBS_STATUS_STRIDE = 20;
 export const OBS_EFFECT_STRIDE = 9; // id, kind, owner, x, y, radius, timer, period, damage
@@ -119,6 +134,7 @@ export const OBS_SCALAR_STRIDE = 7; // schema, tick, player, minerals, gas, supp
 export type ObservationBufferLimits = {
   entities?: number;
   queues?: number;
+  orderQueues?: number;
   cargo?: number;
   cargoUnits?: number;
   statuses?: number;
@@ -134,6 +150,7 @@ export type ObservationBuffers = {
   vision: Uint8Array;
   entities: Int32Array;
   queues: Int32Array;
+  orderQueues: Int32Array;
   cargo: Int32Array;
   cargoUnits: Int32Array;
   statuses: Int32Array;
@@ -146,6 +163,7 @@ export type ObservationBuffers = {
 export type ObservationWriteCounts = {
   entities: number;
   queues: number;
+  orderQueues: number;
   cargo: number;
   cargoUnits: number;
   statuses: number;
@@ -165,6 +183,7 @@ export const createObservationBuffers = (
   vision: new Uint8Array(map.w * map.h),
   entities: new Int32Array((limits.entities ?? 256) * OBS_ENTITY_STRIDE),
   queues: new Int32Array((limits.queues ?? 64) * OBS_QUEUE_STRIDE),
+  orderQueues: new Int32Array((limits.orderQueues ?? 64) * OBS_ORDER_QUEUE_STRIDE),
   cargo: new Int32Array((limits.cargo ?? 32) * OBS_CARGO_STRIDE),
   cargoUnits: new Int32Array(limits.cargoUnits ?? 128),
   statuses: new Int32Array((limits.statuses ?? 128) * OBS_STATUS_STRIDE),
@@ -308,6 +327,35 @@ const writeQueue = (out: Int32Array, row: number, q: QueueView): void => {
   out[p++] = q.researchTimer;
 };
 
+const orderQueueView = (s: State, slot: number): OrderQueueView | undefined => {
+  const len = s.e.orderQueueLen[slot]!;
+  if (len <= 0) return undefined;
+  const entries: OrderQueueEntryView[] = [];
+  for (let i = 0; i < len; i++) {
+    const order = queuedTravelOrderAt(s.e, slot, i);
+    if (order) entries.push({
+      order: order.order,
+      target: order.target ?? NONE,
+      x: order.x,
+      y: order.y,
+    });
+  }
+  return entries.length > 0 ? { id: eid(s.e, slot), entries } : undefined;
+};
+
+const writeOrderQueue = (out: Int32Array, row: number, q: OrderQueueView): void => {
+  let p = row * OBS_ORDER_QUEUE_STRIDE;
+  out[p++] = q.id;
+  out[p++] = q.entries.length;
+  for (let i = 0; i < ORDER_QUEUE_CAP; i++) {
+    const entry = q.entries[i];
+    out[p++] = entry?.order ?? 0;
+    out[p++] = entry?.target ?? NONE;
+    out[p++] = entry?.x ?? 0;
+    out[p++] = entry?.y ?? 0;
+  }
+};
+
 const writeEffect = (out: Int32Array, row: number, s: State, i: number): void => {
   const fx = s.effects;
   let p = row * OBS_EFFECT_STRIDE;
@@ -359,6 +407,7 @@ export const writeObservation = (s: State, player: number, out: ObservationBuffe
   const v = s.vision[player]!;
   let entities = 0;
   let queues = 0;
+  let orderQueues = 0;
   let cargo = 0;
   let cargoUnits = 0;
   let statuses = 0;
@@ -369,6 +418,7 @@ export const writeObservation = (s: State, player: number, out: ObservationBuffe
   let truncated = 0;
   const entityCap = Math.trunc(out.entities.length / OBS_ENTITY_STRIDE);
   const queueCap = Math.trunc(out.queues.length / OBS_QUEUE_STRIDE);
+  const orderQueueCap = Math.trunc(out.orderQueues.length / OBS_ORDER_QUEUE_STRIDE);
   const cargoCap = Math.trunc(out.cargo.length / OBS_CARGO_STRIDE);
   const statusCap = Math.trunc(out.statuses.length / OBS_STATUS_STRIDE);
   const effectCap = Math.trunc(out.effects.length / OBS_EFFECT_STRIDE);
@@ -460,6 +510,13 @@ export const writeObservation = (s: State, player: number, out: ObservationBuffe
         if (pushed.row >= 0) writeQueue(out.queues, pushed.row, queue);
         queues++;
       }
+      const orderQueue = orderQueueView(s, i);
+      if (orderQueue) {
+        const pushed = pushRow(orderQueues, orderQueueCap);
+        truncated |= pushed.truncated;
+        if (pushed.row >= 0) writeOrderQueue(out.orderQueues, pushed.row, orderQueue);
+        orderQueues++;
+      }
     }
     if (!own) {
       if (isContained(s, i)) continue;
@@ -505,6 +562,7 @@ export const writeObservation = (s: State, player: number, out: ObservationBuffe
   return {
     entities: Math.min(entities, entityCap),
     queues: Math.min(queues, queueCap),
+    orderQueues: Math.min(orderQueues, orderQueueCap),
     cargo: Math.min(cargo, cargoCap),
     cargoUnits: Math.min(cargoUnits, out.cargoUnits.length),
     statuses: Math.min(statuses, statusCap),
@@ -522,6 +580,7 @@ export const observe = (s: State, player: number): Observation => {
   const v = s.vision[player]!;
   const entities: EntityView[] = [];
   const queues: QueueView[] = [];
+  const orderQueues: OrderQueueView[] = [];
   const statuses: StatusView[] = [];
   const effects: EffectView[] = [];
   const larva: LarvaSourceView[] = [];
@@ -562,6 +621,8 @@ export const observe = (s: State, player: number): Observation => {
     if (own) {
       const queue = queueView(s, i);
       if (queue) queues.push(queue);
+      const orderQueue = orderQueueView(s, i);
+      if (orderQueue) orderQueues.push(orderQueue);
     }
     if (!own) {
       if (isContained(s, i)) continue;
@@ -594,6 +655,7 @@ export const observe = (s: State, player: number): Observation => {
     supplyMax: s.players.supplyMax[player]!,
     tech: s.players.tech.slice(player * TECH_CAP, (player + 1) * TECH_CAP),
     queues,
+    orderQueues,
     cargo: [...cargoByContainer].map(([container, units]) => ({ container, units })),
     statuses,
     effects,

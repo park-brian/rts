@@ -105,8 +105,10 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'unload', transport: 22, unit: 23, x: fx(14), y: fx(15) },
     { t: 'cancelBuild', building: 24 },
     { t: 'move', unit: 25, x: fx(16), y: fx(17) },
+    { t: 'move', unit: 25, x: fx(16), y: fx(17), queue: true },
     { t: 'attack', unit: 26, target: 27 },
     { t: 'amove', unit: 28, x: fx(18), y: fx(19) },
+    { t: 'amove', unit: 28, x: fx(18), y: fx(19), queue: true },
     { t: 'ability', unit: 29, ability: 3, target: 30, x: fx(20), y: fx(21) },
     { t: 'harvest', unit: 31, patch: 32 },
     { t: 'repair', unit: 33, target: 34 },
@@ -268,6 +270,37 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'attack'), true);
   assert.equal(commandHeadAllowed(mask, 'harvest'), false);
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
+});
+
+test('queued travel action masks use shared validation and full-queue gates', () => {
+  const scenario = simScenario({ players: 1, seed: 9511 });
+  const { sim, state: s, spawn } = scenario;
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const point = { x: fx(500), y: fx(400), queue: true };
+
+  assert.deepEqual(commandForHead(s, marine, 'move', point), { t: 'move', unit: marine, x: point.x, y: point.y, queue: true });
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(520), y: fx(400) },
+    { t: 'move', unit: marine, x: fx(540), y: fx(400), queue: true },
+    { t: 'move', unit: marine, x: fx(560), y: fx(400), queue: true },
+    { t: 'move', unit: marine, x: fx(580), y: fx(400), queue: true },
+    { t: 'move', unit: marine, x: fx(600), y: fx(400), queue: true },
+  ] }]);
+
+  const queuedMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400), queue: true });
+  const replacementMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400) });
+  assert.equal(commandHeadAllowed(queuedMask, 'move'), false);
+  assert.equal(commandHeadAllowed(queuedMask, 'amove'), false);
+  assert.equal(commandHeadAllowed(replacementMask, 'move'), true);
+  assert.deepEqual(decodeAction({ head: 'amove', actor: marine, x: fx(620), y: fx(400), queue: true }), {
+    t: 'amove',
+    unit: marine,
+    x: fx(620),
+    y: fx(400),
+    queue: true,
+  });
 });
 
 test('entity target mask exposes targeted move follow candidates', () => {

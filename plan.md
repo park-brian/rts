@@ -129,9 +129,13 @@ Remaining work:
   - First kernel slice is done for move / attack-move / follow travel: queued travel lives in
     typed-array entity columns, participates in clone/serialize/hash, replays through the `queue`
     command flag, dispatches after current travel settles, and clears on replacement or hard unit
-    state transitions. Remaining queue work: expose queue append in action masks / observations,
-    wire desktop Shift and mobile queue mode through the app, and extend append semantics to the
-    other command families with explicit interruption tests.
+    state transitions.
+  - AI/RL visibility slice is done for queued travel: object observations and caller-owned
+    observation buffers expose own queued travel orders, encoded actions preserve the `queue` flag
+    for move / attack-move, and command masks can ask the shared validator for append-vs-replace
+    legality. Remaining queue work: wire desktop Shift and mobile queue mode through the app,
+    show queued waypoints/orders in the renderer, and extend append semantics to the other command
+    families with explicit interruption tests.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
 - Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only

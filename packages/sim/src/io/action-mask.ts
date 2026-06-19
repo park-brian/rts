@@ -59,6 +59,7 @@ export type CommandMaskOptions = {
   kind?: number;
   tech?: number;
   ability?: number;
+  queue?: boolean;
 };
 export type BuildMaskOptions = {
   x: number;
@@ -74,6 +75,7 @@ export type EncodedAction = {
   kind?: number;
   tech?: number;
   ability?: number;
+  queue?: boolean;
 };
 export type BatchDecodeReservation = {
   player: number;
@@ -177,6 +179,20 @@ const actorPoint = (s: State, actor: number, opts: CommandMaskOptions): { x: num
   return { x: opts.x ?? s.e.x[slot]!, y: opts.y ?? s.e.y[slot]! };
 };
 
+const decodedMove = (actor: number, x: number, y: number, target: number, queue?: boolean): Extract<Command, { t: 'move' }> => {
+  const command: Extract<Command, { t: 'move' }> = target === NONE
+    ? { t: 'move', unit: actor, x, y }
+    : { t: 'move', unit: actor, x, y, target };
+  if (queue === true) command.queue = true;
+  return command;
+};
+
+const decodedAttackMove = (actor: number, x: number, y: number, queue?: boolean): Extract<Command, { t: 'amove' }> => {
+  const command: Extract<Command, { t: 'amove' }> = { t: 'amove', unit: actor, x, y };
+  if (queue === true) command.queue = true;
+  return command;
+};
+
 export const commandHeadIndex = (head: CommandHead): number => COMMAND_HEAD_INDEX[head];
 
 export const commandHeadAllowed = (mask: Uint8Array, head: CommandHead): boolean =>
@@ -213,11 +229,9 @@ export const decodeAction = (action: EncodedAction): Command => {
     case 'cancelBuild':
       return { t: 'cancelBuild', building: action.actor };
     case 'move':
-      return target === NONE
-        ? { t: 'move', unit: action.actor, x, y }
-        : { t: 'move', unit: action.actor, x, y, target };
+      return decodedMove(action.actor, x, y, target, action.queue);
     case 'amove':
-      return { t: 'amove', unit: action.actor, x, y };
+      return decodedAttackMove(action.actor, x, y, action.queue);
     case 'stop':
       return { t: 'stop', unit: action.actor };
     case 'attack':
@@ -260,9 +274,15 @@ export const encodeCommand = (command: Command): EncodedAction => {
     case 'load': return { head: 'load', actor: command.transport, target: command.unit };
     case 'unload': return { head: 'unload', actor: command.transport, target: command.unit, x: command.x, y: command.y };
     case 'cancelBuild': return { head: 'cancelBuild', actor: command.building };
-    case 'move': return { head: 'move', actor: command.unit, x: command.x, y: command.y, target: command.target };
+    case 'move': return {
+      head: 'move', actor: command.unit, x: command.x, y: command.y, target: command.target,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'attack': return { head: 'attack', actor: command.unit, target: command.target };
-    case 'amove': return { head: 'amove', actor: command.unit, x: command.x, y: command.y };
+    case 'amove': return {
+      head: 'amove', actor: command.unit, x: command.x, y: command.y,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'ability': return { head: 'ability', actor: command.unit, ability: command.ability, target: command.target, x: command.x, y: command.y };
     case 'harvest': return { head: 'harvest', actor: command.unit, target: command.patch };
     case 'repair': return { head: 'repair', actor: command.unit, target: command.target };
@@ -500,6 +520,7 @@ export const commandForHead = (
     kind: opts.kind,
     tech: opts.tech,
     ability: opts.ability,
+    queue: opts.queue,
   });
 };
 
@@ -519,6 +540,7 @@ const commandForResolvedPoint = (
   kind: opts.kind,
   tech: opts.tech,
   ability: ability ?? opts.ability,
+  queue: opts.queue,
 });
 
 export const commandHeadMask = (
