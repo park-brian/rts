@@ -9,7 +9,7 @@ import { executePressureIntent, proposePressureIntent } from './macro-offense.ts
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
-import { scheduleTacticalDefense } from './macro-tactics.ts';
+import { executeTacticalDefense, proposeTacticalDefense } from './macro-tactics.ts';
 import { createBotMemory, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
 
@@ -53,12 +53,14 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const memory = prepareMemory(p, s.tick);
-    const { incident, reserve } = scheduleTacticalDefense(
+    const defenseProposal = proposeTacticalDefense(s, facts, memory);
+    const { incident, reserve } = executeTacticalDefense(
       s,
       p,
       cmds,
       facts,
       memory,
+      defenseProposal,
       macro.retaskableArmy,
       macro.casters,
       macro.builderUsed ? macro.builder : NONE,

@@ -681,6 +681,9 @@ Remaining work:
     - Live pressure-director migration slice is done: the built-in bot now calls the pressure
       proposal and executor phases directly, making pressure the first live path with the intended
       director/executor shape while preserving the wrapper for tests and external callers.
+    - Tactical-defense director/executor split slice is done: incident choice now has a proposal
+      phase and responder command emission has an executor phase. The live bot consumes that boundary
+      directly, so defense and pressure now share the same top-level controller shape.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

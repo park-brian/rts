@@ -17,17 +17,30 @@ export type TacticalSchedule = {
   reserve: CombatReserve;
 };
 
-export const scheduleTacticalDefense = (
+export type TacticalDefenseProposal = {
+  incident: TacticalIncident | undefined;
+};
+
+export const proposeTacticalDefense = (
+  s: State,
+  facts: BotFacts,
+  memory: BotMemory,
+): TacticalDefenseProposal => ({
+  incident: rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0],
+});
+
+export const executeTacticalDefense = (
   s: State,
   player: number,
   cmds: Command[],
   facts: BotFacts,
   memory: BotMemory,
+  proposal: TacticalDefenseProposal,
   retaskableArmy: number[],
   casters: number[],
   reservedBuilder: number,
 ): TacticalSchedule => {
-  const incident = rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0];
+  const { incident } = proposal;
   if (!incident) return { incident, reserve: combatReserve([...retaskableArmy]) };
 
   const e = s.e;
@@ -48,4 +61,18 @@ export const scheduleTacticalDefense = (
     incident,
     reserve: combatReserve(available, available.length, true),
   };
+};
+
+export const scheduleTacticalDefense = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  facts: BotFacts,
+  memory: BotMemory,
+  retaskableArmy: number[],
+  casters: number[],
+  reservedBuilder: number,
+): TacticalSchedule => {
+  const proposal = proposeTacticalDefense(s, facts, memory);
+  return executeTacticalDefense(s, player, cmds, facts, memory, proposal, retaskableArmy, casters, reservedBuilder);
 };

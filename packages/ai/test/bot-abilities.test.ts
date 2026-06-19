@@ -11,14 +11,16 @@ import {
   createBot,
   createBotMemory,
   deriveTacticalIncidents,
+  executePressureIntent,
+  executeTacticalDefense,
   missingStructureKinds,
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
   proposePressureIntent,
+  proposeTacticalDefense,
   rankedTacticalResponders,
   schedulePressureOffense,
-  executePressureIntent,
   selectTacticalResponders,
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
@@ -569,6 +571,43 @@ test('bot selects only a bounded ranked squad for small incidents', () => {
   assert.equal(incident.kind, 'base-intrusion');
   assert.equal(responders.length, 2);
   assert.deepEqual(responders, marines.slice(0, 2).map(slotOf));
+});
+
+test('bot tactical defense proposal separates incident choice from command execution', () => {
+  const scenario = botScenario({ seed: 829 });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threat = baseOnlyThreatPoint(collectBotFacts(scenario.state, 0, Terran), base);
+  const marines = Array.from({ length: 4 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
+  const memory = createBotMemory();
+  const cmds: Command[] = [];
+  const facts = collectBotFacts(scenario.state, 0, Terran);
+
+  const proposal = proposeTacticalDefense(scenario.state, facts, memory);
+
+  assert.equal(proposal.incident?.kind, 'base-intrusion');
+  assert.equal(cmds.length, 0);
+  assert.equal(memory.tacticalCommitments.size, 0);
+
+  const result = executeTacticalDefense(
+    scenario.state,
+    0,
+    cmds,
+    facts,
+    memory,
+    proposal,
+    marines.map(slotOf),
+    [],
+    NONE,
+  );
+  const attacks = cmds.filter((cmd): cmd is Extract<BotCommand, { t: 'attack' }> =>
+    cmd.t === 'attack' && cmd.target === enemy);
+
+  assert.equal(result.incident, proposal.incident);
+  assert.equal(result.reserve.defenseActive, true);
+  assert.deepEqual(attacks.map((cmd) => cmd.unit), marines.slice(0, 2));
+  assert.equal(memory.tacticalCommitments.size, 1);
 });
 
 test('bot pulls nearby workers as emergency defenders only when army response is short', () => {
