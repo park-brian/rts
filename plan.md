@@ -429,6 +429,8 @@ Done when:
   export.
 - Moved harvest route timing and route-quality calibration under `map/harvest-calibration.ts`,
   deleting the old root helper while preserving the stable package export.
+- Moved map diagnostics overlays under `map/diagnostics.ts` so debug geometry sits beside the map
+  and harvest-calibration math it validates.
 
 ## Review Checklist
 

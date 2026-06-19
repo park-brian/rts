@@ -1,13 +1,13 @@
-import { Kind, Units } from './data.ts';
-import { fx, toInt } from './fixed.ts';
+import { Kind, Units } from '../data.ts';
+import { fx, toInt } from '../fixed.ts';
 import {
   baseGasRouteCalibrations,
   mainBaseMineralRouteCalibrations,
   type GasRouteCalibration,
   type MineralRouteCalibration,
-} from './map/harvest-calibration.ts';
-import { resourceSpawnCenterPx, resourceSpawnFootprint, type MapDef, type ResourceFootprint } from './map/core.ts';
-import { bodyBounds, type InteractionPoint } from './spatial/geometry.ts';
+} from './harvest-calibration.ts';
+import { resourceSpawnCenterPx, resourceSpawnFootprint, type MapDef, type ResourceFootprint } from './core.ts';
+import { bodyBounds, type InteractionPoint } from '../spatial/geometry.ts';
 
 export type DiagnosticRect = {
   id: string;

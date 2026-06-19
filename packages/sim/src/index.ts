@@ -6,7 +6,7 @@ export * from './io/hash.ts';
 export * from './data.ts';
 export * from './map/core.ts';
 export * from './map/harvest-calibration.ts';
-export * from './map-diagnostics.ts';
+export * from './map/diagnostics.ts';
 export * from './commands/types.ts';
 export * from './commands/validate.ts';
 export * from './io/action-mask.ts';
