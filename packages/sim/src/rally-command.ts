@@ -1,4 +1,4 @@
-import type { Command, CommandRejectReason } from './commands.ts';
+import type { Command } from './commands.ts';
 import { Role, TILE } from './data.ts';
 import { fx } from './fixed.ts';
 import { isContained, sameTeam } from './cargo.ts';
@@ -6,22 +6,11 @@ import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-target
 import { producerSupportsWorkerRally } from './rally.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, nearest, slotOf } from './world.ts';
-
-type CommandValidation =
-  | { ok: true }
-  | { ok: false; reason: CommandRejectReason };
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
 
 type RallyCommand = Extract<Command, { t: 'rally' }>;
 
 const RALLY_SNAP = fx(2 * TILE);
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
 
 const canRallyToSlot = (s: State, player: number, source: number, target: number): boolean => {
   const e = s.e;
@@ -51,7 +40,7 @@ export const snapRallyTarget = (s: State, player: number, x: number, y: number, 
 export const validateRallyCommand = (s: State, player: number, command: RallyCommand): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
+  if (slot === null) return rejectMissingOwnedSlot(s, command.building);
   if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
   if (e.built[slot] !== 1) return reject('incomplete-producer');
   if (command.target !== undefined) {
