@@ -26,7 +26,7 @@ import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 import { queueProduction } from './production-queue.ts';
-import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
+import { beginWorkerBuild, validateBuildCommand } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import { clearVelocity } from './systems/move.ts';
@@ -113,15 +113,6 @@ const validateStop = (s: State, player: number, command: Extract<Command, { t: '
   if (isContained(s, slot)) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
   return { ok: true };
-};
-
-const validateBuild = (s: State, player: number, command: Extract<Command, { t: 'build' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  const def = Units[command.kind];
-  if (def && def.buildMethod !== 'morph' && !canSpawnEntity(s)) return reject('capacity-full');
-  return validateWorkerBuild(s, player, slot, command.kind, command.x, command.y);
 };
 
 const validateBurrow = (s: State, player: number, command: Extract<Command, { t: 'burrow' }>): CommandValidation => {
@@ -277,7 +268,7 @@ const burrowSpec: CommandSpec<Extract<Command, { t: 'burrow' }>> = {
 };
 
 const buildSpec: CommandSpec<Extract<Command, { t: 'build' }>> = {
-  validate: validateBuild,
+  validate: validateBuildCommand,
   apply(s, player, command): void {
     const slot = slotOf(command.unit);
     const placement = placementForStructure(s, command.kind, command.x, command.y, slot, player);
