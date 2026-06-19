@@ -96,6 +96,17 @@ export type BotThreat = {
   enemy: number;
 };
 
+export type ProtectedRegionKind = 'base';
+
+export type ProtectedRegion = {
+  kind: ProtectedRegionKind;
+  anchor: number;
+  x: number;
+  y: number;
+  radiusTiles: number;
+  value: number;
+};
+
 export type BotRiskMap = {
   w: number;
   h: number;
@@ -129,6 +140,7 @@ export type BotFacts = {
   retaskableArmy: number[];
   casters: number[];
   visibleEnemies: number[];
+  protectedRegions: ProtectedRegion[];
   baseThreats: BotThreat[];
   risk: BotRiskMap;
   ownedOrPendingStructureKinds: Set<number>;
@@ -486,6 +498,7 @@ export const collectBotFacts = (
     retaskableArmy: [],
     casters: [],
     visibleEnemies: [],
+    protectedRegions: [],
     baseThreats: [],
     ownedOrPendingStructureKinds: new Set(),
   };
@@ -528,8 +541,20 @@ export const collectBotFacts = (
   }
 
   for (const base of facts.bases) {
+    facts.protectedRegions.push({
+      kind: 'base',
+      anchor: base,
+      x: e.x[base]!,
+      y: e.y[base]!,
+      radiusTiles: BASE_THREAT_TILES,
+      value: 100,
+    });
+  }
+
+  for (const region of facts.protectedRegions) {
     for (const enemy of facts.visibleEnemies) {
-      if (near(s, enemy, e.x[base]!, e.y[base]!, BASE_THREAT_TILES)) facts.baseThreats.push({ base, enemy });
+      if (!near(s, enemy, region.x, region.y, region.radiusTiles)) continue;
+      if (region.kind === 'base') facts.baseThreats.push({ base: region.anchor, enemy });
     }
   }
   const risk = options.risk === 'none'

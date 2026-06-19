@@ -478,6 +478,10 @@ Remaining work:
       detector, spell, transport, burrow/cloak, or static-control capability that intersects those
       regions raises an incident; the incident kind only names the dominant capability so scoring can
       choose detectors, anti-air, fast interceptors, siege breakers, workers, or spell casters.
+      - First protected-region slice is done: `BotFacts` now exposes base protected regions and
+        derives existing base threats from those regions, preserving behavior while giving later
+        mineral-line, production-cluster, staging, route, and expansion-site directors the same
+        factual shape.
     - Unexpected spatial patterns should compose from the same fields: a drop is a mobile air route
       plus cargo threat near a protected region; a Nydus breach is an instant transport endpoint plus
       ground threat; a bombing run is high time-to-impact air weapon risk; kiting is friendly

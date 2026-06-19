@@ -222,6 +222,14 @@ test('bot facts summarize bases, larvae, visible enemies, and local base threats
 
   assert.equal(facts.primaryBase, slotOf(hatchery));
   assert.ok(facts.bases.includes(slotOf(hatchery)));
+  assert.deepEqual(facts.protectedRegions, [{
+    kind: 'base',
+    anchor: slotOf(hatchery),
+    x: base.x,
+    y: base.y,
+    radiusTiles: 18,
+    value: 100,
+  }]);
   assert.equal(facts.idleLarvae.length, 3);
   assert.ok(facts.visibleEnemies.includes(slotOf(enemy)));
   assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
