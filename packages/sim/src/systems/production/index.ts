@@ -6,26 +6,22 @@
 import type { State } from '../../entity/world.ts';
 import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../../entity/world.ts';
 import { trySpawnUnit } from '../../entity/factory.ts';
-import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount, sec } from '../../data.ts';
+import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount } from '../../data.ts';
 import { fx, isqrt } from '../../fixed.ts';
 import { pickPatch } from '../harvest.ts';
 import { effectiveSpeed } from '../status.ts';
 import { isPowered } from '../../power.ts';
 import { isLiftedStructureFlags } from '../../terran-mobility.ts';
 import { completeInternalProduct } from '../../internal-products.ts';
-import { LARVA_MAX, countLarvae } from '../../larva.ts';
 import { activeAddonParentSlot, isAddonKind } from '../../addon.ts';
 import { isContained, loadUnitInto, withinLoadRange } from '../../cargo.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../../movement-slots.ts';
 import { issueTravelOrder } from '../../travel-intent.ts';
 import { canPlayerGatherTargetSlot } from '../../resource-targets.ts';
 import { producedUnitRallyIntent } from '../../commands/intent.ts';
+import { tickLarvae } from './larva.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
-const LARVA_INTERVAL = sec(15);
-const LARVA_OFFSETS: readonly [number, number][] = [
-  [-32, 28], [0, 36], [32, 28],
-];
 
 type RallyMove = { slot: number; owner: number; order: number; x: number; y: number };
 
@@ -157,28 +153,6 @@ const assignRallyMoveSlots = (s: State, moves: readonly RallyMove[]): void => {
   }
 };
 
-const spawnLarva = (s: State, hatch: number, index: number): void => {
-  const e = s.e;
-  const [dx, dy] = LARVA_OFFSETS[index % LARVA_OFFSETS.length]!;
-  trySpawnUnit(s, Kind.Larva, e.owner[hatch]!, e.x[hatch]! + fx(dx), e.y[hatch]! + fx(dy));
-};
-
-const larvae = (s: State): void => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.built[i] !== 1 || !isLarvaSourceKind(e.kind[i]!)) continue;
-    const n = countLarvae(s, i);
-    if (n >= LARVA_MAX) { e.timer[i] = LARVA_INTERVAL; continue; }
-    if (e.timer[i]! > 0) {
-      e.timer[i] = e.timer[i]! - 1;
-      if (e.timer[i]! > 0) continue;
-    }
-    if (!canSpawnEntity(s)) continue;
-    spawnLarva(s, i, n);
-    if (canSpawnEntity(s) || countLarvae(s, i) > n) e.timer[i] = LARVA_INTERVAL;
-  }
-};
-
 const finishInternalAmmo = (s: State, producer: number, kind: number): boolean => {
   const e = s.e;
   if (!completeInternalProduct(s, producer, kind)) return false;
@@ -195,7 +169,7 @@ const finishInternalAmmo = (s: State, producer: number, kind: number): boolean =
 export const production = (s: State): void => {
   const e = s.e;
   const rallyMoves: RallyMove[] = [];
-  larvae(s);
+  tickLarvae(s);
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] !== 1 || e.prodKind[i] === Kind.None) continue;
     if (e.kind[i] !== Kind.Egg && isLiftedStructureFlags(e.flags[i]!)) continue;

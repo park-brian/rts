@@ -359,6 +359,8 @@ Done when:
   as the command registry plus the remaining shared move-destination and supply-reservation context.
 - Moved the production tick system to `systems/production/index.ts` as a no-behavior staging step
   for later larva, completion placement, spawn-rally, and internal-product extraction.
+- Extracted larva ticking into `systems/production/larva.ts` so the production orchestrator no
+  longer owns hatchery timer constants and spawn offsets.
 
 ## Review Checklist
 
