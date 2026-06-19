@@ -499,6 +499,9 @@ Remaining work:
       - Zero-force memory slice is done: once a pressure wait has started, temporary frames with no
         available attack force no longer erase the wait; a later free unit can force a response
         instead of the bot resetting into indecision.
+      - Risk-aware pressure focus slice is done: committed pressure asks for full risk facts only
+        while choosing among known enemy regions, prefers a non-lethal valuable target over a lethal
+        economy dive, and still returns the least-bad focus when every known focus is dangerous.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -894,6 +897,9 @@ Done when:
   maps, preserving hidden-unit secrecy while forcing faster contact.
 - Preserved an already-started bot pressure timer through temporary zero-force windows so defense
   churn cannot indefinitely erase the decision to force a response.
+- Made committed pressure focus risk-aware without making risk a normal macro tick cost: known enemy
+  regions now avoid visibly lethal economy dives when a safer valuable focus exists, but still return
+  a least-bad focus instead of freezing.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

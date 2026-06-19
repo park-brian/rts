@@ -10,6 +10,7 @@ import {
   createBotMemory,
   deriveTacticalIncidents,
   missingStructureKinds,
+  pressureFocus,
   pressureCommitmentTicks,
   rankedTacticalResponders,
   selectTacticalResponders,
@@ -327,6 +328,24 @@ test('bot facts expose visible enemy protected regions for proactive pressure', 
 
   assert.equal(enemyProtectedRegion(facts, 'base').anchor, enemyBase);
   assert.equal(enemyProtectedRegion(facts, 'mineral-line').anchor, enemyBase);
+});
+
+test('bot pressure focus avoids visibly lethal economy pressure without freezing', () => {
+  const scenario = botScenario({ seed: 818, factions: [Terran, Zerg] });
+  const s = scenario.state;
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const facts = collectBotFacts(s, 0, Terran);
+  const enemyBase = enemyProtectedRegion(facts, 'base');
+  const enemyMinerals = enemyProtectedRegion(facts, 'mineral-line');
+
+  facts.risk.values[riskIndex(facts.risk, enemyBase.x, enemyBase.y)] = 60;
+  facts.risk.values[riskIndex(facts.risk, enemyMinerals.x, enemyMinerals.y)] = 90;
+
+  const focus = pressureFocus(s, 0, facts, depot);
+
+  assert.ok(focus);
+  assert.equal(focus.x, enemyBase.x);
+  assert.equal(focus.y, enemyBase.y);
 });
 
 test('bot enemy protected regions respect fogged bases and resources', () => {

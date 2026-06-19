@@ -256,7 +256,10 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     if (shouldCommitPressure(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
       // 6) Offense: pressure the enemy's most valuable exposed region.
-      const focus = pressureFocus(s, p, facts, depot);
+      const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
+        ? collectBotFacts(s, p, faction)
+        : facts;
+      const focus = pressureFocus(s, p, pressureFacts, depot);
       if (focus) {
         let issuedOffense = false;
         if (!builderUsed) {

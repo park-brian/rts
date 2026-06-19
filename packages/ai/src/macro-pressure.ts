@@ -1,9 +1,10 @@
 import { NONE, ONE, TILE, distanceSq, isEnemy, nearest, type State } from '@rts/sim';
-import type { BotFacts, BotMemory } from './macro.ts';
+import { riskAt, type BotFacts, type BotMemory, type ProtectedRegion } from './macro.ts';
 
 export type PressureFocus = { x: number; y: number; target: number };
 
 export const PRESSURE_COMMITMENT_TICKS = 45 * 24;
+const LETHAL_PRESSURE_RISK = 40;
 
 export const pressureCommitmentTicks = (force: number, threshold: number): number => {
   if (force <= 0) return Infinity;
@@ -30,33 +31,50 @@ export const markPressureCommitted = (memory: BotMemory, tick: number): void => 
   memory.offenseWaitSince = tick;
 };
 
+const pressureRegionRisk = (facts: BotFacts, region: ProtectedRegion): number =>
+  facts.risk.vision === 'omitted' ? 0 : riskAt(facts.risk, region.x, region.y);
+
+const betterPressureRegion = (
+  s: State,
+  facts: BotFacts,
+  depot: number,
+  candidate: ProtectedRegion,
+  current: ProtectedRegion | null,
+): boolean => {
+  if (!current) return true;
+  const candidateRisk = pressureRegionRisk(facts, candidate);
+  const currentRisk = pressureRegionRisk(facts, current);
+  const candidateLethal = candidateRisk >= LETHAL_PRESSURE_RISK;
+  const currentLethal = currentRisk >= LETHAL_PRESSURE_RISK;
+  if (candidateLethal !== currentLethal) return !candidateLethal;
+  if (candidateLethal && candidateRisk !== currentRisk) return candidateRisk < currentRisk;
+  if (candidate.value !== current.value) return candidate.value > current.value;
+  if (!candidateLethal && candidateRisk !== currentRisk) return candidateRisk < currentRisk;
+
+  const e = s.e;
+  const candidateDistance = distanceSq(e.x[depot]!, e.y[depot]!, candidate.x, candidate.y);
+  const currentDistance = distanceSq(e.x[depot]!, e.y[depot]!, current.x, current.y);
+  return candidateDistance < currentDistance;
+};
+
 const bestKnownEnemyRegion = (s: State, facts: BotFacts, depot: number): PressureFocus | null => {
   const e = s.e;
-  let focusX = 0;
-  let focusY = 0;
-  let bestValue = -1;
-  let bestDistance = Infinity;
+  let best: ProtectedRegion | null = null;
   for (const region of facts.enemyProtectedRegions) {
-    const distance = distanceSq(e.x[depot]!, e.y[depot]!, region.x, region.y);
-    if (region.value < bestValue) continue;
-    if (region.value === bestValue && distance >= bestDistance) continue;
-    bestValue = region.value;
-    bestDistance = distance;
-    focusX = region.x;
-    focusY = region.y;
+    if (betterPressureRegion(s, facts, depot, region, best)) best = region;
   }
-  if (bestValue < 0) return null;
+  if (!best) return null;
 
   let target = NONE;
   let targetDistance = Infinity;
   for (const enemy of facts.visibleEnemies) {
     if (s.e.alive[enemy] !== 1) continue;
-    const distance = distanceSq(focusX, focusY, s.e.x[enemy]!, s.e.y[enemy]!);
+    const distance = distanceSq(best.x, best.y, s.e.x[enemy]!, s.e.y[enemy]!);
     if (distance >= targetDistance) continue;
     target = enemy;
     targetDistance = distance;
   }
-  return { x: focusX, y: focusY, target };
+  return { x: best.x, y: best.y, target };
 };
 
 const visibleEnemyFocus = (s: State, player: number, facts: BotFacts, depot: number): PressureFocus | null => {
