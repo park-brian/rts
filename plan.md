@@ -47,8 +47,7 @@ Remaining work:
 
 - Finish splitting `command-specs.ts` validation by command family:
   - move / attack-move;
-  - transform / morph / merge;
-  - lift / land.
+  - transform / morph / merge.
 - Extract shared command predicates where they reduce drift:
   - `isBusy`;
   - `isTransitioning`;
@@ -244,6 +243,7 @@ Done when:
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.
+- Extracted lift / land command validation.
 
 ## Review Checklist
 

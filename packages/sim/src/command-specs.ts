@@ -4,7 +4,7 @@ import {
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import {
-  commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags, liftStructure, startStructureLanding,
+  commandMoveSpeed, liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, isAlive, slotOf } from './world.ts';
@@ -19,7 +19,7 @@ import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
-import { isActiveAddon, startAddon } from './addon.ts';
+import { startAddon } from './addon.ts';
 import { queueProduction } from './production-queue.ts';
 import { beginWorkerBuild, validateBuildCommand } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
@@ -39,6 +39,7 @@ import { validateResearchCommand } from './research-command.ts';
 import { validateAttackCommand } from './attack-command.ts';
 import { validateBurrowCommand } from './burrow-command.ts';
 import { validateStopCommand } from './stop-command.ts';
+import { validateLandCommand, validateLiftCommand } from './terran-mobility-command.ts';
 
 export { snapRallyTarget };
 
@@ -129,26 +130,6 @@ const validateTransform = (s: State, player: number, command: Extract<Command, {
   return { ok: true };
 };
 
-const validateLift = (s: State, player: number, command: Extract<Command, { t: 'lift' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
-  if (!isLiftableTerranStructureKind(e.kind[slot]!) || isLiftedStructureFlags(e.flags[slot]!)) return reject('target-not-allowed');
-  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('target-not-allowed');
-  if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
-  return { ok: true };
-};
-
-const validateLand = (s: State, player: number, command: Extract<Command, { t: 'land' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if (!isLiftableTerranStructureKind(e.kind[slot]!) || !isLiftedStructureFlags(e.flags[slot]!)) return reject('target-not-allowed');
-  const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
-  return placement.ok ? { ok: true } : reject(placement.reason);
-};
-
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   validate: validateAttackCommand,
   apply(s, _player, command): void {
@@ -223,14 +204,14 @@ const loadSpec: CommandSpec<Extract<Command, { t: 'load' }>> = {
 };
 
 const liftSpec: CommandSpec<Extract<Command, { t: 'lift' }>> = {
-  validate: validateLift,
+  validate: validateLiftCommand,
   apply(s, _player, command): void {
     liftStructure(s, slotOf(command.building));
   },
 };
 
 const landSpec: CommandSpec<Extract<Command, { t: 'land' }>> = {
-  validate: validateLand,
+  validate: validateLandCommand,
   apply(s, player, command): void {
     const e = s.e;
     const slot = slotOf(command.building);
