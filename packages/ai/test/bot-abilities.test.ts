@@ -13,6 +13,7 @@ import {
   pressureCommitmentTicks,
   rankedTacticalResponders,
   selectTacticalResponders,
+  shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
   tacticalResponseBudget,
@@ -684,6 +685,20 @@ test('bot commitment pressure waits less as army approaches the attack threshold
   const offense = bot(s, 0).filter(isOffense);
 
   assert.deepEqual(offense.map((c) => c.unit), marines);
+});
+
+test('bot commitment pressure does not forget waiting during temporary zero-force windows', () => {
+  const memory = createBotMemory();
+  const threshold = 12;
+
+  assert.equal(shouldCommitPressure(memory, 10, 0, threshold), false);
+  assert.equal(memory.offenseWaitSince, -1);
+  assert.equal(shouldCommitPressure(memory, 20, 3, threshold), false);
+  assert.equal(memory.offenseWaitSince, 20);
+
+  const wait = pressureCommitmentTicks(3, threshold);
+  assert.equal(shouldCommitPressure(memory, 20 + Math.trunc(wait / 2), 0, threshold), false);
+  assert.equal(shouldCommitPressure(memory, 20 + wait, 3, threshold), true);
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {

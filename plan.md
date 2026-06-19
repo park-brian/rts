@@ -496,6 +496,9 @@ Remaining work:
       - Force-scaled commitment slice is done: the pressure wait now shrinks as available
         uncommitted army approaches the configured attack threshold, so an almost-ready force
         commits much sooner than a lone scout while staying deterministic and benchmarkable.
+      - Zero-force memory slice is done: once a pressure wait has started, temporary frames with no
+        available attack force no longer erase the wait; a later free unit can force a response
+        instead of the bot resetting into indecision.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -700,7 +703,10 @@ Remaining work:
     may still use full-state enemy targets for headless scripted play.
   - Lone-force pressure slice is done: the deterministic pressure wait no longer requires two
     combat units. Any positive leftover combat force can eventually attack-move toward the pressure
-    focus, while zero available force still resets the timer and defense reservations still win.
+    focus, while zero available force still emits no pressure command and defense reservations still
+    win.
+  - Zero-force memory slice is done: no-force openings still avoid starting pressure, but temporary
+    no-force windows after a wait has begun no longer reset the commitment timer.
   - Combat-engagement extraction slice is done: defense and pressure command emission now share
     `packages/ai/src/macro-combat.ts` for Stim, Siege/Lurker/Vulture prep, attack-vs-attack-move
     fallback, and same-team Nydus shortcut loading. The live bot controller keeps choosing incidents
@@ -859,6 +865,8 @@ Done when:
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start
   maps, preserving hidden-unit secrecy while forcing faster contact.
+- Preserved an already-started bot pressure timer through temporary zero-force windows so defense
+  churn cannot indefinitely erase the decision to force a response.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

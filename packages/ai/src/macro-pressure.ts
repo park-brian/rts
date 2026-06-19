@@ -18,7 +18,6 @@ export const shouldCommitPressure = (
   threshold: number,
 ): boolean => {
   if (force <= 0) {
-    memory.offenseWaitSince = -1;
     return false;
   }
   const waitTicks = pressureCommitmentTicks(force, threshold);
