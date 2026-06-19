@@ -1552,6 +1552,9 @@ Rework slices:
    - Add-on command legality now lives in `addon-command.ts`, preserving parent-kind, landed-parent,
      prerequisite, affordability, entity-capacity, queue, and placement gates while `command-specs.ts`
      keeps `startAddon` side effects unchanged.
+   - Spider-mine command legality now lives in `mine-command.ts`, preserving Vulture state, Spider
+     Mines tech/ammo, entity-capacity, stale/wrong-owner, and missing-capability gates while
+     `command-specs.ts` keeps `laySpiderMine` side effects unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.

@@ -19,7 +19,6 @@ import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './
 import { carrierCanAttack } from './interceptor.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
 import { getTechLevel, queueResearch } from './tech.ts';
-import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
@@ -38,6 +37,7 @@ import { validateCancelBuildCommand } from './cancel-command.ts';
 import { validateHarvestCommand } from './harvest-command.ts';
 import { validateRepairCommand } from './repair-command.ts';
 import { validateAddonCommand } from './addon-command.ts';
+import { validateMineCommand } from './mine-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
@@ -124,18 +124,6 @@ const validateBurrow = (s: State, player: number, command: Extract<Command, { t:
   if (!canBurrowSlot(s, slot)) return reject('missing-capability');
   if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
   if ((e.burrowed[slot] === 1) === command.active) return reject('target-not-allowed');
-  return { ok: true };
-};
-
-const validateMine = (s: State, player: number, command: Extract<Command, { t: 'mine' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
-  if (e.kind[slot] !== Kind.Vulture || e.built[slot] !== 1) return reject('missing-capability');
-  if (internalProductCapacity(s, slot, Kind.SpiderMine) <= 0) return reject('missing-requirement');
-  if (!hasInternalProductReady(s, slot, Kind.SpiderMine)) return reject('target-not-allowed');
-  if (!canSpawnEntity(s)) return reject('capacity-full');
   return { ok: true };
 };
 
@@ -298,7 +286,7 @@ const landSpec: CommandSpec<Extract<Command, { t: 'land' }>> = {
 };
 
 const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
-  validate: validateMine,
+  validate: validateMineCommand,
   apply(s, _player, command): void {
     laySpiderMine(s, slotOf(command.unit));
   },
