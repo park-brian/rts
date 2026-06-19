@@ -175,7 +175,7 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   remappable hotkeys, edge pan, scroll zoom,
   middle-click pan, hotgroups, and visible queued waypoints. Mobile controls keep single-tap
   selection/command-card grammar, with a compact **Queue** toggle that appends validated
-  move/follow and attack-move point travel through the same sim command path as desktop Shift.
+  move/follow, attack-move point travel, and Patrol through the same sim command path as desktop Shift.
 
 Verified by `node --test` (33 tests: fixed-point, RNG, economy, combat, **replay-hash &
 snapshot/restore & byte-serialize determinism**, **group pathfinding (arrives + fans out,
