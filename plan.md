@@ -486,6 +486,9 @@ Remaining work:
         offense force has been waiting, and the live bot eventually sends that remaining force once
         waiting is worse than forcing a response. Tactical defense reservations still happen first,
         so this pressure spends only uncommitted units instead of stealing active defenders.
+      - Force-scaled commitment slice is done: the pressure wait now shrinks as available
+        uncommitted army approaches the configured attack threshold, so an almost-ready force
+        commits much sooner than a lone scout while staying deterministic and benchmarkable.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -837,6 +840,8 @@ Done when:
   eventually commits after the deterministic wait instead of freezing forever.
 - Extracted shared bot combat engagement issuing into `packages/ai/src/macro-combat.ts`, reducing
   duplicated defense/offense micro branches in the live bot controller while preserving behavior.
+- Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
+  instead of waiting the full under-threshold timeout.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as

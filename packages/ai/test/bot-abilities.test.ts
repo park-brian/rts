@@ -10,6 +10,7 @@ import {
   createBotMemory,
   deriveTacticalIncidents,
   missingStructureKinds,
+  pressureCommitmentTicks,
   rankedTacticalResponders,
   selectTacticalResponders,
   TACTICAL_COMMITMENT_TICKS,
@@ -663,6 +664,26 @@ test('bot commitment pressure eventually sends a lone combat unit', () => {
   const offense = bot(s, 0).filter(isOffense);
 
   assert.deepEqual(offense.map((c) => c.unit), [marine]);
+});
+
+test('bot commitment pressure waits less as army approaches the attack threshold', () => {
+  const scenario = botScenario({ seed: 829 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threshold = 12;
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), base);
+  const marines = Array.from({ length: threshold - 1 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: threshold });
+  const isOffense = (cmd: BotCommand): cmd is Extract<BotCommand, { t: 'amove' }> =>
+    cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y;
+
+  assert.equal(pressureCommitmentTicks(marines.length, threshold) < PRESSURE_COMMITMENT_TICKS, true);
+  assert.equal(bot(s, 0).some(isOffense), false);
+  s.tick += pressureCommitmentTicks(marines.length, threshold);
+  const offense = bot(s, 0).filter(isOffense);
+
+  assert.deepEqual(offense.map((c) => c.unit), marines);
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {

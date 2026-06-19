@@ -5,6 +5,12 @@ export type PressureFocus = { x: number; y: number; target: number };
 
 export const PRESSURE_COMMITMENT_TICKS = 45 * 24;
 
+export const pressureCommitmentTicks = (force: number, threshold: number): number => {
+  if (force <= 0) return Infinity;
+  if (threshold <= 0 || force >= threshold) return 0;
+  return Math.trunc((PRESSURE_COMMITMENT_TICKS * (threshold - force)) / threshold);
+};
+
 export const shouldCommitPressure = (
   memory: BotMemory,
   tick: number,
@@ -15,9 +21,10 @@ export const shouldCommitPressure = (
     memory.offenseWaitSince = -1;
     return false;
   }
-  if (force >= threshold) return true;
+  const waitTicks = pressureCommitmentTicks(force, threshold);
+  if (waitTicks === 0) return true;
   if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
-  return tick - memory.offenseWaitSince >= PRESSURE_COMMITMENT_TICKS;
+  return tick - memory.offenseWaitSince >= waitTicks;
 };
 
 export const markPressureCommitted = (memory: BotMemory, tick: number): void => {
