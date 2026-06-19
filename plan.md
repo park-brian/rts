@@ -251,6 +251,9 @@ Remaining work:
     entity-to-entity hull distance, with a regression proving body-edge wakeup when the target
     center remains outside the trigger circle. Remaining non-radial audits: Lurker line width and
     Mutalisk bounce selection.
+  - Mutalisk bounce selection slice is done: bounce chaining now picks nearby enemies by top-down
+    entity hull distance, with a large-body regression covering targets whose centers are outside
+    bounce range. Remaining non-radial audit: Lurker line width.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.

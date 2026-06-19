@@ -75,7 +75,7 @@ const nearestBounceTarget = (s: State, owner: number, from: number, excludeA: nu
   for (let i = 0; i < e.hi; i++) {
     if (i === excludeA || i === excludeB || e.alive[i] !== 1 || isContained(s, i)) continue;
     if (!isEnemy(s, owner, e.owner[i]!) || !canDetect(s, owner, i)) continue;
-    const d = distanceSq(e.x[from]!, e.y[from]!, e.x[i]!, e.y[i]!);
+    const d = topDownEdgeDistanceSq(s, from, i);
     if (d < bestD) { best = i; bestD = d; }
   }
   return best;

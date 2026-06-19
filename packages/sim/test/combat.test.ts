@@ -6,7 +6,7 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
-import { bodyBounds, bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
+import { bodyBounds, bwApproxEdgeDistance, distanceSq, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { setTechLevel } from '../src/mechanics/tech.ts';
@@ -336,6 +336,29 @@ test('mutalisk attacks bounce to two nearby enemies with reduced damage', () => 
   assert.equal(e.hp[slotOf(far)], farHp);
   assert.ok(firstHp - e.hp[slotOf(first)]! > secondHp - e.hp[slotOf(second)]!);
   assert.ok(secondHp - e.hp[slotOf(second)]! > thirdHp - e.hp[slotOf(third)]!);
+});
+
+test('mutalisk bounce selection uses top-down body edges', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 151 });
+  const s = sim.fullState();
+  const e = s.e;
+  const mutalisk = spawnUnit(s, Kind.Mutalisk, 0, fx(400), fx(400));
+  const first = spawnUnit(s, Kind.Marine, 1, fx(450), fx(400));
+  const bounceRange = tiles(3);
+  const second = spawnUnit(s, Kind.Battlecruiser, 1, fx(450) + bounceRange + bodyBounds(Kind.Battlecruiser).left - fx(4), fx(400));
+  const firstSlot = slotOf(first);
+  const secondSlot = slotOf(second);
+  const firstHp = e.hp[firstSlot]!;
+  const secondHp = e.hp[secondSlot]!;
+
+  assert.ok(distanceSq(e.x[firstSlot]!, e.y[firstSlot]!, e.x[secondSlot]!, e.y[secondSlot]!) > bounceRange * bounceRange);
+  assert.ok(topDownEdgeDistanceSq(s, firstSlot, secondSlot) <= bounceRange * bounceRange);
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: mutalisk, target: first }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.ok(e.hp[firstSlot]! < firstHp);
+  assert.ok(e.hp[secondSlot]! < secondHp);
 });
 
 test('corsair air splash damages nearby air units but not ground units', () => {
