@@ -600,6 +600,9 @@ Remaining work:
       defenders, pulling emergency workers, casting defensive abilities, and emitting defense
       engagements now live in `packages/ai/src/macro-tactics.ts`, leaving the live controller to
       schedule the returned incident plus leftover attack candidates.
+    - Incident ownership slice is done: tactical incident types, severity derivation, remembered
+      incident expiry, response budgeting, responder ranking, and responder commitment now live in
+      `packages/ai/src/macro-incidents.ts`; `macro.ts` keeps the fact/risk collection surface.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -736,6 +739,9 @@ Remaining work:
   - Intent-vocabulary ownership slice is done: `packages/ai/src/macro-intents.ts` now owns bot
     intent kinds, failure reasons, intent rows, and intent results, giving future directors a pure
     type home instead of packing future scheduler language into the facts/risk module.
+  - Incident ownership slice is done: `packages/ai/src/macro-incidents.ts` now owns tactical
+    incident derivation, memory expiry, response budgeting, responder ranking, and responder
+    commitment, leaving `macro.ts` focused on facts/risk and controller memory.
   - Pressure-policy extraction slice is done: attack-wave commitment and focus selection now live in
     `packages/ai/src/macro-pressure.ts`, with the explicit rule that freezing is worse than sending a
     usable force to create pressure after a deterministic wait. Under fair fog, pressure uses known
@@ -938,6 +944,9 @@ Done when:
   scheduling.
 - Moved the bot intent/failure vocabulary into `packages/ai/src/macro-intents.ts`, leaving
   `macro.ts` focused on facts, memory, risk, and tactical incidents.
+- Moved tactical incident derivation, memory, response scoring, response budgeting, and responder
+  commitment into `packages/ai/src/macro-incidents.ts`, leaving `macro.ts` focused on facts/risk and
+  controller memory.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

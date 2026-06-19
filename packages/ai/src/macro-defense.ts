@@ -8,7 +8,7 @@ import {
   withinRangeSq,
   type State,
 } from '@rts/sim';
-import { tacticalResponseBudget, type TacticalIncident } from './macro.ts';
+import { tacticalResponseBudget, type TacticalIncident } from './macro-incidents.ts';
 
 const EMERGENCY_WORKER_RESPONSE_TILES = 10;
 

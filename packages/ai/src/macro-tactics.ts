@@ -6,9 +6,11 @@ import {
   commitTacticalResponders,
   deriveTacticalIncidents,
   rememberTacticalIncidents,
+  type TacticalIncident,
+} from './macro-incidents.ts';
+import {
   type BotFacts,
   type BotMemory,
-  type TacticalIncident,
 } from './macro.ts';
 
 export type TacticalSchedule = {
