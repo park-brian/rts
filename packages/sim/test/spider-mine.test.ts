@@ -13,10 +13,10 @@ import {
 } from '../src/internal-products.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/replay.ts';
-import { validateMineCommand } from '../src/mine-command.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateMineCommand } from '../src/commands/mine.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type MineCommand = Extract<Command, { t: 'mine' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };

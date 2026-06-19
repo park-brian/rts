@@ -5,7 +5,7 @@ import { fx } from '../src/fixed.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, hashState, makeState, slotOf } from '../src/entity/world.ts';
-import { applyCommands } from '../src/systems/ingest.ts';
+import { applyCommands } from '../src/commands/ingest.ts';
 import { stepWorld } from '../src/tick.ts';
 import { loadUnitInto, unloadUnit } from '../src/cargo.ts';
 import { setBurrowed } from '../src/burrow.ts';

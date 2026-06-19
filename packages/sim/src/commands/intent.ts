@@ -1,20 +1,20 @@
-import type { Command, CommandRejectReason } from './commands.ts';
-import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from './data.ts';
-import { addonParentKind } from './addon.ts';
-import { canWorkerStartStructure } from './build-command.ts';
-import { canPay } from './command-validation.ts';
-import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
-import { ONE } from './fixed.ts';
-import { hasPendingBuild } from './build-cost.ts';
+import type { Command, CommandRejectReason } from './types.ts';
+import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from '../data.ts';
+import { addonParentKind } from '../addon.ts';
+import { canWorkerStartStructure } from './build.ts';
+import { canPay } from './shared.ts';
+import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../cargo.ts';
+import { ONE } from '../fixed.ts';
+import { hasPendingBuild } from '../build-cost.ts';
 import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
-} from './rally.ts';
-import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
-import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
-import { entityWorkQueue } from './entity/work-queue.ts';
-import { transformFor, transformTargetsFor } from './unit-transform.ts';
-import { validateCommand } from './validation.ts';
-import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './entity/world.ts';
+} from '../rally.ts';
+import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../resource-targets.ts';
+import type { TravelEndpoint, TravelIntent } from '../travel-intent.ts';
+import { entityWorkQueue } from '../entity/work-queue.ts';
+import { transformFor, transformTargetsFor } from '../unit-transform.ts';
+import { validateCommand } from './validate.ts';
+import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from '../entity/world.ts';
 
 export type SmartCommandScheme = 'mobile' | 'desktop';
 

@@ -19,7 +19,7 @@ import { isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
 import { issueTravelOrder } from '../travel-intent.ts';
 import { canPlayerGatherTargetSlot } from '../resource-targets.ts';
-import { producedUnitRallyIntent } from '../command-intent.ts';
+import { producedUnitRallyIntent } from '../commands/intent.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 const LARVA_INTERVAL = sec(15);

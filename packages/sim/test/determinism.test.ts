@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, type State } from '../src/entity/world.ts';
 import { Kind, Units } from '../src/data.ts';
-import type { Command, PlayerCommands } from '../src/commands.ts';
+import type { Command, PlayerCommands } from '../src/commands/types.ts';
 
 // Deterministic scripted controller used to drive a non-trivial game.
 const macro = (s: State, p: number): Command[] => {

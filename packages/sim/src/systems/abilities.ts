@@ -1,4 +1,4 @@
-import type { Command } from '../commands.ts';
+import type { Command } from '../commands/types.ts';
 import {
   Ability, Abilities, EffectKind, Kind, Order, Role, SplashPx, Trait, Units, sec, unitTraits,
   type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,

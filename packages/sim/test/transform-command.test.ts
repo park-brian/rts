@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { entityTargetMask, transformKindCandidates, transformKindMask } from '../src/action-mask.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
-import { transformSelectionCandidates, transformSelectionOptions } from '../src/command-intent.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
+import { transformSelectionCandidates, transformSelectionOptions } from '../src/commands/intent.ts';
 import { Kind, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateTransformCommand } from '../src/transform-command.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateTransformCommand } from '../src/commands/transform.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

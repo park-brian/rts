@@ -1,4 +1,4 @@
-import type { CommandRejectReason } from './commands.ts';
+import type { CommandRejectReason } from './commands/types.ts';
 import { Kind, ResourceType, Role, TILE, Units } from './data.ts';
 import { fx } from './fixed.ts';
 import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';

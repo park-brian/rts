@@ -1,11 +1,11 @@
-import type { Command } from './commands.ts';
-import { Kind, MAX_QUEUE, Role, Units, productionCostCount, productionCount } from './data.ts';
-import { canQueueInternalProduct, internalProductCapacity } from './internal-products.ts';
-import { requirementsMet } from './requirements.ts';
-import { queuedProductionCount } from './production-queue.ts';
-import type { State } from './entity/world.ts';
-import { canSpawnEntity } from './entity/world.ts';
-import { canPay, canUseProducer, reject, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Kind, MAX_QUEUE, Role, Units, productionCostCount, productionCount } from '../data.ts';
+import { canQueueInternalProduct, internalProductCapacity } from '../internal-products.ts';
+import { requirementsMet } from '../requirements.ts';
+import { queuedProductionCount } from '../production-queue.ts';
+import type { State } from '../entity/world.ts';
+import { canSpawnEntity } from '../entity/world.ts';
+import { canPay, canUseProducer, reject, type CommandValidation } from './shared.ts';
 
 export type ProductionValidationContext = {
   reservedSupply?: number;

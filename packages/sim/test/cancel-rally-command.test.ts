@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCancelBuildCommand } from '../src/cancel-command.ts';
-import { validateRallyCommand } from '../src/rally-command.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { validateCancelBuildCommand } from '../src/commands/cancel.ts';
+import { validateRallyCommand } from '../src/commands/rally.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

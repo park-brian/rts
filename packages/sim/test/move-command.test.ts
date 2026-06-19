@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commandHeadAllowed, commandHeadMask, entityTargetMask } from '../src/action-mask.ts';
-import { validateMoveCommand } from '../src/move-command.ts';
+import { validateMoveCommand } from '../src/commands/move.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type MoveCommand = Extract<Command, { t: 'move' | 'amove' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };

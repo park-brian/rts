@@ -7,7 +7,7 @@ import { eid, ENTITY_COLUMNS, hashState, kill, makeState, slotOf, type State } f
 import { sliceMap } from '../src/map.ts';
 import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import type { Command, PlayerCommands } from '../src/commands.ts';
+import type { Command, PlayerCommands } from '../src/commands/types.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { deserializeState, serializeState } from '../src/serialize.ts';
 

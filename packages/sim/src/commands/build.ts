@@ -1,18 +1,18 @@
-import type { Command } from './commands.ts';
-import { Order, Role, Units, workerBuildKindsFor } from './data.ts';
-import { cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
-import { requirementsMet } from './requirements.ts';
-import { canPlaceStructure, type PlacementResult } from './placement.ts';
-import type { State } from './entity/world.ts';
-import { NONE, canSpawnEntity, slotOf } from './entity/world.ts';
-import { isContained } from './cargo.ts';
+import type { Command } from './types.ts';
+import { Order, Role, Units, workerBuildKindsFor } from '../data.ts';
+import { cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
+import { requirementsMet } from '../requirements.ts';
+import { canPlaceStructure, type PlacementResult } from '../placement.ts';
+import type { State } from '../entity/world.ts';
+import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';
+import { isContained } from '../cargo.ts';
 import {
   canPay,
   reject,
   rejectMissingOwnedSlot,
   ownedSlot,
   type CommandValidation,
-} from './command-validation.ts';
+} from './shared.ts';
 
 type BuildCommand = Extract<Command, { t: 'build' }>;
 

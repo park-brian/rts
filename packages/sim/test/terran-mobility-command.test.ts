@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateLandCommand, validateLiftCommand } from '../src/terran-mobility-command.ts';
+import { validateLandCommand, validateLiftCommand } from '../src/commands/terran-mobility.ts';
 import { Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type LiftCommand = Extract<Command, { t: 'lift' }>;
 type LandCommand = Extract<Command, { t: 'land' }>;

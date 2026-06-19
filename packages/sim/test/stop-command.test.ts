@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateStopCommand } from '../src/stop-command.ts';
+import { validateStopCommand } from '../src/commands/stop.ts';
 import { Kind, Order } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { applyCommands } from '../src/systems/ingest.ts';
-import { validateCommand } from '../src/validation.ts';
+import { applyCommands } from '../src/commands/ingest.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type StopCommand = Extract<Command, { t: 'stop' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };

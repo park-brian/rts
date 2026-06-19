@@ -122,7 +122,8 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Split command ingestion by command family without changing replay semantics.
+- Thin `commands/specs.ts` by moving family-specific apply handlers next to their validators where
+  it reduces review burden without duplicating shared dispatch, reserved-supply, or group-move logic.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
   cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
@@ -347,6 +348,8 @@ Done when:
   `world.ts` and `factory.ts` as temporary compatibility shims.
 - Migrated callers to `src/entity/world.ts` and `src/entity/factory.ts`, then deleted the temporary
   root `world.ts` and `factory.ts` shims.
+- Moved command types, public validation, command intent, command specs, family validators, and
+  command ingestion under `src/commands/` with no root compatibility shims.
 
 ## Review Checklist
 

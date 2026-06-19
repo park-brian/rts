@@ -1,14 +1,14 @@
-import type { CommandRejectReason } from './commands.ts';
-import { isActiveAddon } from './addon.ts';
-import { isContained } from './cargo.ts';
-import { Kind } from './data.ts';
-import { canDetect } from './detection.ts';
-import { isTransitioning } from './entity/state.ts';
-import { isPowered } from './power.ts';
-import { isDisabled } from './systems/status.ts';
-import { isLiftedStructureFlags } from './terran-mobility.ts';
-import type { State } from './entity/world.ts';
-import { isAlive, isEnemy, NONE, slotOf } from './entity/world.ts';
+import type { CommandRejectReason } from './types.ts';
+import { isActiveAddon } from '../addon.ts';
+import { isContained } from '../cargo.ts';
+import { Kind } from '../data.ts';
+import { canDetect } from '../detection.ts';
+import { isTransitioning } from '../entity/state.ts';
+import { isPowered } from '../power.ts';
+import { isDisabled } from '../systems/status.ts';
+import { isLiftedStructureFlags } from '../terran-mobility.ts';
+import type { State } from '../entity/world.ts';
+import { isAlive, isEnemy, NONE, slotOf } from '../entity/world.ts';
 
 export type CommandRejection = { ok: false; reason: CommandRejectReason };
 

@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addonKindMask, buildKindMask, researchTechMask, trainKindMask } from '../src/action-mask.ts';
-import { validateAddonCommand } from '../src/addon-command.ts';
-import { validateBuildCommand } from '../src/build-command.ts';
-import { workerBuildSelectionOptions } from '../src/command-intent.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { validateAddonCommand } from '../src/commands/addon.ts';
+import { validateBuildCommand } from '../src/commands/build.ts';
+import { workerBuildSelectionOptions } from '../src/commands/intent.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind, Order, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateTrainCommand } from '../src/production-command.ts';
-import { validateResearchCommand } from '../src/research-command.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateTrainCommand } from '../src/commands/production.ts';
+import { validateResearchCommand } from '../src/commands/research.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

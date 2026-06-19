@@ -13,7 +13,7 @@ import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
-import { producedUnitRallyIntent } from '../src/command-intent.ts';
+import { producedUnitRallyIntent } from '../src/commands/intent.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const open = (w: number, h: number): MapDef => ({

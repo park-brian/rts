@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBuildCommand } from '../src/build-command.ts';
-import { validateLoadCommand, validateUnloadCommand } from '../src/cargo-command.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { validateBuildCommand } from '../src/commands/build.ts';
+import { validateLoadCommand, validateUnloadCommand } from '../src/commands/cargo.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { eid, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

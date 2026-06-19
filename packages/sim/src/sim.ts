@@ -3,7 +3,7 @@
 
 import type { MapDef } from './map.ts';
 import type { State } from './entity/world.ts';
-import type { Command, CommandResult, PlayerCommands } from './commands.ts';
+import type { Command, CommandResult, PlayerCommands } from './commands/types.ts';
 import { Terran, type Faction } from './data.ts';
 import { cloneState, hashState } from './entity/world.ts';
 import { setupMatch } from './setup.ts';

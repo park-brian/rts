@@ -1,13 +1,13 @@
-import type { Command } from './commands.ts';
-import { Role, TILE } from './data.ts';
-import { fx } from './fixed.ts';
-import { isContained, sameTeam } from './cargo.ts';
-import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
-import { isTransitioning } from './entity/state.ts';
-import { producerSupportsWorkerRally } from './rally.ts';
-import type { State } from './entity/world.ts';
-import { NONE, eid, isAlive, nearest, slotOf } from './entity/world.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Role, TILE } from '../data.ts';
+import { fx } from '../fixed.ts';
+import { isContained, sameTeam } from '../cargo.ts';
+import { canPlayerGatherTargetSlot, isGatherTargetSlot } from '../resource-targets.ts';
+import { isTransitioning } from '../entity/state.ts';
+import { producerSupportsWorkerRally } from '../rally.ts';
+import type { State } from '../entity/world.ts';
+import { NONE, eid, isAlive, nearest, slotOf } from '../entity/world.ts';
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
 
 type RallyCommand = Extract<Command, { t: 'rally' }>;
 

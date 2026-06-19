@@ -38,13 +38,13 @@ import {
   writeTrainKindMask,
   writeTransformKindMask,
 } from '../src/action-mask.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
-import type { Command } from '../src/commands.ts';
+import type { Command } from '../src/commands/types.ts';
 import {
   attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, rallyModeCandidates, repairModeCandidates,
   smartCommandCandidates,
-} from '../src/command-intent.ts';
+} from '../src/commands/intent.ts';
 
 const ALL_COMMAND_TAGS: readonly Command['t'][] = [
   'train', 'research', 'build', 'addon', 'lift', 'land', 'transform', 'burrow', 'mine',

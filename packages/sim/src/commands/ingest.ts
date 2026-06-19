@@ -4,9 +4,9 @@
 
 import type { State } from '../entity/world.ts';
 import { eid, slotOf, NONE } from '../entity/world.ts';
-import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
-import { validateCommand } from '../validation.ts';
-import { applyCommandSpec, validateCommandSpec } from '../command-specs.ts';
+import type { Command, CommandResult, PlayerCommands } from './types.ts';
+import { validateCommand } from './validate.ts';
+import { applyCommandSpec, validateCommandSpec } from './specs.ts';
 import { reserveProductionSupply } from '../production-queue.ts';
 import {
   GROUP_SLOT_SPACING,

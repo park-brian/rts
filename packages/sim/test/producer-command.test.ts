@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addonKindMask, researchTechMask, trainKindMask } from '../src/action-mask.ts';
-import { validateAddonCommand } from '../src/addon-command.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { validateAddonCommand } from '../src/commands/addon.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateTrainCommand } from '../src/production-command.ts';
-import { validateResearchCommand } from '../src/research-command.ts';
+import { validateTrainCommand } from '../src/commands/production.ts';
+import { validateResearchCommand } from '../src/commands/research.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

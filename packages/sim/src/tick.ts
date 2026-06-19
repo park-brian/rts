@@ -2,9 +2,9 @@
 // deterministic). See docs/specs/architecture.md §4.
 
 import type { State } from './entity/world.ts';
-import type { CommandResult, PlayerCommands } from './commands.ts';
+import type { CommandResult, PlayerCommands } from './commands/types.ts';
 import { census } from './systems/census.ts';
-import { applyCommands } from './systems/ingest.ts';
+import { applyCommands } from './commands/ingest.ts';
 import { construction } from './systems/construction.ts';
 import { production } from './systems/production.ts';
 import { research } from './systems/research.ts';

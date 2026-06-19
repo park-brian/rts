@@ -1,9 +1,9 @@
-import type { Command } from './commands.ts';
-import { Role } from './data.ts';
-import { isTransitioning } from './entity/state.ts';
-import { placementForStructure } from './placement.ts';
-import type { State } from './entity/world.ts';
-import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
+import type { Command } from './types.ts';
+import { Role } from '../data.ts';
+import { isTransitioning } from '../entity/state.ts';
+import { placementForStructure } from '../placement.ts';
+import type { State } from '../entity/world.ts';
+import { isLiftableTerranStructureKind, isLiftedStructureFlags } from '../terran-mobility.ts';
 import {
   hasActiveAddonTarget,
   isBusy,
@@ -11,7 +11,7 @@ import {
   rejectMissingOwnedSlot,
   ownedSlot,
   type CommandValidation,
-} from './command-validation.ts';
+} from './shared.ts';
 
 type LiftCommand = Extract<Command, { t: 'lift' }>;
 type LandCommand = Extract<Command, { t: 'land' }>;

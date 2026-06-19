@@ -1,11 +1,11 @@
-import type { Command } from './commands.ts';
-import { Units } from './data.ts';
-import { requirementsMet } from './requirements.ts';
-import { getTechLevel } from './tech.ts';
-import { mergePartnerFor, transformFor } from './unit-transform.ts';
-import type { State } from './entity/world.ts';
-import { NONE } from './entity/world.ts';
-import { canPay, canReceiveOrder, isBusy, reject, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Units } from '../data.ts';
+import { requirementsMet } from '../requirements.ts';
+import { getTechLevel } from '../tech.ts';
+import { mergePartnerFor, transformFor } from '../unit-transform.ts';
+import type { State } from '../entity/world.ts';
+import { NONE } from '../entity/world.ts';
+import { canPay, canReceiveOrder, isBusy, reject, type CommandValidation } from './shared.ts';
 
 type TransformCommand = Extract<Command, { t: 'transform' }>;
 

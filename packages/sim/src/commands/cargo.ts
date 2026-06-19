@@ -1,7 +1,7 @@
-import type { Command } from './commands.ts';
-import { Kind, Units } from './data.ts';
-import type { State } from './entity/world.ts';
-import { NONE, isAlive, slotOf } from './entity/world.ts';
+import type { Command } from './types.ts';
+import { Kind, Units } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { NONE, isAlive, slotOf } from '../entity/world.ts';
 import {
   UNLOAD_RANGE,
   canLoadInto,
@@ -13,16 +13,16 @@ import {
   transportCapacity,
   unloadAnchorSlot,
   withinLoadRange,
-} from './cargo.ts';
-import { isDisabled } from './systems/status.ts';
-import { withinRangeSq } from './spatial.ts';
+} from '../cargo.ts';
+import { isDisabled } from '../systems/status.ts';
+import { withinRangeSq } from '../spatial.ts';
 import {
   reject,
   rejectMissingOwnedSlot,
   ownedSlot,
   type CommandValidation,
   type SlotCommandValidation,
-} from './command-validation.ts';
+} from './shared.ts';
 
 type LoadCommand = Extract<Command, { t: 'load' }>;
 type UnloadCommand = Extract<Command, { t: 'unload' }>;

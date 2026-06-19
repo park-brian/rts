@@ -2,9 +2,9 @@
 // from the UI, the network, scripted bots, and (later) neural-net policies, so
 // replays, netcode, and RL trajectories are all the same data.
 //
-// Entity references are EntityIds (see world.ts). Positions are fixed-point px.
+// Entity references are EntityIds (see entity/world.ts). Positions are fixed-point px.
 
-import type { State } from './entity/world.ts';
+import type { State } from '../entity/world.ts';
 
 export type CommandRejectReason =
   | 'stale-entity'

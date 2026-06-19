@@ -5,7 +5,7 @@ import { Ability, Kind, Tech, Units } from '../src/data.ts';
 import { addonPosition } from '../src/addon.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

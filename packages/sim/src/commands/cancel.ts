@@ -1,7 +1,7 @@
-import type { Command } from './commands.ts';
-import { Kind, Role } from './data.ts';
-import type { State } from './entity/world.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Kind, Role } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
 
 type CancelBuildCommand = Extract<Command, { t: 'cancelBuild' }>;
 

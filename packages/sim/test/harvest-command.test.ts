@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateHarvestCommand } from '../src/harvest-command.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { validateHarvestCommand } from '../src/commands/harvest.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

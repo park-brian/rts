@@ -8,7 +8,7 @@ import {
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, trainSelectionOptions, transformSelectionCandidates, transformSelectionOptions,
   unloadSelectionCandidates, workerBuildSelectionOptions,
-} from '../src/command-intent.ts';
+} from '../src/commands/intent.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { eid, makeState, NEUTRAL, NONE, slotOf } from '../src/entity/world.ts';

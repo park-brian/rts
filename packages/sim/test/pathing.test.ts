@@ -12,8 +12,8 @@ import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-anchor.ts';
-import { placementForStructure } from '../src/validation.ts';
-import { applyCommands } from '../src/systems/ingest.ts';
+import { placementForStructure } from '../src/commands/validate.ts';
+import { applyCommands } from '../src/commands/ingest.ts';
 import { workersCanShareResourceRouteCollision } from '../src/worker-collision.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 

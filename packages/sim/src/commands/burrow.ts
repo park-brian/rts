@@ -1,9 +1,9 @@
-import type { Command } from './commands.ts';
-import { canBurrowSlot, hasBurrowAccess } from './burrow.ts';
-import { isContained } from './cargo.ts';
-import { isDisabled } from './systems/status.ts';
-import type { State } from './entity/world.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { canBurrowSlot, hasBurrowAccess } from '../burrow.ts';
+import { isContained } from '../cargo.ts';
+import { isDisabled } from '../systems/status.ts';
+import type { State } from '../entity/world.ts';
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
 
 type BurrowCommand = Extract<Command, { t: 'burrow' }>;
 

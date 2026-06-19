@@ -19,7 +19,7 @@ import {
   type BaseResourceDir,
   type ResourceFootprint,
 } from '../src/map.ts';
-import { placementForStructure } from '../src/validation.ts';
+import { placementForStructure } from '../src/commands/validate.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const tileCenter = (t: number): number => t * TILE + (TILE >> 1);

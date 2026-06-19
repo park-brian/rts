@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAttackCommand } from '../src/attack-command.ts';
+import { validateAttackCommand } from '../src/commands/attack.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };

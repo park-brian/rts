@@ -6,7 +6,7 @@ import { count, eid, isAlive, kill, makeState, slotOf, type State } from '../src
 import { spawnUnit } from '../src/entity/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { placementForStructure, validateCommand } from '../src/validation.ts';
+import { placementForStructure, validateCommand } from '../src/commands/validate.ts';
 import { buildKindMask } from '../src/action-mask.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 

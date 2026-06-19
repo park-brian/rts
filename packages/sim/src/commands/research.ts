@@ -1,15 +1,15 @@
-import type { Command } from './commands.ts';
-import { Role, TECH_CAP, TechDefs } from './data.ts';
-import { requirementsMet } from './requirements.ts';
-import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
-import type { State } from './entity/world.ts';
+import type { Command } from './types.ts';
+import { Role, TECH_CAP, TechDefs } from '../data.ts';
+import { requirementsMet } from '../requirements.ts';
+import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from '../tech.ts';
+import type { State } from '../entity/world.ts';
 import {
   canPay,
   canUseProducer,
   hasActiveResearch,
   reject,
   type CommandValidation,
-} from './command-validation.ts';
+} from './shared.ts';
 
 type ResearchCommand = Extract<Command, { t: 'research' }>;
 

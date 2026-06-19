@@ -1,15 +1,15 @@
 // Authoritative command and placement validation. Hosts may preflight with these
 // helpers for UX, but ingestion remains the source of truth.
 
-import type { Command, CommandRejectReason } from './commands.ts';
-import type { State } from './entity/world.ts';
-import { snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
-import { validateCommandSpec } from './command-specs.ts';
-import { canPlaceStructure, placementForStructure, type PlacementResult } from './placement.ts';
+import type { Command, CommandRejectReason } from './types.ts';
+import type { State } from '../entity/world.ts';
+import { snapBuildAnchor, structureFootprint, type Footprint } from '../footprint.ts';
+import { validateCommandSpec } from './specs.ts';
+import { canPlaceStructure, placementForStructure, type PlacementResult } from '../placement.ts';
 
 export type { CommandRejectReason };
 export { canPlaceStructure, placementForStructure, snapBuildAnchor, structureFootprint, type Footprint, type PlacementResult };
-export { canWorkerStartStructure } from './build-command.ts';
+export { canWorkerStartStructure } from './build.ts';
 
 export type CommandValidation =
   | { ok: true }

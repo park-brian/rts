@@ -1,12 +1,12 @@
-import type { Command } from './commands.ts';
-import { Kind, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
-import { isPowered } from './power.ts';
-import { canUseWeaponNow } from './burrow.ts';
-import { carrierCanAttack } from './interceptor.ts';
-import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
-import type { State } from './entity/world.ts';
-import { isAlive, slotOf } from './entity/world.ts';
-import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Kind, Units, hasAnyWeapon, weaponForTarget } from '../data.ts';
+import { isPowered } from '../power.ts';
+import { canUseWeaponNow } from '../burrow.ts';
+import { carrierCanAttack } from '../interceptor.ts';
+import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../weapon-mechanics.ts';
+import type { State } from '../entity/world.ts';
+import { isAlive, slotOf } from '../entity/world.ts';
+import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './shared.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
 

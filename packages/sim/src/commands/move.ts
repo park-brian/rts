@@ -1,11 +1,11 @@
-import type { Command } from './commands.ts';
-import { Kind, Role } from './data.ts';
-import { isContained, sameTeam } from './cargo.ts';
-import { commandMoveSpeed } from './terran-mobility.ts';
-import { isGatherTargetSlot } from './resource-targets.ts';
-import type { State } from './entity/world.ts';
-import { isAlive, slotOf } from './entity/world.ts';
-import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
+import type { Command } from './types.ts';
+import { Kind, Role } from '../data.ts';
+import { isContained, sameTeam } from '../cargo.ts';
+import { commandMoveSpeed } from '../terran-mobility.ts';
+import { isGatherTargetSlot } from '../resource-targets.ts';
+import type { State } from '../entity/world.ts';
+import { isAlive, slotOf } from '../entity/world.ts';
+import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';
 
 type MoveCommand = Extract<Command, { t: 'move' | 'amove' }>;
 

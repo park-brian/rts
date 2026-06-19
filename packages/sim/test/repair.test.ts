@@ -5,10 +5,10 @@ import { Kind, Order, Units } from '../src/data.ts';
 import { repairCost } from '../src/repair.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
-import { validateRepairCommand } from '../src/repair-command.ts';
-import { validateCommand } from '../src/validation.ts';
+import { validateRepairCommand } from '../src/commands/repair.ts';
+import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario } from '../test-support/scenario.ts';
-import type { Command, CommandRejectReason } from '../src/commands.ts';
+import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
 type RepairCommand = Extract<Command, { t: 'repair' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
