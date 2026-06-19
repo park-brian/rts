@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { Kind, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
-import { canDetect } from '../src/detection.ts';
+import { canDetect } from '../src/mechanics/detection.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

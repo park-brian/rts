@@ -26,7 +26,7 @@ export * from './mechanics/effects.ts';
 export * from './mechanics/creep.ts';
 export * from './mechanics/larva.ts';
 export * from './mechanics/nuke.ts';
-export * from './detection.ts';
+export * from './mechanics/detection.ts';
 export * from './mechanics/power.ts';
 export * from './mechanics/repair.ts';
 export * from './mechanics/tech.ts';

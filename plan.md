@@ -470,6 +470,9 @@ Done when:
 - Moved Carrier interceptor launch, bay, target, and ammo-readiness rules under
   `mechanics/interceptor.ts`, deleting the old root helper path while leaving orbit/return ticking in
   `systems/interceptors.ts`.
+- Moved shared cloak, scan, detector, and Arbiter cloak-aura query/update rules under
+  `mechanics/detection.ts`, deleting the old root helper path while keeping fog-of-war ticking in
+  `systems/vision.ts`.
 
 ## Review Checklist
 

@@ -7,7 +7,7 @@ import type { State } from '../entity/world.ts';
 import { eid, isAlive, NEUTRAL, NONE, slotOf } from '../entity/world.ts';
 import { EffectKind, Kind, TECH_CAP, Units, TILE, isLarvaSourceKind } from '../data.ts';
 import { ONE } from '../fixed.ts';
-import { canDetect } from '../detection.ts';
+import { canDetect } from '../mechanics/detection.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { CREEP_RADIUS, providesCreep } from '../mechanics/creep.ts';
 import { LARVA_MAX, nearestLarvaSource } from '../mechanics/larva.ts';

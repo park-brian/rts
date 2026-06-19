@@ -11,7 +11,7 @@ import { distanceSq } from '../spatial/geometry.ts';
 import type { State } from '../entity/world.ts';
 import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../entity/world.ts';
 import { trySpawnUnit } from '../entity/factory.ts';
-import { updateCloakAuras } from '../detection.ts';
+import { updateCloakAuras } from '../mechanics/detection.ts';
 import { faceToward } from '../spatial/motion.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../mechanics/cargo.ts';

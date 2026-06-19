@@ -3,7 +3,7 @@ import { isActiveAddon } from '../mechanics/addons.ts';
 import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { Kind } from '../data.ts';
-import { canDetect } from '../detection.ts';
+import { canDetect } from '../mechanics/detection.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isDisabled } from '../systems/status.ts';

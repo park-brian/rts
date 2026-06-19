@@ -1,9 +1,9 @@
-import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTraits } from './data.ts';
-import type { State } from './entity/world.ts';
-import { effectiveSight } from './systems/status.ts';
-import { isPowered } from './mechanics/power.ts';
-import { isContained } from './mechanics/cargo.ts';
-import { withinRangeSq } from './spatial/geometry.ts';
+import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTraits } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { withinRangeSq } from '../spatial/geometry.ts';
+import { effectiveSight } from '../systems/status.ts';
+import { isContained } from './cargo.ts';
+import { isPowered } from './power.ts';
 
 export const updateCloakAuras = (s: State): void => {
   const e = s.e;

@@ -1,7 +1,7 @@
 import type { State } from '../entity/world.ts';
 import { eid, isEnemy, NONE } from '../entity/world.ts';
 import { Kind, Order, Role, tiles } from '../data.ts';
-import { canDetect } from '../detection.ts';
+import { canDetect } from '../mechanics/detection.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { distanceSq } from '../spatial/geometry.ts';
 

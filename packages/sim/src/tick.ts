@@ -24,7 +24,7 @@ import { victory } from './systems/victory.ts';
 import { buildGrid } from './spatial/grid.ts';
 import { prepareNav } from './spatial/flow.ts';
 import { prepareLocalAvoidance } from './spatial/local-avoidance.ts';
-import { updateCloakAuras } from './detection.ts';
+import { updateCloakAuras } from './mechanics/detection.ts';
 
 // Several systems use module-local scratch for speed. Parallelism should come
 // from Workers/processes stepping independent sims, not nested/interleaved calls

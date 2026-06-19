@@ -12,7 +12,7 @@ import type { State } from '../entity/world.ts';
 import { CAP, NONE, isEnemy } from '../entity/world.ts';
 import { TILE, Units, weaponForTarget } from '../data.ts';
 import { ONE } from '../fixed.ts';
-import { canDetect } from '../detection.ts';
+import { canDetect } from '../mechanics/detection.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { MAX_BODY_REACH, bodyBounds, topDownEdgeDistanceSq } from './geometry.ts';
 
