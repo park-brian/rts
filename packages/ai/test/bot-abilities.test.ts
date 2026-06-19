@@ -25,7 +25,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
-  addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  Role, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
 
@@ -303,6 +303,34 @@ test('bot facts expose visible enemy protected regions for proactive pressure', 
   const facts = collectBotFacts(scenario.state, 0, Terran);
 
   assert.equal(enemyProtectedRegion(facts, 'base').anchor, enemyBase);
+  assert.equal(enemyProtectedRegion(facts, 'mineral-line').anchor, enemyBase);
+});
+
+test('bot enemy protected regions respect fogged bases and resources', () => {
+  const scenario = botScenario({ seed: 808, factions: [Terran, Zerg], vision: true });
+  const s = scenario.state;
+  const e = s.e;
+  const vision = s.vision[0]!;
+  const enemyBase = slotOf(scenario.entity(Kind.Hatchery, 1));
+  const reveal = (slot: number): void => {
+    vision[tileY(e.y[slot]!) * s.map.w + tileX(e.x[slot]!)] = 2;
+  };
+  vision.fill(0);
+
+  let facts = collectBotFacts(s, 0, Terran);
+  assert.deepEqual(facts.enemyProtectedRegions, []);
+
+  reveal(enemyBase);
+  facts = collectBotFacts(s, 0, Terran);
+  assert.equal(enemyProtectedRegion(facts, 'base').anchor, enemyBase);
+  assert.equal(facts.enemyProtectedRegions.some((region) => region.kind === 'mineral-line'), false);
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && (e.flags[i]! & Role.Resource) !== 0 && withinRangeSq(e.x[i]!, e.y[i]!, e.x[enemyBase]!, e.y[enemyBase]!, fx(14 * 32))) {
+      reveal(i);
+    }
+  }
+  facts = collectBotFacts(s, 0, Terran);
   assert.equal(enemyProtectedRegion(facts, 'mineral-line').anchor, enemyBase);
 });
 
