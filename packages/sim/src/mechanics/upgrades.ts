@@ -3,7 +3,7 @@ import {
   unitTraits, Trait, type Weapon,
 } from '../data.ts';
 import type { State } from '../entity/world.ts';
-import { getTechLevel } from '../tech.ts';
+import { getTechLevel } from './tech.ts';
 import { internalProductCapacity } from './internal-products.ts';
 
 const level = (s: State, owner: number, tech: number): number =>

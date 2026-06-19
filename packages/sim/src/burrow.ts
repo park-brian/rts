@@ -1,5 +1,5 @@
 import { Kind, Order, Role, Tech, Units } from './data.ts';
-import { getTechLevel } from './tech.ts';
+import { getTechLevel } from './mechanics/tech.ts';
 import type { State } from './entity/world.ts';
 import { NONE } from './entity/world.ts';
 import { clearVelocity } from './spatial/motion.ts';

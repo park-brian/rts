@@ -9,7 +9,7 @@ import {
   REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, TILE, Units, tiles,
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { setTechLevel } from '../src/tech.ts';
+import { setTechLevel } from '../src/mechanics/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/mechanics/upgrades.ts';
 import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,

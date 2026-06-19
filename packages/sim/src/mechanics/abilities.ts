@@ -2,7 +2,7 @@ import { Abilities, Ability } from '../data.ts';
 import type { AbilityDef } from '../data.ts';
 import { canSpawnEffect, canSpawnEntity } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
-import { getTechLevel } from '../tech.ts';
+import { getTechLevel } from './tech.ts';
 
 export const abilityTechAvailable = (s: State, player: number, abilityId: number): boolean => {
   const ability = Abilities[abilityId];

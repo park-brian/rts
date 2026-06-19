@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { Ability, Kind, Tech, TechDefs } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
-import { getTechLevel } from '../src/tech.ts';
+import { getTechLevel } from '../src/mechanics/tech.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 const finishResearch = (sim: Sim, building: number): void => {

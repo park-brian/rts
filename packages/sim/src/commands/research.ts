@@ -8,7 +8,7 @@ import {
   queueResearch,
   techGas,
   techMinerals,
-} from '../tech.ts';
+} from '../mechanics/tech.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';
 import {

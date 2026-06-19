@@ -1,6 +1,6 @@
 import { Kind, Order, Role, Tech, Units, tiles } from '../data.ts';
 import { tileX, tileY } from '../spatial/pathing.ts';
-import { getTechLevel } from '../tech.ts';
+import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from '../entity/world.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from '../spatial/flow.ts';
 import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from '../spatial/geometry.ts';

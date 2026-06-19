@@ -461,6 +461,8 @@ Done when:
   train application, larva-to-egg queueing, and same-tick supply reservation share one command owner.
 - Moved shared larva cap, nearest-source, and count helpers under `mechanics/larva.ts`, leaving
   `systems/production/larva.ts` as the tick-time larva spawner.
+- Moved shared tech-state, research-level, cost, and research-queue helpers under
+  `mechanics/tech.ts`, deleting the old root helper path while preserving the stable package export.
 
 ## Review Checklist
 

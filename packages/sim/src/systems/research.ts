@@ -1,7 +1,7 @@
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
 import { Kind, Tech, TechDefs } from '../data.ts';
-import { nextTechLevel, setTechLevel } from '../tech.ts';
+import { nextTechLevel, setTechLevel } from '../mechanics/tech.ts';
 import { upgradedEnergyMax } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';

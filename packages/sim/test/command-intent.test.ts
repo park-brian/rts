@@ -10,7 +10,7 @@ import {
   unloadSelectionCandidates, workerBuildSelectionOptions,
 } from '../src/commands/intent.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { setTechLevel } from '../src/tech.ts';
+import { setTechLevel } from '../src/mechanics/tech.ts';
 import { eid, makeState, NEUTRAL, NONE, slotOf } from '../src/entity/world.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));

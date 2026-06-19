@@ -1,6 +1,6 @@
 import { Kind, TechDefs, Units } from '../data.ts';
 import { internalProductDef, internalProductReadyCount, internalProductsForProducer } from '../mechanics/internal-products.ts';
-import { nextTechLevel, techTime } from '../tech.ts';
+import { nextTechLevel, techTime } from '../mechanics/tech.ts';
 import type { State } from './world.ts';
 
 export type EntityProductionWork = {

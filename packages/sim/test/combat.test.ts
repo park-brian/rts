@@ -8,7 +8,7 @@ import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } f
 import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
-import { setTechLevel } from '../src/tech.ts';
+import { setTechLevel } from '../src/mechanics/tech.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 
 test('two enemy marines fight and at least one dies', () => {

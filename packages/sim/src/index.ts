@@ -29,7 +29,7 @@ export * from './mechanics/nuke.ts';
 export * from './detection.ts';
 export * from './mechanics/power.ts';
 export * from './mechanics/repair.ts';
-export * from './tech.ts';
+export * from './mechanics/tech.ts';
 export * from './mechanics/requirements.ts';
 export * from './mechanics/internal-products.ts';
 export * from './mechanics/child-actors.ts';

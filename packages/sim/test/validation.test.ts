@@ -11,7 +11,7 @@ import { canPlayerGatherTarget, isGatherTarget } from '../src/mechanics/resource
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command } from '../src/commands/types.ts';
 import { stepWorld } from '../src/tick.ts';
-import { setTechLevel } from '../src/tech.ts';
+import { setTechLevel } from '../src/mechanics/tech.ts';
 
 const findSlot = (s: State, pred: (slot: number) => boolean): number => {
   const e = s.e;

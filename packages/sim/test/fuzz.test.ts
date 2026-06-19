@@ -7,7 +7,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map/core.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { setTechLevel } from '../src/tech.ts';
+import { setTechLevel } from '../src/mechanics/tech.ts';
 
 const next = (x: number): number => (Math.imul(x, 1664525) + 1013904223) >>> 0;
 
