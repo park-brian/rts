@@ -4,7 +4,7 @@ import { Kind, Order, Units, tiles } from '../data.ts';
 import { storeInternalProduct } from '../mechanics/internal-products.ts';
 import { carrierBayPoint } from '../interceptor.ts';
 import { navigate } from '../pathing.ts';
-import { faceToward, within } from './move.ts';
+import { faceToward, within } from '../spatial/motion.ts';
 import { effectiveSpeed } from './status.ts';
 
 const ORBIT_RADIUS = tiles(1);

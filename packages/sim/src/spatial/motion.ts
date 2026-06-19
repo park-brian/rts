@@ -1,4 +1,4 @@
-// Movement primitives shared by the movement and harvest systems. Integer-only.
+// Fixed-point motion primitives shared by movement, combat, economy, and commands.
 
 import type { Entities } from '../entity/world.ts';
 import { isqrt } from '../fixed.ts';

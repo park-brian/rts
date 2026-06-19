@@ -419,6 +419,9 @@ Done when:
   the old root helper instead of leaving a shim.
 - Moved elevation and low-ground/high-ground visibility/combat helpers under `spatial/terrain.ts`,
   deleting the old root helper instead of leaving a shim.
+- Moved fixed-point motion primitives (`clearVelocity`, facing, direct movement, acceleration, and
+  radius checks) under `spatial/motion.ts`, deleting the old `systems/move.ts` helper so pathing no
+  longer depends on a tick-system module.
 
 ## Review Checklist
 

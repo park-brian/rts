@@ -6,7 +6,7 @@ import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
 import { navigate } from '../pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
-import { faceToward } from './move.ts';
+import { faceToward } from '../spatial/motion.ts';
 import { effectiveSpeed } from './status.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 

@@ -2,7 +2,7 @@ import type { Entities } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { upgradedCooldown, upgradedSight, upgradedSpeed } from '../mechanics/upgrades.ts';
 import { Units, sec } from '../data.ts';
-import { clearVelocity } from './move.ts';
+import { clearVelocity } from '../spatial/motion.ts';
 
 export const isDisabled = (e: Entities, slot: number): boolean =>
   e.lockdownTimer[slot]! > 0 || e.stasisTimer[slot]! > 0 || e.maelstromTimer[slot]! > 0;

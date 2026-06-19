@@ -3,7 +3,7 @@ import { isAlive, slotOf, NONE } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { navigate } from '../pathing.ts';
 import { REPAIR_RATE, isRepairableKind, repairCost } from '../repair.ts';
-import { faceToward } from './move.ts';
+import { faceToward } from '../spatial/motion.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';

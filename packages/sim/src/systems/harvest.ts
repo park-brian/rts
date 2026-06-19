@@ -17,7 +17,7 @@
 import type { State } from '../entity/world.ts';
 import { CAP, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
-import { clearVelocity, faceToward } from './move.ts';
+import { clearVelocity, faceToward } from '../spatial/motion.ts';
 import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';

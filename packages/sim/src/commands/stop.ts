@@ -3,7 +3,7 @@ import { Order, Role } from '../data.ts';
 import { isContained } from '../cargo.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
-import { clearVelocity } from '../systems/move.ts';
+import { clearVelocity } from '../spatial/motion.ts';
 import {
   cancelPendingBeforeOrder,
   clearSettled,

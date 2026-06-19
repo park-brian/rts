@@ -11,7 +11,7 @@ import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../c
 import { placementForStructure } from '../mechanics/placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
-import { clearVelocity } from './move.ts';
+import { clearVelocity } from '../spatial/motion.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { roundedGroupSpacing, usesGroundMoveSlot } from '../spatial/movement-slots.ts';
 

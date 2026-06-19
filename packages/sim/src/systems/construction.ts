@@ -10,7 +10,7 @@ import { ONE } from '../fixed.ts';
 import { navigate } from '../pathing.ts';
 import { navPassable } from '../spatial/flow.ts';
 import { pickPatch } from './harvest.ts';
-import { faceToward, within } from './move.ts';
+import { faceToward, within } from '../spatial/motion.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
