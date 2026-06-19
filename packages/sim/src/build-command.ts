@@ -1,28 +1,22 @@
-import type { Command, CommandRejectReason } from './commands.ts';
+import type { Command } from './commands.ts';
 import { Order, Role, Units, workerBuildKindsFor } from './data.ts';
 import { cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import { requirementsMet } from './requirements.ts';
 import { canPlaceStructure, type PlacementResult } from './placement.ts';
 import type { State } from './world.ts';
-import { NONE, canSpawnEntity, isAlive, slotOf } from './world.ts';
+import { NONE, canSpawnEntity, slotOf } from './world.ts';
 import { isContained } from './cargo.ts';
-import { canPay } from './command-validation.ts';
-
-type CommandValidation =
-  | { ok: true }
-  | { ok: false; reason: CommandRejectReason };
+import {
+  canPay,
+  reject,
+  rejectMissingOwnedSlot,
+  ownedSlot,
+  type CommandValidation,
+} from './command-validation.ts';
 
 type BuildCommand = Extract<Command, { t: 'build' }>;
 
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
 const playerExists = (s: State, player: number): boolean => player >= 0 && player < s.teams.length;
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
 
 const canBuildWithWorker = (workerKind: number, structureKind: number): boolean => {
   const worker = Units[workerKind];
@@ -82,7 +76,7 @@ export const validateWorkerBuild = (
 export const validateBuildCommand = (s: State, player: number, command: BuildCommand): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
   const def = Units[command.kind];
   if (def && def.buildMethod !== 'morph' && !canSpawnEntity(s)) return reject('capacity-full');
   return validateWorkerBuild(s, player, slot, command.kind, command.x, command.y);
