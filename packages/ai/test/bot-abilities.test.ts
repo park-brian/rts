@@ -860,6 +860,45 @@ test('bot fog pressure falls back to public enemy starts without hidden target l
   assertPublicSurfaceExposes(s, 0, command);
 });
 
+test('bot fog pressure chooses the nearest public enemy start on multi-start maps', () => {
+  const map = generateMap(2, 4007);
+  const scenario = botScenario({
+    seed: 4007,
+    map,
+    players: 4,
+    factions: [Terran, Terran, Zerg, Zerg],
+    vision: true,
+  });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  s.vision[0]!.fill(0);
+
+  const ownTeam = s.teams[0]!;
+  let expectedX = 0;
+  let expectedY = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < map.starts.length; i++) {
+    if (map.teams[i] === ownTeam) continue;
+    const start = map.starts[i]!;
+    const x = fx(start.x * TILE + (TILE >> 1));
+    const y = fx(start.y * TILE + (TILE >> 1));
+    const d = (x - base.x) ** 2 + (y - base.y) ** 2;
+    if (d >= bestDistance) continue;
+    expectedX = x;
+    expectedY = y;
+    bestDistance = d;
+  }
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
+    .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
+
+  assert.ok(command);
+  assert.equal(command.x, expectedX);
+  assert.equal(command.y, expectedY);
+  assertPublicSurfaceExposes(s, 0, command);
+});
+
 test('bot sieges tanks when an enemy is in useful siege range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 401 });
   const s = sim.fullState();

@@ -474,6 +474,9 @@ Remaining work:
       - Enemy-protected-region slice is done: `BotFacts` now exposes visible enemy base and
         mineral-line regions using the same region shape as home defense, and attack waves pressure
         the highest-value exposed enemy region before falling back to nearest enemy structures.
+      - Public-start fallback slice is done: when fog hides all enemy regions and visible enemies,
+        pressure now targets the nearest public enemy start instead of the farthest one, reducing
+        time-to-impact without leaking hidden unit positions.
     - Risk must not become paralysis. Directors should carry a commitment pressure term from
       timing windows, strategy posture, banked resources, enemy scaling, base count, and elapsed
       indecision. If every route is bad or every enemy army looks larger, the scheduler still commits
@@ -842,6 +845,8 @@ Done when:
   duplicated defense/offense micro branches in the live bot controller while preserving behavior.
 - Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
   instead of waiting the full under-threshold timeout.
+- Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start
+  maps, preserving hidden-unit secrecy while forcing faster contact.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as

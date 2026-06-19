@@ -84,19 +84,19 @@ const publicEnemyStartFocus = (s: State, player: number, depot: number): Pressur
   const e = s.e;
   let bestX = 0;
   let bestY = 0;
-  let bestDistance = -1;
+  let bestDistance = Infinity;
   for (let i = 0; i < s.map.starts.length; i++) {
     if ((s.map.teams[i] ?? i) === ownTeam) continue;
     const start = s.map.starts[i]!;
     const x = (start.x * TILE + (TILE >> 1)) * ONE;
     const y = (start.y * TILE + (TILE >> 1)) * ONE;
     const distance = distanceSq(e.x[depot]!, e.y[depot]!, x, y);
-    if (distance <= bestDistance) continue;
+    if (distance >= bestDistance) continue;
     bestX = x;
     bestY = y;
     bestDistance = distance;
   }
-  return bestDistance < 0 ? null : { x: bestX, y: bestY, target: NONE };
+  return bestDistance === Infinity ? null : { x: bestX, y: bestY, target: NONE };
 };
 
 export const pressureFocus = (
