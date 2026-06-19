@@ -6,7 +6,7 @@ import { addonPosition } from '../src/mechanics/addons.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
-import { liftedStructureFlags } from '../src/terran-mobility.ts';
+import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('terran parent buildings construct one linked add-on', () => {

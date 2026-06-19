@@ -6,7 +6,7 @@ import type { State } from '../entity/world.ts';
 import { Order, Units } from '../data.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
-import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../terran-mobility.ts';
+import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../mechanics/terran-mobility.ts';
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../mechanics/cargo.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';

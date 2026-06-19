@@ -9,7 +9,7 @@ import {
   isLiftedStructureFlags,
   liftStructure,
   startStructureLanding,
-} from '../terran-mobility.ts';
+} from '../mechanics/terran-mobility.ts';
 import {
   hasActiveAddonTarget,
   isBusy,

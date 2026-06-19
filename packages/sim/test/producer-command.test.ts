@@ -7,7 +7,7 @@ import { Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { validateTrainCommand } from '../src/commands/production.ts';
 import { validateResearchCommand } from '../src/commands/research.ts';
-import { liftedStructureFlags } from '../src/terran-mobility.ts';
+import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';

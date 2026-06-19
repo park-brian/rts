@@ -449,6 +449,9 @@ Done when:
   deleting the old root helper path while preserving the stable package export.
 - Moved shared rally endpoint resolution and worker-rally fallback rules under
   `mechanics/rally.ts`, deleting the old root helper path while preserving the stable package export.
+- Moved shared Terran lift/land mobility flags, speeds, and state transitions under
+  `mechanics/terran-mobility.ts`, deleting the old root helper path while preserving the stable
+  package export.
 
 ## Review Checklist
 

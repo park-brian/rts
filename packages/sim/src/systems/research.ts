@@ -4,7 +4,7 @@ import { Kind, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
-import { isLiftedStructureFlags } from '../terran-mobility.ts';
+import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';
 import { refillInternalProduct } from '../mechanics/internal-products.ts';
 

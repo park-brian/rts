@@ -9,7 +9,7 @@ import { applyCommands } from '../src/commands/ingest.ts';
 import { stepWorld } from '../src/tick.ts';
 import { loadUnitInto, unloadUnit } from '../src/mechanics/cargo.ts';
 import { setBurrowed } from '../src/burrow.ts';
-import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts';
+import { liftStructure, startStructureLanding } from '../src/mechanics/terran-mobility.ts';
 import { applyTransform } from '../src/mechanics/transforms.ts';
 import { tickStatusTimers } from '../src/systems/status.ts';
 import { navigate } from '../src/spatial/pathing.ts';

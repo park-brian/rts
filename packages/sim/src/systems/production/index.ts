@@ -7,7 +7,7 @@ import type { State } from '../../entity/world.ts';
 import { NONE } from '../../entity/world.ts';
 import { Kind } from '../../data.ts';
 import { isPowered } from '../../mechanics/power.ts';
-import { isLiftedStructureFlags } from '../../terran-mobility.ts';
+import { isLiftedStructureFlags } from '../../mechanics/terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../../mechanics/addons.ts';
 import { tickLarvae } from './larva.ts';
 import { assignRallyMoveSlots, type RallyMove } from './rally.ts';

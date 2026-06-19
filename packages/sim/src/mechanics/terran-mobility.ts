@@ -1,7 +1,7 @@
-import { fx } from './fixed.ts';
-import { Kind, Order, Role, Units } from './data.ts';
-import { eid, NONE, type State } from './entity/world.ts';
-import { clearVelocity } from './spatial/motion.ts';
+import { fx } from '../fixed.ts';
+import { Kind, Order, Role, Units } from '../data.ts';
+import { eid, NONE, type State } from '../entity/world.ts';
+import { clearVelocity } from '../spatial/motion.ts';
 
 export const LIFTED_BUILDING_SPEED = fx(1);
 
