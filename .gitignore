@@ -35,6 +35,7 @@ checkpoints/
 
 # Generated artifacts
 /replays/*.replay
+tmp/
 
 # app build artifacts
 packages/app/shots/

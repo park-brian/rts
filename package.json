@@ -12,7 +12,7 @@
   },
   "scripts": {
     "start": "npm run start -w @rts/app",
-    "test": "node --test",
+    "test": "node --test \"packages/*/test/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "demo": "node packages/headless/src/demo.ts",
     "bench": "node packages/headless/src/bench.ts",

@@ -187,6 +187,30 @@ test('bot attack waves use public point attack-move intent', () => {
   assertPublicSurfaceExposes(s, 0, command);
 });
 
+test('bot attack waves retask rally-following combat units', () => {
+  const scenario = botScenario({ seed: 4003 });
+  const s = scenario.state;
+  const e = s.e;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  const followerTarget = scenario.spawn(Kind.SCV, 0, base.x + fx(48), base.y);
+  const enemyDepot = scenario.entity(Kind.CommandCenter, 1);
+  const enemySlot = slotOf(enemyDepot);
+  const marineSlot = slotOf(marine);
+  e.order[marineSlot] = Order.AttackMove;
+  e.intentTarget[marineSlot] = followerTarget;
+  e.combatTarget[marineSlot] = NONE;
+  e.target[marineSlot] = NONE;
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
+    .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
+  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: e.x[enemySlot]!, y: e.y[enemySlot]! });
+
+  assert.deepEqual(command ? [command] : [], expected);
+  assert.ok(command);
+  assertPublicSurfaceExposes(s, 0, command);
+});
+
 test('bot sieges tanks when an enemy is in useful siege range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 401 });
   const s = sim.fullState();

@@ -65,6 +65,11 @@ const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 type ResourceBudget = { minerals: number; gas: number };
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
+const canRetaskArmy = (s: State, slot: number): boolean => {
+  const e = s.e;
+  return e.order[slot] === Order.Idle ||
+    (e.order[slot] === Order.AttackMove && e.intentTarget[slot] !== NONE && e.combatTarget[slot] === NONE);
+};
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
 const findSpot = (s: State, player: number, worker: number, kind: number, bx: number, by: number): { x: number; y: number } | null => {
@@ -151,7 +156,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     let pendingBarracks = 0;
     let pendingSupply = 0;
     let army = 0;
-    const idleArmy: number[] = [];
+    const retaskableArmy: number[] = [];
     const casters: number[] = [];
     let aWorker = NONE; // a worker we can pull to build
 
@@ -168,7 +173,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         if ((fl & Role.Worker) !== 0 && e.buildKind[i] === faction.armyStructure) pendingBarracks++;
       } else if (k === faction.armyUnit) {
         army++;
-        if (e.order[i] === Order.Idle) idleArmy.push(i);
+        if (canRetaskArmy(s, i)) retaskableArmy.push(i);
       } else if (k === faction.depot && e.built[i] === 1) {
         if (depot === NONE) depot = i;
         if (e.prodKind[i] === Kind.None) idleDepots.push(i);
@@ -183,7 +188,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         pendingSupply++;
       }
       const def = Units[k]!;
-      if (k !== faction.armyUnit && (fl & Role.Mobile) !== 0 && hasAnyWeapon(def) && e.order[i] === Order.Idle) idleArmy.push(i);
+      if (k !== faction.armyUnit && (fl & Role.Mobile) !== 0 && hasAnyWeapon(def) && canRetaskArmy(s, i)) retaskableArmy.push(i);
     }
     if (depot === NONE) return cmds; // no base: nothing to do
 
@@ -317,7 +322,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const threat = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && withinTiles(s, sl, e.x[depot]!, e.y[depot]!, 18));
     if (threat !== NONE) {
       castTacticalAbilities(s, p, cmds, casters, e.x[threat]!, e.y[threat]!);
-      for (const a of idleArmy) {
+      for (const a of retaskableArmy) {
         if (maybeLaySpiderMine(s, cmds, a, threat)) continue;
         if (maybeBurrowForFight(s, cmds, a, threat)) continue;
         if (maybeTransformForFight(s, cmds, a, e.x[threat]!, e.y[threat]!)) continue;
@@ -335,7 +340,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
           minerals = budget.minerals;
         }
         castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
-        for (const a of idleArmy) {
+        for (const a of retaskableArmy) {
           if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) continue;
           if (maybeLaySpiderMine(s, cmds, a, tgt)) continue;
           if (maybeBurrowForFight(s, cmds, a, tgt)) continue;
