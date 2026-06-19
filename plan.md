@@ -355,6 +355,8 @@ Done when:
 - Moved simple apply logic for add-ons, cancel-build, burrow, build, cargo, Terran lift/land,
   spider mines, research, and transforms into their command-family modules; `commands/specs.ts`
   now mainly retains shared dispatch plus rally/train context handling.
+- Moved rally and train apply logic into their command-family modules, leaving `commands/specs.ts`
+  as the command registry plus the remaining shared move-destination and supply-reservation context.
 
 ## Review Checklist
 

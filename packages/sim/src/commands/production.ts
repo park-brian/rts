@@ -2,9 +2,9 @@ import type { Command } from './types.ts';
 import { Kind, MAX_QUEUE, Role, Units, productionCostCount, productionCount } from '../data.ts';
 import { canQueueInternalProduct, internalProductCapacity } from '../internal-products.ts';
 import { requirementsMet } from '../requirements.ts';
-import { queuedProductionCount } from '../production-queue.ts';
+import { queueProduction, queuedProductionCount } from '../production-queue.ts';
 import type { State } from '../entity/world.ts';
-import { canSpawnEntity } from '../entity/world.ts';
+import { canSpawnEntity, slotOf } from '../entity/world.ts';
 import { canPay, canUseProducer, reject, type CommandValidation } from './shared.ts';
 
 export type ProductionValidationContext = {
@@ -49,4 +49,14 @@ export const validateTrainCommand = (
   const used = ctx.reservedSupply ?? s.players.supplyUsed[player]!;
   if (used + def.supply * productionCount(command.kind) > s.players.supplyMax[player]!) return reject('supply-blocked');
   return { ok: true };
+};
+
+export const applyTrainCommand = (
+  s: State,
+  player: number,
+  command: TrainCommand,
+  reserveSupply?: (kind: number) => void,
+): void => {
+  queueProduction(s, slotOf(command.building), command.kind, player);
+  reserveSupply?.(command.kind);
 };

@@ -1,19 +1,16 @@
 import type { Command, CommandRejectReason } from './types.ts';
 import type { State } from '../entity/world.ts';
-import { NONE, isAlive, slotOf } from '../entity/world.ts';
-import { queueProduction } from '../production-queue.ts';
+import { slotOf } from '../entity/world.ts';
 import { applyBuildCommand, validateBuildCommand } from './build.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability.ts';
-import { isGatherTargetSlot } from '../resource-targets.ts';
-import { producerDirectlyProducesOnlyWorkers } from '../rally.ts';
 import { applyLoadCommand, applyUnloadCommand, validateLoadCommand, validateUnloadCommand } from './cargo.ts';
 import { applyCancelBuildCommand, validateCancelBuildCommand } from './cancel.ts';
 import { applyHarvestCommand, validateHarvestCommand } from './harvest.ts';
 import { applyRepairCommand, validateRepairCommand } from './repair.ts';
 import { applyAddonCommand, validateAddonCommand } from './addon.ts';
 import { applyMineCommand, validateMineCommand } from './mine.ts';
-import { snapRallyTarget, validateRallyCommand } from './rally.ts';
-import { validateTrainCommand } from './production.ts';
+import { applyRallyCommand, snapRallyTarget, validateRallyCommand } from './rally.ts';
+import { applyTrainCommand, validateTrainCommand } from './production.ts';
 import { applyResearchCommand, validateResearchCommand } from './research.ts';
 import { applyAttackCommand, validateAttackCommand } from './attack.ts';
 import { applyBurrowCommand, validateBurrowCommand } from './burrow.ts';
@@ -165,43 +162,14 @@ const trainSpec: CommandSpec<Extract<Command, { t: 'train' }>> = {
     return validateTrainCommand(s, player, command, ctx);
   },
   apply(s, player, command, ctx): void {
-    queueProduction(s, slotOf(command.building), command.kind, player);
-    ctx.reserveSupply?.(command.kind);
+    applyTrainCommand(s, player, command, ctx.reserveSupply);
   },
 };
 
 const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
   validate: validateRallyCommand,
   apply(s, player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.building);
-    const target = command.target ?? snapRallyTarget(s, player, command.x, command.y, slot);
-    if (target !== NONE && isAlive(e, target)) {
-      const targetSlot = slotOf(target);
-      if (isGatherTargetSlot(s, targetSlot)) {
-        e.workerRallyTarget[slot] = target;
-        e.workerRallyX[slot] = e.x[targetSlot]!;
-        e.workerRallyY[slot] = e.y[targetSlot]!;
-        return;
-      }
-      e.rallyTarget[slot] = target;
-      e.rallyX[slot] = e.x[targetSlot]!;
-      e.rallyY[slot] = e.y[targetSlot]!;
-      if (producerDirectlyProducesOnlyWorkers(s, slot)) {
-        e.workerRallyTarget[slot] = NONE;
-        e.workerRallyX[slot] = NONE;
-        e.workerRallyY[slot] = NONE;
-      }
-      return;
-    }
-    e.rallyTarget[slot] = NONE;
-    e.rallyX[slot] = command.x;
-    e.rallyY[slot] = command.y;
-    if (producerDirectlyProducesOnlyWorkers(s, slot)) {
-      e.workerRallyTarget[slot] = NONE;
-      e.workerRallyX[slot] = NONE;
-      e.workerRallyY[slot] = NONE;
-    }
+    applyRallyCommand(s, player, command);
   },
 };
 

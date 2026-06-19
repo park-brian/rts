@@ -4,7 +4,7 @@ import { fx } from '../fixed.ts';
 import { isContained, sameTeam } from '../cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from '../resource-targets.ts';
 import { isTransitioning } from '../entity/state.ts';
-import { producerSupportsWorkerRally } from '../rally.ts';
+import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from '../rally.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, eid, isAlive, nearest, slotOf } from '../entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
@@ -49,4 +49,39 @@ export const validateRallyCommand = (s: State, player: number, command: RallyCom
     if (!canRallyToSlot(s, player, slot, slotOf(command.target))) return reject('target-not-allowed');
   }
   return { ok: true };
+};
+
+export const applyRallyCommand = (s: State, player: number, command: RallyCommand): void => {
+  const e = s.e;
+  const slot = slotOf(command.building);
+  const target = command.target ?? snapRallyTarget(s, player, command.x, command.y, slot);
+
+  if (target !== NONE && isAlive(e, target)) {
+    const targetSlot = slotOf(target);
+    if (isGatherTargetSlot(s, targetSlot)) {
+      e.workerRallyTarget[slot] = target;
+      e.workerRallyX[slot] = e.x[targetSlot]!;
+      e.workerRallyY[slot] = e.y[targetSlot]!;
+      return;
+    }
+
+    e.rallyTarget[slot] = target;
+    e.rallyX[slot] = e.x[targetSlot]!;
+    e.rallyY[slot] = e.y[targetSlot]!;
+    clearWorkerRallyForWorkerOnlyProducer(s, slot);
+    return;
+  }
+
+  e.rallyTarget[slot] = NONE;
+  e.rallyX[slot] = command.x;
+  e.rallyY[slot] = command.y;
+  clearWorkerRallyForWorkerOnlyProducer(s, slot);
+};
+
+const clearWorkerRallyForWorkerOnlyProducer = (s: State, producer: number): void => {
+  if (!producerDirectlyProducesOnlyWorkers(s, producer)) return;
+  const e = s.e;
+  e.workerRallyTarget[producer] = NONE;
+  e.workerRallyX[producer] = NONE;
+  e.workerRallyY[producer] = NONE;
 };
