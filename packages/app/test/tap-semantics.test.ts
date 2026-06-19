@@ -1043,6 +1043,8 @@ test('selection status publishes compact progress and upgraded combat stats', ()
   assert.equal(ui.selectionView.value.status.detail, 'Marine +1');
   assert.ok(ui.selectionView.value.status.progress > 0.45 && ui.selectionView.value.status.progress < 0.55);
   assert.ok(ui.selectionView.value.status.stats.includes('HP 1000/1000'));
+  assert.equal(ui.selectionView.value.can.rally, true);
+  assert.ok(ui.selectionView.value.options.train.some((option) => option.id === Kind.Marine));
 
   const marine = spawnUnit(s, Kind.Marine, 0, fx(560), fx(520));
   select(g, [marine]);

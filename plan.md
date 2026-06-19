@@ -1463,8 +1463,9 @@ Rework slices:
      morphing, merging, training, researching, channeling, and dead states; selected-unit status now
      consumes this query for lifecycle labels/progress instead of reinterpreting `built`, `ctimer`,
      `prodKind`, and `researchKind` app-side. Selected world progress bars now use the same
-     lifecycle progress for construction, morph, and merge states. Command-card labels remain a
-     follow-up consumer.
+     lifecycle progress for construction, morph, and merge states. Command-card readiness and
+     cancelability now derive from lifecycle state/cancelability before `validateCommand` remains
+     the final command legality authority.
 2. Add entity roles and commandability helpers.
    - Define child/projectile/user-commandable roles in sim data or derived helpers.
    - Replace app-side `Kind.Scarab`/`Kind.Interceptor` commandability checks.

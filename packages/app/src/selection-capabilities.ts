@@ -3,8 +3,10 @@ import {
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformFor, transformTargetsFor,
   unloadAnchorSlot, validateCommand, workerBuildKindsFor,
+  entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
+  type EntityLifecycle,
   type Command, type CommandRejectReason, type CommandValidation, type State,
 } from './sim.ts';
 import { entityLifecycleStatus } from './entity-lifecycle-status.ts';
@@ -123,6 +125,18 @@ const armedOrderOption = (id: number, label: string, arm: ArmedCommand): Command
 const commandOrderOption = (id: number, label: string, commands: Command[]): CommandOption[] =>
   commands.length > 0 ? [{ id, ok: true, label, commands }] : [];
 
+const lifecycleCanReceiveStandardCommands = (lifecycle: EntityLifecycle): boolean => {
+  switch (lifecycle.state) {
+    case 'complete':
+    case 'training':
+    case 'researching':
+    case 'channeling':
+      return true;
+    default:
+      return false;
+  }
+};
+
 const unloadOffsets: readonly (readonly [number, number])[] = [
   [0, 64], [64, 0], [-64, 0], [0, -64],
   [64, 64], [-64, 64], [64, -64], [-64, -64],
@@ -240,25 +254,26 @@ export const selectionCapabilities = (
     if (e.owner[slot] !== player && !canSeeEntity(slot)) continue;
     count++;
     const k = e.kind[slot]!;
-    const completed = e.built[slot] === 1;
+    const lifecycle = entityLifecycle(s, slot);
+    const ready = lifecycleCanReceiveStandardCommands(lifecycle);
     if (primarySlot < 0) primarySlot = slot;
     kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
-    if (completed) {
+    if (ready) {
       const command: Command = { t: 'stop', unit: id };
       if (validateCommand(s, player, command).ok) {
         canStop = true;
         stopCommands.push(command);
       }
     }
-    if (completed && (e.flags[slot]! & Role.Worker) !== 0) {
+    if (ready && (e.flags[slot]! & Role.Worker) !== 0) {
       if (e.illusion[slot] !== 1) canHarvest = true;
       addWorkerBuildOptions(s, player, slot, buildOptions);
     }
-    if (completed && e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
-    if ((e.flags[slot]! & Role.Structure) !== 0 && completed) canRally = true;
-    if (completed) {
+    if (ready && e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
+    if ((e.flags[slot]! & Role.Structure) !== 0 && ready) canRally = true;
+    if (ready) {
       for (const addon of ADDON_IDS) {
         if (addonParentKind(addon) !== k) continue;
         const command: Command = { t: 'addon', building: id, kind: addon };
@@ -320,10 +335,12 @@ export const selectionCapabilities = (
       canLand = true;
       if (landKind === NONE) landKind = k;
     }
-    const cancelCommand: Command = { t: 'cancelBuild', building: id };
-    if (validateCommand(s, player, cancelCommand).ok) {
-      canCancel = true;
-      cancelCommands.push(cancelCommand);
+    if (lifecycle.cancelable) {
+      const cancelCommand: Command = { t: 'cancelBuild', building: id };
+      if (validateCommand(s, player, cancelCommand).ok) {
+        canCancel = true;
+        cancelCommands.push(cancelCommand);
+      }
     }
   }
 
