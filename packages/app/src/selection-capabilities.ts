@@ -1,8 +1,8 @@
 import {
   Ability, Kind, NONE, Role, Units,
-  canWorkerStartStructure, isAlive,
+  isAlive,
   abilitySelectionOptions, addonSelectionOptions, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
-  researchSelectionOptions, trainSelectionOptions, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  researchSelectionOptions, trainSelectionOptions, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildSelectionOptions,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -49,27 +49,6 @@ const trainOptionMeta = (s: State, slot: number, train: number): CommandOptionMe
     return { label: display.optionActiveLabel, detail: display.optionActiveDetail };
   }
   return display.trainLabel ? { label: display.trainLabel } : {};
-};
-
-const addWorkerBuildOptions = (
-  s: State,
-  player: number,
-  slot: number,
-  buildOptions: Map<number, OptionRecord>,
-): void => {
-  const e = s.e;
-  const kind = e.kind[slot]!;
-  for (const build of workerBuildKindsFor(Units[kind]!.race)) {
-    const starter = canWorkerStartStructure(s, player, slot, build);
-    if (!starter.ok) {
-      if (starter.reason !== 'missing-capability') addOption(buildOptions, build, starter);
-    } else {
-      const def = Units[build]!;
-      addOption(buildOptions, build, s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas
-        ? { ok: false, reason: 'not-affordable' }
-        : { ok: true }, { arm: { t: 'place', kind: build } });
-    }
-  }
 };
 
 const abilityArm = (ability: number): ArmedCommand => ({ t: 'ability', ability });
@@ -151,7 +130,6 @@ export const selectionCapabilities = (
     }
     if (ready && (e.flags[slot]! & Role.Worker) !== 0) {
       if (e.illusion[slot] !== 1) canHarvest = true;
-      addWorkerBuildOptions(s, player, slot, buildOptions);
     }
     if (ready && e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
     if ((e.flags[slot]! & Role.Structure) !== 0 && ready) canRally = true;
@@ -194,6 +172,14 @@ export const selectionCapabilities = (
       option.id,
       option.ok ? { ok: true } : { ok: false, reason: option.reason! },
       { commands: option.commands },
+    );
+  }
+  for (const option of workerBuildSelectionOptions(s, player, readyVisibleSelected)) {
+    addOption(
+      buildOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      { arm: option.ok ? { t: 'place', kind: option.id } : undefined },
     );
   }
   for (const option of trainSelectionOptions(s, player, readyVisibleSelected)) {

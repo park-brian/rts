@@ -7,7 +7,7 @@ import {
   abilitySelectionOptions, addonSelectionCandidates, addonSelectionOptions, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, trainSelectionOptions, transformSelectionCandidates, transformSelectionOptions,
-  unloadSelectionCandidates,
+  unloadSelectionCandidates, workerBuildSelectionOptions,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { setTechLevel } from '../src/tech.ts';
@@ -351,6 +351,39 @@ test('add-on command-card candidates choose the first valid selected producer', 
     { t: 'addon', building: idle, kind: Kind.MachineShop },
   ]);
   assert.deepEqual(addonSelectionCandidates(s, 0, [barracks], Kind.MachineShop), []);
+});
+
+test('worker build command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1237);
+  const scv = spawnUnit(s, Kind.SCV, 0, tc(8), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(9), tc(8));
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(8));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  let depot = workerBuildSelectionOptions(s, 0, [marine, scv]).find((o) => o.id === Kind.SupplyDepot);
+  assert.deepEqual(depot, { id: Kind.SupplyDepot, ok: true, representative: scv });
+
+  s.players.minerals[0] = 0;
+  depot = workerBuildSelectionOptions(s, 0, [scv]).find((o) => o.id === Kind.SupplyDepot);
+  assert.deepEqual(depot, {
+    id: Kind.SupplyDepot,
+    ok: false,
+    representative: scv,
+    reason: 'not-affordable',
+  });
+
+  s.players.minerals[0] = 1_000;
+  const academy = workerBuildSelectionOptions(s, 0, [scv]).find((o) => o.id === Kind.Academy);
+  assert.deepEqual(academy, {
+    id: Kind.Academy,
+    ok: false,
+    representative: scv,
+    reason: 'missing-requirement',
+  });
+
+  s.e.illusion[slotOf(scv)] = 1;
+  assert.equal(workerBuildSelectionOptions(s, 0, [marine, scv]).length, 0);
 });
 
 test('add-on command-card options expose sim-owned availability records', () => {

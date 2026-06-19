@@ -1516,6 +1516,9 @@ Rework slices:
    - Add-on option availability now resolves through sim-owned `addonSelectionOptions`, preserving
      ready-only UI visibility, target-not-allowed hiding, disabled reasons, first-valid representative
      producers, and executable commands while app code only maps records into command-card options.
+   - Worker build option availability now resolves through sim-owned `workerBuildSelectionOptions`,
+     preserving ready-only UI visibility, missing-capability hiding, disabled prerequisite/affordability
+     reasons, first-valid representative workers, and app-side placement arming as presentation only.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

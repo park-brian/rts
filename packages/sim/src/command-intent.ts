@@ -1,6 +1,7 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import { Abilities, ResourceType, Role, TechDefs, Units, type AbilityTarget } from './data.ts';
+import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from './data.ts';
 import { addonParentKind } from './addon.ts';
+import { canWorkerStartStructure } from './build-command.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
 import {
@@ -71,6 +72,13 @@ export type AddonSelectionOption = {
   representative: number;
   reason?: CommandRejectReason;
   commands?: Command[];
+};
+
+export type WorkerBuildSelectionOption = {
+  id: number;
+  ok: boolean;
+  representative: number;
+  reason?: CommandRejectReason;
 };
 
 export const commandRejectReasonPriority: Record<CommandRejectReason, number> = {
@@ -480,6 +488,57 @@ export const addonSelectionOptions = (
   }
   for (const option of options.values()) {
     if (option.ok) option.commands = addonSelectionCandidates(s, player, selected, option.id);
+  }
+  return [...options.values()].sort((a, b) => a.id - b.id);
+};
+
+const addWorkerBuildSelectionOption = (
+  options: Map<number, WorkerBuildSelectionOption>,
+  id: number,
+  representative: number,
+  result: CandidateValidation,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok) options.set(id, { id, ok: true, representative });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, representative, reason: result.reason });
+  }
+};
+
+export const workerBuildSelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): WorkerBuildSelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, WorkerBuildSelectionOption>();
+  for (const worker of selected) {
+    if (!isAlive(e, worker)) continue;
+    const slot = slotOf(worker);
+    if ((e.flags[slot]! & Role.Worker) === 0) continue;
+    const kind = e.kind[slot]!;
+    for (const build of Units[kind] ? workerBuildKindsFor(Units[kind]!.race) : []) {
+      const starter = canWorkerStartStructure(s, player, slot, build);
+      if (!starter.ok) {
+        if (starter.reason !== 'missing-capability') {
+          addWorkerBuildSelectionOption(options, build, worker, starter);
+        }
+        continue;
+      }
+      const def = Units[build]!;
+      addWorkerBuildSelectionOption(
+        options,
+        build,
+        worker,
+        s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas
+          ? { ok: false, reason: 'not-affordable' }
+          : { ok: true },
+      );
+    }
   }
   return [...options.values()].sort((a, b) => a.id - b.id);
 };
