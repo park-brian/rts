@@ -1,4 +1,4 @@
-import type { Command, CommandRejectReason } from './commands.ts';
+import type { Command } from './commands.ts';
 import { Ability, Abilities, Kind, Units, unitTraits } from './data.ts';
 import { isActiveAddon } from './addon.ts';
 import { isContained } from './cargo.ts';
@@ -12,26 +12,14 @@ import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq, withinTopDownEdgeRange } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
-
-type CommandValidation =
-  | { ok: true }
-  | { ok: false; reason: CommandRejectReason };
-
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
 
 export const validateAbilityCommand = (s: State, player: number, command: AbilityCommand): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
   if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
   if (e.built[slot] !== 1) return reject('missing-capability');

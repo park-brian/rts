@@ -46,6 +46,7 @@ not rediscover slightly different rules.
 Remaining work:
 
 - Finish extracting shared command predicates where they reduce drift:
+  - common actor ownership / stale entity gates;
   - `isBusy`;
   - `isTransitioning`;
   - `isDisabled`;
@@ -243,6 +244,7 @@ Done when:
 - Extracted lift / land command validation.
 - Extracted move / attack-move command validation.
 - Extracted transform / morph / merge command validation.
+- Began shared command validation predicates with common actor ownership / stale entity helpers.
 
 ## Review Checklist
 

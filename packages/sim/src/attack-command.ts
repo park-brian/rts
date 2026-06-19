@@ -1,4 +1,4 @@
-import type { Command, CommandRejectReason } from './commands.ts';
+import type { Command } from './commands.ts';
 import { Kind, Units, hasAnyWeapon, weaponForTarget } from './data.ts';
 import { isContained } from './cargo.ts';
 import { isPowered } from './power.ts';
@@ -9,26 +9,14 @@ import { isDisabled } from './systems/status.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
-
-type CommandValidation =
-  | { ok: true }
-  | { ok: false; reason: CommandRejectReason };
+import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
-
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
 
 export const validateAttackCommand = (s: State, player: number, command: AttackCommand): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
   if (isContained(s, slot)) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
   if (e.built[slot] !== 1) return reject('missing-capability');
