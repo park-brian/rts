@@ -1949,14 +1949,18 @@ const readyProtossResearchScenario = (
   seed: number,
   producerKind: number,
   completedBefore: readonly number[] = [],
+  prerequisiteKinds: readonly number[] = [],
 ): { sim: Sim; producer: number; pylon: number } => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Protoss, Zerg] });
   const s = sim.fullState();
   const pylon = spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  for (let i = 0; i < prerequisiteKinds.length; i++) {
+    spawnUnit(s, prerequisiteKinds[i]!, 0, fx(1_160 + i * 40), fx(1_260));
+  }
   const producer = spawnUnit(s, producerKind, 0, fx(1_260), fx(1_220));
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
-  for (const tech of completedBefore) grant(sim, 0, tech);
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+  for (const tech of completedBefore) completeTech(sim, 0, tech);
   return { sim, producer, pylon };
 };
 
@@ -1964,17 +1968,25 @@ const readyZergResearchScenario = (
   seed: number,
   producerKind: number,
   completedBefore: readonly number[] = [],
+  prerequisiteKinds: readonly number[] = [],
 ): { sim: Sim; producer: number } => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Zerg, Terran] });
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.Hatchery, 0));
   const pool = spawnUnit(s, Kind.SpawningPool, 0, base.x + fx(120), base.y);
-  const producer = producerKind === Kind.SpawningPool
+  for (let i = 0; i < prerequisiteKinds.length; i++) {
+    const kind = prerequisiteKinds[i]!;
+    if (kind === Kind.SpawningPool) continue;
+    spawnUnit(s, kind, 0, base.x + fx(200 + i * 40), base.y + fx(40));
+  }
+  const producer = producerKind === Kind.Hatchery
+    ? findEntity(sim, Kind.Hatchery, 0)
+    : producerKind === Kind.SpawningPool
     ? pool
     : spawnUnit(s, producerKind, 0, base.x + fx(160), base.y);
-  s.players.minerals[0] = 1_000;
-  s.players.gas[0] = 1_000;
-  for (const tech of completedBefore) grant(sim, 0, tech);
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+  for (const tech of completedBefore) completeTech(sim, 0, tech);
   return { sim, producer };
 };
 
@@ -2113,26 +2125,37 @@ for (let i = 0; i < terranResearchCases.length; i++) {
   testTerranResearchMacro({ ...terranResearchCases[i]!, firstSeed: 600 + i * 8 });
 }
 
-const testZergResearchMacro = ({
-  label,
-  tech,
-  producerKind,
-  producerLabel,
-  busyTech,
-  firstSeed,
-  completedBefore = [],
-}: {
-  label: string;
+type ResearchMacroCase = {
   tech: number;
   producerKind: number;
-  producerLabel: string;
-  busyTech: number;
-  firstSeed: number;
-  completedBefore?: readonly number[];
-}): void => {
+  prerequisiteKinds?: readonly number[];
+};
+
+const busyTechFor = (tech: number): number => {
+  const def = TechDefs[tech]!;
+  const producer = def.producers[0]!;
+  const other = Object.keys(TechDefs)
+    .map(Number)
+    .find((candidate) => candidate !== tech && TechDefs[candidate]!.producers.includes(producer));
+  return other ?? Tech.StimPack;
+};
+
+const completedResearchBefore = (
+  cases: readonly ResearchMacroCase[],
+  index: number,
+): number[] => cases.slice(0, index).map((item) => item.tech);
+
+const testZergResearchMacro = (
+  item: ResearchMacroCase,
+  firstSeed: number,
+  completedBefore: readonly number[],
+): void => {
+  const { tech, producerKind, prerequisiteKinds = [] } = item;
   const bot = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 });
+  const label = TechDefs[tech]!.name;
+  const producerLabel = Units[producerKind]!.name;
   const ready = (seed: number): ReturnType<typeof readyZergResearchScenario> =>
-    readyZergResearchScenario(seed, producerKind, completedBefore);
+    readyZergResearchScenario(seed, producerKind, completedBefore, prerequisiteKinds);
 
   test(`zerg bot researches ${label} from a completed ${producerLabel}`, () => {
     const { sim } = ready(firstSeed);
@@ -2148,11 +2171,17 @@ const testZergResearchMacro = ({
   test(`zerg bot respects ${label} producer, duplicate, queue, and budget gates`, () => {
     const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: firstSeed + 1, factions: [Zerg, Terran] });
     const missingState = missingProducer.fullState();
-    missingState.players.minerals[0] = 1_000;
-    missingState.players.gas[0] = 1_000;
-    for (const prerequisite of completedBefore) grant(missingProducer, 0, prerequisite);
+    const base = entityPos(missingProducer, findEntity(missingProducer, Kind.Hatchery, 0));
+    for (let i = 0; i < prerequisiteKinds.length; i++) {
+      spawnUnit(missingState, prerequisiteKinds[i]!, 0, base.x + fx(200 + i * 40), base.y + fx(40));
+    }
+    missingState.players.minerals[0] = 5_000;
+    missingState.players.gas[0] = 5_000;
+    for (const prerequisite of completedBefore) completeTech(missingProducer, 0, prerequisite);
 
-    assert.equal(hasResearch(bot(missingState, 0), tech), false);
+    if (producerKind !== Kind.Hatchery) {
+      assert.equal(hasResearch(bot(missingState, 0), tech), false);
+    }
 
     const incomplete = ready(firstSeed + 2);
     const incompleteState = incomplete.sim.fullState();
@@ -2161,7 +2190,7 @@ const testZergResearchMacro = ({
     assert.equal(hasResearch(bot(incompleteState, 0), tech), false);
 
     const completed = ready(firstSeed + 3);
-    grant(completed.sim, 0, tech);
+    completeTech(completed.sim, 0, tech);
 
     assert.equal(hasResearch(bot(completed.sim.fullState(), 0), tech), false);
 
@@ -2174,7 +2203,7 @@ const testZergResearchMacro = ({
 
     const busy = ready(firstSeed + 5);
     const busyState = busy.sim.fullState();
-    busyState.e.researchKind[slotOf(busy.producer)] = busyTech;
+    busyState.e.researchKind[slotOf(busy.producer)] = busyTechFor(tech);
     busyState.e.researchTimer[slotOf(busy.producer)] = 10;
 
     assert.equal(hasResearch(bot(busyState, 0), tech), false);
@@ -2182,100 +2211,81 @@ const testZergResearchMacro = ({
     const broke = ready(firstSeed + 6);
     const brokeState = broke.sim.fullState();
     brokeState.players.minerals[0] = TechDefs[tech]!.minerals[0]! - 1;
-    brokeState.players.gas[0] = 1_000;
+    brokeState.players.gas[0] = 5_000;
 
     assert.equal(hasResearch(bot(brokeState, 0), tech), false);
 
     const gasBroke = ready(firstSeed + 7);
     const gasBrokeState = gasBroke.sim.fullState();
-    gasBrokeState.players.minerals[0] = 1_000;
+    gasBrokeState.players.minerals[0] = 5_000;
     gasBrokeState.players.gas[0] = TechDefs[tech]!.gas[0]! - 1;
 
     assert.equal(hasResearch(bot(gasBrokeState, 0), tech), false);
   });
 };
 
-testZergResearchMacro({
-  label: 'metabolic boost',
-  tech: Tech.MetabolicBoost,
-  producerKind: Kind.SpawningPool,
-  producerLabel: 'spawning pool',
-  busyTech: Tech.AdrenalGlands,
-  firstSeed: 506,
-});
+const zergResearchCases = [
+  { tech: Tech.Burrow, producerKind: Kind.Hatchery },
+  { tech: Tech.MetabolicBoost, producerKind: Kind.SpawningPool },
+  { tech: Tech.LurkerAspect, producerKind: Kind.HydraliskDen },
+  { tech: Tech.GroovedSpines, producerKind: Kind.HydraliskDen },
+  { tech: Tech.MuscularAugments, producerKind: Kind.HydraliskDen },
+  { tech: Tech.PneumatizedCarapace, producerKind: Kind.Lair },
+  { tech: Tech.VentralSacs, producerKind: Kind.Lair },
+  { tech: Tech.Antennae, producerKind: Kind.Lair },
+  { tech: Tech.MeleeAttacks, producerKind: Kind.EvolutionChamber },
+  { tech: Tech.MissileAttacks, producerKind: Kind.EvolutionChamber },
+  { tech: Tech.Carapace, producerKind: Kind.EvolutionChamber },
+  { tech: Tech.FlyerAttacks, producerKind: Kind.Spire },
+  { tech: Tech.FlyerCarapace, producerKind: Kind.Spire },
+  { tech: Tech.GameteMeiosis, producerKind: Kind.QueensNest },
+  { tech: Tech.Ensnare, producerKind: Kind.QueensNest },
+  { tech: Tech.SpawnBroodling, producerKind: Kind.QueensNest },
+  { tech: Tech.Plague, producerKind: Kind.DefilerMound },
+  { tech: Tech.Consume, producerKind: Kind.DefilerMound },
+  { tech: Tech.MetasynapticNode, producerKind: Kind.DefilerMound },
+  { tech: Tech.AnabolicSynthesis, producerKind: Kind.UltraliskCavern },
+  { tech: Tech.ChitinousPlating, producerKind: Kind.UltraliskCavern },
+  { tech: Tech.AdrenalGlands, producerKind: Kind.SpawningPool, prerequisiteKinds: [Kind.Hive] },
+] as const;
 
-testZergResearchMacro({
-  label: 'lurker aspect',
-  tech: Tech.LurkerAspect,
-  producerKind: Kind.HydraliskDen,
-  producerLabel: 'hydralisk den',
-  busyTech: Tech.GroovedSpines,
-  firstSeed: 514,
-  completedBefore: [Tech.MetabolicBoost],
-});
+for (let i = 0; i < zergResearchCases.length; i++) {
+  testZergResearchMacro(zergResearchCases[i]!, 506 + i * 8, completedResearchBefore(zergResearchCases, i));
+}
 
 test('zerg bot waits for lurker aspect before grooved spines', () => {
-  const { sim } = readyZergResearchScenario(522, Kind.HydraliskDen, [Tech.MetabolicBoost]);
+  const { sim } = readyZergResearchScenario(522, Kind.HydraliskDen, [Tech.Burrow, Tech.MetabolicBoost]);
   const cmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(sim.fullState(), 0);
 
   assert.equal(hasResearch(cmds, Tech.GroovedSpines), false);
   assert.equal(hasResearch(cmds, Tech.LurkerAspect), true);
 });
 
-testZergResearchMacro({
-  label: 'grooved spines',
-  tech: Tech.GroovedSpines,
-  producerKind: Kind.HydraliskDen,
-  producerLabel: 'hydralisk den',
-  busyTech: Tech.MuscularAugments,
-  firstSeed: 523,
-  completedBefore: [Tech.MetabolicBoost, Tech.LurkerAspect],
-});
-
 test('zerg bot waits for lurker aspect and grooved spines before muscular augments', () => {
-  const missingBoth = readyZergResearchScenario(531, Kind.HydraliskDen, [Tech.MetabolicBoost]);
+  const missingBoth = readyZergResearchScenario(531, Kind.HydraliskDen, [Tech.Burrow, Tech.MetabolicBoost]);
   const missingBothCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingBoth.sim.fullState(), 0);
 
   assert.equal(hasResearch(missingBothCmds, Tech.MuscularAugments), false);
   assert.equal(hasResearch(missingBothCmds, Tech.LurkerAspect), true);
 
-  const missingGrooved = readyZergResearchScenario(532, Kind.HydraliskDen, [Tech.MetabolicBoost, Tech.LurkerAspect]);
+  const missingGrooved = readyZergResearchScenario(532, Kind.HydraliskDen, [Tech.Burrow, Tech.MetabolicBoost, Tech.LurkerAspect]);
   const missingGroovedCmds = createBot(Zerg, { barracksTarget: 0, workerTarget: 0 })(missingGrooved.sim.fullState(), 0);
 
   assert.equal(hasResearch(missingGroovedCmds, Tech.MuscularAugments), false);
   assert.equal(hasResearch(missingGroovedCmds, Tech.GroovedSpines), true);
 });
 
-testZergResearchMacro({
-  label: 'muscular augments',
-  tech: Tech.MuscularAugments,
-  producerKind: Kind.HydraliskDen,
-  producerLabel: 'hydralisk den',
-  busyTech: Tech.LurkerAspect,
-  firstSeed: 533,
-  completedBefore: [Tech.MetabolicBoost, Tech.LurkerAspect, Tech.GroovedSpines],
-});
-
-const testProtossResearchMacro = ({
-  label,
-  tech,
-  producerKind,
-  producerLabel,
-  busyTech,
-  firstSeed,
-  completedBefore = [],
-}: {
-  label: string;
-  tech: number;
-  producerKind: number;
-  producerLabel: string;
-  busyTech: number;
-  firstSeed: number;
-  completedBefore?: readonly number[];
-}): void => {
+const testProtossResearchMacro = (
+  item: ResearchMacroCase,
+  firstSeed: number,
+  completedBefore: readonly number[],
+): void => {
+  const { tech, producerKind, prerequisiteKinds = [] } = item;
   const bot = createBot(Protoss, { barracksTarget: 0, workerTarget: 0 });
+  const label = TechDefs[tech]!.name;
+  const producerLabel = Units[producerKind]!.name;
   const ready = (seed: number): ReturnType<typeof readyProtossResearchScenario> =>
-    readyProtossResearchScenario(seed, producerKind, completedBefore);
+    readyProtossResearchScenario(seed, producerKind, completedBefore, prerequisiteKinds);
 
   test(`protoss bot researches ${label} from a completed powered ${producerLabel}`, () => {
     const { sim } = ready(firstSeed);
@@ -2292,9 +2302,12 @@ const testProtossResearchMacro = ({
     const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: firstSeed + 1, factions: [Protoss, Zerg] });
     const missingState = missingProducer.fullState();
     spawnUnit(missingState, Kind.Pylon, 0, fx(1_200), fx(1_200));
-    missingState.players.minerals[0] = 1_000;
-    missingState.players.gas[0] = 1_000;
-    for (const prerequisite of completedBefore) grant(missingProducer, 0, prerequisite);
+    for (let i = 0; i < prerequisiteKinds.length; i++) {
+      spawnUnit(missingState, prerequisiteKinds[i]!, 0, fx(1_160 + i * 40), fx(1_260));
+    }
+    missingState.players.minerals[0] = 5_000;
+    missingState.players.gas[0] = 5_000;
+    for (const prerequisite of completedBefore) completeTech(missingProducer, 0, prerequisite);
 
     assert.equal(hasResearch(bot(missingState, 0), tech), false);
 
@@ -2311,7 +2324,7 @@ const testProtossResearchMacro = ({
     assert.equal(hasResearch(bot(incompleteState, 0), tech), false);
 
     const completed = ready(firstSeed + 4);
-    grant(completed.sim, 0, tech);
+    completeTech(completed.sim, 0, tech);
 
     assert.equal(hasResearch(bot(completed.sim.fullState(), 0), tech), false);
 
@@ -2324,7 +2337,7 @@ const testProtossResearchMacro = ({
 
     const busy = ready(firstSeed + 6);
     const busyState = busy.sim.fullState();
-    busyState.e.researchKind[slotOf(busy.producer)] = busyTech;
+    busyState.e.researchKind[slotOf(busy.producer)] = busyTechFor(tech);
     busyState.e.researchTimer[slotOf(busy.producer)] = 10;
 
     assert.equal(hasResearch(bot(busyState, 0), tech), false);
@@ -2332,39 +2345,44 @@ const testProtossResearchMacro = ({
     const broke = ready(firstSeed + 7);
     const brokeState = broke.sim.fullState();
     brokeState.players.minerals[0] = TechDefs[tech]!.minerals[0]! - 1;
-    brokeState.players.gas[0] = 1_000;
+    brokeState.players.gas[0] = 5_000;
 
     assert.equal(hasResearch(bot(brokeState, 0), tech), false);
   });
 };
 
-testProtossResearchMacro({
-  label: 'leg enhancements',
-  tech: Tech.LegEnhancements,
-  producerKind: Kind.CitadelOfAdun,
-  producerLabel: 'citadel',
-  busyTech: Tech.PsionicStorm,
-  firstSeed: 483,
-});
+const protossResearchCases = [
+  { tech: Tech.SingularityCharge, producerKind: Kind.CyberneticsCore },
+  { tech: Tech.GroundWeapons, producerKind: Kind.Forge },
+  { tech: Tech.GroundArmor, producerKind: Kind.Forge },
+  { tech: Tech.PlasmaShields, producerKind: Kind.Forge },
+  { tech: Tech.AirWeapons, producerKind: Kind.CyberneticsCore },
+  { tech: Tech.AirArmor, producerKind: Kind.CyberneticsCore },
+  { tech: Tech.LegEnhancements, producerKind: Kind.CitadelOfAdun },
+  { tech: Tech.PsionicStorm, producerKind: Kind.TemplarArchives },
+  { tech: Tech.Hallucination, producerKind: Kind.TemplarArchives },
+  { tech: Tech.KhaydarinAmulet, producerKind: Kind.TemplarArchives },
+  { tech: Tech.Maelstrom, producerKind: Kind.TemplarArchives },
+  { tech: Tech.MindControl, producerKind: Kind.TemplarArchives },
+  { tech: Tech.ArgusTalisman, producerKind: Kind.TemplarArchives },
+  { tech: Tech.StasisField, producerKind: Kind.ArbiterTribunal },
+  { tech: Tech.Recall, producerKind: Kind.ArbiterTribunal },
+  { tech: Tech.KhaydarinCore, producerKind: Kind.ArbiterTribunal },
+  { tech: Tech.GraviticDrive, producerKind: Kind.RoboticsSupportBay },
+  { tech: Tech.ReaverCapacity, producerKind: Kind.RoboticsSupportBay },
+  { tech: Tech.ScarabDamage, producerKind: Kind.RoboticsSupportBay },
+  { tech: Tech.SensorArray, producerKind: Kind.Observatory },
+  { tech: Tech.GraviticBoosters, producerKind: Kind.Observatory },
+  { tech: Tech.GraviticThrusters, producerKind: Kind.FleetBeacon },
+  { tech: Tech.CarrierCapacity, producerKind: Kind.FleetBeacon },
+  { tech: Tech.ApialSensors, producerKind: Kind.FleetBeacon },
+  { tech: Tech.ArgusJewel, producerKind: Kind.FleetBeacon },
+  { tech: Tech.DisruptionWeb, producerKind: Kind.FleetBeacon },
+] as const;
 
-testProtossResearchMacro({
-  label: 'psionic storm',
-  tech: Tech.PsionicStorm,
-  producerKind: Kind.TemplarArchives,
-  producerLabel: 'templar archives',
-  busyTech: Tech.Hallucination,
-  firstSeed: 490,
-});
-
-testProtossResearchMacro({
-  label: 'hallucination',
-  tech: Tech.Hallucination,
-  producerKind: Kind.TemplarArchives,
-  producerLabel: 'templar archives',
-  busyTech: Tech.Maelstrom,
-  firstSeed: 498,
-  completedBefore: [Tech.PsionicStorm],
-});
+for (let i = 0; i < protossResearchCases.length; i++) {
+  testProtossResearchMacro(protossResearchCases[i]!, 483 + i * 8, completedResearchBefore(protossResearchCases, i));
+}
 
 test('bot unsieges tanks when the focus is inside minimum range', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 402 });

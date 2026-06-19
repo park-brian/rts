@@ -419,6 +419,9 @@ Remaining work:
   - Terran producer-reservation slice is done: the bot reserves a Terran add-on parent and its
     attached add-on as one production chain for the current command batch, so same-chain add-on and
     research choices do not compete before the sim applies commands.
+  - Protoss and Zerg research macro slice is done: the bot walks every current `TechDefs` research
+    and upgrade row for those races through the shared research validator, with table-driven
+    producer, prerequisite, duplicate, busy, power, and budget coverage.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -514,6 +517,9 @@ Done when:
   and Armory, with producer, duplicate, queue, and budget coverage.
 - Added Terran bot producer reservations for add-on/research chains so one command batch cannot
   ask the same parent/add-on pair to both build an add-on and research from that chain.
+- Extended Protoss and Zerg bot research macros to every current tech/upgrade row and replaced the
+  hand-picked cases with table-driven producer, prerequisite, duplicate, busy, power, and budget
+  coverage.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

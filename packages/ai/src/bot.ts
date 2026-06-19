@@ -66,7 +66,34 @@ const PROTOSS_STRUCTURE_MACRO = [
   Kind.TemplarArchives,
   Kind.ArbiterTribunal,
 ] as const;
-const PROTOSS_RESEARCH_MACRO = [Tech.LegEnhancements, Tech.PsionicStorm, Tech.Hallucination] as const;
+const PROTOSS_RESEARCH_MACRO = [
+  Tech.SingularityCharge,
+  Tech.GroundWeapons,
+  Tech.GroundArmor,
+  Tech.PlasmaShields,
+  Tech.AirWeapons,
+  Tech.AirArmor,
+  Tech.LegEnhancements,
+  Tech.PsionicStorm,
+  Tech.Hallucination,
+  Tech.KhaydarinAmulet,
+  Tech.Maelstrom,
+  Tech.MindControl,
+  Tech.ArgusTalisman,
+  Tech.StasisField,
+  Tech.Recall,
+  Tech.KhaydarinCore,
+  Tech.GraviticDrive,
+  Tech.ReaverCapacity,
+  Tech.ScarabDamage,
+  Tech.SensorArray,
+  Tech.GraviticBoosters,
+  Tech.GraviticThrusters,
+  Tech.CarrierCapacity,
+  Tech.ApialSensors,
+  Tech.ArgusJewel,
+  Tech.DisruptionWeb,
+] as const;
 const ZERG_STRUCTURE_MACRO = [
   Kind.HydraliskDen,
   Kind.Spire,
@@ -76,10 +103,28 @@ const ZERG_STRUCTURE_MACRO = [
   Kind.UltraliskCavern,
 ] as const;
 const ZERG_RESEARCH_MACRO = [
-  { tech: Tech.MetabolicBoost },
-  { tech: Tech.LurkerAspect },
-  { tech: Tech.GroovedSpines, after: [Tech.LurkerAspect] },
-  { tech: Tech.MuscularAugments, after: [Tech.LurkerAspect, Tech.GroovedSpines] },
+  Tech.Burrow,
+  Tech.MetabolicBoost,
+  Tech.LurkerAspect,
+  Tech.GroovedSpines,
+  Tech.MuscularAugments,
+  Tech.PneumatizedCarapace,
+  Tech.VentralSacs,
+  Tech.Antennae,
+  Tech.MeleeAttacks,
+  Tech.MissileAttacks,
+  Tech.Carapace,
+  Tech.FlyerAttacks,
+  Tech.FlyerCarapace,
+  Tech.GameteMeiosis,
+  Tech.Ensnare,
+  Tech.SpawnBroodling,
+  Tech.Plague,
+  Tech.Consume,
+  Tech.MetasynapticNode,
+  Tech.AnabolicSynthesis,
+  Tech.ChitinousPlating,
+  Tech.AdrenalGlands,
 ] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
@@ -473,9 +518,8 @@ const maybeQueueZergResearch = (
   cmds: Command[],
   budget: ResourceBudget,
 ): void => {
-  for (const item of ZERG_RESEARCH_MACRO) {
-    if ('after' in item && item.after.some((tech) => getTechLevel(s, player, tech) <= 0)) continue;
-    if (maybeQueueResearch(s, player, cmds, budget, item.tech)) return;
+  for (const tech of ZERG_RESEARCH_MACRO) {
+    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
   }
 };
 
