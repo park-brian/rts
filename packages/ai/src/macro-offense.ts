@@ -12,6 +12,7 @@ import {
 } from './macro-pressure.ts';
 import type { BotMemory } from './macro-memory.ts';
 import type { CombatReserve } from './macro-reserve.ts';
+import type { BotIntent } from './macro-intents.ts';
 import { collectBotFacts, type BotFacts } from './macro.ts';
 
 export type PressureScheduleOptions = {
@@ -24,8 +25,29 @@ export type PressureScheduleResult = {
   builderUsed: boolean;
   decision: PressureCommitmentDecision;
   focus: PressureFocus | null;
+  intent: BotIntent | null;
   issued: boolean;
 };
+
+const pressureIntentKind = (
+  reserve: CombatReserve,
+  decision: PressureCommitmentDecision,
+): BotIntent['kind'] => {
+  if (reserve.defenseActive) return 'counterattack';
+  return decision.forced ? 'harass' : 'attack-wave';
+};
+
+const pressureIntent = (
+  reserve: CombatReserve,
+  decision: PressureCommitmentDecision,
+  focus: PressureFocus,
+): BotIntent => ({
+  kind: pressureIntentKind(reserve, decision),
+  urgency: decision.forced ? 55 : 40,
+  targetSlot: focus.target,
+  x: focus.x,
+  y: focus.y,
+});
 
 export const schedulePressureOffense = (
   s: State,
@@ -44,13 +66,13 @@ export const schedulePressureOffense = (
 ): PressureScheduleResult => {
   let builderUsed = options.builderUsed;
   const decision = pressureCommitmentDecision(memory, s.tick, reserve.commitmentForce, options.attackThreshold);
-  if (decision.status !== 'commit') return { builderUsed, decision, focus: null, issued: false };
+  if (decision.status !== 'commit') return { builderUsed, decision, focus: null, intent: null, issued: false };
 
   const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
     ? collectBotFacts(s, player, faction)
     : facts;
   const focus = pressureFocus(s, player, pressureFacts, depot, { strategicOnly: options.strategicOnly });
-  if (!focus) return { builderUsed, decision, focus: null, issued: false };
+  if (!focus) return { builderUsed, decision, focus: null, intent: null, issued: false };
 
   let issuedOffense = false;
   if (!builderUsed) {
@@ -62,5 +84,11 @@ export const schedulePressureOffense = (
     issuedOffense = true;
   }
   if (issuedOffense) markPressureCommitted(memory, s.tick);
-  return { builderUsed, decision, focus, issued: issuedOffense };
+  return {
+    builderUsed,
+    decision,
+    focus,
+    intent: issuedOffense ? pressureIntent(reserve, decision, focus) : null,
+    issued: issuedOffense,
+  };
 };

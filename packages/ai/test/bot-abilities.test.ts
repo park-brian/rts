@@ -804,9 +804,43 @@ test('bot pressure scheduler exposes forced commitment results', () => {
   assert.equal(result.decision.status, 'commit');
   assert.equal(result.decision.forced, true);
   assert.equal(result.issued, true);
+  assert.equal(result.intent?.kind, 'harass');
   assert.equal(result.focus?.x, enemyRegion.x);
   assert.equal(result.focus?.y, enemyRegion.y);
   assert.deepEqual(offense.map((cmd) => cmd.unit), marines);
+});
+
+test('bot pressure scheduler classifies ready pressure as attack wave', () => {
+  const scenario = botScenario({ seed: 823 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const facts = collectBotFacts(s, 0, Terran);
+  const marines = Array.from({ length: 2 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+
+  const result = schedulePressureOffense(
+    s,
+    0,
+    Terran,
+    [],
+    facts,
+    createBotMemory(),
+    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    combatReserve(marines.map(slotOf)),
+    [],
+    { minerals: 0, gas: 0 },
+    NONE,
+    () => null,
+    {
+      attackThreshold: 1,
+      strategicOnly: false,
+      builderUsed: true,
+    },
+  );
+
+  assert.equal(result.decision.forced, false);
+  assert.equal(result.intent?.kind, 'attack-wave');
+  assert.equal(result.issued, true);
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {
@@ -830,6 +864,43 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
 
   assert.deepEqual(defense.map((c) => c.unit), marines.slice(0, 2));
   assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
+});
+
+test('bot pressure scheduler classifies defense-time pressure as counterattack', () => {
+  const scenario = botScenario({ seed: 822 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const facts = collectBotFacts(s, 0, Terran);
+  const enemyRegion = enemyOffensiveRegion(facts, base);
+  const marines = Array.from({ length: 2 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const cmds: Command[] = [];
+
+  const result = schedulePressureOffense(
+    s,
+    0,
+    Terran,
+    cmds,
+    facts,
+    createBotMemory(),
+    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    combatReserve(marines.map(slotOf), marines.length, true),
+    [],
+    { minerals: 0, gas: 0 },
+    NONE,
+    () => null,
+    {
+      attackThreshold: 1,
+      strategicOnly: true,
+      builderUsed: true,
+    },
+  );
+  const offense = cmds.filter((cmd): cmd is Extract<BotCommand, { t: 'amove' }> =>
+    cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y);
+
+  assert.equal(result.intent?.kind, 'counterattack');
+  assert.equal(result.issued, true);
+  assert.deepEqual(offense.map((cmd) => cmd.unit), marines);
 });
 
 test('bot counter-pressures public enemy starts while defenders handle a fogged base incident', () => {

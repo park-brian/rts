@@ -671,6 +671,9 @@ Remaining work:
     - Intent-vocabulary registry slice is done: `BOT_INTENT_KINDS` now owns the runtime vocabulary
       for reflex and proactive directors, including scout, contain, counterattack, and worker
       evacuation. Remaining work: make directors emit these intents instead of scheduling directly.
+    - Pressure-intent result slice is done: pressure scheduling now reports the intent it satisfied,
+      classifying normal waves as `attack-wave`, forced under-threshold pressure as `harass`, and
+      defense-time leftover pressure as `counterattack` while preserving the existing command output.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
