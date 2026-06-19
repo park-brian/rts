@@ -10,7 +10,7 @@ import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
   entityMinimapVisible, entitySelectionName, illusionPresentation, selectionBase, workActivities,
-} from '../src/render-descriptors.ts';
+} from '../src/render/descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
   const id = spawnUnit(s, kind, 0, fx(400), fx(400));

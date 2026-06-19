@@ -439,6 +439,8 @@ Done when:
   rally, command validation, worker phasing, and production rally one resource-rule owner.
 - Moved shared travel-order issuance under `commands/travel.ts`, so move, attack-move, smart
   travel, follow endpoints, and production rally orders share command-owned semantics.
+- Moved sim-owned render presentation descriptors under `render/descriptors.ts`, keeping Math-mode
+  hulls, life bars, cloak opacity, work sparks, and effect affordances behind one render contract.
 
 ## Review Checklist
 

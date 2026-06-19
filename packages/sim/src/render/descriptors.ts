@@ -1,13 +1,13 @@
-import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from './data.ts';
-import { ONE } from './fixed.ts';
-import { childActorDef, type ChildActorPresentation } from './child-actors.ts';
-import { isCloaked } from './detection.ts';
-import { entityLifecycle, type EntityLifecycleState } from './entity/lifecycle.ts';
-import { isTransitioning } from './entity/state.ts';
-import { structureFootprint } from './spatial/footprint.ts';
-import { isRepairableKind } from './repair.ts';
-import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial/geometry.ts';
-import { eid, isAlive, NONE, slotOf, type State } from './entity/world.ts';
+import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from '../data.ts';
+import { ONE } from '../fixed.ts';
+import { childActorDef, type ChildActorPresentation } from '../child-actors.ts';
+import { isCloaked } from '../detection.ts';
+import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
+import { isTransitioning } from '../entity/state.ts';
+import { structureFootprint } from '../spatial/footprint.ts';
+import { isRepairableKind } from '../repair.ts';
+import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from '../spatial/geometry.ts';
+import { eid, isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 
 export type EntityPresentationState =
   | 'normal'
