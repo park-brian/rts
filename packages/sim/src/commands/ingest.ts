@@ -7,7 +7,7 @@ import { eid, slotOf, NONE } from '../entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from './types.ts';
 import { validateCommand } from './validate.ts';
 import { applyCommandSpec, validateCommandSpec } from './specs.ts';
-import { reserveProductionSupply } from '../production-queue.ts';
+import { reserveProductionSupply } from './production.ts';
 import {
   GROUP_SLOT_SPACING,
   groupOffset,

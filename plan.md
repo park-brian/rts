@@ -457,6 +457,8 @@ Done when:
   export.
 - Moved shared active-effect radius and coverage helpers under `mechanics/effects.ts`, deleting the
   old root helper path while preserving the stable package export.
+- Collapsed the root production queue helper into `commands/production.ts`, so train validation,
+  train application, larva-to-egg queueing, and same-tick supply reservation share one command owner.
 
 ## Review Checklist
 
