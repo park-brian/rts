@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ACTIVE_CLOAK_ABILITIES, TACTICAL_ABILITY_POLICIES, collectBotFacts, createBot, missingStructureKinds } from '../src/index.ts';
+import {
+  ACTIVE_CLOAK_ABILITIES,
+  TACTICAL_ABILITY_POLICIES,
+  collectBotFacts,
+  createBot,
+  deriveTacticalIncidents,
+  missingStructureKinds,
+} from '../src/index.ts';
 import {
   botScenario,
   expectBotBuildsLegal,
@@ -211,6 +218,13 @@ test('bot facts summarize bases, larvae, visible enemies, and local base threats
   assert.equal(facts.risk.vision, 'omniscient');
   assert.equal(facts.risk.visible[tileY(base.y) * facts.risk.w + tileX(base.x)]!, 1);
   assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+
+  const incidents = deriveTacticalIncidents(scenario.state, facts);
+  assert.equal(incidents.length, 1);
+  assert.equal(incidents[0]!.kind, 'base-intrusion');
+  assert.equal(incidents[0]!.base, slotOf(hatchery));
+  assert.deepEqual(incidents[0]!.enemies, [slotOf(enemy)]);
+  assert.ok(incidents[0]!.severity > 100);
 });
 
 test('bot risk uses visible-map enemies when fog tracking is active', () => {

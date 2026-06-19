@@ -459,6 +459,11 @@ Remaining work:
     `invisible-damage`, `transport-drop`, `nydus-breach`, `siege-containment`, `static-threat-zone`,
     `route-trap`, `expansion-blocked`, and `army-under-kite`. The response should be selected by
     incident severity and response fit, not by hard-coded unit names.
+    - Seed slice is done: visible threats near owned bases are grouped into deterministic,
+      severity-sorted `base-intrusion` incidents backed by `BotFacts` and the shared risk map.
+      Remaining incident work: classify mineral-line harassment, drops, Nydus breaches, siege
+      containments, cloaked/invisible damage, route traps, and kiting pressure from the same facts
+      and memory instead of adding command-time special cases.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -624,6 +629,9 @@ Done when:
 - Added the first bot intent/facts foundation: bot macro vocabulary, deterministic memory shape,
   fog-aware visible-enemy facts, completed/pending structure summaries, and a compact risk matrix
   for visible-map or god-vision tactical scoring.
+- Added the first TacticalIncident derivation layer over BotFacts, grouping visible base threats
+  into deterministic, severity-sorted base-intrusion incidents for later defense-director
+  scheduling.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

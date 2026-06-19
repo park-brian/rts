@@ -59,6 +59,27 @@ export type BotIntentResult =
   | { status: 'blocked'; reason: BotFailureReason; followup?: BotIntent }
   | { status: 'failed'; reason: BotFailureReason };
 
+export type TacticalIncidentKind =
+  | 'base-intrusion'
+  | 'mineral-line-harass'
+  | 'invisible-damage'
+  | 'transport-drop'
+  | 'nydus-breach'
+  | 'siege-containment'
+  | 'static-threat-zone'
+  | 'route-trap'
+  | 'expansion-blocked'
+  | 'army-under-kite';
+
+export type TacticalIncident = {
+  kind: TacticalIncidentKind;
+  severity: number;
+  x: number;
+  y: number;
+  base?: number;
+  enemies?: number[];
+};
+
 export type BotThreat = {
   base: number;
   enemy: number;
@@ -182,6 +203,9 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
   return { w, h, values, visible, vision: s.trackVision ? 'visible' : 'omniscient' };
 };
 
+export const riskAt = (risk: BotRiskMap, x: number, y: number): number =>
+  risk.values[tileCoord(y, risk.h) * risk.w + tileCoord(x, risk.w)]!;
+
 type BotFactsDraft = Omit<BotFacts, 'risk'>;
 
 const recordOwnedStructure = (facts: BotFactsDraft, kind: number): void => {
@@ -260,6 +284,32 @@ export const collectBotFacts = (s: State, player: number, faction: Faction): Bot
 
 export const missingStructureKinds = (facts: BotFacts, kinds: readonly number[]): number[] =>
   kinds.filter((kind) => !facts.ownedOrPendingStructureKinds.has(kind));
+
+export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalIncident[] => {
+  const e = s.e;
+  const byBase = new Map<number, number[]>();
+  for (const threat of facts.baseThreats) {
+    const enemies = byBase.get(threat.base);
+    if (enemies) enemies.push(threat.enemy);
+    else byBase.set(threat.base, [threat.enemy]);
+  }
+
+  const incidents: TacticalIncident[] = [];
+  for (const [base, enemies] of byBase) {
+    const x = e.x[base]!;
+    const y = e.y[base]!;
+    incidents.push({
+      kind: 'base-intrusion',
+      severity: 100 + enemies.length * 25 + riskAt(facts.risk, x, y),
+      x,
+      y,
+      base,
+      enemies,
+    });
+  }
+  incidents.sort((a, b) => b.severity - a.severity || (a.base ?? NONE) - (b.base ?? NONE));
+  return incidents;
+};
 
 /** Build a controller that trains workers for `faction` from idle producers. */
 export const createMacroBot = (faction: Faction): Controller => {
