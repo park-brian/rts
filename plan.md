@@ -471,6 +471,9 @@ Remaining work:
       through the map center. This uses the same fields as defense, but asks the inverse question:
       "where can we damage enemy economy/tech or choke movement while keeping our committed squad
       alive enough to matter?"
+      - Enemy-protected-region slice is done: `BotFacts` now exposes visible enemy base and
+        mineral-line regions using the same region shape as home defense, and attack waves pressure
+        the highest-value exposed enemy region before falling back to nearest enemy structures.
     - Risk must not become paralysis. Directors should carry a commitment pressure term from
       timing windows, strategy posture, banked resources, enemy scaling, base count, and elapsed
       indecision. If every route is bad or every enemy army looks larger, the scheduler still commits

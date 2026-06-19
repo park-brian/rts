@@ -146,6 +146,7 @@ export type BotFacts = {
   casters: number[];
   visibleEnemies: number[];
   protectedRegions: ProtectedRegion[];
+  enemyProtectedRegions: ProtectedRegion[];
   protectedRegionThreats: ProtectedRegionThreat[];
   baseThreats: BotThreat[];
   risk: BotRiskMap;
@@ -184,6 +185,9 @@ export const canRetaskArmy = (s: State, slot: number): boolean => {
 
 const near = (s: State, slot: number, x: number, y: number, tiles: number): boolean =>
   withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, tiles * TILE * ONE);
+
+const isDepotKind = (kind: number): boolean =>
+  kind === Kind.CommandCenter || kind === Kind.Nexus || isLarvaSourceKind(kind);
 
 const tileCoord = (v: number, max: number): number =>
   Math.max(0, Math.min(max - 1, Math.trunc(v / (TILE * ONE))));
@@ -488,6 +492,46 @@ const recordOwnedStructure = (facts: BotFactsDraft, kind: number): void => {
   if (def && (def.roles & Role.Structure) !== 0) facts.ownedOrPendingStructureKinds.add(kind);
 };
 
+const addProtectedBaseRegions = (
+  s: State,
+  player: number,
+  regions: ProtectedRegion[],
+  base: number,
+  resourcesRequireVision: boolean,
+): void => {
+  const e = s.e;
+  regions.push({
+    kind: 'base',
+    anchor: base,
+    x: e.x[base]!,
+    y: e.y[base]!,
+    radiusTiles: BASE_THREAT_TILES,
+    value: 100,
+  });
+
+  let minerals = 0;
+  let sx = 0;
+  let sy = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0) continue;
+    if (resourcesRequireVision && !enemyVisible(s, player, i)) continue;
+    if (!near(s, i, e.x[base]!, e.y[base]!, MINERAL_LINE_RESOURCE_TILES)) continue;
+    sx += e.x[i]!;
+    sy += e.y[i]!;
+    minerals++;
+  }
+  if (minerals > 0) {
+    regions.push({
+      kind: 'mineral-line',
+      anchor: base,
+      x: Math.trunc(sx / minerals),
+      y: Math.trunc(sy / minerals),
+      radiusTiles: MINERAL_LINE_TILES,
+      value: 150,
+    });
+  }
+};
+
 export const collectBotFacts = (
   s: State,
   player: number,
@@ -495,6 +539,7 @@ export const collectBotFacts = (
   options: BotFactsOptions = {},
 ): BotFacts => {
   const e = s.e;
+  const enemyBases: number[] = [];
   const facts: BotFactsDraft = {
     tick: s.tick,
     player,
@@ -514,6 +559,7 @@ export const collectBotFacts = (
     casters: [],
     visibleEnemies: [],
     protectedRegions: [],
+    enemyProtectedRegions: [],
     protectedRegionThreats: [],
     baseThreats: [],
     ownedOrPendingStructureKinds: new Set(),
@@ -524,7 +570,10 @@ export const collectBotFacts = (
     const kind = e.kind[i]!;
     const owner = e.owner[i]!;
     if (owner !== player) {
-      if (isEnemy(s, player, owner) && enemyVisible(s, player, i)) facts.visibleEnemies.push(i);
+      if (isEnemy(s, player, owner) && enemyVisible(s, player, i)) {
+        facts.visibleEnemies.push(i);
+        if (e.built[i] === 1 && isDepotKind(kind)) enemyBases.push(i);
+      }
       continue;
     }
 
@@ -557,35 +606,10 @@ export const collectBotFacts = (
   }
 
   for (const base of facts.bases) {
-    facts.protectedRegions.push({
-      kind: 'base',
-      anchor: base,
-      x: e.x[base]!,
-      y: e.y[base]!,
-      radiusTiles: BASE_THREAT_TILES,
-      value: 100,
-    });
-
-    let minerals = 0;
-    let sx = 0;
-    let sy = 0;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0) continue;
-      if (!near(s, i, e.x[base]!, e.y[base]!, MINERAL_LINE_RESOURCE_TILES)) continue;
-      sx += e.x[i]!;
-      sy += e.y[i]!;
-      minerals++;
-    }
-    if (minerals > 0) {
-      facts.protectedRegions.push({
-        kind: 'mineral-line',
-        anchor: base,
-        x: Math.trunc(sx / minerals),
-        y: Math.trunc(sy / minerals),
-        radiusTiles: MINERAL_LINE_TILES,
-        value: 150,
-      });
-    }
+    addProtectedBaseRegions(s, player, facts.protectedRegions, base, false);
+  }
+  for (const base of enemyBases) {
+    addProtectedBaseRegions(s, player, facts.enemyProtectedRegions, base, true);
   }
 
   for (const enemy of facts.visibleEnemies) {

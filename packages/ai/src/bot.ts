@@ -24,6 +24,7 @@ import {
   deriveTacticalIncidents,
   rememberTacticalIncidents,
   tacticalResponseBudget,
+  type BotFacts,
   type BotMemory,
   type TacticalIncident,
 } from './macro.ts';
@@ -152,6 +153,7 @@ const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 type ResourceBudget = { minerals: number; gas: number };
 type ProducerReservations = Set<number>;
+type OffenseFocus = { x: number; y: number; target: number };
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const incidentTarget = (s: State, incident: TacticalIncident): number => {
@@ -166,6 +168,32 @@ const incidentTarget = (s: State, incident: TacticalIncident): number => {
     bestD = d;
   }
   return best;
+};
+
+const offensiveFocus = (s: State, player: number, facts: BotFacts, depot: number): OffenseFocus | null => {
+  const e = s.e;
+  let focusX = 0;
+  let focusY = 0;
+  let bestValue = -1;
+  let bestDistance = Infinity;
+  for (const region of facts.enemyProtectedRegions) {
+    const distance = distanceSq(e.x[depot]!, e.y[depot]!, region.x, region.y);
+    if (region.value < bestValue) continue;
+    if (region.value === bestValue && distance >= bestDistance) continue;
+    bestValue = region.value;
+    bestDistance = distance;
+    focusX = region.x;
+    focusY = region.y;
+  }
+
+  if (bestValue < 0) {
+    let target = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, player, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
+    if (target === NONE) target = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, player, e.owner[sl]!));
+    return target === NONE ? null : { x: e.x[target]!, y: e.y[target]!, target };
+  }
+
+  const target = nearest(s, focusX, focusY, (sl) => isEnemy(s, player, e.owner[sl]!));
+  return { x: focusX, y: focusY, target };
 };
 
 const canEmergencyPullWorker = (s: State, slot: number, x: number, y: number): boolean => {
@@ -520,35 +548,34 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     if (shouldCommitOffense(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
-      // 6) Offense: send idle army to the nearest enemy structure (else any enemy).
-      let tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
-      if (tgt === NONE) tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!));
-      if (tgt !== NONE) {
+      // 6) Offense: pressure the enemy's most valuable exposed region.
+      const focus = offensiveFocus(s, p, facts, depot);
+      if (focus) {
         let issuedOffense = false;
         if (!builderUsed) {
-          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, e.x[tgt]!, e.y[tgt]!);
+          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, focus.x, focus.y);
           minerals = budget.minerals;
         }
-        if (!incident) castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
+        if (!incident) castTacticalAbilities(s, p, cmds, casters, focus.x, focus.y);
         for (const a of attackCandidates) {
-          if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) {
+          if (maybeUseNydusNetwork(s, p, cmds, a, focus.x, focus.y)) {
             issuedOffense = true;
             continue;
           }
-          if (maybeLaySpiderMine(s, cmds, a, tgt)) {
+          if (focus.target !== NONE && maybeLaySpiderMine(s, cmds, a, focus.target)) {
             issuedOffense = true;
             continue;
           }
-          if (maybeBurrowForFight(s, cmds, a, tgt)) {
+          if (focus.target !== NONE && maybeBurrowForFight(s, cmds, a, focus.target)) {
             issuedOffense = true;
             continue;
           }
-          if (maybeTransformForFight(s, cmds, a, e.x[tgt]!, e.y[tgt]!)) {
+          if (maybeTransformForFight(s, cmds, a, focus.x, focus.y)) {
             issuedOffense = true;
             continue;
           }
           maybeStim(s, cmds, a);
-          cmds.push({ t: 'amove', unit: eid(e, a), x: e.x[tgt]!, y: e.y[tgt]! });
+          cmds.push({ t: 'amove', unit: eid(e, a), x: focus.x, y: focus.y });
           issuedOffense = true;
         }
         if (issuedOffense) markOffenseCommitted(memory, s.tick);

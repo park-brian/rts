@@ -216,6 +216,24 @@ const protectedRegion = (facts: ReturnType<typeof collectBotFacts>, kind: 'base'
   assert.ok(region);
   return region;
 };
+const enemyProtectedRegion = (facts: ReturnType<typeof collectBotFacts>, kind: 'base' | 'mineral-line') => {
+  const region = facts.enemyProtectedRegions.find((r) => r.kind === kind);
+  assert.ok(region);
+  return region;
+};
+const enemyOffensiveRegion = (facts: ReturnType<typeof collectBotFacts>, origin: { x: number; y: number }) => {
+  let best = facts.enemyProtectedRegions[0];
+  let bestDistance = best ? (best.x - origin.x) ** 2 + (best.y - origin.y) ** 2 : Infinity;
+  for (const region of facts.enemyProtectedRegions) {
+    const distance = (region.x - origin.x) ** 2 + (region.y - origin.y) ** 2;
+    if (best && region.value < best.value) continue;
+    if (best && region.value === best.value && distance >= bestDistance) continue;
+    best = region;
+    bestDistance = distance;
+  }
+  assert.ok(best);
+  return best;
+};
 const baseOnlyThreatPoint = (facts: ReturnType<typeof collectBotFacts>, base: { x: number; y: number }, distance = 160) => {
   const mineralLine = protectedRegion(facts, 'mineral-line');
   const dx = base.x - mineralLine.x;
@@ -276,6 +294,16 @@ test('bot tactical incidents classify mineral-line harassment from protected reg
   assert.equal(incidents[0]!.kind, 'mineral-line-harass');
   assert.equal(incidents[0]!.base, mineralLine.anchor);
   assert.ok(incidents[0]!.severity > 150);
+});
+
+test('bot facts expose visible enemy protected regions for proactive pressure', () => {
+  const scenario = botScenario({ seed: 807, factions: [Terran, Zerg] });
+  const enemyBase = slotOf(scenario.entity(Kind.Hatchery, 1));
+
+  const facts = collectBotFacts(scenario.state, 0, Terran);
+
+  assert.equal(enemyProtectedRegion(facts, 'base').anchor, enemyBase);
+  assert.equal(enemyProtectedRegion(facts, 'mineral-line').anchor, enemyBase);
 });
 
 test('bot risk uses visible-map enemies when fog tracking is active', () => {
@@ -539,13 +567,13 @@ test('bot attacks with uncommitted army while a small defense squad responds', (
   const marines = Array.from({ length: 6 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
   const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
-  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(scenario.state, 0, Terran), base);
 
   const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 4 });
   const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
     c.t === 'attack' && c.target === enemy);
   const offense = cmds.filter((c): c is Extract<BotCommand, { t: 'amove' }> =>
-    c.t === 'amove' && c.x === scenario.pos(enemyBase).x && c.y === scenario.pos(enemyBase).y);
+    c.t === 'amove' && c.x === enemyRegion.x && c.y === enemyRegion.y);
 
   assert.equal(defense.length, 2);
   assert.equal(offense.length, 4);
@@ -557,13 +585,12 @@ test('bot commitment pressure eventually sends an under-threshold army', () => {
   const scenario = botScenario({ seed: 818 });
   const s = scenario.state;
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
-  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
-  const enemyBasePos = scenario.pos(enemyBase);
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), base);
   const marines = Array.from({ length: 3 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
   const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 12 });
   const isOffense = (cmd: BotCommand): cmd is Extract<BotCommand, { t: 'amove' }> =>
-    cmd.t === 'amove' && cmd.x === enemyBasePos.x && cmd.y === enemyBasePos.y;
+    cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y;
 
   assert.equal(bot(s, 0).some(isOffense), false);
   s.tick += 45 * 24 + 1;
@@ -580,8 +607,7 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
   const marines = Array.from({ length: 4 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
   const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
-  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
-  const enemyBasePos = scenario.pos(enemyBase);
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), base);
   const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 12 });
 
   bot(s, 0);
@@ -590,7 +616,7 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
   const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
     c.t === 'attack' && c.target === enemy);
   const offense = cmds.filter((c): c is Extract<BotCommand, { t: 'amove' }> =>
-    c.t === 'amove' && c.x === enemyBasePos.x && c.y === enemyBasePos.y);
+    c.t === 'amove' && c.x === enemyRegion.x && c.y === enemyRegion.y);
 
   assert.deepEqual(defense.map((c) => c.unit), marines.slice(0, 2));
   assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
@@ -691,15 +717,13 @@ test('bot defends threatened expansions through tactical incidents', () => {
 test('bot attack waves use public point attack-move intent', () => {
   const scenario = botScenario({ seed: 4002 });
   const s = scenario.state;
-  const e = s.e;
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
   const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
-  const enemyDepot = scenario.entity(Kind.CommandCenter, 1);
-  const enemySlot = slotOf(enemyDepot);
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), base);
 
   const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
     .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
-  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: e.x[enemySlot]!, y: e.y[enemySlot]! });
+  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: enemyRegion.x, y: enemyRegion.y });
 
   assert.deepEqual(command ? [command] : [], expected);
   assert.ok(command);
@@ -713,8 +737,7 @@ test('bot attack waves retask rally-following combat units', () => {
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
   const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
   const followerTarget = scenario.spawn(Kind.SCV, 0, base.x + fx(48), base.y);
-  const enemyDepot = scenario.entity(Kind.CommandCenter, 1);
-  const enemySlot = slotOf(enemyDepot);
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), base);
   const marineSlot = slotOf(marine);
   e.order[marineSlot] = Order.AttackMove;
   e.intentTarget[marineSlot] = followerTarget;
@@ -723,7 +746,7 @@ test('bot attack waves retask rally-following combat units', () => {
 
   const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
     .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
-  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: e.x[enemySlot]!, y: e.y[enemySlot]! });
+  const expected = attackModeCandidates(s, 0, marine, { hit: -1, x: enemyRegion.x, y: enemyRegion.y });
 
   assert.deepEqual(command ? [command] : [], expected);
   assert.ok(command);
@@ -1041,26 +1064,28 @@ const readyZergNydusEndpointScenario = (seed: number): { scenario: BotScenario; 
   return { scenario, target, home };
 };
 
-test('zerg bot queues a second nydus endpoint near the attack target on owned creep', () => {
-  const { scenario, target, home } = readyZergNydusEndpointScenario(500);
+test('zerg bot queues a second nydus endpoint near the offensive focus on owned creep', () => {
+  const { scenario, home } = readyZergNydusEndpointScenario(500);
   const s = scenario.state;
+  const focus = enemyOffensiveRegion(collectBotFacts(s, 0, Zerg), home);
 
   const build = expectBotBuildsLegal(scenario, Zerg, Kind.NydusCanal, zergNydusEndpointOptions);
   assert.ok(
-    (build.x - s.e.x[slotOf(target)]!) ** 2 + (build.y - s.e.y[slotOf(target)]!) ** 2 <
-    (home.x - s.e.x[slotOf(target)]!) ** 2 + (home.y - s.e.y[slotOf(target)]!) ** 2,
+    (build.x - focus.x) ** 2 + (build.y - focus.y) ** 2 <
+    (home.x - focus.x) ** 2 + (home.y - focus.y) ** 2,
   );
 });
 
 test('zerg bot extends a completed nydus network to a new attack focus', () => {
-  const { scenario, target, home } = readyZergNydusEndpointScenario(505);
+  const { scenario, home } = readyZergNydusEndpointScenario(505);
   const s = scenario.state;
+  const focus = enemyOffensiveRegion(collectBotFacts(s, 0, Zerg), home);
   scenario.spawn(Kind.NydusCanal, 0, home.x + fx(420), home.y + fx(96));
 
   const build = expectBotBuildsLegal(scenario, Zerg, Kind.NydusCanal, zergNydusEndpointOptions);
   assert.ok(
-    (build.x - s.e.x[slotOf(target)]!) ** 2 + (build.y - s.e.y[slotOf(target)]!) ** 2 <
-    (home.x - s.e.x[slotOf(target)]!) ** 2 + (home.y - s.e.y[slotOf(target)]!) ** 2,
+    (build.x - focus.x) ** 2 + (build.y - focus.y) ** 2 <
+    (home.x - focus.x) ** 2 + (home.y - focus.y) ** 2,
   );
 });
 
@@ -1076,7 +1101,8 @@ test('zerg bot respects nydus endpoint local network, duplicate, pending, and bu
   expectNoBotBuild(noEntrance.scenario, Zerg, Kind.NydusCanal, zergNydusEndpointOptions);
 
   const duplicate = readyZergNydusEndpointScenario(502);
-  duplicate.scenario.spawn(Kind.NydusCanal, 0, fx(1_380), fx(700));
+  const duplicateFocus = enemyOffensiveRegion(collectBotFacts(duplicate.scenario.state, 0, Zerg), duplicate.home);
+  duplicate.scenario.spawn(Kind.NydusCanal, 0, duplicateFocus.x - fx(48), duplicateFocus.y);
 
   expectNoBotBuild(duplicate.scenario, Zerg, Kind.NydusCanal, zergNydusEndpointOptions);
 
@@ -3278,9 +3304,9 @@ test('bot uses a same-team nydus network to shortcut attack waves', () => {
   const s = sim.fullState();
   const e = s.e;
   const home = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
-  const enemy = entityPos(sim, findEntity(sim, Kind.CommandCenter, 1));
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), home);
   const entrance = slotOf(spawnUnit(s, Kind.NydusCanal, 0, home.x + fx(48), home.y));
-  const exit = slotOf(spawnUnit(s, Kind.NydusCanal, 0, enemy.x - fx(48), enemy.y));
+  const exit = slotOf(spawnUnit(s, Kind.NydusCanal, 0, enemyRegion.x - fx(48), enemyRegion.y));
   const marine = spawnUnit(s, Kind.Marine, 0, home.x + fx(56), home.y);
 
   const cmds = createBot(Terran, { attackThreshold: 1 })(s, 0);
