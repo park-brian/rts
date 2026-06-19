@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { COMMAND_TYPES } from '../src/sim.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(here, '..');
@@ -79,6 +80,44 @@ test('command card consumes every shared selection option group through executeO
   }
   assert.match(ui, /const executeOption = \(option: CommandOption\): void =>/);
   assert.match(ui, /g\.executeOption\(option\)/);
+});
+
+test('player command surface accounts for every sim command type', () => {
+  const selection = readFileSync(resolve(appRoot, 'src', 'selection-capabilities.ts'), 'utf8');
+  const tap = readFileSync(resolve(appRoot, 'src', 'tap-selection-controller.ts'), 'utf8');
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+  type CommandSurfaceProbe = { selection: RegExp; ui?: RegExp; tap?: RegExp };
+  const surface: Record<(typeof COMMAND_TYPES)[number], CommandSurfaceProbe> = {
+    train: { selection: /trainSelectionOptions/, ui: /selection\.options\.train/ },
+    research: { selection: /researchSelectionOptions/, ui: /selection\.options\.research/ },
+    build: { selection: /workerBuildSelectionOptions/, ui: /selection\.options\.build/ },
+    addon: { selection: /addonSelectionOptions/, ui: /selection\.options\.addon/ },
+    lift: { selection: /OrderOptionId\.Lift/, ui: /addOrderButton\(OrderOptionId\.Lift,/ },
+    land: { selection: /OrderOptionId\.Land/, ui: /addOrderButton\(OrderOptionId\.Land,/ },
+    transform: { selection: /transformSelectionOptions/, ui: /selection\.options\.transform/ },
+    burrow: { selection: /OrderOptionId\.Burrow[\s\S]*OrderOptionId\.Unburrow/, ui: /OrderOptionId\.Burrow[\s\S]*OrderOptionId\.Unburrow/ },
+    mine: { selection: /OrderOptionId\.Mine/, ui: /addOrderButton\(OrderOptionId\.Mine,/ },
+    load: { selection: /OrderOptionId\.Load/, ui: /addOrderButton\(OrderOptionId\.Load,/ },
+    unload: { selection: /OrderOptionId\.Unload/, ui: /addOrderButton\(OrderOptionId\.Unload,/ },
+    cancelBuild: { selection: /OrderOptionId\.Cancel/, ui: /addOrderButton\(OrderOptionId\.Cancel,/ },
+    move: { selection: /OrderOptionId\.Move/, ui: /addOrderButton\(OrderOptionId\.Move,/ },
+    attack: { selection: /OrderOptionId\.AttackMove/, tap: /attackModeCandidates/ },
+    amove: { selection: /OrderOptionId\.AttackMove/, ui: /addOrderButton\(OrderOptionId\.AttackMove,/ },
+    ability: { selection: /abilitySelectionOptions/, ui: /selection\.options\.ability/ },
+    harvest: { selection: /OrderOptionId\.Harvest/, ui: /addOrderButton\(OrderOptionId\.Harvest,/ },
+    repair: { selection: /OrderOptionId\.Repair/, ui: /addOrderButton\(OrderOptionId\.Repair,/ },
+    rally: { selection: /OrderOptionId\.Rally/, ui: /addOrderButton\(OrderOptionId\.Rally,/ },
+    hold: { selection: /OrderOptionId\.Hold/, ui: /addOrderButton\(OrderOptionId\.Hold,/ },
+    patrol: { selection: /OrderOptionId\.Patrol/, ui: /addOrderButton\(OrderOptionId\.Patrol,/ },
+    stop: { selection: /OrderOptionId\.Stop/, ui: /addOrderButton\(OrderOptionId\.Stop,/ },
+  };
+
+  assert.deepEqual(Object.keys(surface).sort(), [...COMMAND_TYPES].sort());
+  for (const [command, probes] of Object.entries(surface)) {
+    assert.match(selection, probes.selection, `missing selection surface for ${command}`);
+    if (probes.ui) assert.match(ui, probes.ui, `missing command-card surface for ${command}`);
+    if (probes.tap) assert.match(tap, probes.tap, `missing tap-command surface for ${command}`);
+  }
 });
 
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {

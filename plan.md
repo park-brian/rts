@@ -318,6 +318,8 @@ Remaining work:
   - Order render guard slice is done: the command-card test now parses `OrderOptionId` and proves
     every shared order id is rendered through `addOrderButton`, which caught the missing visible
     Move button after the selection/hotkey path already existed.
+  - Command-union surface audit is done: an app test keys off `COMMAND_TYPES` and verifies every sim
+    command type has a player-facing selection, command-card, armed-command, or smart-tap path.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
@@ -555,6 +557,8 @@ Done when:
   receipts for batch trainers and headless loops.
 - Added a command-card guard that forces every `OrderOptionId` to be rendered by the UI, and wired
   the missing visible Move order button.
+- Added a `COMMAND_TYPES`-backed app command-surface audit so future sim commands cannot be added
+  without an explicit player-facing UI path or documented smart-command path.
 
 ## Review Checklist
 
