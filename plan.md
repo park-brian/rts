@@ -682,6 +682,9 @@ Remaining work:
     usable force to create pressure after a deterministic wait. Under fair fog, pressure uses known
     enemy regions or public enemy start locations instead of hidden enemy slots; under god vision it
     may still use full-state enemy targets for headless scripted play.
+  - Lone-force pressure slice is done: the deterministic pressure wait no longer requires two
+    combat units. Any positive leftover combat force can eventually attack-move toward the pressure
+    focus, while zero available force still resets the timer and defense reservations still win.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -826,6 +829,8 @@ Done when:
 - Extracted the bot research macro into `packages/ai/src/macro-research.ts` and shared Terran
   parent/add-on producer reservations through `packages/ai/src/macro-producers.ts`, shrinking the
   live bot controller without changing research ordering or legality checks.
+- Removed the pressure director's artificial two-unit floor so a lone available combat unit
+  eventually commits after the deterministic wait instead of freezing forever.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as

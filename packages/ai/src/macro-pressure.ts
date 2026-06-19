@@ -4,7 +4,6 @@ import type { BotFacts, BotMemory } from './macro.ts';
 export type PressureFocus = { x: number; y: number; target: number };
 
 export const PRESSURE_COMMITMENT_TICKS = 45 * 24;
-const PRESSURE_MIN_FORCE = 2;
 
 export const shouldCommitPressure = (
   memory: BotMemory,
@@ -17,10 +16,6 @@ export const shouldCommitPressure = (
     return false;
   }
   if (force >= threshold) return true;
-  if (force < PRESSURE_MIN_FORCE) {
-    memory.offenseWaitSince = -1;
-    return false;
-  }
   if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
   return tick - memory.offenseWaitSince >= PRESSURE_COMMITMENT_TICKS;
 };
