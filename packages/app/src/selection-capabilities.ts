@@ -2,7 +2,7 @@ import {
   Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   addonSelectionCandidates, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
-  trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  researchSelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -232,7 +232,7 @@ export const selectionCapabilities = (
         const command: Command = { t: 'research', building: id, tech };
         const result = validateCommand(s, player, command);
         if (result.ok || result.reason !== 'target-not-allowed') {
-          addOption(researchOptions, tech, result, { commands: result.ok ? [command] : undefined, priority: selectionIndex });
+          addOption(researchOptions, tech, result, { priority: selectionIndex });
         }
       }
     }
@@ -280,6 +280,10 @@ export const selectionCapabilities = (
   for (const option of addonOptions.values()) {
     if (!option.ok) continue;
     option.commands = addonSelectionCandidates(s, player, selected, option.id);
+  }
+  for (const option of researchOptions.values()) {
+    if (!option.ok) continue;
+    option.commands = researchSelectionCandidates(s, player, selected, option.id);
   }
   for (const option of abilityOptions.values()) {
     if (!option.ok) continue;

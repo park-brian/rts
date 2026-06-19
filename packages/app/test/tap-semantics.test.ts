@@ -646,10 +646,12 @@ test('point ability target mode chooses a valid selected caster', () => {
 test('research option queues the first valid selected research producer', () => {
   const g = freshGame();
   const s = g.sim.fullState();
-  const academy = spawnUnit(s, Kind.Academy, 0, fx(400), fx(400));
+  const busy = spawnUnit(s, Kind.Academy, 0, fx(400), fx(400));
+  const academy = spawnUnit(s, Kind.Academy, 0, fx(520), fx(400));
+  s.e.researchKind[slotOf(busy)] = Tech.U238Shells;
   s.players.minerals[0] = 200;
   s.players.gas[0] = 200;
-  select(g, [academy]);
+  select(g, [busy, academy]);
   g.fastForward(0);
 
   const option = ui.selectionView.value.options.research.find((o) => o.id === Tech.StimPack);

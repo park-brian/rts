@@ -290,6 +290,21 @@ export const addonSelectionCandidates = (
   return [];
 };
 
+export const researchSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  tech: number,
+): Command[] => {
+  const e = s.e;
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const command: Command = { t: 'research', building, tech };
+    if (validateCommand(s, player, command).ok) return [command];
+  }
+  return [];
+};
+
 export const rallyModeCandidates = (
   s: State,
   player: number,
