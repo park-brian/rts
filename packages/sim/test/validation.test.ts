@@ -5,7 +5,7 @@ import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '
 import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { snapBuildAnchor } from '../src/footprint.ts';
+import { snapBuildAnchor } from '../src/spatial/footprint.ts';
 import { placementForStructure, validateCommand } from '../src/commands/validate.ts';
 import { canPlayerGatherTarget, isGatherTarget } from '../src/resource-targets.ts';
 import { simScenario } from '../test-support/scenario.ts';

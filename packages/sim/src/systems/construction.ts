@@ -12,7 +12,7 @@ import { navPassable } from '../flow.ts';
 import { pickPatch } from './harvest.ts';
 import { faceToward, within } from './move.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
-import { structureFootprint } from '../footprint.ts';
+import { structureFootprint } from '../spatial/footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isAddonKind } from '../mechanics/addons.ts';

@@ -401,6 +401,8 @@ Done when:
   deleting the old root `action-mask.ts` helper while preserving the stable package export.
 - Moved fair-play object and caller-owned buffer observations under `io/observe.ts`, deleting the old
   root `observe.ts` helper while preserving the stable package export and `Sim.observe` facade.
+- Moved build-tile footprint snapping and overlap helpers under `spatial/footprint.ts`, deleting the
+  old root `footprint.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

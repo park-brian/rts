@@ -3,7 +3,7 @@
 
 import type { Command, CommandRejectReason } from './types.ts';
 import type { State } from '../entity/world.ts';
-import { snapBuildAnchor, structureFootprint, type Footprint } from '../footprint.ts';
+import { snapBuildAnchor, structureFootprint, type Footprint } from '../spatial/footprint.ts';
 import { validateCommandSpec } from './specs.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from '../mechanics/placement.ts';
 

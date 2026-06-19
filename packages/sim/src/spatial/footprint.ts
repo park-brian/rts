@@ -1,8 +1,8 @@
 // Discrete build-tile footprints. These are placement/pathing concepts, separate
 // from radius (interaction/rendering).
 
-import { TILE, Units } from './data.ts';
-import { ONE } from './fixed.ts';
+import { TILE, Units } from '../data.ts';
+import { ONE } from '../fixed.ts';
 
 const TILE_FX = TILE * ONE;
 

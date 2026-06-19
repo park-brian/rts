@@ -4,7 +4,7 @@ import { eid, slotOf } from '../src/entity/world.ts';
 import { Kind, Order, Role, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { parseReplay } from '../src/io/replay.ts';
-import { snapBuildAnchor } from '../src/footprint.ts';
+import { snapBuildAnchor } from '../src/spatial/footprint.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('lifted terran buildings move, stop producing, and restore landed capabilities', () => {

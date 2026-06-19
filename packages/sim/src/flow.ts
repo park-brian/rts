@@ -9,7 +9,7 @@ import { NONE, type State } from './entity/world.ts';
 import { Role, Size, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './io/hash.ts';
-import { structureFootprint } from './footprint.ts';
+import { structureFootprint } from './spatial/footprint.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
 import { bodyBounds } from './spatial.ts';
 

@@ -5,7 +5,7 @@
 
 import { Kind, Role, TILE, Units } from './data.ts';
 import { ONE, fx, isqrt } from './fixed.ts';
-import { structureFootprint } from './footprint.ts';
+import { structureFootprint } from './spatial/footprint.ts';
 import type { State } from './entity/world.ts';
 
 export type BodyBounds = {
