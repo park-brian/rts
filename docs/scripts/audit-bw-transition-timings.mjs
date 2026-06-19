@@ -33,6 +33,10 @@ const traceNeedles = [
   'orders::burrowing',
   'orders::unburrowing',
   'orders::sieging',
+  'yamato',
+  'fireyamatogun',
+  'move_to_fire_yamato',
+  'movetofireyamatogun',
 ];
 const skippedDirs = new Set(['.git', 'node_modules', 'dist', 'build', 'out', '.cache']);
 

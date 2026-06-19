@@ -1238,7 +1238,7 @@ Source timing/data already present in local docs and sim tables:
 | Scanner Sweep | 50 energy, global, local docs say about 6.8-11s, sim uses 8.4s | persistent effect | Accept provisional; document exact source when chosen. |
 | Nuclear Strike channel | local docs say Ghost channels about 14.5s | `Order.Cast` + effect | Fixed to sourced channel duration; tests cover old-delay regression, impact timing, missile spend, and interruption. |
 | Nuclear Strike damage/falloff | local docs say 500 damage or 2/3 max HP+shields, whichever is greater, with 100/50/25% splash falloff; BWAPI weapon id 31 uses 128/192/256px bands | named nuke damage helper plus shared radial percent helper | Fixed; tests cover high-HP full hit, shield split, 50%/25% falloff, and far/no-hit. |
-| Yamato Gun | 150 energy, range 10, 260 damage | instant damage | Add windup/cast execution before damage after sourcing cast frames. |
+| Yamato Gun | 150 energy, range 10, 260 damage; BWAPI weapon id 30 confirms 260 damage and 320px range, but not cast frames | instant damage | Keep instant until windup/cast frames and interruption semantics are sourced. |
 
 Implementation:
 
@@ -1292,14 +1292,18 @@ Stats and source work before implementation:
     `Tank_Siege_Mode`, command dispatch to `BW::Orders::Burrow`, `Unburrow`, `Siege`, and
     `Unsiege`, and client temporary orders `Orders::Burrowing`, `Orders::Unburrowing`, and
     `Orders::Sieging`.
-  - BWAPI does not expose the exact animation/transition frame counts in the checked command,
-    order, unit-type, or client-temp paths. Do not implement deterministic transition timers from
-    guessed values.
+  - Yamato audit: `tmp/bwapi` confirms `TechTypes::Yamato_Gun` is a unit-targeted tech that maps to
+    `Orders::FireYamatoGun`, weapon id 30 is 260 damage at 320px range, and
+    `MoveToFireYamatoGun` reports as `FireYamatoGun`; the checked BWAPI paths and tests do not
+    expose cast/windup frames or interruption semantics.
+  - BWAPI does not expose the exact animation/transition/cast frame counts in the checked command,
+    order, unit-type, weapon-type, tech-type, or client-temp paths. Do not implement deterministic
+    transition or windup timers from guessed values.
   - Durable note and repeatable audit live in `docs/research/bw-transition-timings.md` and
     `npm run research:bw-timings`.
-  - Next source step before timed transition implementation: extract/inspect Brood War
-    `iscript.bin`/order data, or add a measurement harness from replay/game traces, then record the
-    exact frame counts here with source paths.
+  - Next source step before timed transition or Yamato windup implementation: extract/inspect Brood
+    War `iscript.bin`/order data, or add a measurement harness from replay/game traces, then record
+    the exact frame counts and interruption semantics here with source paths.
 - Reconcile local doc/spec mismatches:
   - Stasis duration fixed: `docs/research/sc1-spells-upgrades.md` says about 43.8s and
     `data-abilities.ts` now matches.
@@ -1315,7 +1319,8 @@ Stats and source work before implementation:
 - Source missing animation/cast frame counts before coding:
   - Siege Tank siege and unsiege deploy duration.
   - Burrow and unburrow duration by unit class, or a verified shared BW value if one exists.
-  - Yamato Gun cast/windup frames and whether interruption after energy spend cancels damage.
+  - Yamato Gun cast/windup frames and whether interruption after energy spend cancels damage; BWAPI
+    confirms command/order/damage/range facts only.
   - Spider Mine wake-up/acquire/leap timing if we want more than the current acquire/detonate model.
   - Carrier Interceptor exact attack-pass cadence if current orbit/return behavior proves materially
     different under tests.
