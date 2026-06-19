@@ -211,31 +211,50 @@ const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number 
 
 const riskIndex = (risk: ReturnType<typeof collectBotFacts>['risk'], x: number, y: number): number =>
   tileY(y) * risk.w + tileX(x);
+const protectedRegion = (facts: ReturnType<typeof collectBotFacts>, kind: 'base' | 'mineral-line') => {
+  const region = facts.protectedRegions.find((r) => r.kind === kind);
+  assert.ok(region);
+  return region;
+};
+const baseOnlyThreatPoint = (facts: ReturnType<typeof collectBotFacts>, base: { x: number; y: number }, distance = 160) => {
+  const mineralLine = protectedRegion(facts, 'mineral-line');
+  const dx = base.x - mineralLine.x;
+  const dy = base.y - mineralLine.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return {
+    x: Math.trunc(base.x + (dx / d) * fx(distance)),
+    y: Math.trunc(base.y + (dy / d) * fx(distance)),
+  };
+};
 
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
   const scenario = botScenario({ seed: 800, factions: [Zerg, Terran] });
   const hatchery = scenario.entity(Kind.Hatchery, 0);
   const base = scenario.pos(hatchery);
-  const enemy = scenario.spawn(Kind.Marine, 1, base.x + fx(40), base.y);
+  let facts = collectBotFacts(scenario.state, 0, Zerg);
+  const threat = baseOnlyThreatPoint(facts, base);
+  const enemy = scenario.spawn(Kind.Marine, 1, threat.x, threat.y);
 
-  const facts = collectBotFacts(scenario.state, 0, Zerg);
+  facts = collectBotFacts(scenario.state, 0, Zerg);
 
   assert.equal(facts.primaryBase, slotOf(hatchery));
   assert.ok(facts.bases.includes(slotOf(hatchery)));
-  assert.deepEqual(facts.protectedRegions, [{
+  assert.deepEqual(protectedRegion(facts, 'base'), {
     kind: 'base',
     anchor: slotOf(hatchery),
     x: base.x,
     y: base.y,
     radiusTiles: 18,
     value: 100,
-  }]);
+  });
+  assert.equal(protectedRegion(facts, 'mineral-line').anchor, slotOf(hatchery));
   assert.equal(facts.idleLarvae.length, 3);
   assert.ok(facts.visibleEnemies.includes(slotOf(enemy)));
   assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
+  assert.ok(facts.protectedRegionThreats.some((threat) => threat.enemy === slotOf(enemy)));
   assert.equal(facts.risk.vision, 'omniscient');
   assert.equal(facts.risk.visible[tileY(base.y) * facts.risk.w + tileX(base.x)]!, 1);
-  assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+  assert.ok(facts.risk.values[tileY(threat.y) * facts.risk.w + tileX(threat.x)]! > 0);
 
   const incidents = deriveTacticalIncidents(scenario.state, facts);
   assert.equal(incidents.length, 1);
@@ -245,26 +264,42 @@ test('bot facts summarize bases, larvae, visible enemies, and local base threats
   assert.ok(incidents[0]!.severity > 100);
 });
 
+test('bot tactical incidents classify mineral-line harassment from protected regions', () => {
+  const scenario = botScenario({ seed: 806, factions: [Zerg, Terran] });
+  let facts = collectBotFacts(scenario.state, 0, Zerg);
+  const mineralLine = protectedRegion(facts, 'mineral-line');
+  scenario.spawn(Kind.Marine, 1, mineralLine.x, mineralLine.y);
+
+  facts = collectBotFacts(scenario.state, 0, Zerg);
+  const incidents = deriveTacticalIncidents(scenario.state, facts);
+
+  assert.equal(incidents[0]!.kind, 'mineral-line-harass');
+  assert.equal(incidents[0]!.base, mineralLine.anchor);
+  assert.ok(incidents[0]!.severity > 150);
+});
+
 test('bot risk uses visible-map enemies when fog tracking is active', () => {
   const scenario = botScenario({ seed: 802, factions: [Zerg, Terran], vision: true });
   const hatchery = scenario.entity(Kind.Hatchery, 0);
   const base = scenario.pos(hatchery);
-  const enemy = scenario.spawn(Kind.Marine, 1, base.x + fx(40), base.y);
+  let facts = collectBotFacts(scenario.state, 0, Zerg);
+  const threat = baseOnlyThreatPoint(facts, base);
+  const enemy = scenario.spawn(Kind.Marine, 1, threat.x, threat.y);
   const vision = scenario.state.vision[0]!;
   vision.fill(0);
   vision[tileY(base.y) * scenario.state.map.w + tileX(base.x)] = 2;
 
-  let facts = collectBotFacts(scenario.state, 0, Zerg);
+  facts = collectBotFacts(scenario.state, 0, Zerg);
   assert.equal(facts.risk.vision, 'visible');
   assert.deepEqual(facts.visibleEnemies, []);
   assert.deepEqual(facts.baseThreats, []);
-  assert.equal(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]!, 0);
+  assert.equal(facts.risk.values[tileY(threat.y) * facts.risk.w + tileX(threat.x)]!, 0);
 
-  vision[tileY(base.y) * scenario.state.map.w + tileX(base.x + fx(40))] = 2;
+  vision[tileY(threat.y) * scenario.state.map.w + tileX(threat.x)] = 2;
   facts = collectBotFacts(scenario.state, 0, Zerg);
   assert.deepEqual(facts.visibleEnemies, [slotOf(enemy)]);
   assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
-  assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+  assert.ok(facts.risk.values[tileY(threat.y) * facts.risk.w + tileX(threat.x)]! > 0);
 
   const cheapFacts = collectBotFacts(scenario.state, 0, Zerg, { risk: 'none' });
   assert.equal(cheapFacts.risk.vision, 'omitted');
@@ -301,7 +336,8 @@ test('bot base incident severity uses ground threat risk instead of aggregate ai
   const airScenario = botScenario({ seed: 804, factions: [Zerg, Terran] });
   const airBase = airScenario.entity(Kind.Hatchery, 0);
   const airBasePos = airScenario.pos(airBase);
-  airScenario.spawn(Kind.Valkyrie, 1, airBasePos.x + fx(40), airBasePos.y);
+  const airPoint = baseOnlyThreatPoint(collectBotFacts(airScenario.state, 0, Zerg), airBasePos, 96);
+  airScenario.spawn(Kind.Valkyrie, 1, airPoint.x, airPoint.y);
 
   const airIncident = deriveTacticalIncidents(
     airScenario.state,
@@ -312,7 +348,8 @@ test('bot base incident severity uses ground threat risk instead of aggregate ai
   const groundScenario = botScenario({ seed: 805, factions: [Zerg, Terran] });
   const groundBase = groundScenario.entity(Kind.Hatchery, 0);
   const groundBasePos = groundScenario.pos(groundBase);
-  groundScenario.spawn(Kind.Marine, 1, groundBasePos.x + fx(40), groundBasePos.y);
+  const groundPoint = baseOnlyThreatPoint(collectBotFacts(groundScenario.state, 0, Zerg), groundBasePos, 96);
+  groundScenario.spawn(Kind.Marine, 1, groundPoint.x, groundPoint.y);
 
   const groundIncident = deriveTacticalIncidents(
     groundScenario.state,
@@ -392,9 +429,10 @@ test('bot selects only a bounded ranked squad for small incidents', () => {
   const scenario = botScenario({ seed: 813 });
   const commandCenter = scenario.entity(Kind.CommandCenter, 0);
   const base = scenario.pos(commandCenter);
+  const threat = baseOnlyThreatPoint(collectBotFacts(scenario.state, 0, Terran), base);
   const marines = Array.from({ length: 6 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
-  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
 
   const facts = collectBotFacts(scenario.state, 0, Terran);
   const incident = deriveTacticalIncidents(scenario.state, facts)[0]!;
@@ -410,13 +448,45 @@ test('bot selects only a bounded ranked squad for small incidents', () => {
   assert.deepEqual(responders, marines.slice(0, 2).map(slotOf));
 });
 
+test('bot pulls nearby workers as emergency defenders only when army response is short', () => {
+  const scenario = botScenario({ seed: 814, factions: [Zerg, Terran] });
+  const facts = collectBotFacts(scenario.state, 0, Zerg);
+  const mineralLine = protectedRegion(facts, 'mineral-line');
+  const enemy = scenario.spawn(Kind.Marine, 1, mineralLine.x, mineralLine.y);
+  const workerSlots = new Set(facts.workers);
+
+  const cmds = scenario.run(Zerg, 0, { barracksTarget: 0, attackThreshold: 99 });
+  const workerAttacks = cmds.filter((cmd) =>
+    cmd.t === 'attack' && cmd.target === enemy && workerSlots.has(slotOf(cmd.unit)));
+
+  assert.ok(workerAttacks.length > 0);
+});
+
+test('bot does not double-book the reserved builder as an emergency defender', () => {
+  const scenario = botScenario({ seed: 817, factions: [Terran, Zerg] });
+  const initialFacts = collectBotFacts(scenario.state, 0, Terran);
+  const mineralLine = protectedRegion(initialFacts, 'mineral-line');
+  scenario.resources(0, 1_000, 0);
+  const enemy = scenario.spawn(Kind.Zergling, 1, mineralLine.x, mineralLine.y);
+
+  const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 1, attackThreshold: 99 });
+  const build = findBuild(cmds, Kind.Barracks);
+  assert.ok(build);
+  const workerAttacks = cmds.filter((cmd): cmd is Extract<BotCommand, { t: 'attack' }> =>
+    cmd.t === 'attack' && cmd.target === enemy);
+
+  assert.ok(workerAttacks.length > 0);
+  assert.equal(workerAttacks.some((cmd) => cmd.unit === build.unit), false);
+});
+
 test('bot keeps valid tactical commitments stable until they expire', () => {
   const scenario = botScenario({ seed: 815 });
   const commandCenter = scenario.entity(Kind.CommandCenter, 0);
   const base = scenario.pos(commandCenter);
+  const threat = baseOnlyThreatPoint(collectBotFacts(scenario.state, 0, Terran), base);
   const marines = Array.from({ length: 4 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
-  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
   const memory = createBotMemory();
 
   const facts = collectBotFacts(scenario.state, 0, Terran);
@@ -449,9 +519,10 @@ test('bot keeps valid tactical commitments stable until they expire', () => {
 test('bot does not pull every army unit for a small base intrusion', () => {
   const scenario = botScenario({ seed: 814 });
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threat = baseOnlyThreatPoint(collectBotFacts(scenario.state, 0, Terran), base);
   const marines = Array.from({ length: 6 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
-  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
 
   const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
   const attacks = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
@@ -464,9 +535,10 @@ test('bot does not pull every army unit for a small base intrusion', () => {
 test('bot attacks with uncommitted army while a small defense squad responds', () => {
   const scenario = botScenario({ seed: 816 });
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threat = baseOnlyThreatPoint(collectBotFacts(scenario.state, 0, Terran), base);
   const marines = Array.from({ length: 6 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
-  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
   const enemyBase = scenario.entity(Kind.CommandCenter, 1);
 
   const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 4 });
@@ -486,8 +558,9 @@ test('bot keeps defending remembered incidents after vision drops', () => {
   const s = scenario.state;
   const commandCenter = scenario.entity(Kind.CommandCenter, 0);
   const base = scenario.pos(commandCenter);
+  const threat = baseOnlyThreatPoint(collectBotFacts(s, 0, Terran), base);
   const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
-  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
   const vision = s.vision[0]!;
   const reveal = (id: number, value: number): void => {
     const slot = slotOf(id);

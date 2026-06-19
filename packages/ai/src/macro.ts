@@ -96,7 +96,7 @@ export type BotThreat = {
   enemy: number;
 };
 
-export type ProtectedRegionKind = 'base';
+export type ProtectedRegionKind = 'base' | 'mineral-line';
 
 export type ProtectedRegion = {
   kind: ProtectedRegionKind;
@@ -105,6 +105,11 @@ export type ProtectedRegion = {
   y: number;
   radiusTiles: number;
   value: number;
+};
+
+export type ProtectedRegionThreat = {
+  region: number;
+  enemy: number;
 };
 
 export type BotRiskMap = {
@@ -141,6 +146,7 @@ export type BotFacts = {
   casters: number[];
   visibleEnemies: number[];
   protectedRegions: ProtectedRegion[];
+  protectedRegionThreats: ProtectedRegionThreat[];
   baseThreats: BotThreat[];
   risk: BotRiskMap;
   ownedOrPendingStructureKinds: Set<number>;
@@ -163,6 +169,8 @@ export const createBotMemory = (): BotMemory => ({
 });
 
 const BASE_THREAT_TILES = 18;
+const MINERAL_LINE_TILES = 6;
+const MINERAL_LINE_RESOURCE_TILES = 14;
 export const TACTICAL_INCIDENT_MEMORY_TICKS = 8 * 24;
 export const TACTICAL_COMMITMENT_TICKS = 4 * 24;
 
@@ -393,6 +401,11 @@ const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncident
   return 'base-intrusion';
 };
 
+const regionThreatKind = (s: State, region: ProtectedRegion, enemies: readonly number[]): TacticalIncidentKind => {
+  const kind = enemyThreatKind(s, enemies);
+  return region.kind === 'mineral-line' && kind === 'base-intrusion' ? 'mineral-line-harass' : kind;
+};
+
 export const buildRiskMap = (s: State, player: number, enemies: readonly number[]): BotRiskMap => {
   const w = s.map.w;
   const h = s.map.h;
@@ -499,6 +512,7 @@ export const collectBotFacts = (
     casters: [],
     visibleEnemies: [],
     protectedRegions: [],
+    protectedRegionThreats: [],
     baseThreats: [],
     ownedOrPendingStructureKinds: new Set(),
   };
@@ -549,13 +563,42 @@ export const collectBotFacts = (
       radiusTiles: BASE_THREAT_TILES,
       value: 100,
     });
+
+    let minerals = 0;
+    let sx = 0;
+    let sy = 0;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || (e.flags[i]! & Role.Resource) === 0) continue;
+      if (!near(s, i, e.x[base]!, e.y[base]!, MINERAL_LINE_RESOURCE_TILES)) continue;
+      sx += e.x[i]!;
+      sy += e.y[i]!;
+      minerals++;
+    }
+    if (minerals > 0) {
+      facts.protectedRegions.push({
+        kind: 'mineral-line',
+        anchor: base,
+        x: Math.trunc(sx / minerals),
+        y: Math.trunc(sy / minerals),
+        radiusTiles: MINERAL_LINE_TILES,
+        value: 150,
+      });
+    }
   }
 
-  for (const region of facts.protectedRegions) {
-    for (const enemy of facts.visibleEnemies) {
-      if (!near(s, enemy, region.x, region.y, region.radiusTiles)) continue;
-      if (region.kind === 'base') facts.baseThreats.push({ base: region.anchor, enemy });
+  for (const enemy of facts.visibleEnemies) {
+    let bestRegion = NONE;
+    let bestValue = -1;
+    for (let region = 0; region < facts.protectedRegions.length; region++) {
+      const protectedRegion = facts.protectedRegions[region]!;
+      if (!near(s, enemy, protectedRegion.x, protectedRegion.y, protectedRegion.radiusTiles)) continue;
+      if (protectedRegion.kind === 'base') facts.baseThreats.push({ base: protectedRegion.anchor, enemy });
+      if (protectedRegion.value > bestValue) {
+        bestRegion = region;
+        bestValue = protectedRegion.value;
+      }
     }
+    if (bestRegion !== NONE) facts.protectedRegionThreats.push({ region: bestRegion, enemy });
   }
   const risk = options.risk === 'none'
     ? omittedRiskMap(s)
@@ -567,27 +610,25 @@ export const missingStructureKinds = (facts: BotFacts, kinds: readonly number[])
   kinds.filter((kind) => !facts.ownedOrPendingStructureKinds.has(kind));
 
 export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalIncident[] => {
-  if (facts.baseThreats.length === 0) return [];
+  if (facts.protectedRegionThreats.length === 0) return [];
 
-  const e = s.e;
-  const byBase = new Map<number, number[]>();
-  for (const threat of facts.baseThreats) {
-    const enemies = byBase.get(threat.base);
+  const byRegion = new Map<number, number[]>();
+  for (const threat of facts.protectedRegionThreats) {
+    const enemies = byRegion.get(threat.region);
     if (enemies) enemies.push(threat.enemy);
-    else byBase.set(threat.base, [threat.enemy]);
+    else byRegion.set(threat.region, [threat.enemy]);
   }
 
   const incidents: TacticalIncident[] = [];
-  for (const [base, enemies] of byBase) {
-    const x = e.x[base]!;
-    const y = e.y[base]!;
-    const kind = enemyThreatKind(s, enemies);
+  for (const [regionIndex, enemies] of byRegion) {
+    const region = facts.protectedRegions[regionIndex]!;
+    const kind = regionThreatKind(s, region, enemies);
     incidents.push({
       kind,
-      severity: 100 + enemies.length * 25 + incidentKindBonus(kind) + riskAtLayer(facts.risk, facts.risk.antiGround, x, y),
-      x,
-      y,
-      base,
+      severity: region.value + enemies.length * 25 + incidentKindBonus(kind) + riskAtLayer(facts.risk, facts.risk.antiGround, region.x, region.y),
+      x: region.x,
+      y: region.y,
+      base: region.anchor,
       enemies,
     });
   }

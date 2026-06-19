@@ -465,6 +465,20 @@ Remaining work:
       detection?", "can the local response group arrive before the asset dies?", and "would this
       attack wave cross a stronger field than it projects?" Those helpers keep the bot explainable
       and prevent every director from inventing its own risk arithmetic.
+    - Harassment and containment are proactive risk consumers. They should score enemy protected
+      regions by exposed value, expected damage, time-to-impact, escape route, and enemy response
+      coverage, then choose safe approach vectors around weapon ranges instead of blindly moving
+      through the map center. This uses the same fields as defense, but asks the inverse question:
+      "where can we damage enemy economy/tech or choke movement while keeping our committed squad
+      alive enough to matter?"
+    - Risk must not become paralysis. Directors should carry a commitment pressure term from
+      timing windows, strategy posture, banked resources, enemy scaling, base count, and elapsed
+      indecision. If every route is bad or every enemy army looks larger, the scheduler still commits
+      to the least-bad attack, expansion, evacuation, sacrifice, or counter-harass once waiting is
+      strategically worse. Safety fields rank vectors; they do not forbid long-term strategic gambles.
+      The fallback intent should often be "force a response": hit workers, threaten tech, posture at
+      a choke, pull the enemy army home, or trade a small squad for scouting and time. This prevents
+      the bot from mistaking caution for strategy.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -482,6 +496,10 @@ Remaining work:
         derives existing base threats from those regions, preserving behavior while giving later
         mineral-line, production-cluster, staging, route, and expansion-site directors the same
         factual shape.
+      - Mineral-line protected-region slice is done: `BotFacts` derives mineral-line regions from
+        nearby resource actors, assigns each visible enemy to its highest-value intersected protected
+        region for incident purposes, and classifies ordinary threats there as `mineral-line-harass`
+        while preserving base-threat compatibility facts.
     - Unexpected spatial patterns should compose from the same fields: a drop is a mobile air route
       plus cargo threat near a protected region; a Nydus breach is an instant transport endpoint plus
       ground threat; a bombing run is high time-to-impact air weapon risk; kiting is friendly
@@ -567,6 +585,10 @@ Remaining work:
     range fields, workers only for emergency mineral-line defense or repair, and harassment groups
     only when home-defense reservations leave enough force. Spatial fields decide whether to engage,
     flank, contain, retreat, or counterattack.
+    - Emergency worker-pull slice is done: when a protected-region incident cannot fill its response
+      budget from retaskable army, the live bot pulls nearby non-building, non-repairing workers as
+      last-resort defenders, excluding the worker already reserved for a build command in the same
+      batch so emergency reaction does not double-book macro execution.
   - `BotMemory`: tiny deterministic controller memory for facts that cannot be read from the current
     frame alone: failed expansion attempts and reasons, suspected cloaked/burrowed threat zones,
     last-seen enemy tech/composition, reserved expansion sites, scout reports, and ongoing intents.
@@ -575,6 +597,13 @@ Remaining work:
   - Directors propose intents only; they do not spend resources or emit commands directly. Initial
     directors should be `DefenseDirector`, `EconomyDirector`, `ProductionDirector`, `TechDirector`,
     `ExpansionDirector`, `CombatDirector`, `HarassDirector`, and `CounterDirector`.
+  - Strategic posture should be an input to directors, not a separate bot implementation. Aggressive,
+    turtle, cheese, proxy, fast-expand, fast-tech, timing-attack, trap-laying, contain/choke, drop,
+    and harass styles are different weightings over the same intent vocabulary: where to spend
+    minerals, what risks are acceptable, which regions to value, when to move out, and how much army
+    must stay reserved. The reflex layer still outranks posture when protected regions are actively
+    threatened; a fast-tech bot should not ignore workers dying, and a turtle bot should still
+    counterattack when the enemy overcommits and home risk is bounded.
   - Intents are game concepts with urgency, actor needs, costs, and expiry, for example
     `defend-base`, `get-detection`, `clear-site`, `rebuild-tech`, `add-production`, `expand`,
     `spend-larva`, `train-counter`, `research-upgrade`, `attack-wave`, `harass`, and `retreat`.

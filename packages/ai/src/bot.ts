@@ -23,6 +23,7 @@ import {
   createBotMemory,
   deriveTacticalIncidents,
   rememberTacticalIncidents,
+  tacticalResponseBudget,
   type BotMemory,
   type TacticalIncident,
 } from './macro.ts';
@@ -35,6 +36,7 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
+const EMERGENCY_WORKER_RESPONSE_TILES = 10;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const TERRAN_RESEARCH_MACRO = [
   Tech.StimPack,
@@ -162,6 +164,31 @@ const incidentTarget = (s: State, incident: TacticalIncident): number => {
     bestD = d;
   }
   return best;
+};
+
+const canEmergencyPullWorker = (s: State, slot: number, x: number, y: number): boolean => {
+  const e = s.e;
+  if (e.alive[slot] !== 1 || e.container[slot] !== NONE) return false;
+  if (e.buildKind[slot] !== Kind.None || e.order[slot] === Order.Build || e.order[slot] === Order.Repair) return false;
+  return withinRangeSq(e.x[slot]!, e.y[slot]!, x, y, EMERGENCY_WORKER_RESPONSE_TILES * TILE * ONE);
+};
+
+const emergencyWorkerResponders = (
+  s: State,
+  workers: readonly number[],
+  incident: TacticalIncident,
+  alreadyAssigned: number,
+  reservedWorker: number = NONE,
+): number[] => {
+  const budget = tacticalResponseBudget(incident, workers.length + alreadyAssigned);
+  const needed = budget - alreadyAssigned;
+  if (needed <= 0) return [];
+  return workers
+    .filter((slot) => slot !== reservedWorker && canEmergencyPullWorker(s, slot, incident.x, incident.y))
+    .map((slot) => ({ slot, distance: distanceSq(s.e.x[slot]!, s.e.y[slot]!, incident.x, incident.y) }))
+    .sort((a, b) => a.distance - b.distance || a.slot - b.slot)
+    .slice(0, needed)
+    .map(({ slot }) => slot);
 };
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
@@ -456,6 +483,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const focusY = threat !== NONE ? e.y[threat]! : incident.y;
       if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
       const defenders = commitTacticalResponders(s, memory, retaskableArmy, incident, threat, s.tick);
+      defenders.push(...emergencyWorkerResponders(s, facts.workers, incident, defenders.length, builderUsed ? aWorker : NONE));
       const defenderSet = new Set(defenders);
       attackCandidates = retaskableArmy.filter((slot) => !defenderSet.has(slot));
       for (const a of defenders) {
