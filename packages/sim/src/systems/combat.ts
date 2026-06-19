@@ -245,6 +245,8 @@ export const combat = (s: State, grid: Grid): void => {
     if ((e.flags[i]! & Role.Air) === 0 && coveredByEffect(s, i, EffectKind.DisruptionWeb)) continue;
 
     const order = e.order[i]!;
+    // Resolved channels keep castAbility through combat so a caster cannot also fire this tick.
+    if (e.castAbility[i]! !== 0) continue;
     const holdPosition = order === Order.Hold;
     const patrol = order === Order.Patrol;
     const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle || holdPosition || patrol;

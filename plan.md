@@ -262,6 +262,10 @@ Remaining work:
     `target-channel-damage` execution descriptor, active caster channels store their ability id in
     deterministic entity state/observations/lifecycle, and zero duration preserves the currently
     sourced instant gameplay behavior until exact Brood War windup frames are sourced.
+  - Caster-channel action-lock slice is done: resolved target and point channels keep their
+    `castAbility` marker through the combat phase, so a unit cannot resolve a spell and also fire a
+    normal weapon in the same tick; Nuclear Strike now mirrors its remaining channel timer onto the
+    caster state for lifecycle, observation, and debugging.
   - Remaining: source exact Yamato windup/interruption frames from stronger references than the
     currently available local BWAPI order/weapon/range/damage data, then update the descriptor
     duration and timing tests without adding a Yamato-only execution branch.
@@ -633,6 +637,8 @@ Done when:
 - Moved Yamato through a generic `target-channel-damage` ability descriptor with deterministic
   caster-channel state exposed to lifecycle and observations; exact BW windup timing remains a
   sourced-data follow-up instead of an invented constant.
+- Kept resolved caster channels locked through the combat phase and mirrored Nuclear Strike channel
+  timers onto caster state, preventing same-tick spell-plus-weapon double actions.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded

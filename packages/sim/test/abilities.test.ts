@@ -343,7 +343,6 @@ test('target channel damage applies when the channel completes', () => {
     const bc = slotOf(battlecruiser);
     const tv = slotOf(target);
     s.e.energy[bc] = 150;
-    s.e.wcd[bc] = 999;
     s.e.shield[tv] = 40;
     s.e.matrixHp[tv] = 50;
     s.e.matrixTimer[tv] = sec(10);
@@ -1026,8 +1025,12 @@ test('nuclear strike consumes a missile and deals damage after the sourced chann
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(targetX), y: fx(targetY) },
   ] }]);
+  const ghostSlot = slotOf(ghost);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.order[ghostSlot], Order.Cast);
+  assert.equal(s.e.castAbility[ghostSlot], Ability.NuclearStrike);
+  assert.equal(s.e.timer[ghostSlot], nuke.duration - 1);
   assert.equal(s.e.specialAmmo[slotOf(silo)], 0);
   assert.equal(s.e.alive[slotOf(marine)], 1);
   for (let t = 0; t < sec(8.5); t++) sim.step([]);
@@ -1045,6 +1048,9 @@ test('nuclear strike consumes a missile and deals damage after the sourced chann
   assert.equal(s.e.hp[slotOf(medium)], durableHp - 250);
   assert.equal(s.e.hp[slotOf(outer)], durableHp - 125);
   assert.equal(s.e.hp[slotOf(far)], durableHp);
+  assert.equal(s.e.order[ghostSlot], Order.Idle);
+  assert.equal(s.e.castAbility[ghostSlot], 0);
+  assert.equal(s.e.timer[ghostSlot], 0);
 });
 
 test('nuclear strike requires a ready missile and cancels if the ghost moves', () => {

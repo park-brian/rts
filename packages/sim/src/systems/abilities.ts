@@ -154,6 +154,12 @@ const beginTargetChannel = (s: State, slot: number, c: Extract<Command, { t: 'ab
   e.timer[slot] = ability.duration;
 };
 
+const finishCasterChannel = (e: State['e'], slot: number): void => {
+  e.order[slot] = Order.Idle;
+  e.target[slot] = NONE;
+  e.timer[slot] = 0;
+};
+
 const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
@@ -269,6 +275,7 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       e.intentTarget[slot] = NONE;
       e.combatTarget[slot] = NONE;
       e.castAbility[slot] = c.ability;
+      e.timer[slot] = ability.duration;
       break;
   }
 };
@@ -332,10 +339,12 @@ const tickEffects = (s: State): void => {
           s.e.x[caster] !== fx.sourceX[i] || s.e.y[caster] !== fx.sourceY[i]) {
         if (s.e.order[caster] === Order.Cast) s.e.order[caster] = Order.Idle;
         if (s.e.castAbility[caster] === Ability.NuclearStrike) s.e.castAbility[caster] = 0;
+        s.e.timer[caster] = 0;
         fx.alive[i] = 0;
         continue;
       }
       fx.timer[i] = fx.timer[i]! - 1;
+      s.e.timer[caster] = fx.timer[i]!;
       if (fx.timer[i]! > 0) continue;
       const outer2 = fx.radius[i]! * fx.radius[i]!;
       for (let j = 0; j < s.e.hi; j++) {
@@ -352,8 +361,7 @@ const tickEffects = (s: State): void => {
         if (pct > 0) applyNuclearStrikeDamage(s, j, fx.damage[i]!, pct);
       }
       if (s.e.alive[caster] === 1 && s.e.order[caster] === Order.Cast) {
-        s.e.order[caster] = Order.Idle;
-        s.e.castAbility[caster] = 0;
+        finishCasterChannel(s.e, caster);
       }
       fx.alive[i] = 0;
       continue;
@@ -404,8 +412,16 @@ const tickTargetChannels = (s: State): void => {
     e.timer[i] = e.timer[i]! - 1;
     if (e.timer[i]! > 0) continue;
     applyIndependentDamage(s, target, ability.damage);
-    e.order[i] = Order.Idle;
-    clearCasterChannel(e, i);
+    finishCasterChannel(e, i);
+  }
+};
+
+export const clearFinishedCasterChannels = (s: State): void => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.castAbility[i]! === 0) continue;
+    if (e.alive[i] !== 1) clearCasterChannel(e, i);
+    else if (e.order[i] !== Order.Cast && e.timer[i]! <= 0) e.castAbility[i] = 0;
   }
 };
 

@@ -10,7 +10,7 @@ import { modeTransitions } from './systems/mode-transitions.ts';
 import { production } from './systems/production/index.ts';
 import { research } from './systems/research.ts';
 import { harvest } from './systems/harvest.ts';
-import { abilities } from './systems/abilities.ts';
+import { abilities, clearFinishedCasterChannels } from './systems/abilities.ts';
 import { repair } from './systems/repair.ts';
 import { mines } from './systems/mines.ts';
 import { combat } from './systems/combat.ts';
@@ -52,6 +52,8 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] =>
     mines(s);
     prepareLocalAvoidance(s); // common pre-move body snapshot for local steering
     combat(s, grid);
+    // Ability channels that resolved this tick stay locked through combat, then become ordinary orders again.
+    clearFinishedCasterChannels(s);
     scarabs(s);
     interceptors(s);
     movement(s);
