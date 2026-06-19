@@ -191,17 +191,20 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
       break;
     }
-    case 'target-kill-spawn': {
+    case 'target-spawn': {
       const target = slotOf(c.target!);
       const owner = e.owner[slot]!;
       const x = e.x[target]!;
       const y = e.y[target]!;
-      kill(s, target);
+      const kind = execution.kind === 'target' ? e.kind[target]! : execution.kind;
+      if (execution.killTarget === true) kill(s, target);
       for (let n = 0; n < execution.count; n++) {
         const offset = (n * 2 - execution.count + 1) * execution.spread;
-        const id = trySpawnUnit(s, execution.kind, owner, x + offset, y);
+        const id = trySpawnUnit(s, kind, owner, x + offset, y);
         if (id === NONE) break;
-        e.lifeTimer[slotOf(id)] = execution.life;
+        const child = slotOf(id);
+        if (execution.illusion === true) e.illusion[child] = 1;
+        e.lifeTimer[child] = execution.life;
       }
       break;
     }
@@ -390,18 +393,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.intentTarget[target] = NONE;
       e.combatTarget[target] = NONE;
       e.shield[slot] = 0;
-      break;
-    }
-    case Ability.Hallucination: {
-      const target = slotOf(c.target!);
-      const owner = e.owner[slot]!;
-      for (const dx of [-fx(12), fx(12)]) {
-        const id = trySpawnUnit(s, e.kind[target]!, owner, e.x[target]! + dx, e.y[target]!);
-        if (id === NONE) break;
-        const copy = slotOf(id);
-        e.illusion[copy] = 1;
-        e.lifeTimer[copy] = ability.duration;
-      }
       break;
     }
     case Ability.InfestCommandCenter: {

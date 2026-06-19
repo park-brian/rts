@@ -64,7 +64,7 @@ export type AbilityExecution =
   | { mode: 'target-energy-feedback' }
   | { mode: 'target-cleanse' }
   | { mode: 'target-sacrifice-energy' }
-  | { mode: 'target-kill-spawn'; kind: number; count: number; spread: number; life: number }
+  | { mode: 'target-spawn'; kind: number | 'target'; count: number; spread: number; life: number; killTarget?: boolean; illusion?: boolean }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
   | { mode: 'persistent-effect'; effect: EffectKind }
   | { mode: 'point-channel-effect'; effect: EffectKind; consumes: 'nuke' };
@@ -160,7 +160,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Spawn Broodling', tech: Tech.SpawnBroodling, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: Role.Air,
     targetTraitsAny: Trait.Biological, targetTraitsNone: Trait.Robotic, targetNeedsEnergy: false, casters: [Kind.Queen],
     energyCost: 150, hpCost: 0, range: tiles(9), radius: 0, duration: 0, period: 0, damage: 0,
-    execution: { mode: 'target-kill-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2) },
+    execution: { mode: 'target-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2), killTarget: true },
   },
   [Ability.Ensnare]: {
     name: 'Ensnare', tech: Tech.Ensnare, target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
@@ -242,6 +242,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Hallucination', tech: Tech.Hallucination, target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.HighTemplar],
     energyCost: 100, hpCost: 0, range: tiles(7), radius: 0, duration: sec(56.7), period: 0, damage: 0,
+    execution: { mode: 'target-spawn', kind: 'target', count: 2, spread: fx(12), life: sec(56.7), illusion: true },
   },
   [Ability.InfestCommandCenter]: {
     name: 'Infest Command Center', target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Structure, targetRolesNone: 0,

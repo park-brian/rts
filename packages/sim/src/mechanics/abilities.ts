@@ -1,4 +1,4 @@
-import { Abilities, Ability } from '../data/index.ts';
+import { Abilities } from '../data/index.ts';
 import type { AbilityDef } from '../data/index.ts';
 import { canSpawnEffect, canSpawnEntity } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
@@ -18,11 +18,6 @@ export const abilityCapacityAvailable = (s: State, abilityId: number): boolean =
   const ability = Abilities[abilityId];
   if (!ability) return false;
   if (ability.execution?.mode === 'persistent-effect' || ability.execution?.mode === 'point-channel-effect') return canSpawnEffect(s);
-  if (ability.execution?.mode === 'target-kill-spawn') return canSpawnEntity(s, ability.execution.count);
-  switch (abilityId) {
-    case Ability.Hallucination:
-      return canSpawnEntity(s, 2);
-    default:
-      return true;
-  }
+  if (ability.execution?.mode === 'target-spawn') return canSpawnEntity(s, ability.execution.count);
+  return true;
 };

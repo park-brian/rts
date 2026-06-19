@@ -65,7 +65,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Maelstrom]!.execution, { mode: 'point-area-status', timer: 'maelstrom', team: 'enemy', rolesAny: 0, traitsAny: Trait.Biological });
   assert.deepEqual(Abilities[Ability.Ensnare]!.execution, { mode: 'point-area-status', timer: 'ensnare', team: 'enemy', rolesAny: Role.Mobile, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.Plague]!.execution, { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 });
-  assert.deepEqual(Abilities[Ability.SpawnBroodling]!.execution, { mode: 'target-kill-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2) });
+  assert.deepEqual(Abilities[Ability.SpawnBroodling]!.execution, { mode: 'target-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2), killTarget: true });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
   assert.deepEqual(Abilities[Ability.Consume]!.execution, { mode: 'target-sacrifice-energy' });
@@ -75,6 +75,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
   assert.deepEqual(Abilities[Ability.Restoration]!.execution, { mode: 'target-cleanse' });
+  assert.deepEqual(Abilities[Ability.Hallucination]!.execution, { mode: 'target-spawn', kind: 'target', count: 2, spread: fx(12), life: sec(56.7), illusion: true });
   assert.deepEqual(Abilities[Ability.ShieldRecharge]!.execution, { mode: 'target-restore', pool: 'shield' });
   assert.deepEqual(Abilities[Ability.DisruptionWeb]!.execution, { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb });
   assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });
