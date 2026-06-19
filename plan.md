@@ -681,6 +681,10 @@ Remaining work:
       producer reservations live in `packages/ai/src/macro-producers.ts`. The live bot controller now
       orchestrates one `maybeQueueRaceResearch` director call instead of carrying three inline
       research ladders and a duplicate scan over research producers.
+    - Zerg morph macro extraction slice is done: unique and repeatable Zerg morph choices now live
+      in `packages/ai/src/macro-morph.ts`, keeping Lair/Hive/Greater Spire and Hydralisk-to-Lurker
+      transform budgeting beside the validator-backed transform command rather than inline in the
+      live bot controller.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
@@ -866,6 +870,8 @@ Done when:
   duplicated defense/offense micro branches in the live bot controller while preserving behavior.
 - Extracted offensive Nydus endpoint construction into `packages/ai/src/macro-nydus.ts`, keeping the
   live bot controller focused on scheduling and preserving the existing legal spot search.
+- Extracted Zerg unique/repeatable morph macro into `packages/ai/src/macro-morph.ts`, shrinking the
+  live bot controller without changing transform ordering or legality checks.
 - Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start

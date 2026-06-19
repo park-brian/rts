@@ -19,6 +19,7 @@ import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from '.
 import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
 import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
+import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
 import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
@@ -42,15 +43,6 @@ export type BotConfig = {
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
-const ZERG_UNIQUE_MORPH_MACRO = [
-  { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
-  { from: Kind.Lair, to: Kind.Hive, satisfiedBy: [Kind.Hive] },
-  { from: Kind.Spire, to: Kind.GreaterSpire, satisfiedBy: [Kind.GreaterSpire] },
-] as const;
-const ZERG_REPEATABLE_MORPH_MACRO = [
-  { from: Kind.Hydralisk, to: Kind.Lurker },
-] as const;
-const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 
@@ -97,19 +89,6 @@ const findMacroSpot = (s: State, player: number, worker: number, kind: number, f
   }
 
   return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
-};
-
-const zergUniqueMorphMask = (kind: number): number => {
-  let mask = 0;
-  for (let i = 0; i < ZERG_UNIQUE_MORPH_MACRO.length; i++) {
-    for (const satisfiedKind of ZERG_UNIQUE_MORPH_MACRO[i]!.satisfiedBy) {
-      if (kind === satisfiedKind) {
-        mask |= 1 << i;
-        break;
-      }
-    }
-  }
-  return mask;
 };
 
 const scienceFacilityAddon = (s: State, player: number): number =>
@@ -417,58 +396,6 @@ const maybeQueueAddon = (
     return true;
   }
   return false;
-};
-
-const maybeQueueTransform = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  slot: number,
-  kind: number,
-): boolean => {
-  const def = Units[kind]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
-  const command: Command = { t: 'transform', unit: eid(s.e, slot), kind };
-  if (!validateCommand(s, player, command).ok) return false;
-  cmds.push(command);
-  budget.minerals -= def.minerals;
-  budget.gas -= def.gas;
-  return true;
-};
-
-const maybeQueueZergMorphs = (
-  s: State,
-  player: number,
-  faction: Faction,
-  cmds: Command[],
-  budget: ResourceBudget,
-): void => {
-  if (faction.name !== 'Zerg') return;
-  const e = s.e;
-  let uniqueMorphs = 0;
-  let repeatableMorphStarted = false;
-
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player) continue;
-    uniqueMorphs |= zergUniqueMorphMask(e.kind[i]!);
-  }
-
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || e.built[i] !== 1) continue;
-    const kind = e.kind[i]!;
-    for (let m = 0; m < ZERG_UNIQUE_MORPH_MACRO.length; m++) {
-      const morph = ZERG_UNIQUE_MORPH_MACRO[m]!;
-      if ((uniqueMorphs & (1 << m)) !== 0 || kind !== morph.from) continue;
-      if (maybeQueueTransform(s, player, cmds, budget, i, morph.to)) uniqueMorphs |= zergUniqueMorphMask(morph.to);
-      break;
-    }
-    for (const morph of ZERG_REPEATABLE_MORPH_MACRO) {
-      if (repeatableMorphStarted || kind !== morph.from) continue;
-      repeatableMorphStarted = maybeQueueTransform(s, player, cmds, budget, i, morph.to);
-    }
-    if (uniqueMorphs === ALL_ZERG_UNIQUE_MORPHS && repeatableMorphStarted) return;
-  }
 };
 
 const withinTiles = (s: State, slot: number, x: number, y: number, t: number): boolean => {
