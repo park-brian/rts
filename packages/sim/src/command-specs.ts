@@ -1,15 +1,14 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, MAX_QUEUE, Order, Role, TECH_CAP, TILE, Tech, TechDefs, Units,
+  Kind, MAX_QUEUE, Order, Role, TECH_CAP, Tech, TechDefs, Units,
   hasAnyWeapon, productionCostCount, productionCount, weaponForTarget,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
-import { fx } from './fixed.ts';
 import {
   commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags, liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
-import { NONE, canSpawnEntity, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
+import { NONE, canSpawnEntity, isAlive, isEnemy, slotOf } from './world.ts';
 import {
   isContained, loadUnitInto, sameTeam, unloadUnit,
 } from './cargo.ts';
@@ -33,8 +32,11 @@ import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts'
 import { clearVelocity } from './systems/move.ts';
 import { issueTravelOrder } from './travel-intent.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
-import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from './rally.ts';
+import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
+import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
+
+export { snapRallyTarget };
 
 type CommandValidation =
   | { ok: true }
@@ -62,7 +64,6 @@ type CommandSpec<C extends CommandSpecCommand> = {
   validate(s: State, player: number, command: C, ctx?: CommandSpecValidationContext): CommandValidation;
 };
 
-const RALLY_SNAP = fx(2 * TILE);
 const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
 
 const ownedSlot = (s: State, id: number, player: number): number | null => {
@@ -78,29 +79,6 @@ export const clearSettled = (s: State, slot: number): void => {
 
 export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
-};
-
-const canRallyToSlot = (s: State, player: number, source: number, target: number): boolean => {
-  const e = s.e;
-  if (target === source || e.alive[target] !== 1 || isContained(s, target)) return false;
-  if (isGatherTargetSlot(s, target)) return source !== NONE && producerSupportsWorkerRally(s, source) && canPlayerGatherTargetSlot(s, player, target);
-  return sameTeam(s, player, e.owner[target]!);
-};
-
-const withinRallySnap = (s: State, slot: number, x: number, y: number): boolean => {
-  const e = s.e;
-  const dx = e.x[slot]! - x;
-  const dy = e.y[slot]! - y;
-  return dx * dx + dy * dy <= RALLY_SNAP * RALLY_SNAP;
-};
-
-export const snapRallyTarget = (s: State, player: number, x: number, y: number, source = NONE): number => {
-  const e = s.e;
-  const unit = nearest(s, x, y, (sl) =>
-    canRallyToSlot(s, player, source, sl) && !isGatherTargetSlot(s, sl));
-  if (unit !== NONE && withinRallySnap(s, unit, x, y)) return eid(e, unit);
-  const node = nearest(s, x, y, (sl) => canRallyToSlot(s, player, source, sl));
-  return node !== NONE && withinRallySnap(s, node, x, y) ? eid(e, node) : NONE;
 };
 
 const validateMoveLike = (s: State, player: number, command: MoveLikeCommand): CommandValidation => {
@@ -339,19 +317,6 @@ const validateHarvest = (s: State, player: number, command: Extract<Command, { t
   return { ok: true };
 };
 
-const validateRally = (s: State, player: number, command: Extract<Command, { t: 'rally' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('incomplete-producer');
-  if (command.target !== undefined) {
-    if (!isAlive(e, command.target)) return reject('target-not-found');
-    if (!canRallyToSlot(s, player, slot, slotOf(command.target))) return reject('target-not-allowed');
-  }
-  return { ok: true };
-};
-
 const validateRepair = (s: State, player: number, command: Extract<Command, { t: 'repair' }>): CommandValidation => {
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
@@ -521,7 +486,7 @@ const trainSpec: CommandSpec<Extract<Command, { t: 'train' }>> = {
 };
 
 const rallySpec: CommandSpec<Extract<Command, { t: 'rally' }>> = {
-  validate: validateRally,
+  validate: validateRallyCommand,
   apply(s, player, command): void {
     const e = s.e;
     const slot = slotOf(command.building);

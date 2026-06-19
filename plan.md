@@ -1527,6 +1527,8 @@ Rework slices:
      `canTargetEntity`, `canUseProducer`, and `canPay`.
    - Cargo command legality now lives in `cargo-command.ts` for `load`/`unload`, while
      `command-specs.ts` keeps dispatch and side effects unchanged.
+   - Rally command legality and target snapping now live in `rally-command.ts`, while
+     `command-specs.ts` keeps rally application/storage unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.
