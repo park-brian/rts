@@ -13,7 +13,7 @@ import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts'
 import { applyTransform } from '../src/mechanics/transforms.ts';
 import { tickStatusTimers } from '../src/systems/status.ts';
 import { navigate } from '../src/pathing.ts';
-import { localAvoidanceVelocity } from '../src/local-avoidance.ts';
+import { localAvoidanceVelocity } from '../src/spatial/local-avoidance.ts';
 
 const setVelocity = (s: ReturnType<typeof makeState>, slot: number): void => {
   s.e.vx[slot] = fx(5);

@@ -22,7 +22,7 @@ import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../sp
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
-import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredChild, participatesInNormalCombat } from '../child-actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,

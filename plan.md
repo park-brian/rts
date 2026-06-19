@@ -409,6 +409,8 @@ Done when:
   `grid.ts` helper.
 - Moved flow-field path passability, clearance, and shared route-field caching under
   `spatial/flow.ts`, deleting the old root `flow.ts` helper.
+- Moved deterministic local-avoidance steering and its per-tick spatial index under
+  `spatial/local-avoidance.ts`, deleting the old root helper instead of leaving a shim.
 
 ## Review Checklist
 

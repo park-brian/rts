@@ -10,7 +10,7 @@ import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
-import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { clearVelocity } from './move.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';

@@ -22,7 +22,7 @@ import { ONE, isqrt } from '../fixed.ts';
 import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../spatial/flow.ts';
 import { isContained } from '../cargo.ts';
 import { isPathingAnchor } from '../pathing-anchor.ts';
-import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { workersCanShareResourceRouteCollision } from '../worker-collision.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable

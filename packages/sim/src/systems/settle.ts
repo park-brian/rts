@@ -18,7 +18,7 @@ import {
   pathY,
 } from '../spatial/flow.ts';
 import { isContained } from '../cargo.ts';
-import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
+import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 
 const SETTLE_EPS = ONE * 4;
 const SETTLE_WAKE = ONE * 8;

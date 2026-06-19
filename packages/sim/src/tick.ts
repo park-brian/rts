@@ -23,7 +23,7 @@ import { vision } from './systems/vision.ts';
 import { victory } from './systems/victory.ts';
 import { buildGrid } from './spatial/grid.ts';
 import { prepareNav } from './spatial/flow.ts';
-import { prepareLocalAvoidance } from './local-avoidance.ts';
+import { prepareLocalAvoidance } from './spatial/local-avoidance.ts';
 import { updateCloakAuras } from './detection.ts';
 
 // Several systems use module-local scratch for speed. Parallelism should come

@@ -7,7 +7,7 @@ import type { MapDef } from './map.ts';
 import { Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { acceleratedStep, moveToward } from './systems/move.ts';
-import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './local-avoidance.ts';
+import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './spatial/local-avoidance.ts';
 import {
   clearancePxForKind,
   downhill,
