@@ -216,6 +216,10 @@ Remaining work:
     target restore pools, and target buffers now resolve through small descriptor routing maps in
     the ability interpreter instead of local switch ladders, so adding a descriptor variant names
     its state column or applicator in one table.
+  - Shared caster-channel setup slice is done: target channels and point-channel effects now enter
+    `Order.Cast` through one helper that owns target, intent, combat-target, cast-ability, and timer
+    fields. Remaining work: add new channel/windup/projectile modes only when a concrete BW ability
+    or weapon needs them, then route completion through descriptor-specific finish handlers.
 - Attach AI policy descriptors to abilities so casting logic, target filters, range checks, energy
   thresholds, and tech gates do not live only in a long AI chain.
   - First AI policy ownership slice is done: tactical spell policy descriptors and scoring helpers

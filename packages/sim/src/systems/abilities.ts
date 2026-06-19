@@ -140,6 +140,15 @@ const applyTargetBuffer = (e: State['e'], buffer: AbilityTargetBuffer, target: n
   TargetBufferApplicators[buffer](e, target, amount, duration);
 };
 
+const beginCasterChannel = (e: State['e'], slot: number, ability: number, target: number, duration: number): void => {
+  e.order[slot] = Order.Cast;
+  e.target[slot] = target;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.castAbility[slot] = ability;
+  e.timer[slot] = duration;
+};
+
 const beginTargetChannel = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const e = s.e;
   const ability = Abilities[c.ability]!;
@@ -147,12 +156,7 @@ const beginTargetChannel = (s: State, slot: number, c: Extract<Command, { t: 'ab
     applyIndependentDamage(s, slotOf(c.target!), ability.damage);
     return;
   }
-  e.order[slot] = Order.Cast;
-  e.target[slot] = c.target!;
-  e.intentTarget[slot] = NONE;
-  e.combatTarget[slot] = NONE;
-  e.castAbility[slot] = c.ability;
-  e.timer[slot] = ability.duration;
+  beginCasterChannel(e, slot, c.ability, c.target!, ability.duration);
 };
 
 const finishCasterChannel = (e: State['e'], slot: number): void => {
@@ -271,12 +275,7 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       if (trySpawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage,
         eid(e, slot), e.x[slot]!, e.y[slot]!) === NONE) break;
       if (execution.consumes === 'nuke') consumeReadyNuke(s, e.owner[slot]!);
-      e.order[slot] = Order.Cast;
-      e.target[slot] = NONE;
-      e.intentTarget[slot] = NONE;
-      e.combatTarget[slot] = NONE;
-      e.castAbility[slot] = c.ability;
-      e.timer[slot] = ability.duration;
+      beginCasterChannel(e, slot, c.ability, NONE, ability.duration);
       break;
   }
 };
