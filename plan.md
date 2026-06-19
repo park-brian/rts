@@ -509,6 +509,10 @@ Remaining work:
       - Counter-pressure focus slice is done: when a bounded defense squad is already handling a
         base incident, leftover attack force uses strategic pressure focus and falls back to public
         enemy starts instead of dogpiling the visible intruder under fog.
+      - Pressure-decision slice is done: commitment pressure now returns an explicit idle/waiting/
+        commit decision with a `forced` marker for under-threshold attacks that have waited long
+        enough, making "freezing is worse than forcing a response" a tested bot contract instead of
+        a hidden boolean.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -747,6 +751,8 @@ Remaining work:
   - Pressure scheduler extraction slice is done: commitment timing, focus fact refresh, strategic
     counter-pressure selection, offensive Nydus endpoint planning, offensive spell casting, pressure
     engagement emission, and pressure-memory refresh now live in `packages/ai/src/macro-offense.ts`.
+  - Pressure commitment now exposes an explicit decision object, so tests can distinguish idle,
+    waiting, immediate threshold attacks, and forced least-bad attacks after the deterministic wait.
   - Nydus endpoint macro extraction slice is done: offensive Nydus endpoint construction now lives
     in `packages/ai/src/macro-nydus.ts` as a reusable validator-backed macro primitive; the live bot
     only passes the current pressure focus and legal spot finder.
@@ -924,6 +930,9 @@ Done when:
   a least-bad focus instead of freezing.
 - Added strategic counter-pressure focus for active defense incidents, so leftover forces can force a
   response at known/public enemy locations while committed defenders handle the local threat.
+- Exposed pressure commitment as an explicit idle/waiting/commit decision with a forced marker for
+  waited-out under-threshold attacks, making the no-freeze policy testable for future intent
+  scheduling.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

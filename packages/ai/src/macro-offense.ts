@@ -3,7 +3,7 @@ import { castTacticalAbilities } from './ability-policies.ts';
 import { type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
 import { issuePressureEngagement } from './macro-combat.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
-import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
+import { markPressureCommitted, pressureCommitmentDecision, pressureFocus } from './macro-pressure.ts';
 import { collectBotFacts, type BotFacts, type BotMemory } from './macro.ts';
 
 export type PressureScheduleOptions = {
@@ -29,7 +29,8 @@ export const schedulePressureOffense = (
   options: PressureScheduleOptions,
 ): boolean => {
   let builderUsed = options.builderUsed;
-  if (!shouldCommitPressure(memory, s.tick, options.force, options.attackThreshold)) return builderUsed;
+  const commitment = pressureCommitmentDecision(memory, s.tick, options.force, options.attackThreshold);
+  if (commitment.status !== 'commit') return builderUsed;
 
   const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
     ? collectBotFacts(s, player, faction)

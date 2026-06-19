@@ -5,6 +5,10 @@ export type PressureFocus = { x: number; y: number; target: number };
 export type PressureFocusOptions = {
   strategicOnly?: boolean;
 };
+export type PressureCommitmentDecision =
+  | { status: 'idle'; waitTicks: number; waitedTicks: number; forced: false }
+  | { status: 'waiting'; waitTicks: number; waitedTicks: number; forced: false }
+  | { status: 'commit'; waitTicks: number; waitedTicks: number; forced: boolean };
 
 export const PRESSURE_COMMITMENT_TICKS = 45 * 24;
 const LETHAL_PRESSURE_RISK = 40;
@@ -15,20 +19,29 @@ export const pressureCommitmentTicks = (force: number, threshold: number): numbe
   return Math.trunc((PRESSURE_COMMITMENT_TICKS * (threshold - force)) / threshold);
 };
 
+export const pressureCommitmentDecision = (
+  memory: BotMemory,
+  tick: number,
+  force: number,
+  threshold: number,
+): PressureCommitmentDecision => {
+  if (force <= 0) {
+    return { status: 'idle', waitTicks: Infinity, waitedTicks: 0, forced: false };
+  }
+  const waitTicks = pressureCommitmentTicks(force, threshold);
+  if (waitTicks === 0) return { status: 'commit', waitTicks, waitedTicks: 0, forced: false };
+  if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
+  const waitedTicks = tick - memory.offenseWaitSince;
+  if (waitedTicks >= waitTicks) return { status: 'commit', waitTicks, waitedTicks, forced: true };
+  return { status: 'waiting', waitTicks, waitedTicks, forced: false };
+};
+
 export const shouldCommitPressure = (
   memory: BotMemory,
   tick: number,
   force: number,
   threshold: number,
-): boolean => {
-  if (force <= 0) {
-    return false;
-  }
-  const waitTicks = pressureCommitmentTicks(force, threshold);
-  if (waitTicks === 0) return true;
-  if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
-  return tick - memory.offenseWaitSince >= waitTicks;
-};
+): boolean => pressureCommitmentDecision(memory, tick, force, threshold).status === 'commit';
 
 export const markPressureCommitted = (memory: BotMemory, tick: number): void => {
   memory.offenseWaitSince = tick;

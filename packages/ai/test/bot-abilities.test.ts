@@ -10,6 +10,7 @@ import {
   createBotMemory,
   deriveTacticalIncidents,
   missingStructureKinds,
+  pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
   rankedTacticalResponders,
@@ -718,6 +719,27 @@ test('bot commitment pressure does not forget waiting during temporary zero-forc
   const wait = pressureCommitmentTicks(3, threshold);
   assert.equal(shouldCommitPressure(memory, 20 + Math.trunc(wait / 2), 0, threshold), false);
   assert.equal(shouldCommitPressure(memory, 20 + wait, 3, threshold), true);
+});
+
+test('bot pressure commitment exposes forced least-bad decisions', () => {
+  const memory = createBotMemory();
+  const threshold = 12;
+
+  assert.deepEqual(
+    pressureCommitmentDecision(memory, 10, 0, threshold),
+    { status: 'idle', waitTicks: Infinity, waitedTicks: 0, forced: false },
+  );
+  assert.deepEqual(
+    pressureCommitmentDecision(memory, 20, threshold, threshold),
+    { status: 'commit', waitTicks: 0, waitedTicks: 0, forced: false },
+  );
+
+  const wait = pressureCommitmentTicks(3, threshold);
+  assert.equal(pressureCommitmentDecision(memory, 30, 3, threshold).status, 'waiting');
+  assert.deepEqual(
+    pressureCommitmentDecision(memory, 30 + wait, 3, threshold),
+    { status: 'commit', waitTicks: wait, waitedTicks: wait, forced: true },
+  );
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {
