@@ -36,7 +36,7 @@ export * from './mechanics/weapons.ts';
 export * from './render-descriptors.ts';
 export * from './entity/work-queue.ts';
 export * from './entity/lifecycle.ts';
-export * from './derived.ts';
+export * from './mechanics/upgrades.ts';
 export * from './rally.ts';
 export * from './resource-targets.ts';
 export * from './ability-availability.ts';

@@ -387,6 +387,9 @@ Done when:
 - Moved structure placement validation and resource-depot exclusion geometry under
   `mechanics/placement.ts`, deleting the old root `placement.ts` helper while preserving the public
   `commands/validate.ts` preflight facade.
+- Moved upgrade-derived weapon, armor, range, speed, cooldown, sight, energy, and internal-ammo
+  helpers under `mechanics/upgrades.ts`, deleting the old root `derived.ts` helper while preserving
+  the stable package export.
 
 ## Review Checklist
 

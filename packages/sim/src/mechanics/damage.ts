@@ -1,7 +1,7 @@
 import { DAMAGE_MULT, Units, type Weapon } from '../data.ts';
 import type { State } from '../entity/world.ts';
 import { kill } from '../entity/world.ts';
-import { armorUpgradeBonus, shieldArmorBonus, weaponUpgradeBonus } from '../derived.ts';
+import { armorUpgradeBonus, shieldArmorBonus, weaponUpgradeBonus } from './upgrades.ts';
 
 const absorbMatrix = (s: State, target: number, amount: number): number => {
   const e = s.e;

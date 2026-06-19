@@ -14,7 +14,7 @@ import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../grid.ts';
 import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from './status.ts';
 import { coveredByEffect } from '../effects.ts';
 import { canDetect } from '../detection.ts';
-import { upgradedRange } from '../derived.ts';
+import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';

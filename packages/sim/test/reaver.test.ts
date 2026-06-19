@@ -10,7 +10,7 @@ import {
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/tech.ts';
-import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
+import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/mechanics/upgrades.ts';
 import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
 } from '../src/mechanics/internal-products.ts';

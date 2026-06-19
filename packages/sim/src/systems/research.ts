@@ -2,7 +2,7 @@ import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
 import { Kind, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
-import { upgradedEnergyMax } from '../derived.ts';
+import { upgradedEnergyMax } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';
