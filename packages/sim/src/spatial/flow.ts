@@ -10,7 +10,7 @@ import { Role, Size, TILE, Units } from '../data.ts';
 import { ONE } from '../fixed.ts';
 import { fold, FNV_OFFSET } from '../io/hash.ts';
 import { structureFootprint } from './footprint.ts';
-import { isPathingAnchor } from '../pathing-anchor.ts';
+import { isPathingAnchor } from './pathing-anchor.ts';
 import { bodyBounds } from './geometry.ts';
 
 export const INF = 0x7fffffff;

@@ -1,7 +1,7 @@
-import { Order, Role, Units, weaponForTarget } from './data.ts';
-import { isContained } from './cargo.ts';
-import { isAlive, slotOf, type State } from './entity/world.ts';
-import { effectiveCooldown } from './systems/status.ts';
+import { Order, Role, Units, weaponForTarget } from '../data.ts';
+import { isContained } from '../cargo.ts';
+import { isAlive, slotOf, type State } from '../entity/world.ts';
+import { effectiveCooldown } from '../systems/status.ts';
 
 export const FIRING_PATHING_LOCKOUT_TICKS = 4;
 
