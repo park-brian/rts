@@ -3,6 +3,7 @@ import { isActiveAddon } from './addon.ts';
 import { isContained } from './cargo.ts';
 import { Kind } from './data.ts';
 import { canDetect } from './detection.ts';
+import { isTransitioning } from './entity-state.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
@@ -84,7 +85,7 @@ export const canUseProducer = (
   if (options.role !== undefined && (e.flags[slot]! & options.role) === 0) {
     return reject(options.missingRoleReason ?? 'missing-capability');
   }
-  if (options.requireBuilt && e.built[slot] !== 1) return reject('incomplete-producer');
+  if (options.requireBuilt && isTransitioning(s, slot)) return reject('incomplete-producer');
   if (options.rejectLifted && isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
   if (options.requireActiveAddon && !isActiveAddon(s, slot)) return reject('missing-capability');
   if (options.requirePowered && !isPowered(s, slot)) return reject('missing-capability');
@@ -104,7 +105,7 @@ export const canReceiveOrder = (
   if (options.rejectBurrowed && e.burrowed[slot] === 1) return reject('missing-capability');
   if (options.rejectIllusion && e.illusion[slot] === 1) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('missing-capability');
+  if (isTransitioning(s, slot)) return reject('missing-capability');
   return { ok: true, slot };
 };
 

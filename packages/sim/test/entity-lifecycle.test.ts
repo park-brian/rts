@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entityLifecycle } from '../src/entity-lifecycle.ts';
+import { entityLifecycle, isTransitioning } from '../src/entity-lifecycle.ts';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/world.ts';
@@ -23,8 +23,10 @@ test('entityLifecycle reports dead and complete entities without progress', () =
     busy: false,
     cancelable: false,
   });
+  assert.equal(isTransitioning(s, marine), false);
 
   s.e.alive[marine] = 0;
+  assert.equal(isTransitioning(s, marine), false);
   assert.equal(entityLifecycle(s, marine).state, 'dead');
   assert.equal(entityLifecycle(s, marine).busy, false);
 });
@@ -35,6 +37,7 @@ test('entityLifecycle classifies unfinished construction and warp-ins with cance
   s.e.built[depot] = 0;
   s.e.ctimer[depot] = Math.floor(Units[Kind.SupplyDepot]!.buildTime / 2);
   s.e.buildCostMinerals[depot] = Units[Kind.SupplyDepot]!.minerals;
+  assert.equal(isTransitioning(s, depot), true);
 
   let life = entityLifecycle(s, depot);
   assert.equal(life.state, 'constructing');
@@ -64,6 +67,7 @@ test('entityLifecycle distinguishes zerg morphs from protoss merge summons', () 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'transform', unit: hydra, kind: Kind.Lurker }] }]), [
     { player: 0, index: 0, t: 'transform', ok: true },
   ]);
+  assert.equal(isTransitioning(s, slotOf(hydra)), true);
   let life = entityLifecycle(s, slotOf(hydra));
   assert.equal(life.state, 'morphing');
   assert.equal(life.label, 'Morphing');
@@ -76,6 +80,7 @@ test('entityLifecycle distinguishes zerg morphs from protoss merge summons', () 
   assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'transform', unit: a, kind: Kind.Archon, target: b }] }]), [
     { player: 0, index: 0, t: 'transform', ok: true },
   ]);
+  assert.equal(isTransitioning(s, slotOf(a)), true);
   life = entityLifecycle(s, slotOf(a));
   assert.equal(life.state, 'merging');
   assert.equal(life.label, 'Summoning');

@@ -1,6 +1,9 @@
 import { Kind, Order, Role, Units } from './data.ts';
+import { isTransitioning } from './entity-state.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
 import type { State } from './world.ts';
+
+export { isTransitioning } from './entity-state.ts';
 
 export type EntityLifecycleState =
   | 'dead'
@@ -84,7 +87,7 @@ export const entityLifecycle = (s: State, slot: number): EntityLifecycle => {
   const e = s.e;
   if (e.alive[slot] !== 1) return emptyLifecycle('dead', 'Dead');
   const kind = e.kind[slot]!;
-  if (e.built[slot] !== 1) return unfinishedLifecycle(s, slot);
+  if (isTransitioning(s, slot)) return unfinishedLifecycle(s, slot);
 
   const work = entityWorkQueue(s, slot);
   if (work.active?.t === 'production') {

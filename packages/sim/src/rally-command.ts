@@ -3,6 +3,7 @@ import { Role, TILE } from './data.ts';
 import { fx } from './fixed.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
+import { isTransitioning } from './entity-state.ts';
 import { producerSupportsWorkerRally } from './rally.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, nearest, slotOf } from './world.ts';
@@ -42,7 +43,7 @@ export const validateRallyCommand = (s: State, player: number, command: RallyCom
   const slot = ownedSlot(s, command.building, player);
   if (slot === null) return rejectMissingOwnedSlot(s, command.building);
   if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('incomplete-producer');
+  if (isTransitioning(s, slot)) return reject('incomplete-producer');
   if (command.target !== undefined) {
     if (!isAlive(e, command.target)) return reject('target-not-found');
     if (!canRallyToSlot(s, player, slot, slotOf(command.target))) return reject('target-not-allowed');

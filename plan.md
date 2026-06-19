@@ -33,10 +33,37 @@ Historical implementation notes and completed phase detail live in
   observations must stay grid- or typed-array-friendly.
 - Each feature slice ends with focused tests, `npm run typecheck`, `git diff --check`, `npm test`,
   relevant benchmarks, and `npm run build:app` for app-facing slices.
-- Commit each clean slice, then use the roadmap validator to decide whether to continue, repair, or
-  mark the slice complete.
+- Commit each clean slice, then continue from this roadmap inline. HEAVY NOTE: do not use a
+  subagent for roadmap validation unless the user explicitly asks for outside/adversarial review.
+  The subagent validator loop is too slow for normal continuation and usually agrees with the
+  obvious next step; make the continuation call directly from the roadmap, tests, and code state.
+- Keep `README.md` current as the durable product/architecture summary whenever controls,
+  validation semantics, supported mechanics, setup, or major engine constraints change.
 
 ## Active Roadmap
+
+### Architecture Compression Guardrails
+
+External rewrite proposals should be treated as idea sources, not direction changes. The useful
+thesis is: finish descriptor paths that already exist, then delete the redundant bespoke branch after
+tests prove equivalence. The unsafe thesis is: build a parallel `world2` kernel, chase an arbitrary
+LOC reduction, or collapse deliberately separated systems before their edge cases are represented.
+
+Keep these constraints:
+
+- Prefer in-place strangler slices behind the existing `Sim` facade. Do not fork a second engine
+  unless a tiny prototype proves a specific replacement and can be deleted quickly.
+- Do not chase a numeric LOC target. Readability, replay determinism, AI/RL parity, and performance
+  matter more than compression.
+- Descriptorize abilities, weapon mechanics, upgrades, status effects, production, and command
+  queries only where the descriptor makes call sites simpler and removes a real duplicated rule.
+- Keep RL/action-mask and app command surfaces as thin shared-query clients, but do not remove their
+  caller-owned buffers, parity tests, or performance seams.
+- Do not delete pathing scaffolding such as clearance, local avoidance, settle, targeted movement,
+  worker phasing, or firing anchors without benchmark counters and behavior tests proving the
+  replacement preserves the player-visible movement contract.
+- Use the code-simplifier pass on touched files before validation so each slice reduces cognitive
+  load rather than adding another clever layer.
 
 ### 1. Finish Architecture Compression
 
@@ -45,9 +72,6 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Finish extracting shared command predicates where they reduce drift:
-  - `isBusy`;
-  - `isTransitioning`;
 - Split command ingestion by command family without changing replay semantics.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
@@ -257,6 +281,7 @@ Done when:
 - Extended `canReceiveOrder` to harvest, repair, and mine validation while keeping utility-specific rules local.
 - Extracted narrow `canTargetEntity` target gates for attack and entity-target ability validation.
 - Extracted narrow busy-state predicates for active production, research, and add-on targets.
+- Extracted a narrow `isTransitioning` state predicate for unfinished construction, morph, and merge phases.
 
 ## Review Checklist
 

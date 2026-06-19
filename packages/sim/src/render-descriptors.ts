@@ -3,6 +3,7 @@ import { ONE } from './fixed.ts';
 import { childActorDef, type ChildActorPresentation } from './child-actors.ts';
 import { isCloaked } from './detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from './entity-lifecycle.ts';
+import { isTransitioning } from './entity-state.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
 import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial.ts';
@@ -125,9 +126,6 @@ const withinRepairRange = (s: State, worker: number, target: number): boolean =>
   const dy = e.y[worker]! - e.y[target]!;
   return dx * dx + dy * dy <= BUILD_RANGE * BUILD_RANGE;
 };
-
-const isUnfinished = (s: State, slot: number): boolean =>
-  s.e.alive[slot] === 1 && s.e.built[slot] !== 1;
 
 const isStructure = (s: State, slot: number): boolean =>
   (s.e.flags[slot]! & Role.Structure) !== 0;
@@ -266,7 +264,7 @@ export const entityLifeBar = (s: State, slot: number, selected: boolean): Entity
 
 export const isZergCombatMorph = (s: State, slot: number): boolean => {
   const e = s.e;
-  return isUnfinished(s, slot) &&
+  return isTransitioning(s, slot) &&
     e.morphFromKind[slot] !== Kind.None &&
     Units[e.kind[slot]!]?.race === 'zerg' &&
     !isStructure(s, slot);
@@ -275,7 +273,7 @@ export const isZergCombatMorph = (s: State, slot: number): boolean => {
 export const isZergStructureMorph = (s: State, slot: number): boolean => {
   const e = s.e;
   const def = Units[e.kind[slot]!];
-  return isUnfinished(s, slot) &&
+  return isTransitioning(s, slot) &&
     (e.morphFromKind[slot] !== Kind.None || def?.buildMethod === 'morph') &&
     def?.race === 'zerg' &&
     isStructure(s, slot);
@@ -284,7 +282,7 @@ export const isZergStructureMorph = (s: State, slot: number): boolean => {
 export const isProtossMergeSummon = (s: State, slot: number): boolean => {
   const e = s.e;
   const def = Units[e.kind[slot]!];
-  return isUnfinished(s, slot) &&
+  return isTransitioning(s, slot) &&
     e.morphFromKind[slot] === Kind.None &&
     def?.race === 'protoss' &&
     def.buildMethod === 'merge';
@@ -294,7 +292,7 @@ export const entityPresentationState = (s: State, slot: number): EntityPresentat
   if (isZergCombatMorph(s, slot)) return 'zerg-combat-morph';
   if (isZergStructureMorph(s, slot)) return 'zerg-structure-morph';
   if (isProtossMergeSummon(s, slot)) return 'protoss-merge-summon';
-  if (!isUnfinished(s, slot) || !isStructure(s, slot)) return 'normal';
+  if (!isTransitioning(s, slot) || !isStructure(s, slot)) return 'normal';
   const def = Units[s.e.kind[slot]!]!;
   if (def.race === 'protoss') return 'protoss-warp-in';
   if (def.race === 'terran') return 'terran-construction';

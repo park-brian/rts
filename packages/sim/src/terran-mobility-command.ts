@@ -1,5 +1,6 @@
 import type { Command } from './commands.ts';
 import { Role } from './data.ts';
+import { isTransitioning } from './entity-state.ts';
 import { placementForStructure } from './placement.ts';
 import type { State } from './world.ts';
 import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';
@@ -19,7 +20,7 @@ export const validateLiftCommand = (s: State, player: number, command: LiftComma
   const e = s.e;
   const slot = ownedSlot(s, command.building, player);
   if (slot === null) return rejectMissingOwnedSlot(s, command.building);
-  if ((e.flags[slot]! & Role.Structure) === 0 || e.built[slot] !== 1) return reject('incomplete-producer');
+  if ((e.flags[slot]! & Role.Structure) === 0 || isTransitioning(s, slot)) return reject('incomplete-producer');
   if (!isLiftableTerranStructureKind(e.kind[slot]!) || isLiftedStructureFlags(e.flags[slot]!)) {
     return reject('target-not-allowed');
   }
