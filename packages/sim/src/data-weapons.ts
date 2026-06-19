@@ -94,6 +94,7 @@ export const SplashPx = {
   FlameThrower: { inner: 15, medium: 20, outer: 25 },
   ArcliteShockCannon: { inner: 10, medium: 25, outer: 40 },
   SpiderMines: { inner: 50, medium: 75, outer: 100 },
+  NuclearStrike: { inner: 128, medium: 192, outer: 256 },
   Scarab: { inner: 20, medium: 40, outer: 60 },
   PsionicShockwave: { inner: 3, medium: 15, outer: 30 },
   InfestedTerran: { inner: 20, medium: 40, outer: 60 },

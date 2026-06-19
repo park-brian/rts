@@ -1,12 +1,13 @@
 import type { Command } from '../commands.ts';
 import {
-  Ability, Abilities, EffectKind, Kind, Order, Role, Trait, Units, sec, unitTraits,
+  Ability, Abilities, EffectKind, Kind, Order, Role, SplashPx, Trait, Units, sec, unitTraits,
   type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,
 } from '../data.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
-import { applyIndependentDamage, applyPlagueDamage } from '../damage.ts';
+import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
+import { distanceSq } from '../spatial.ts';
 import type { State } from '../world.ts';
 import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../world.ts';
 import { trySpawnUnit } from '../factory.ts';
@@ -16,6 +17,12 @@ import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { consumeReadyNuke } from '../nuke.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
+import { splashDamagePercent } from './weapon-hit.ts';
+
+const NUKE_SPLASH_INNER = fx(SplashPx.NuclearStrike.inner);
+const NUKE_SPLASH_MEDIUM = fx(SplashPx.NuclearStrike.medium);
+const NUKE_SPLASH_INNER2 = NUKE_SPLASH_INNER * NUKE_SPLASH_INNER;
+const NUKE_SPLASH_MEDIUM2 = NUKE_SPLASH_MEDIUM * NUKE_SPLASH_MEDIUM;
 
 const ENERGY_REGEN_TICKS = sec(1.78);
 
@@ -251,9 +258,16 @@ const tickEffects = (s: State): void => {
       }
       fx.timer[i] = fx.timer[i]! - 1;
       if (fx.timer[i]! > 0) continue;
+      const outer2 = fx.radius[i]! * fx.radius[i]!;
       for (let j = 0; j < s.e.hi; j++) {
         if (s.e.alive[j] !== 1 || isContained(s, j) || (s.e.flags[j]! & Role.Resource) !== 0) continue;
-        if (inRadius(s, j, fx.x[i]!, fx.y[i]!, fx.radius[i]!)) applyIndependentDamage(s, j, fx.damage[i]!);
+        const pct = splashDamagePercent(
+          distanceSq(s.e.x[j]!, s.e.y[j]!, fx.x[i]!, fx.y[i]!),
+          NUKE_SPLASH_INNER2,
+          NUKE_SPLASH_MEDIUM2,
+          outer2,
+        );
+        if (pct > 0) applyNuclearStrikeDamage(s, j, fx.damage[i]!, pct);
       }
       if (s.e.alive[caster] === 1 && s.e.order[caster] === Order.Cast) s.e.order[caster] = Order.Idle;
       fx.alive[i] = 0;

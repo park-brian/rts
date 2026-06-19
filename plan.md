@@ -1237,6 +1237,7 @@ Source timing/data already present in local docs and sim tables:
 | Disruption Web | 125 energy, range 9, local docs say 15.12s | persistent effect | Fixed to sourced duration; expiry/attack-blocking coverage added. |
 | Scanner Sweep | 50 energy, global, local docs say about 6.8-11s, sim uses 8.4s | persistent effect | Accept provisional; document exact source when chosen. |
 | Nuclear Strike channel | local docs say Ghost channels about 14.5s | `Order.Cast` + effect | Fixed to sourced channel duration; tests cover old-delay regression, impact timing, missile spend, and interruption. |
+| Nuclear Strike damage/falloff | local docs say 500 damage or 2/3 max HP+shields, whichever is greater, with 100/50/25% splash falloff; BWAPI weapon id 31 uses 128/192/256px bands | named nuke damage helper plus shared radial percent helper | Fixed; tests cover high-HP full hit, shield split, 50%/25% falloff, and far/no-hit. |
 | Yamato Gun | 150 energy, range 10, 260 damage | instant damage | Add windup/cast execution before damage after sourcing cast frames. |
 
 Implementation:
@@ -1307,6 +1308,10 @@ Stats and source work before implementation:
   - Disruption Web duration fixed: research doc says 15.12s and `data-abilities.ts` now matches.
   - Nuclear Strike channel fixed: research doc says about 14.5s and `data-abilities.ts`
     now uses that channel duration.
+  - Nuclear Strike damage/falloff fixed: research doc says 500 or 2/3 max HP+shields,
+    whichever is greater, with 100/50/25% radius falloff; `tmp/bwapi` weapon id 31
+    gives 128/192/256px splash bands, and sim now uses those bands through shared
+    radial percent logic.
 - Source missing animation/cast frame counts before coding:
   - Siege Tank siege and unsiege deploy duration.
   - Burrow and unburrow duration by unit class, or a verified shared BW value if one exists.

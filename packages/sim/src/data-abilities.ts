@@ -1,5 +1,6 @@
 import { Kind, Role, sec, tiles, Trait } from './data-core.ts';
 import { Tech } from './data-tech.ts';
+import { SplashPx } from './data-weapons.ts';
 import { fx } from './fixed.ts';
 
 export const Ability = {
@@ -243,7 +244,7 @@ export const Abilities: Record<number, AbilityDef> = {
   [Ability.NuclearStrike]: {
     name: 'Nuclear Strike', target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Ghost],
-    energyCost: 0, hpCost: 0, range: tiles(10), radius: fx(192), duration: sec(14.5), period: 0, damage: 500,
+    energyCost: 0, hpCost: 0, range: tiles(10), radius: fx(SplashPx.NuclearStrike.outer), duration: sec(14.5), period: 0, damage: 500,
   },
   [Ability.ShieldRecharge]: {
     name: 'Recharge Shields', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,

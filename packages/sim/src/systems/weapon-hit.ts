@@ -11,7 +11,7 @@ const LOW_TO_HIGH_MISS_PERCENT = 53;
 const missesLowToHigh = (s: State, attacker: number, target: number): boolean =>
   isLowGroundAttackingHigh(s, attacker, target) && range(s.rng, 100) < LOW_TO_HIGH_MISS_PERCENT;
 
-const splashDamagePercent = (d2: number, inner2: number, medium2: number, outer2: number): number => {
+export const splashDamagePercent = (d2: number, inner2: number, medium2: number, outer2: number): number => {
   if (d2 > outer2) return 0;
   if (d2 <= inner2) return 100;
   return d2 <= medium2 ? 50 : 25;

@@ -2364,13 +2364,13 @@ test('bot launches nukes at high-value enemy clusters when a missile is ready', 
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 481 });
   const s = sim.fullState();
   const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
-  const ghost = spawnUnit(s, Kind.Ghost, 0, base.x, base.y);
+  const ghost = spawnUnit(s, Kind.Ghost, 0, base.x + fx(240), base.y);
   const commandCenter = findEntity(sim, Kind.CommandCenter, 0);
   const silo = spawnUnit(s, Kind.NuclearSilo, 0, base.x + fx(80), base.y);
   linkAddon(s, commandCenter, silo);
   s.e.specialAmmo[slotOf(silo)] = 1;
-  spawnUnit(s, Kind.CommandCenter, 1, base.x + fx(260), base.y);
-  spawnUnit(s, Kind.SupplyDepot, 1, base.x + fx(280), base.y);
+  spawnUnit(s, Kind.CommandCenter, 1, base.x + fx(500), base.y);
+  spawnUnit(s, Kind.SupplyDepot, 1, base.x + fx(520), base.y);
 
   const cmds = createBot(Terran)(s, 0);
 

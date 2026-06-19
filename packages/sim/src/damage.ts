@@ -32,6 +32,12 @@ export const applyIndependentDamage = (s: State, target: number, amount: number)
   if (e.hp[target]! <= 0) kill(s, target);
 };
 
+export const applyNuclearStrikeDamage = (s: State, target: number, baseDamage: number, damagePercent: number): void => {
+  const def = Units[s.e.kind[target]!]!;
+  const durabilityDamage = Math.trunc(((def.hp + def.shields) * 2) / 3);
+  applyIndependentDamage(s, target, Math.trunc((Math.max(baseDamage, durabilityDamage) * damagePercent) / 100));
+};
+
 export const applyPlagueDamage = (s: State, target: number, amount: number): void => {
   const e = s.e;
   if (e.alive[target] !== 1 || amount <= 0 || e.stasisTimer[target]! > 0) return;

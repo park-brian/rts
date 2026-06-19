@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Abilities, Ability, EffectKind, Kind, Order, Role, Tech, Trait, Units, sec } from '../src/data.ts';
+import { Abilities, Ability, EffectKind, Kind, Order, Role, SplashPx, Tech, Trait, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { canDetect } from '../src/detection.ts';
@@ -865,17 +865,23 @@ test('ready nuke lookup and consumption are internal-product backed', () => {
 
 test('nuclear strike consumes a missile and deals damage after the sourced channel window', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 394 });
+  const targetX = 720;
+  const targetY = 400;
   const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
   const silo = loadedSilo(s, spawn, 0);
-  const marine = spawn(Kind.Marine, 1, fx(720), fx(400));
-  const cc = spawn(Kind.CommandCenter, 1, fx(740), fx(400));
-  const far = spawn(Kind.CommandCenter, 1, fx(1200), fx(400));
+  const marine = spawn(Kind.Marine, 1, fx(targetX), fx(targetY));
+  const center = spawn(Kind.CommandCenter, 1, fx(targetX), fx(targetY));
+  const shielded = spawn(Kind.Nexus, 1, fx(targetX), fx(targetY + SplashPx.NuclearStrike.inner - 8));
+  const medium = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.inner + 32), fx(targetY));
+  const outer = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.medium + 32), fx(targetY));
+  const far = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.outer + 1), fx(targetY));
   const nuke = Abilities[Ability.NuclearStrike]!;
 
   assert.equal(nuke.duration, sec(14.5));
+  assert.equal(nuke.radius, fx(SplashPx.NuclearStrike.outer));
 
   const results = sim.step([{ player: 0, cmds: [
-    { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
+    { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(targetX), y: fx(targetY) },
   ] }]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
@@ -883,11 +889,18 @@ test('nuclear strike consumes a missile and deals damage after the sourced chann
   assert.equal(s.e.alive[slotOf(marine)], 1);
   for (let t = 0; t < sec(8.5); t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 1, 'old 8.4s delay must not resolve the strike early');
-  assert.equal(s.e.hp[slotOf(cc)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.hp[slotOf(center)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.shield[slotOf(shielded)], Units[Kind.Nexus]!.shields);
+  assert.equal(s.e.hp[slotOf(medium)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.hp[slotOf(outer)], Units[Kind.CommandCenter]!.hp);
 
   for (let t = sec(8.5); t < nuke.duration - 1; t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 0);
-  assert.equal(s.e.hp[slotOf(cc)], Units[Kind.CommandCenter]!.hp - 500);
+  assert.equal(s.e.hp[slotOf(center)], Units[Kind.CommandCenter]!.hp - 1000);
+  assert.equal(s.e.shield[slotOf(shielded)], 0);
+  assert.equal(s.e.hp[slotOf(shielded)], Units[Kind.Nexus]!.hp - 250);
+  assert.equal(s.e.hp[slotOf(medium)], Units[Kind.CommandCenter]!.hp - 500);
+  assert.equal(s.e.hp[slotOf(outer)], Units[Kind.CommandCenter]!.hp - 250);
   assert.equal(s.e.hp[slotOf(far)], Units[Kind.CommandCenter]!.hp);
 });
 
