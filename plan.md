@@ -416,9 +416,9 @@ Remaining work:
   - Terran research macro slice is done for Academy, Machine Shop, Covert Ops, Control Tower,
     Physics Lab, Science Facility, Engineering Bay, and Armory tech/upgrades, using the shared
     research validator instead of bot-private legality rules.
-  - Remaining Terran policy follow-up: avoid issuing add-on and research decisions that compete
-    for the same production parent in one command batch, using shared validation or a small
-    per-tick producer reservation rather than one-off gates.
+  - Terran producer-reservation slice is done: the bot reserves a Terran add-on parent and its
+    attached add-on as one production chain for the current command batch, so same-chain add-on and
+    research choices do not compete before the sim applies commands.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -510,6 +510,8 @@ Done when:
 - Extended the faction bot's validator-backed research macro to Terran tech/upgrades across
   Academy, Machine Shop, Covert Ops, Control Tower, Physics Lab, Science Facility, Engineering Bay,
   and Armory, with producer, duplicate, queue, and budget coverage.
+- Added Terran bot producer reservations for add-on/research chains so one command batch cannot
+  ask the same parent/add-on pair to both build an add-on and research from that chain.
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.

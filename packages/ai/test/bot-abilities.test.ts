@@ -11,7 +11,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
-  addonParentKind, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, type Command, type State,
 } from '@rts/sim';
 
@@ -94,6 +94,10 @@ const assertPublicSurfaceExposes = (s: State, player: number, command: Command):
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
 const completeTech = (sim: Sim, player: number, tech: number): void =>
   setTechLevel(sim.fullState(), player, tech, TechDefs[tech]!.maxLevel);
+const blockAddonPlacement = (s: State, parent: number, addonKind: number): void => {
+  const pos = addonPosition(s, slotOf(parent), addonKind);
+  spawnUnit(s, Kind.SupplyDepot, 0, pos.x, pos.y);
+};
 
 test('bot tactical ability policy descriptors match sim ability target modes', () => {
   const expectedTactical = [
@@ -1116,6 +1120,25 @@ test('bot respects nuclear silo prerequisites, add-on conflicts, and budget', ()
   assert.equal(createBot(Terran)(brokeState, 0).some((c) => c.t === 'addon' && c.kind === Kind.NuclearSilo), false);
 });
 
+test('terran bot reserves add-on parents before same-chain research', () => {
+  const bot = createBot(Terran, { barracksTarget: 0, workerTarget: 0 });
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1118, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  spawnUnit(s, Kind.ScienceFacility, 0, base.x - fx(240), base.y);
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+
+  const cmds = bot(s, 0);
+  const addon = cmds.find((c) => c.t === 'addon' && c.kind === Kind.CovertOps);
+
+  assert.ok(addon);
+  assert.deepEqual(validateCommand(s, 0, addon), { ok: true });
+  assert.equal(hasResearch(cmds, Tech.EMPShockwave), false);
+  assert.equal(hasResearch(cmds, Tech.Irradiate), false);
+  assert.equal(hasResearch(cmds, Tech.TitanReactor), false);
+});
+
 test('protoss bot places gateways from completed pylon power anchors', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
   const s = sim.fullState();
@@ -1972,6 +1995,7 @@ const readyTerranResearchScenario = (
   } else {
     producer = spawnUnit(s, producerKind, 0, base.x + fx(180), base.y);
   }
+  if (producerKind === Kind.ScienceFacility) blockAddonPlacement(s, producer, Kind.CovertOps);
   s.players.minerals[0] = 2_000;
   s.players.gas[0] = 2_000;
   for (const tech of completedBefore) completeTech(sim, 0, tech);

@@ -6,9 +6,9 @@
 
 import {
   Ability, Role, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest,
-  NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
+  NONE, TILE, SUPPLY_CAP, supply, slotOf, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, nextTechLevel, productionCostCount, productionCount,
-  addonParentKind, hasAnyWeapon, hasCompletedKind, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  activeAddonParentSlot, addonParentKind, hasAnyWeapon, hasCompletedKind, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
   techGas, techMinerals,
   abilityTechAvailable,
@@ -92,6 +92,7 @@ const ZERG_REPEATABLE_MORPH_MACRO = [
 const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 type ResourceBudget = { minerals: number; gas: number };
+type ProducerReservations = Set<number>;
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const canRetaskArmy = (s: State, slot: number): boolean => {
@@ -164,6 +165,30 @@ const terranAddonMacro = (s: State, player: number): readonly number[] =>
     ? [Kind.NuclearSilo, Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower]
     : TERRAN_ADDON_MACRO;
 
+const linkedActiveAddonSlot = (s: State, slot: number): number => {
+  const e = s.e;
+  const target = e.target[slot]!;
+  if (target === NONE) return NONE;
+  const addon = slotOf(target);
+  return addon >= 0 && addon < e.hi && activeAddonParentSlot(s, addon) === slot ? addon : NONE;
+};
+
+const producerReserved = (s: State, reserved: ProducerReservations, slot: number): boolean => {
+  if (reserved.has(slot)) return true;
+  const parent = activeAddonParentSlot(s, slot);
+  if (parent !== NONE && reserved.has(parent)) return true;
+  const addon = linkedActiveAddonSlot(s, slot);
+  return addon !== NONE && reserved.has(addon);
+};
+
+const reserveProducer = (s: State, reserved: ProducerReservations, slot: number): void => {
+  reserved.add(slot);
+  const parent = activeAddonParentSlot(s, slot);
+  if (parent !== NONE) reserved.add(parent);
+  const addon = linkedActiveAddonSlot(s, slot);
+  if (addon !== NONE) reserved.add(addon);
+};
+
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
@@ -234,6 +259,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
     const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtBarracks;
     const usedProducers = new Set<number>();
+    const reservedTechProducers: ProducerReservations = new Set();
     let builderUsed = false;
     const takeLarva = (): number => {
       for (const l of idleLarvae) {
@@ -318,14 +344,14 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       minerals = budget.minerals;
     }
 
-    maybeQueueTerranAddons(s, p, faction, cmds, budget);
+    maybeQueueTerranAddons(s, p, faction, cmds, budget, reservedTechProducers);
     minerals = budget.minerals;
 
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
     minerals = budget.minerals;
 
     if (faction.name === 'Terran') {
-      maybeQueueTerranResearch(s, p, cmds, budget);
+      maybeQueueTerranResearch(s, p, cmds, budget, reservedTechProducers);
       minerals = budget.minerals;
     } else if (faction.name === 'Protoss') {
       maybeQueueProtossResearch(s, p, cmds, budget);
@@ -393,12 +419,13 @@ const maybeQueueTerranAddons = (
   faction: Faction,
   cmds: Command[],
   budget: ResourceBudget,
+  reserved: ProducerReservations,
 ): void => {
   if (faction.name !== 'Terran') return;
   for (const kind of terranAddonMacro(s, player)) {
-    if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
+    if (maybeQueueAddon(s, player, cmds, budget, kind, reserved)) return;
   }
-  maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player));
+  maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player), reserved);
 };
 
 const maybeQueueTerranResearch = (
@@ -406,9 +433,10 @@ const maybeQueueTerranResearch = (
   player: number,
   cmds: Command[],
   budget: ResourceBudget,
+  reserved: ProducerReservations,
 ): void => {
   for (const tech of TERRAN_RESEARCH_MACRO) {
-    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
+    if (maybeQueueResearch(s, player, cmds, budget, tech, reserved)) return;
   }
 };
 
@@ -473,6 +501,7 @@ const maybeQueueResearch = (
   cmds: Command[],
   budget: ResourceBudget,
   tech: number,
+  reserved?: ProducerReservations,
 ): boolean => {
   const def = TechDefs[tech];
   if (!def) return false;
@@ -485,9 +514,11 @@ const maybeQueueResearch = (
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
+    if (reserved && producerReserved(s, reserved, i)) continue;
     const command: Command = { t: 'research', building: eid(e, i), tech };
     if (!validateCommand(s, player, command).ok) continue;
     cmds.push(command);
+    if (reserved) reserveProducer(s, reserved, i);
     budget.minerals -= minerals;
     budget.gas -= gas;
     return true;
@@ -568,6 +599,7 @@ const maybeQueueAddon = (
   cmds: Command[],
   budget: ResourceBudget,
   kind: number,
+  reserved?: ProducerReservations,
 ): boolean => {
   const e = s.e;
   const def = Units[kind]!;
@@ -576,9 +608,11 @@ const maybeQueueAddon = (
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== NONE || e.built[i] !== 1) continue;
     if (e.kind[i] !== parentKind) continue;
+    if (reserved && producerReserved(s, reserved, i)) continue;
     const command: Command = { t: 'addon', building: eid(e, i), kind };
     if (!validateCommand(s, player, command).ok) continue;
     cmds.push(command);
+    if (reserved) reserveProducer(s, reserved, i);
     budget.minerals -= def.minerals;
     budget.gas -= def.gas;
     return true;
