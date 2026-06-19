@@ -1532,6 +1532,9 @@ Rework slices:
    - Train command legality now lives in `production-command.ts`, preserving reserved-supply
      validation, queue/internal-product capacity, larva spawn-count handling, and production apply
      behavior in `command-specs.ts`.
+   - Research command legality now lives in `research-command.ts`, preserving active add-on,
+     power, lifted-building, duplicate/max-level, prerequisite, level-scaled cost, and research apply
+     behavior in `command-specs.ts`.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.

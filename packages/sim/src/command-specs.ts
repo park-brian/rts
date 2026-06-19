@@ -1,6 +1,6 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, Order, Role, TECH_CAP, Tech, TechDefs, Units,
+  Kind, Order, Role, Tech, Units,
   hasAnyWeapon, weaponForTarget,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
@@ -18,7 +18,7 @@ import { canDetect } from './detection.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
-import { getTechLevel, isTechInProgress, nextTechLevel, queueResearch, techGas, techMinerals } from './tech.ts';
+import { getTechLevel, queueResearch } from './tech.ts';
 import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
@@ -36,6 +36,7 @@ import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
+import { validateResearchCommand } from './research-command.ts';
 
 export { snapRallyTarget };
 
@@ -206,32 +207,6 @@ const validateLift = (s: State, player: number, command: Extract<Command, { t: '
   if (!isLiftableTerranStructureKind(e.kind[slot]!) || isLiftedStructureFlags(e.flags[slot]!)) return reject('target-not-allowed');
   if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('target-not-allowed');
   if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
-  return { ok: true };
-};
-
-const validTechId = (tech: number): boolean => Number.isInteger(tech) && tech > 0 && tech < TECH_CAP;
-
-const validateResearch = (s: State, player: number, command: Extract<Command, { t: 'research' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if ((e.flags[slot]! & Role.Structure) === 0) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('incomplete-producer');
-  if (isLiftedStructureFlags(e.flags[slot]!)) return reject('missing-capability');
-  if (!isActiveAddon(s, slot)) return reject('missing-capability');
-  if (!isPowered(s, slot)) return reject('missing-capability');
-  if (e.researchKind[slot] !== Kind.None) return reject('queue-full');
-  if (!validTechId(command.tech)) return reject('target-not-allowed');
-  const def = TechDefs[command.tech];
-  if (!def || !def.producers.includes(e.kind[slot]!)) return reject('target-not-allowed');
-  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-  if (isTechInProgress(s, player, command.tech) || getTechLevel(s, player, command.tech) >= def.maxLevel) {
-    return reject('target-not-allowed');
-  }
-  const level = nextTechLevel(s, player, command.tech);
-  if (s.players.minerals[player]! < techMinerals(def, level) || s.players.gas[player]! < techGas(def, level)) {
-    return reject('not-affordable');
-  }
   return { ok: true };
 };
 
@@ -433,7 +408,7 @@ const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
 };
 
 const researchSpec: CommandSpec<Extract<Command, { t: 'research' }>> = {
-  validate: validateResearch,
+  validate: validateResearchCommand,
   apply(s, player, command): void {
     queueResearch(s, slotOf(command.building), command.tech, player);
   },
