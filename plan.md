@@ -43,6 +43,9 @@ Historical implementation notes and completed phase detail live in
   scaffolding, not architecture. A slice that leaves a shim must name the remaining caller or
   deletion condition in this roadmap so the project does not normalize old paths forever; never
   mark a folder migration complete while an old-path shim still exists for that concept.
+- HEAVY ACTIVE-WORK NOTE: no new compatibility shim should be treated as neutral. If a slice
+  introduces one to keep public imports stable, the same slice must record when it can be deleted
+  and which callers still need migration.
 
 ## Active Roadmap
 
@@ -410,6 +413,12 @@ Remaining work:
     own mode-transition type, target kind/state, remaining timer, and total timer; enemy status rows
     still do not leak, and the status buffer schema now includes the full cloak timer/aura fields.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
+  - Terran research macro slice is done for Academy, Machine Shop, Covert Ops, Control Tower,
+    Physics Lab, Science Facility, Engineering Bay, and Armory tech/upgrades, using the shared
+    research validator instead of bot-private legality rules.
+  - Remaining Terran policy follow-up: avoid issuing add-on and research decisions that compete
+    for the same production parent in one command batch, using shared validation or a small
+    per-tick producer reservation rather than one-off gates.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -498,6 +507,9 @@ Done when:
 - Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
 - Added a replay-visible `islandExpansions` procedural preset with explicit disconnected-island
   validation while preserving strict full-ground-connectivity checks for older presets.
+- Extended the faction bot's validator-backed research macro to Terran tech/upgrades across
+  Academy, Machine Shop, Covert Ops, Control Tower, Physics Lab, Science Facility, Engineering Bay,
+  and Armory, with producer, duplicate, queue, and budget coverage.
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.

@@ -11,7 +11,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
-  cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  addonParentKind, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, type Command, type State,
 } from '@rts/sim';
 
@@ -92,6 +92,8 @@ const assertPublicSurfaceExposes = (s: State, player: number, command: Command):
 };
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
+const completeTech = (sim: Sim, player: number, tech: number): void =>
+  setTechLevel(sim.fullState(), player, tech, TechDefs[tech]!.maxLevel);
 
 test('bot tactical ability policy descriptors match sim ability target modes', () => {
   const expectedTactical = [
@@ -1952,6 +1954,140 @@ const readyZergResearchScenario = (
   for (const tech of completedBefore) grant(sim, 0, tech);
   return { sim, producer };
 };
+
+const readyTerranResearchScenario = (
+  seed: number,
+  producerKind: number,
+  completedBefore: readonly number[] = [],
+): { sim: Sim; producer: number } => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  let producer: number;
+  const parentKind = addonParentKind(producerKind);
+  if (parentKind !== Kind.None) {
+    const parent = spawnUnit(s, parentKind, 0, base.x + fx(180), base.y);
+    producer = spawnUnit(s, producerKind, 0, base.x + fx(260), base.y);
+    linkAddon(s, parent, producer);
+  } else {
+    producer = spawnUnit(s, producerKind, 0, base.x + fx(180), base.y);
+  }
+  s.players.minerals[0] = 2_000;
+  s.players.gas[0] = 2_000;
+  for (const tech of completedBefore) completeTech(sim, 0, tech);
+  return { sim, producer };
+};
+
+const testTerranResearchMacro = ({
+  tech,
+  producerKind,
+  firstSeed,
+  completedBefore = [],
+}: {
+  tech: number;
+  producerKind: number;
+  firstSeed: number;
+  completedBefore?: readonly number[];
+}): void => {
+  const bot = createBot(Terran, { barracksTarget: 0, workerTarget: 0 });
+  const techName = TechDefs[tech]!.name;
+  const producerName = Units[producerKind]!.name;
+  const ready = (seed: number): ReturnType<typeof readyTerranResearchScenario> =>
+    readyTerranResearchScenario(seed, producerKind, completedBefore);
+
+  test(`terran bot researches ${techName} from a completed ${producerName}`, () => {
+    const { sim } = ready(firstSeed);
+    const s = sim.fullState();
+
+    const cmds = bot(s, 0);
+    const research = findResearch(cmds, tech);
+
+    assert.ok(research);
+    assert.deepEqual(validateCommand(s, 0, research), { ok: true });
+  });
+
+  test(`terran bot respects ${techName} producer, duplicate, queue, and budget gates`, () => {
+    const missingProducer = new Sim({ map: sliceMap(), players: 2, seed: firstSeed + 1, factions: [Terran, Zerg] });
+    const missingState = missingProducer.fullState();
+    missingState.players.minerals[0] = 2_000;
+    missingState.players.gas[0] = 2_000;
+    for (const prerequisite of completedBefore) completeTech(missingProducer, 0, prerequisite);
+
+    assert.equal(hasResearch(bot(missingState, 0), tech), false);
+
+    const incomplete = ready(firstSeed + 2);
+    const incompleteState = incomplete.sim.fullState();
+    incompleteState.e.built[slotOf(incomplete.producer)] = 0;
+
+    assert.equal(hasResearch(bot(incompleteState, 0), tech), false);
+
+    const completed = ready(firstSeed + 3);
+    completeTech(completed.sim, 0, tech);
+
+    assert.equal(hasResearch(bot(completed.sim.fullState(), 0), tech), false);
+
+    const inProgress = ready(firstSeed + 4);
+    const inProgressState = inProgress.sim.fullState();
+    inProgressState.e.researchKind[slotOf(inProgress.producer)] = tech;
+    inProgressState.e.researchTimer[slotOf(inProgress.producer)] = 10;
+
+    assert.equal(hasResearch(bot(inProgressState, 0), tech), false);
+
+    const busy = ready(firstSeed + 5);
+    const busyState = busy.sim.fullState();
+    busyState.e.researchKind[slotOf(busy.producer)] = tech === Tech.StimPack ? Tech.U238Shells : Tech.StimPack;
+    busyState.e.researchTimer[slotOf(busy.producer)] = 10;
+
+    assert.equal(hasResearch(bot(busyState, 0), tech), false);
+
+    const broke = ready(firstSeed + 6);
+    const brokeState = broke.sim.fullState();
+    brokeState.players.minerals[0] = TechDefs[tech]!.minerals[0]! - 1;
+    brokeState.players.gas[0] = 2_000;
+
+    assert.equal(hasResearch(bot(brokeState, 0), tech), false);
+
+    const gasBroke = ready(firstSeed + 7);
+    const gasBrokeState = gasBroke.sim.fullState();
+    gasBrokeState.players.minerals[0] = 2_000;
+    gasBrokeState.players.gas[0] = TechDefs[tech]!.gas[0]! - 1;
+
+    assert.equal(hasResearch(bot(gasBrokeState, 0), tech), false);
+  });
+};
+
+const terranResearchCases = [
+  { tech: Tech.StimPack, producerKind: Kind.Academy },
+  { tech: Tech.U238Shells, producerKind: Kind.Academy, completedBefore: [Tech.StimPack] },
+  { tech: Tech.Restoration, producerKind: Kind.Academy, completedBefore: [Tech.StimPack, Tech.U238Shells] },
+  { tech: Tech.OpticalFlare, producerKind: Kind.Academy, completedBefore: [Tech.StimPack, Tech.U238Shells, Tech.Restoration] },
+  { tech: Tech.CaduceusReactor, producerKind: Kind.Academy, completedBefore: [Tech.StimPack, Tech.U238Shells, Tech.Restoration, Tech.OpticalFlare] },
+  { tech: Tech.SpiderMines, producerKind: Kind.MachineShop },
+  { tech: Tech.SiegeTech, producerKind: Kind.MachineShop, completedBefore: [Tech.SpiderMines] },
+  { tech: Tech.CharonBoosters, producerKind: Kind.MachineShop, completedBefore: [Tech.SpiderMines, Tech.SiegeTech] },
+  { tech: Tech.IonThrusters, producerKind: Kind.MachineShop, completedBefore: [Tech.SpiderMines, Tech.SiegeTech, Tech.CharonBoosters] },
+  { tech: Tech.PersonnelCloaking, producerKind: Kind.CovertOps },
+  { tech: Tech.Lockdown, producerKind: Kind.CovertOps, completedBefore: [Tech.PersonnelCloaking] },
+  { tech: Tech.OcularImplants, producerKind: Kind.CovertOps, completedBefore: [Tech.PersonnelCloaking, Tech.Lockdown] },
+  { tech: Tech.MoebiusReactor, producerKind: Kind.CovertOps, completedBefore: [Tech.PersonnelCloaking, Tech.Lockdown, Tech.OcularImplants] },
+  { tech: Tech.CloakingField, producerKind: Kind.ControlTower },
+  { tech: Tech.ApolloReactor, producerKind: Kind.ControlTower, completedBefore: [Tech.CloakingField] },
+  { tech: Tech.YamatoCannon, producerKind: Kind.PhysicsLab },
+  { tech: Tech.ColossusReactor, producerKind: Kind.PhysicsLab, completedBefore: [Tech.YamatoCannon] },
+  { tech: Tech.EMPShockwave, producerKind: Kind.ScienceFacility },
+  { tech: Tech.Irradiate, producerKind: Kind.ScienceFacility, completedBefore: [Tech.EMPShockwave] },
+  { tech: Tech.TitanReactor, producerKind: Kind.ScienceFacility, completedBefore: [Tech.EMPShockwave, Tech.Irradiate] },
+  { tech: Tech.InfantryWeapons, producerKind: Kind.EngineeringBay },
+  { tech: Tech.InfantryArmor, producerKind: Kind.EngineeringBay, completedBefore: [Tech.InfantryWeapons] },
+  { tech: Tech.VehicleWeapons, producerKind: Kind.Armory },
+  { tech: Tech.VehiclePlating, producerKind: Kind.Armory, completedBefore: [Tech.VehicleWeapons] },
+  { tech: Tech.ShipWeapons, producerKind: Kind.Armory, completedBefore: [Tech.VehicleWeapons, Tech.VehiclePlating] },
+  { tech: Tech.ShipPlating, producerKind: Kind.Armory, completedBefore: [Tech.VehicleWeapons, Tech.VehiclePlating, Tech.ShipWeapons] },
+] as const;
+
+for (let i = 0; i < terranResearchCases.length; i++) {
+  testTerranResearchMacro({ ...terranResearchCases[i]!, firstSeed: 600 + i * 8 });
+}
 
 const testZergResearchMacro = ({
   label,

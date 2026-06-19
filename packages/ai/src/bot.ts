@@ -27,6 +27,34 @@ export type BotConfig = {
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
+const TERRAN_RESEARCH_MACRO = [
+  Tech.StimPack,
+  Tech.U238Shells,
+  Tech.Restoration,
+  Tech.OpticalFlare,
+  Tech.CaduceusReactor,
+  Tech.SpiderMines,
+  Tech.SiegeTech,
+  Tech.CharonBoosters,
+  Tech.IonThrusters,
+  Tech.PersonnelCloaking,
+  Tech.Lockdown,
+  Tech.OcularImplants,
+  Tech.MoebiusReactor,
+  Tech.CloakingField,
+  Tech.ApolloReactor,
+  Tech.YamatoCannon,
+  Tech.ColossusReactor,
+  Tech.EMPShockwave,
+  Tech.Irradiate,
+  Tech.TitanReactor,
+  Tech.InfantryWeapons,
+  Tech.InfantryArmor,
+  Tech.VehicleWeapons,
+  Tech.VehiclePlating,
+  Tech.ShipWeapons,
+  Tech.ShipPlating,
+] as const;
 const PROTOSS_STRUCTURE_MACRO = [
   Kind.CyberneticsCore,
   Kind.RoboticsFacility,
@@ -296,7 +324,10 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
     minerals = budget.minerals;
 
-    if (faction.name === 'Protoss') {
+    if (faction.name === 'Terran') {
+      maybeQueueTerranResearch(s, p, cmds, budget);
+      minerals = budget.minerals;
+    } else if (faction.name === 'Protoss') {
       maybeQueueProtossResearch(s, p, cmds, budget);
       minerals = budget.minerals;
     } else if (faction.name === 'Zerg') {
@@ -368,6 +399,17 @@ const maybeQueueTerranAddons = (
     if (maybeQueueAddon(s, player, cmds, budget, kind)) return;
   }
   maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player));
+};
+
+const maybeQueueTerranResearch = (
+  s: State,
+  player: number,
+  cmds: Command[],
+  budget: ResourceBudget,
+): void => {
+  for (const tech of TERRAN_RESEARCH_MACRO) {
+    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
+  }
 };
 
 const maybeQueueProtossTechStructures = (
