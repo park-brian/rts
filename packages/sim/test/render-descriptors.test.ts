@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EffectKind, Kind, Order, TILE, Units } from '../src/data.ts';
+import { entityLifecycle } from '../src/entity-lifecycle.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';
@@ -133,7 +134,7 @@ test('entity render hulls and selection bases expose gameplay math', () => {
   });
 });
 
-test('entity life bars expose selected life and construction progress policy', () => {
+test('entity life bars expose selected life and lifecycle progress policy', () => {
   const s = makeState(sliceMap(), 1, 82);
   const e = s.e;
   const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(512), fx(448)));
@@ -156,7 +157,13 @@ test('entity life bars expose selected life and construction progress policy', (
   e.ctimer[depot] = Math.trunc(Units[Kind.SupplyDepot]!.buildTime / 2);
   const construction = entityLifeBar(s, depot, true)!;
   assert.equal(construction.kind, 'construction');
-  assert.equal(construction.fraction, 1 - e.ctimer[depot]! / Units[Kind.SupplyDepot]!.buildTime);
+  assert.equal(construction.fraction, entityLifecycle(s, depot).progress);
+
+  const lurker = unfinished(s, Kind.Lurker, Kind.Hydralisk);
+  e.ctimer[lurker] = Math.trunc(Units[Kind.Lurker]!.buildTime / 4);
+  const morph = entityLifeBar(s, lurker, true)!;
+  assert.equal(morph.kind, 'construction');
+  assert.equal(morph.fraction, entityLifecycle(s, lurker).progress);
 });
 
 test('effect visibility affordances expose scan and nuke presentation policy', () => {

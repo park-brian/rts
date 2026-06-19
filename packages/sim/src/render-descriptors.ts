@@ -2,6 +2,7 @@ import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from './data.
 import { ONE } from './fixed.ts';
 import { childActorDef, type ChildActorPresentation } from './child-actors.ts';
 import { isCloaked } from './detection.ts';
+import { entityLifecycle, type EntityLifecycleState } from './entity-lifecycle.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
 import { bodyBounds, distanceSqToRect } from './spatial.ts';
@@ -131,6 +132,17 @@ const isUnfinished = (s: State, slot: number): boolean =>
 const isStructure = (s: State, slot: number): boolean =>
   (s.e.flags[slot]! & Role.Structure) !== 0;
 
+const usesLifecycleProgressBar = (state: EntityLifecycleState): boolean => {
+  switch (state) {
+    case 'constructing':
+    case 'morphing':
+    case 'merging':
+      return true;
+    default:
+      return false;
+  }
+};
+
 export const entityCloakOpacity = (s: State, slot: number): number =>
   isCloaked(s, slot) ? 0.5 : 1;
 
@@ -234,13 +246,14 @@ export const entityLifeBar = (s: State, slot: number, selected: boolean): Entity
   if (!def || (def.roles & Role.Resource) !== 0 || kind === Kind.Geyser) return undefined;
   const maxLife = def.hp + def.shields;
   if (maxLife <= 0) return undefined;
-  const construction = e.built[slot] !== 1 && def.buildTime > 0;
-  const progress = construction
-    ? 1 - Math.max(0, e.ctimer[slot]!) / def.buildTime
+  const lifecycle = entityLifecycle(s, slot);
+  const lifecycleProgress = lifecycle.total > 0 && usesLifecycleProgressBar(lifecycle.state);
+  const progress = lifecycleProgress
+    ? lifecycle.progress
     : Math.max(0, (e.hp[slot]! + e.shield[slot]!) / maxLife);
   const hull = entityRenderHull(kind, e.x[slot]!, e.y[slot]!);
   return {
-    kind: construction ? 'construction' : 'life',
+    kind: lifecycleProgress ? 'construction' : 'life',
     x: hull.cx,
     y: hull.y0,
     width: Math.max(2, hull.width),
