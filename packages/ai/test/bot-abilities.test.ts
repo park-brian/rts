@@ -7,6 +7,7 @@ import {
   createBot,
   deriveTacticalIncidents,
   missingStructureKinds,
+  rankedTacticalResponders,
   TACTICAL_INCIDENT_MEMORY_TICKS,
 } from '../src/index.ts';
 import {
@@ -287,6 +288,27 @@ test('bot tactical incidents classify bypass, static, and containment threats', 
     assert.equal(incidents[0]!.kind, expected);
     assert.equal(incidents[0]!.base, slotOf(commandCenter));
   });
+});
+
+test('bot ranks responders by tactical incident fit', () => {
+  const scenario = botScenario({ seed: 811 });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  const base = scenario.pos(commandCenter);
+  const firebat = scenario.spawn(Kind.Firebat, 0, base.x + fx(20), base.y);
+  const goliath = scenario.spawn(Kind.Goliath, 0, base.x + fx(80), base.y);
+  const drop = scenario.spawn(Kind.Dropship, 1, base.x + fx(48), base.y);
+
+  const facts = collectBotFacts(scenario.state, 0, Terran);
+  const incident = deriveTacticalIncidents(scenario.state, facts)[0]!;
+  const responders = rankedTacticalResponders(
+    scenario.state,
+    [slotOf(firebat), slotOf(goliath)],
+    incident,
+    slotOf(drop),
+  );
+
+  assert.equal(incident.kind, 'transport-drop');
+  assert.equal(responders[0], slotOf(goliath));
 });
 
 test('bot keeps defending remembered incidents after vision drops', () => {

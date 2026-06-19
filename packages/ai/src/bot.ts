@@ -21,6 +21,7 @@ import {
   collectBotFacts,
   createBotMemory,
   deriveTacticalIncidents,
+  rankedTacticalResponders,
   rememberTacticalIncidents,
   type BotMemory,
   type TacticalIncident,
@@ -452,7 +453,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const focusX = threat !== NONE ? e.x[threat]! : incident.x;
       const focusY = threat !== NONE ? e.y[threat]! : incident.y;
       if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
-      for (const a of retaskableArmy) {
+      for (const a of rankedTacticalResponders(s, retaskableArmy, incident, threat)) {
         if (threat !== NONE && maybeLaySpiderMine(s, cmds, a, threat)) continue;
         if (threat !== NONE && maybeBurrowForFight(s, cmds, a, threat)) continue;
         if (maybeTransformForFight(s, cmds, a, focusX, focusY)) continue;

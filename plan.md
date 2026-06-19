@@ -474,6 +474,9 @@ Remaining work:
     - Incident-memory slice is done: visible incidents now refresh deterministic `BotMemory`, decay
       for `TACTICAL_INCIDENT_MEMORY_TICKS` after vision drops, and the live bot attack-moves
       retaskable defenders to remembered incident centers when no visible target remains.
+    - Response-fit seed slice is done: tactical incidents now rank retaskable responders by target
+      compatibility, detector/role fit, mobility, and distance before the live bot emits ordinary
+      defense commands. This is intentionally a ranking layer, not a separate command system.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -650,6 +653,9 @@ Done when:
 - Added deterministic tactical incident memory and live remembered-defense behavior, so vanished
   drops, Nydus breaches, siege positions, and other base-local threats keep a short defensive
   response alive instead of disappearing the moment fog hides the target.
+- Added the first tactical responder ranking helper, letting incidents prefer units that can
+  actually solve the spatial problem, such as anti-air responders for transport drops, before later
+  squad-reservation work limits how many units commit.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

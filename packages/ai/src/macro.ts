@@ -5,12 +5,16 @@ import {
   Order,
   Role,
   TILE,
+  Trait,
   Units,
+  distanceSq,
   eid,
   hasAnyWeapon,
   isEnemy,
   isLarvaSourceKind,
+  unitTraits,
   withinRangeSq,
+  weaponForTarget,
   type Command,
   type Controller,
   type Faction,
@@ -198,6 +202,67 @@ const incidentSort = (a: TacticalIncident, b: TacticalIncident): number =>
   b.severity - a.severity ||
   (a.base ?? NONE) - (b.base ?? NONE) ||
   a.kind.localeCompare(b.kind);
+
+const detectorFit = (kind: TacticalIncidentKind, unitKind: number): number => {
+  if (kind !== 'invisible-damage' && kind !== 'route-trap') return 0;
+  return (unitTraits(unitKind) & Trait.Detector) !== 0 ? 250 : 0;
+};
+
+const roleFit = (kind: TacticalIncidentKind, unitKind: number): number => {
+  const def = Units[unitKind]!;
+  switch (kind) {
+    case 'transport-drop':
+      return def.airWeapon ? 90 : 0;
+    case 'siege-containment':
+    case 'static-threat-zone':
+      return Math.max(def.weapon?.range ?? 0, def.airWeapon?.range ?? 0) >= 6 * TILE * ONE ? 70 : 0;
+    case 'army-under-kite':
+      return def.speed > 0 ? 60 : 0;
+    default:
+      return 0;
+  }
+};
+
+export const tacticalResponseFit = (
+  s: State,
+  unit: number,
+  incident: TacticalIncident,
+  target: number,
+): number => {
+  const e = s.e;
+  if (e.alive[unit] !== 1) return 0;
+  const unitKind = e.kind[unit]!;
+  const def = Units[unitKind]!;
+  const targetAlive = target >= 0 && target < e.hi && e.alive[target] === 1;
+  const targetDef = targetAlive ? Units[e.kind[target]!] : undefined;
+  const targetFit = targetDef && weaponForTarget(def, targetDef) ? 200 : 0;
+  const dx = Math.abs(e.x[unit]! - incident.x);
+  const dy = Math.abs(e.y[unit]! - incident.y);
+  const distanceTiles = Math.trunc((dx + dy) / (TILE * ONE));
+  const proximityFit = Math.max(0, 80 - distanceTiles);
+
+  return 10 +
+    targetFit +
+    detectorFit(incident.kind, unitKind) +
+    roleFit(incident.kind, unitKind) +
+    Math.min(60, Math.trunc(def.speed / 8)) +
+    proximityFit;
+};
+
+export const rankedTacticalResponders = (
+  s: State,
+  candidates: readonly number[],
+  incident: TacticalIncident,
+  target: number,
+): number[] =>
+  candidates
+    .map((slot) => ({
+      slot,
+      fit: tacticalResponseFit(s, slot, incident, target),
+      distance: distanceSq(s.e.x[slot]!, s.e.y[slot]!, incident.x, incident.y),
+    }))
+    .sort((a, b) => b.fit - a.fit || a.distance - b.distance || a.slot - b.slot)
+    .map(({ slot }) => slot);
 
 const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncidentKind => {
   const e = s.e;
