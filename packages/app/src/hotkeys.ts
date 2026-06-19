@@ -6,6 +6,7 @@ import { Ability, Kind, Tech } from './sim.ts';
 export type GlobalHotkeyAction =
   | 'attackMove'
   | 'hold'
+  | 'patrol'
   | 'stop'
   | 'harvest'
   | 'repair'
@@ -26,6 +27,7 @@ export type HotkeyMap = Record<string, string>;
 export const HOTKEY_ACTIONS: ReadonlyArray<{ id: GlobalHotkeyAction; label: string }> = [
   { id: 'attackMove', label: 'Attack Move' },
   { id: 'hold', label: 'Hold Position' },
+  { id: 'patrol', label: 'Patrol' },
   { id: 'stop', label: 'Stop' },
   { id: 'harvest', label: 'Harvest' },
   { id: 'repair', label: 'Repair' },
@@ -44,6 +46,7 @@ export const HOTKEY_ACTIONS: ReadonlyArray<{ id: GlobalHotkeyAction; label: stri
 export const DEFAULT_HOTKEYS: HotkeyMap = {
   attackMove: 'KeyA',
   hold: 'KeyH',
+  patrol: 'KeyP',
   stop: 'KeyS',
   harvest: 'KeyG',
   repair: 'KeyR',
@@ -352,6 +355,7 @@ export const orderHotkeyAction = (id: number): GlobalHotkeyAction | null => {
   switch (id) {
     case OrderOptionId.AttackMove: return 'attackMove';
     case OrderOptionId.Hold: return 'hold';
+    case OrderOptionId.Patrol: return 'patrol';
     case OrderOptionId.Stop: return 'stop';
     case OrderOptionId.Harvest: return 'harvest';
     case OrderOptionId.Repair: return 'repair';
@@ -407,6 +411,8 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
       return executeOption(game, selection.options.order, OrderOptionId.AttackMove);
     case 'hold':
       return executeOption(game, selection.options.order, OrderOptionId.Hold);
+    case 'patrol':
+      return executeOption(game, selection.options.order, OrderOptionId.Patrol);
     case 'stop':
       return executeOption(game, selection.options.order, OrderOptionId.Stop);
     case 'harvest':
@@ -459,6 +465,7 @@ const commandCardActions = (): HotkeyAction[] => {
       OrderOptionId.Cancel,
       OrderOptionId.AttackMove,
       OrderOptionId.Hold,
+      OrderOptionId.Patrol,
       OrderOptionId.Stop,
     ]),
     'deselect',

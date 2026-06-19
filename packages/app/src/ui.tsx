@@ -621,6 +621,7 @@ const Hotbar = (p: { game: Game }) => {
     addOrderButton(OrderOptionId.Cancel, 'Cancel');
     addOrderButton(OrderOptionId.AttackMove, 'Atk-Move');
     addOrderButton(OrderOptionId.Hold, 'Hold');
+    addOrderButton(OrderOptionId.Patrol, 'Patrol');
     addOrderButton(OrderOptionId.Stop, 'Stop');
     addCommand('selection', <Btn command dense={ui.controlScheme.value !== 'desktop'} label="Deselect" hotkeyAction="deselect" onClick={() => g.deselect()} />);
   } else {

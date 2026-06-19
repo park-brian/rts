@@ -33,5 +33,6 @@ export const isPathingAnchor = (s: State, slot: number): boolean => {
   return order === Order.Attack ||
     order === Order.AttackMove ||
     order === Order.Hold ||
+    order === Order.Patrol ||
     order === Order.Idle;
 };

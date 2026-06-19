@@ -263,6 +263,14 @@ const validateCommand = (x: unknown): Command => {
     case 'hold': {
       return { t: 'hold', unit: readNonNegativeInt(unit, 'invalid hold command') };
     }
+    case 'patrol': {
+      return {
+        t: 'patrol',
+        unit: readNonNegativeInt(unit, 'invalid patrol command'),
+        x: readInt(xPos, 'invalid patrol command'),
+        y: readInt(yPos, 'invalid patrol command'),
+      };
+    }
     default:
       return fail(`unknown command type ${t}`);
   }

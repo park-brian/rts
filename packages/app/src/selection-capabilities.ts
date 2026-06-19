@@ -85,6 +85,7 @@ export const selectionCapabilities = (
   let canRepair = false;
   let canAttackMove = false;
   let canHold = false;
+  let canPatrol = false;
   let canStop = false;
   let canBurrow = false;
   let canUnburrow = false;
@@ -123,6 +124,7 @@ export const selectionCapabilities = (
     kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
+    if (nonStructure && validateCommand(s, player, { t: 'patrol', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canPatrol = true;
     if (ready) {
       const holdCommand: Command = { t: 'hold', unit: id };
       if (validateCommand(s, player, holdCommand).ok) {
@@ -244,6 +246,7 @@ export const selectionCapabilities = (
     ...(landKind !== NONE ? [armedOrderOption(OrderOptionId.Land, 'Land', { t: 'land', kind: landKind })] : []),
     ...commandOrderOption(OrderOptionId.Cancel, 'Cancel', cancelCommands),
     ...(canAttackMove ? [armedOrderOption(OrderOptionId.AttackMove, 'Atk-Move', { t: 'attackMove' })] : []),
+    ...(canPatrol ? [armedOrderOption(OrderOptionId.Patrol, 'Patrol', { t: 'patrol' })] : []),
     ...commandOrderOption(OrderOptionId.Hold, 'Hold', holdCommands),
     ...commandOrderOption(OrderOptionId.Stop, 'Stop', stopCommands),
   ];
@@ -260,6 +263,7 @@ export const selectionCapabilities = (
       repair: canRepair,
       attackMove: canAttackMove,
       hold: canHold,
+      patrol: canPatrol,
       stop: canStop,
       burrow: canBurrow,
       unburrow: canUnburrow,

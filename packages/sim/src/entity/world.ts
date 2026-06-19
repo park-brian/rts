@@ -73,6 +73,8 @@ export type Entities = {
   orderQueueY3: Int32Array;
   tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
+  patrolX: Int32Array; // opposite endpoint for active Patrol orders, or NONE
+  patrolY: Int32Array;
   settled: Uint8Array; // post-collision move/attack-move has settled into place
   vx: Int32Array; // persistent movement velocity (fixed px/tick)
   vy: Int32Array;
@@ -124,7 +126,7 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['orderQueueTarget0', 'i32'], ['orderQueueTarget1', 'i32'], ['orderQueueTarget2', 'i32'], ['orderQueueTarget3', 'i32'],
   ['orderQueueX0', 'i32'], ['orderQueueX1', 'i32'], ['orderQueueX2', 'i32'], ['orderQueueX3', 'i32'],
   ['orderQueueY0', 'i32'], ['orderQueueY1', 'i32'], ['orderQueueY2', 'i32'], ['orderQueueY3', 'i32'],
-  ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
+  ['tx', 'i32'], ['ty', 'i32'], ['patrolX', 'i32'], ['patrolY', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['morphFromKind', 'u16'], ['buildCostMinerals', 'i32'],
   ['buildCostGas', 'i32'], ['specialAmmo', 'u8'], ['cargo', 'i32'],
   ['cargoType', 'u8'], ['container', 'i32'], ['home', 'i32'], ['prodKind', 'u16'], ['prodTimer', 'i32'], ['prodQueued', 'i32'],
@@ -272,6 +274,8 @@ const makeEntities = (): Entities => {
     orderQueueY3: new Int32Array(CAP),
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
+    patrolX: new Int32Array(CAP),
+    patrolY: new Int32Array(CAP),
     settled: new Uint8Array(CAP),
     vx: new Int32Array(CAP),
     vy: new Int32Array(CAP),
@@ -434,6 +438,8 @@ export const trySpawn = (
   e.orderQueueY3[slot] = 0;
   e.tx[slot] = 0;
   e.ty[slot] = 0;
+  e.patrolX[slot] = NONE;
+  e.patrolY[slot] = NONE;
   e.settled[slot] = 0;
   e.vx[slot] = 0;
   e.vy[slot] = 0;
@@ -692,6 +698,8 @@ export const hashState = (s: State): number => {
     h = fold(h, e.orderQueueY3[i]!);
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
+    h = fold(h, e.patrolX[i]!);
+    h = fold(h, e.patrolY[i]!);
     h = fold(h, e.settled[i]!);
     h = fold(h, e.vx[i]!);
     h = fold(h, e.vy[i]!);

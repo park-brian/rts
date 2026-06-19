@@ -15,6 +15,7 @@ import { applyResearchCommand, validateResearchCommand } from './research.ts';
 import { applyAttackCommand, validateAttackCommand } from './attack.ts';
 import { applyBurrowCommand, validateBurrowCommand } from './burrow.ts';
 import { applyHoldCommand, validateHoldCommand } from './hold.ts';
+import { applyPatrolCommand, validatePatrolCommand } from './patrol.ts';
 import { applyStopCommand, validateStopCommand } from './stop.ts';
 import {
   applyLandCommand,
@@ -36,7 +37,7 @@ export type CommandSpecCommand = Extract<Command, {
   t:
     | 'attack' | 'burrow' | 'cancelBuild' | 'harvest' | 'load' | 'mine' | 'move'
     | 'ability' | 'addon' | 'amove' | 'build' | 'land' | 'lift' | 'rally' | 'repair' | 'research'
-    | 'hold' | 'stop' | 'train' | 'transform' | 'unload';
+    | 'hold' | 'patrol' | 'stop' | 'train' | 'transform' | 'unload';
 }>;
 
 type CommandSpecValidationContext = {
@@ -204,6 +205,13 @@ const holdSpec: CommandSpec<Extract<Command, { t: 'hold' }>> = {
   },
 };
 
+const patrolSpec: CommandSpec<Extract<Command, { t: 'patrol' }>> = {
+  validate: validatePatrolCommand,
+  apply(s, _player, command): void {
+    applyPatrolCommand(s, command);
+  },
+};
+
 export const commandSpecs = {
   ability: abilitySpec,
   addon: addonSpec,
@@ -219,6 +227,7 @@ export const commandSpecs = {
   load: loadSpec,
   mine: mineSpec,
   move: moveSpec,
+  patrol: patrolSpec,
   rally: rallySpec,
   repair: repairSpec,
   research: researchSpec,
@@ -249,6 +258,7 @@ export const validateCommandSpec = (
     case 'mine': return commandSpecs.mine.validate(s, player, command);
     case 'move': return commandSpecs.move.validate(s, player, command);
     case 'amove': return commandSpecs.amove.validate(s, player, command);
+    case 'patrol': return commandSpecs.patrol.validate(s, player, command);
     case 'rally': return commandSpecs.rally.validate(s, player, command);
     case 'repair': return commandSpecs.repair.validate(s, player, command);
     case 'research': return commandSpecs.research.validate(s, player, command);
@@ -307,6 +317,9 @@ export const applyCommandSpec = (
       return;
     case 'amove':
       commandSpecs.amove.apply(s, player, command, ctx);
+      return;
+    case 'patrol':
+      commandSpecs.patrol.apply(s, player, command, ctx);
       return;
     case 'rally':
       commandSpecs.rally.apply(s, player, command, ctx);

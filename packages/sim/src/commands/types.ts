@@ -27,6 +27,7 @@ export const COMMAND_TYPES = [
   'repair',
   'rally',
   'hold',
+  'patrol',
   'stop',
 ] as const;
 export type CommandType = typeof COMMAND_TYPES[number];
@@ -72,6 +73,7 @@ export type Command =
   | { t: 'repair'; unit: number; target: number }
   | { t: 'rally'; building: number; x: number; y: number; target?: number } // set a structure's rally point/target
   | { t: 'hold'; unit: number }
+  | { t: 'patrol'; unit: number; x: number; y: number }
   | { t: 'stop'; unit: number };
 
 type CommandTypeCoverage =

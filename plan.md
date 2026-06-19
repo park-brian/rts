@@ -216,11 +216,15 @@ Remaining work:
 
 - Replace instant siege/unsiege and burrow/unburrow with verified timed transitions and shared
   busy-state validation.
-- Add missing core order semantics: Patrol, queued waypoints, and clear interruption
+- Add missing core order semantics: queued waypoints, and clear interruption
   rules for Stop, attack, transport, spell, gather, repair, rally-spawned orders, and queued orders.
   - Hold Position slice is done: `hold` is a first-class command, replay/action-mask encoded, exposed
     through shared selection options and desktop hotkeys, and combat fires at in-range enemies without
     pathing toward out-of-range targets.
+  - Patrol slice is done: `patrol` is a first-class point command, replay/action-mask encoded, exposed
+    through shared selection options and desktop/mobile armed command flow, stores its return endpoint
+    in deterministic entity columns, and uses the normal movement/combat pipeline to alternate legs
+    while engaging enemies encountered en route.
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
@@ -524,6 +528,8 @@ Done when:
   load/unload so non-queued commands cannot leave surprising future travel waypoints behind.
 - Added Hold Position as a first-class command/card/hotkey action and combat order that attacks in
   range without chasing.
+- Added Patrol as a first-class command/card/hotkey action with serialized route endpoints and
+  combat-aware two-point movement.
 
 ## Review Checklist
 

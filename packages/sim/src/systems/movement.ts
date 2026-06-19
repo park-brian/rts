@@ -11,6 +11,7 @@ import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../m
 import { placementForStructure } from '../mechanics/placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
 import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
+import { advancePatrolLeg } from '../entity/patrol.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
@@ -119,7 +120,7 @@ export const movement = (s: State): void => {
   const followPlan = buildFollowPlan(s);
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i)) continue;
-    if (e.order[i] !== Order.Move) {
+    if (e.order[i] !== Order.Move && e.order[i] !== Order.Patrol) {
       if (followsIntentTarget(e, i)) refreshEntityTravelDestination(s, i, followPlan);
       continue;
     }
@@ -139,7 +140,9 @@ export const movement = (s: State): void => {
       e.order[i] = Order.Idle;
       continue;
     }
-    const target = refreshEntityTravelDestination(s, i, followPlan);
+    const patrol = e.order[i] === Order.Patrol;
+    if (patrol && e.combatTarget[i] !== NONE) continue;
+    const target = patrol ? NONE : refreshEntityTravelDestination(s, i, followPlan);
     if (target !== NONE && canAcceptCargo(s, target, i)) {
       if (withinLoadRange(s, target, i)) {
         loadUnitInto(s, target, i);
@@ -149,6 +152,7 @@ export const movement = (s: State): void => {
     const arrived = navigate(s, i, e.tx[i]!, e.ty[i]!, effectiveSpeed(s, e, i, speed));
     const liveIntentTarget = liveTravelTargetId(e, i);
     if (arrived && liveIntentTarget === eid(e, i) && isLiftedStructureFlags(e.flags[i]!)) landIfArrived(s, i);
+    else if (arrived && patrol && !isLocalAvoidanceSolid(s, i)) advancePatrolLeg(s, i);
     else if (arrived && liveIntentTarget !== NONE) {
       clearVelocity(e, i);
       e.settled[i] = 1;

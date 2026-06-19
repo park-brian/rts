@@ -31,6 +31,7 @@ const sampleCommands: Command[] = [
   { t: 'repair', unit: 1, target: 2 },
   { t: 'rally', building: 1, x: 100, y: 200, target: 2 },
   { t: 'hold', unit: 1 },
+  { t: 'patrol', unit: 1, x: 100, y: 200 },
   { t: 'stop', unit: 1 },
 ];
 

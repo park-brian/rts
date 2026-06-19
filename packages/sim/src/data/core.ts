@@ -136,6 +136,7 @@ export const Order = {
   Cast: 6, // channeling a delayed ability; interrupted by any new order
   Repair: 7, // worker repairing a mechanical unit or Terran structure
   Hold: 8, // hold position: fire at enemies in range without chasing
+  Patrol: 9, // travel between two points, engaging enemies encountered en route
 } as const;
 export type Order = (typeof Order)[keyof typeof Order];
 

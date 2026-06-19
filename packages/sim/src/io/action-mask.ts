@@ -42,6 +42,7 @@ export const COMMAND_HEADS = [
   'amove',
   'stop',
   'hold',
+  'patrol',
   'attack',
   'ability',
   'harvest',
@@ -135,6 +136,7 @@ export const COMMAND_MASK_POLICY: Record<Command['t'], 'policy-facing'> = {
   repair: 'policy-facing',
   rally: 'policy-facing',
   hold: 'policy-facing',
+  patrol: 'policy-facing',
   stop: 'policy-facing',
 };
 
@@ -238,6 +240,8 @@ export const decodeAction = (action: EncodedAction): Command => {
       return { t: 'stop', unit: action.actor };
     case 'hold':
       return { t: 'hold', unit: action.actor };
+    case 'patrol':
+      return { t: 'patrol', unit: action.actor, x, y };
     case 'attack':
       return { t: 'attack', unit: action.actor, target };
     case 'ability': {
@@ -292,6 +296,7 @@ export const encodeCommand = (command: Command): EncodedAction => {
     case 'repair': return { head: 'repair', actor: command.unit, target: command.target };
     case 'rally': return { head: 'rally', actor: command.building, x: command.x, y: command.y, target: command.target };
     case 'hold': return { head: 'hold', actor: command.unit };
+    case 'patrol': return { head: 'patrol', actor: command.unit, x: command.x, y: command.y };
     case 'stop': return { head: 'stop', actor: command.unit };
   }
 };

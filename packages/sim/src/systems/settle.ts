@@ -8,6 +8,7 @@
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
 import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
+import { advancePatrolLeg } from '../entity/patrol.ts';
 import { Order } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import {
@@ -77,7 +78,7 @@ export const settleMovement = (s: State): void => {
       }
       continue;
     }
-    if (order !== Order.Move && order !== Order.AttackMove) {
+    if (order !== Order.Move && order !== Order.AttackMove && order !== Order.Patrol) {
       e.settled[i] = 0;
       continue;
     }
@@ -89,14 +90,19 @@ export const settleMovement = (s: State): void => {
     }
 
     const liveTravelTarget = e.intentTarget[i] !== NONE ? e.intentTarget[i]! : e.target[i]!;
-    const hasActiveTarget = liveTravelTarget !== NONE || (order === Order.AttackMove && e.combatTarget[i] !== NONE);
-    if ((order === Order.Move || order === Order.AttackMove) && hasActiveTarget) {
+    const hasActiveTarget = liveTravelTarget !== NONE ||
+      ((order === Order.AttackMove || order === Order.Patrol) && e.combatTarget[i] !== NONE);
+    if ((order === Order.Move || order === Order.AttackMove || order === Order.Patrol) && hasActiveTarget) {
       e.tx[i] = goal.x;
       e.ty[i] = goal.y;
       e.settled[i] = 1;
       continue;
     }
 
+    if (order === Order.Patrol) {
+      advancePatrolLeg(s, i);
+      continue;
+    }
     if (startNextQueuedTravelOrder(s, i)) continue;
     e.order[i] = Order.Idle;
     e.target[i] = NONE;

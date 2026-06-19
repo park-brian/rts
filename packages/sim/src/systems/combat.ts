@@ -2,6 +2,7 @@
 //   Attack      -> chase + hit a specific target until it dies
 //   AttackMove  -> advance toward a point, engaging enemies met en route
 //   Hold        -> fire at enemies in range without chasing
+//   Patrol      -> move between two points, engaging enemies met en route
 //   Idle        -> defend by engaging enemies within sight
 // Units on Move/Harvest/Build do not fire (they're busy).
 
@@ -208,7 +209,8 @@ export const combat = (s: State, grid: Grid): void => {
 
     const order = e.order[i]!;
     const holdPosition = order === Order.Hold;
-    const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle || holdPosition;
+    const patrol = order === Order.Patrol;
+    const engaging = order === Order.Attack || order === Order.AttackMove || order === Order.Idle || holdPosition || patrol;
     if (!engaging) continue;
 
     // Keep the current target while it's still valid — for Attack, chase it at any

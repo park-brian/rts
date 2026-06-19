@@ -126,6 +126,7 @@ export const applyCommands = (s: State, batch: PlayerCommands[]): CommandResult[
         case 'mine':
         case 'move':
         case 'amove':
+        case 'patrol':
         case 'rally':
         case 'repair':
         case 'research':

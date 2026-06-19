@@ -1,6 +1,7 @@
 import { Order } from '../data/index.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { entityApproachPoint } from './approach.ts';
+import { clearPatrolRoute } from './patrol.ts';
 import { isAlive, NONE, slotOf, type Entities, type State } from './world.ts';
 
 export const ORDER_QUEUE_CAP = 4;
@@ -96,6 +97,7 @@ export const setCurrentTravelOrder = (
   e.tx[slot] = tx;
   e.ty[slot] = ty;
   e.settled[slot] = 0;
+  clearPatrolRoute(e, slot);
   e.intentTarget[slot] = targetId;
   e.target[slot] = order === Order.Move ? targetId : NONE;
   e.combatTarget[slot] = NONE;

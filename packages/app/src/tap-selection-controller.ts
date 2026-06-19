@@ -2,6 +2,7 @@ import type { Game } from './game.ts';
 import {
   Abilities, NONE, ONE, Role, attackModeCandidates, harvestModeCandidates, isAlive,
   rallyModeCandidates, repairModeCandidates, slotOf,
+  validateCommand,
   type State,
 } from './sim.ts';
 import { smartCommandCandidates } from './smart-command-candidates.ts';
@@ -49,6 +50,10 @@ export class TapSelectionController {
     if (armed.t === 'attackMove') {
       const queueTravel = opts.shift === true || this.mobileQueueMode();
       if (this.queueAttackMode(hit, tx, ty, queueTravel)) clearArmedCommand();
+      return;
+    }
+    if (armed.t === 'patrol') {
+      if (this.queuePatrolMode(tx, ty)) clearArmedCommand();
       return;
     }
 
@@ -189,6 +194,21 @@ export class TapSelectionController {
     let queued = false;
     for (const id of this.mobileSelection(e)) {
       for (const command of attackModeCandidates(s, g.human, id, { hit, x, y }, { queueTravel })) {
+        g.queued.push(command);
+        queued = true;
+      }
+    }
+    return queued;
+  }
+
+  private queuePatrolMode(x: number, y: number): boolean {
+    const g = this.game;
+    const s = g.sim.fullState();
+    const e = s.e;
+    let queued = false;
+    for (const id of this.mobileSelection(e)) {
+      const command = { t: 'patrol' as const, unit: id, x, y };
+      if (validateCommand(s, g.human, command).ok) {
         g.queued.push(command);
         queued = true;
       }
