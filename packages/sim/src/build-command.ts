@@ -6,6 +6,7 @@ import { canPlaceStructure, type PlacementResult } from './placement.ts';
 import type { State } from './world.ts';
 import { NONE, canSpawnEntity, isAlive, slotOf } from './world.ts';
 import { isContained } from './cargo.ts';
+import { canPay } from './command-validation.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -67,10 +68,13 @@ export const validateWorkerBuild = (
   if (!def) return reject('missing-capability');
   const refundableMinerals = hasPendingBuild(e, workerSlot) ? e.buildCostMinerals[workerSlot]! : 0;
   const refundableGas = hasPendingBuild(e, workerSlot) ? e.buildCostGas[workerSlot]! : 0;
-  if (s.players.minerals[player]! + refundableMinerals < def.minerals ||
-      s.players.gas[player]! + refundableGas < def.gas) {
-    return reject('not-affordable');
-  }
+  const payment = canPay(
+    s,
+    player,
+    { minerals: def.minerals, gas: def.gas },
+    { minerals: refundableMinerals, gas: refundableGas },
+  );
+  if (!payment.ok) return payment;
   const placement = canPlaceStructure(s, player, workerSlot, kind, x, y);
   return placement.ok ? { ok: true } : reject(placement.reason);
 };

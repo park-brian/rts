@@ -2,8 +2,10 @@ import type { Command, CommandRejectReason } from './commands.ts';
 import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from './data.ts';
 import { addonParentKind } from './addon.ts';
 import { canWorkerStartStructure } from './build-command.ts';
+import { canPay } from './command-validation.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
+import { hasPendingBuild } from './build-cost.ts';
 import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from './rally.ts';
@@ -530,13 +532,14 @@ export const workerBuildSelectionOptions = (
         continue;
       }
       const def = Units[build]!;
+      const credit = hasPendingBuild(e, slot)
+        ? { minerals: e.buildCostMinerals[slot]!, gas: e.buildCostGas[slot]! }
+        : {};
       addWorkerBuildSelectionOption(
         options,
         build,
         worker,
-        s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas
-          ? { ok: false, reason: 'not-affordable' }
-          : { ok: true },
+        canPay(s, player, { minerals: def.minerals, gas: def.gas }, credit),
       );
     }
   }

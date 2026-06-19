@@ -5,7 +5,7 @@ import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost 
 import { isDisabled } from './systems/status.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import { canPay, reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
 
 type RepairCommand = Extract<Command, { t: 'repair' }>;
 
@@ -23,6 +23,5 @@ export const validateRepairCommand = (s: State, player: number, command: RepairC
   if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
   if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
   const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
-  if (s.players.minerals[player]! < cost.minerals || s.players.gas[player]! < cost.gas) return reject('not-affordable');
-  return { ok: true };
+  return canPay(s, player, cost);
 };

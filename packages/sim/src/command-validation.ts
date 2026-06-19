@@ -37,6 +37,26 @@ type ProducerUseOptions = {
   missingRoleReason?: CommandRejectReason;
 };
 
+export type ResourceAmount = {
+  minerals?: number;
+  gas?: number;
+};
+
+export const canPay = (
+  s: State,
+  player: number,
+  cost: ResourceAmount,
+  credit: ResourceAmount = {},
+): CommandValidation => {
+  const minerals = s.players.minerals[player] ?? 0;
+  const gas = s.players.gas[player] ?? 0;
+  if (minerals + (credit.minerals ?? 0) < (cost.minerals ?? 0) ||
+      gas + (credit.gas ?? 0) < (cost.gas ?? 0)) {
+    return reject('not-affordable');
+  }
+  return { ok: true };
+};
+
 export const canUseProducer = (
   s: State,
   player: number,

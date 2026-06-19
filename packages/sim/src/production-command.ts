@@ -5,7 +5,7 @@ import { requirementsMet } from './requirements.ts';
 import { queuedProductionCount } from './production-queue.ts';
 import type { State } from './world.ts';
 import { canSpawnEntity } from './world.ts';
-import { canUseProducer, reject, type CommandValidation } from './command-validation.ts';
+import { canPay, canUseProducer, reject, type CommandValidation } from './command-validation.ts';
 
 export type ProductionValidationContext = {
   reservedSupply?: number;
@@ -44,9 +44,8 @@ export const validateTrainCommand = (
       : 1;
   if (entityCount > 0 && !canSpawnEntity(s, entityCount)) return reject('capacity-full');
   const costCount = productionCostCount(command.kind);
-  if (s.players.minerals[player]! < def.minerals * costCount || s.players.gas[player]! < def.gas * costCount) {
-    return reject('not-affordable');
-  }
+  const payment = canPay(s, player, { minerals: def.minerals * costCount, gas: def.gas * costCount });
+  if (!payment.ok) return payment;
   const used = ctx.reservedSupply ?? s.players.supplyUsed[player]!;
   if (used + def.supply * productionCount(command.kind) > s.players.supplyMax[player]!) return reject('supply-blocked');
   return { ok: true };
