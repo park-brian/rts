@@ -1,7 +1,7 @@
 import type { Command } from './types.ts';
 import { Kind } from '../data.ts';
 import { hasInternalProductReady, internalProductCapacity } from '../mechanics/internal-products.ts';
-import { laySpiderMine } from '../spider-mine.ts';
+import { laySpiderMine } from '../mechanics/spider-mine.ts';
 import type { State } from '../entity/world.ts';
 import { canSpawnEntity, slotOf } from '../entity/world.ts';
 import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';

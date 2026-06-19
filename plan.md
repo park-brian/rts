@@ -463,6 +463,8 @@ Done when:
   `systems/production/larva.ts` as the tick-time larva spawner.
 - Moved shared tech-state, research-level, cost, and research-queue helpers under
   `mechanics/tech.ts`, deleting the old root helper path while preserving the stable package export.
+- Moved Spider Mine placement helpers under `mechanics/spider-mine.ts`, deleting the old root helper
+  path while keeping Vulture mine commands pointed at the mechanic owner.
 
 ## Review Checklist
 
