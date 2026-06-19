@@ -1,6 +1,5 @@
 import {
-  Kind, Role, Tech, Units, WeaponRangeUpgradePx, bwRange,
-  unitTraits, Trait, type Weapon,
+  Kind, Tech, Units, WeaponRangeUpgradePx, bwRange, type Weapon,
 } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { getTechLevel } from './tech.ts';
@@ -9,11 +8,7 @@ import { internalProductCapacity } from './internal-products.ts';
 const level = (s: State, owner: number, tech: number): number =>
   owner < s.teams.length ? getTechLevel(s, owner, tech) : 0;
 
-const isTerranInfantry = (kind: number): boolean =>
-  kind === Kind.Marine || kind === Kind.Firebat || kind === Kind.Medic || kind === Kind.Ghost || kind === Kind.SCV;
-
-const isZergMelee = (kind: number): boolean =>
-  kind === Kind.Zergling || kind === Kind.Ultralisk || kind === Kind.Broodling || kind === Kind.InfestedTerran;
+const kindSet = (...kinds: number[]): ReadonlySet<number> => new Set(kinds);
 
 const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
   [Kind.Dragoon]: 2,
@@ -24,6 +19,45 @@ const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
   [Kind.Devourer]: 2,
   [Kind.Ultralisk]: 3,
 };
+
+type UpgradeKindRule = { tech: number; kinds: ReadonlySet<number> };
+type WeaponUpgradeRule = UpgradeKindRule & { bonus?: number; weaponKind?: number };
+type ArmorUpgradeRule = UpgradeKindRule & { bonusPerLevel?: number };
+
+const WEAPON_UPGRADES: readonly WeaponUpgradeRule[] = [
+  { tech: Tech.InfantryWeapons, kinds: kindSet(Kind.Marine, Kind.Firebat, Kind.Ghost) },
+  { tech: Tech.VehicleWeapons, kinds: kindSet(Kind.Vulture, Kind.SiegeTank, Kind.SiegeTankSieged, Kind.Goliath) },
+  { tech: Tech.ShipWeapons, kinds: kindSet(Kind.Wraith, Kind.Valkyrie, Kind.Battlecruiser) },
+  { tech: Tech.GroundWeapons, kinds: kindSet(Kind.Zealot, Kind.Dragoon, Kind.DarkTemplar, Kind.Archon) },
+  { tech: Tech.ScarabDamage, kinds: kindSet(Kind.Reaver), bonus: 25, weaponKind: Kind.Scarab },
+  { tech: Tech.AirWeapons, kinds: kindSet(Kind.Scout, Kind.Interceptor, Kind.Arbiter, Kind.Corsair) },
+  { tech: Tech.MeleeAttacks, kinds: kindSet(Kind.Zergling, Kind.Ultralisk, Kind.Broodling, Kind.InfestedTerran) },
+  { tech: Tech.MissileAttacks, kinds: kindSet(Kind.Hydralisk, Kind.Lurker) },
+  { tech: Tech.FlyerAttacks, kinds: kindSet(Kind.Mutalisk, Kind.Scourge, Kind.Guardian, Kind.Devourer) },
+];
+
+const ARMOR_UPGRADES: readonly ArmorUpgradeRule[] = [
+  { tech: Tech.InfantryArmor, kinds: kindSet(Kind.SCV, Kind.Marine, Kind.Firebat, Kind.Medic, Kind.Ghost) },
+  { tech: Tech.VehiclePlating, kinds: kindSet(Kind.Vulture, Kind.SiegeTank, Kind.SiegeTankSieged, Kind.Goliath) },
+  { tech: Tech.ShipPlating, kinds: kindSet(Kind.Wraith, Kind.Dropship, Kind.ScienceVessel, Kind.Valkyrie, Kind.Battlecruiser) },
+  {
+    tech: Tech.GroundArmor,
+    kinds: kindSet(
+      Kind.Probe, Kind.Zealot, Kind.Dragoon, Kind.HighTemplar, Kind.DarkTemplar,
+      Kind.Archon, Kind.DarkArchon, Kind.Reaver, Kind.Scarab,
+    ),
+  },
+  { tech: Tech.AirArmor, kinds: kindSet(Kind.Observer, Kind.Shuttle, Kind.Scout, Kind.Carrier, Kind.Interceptor, Kind.Arbiter, Kind.Corsair) },
+  {
+    tech: Tech.Carapace,
+    kinds: kindSet(
+      Kind.Larva, Kind.Egg, Kind.Drone, Kind.Zergling, Kind.Hydralisk, Kind.Lurker,
+      Kind.Defiler, Kind.Ultralisk, Kind.InfestedTerran, Kind.Broodling,
+    ),
+  },
+  { tech: Tech.FlyerCarapace, kinds: kindSet(Kind.Overlord, Kind.Mutalisk, Kind.Scourge, Kind.Guardian, Kind.Devourer, Kind.Queen) },
+  { tech: Tech.ChitinousPlating, kinds: kindSet(Kind.Ultralisk), bonusPerLevel: 2 },
+];
 
 type RangeUpgradeDef = { tech: number; bonus: number; weapon?: 'air' | 'ground' };
 const RANGE_UPGRADES: Partial<Record<number, RangeUpgradeDef>> = {
@@ -71,24 +105,24 @@ const ENERGY_UPGRADES: Partial<Record<number, { tech: number; max: number }>> = 
   [Kind.Defiler]: { tech: Tech.MetasynapticNode, max: 250 },
 };
 
-const weaponUpgradeStep = (kind: number, _weapon?: Weapon): number =>
+const weaponUpgradeStep = (kind: number): number =>
   UPGRADE_DAMAGE_STEP[kind] ?? 1;
+
+const weaponMatchesRule = (rule: WeaponUpgradeRule, weapon?: Weapon): boolean => {
+  if (rule.weaponKind === undefined) return true;
+  const def = Units[rule.weaponKind]!;
+  return weapon === def.weapon || weapon === def.airWeapon;
+};
 
 export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon): number => {
   const e = s.e;
   const owner = e.owner[attacker]!;
   const kind = e.kind[attacker]!;
-  const def = Units[kind]!;
-  const step = weaponUpgradeStep(kind, weapon);
-  if (def.race === 'terran') {
-    if (isTerranInfantry(kind)) return level(s, owner, Tech.InfantryWeapons) * step;
-    return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.ShipWeapons : Tech.VehicleWeapons) * step;
-  }
-  if (kind === Kind.Reaver) return level(s, owner, Tech.ScarabDamage) > 0 ? 25 : 0;
-  if (def.race === 'protoss') return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.AirWeapons : Tech.GroundWeapons) * step;
-  if (def.race === 'zerg') {
-    if ((def.roles & Role.Air) !== 0) return level(s, owner, Tech.FlyerAttacks) * step;
-    return level(s, owner, isZergMelee(kind) ? Tech.MeleeAttacks : Tech.MissileAttacks) * step;
+  for (const rule of WEAPON_UPGRADES) {
+    if (!rule.kinds.has(kind) || !weaponMatchesRule(rule, weapon)) continue;
+    const techLevel = level(s, owner, rule.tech);
+    if (rule.bonus !== undefined) return techLevel > 0 ? rule.bonus : 0;
+    return techLevel * weaponUpgradeStep(kind);
   }
   return 0;
 };
@@ -97,14 +131,12 @@ export const armorUpgradeBonus = (s: State, target: number): number => {
   const e = s.e;
   const owner = e.owner[target]!;
   const kind = e.kind[target]!;
-  const def = Units[kind]!;
-  if (def.race === 'terran') {
-    if (isTerranInfantry(kind) || (unitTraits(kind) & Trait.Biological) !== 0) return level(s, owner, Tech.InfantryArmor);
-    return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.ShipPlating : Tech.VehiclePlating);
+  let bonus = 0;
+  for (const rule of ARMOR_UPGRADES) {
+    if (!rule.kinds.has(kind)) continue;
+    bonus += level(s, owner, rule.tech) * (rule.bonusPerLevel ?? 1);
   }
-  if (def.race === 'protoss') return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.AirArmor : Tech.GroundArmor);
-  if (def.race === 'zerg') return level(s, owner, (def.roles & Role.Air) !== 0 ? Tech.FlyerCarapace : Tech.Carapace);
-  return 0;
+  return bonus;
 };
 
 export const shieldArmorBonus = (s: State, target: number): number =>

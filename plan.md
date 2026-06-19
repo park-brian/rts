@@ -217,6 +217,10 @@ Remaining work:
     covering every table entry and the Goliath air-weapon-only range exception. Remaining work:
     consider weapon and armor race/category bonuses separately, since those still encode broader
     faction rules rather than simple per-kind scalar upgrades.
+  - Weapon/armor category slice is done: unit combat upgrades now use explicit BW unit-group
+    descriptor tables instead of broad race/air/ground role inference, preventing worker weapon
+    upgrades and structure/static-defense weapon or armor upgrade leakage while preserving Protoss
+    shield upgrades on buildings and adding Chitinous Plating as an Ultralisk armor bonus.
 
 Done when:
 
@@ -639,6 +643,9 @@ Done when:
 - Table-drove scalar upgrade helpers for range, speed, cooldown, sight, and caster energy caps,
   replacing per-kind switches with local upgrade descriptor tables and adding focused coverage for
   every descriptor entry.
+- Replaced role-inferred weapon and armor upgrade categories with explicit BW unit-group
+  descriptors, fixed upgrade leakage onto workers and static defenses/structures, and added
+  Chitinous Plating armor stacking coverage.
 
 ## Review Checklist
 

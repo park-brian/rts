@@ -5,7 +5,8 @@ import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
 import {
-  upgradedCooldown, upgradedEnergyMax, upgradedRange, upgradedSight, upgradedSpeed, weaponUpgradeBonus,
+  armorUpgradeBonus, shieldArmorBonus, upgradedCooldown, upgradedEnergyMax, upgradedRange,
+  upgradedSight, upgradedSpeed, weaponUpgradeBonus,
 } from '../src/mechanics/upgrades.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
@@ -73,6 +74,78 @@ test('weapon upgrades use brood war per-unit damage increments', () => {
 
     assert.equal(weaponUpgradeBonus(s, slotOf(unit), weapon), c.step * 2, Units[c.kind]!.name);
   }
+});
+
+test('weapon upgrade categories do not leak onto workers or static defenses', () => {
+  const cases = [
+    { kind: Kind.SCV, tech: Tech.InfantryWeapons, weapon: Units[Kind.SCV]!.weapon! },
+    { kind: Kind.Probe, tech: Tech.GroundWeapons, weapon: Units[Kind.Probe]!.weapon! },
+    { kind: Kind.Drone, tech: Tech.MeleeAttacks, weapon: Units[Kind.Drone]!.weapon! },
+    { kind: Kind.Drone, tech: Tech.MissileAttacks, weapon: Units[Kind.Drone]!.weapon! },
+    { kind: Kind.MissileTurret, tech: Tech.ShipWeapons, weapon: Units[Kind.MissileTurret]!.airWeapon! },
+    { kind: Kind.MissileTurret, tech: Tech.VehicleWeapons, weapon: Units[Kind.MissileTurret]!.airWeapon! },
+    { kind: Kind.PhotonCannon, tech: Tech.GroundWeapons, weapon: Units[Kind.PhotonCannon]!.weapon! },
+    { kind: Kind.SunkenColony, tech: Tech.MissileAttacks, weapon: Units[Kind.SunkenColony]!.weapon! },
+    { kind: Kind.SporeColony, tech: Tech.FlyerAttacks, weapon: Units[Kind.SporeColony]!.airWeapon! },
+  ];
+
+  for (const c of cases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 760 + c.kind + c.tech });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech, 3);
+
+    assert.equal(weaponUpgradeBonus(s, slotOf(unit), c.weapon), 0, `${Units[c.kind]!.name} ${c.tech}`);
+  }
+});
+
+test('armor upgrade categories apply to units but not structures', () => {
+  const upgradedUnits = [
+    { kind: Kind.SCV, tech: Tech.InfantryArmor, bonus: 2 },
+    { kind: Kind.Goliath, tech: Tech.VehiclePlating, bonus: 2 },
+    { kind: Kind.Wraith, tech: Tech.ShipPlating, bonus: 2 },
+    { kind: Kind.Probe, tech: Tech.GroundArmor, bonus: 2 },
+    { kind: Kind.Observer, tech: Tech.AirArmor, bonus: 2 },
+    { kind: Kind.Drone, tech: Tech.Carapace, bonus: 2 },
+    { kind: Kind.Mutalisk, tech: Tech.FlyerCarapace, bonus: 2 },
+    { kind: Kind.Ultralisk, tech: Tech.ChitinousPlating, bonus: 2, levels: 1 },
+  ];
+  for (const c of upgradedUnits) {
+    const { state: s, spawn, grant } = simScenario({ seed: 765 + c.kind + c.tech });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech, c.levels ?? 2);
+
+    assert.equal(armorUpgradeBonus(s, slotOf(unit)), c.bonus, Units[c.kind]!.name);
+  }
+
+  const structures = [
+    { kind: Kind.CommandCenter, tech: Tech.VehiclePlating },
+    { kind: Kind.Nexus, tech: Tech.GroundArmor },
+    { kind: Kind.Hatchery, tech: Tech.Carapace },
+    { kind: Kind.MissileTurret, tech: Tech.ShipPlating },
+    { kind: Kind.PhotonCannon, tech: Tech.GroundArmor },
+    { kind: Kind.SunkenColony, tech: Tech.Carapace },
+  ];
+  for (const c of structures) {
+    const { state: s, spawn, grant } = simScenario({ seed: 775 + c.kind + c.tech });
+    const structure = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech, 3);
+
+    assert.equal(armorUpgradeBonus(s, slotOf(structure)), 0, Units[c.kind]!.name);
+  }
+
+  const { state: s, spawn, grant } = simScenario({ seed: 776 });
+  const nexus = spawn(Kind.Nexus, 0, fx(400), fx(400));
+  grant(0, Tech.PlasmaShields, 3);
+  assert.equal(shieldArmorBonus(s, slotOf(nexus)), 3);
+});
+
+test('ultralisk armor stacks carapace with chitinous plating', () => {
+  const { state: s, spawn, grant } = simScenario({ seed: 777 });
+  const ultra = spawn(Kind.Ultralisk, 0, fx(400), fx(400));
+  grant(0, Tech.Carapace, 3);
+  grant(0, Tech.ChitinousPlating);
+
+  assert.equal(armorUpgradeBonus(s, slotOf(ultra)), 5);
 });
 
 test('range upgrades let units hit from upgraded distance', () => {
