@@ -29,7 +29,7 @@ import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
-import { isExternallySteeredChild, participatesInNormalCombat } from '../mechanics/child-actors.ts';
+import { isExternallySteeredActor, participatesInNormalCombat } from '../mechanics/actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, isInterceptorLaunchMechanic, weaponMechanicDef, type WeaponMechanicDef,
   type WeaponMechanicId,
@@ -309,7 +309,7 @@ export const combat = (s: State, grid: Grid): void => {
 
     faceToward(e, i, e.x[tgt]!, e.y[tgt]!);
     const weapon = weaponForTarget(def, Units[e.kind[tgt]!]!);
-    const childSystemSteers = isExternallySteeredChild(e.kind[i]!, e.home[i]!);
+    const actorSystemSteers = isExternallySteeredActor(e.kind[i]!, e.home[i]!);
     if (!weapon) {
       if (order === Order.Attack) {
         e.order[i] = Order.Idle;
@@ -342,7 +342,7 @@ export const combat = (s: State, grid: Grid): void => {
       }
     } else if (holdPosition) {
       clearCombatTarget(s, i);
-    } else if (!childSystemSteers) {
+    } else if (!actorSystemSteers) {
       navigate(s, i, e.x[tgt]!, e.y[tgt]!, effectiveSpeed(s, e, i, def.speed)); // approach
     }
   }

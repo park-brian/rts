@@ -1,6 +1,10 @@
 import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
-import { childActorDef, type ChildActorPresentation } from '../mechanics/child-actors.ts';
+import {
+  actorMinReadableScreenRadius,
+  actorPresentation,
+  type ChildActorPresentation,
+} from '../mechanics/actors.ts';
 import { canDetect, isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
 import { queuedTravelOrderAt, type QueuedTravelOrder } from '../entity/order-queue.ts';
@@ -278,9 +282,8 @@ export const childActorRenderPresentation = (
   gameplayRadius: number,
   zoom: number,
 ): ChildActorRenderPresentation => {
-  const def = childActorDef(kind);
-  const role = def?.presentation ?? 'unit';
-  const minScreenRadius = def?.minReadableScreenRadius;
+  const role = actorPresentation(kind);
+  const minScreenRadius = actorMinReadableScreenRadius(kind);
   const radius = minScreenRadius === undefined
     ? gameplayRadius
     : Math.max(gameplayRadius, minScreenRadius / Math.max(zoom, 0.001));
@@ -292,7 +295,7 @@ export const childActorRenderPresentation = (
 };
 
 export const entityMinimapVisible = (kind: number): boolean =>
-  (childActorDef(kind)?.presentation ?? 'unit') !== 'projectile';
+  actorPresentation(kind) !== 'projectile';
 
 const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);
 

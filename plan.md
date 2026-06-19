@@ -177,11 +177,12 @@ Migration plan:
   `systems/combat.ts`, `systems/production/*`, `systems/abilities.ts`, and structure mobility for
   common actor lifecycle and action shapes. Do this before rewriting; the goal is to collapse only
   proven duplication.
-- First extraction should be descriptor ownership, not behavior churn: expand
-  `mechanics/child-actors.ts` into a small actor-child/lifecycle descriptor that names commandable,
-  combat participation, steering mode, lifetime, return-to-home behavior, impact behavior, ammo
-  restore behavior, and presentation. Keep existing systems as interpreters until tests prove a
-  shared interpreter is clearer.
+- First descriptor ownership slice is done: `mechanics/actors.ts` now owns Scarab and Interceptor
+  actor metadata for commandability, normal combat participation, lifecycle, steering,
+  external-system steering, presentation, and readable projectile radius. Existing Scarab and
+  Interceptor systems remain the interpreters until a shared actor lifecycle interpreter is proven
+  smaller and easier to audit. Remaining cleanup: migrate app/tests/package consumers away from
+  child-actor terminology aliases, then delete those aliases from the actor owner.
 - Fold Scarab and Interceptor steering only if the shared interpreter is smaller and easier to audit
   than two tiny systems. It must preserve Scarab dud/impact behavior, pathing around terrain, splash
   falloff, Interceptor launch cadence, orbit motion, leash, return-to-bay, ammo restoration, and
@@ -1328,6 +1329,9 @@ Done when:
 - Moved Scarab and Interceptor child-actor presentation/combat descriptors under
   `mechanics/child-actors.ts`, deleting the old root helper path while preserving the stable package
   export.
+- Promoted Scarab and Interceptor descriptors from child-actor terminology to actor metadata under
+  `mechanics/actors.ts`, adding explicit lifecycle and steering fields while keeping the old public
+  child-actor names as temporary aliases until app/tests/package consumers are renamed.
 - Moved shared active-effect radius and coverage helpers under `mechanics/effects.ts`, deleting the
   old root helper path while preserving the stable package export.
 - Collapsed the root production queue helper into `commands/production.ts`, so train validation,
