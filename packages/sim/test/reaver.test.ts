@@ -18,7 +18,7 @@ import {
   childActorDef, isExternallySteeredChild, participatesInNormalCombat,
 } from '../src/mechanics/child-actors.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
-import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/interceptor.ts';
+import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/mechanics/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
 import {
   WeaponMechanic, WeaponMechanicByUnit, WeaponMechanicDefs, consumeWeaponMechanicAmmo,

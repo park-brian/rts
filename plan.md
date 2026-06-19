@@ -467,6 +467,9 @@ Done when:
   path while keeping Vulture mine commands pointed at the mechanic owner.
 - Moved shared burrow capability, access, weapon-availability, and state transition rules under
   `mechanics/burrow.ts`, deleting the old root helper path while preserving the stable package export.
+- Moved Carrier interceptor launch, bay, target, and ammo-readiness rules under
+  `mechanics/interceptor.ts`, deleting the old root helper path while leaving orbit/return ticking in
+  `systems/interceptors.ts`.
 
 ## Review Checklist
 

@@ -19,7 +19,7 @@ import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
 import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
-import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
+import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';

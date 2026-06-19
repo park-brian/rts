@@ -1,10 +1,10 @@
-import { Kind, Order, Units, sec, tiles, weaponForTarget } from './data.ts';
-import { trySpawnUnit } from './entity/factory.ts';
-import { isqrt } from './fixed.ts';
-import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './mechanics/internal-products.ts';
-import { NONE, eid, slotOf, type State } from './entity/world.ts';
-import { faceToward } from './spatial/motion.ts';
-import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './mechanics/weapons.ts';
+import { Kind, Order, Units, sec, tiles, weaponForTarget } from '../data.ts';
+import { trySpawnUnit } from '../entity/factory.ts';
+import { NONE, eid, slotOf, type State } from '../entity/world.ts';
+import { isqrt } from '../fixed.ts';
+import { faceToward } from '../spatial/motion.ts';
+import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
+import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapons.ts';
 
 const BAY_FORWARD = tiles(0.3);
 const BAY_SIDE = tiles(0.58);
