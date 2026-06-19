@@ -380,6 +380,19 @@ const drawVisibilityAffordances = (ctx: CanvasRenderingContext2D, game: Game): v
       ctx.stroke();
     } else {
       const r = a.radius * (0.94 + phase * 0.08);
+      if (a.hasSource) {
+        ctx.strokeStyle = 'rgba(255,80,70,0.34)';
+        ctx.lineWidth = 1.4 / game.zoom;
+        ctx.setLineDash([8 / game.zoom, 7 / game.zoom]);
+        ctx.beginPath();
+        ctx.moveTo(a.sourceX, a.sourceY);
+        ctx.lineTo(a.x, a.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(a.sourceX, a.sourceY, Math.max(2.5, 4 / game.zoom), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.strokeStyle = 'rgba(255,80,70,0.9)';
       ctx.lineWidth = 2.2 / game.zoom;
       ctx.beginPath();

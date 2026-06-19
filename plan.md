@@ -332,6 +332,10 @@ Remaining work:
     width. Future geometry work should come from newly discovered mechanics, not the old
     center-distance audit list.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
+  - Nuke presentation source affordance slice is done: descriptors now expose launch source
+    coordinates only to allied/observer views, and both renderers draw the same target warning plus
+    non-leaking source vector.
+  - Remaining: missile travel presentation and Valkyrie volley timing/visualization.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
 - Expand procedural maps beyond the ground-connected presets with later island variants once

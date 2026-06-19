@@ -443,9 +443,23 @@ export class GlRenderer {
         this.fx.push(a.x, a.y, d * (0.95 + phase * 0.08), d * (0.95 + phase * 0.08), 0, glow, 0.3, 0.75, 1, 0.11, 0, 0, 0);
       } else {
         const d = a.radius * 2 * (0.94 + phase * 0.08);
+        const white = this.atlas.uv.white!;
+        if (a.hasSource) {
+          const dx = a.x - a.sourceX;
+          const dy = a.y - a.sourceY;
+          const len = Math.hypot(dx, dy);
+          if (len > 0) {
+            this.sprites.push(
+              (a.x + a.sourceX) / 2, (a.y + a.sourceY) / 2, len, 1.4 / zoom,
+              Math.atan2(dy, dx), white, 1, 0.22, 0.18, 0.34, 0, 0, 0,
+            );
+          }
+          const mark = Math.max(5 / zoom, 3);
+          this.sprites.push(a.sourceX, a.sourceY, mark, mark, 0, ring, 1, 0.22, 0.18, 0.46, 0, 0, 0);
+        }
         this.sprites.push(a.x, a.y, d, d, 0, ring, 1, 0.22, 0.18, 0.95, 0, 0, 0);
-        this.sprites.push(a.x, a.y, a.radius * 0.8, 2 / zoom, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
-        this.sprites.push(a.x, a.y, 2 / zoom, a.radius * 0.8, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
+        this.sprites.push(a.x, a.y, a.radius * 0.8, 2 / zoom, 0, white, 1, 0.22, 0.18, 0.95, 0, 0, 0);
+        this.sprites.push(a.x, a.y, 2 / zoom, a.radius * 0.8, 0, white, 1, 0.22, 0.18, 0.95, 0, 0, 0);
       }
     }
   }

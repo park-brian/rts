@@ -7,6 +7,7 @@ import { queuedTravelOrderAt, type QueuedTravelOrder } from '../entity/order-que
 import { isTransitioning } from '../entity/state.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { isRepairableKind } from '../mechanics/repair.ts';
+import { sameTeam } from '../mechanics/cargo.ts';
 import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from '../spatial/geometry.ts';
 import { eid, isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 
@@ -107,6 +108,9 @@ export type EffectVisibilityAffordance = {
   y: number;
   radius: number;
   timer: number;
+  hasSource: boolean;
+  sourceX: number;
+  sourceY: number;
 };
 
 export type EffectFieldAffordance = {
@@ -479,6 +483,11 @@ const effectVisibleForRule = (
   return vis !== 0;
 };
 
+const effectSourceVisibleTo = (s: State, query: EffectVisibilityQuery, effect: number): boolean => {
+  const owner = s.effects.owner[effect]!;
+  return query.viewer < 0 || sameTeam(s, query.viewer, owner);
+};
+
 export const effectVisibilityAffordances = (
   s: State,
   query: EffectVisibilityQuery,
@@ -491,12 +500,17 @@ export const effectVisibilityAffordances = (
     const affordance = EffectPresentationDefs[fx.kind[i]!]?.affordance;
     if (!affordance) continue;
     if (!effectVisibleForRule(s, query, i, affordance.visibility)) continue;
+    const hasSource = effectSourceVisibleTo(s, query, i) &&
+      (fx.source[i] !== NONE || fx.sourceX[i] !== 0 || fx.sourceY[i] !== 0);
     out.push({
       kind: affordance.kind,
       x: fx.x[i]! / ONE,
       y: fx.y[i]! / ONE,
       radius: fx.radius[i]! / ONE,
       timer: fx.timer[i]!,
+      hasSource,
+      sourceX: hasSource ? fx.sourceX[i]! / ONE : 0,
+      sourceY: hasSource ? fx.sourceY[i]! / ONE : 0,
     });
   }
   return out;

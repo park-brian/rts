@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fieldAffordances, visibilityAffordances } from '../src/visibility-affordances.ts';
 import type { Game } from '../src/game.ts';
-import { EffectKind, ONE, Sim, TILE, fx, sliceMap, spawnEffect } from '../src/sim.ts';
+import { EffectKind, NONE, ONE, Sim, TILE, fx, sliceMap, spawnEffect } from '../src/sim.ts';
 
 const tileCenter = (t: number): number => fx(t * TILE + TILE / 2);
 
@@ -42,7 +42,9 @@ test('nuclear warning affordance respects fog knowledge', () => {
   const ty = 54;
   const x = tileCenter(tx);
   const y = tileCenter(ty);
-  spawnEffect(s, EffectKind.NuclearStrike, 1, x, y, fx(6 * TILE), 40, 0, 500);
+  const launchX = tileCenter(50);
+  const launchY = tileCenter(51);
+  spawnEffect(s, EffectKind.NuclearStrike, 1, x, y, fx(6 * TILE), 40, 0, 500, NONE, launchX, launchY);
 
   assert.deepEqual(visibilityAffordances(fakeGame(sim)), []);
 
@@ -52,6 +54,13 @@ test('nuclear warning affordance respects fog knowledge', () => {
   assert.equal(shown.length, 1);
   assert.equal(shown[0]?.kind, 'nuke');
   assert.equal(shown[0]?.timer, 40);
+  assert.equal(shown[0]?.hasSource, false);
+
+  const allied = visibilityAffordances(fakeGame(sim, 1));
+  assert.equal(allied.length, 1);
+  assert.equal(allied[0]?.hasSource, true);
+  assert.equal(allied[0]?.sourceX, launchX / ONE);
+  assert.equal(allied[0]?.sourceY, launchY / ONE);
 });
 
 test('spell field affordances expose visible persistent fields', () => {

@@ -244,12 +244,23 @@ test('effect visibility affordances expose scan and nuke presentation policy', (
   assert.equal(owned[0]?.x, farX / ONE);
 
   const nukeState = makeState(sliceMap(), 2, 79);
-  spawnEffect(nukeState, EffectKind.NuclearStrike, 1, farX, farY, fx(6 * TILE), 40, 0, 500);
+  const launchX = fx(48 * TILE + TILE / 2);
+  const launchY = fx(50 * TILE + TILE / 2);
+  spawnEffect(nukeState, EffectKind.NuclearStrike, 1, farX, farY, fx(6 * TILE), 40, 0, 500, NONE, launchX, launchY);
   assert.deepEqual(effectVisibilityAffordances(nukeState, { viewer: 0, tileVisible: () => 0 }), []);
   const explored = effectVisibilityAffordances(nukeState, { viewer: 0, tileVisible: () => 1 });
   assert.equal(explored.length, 1);
   assert.equal(explored[0]?.kind, 'nuke');
   assert.equal(explored[0]?.timer, 40);
+  assert.equal(explored[0]?.hasSource, false);
+  assert.equal(explored[0]?.sourceX, 0);
+
+  const allied = effectVisibilityAffordances(nukeState, { viewer: 1, tileVisible: () => 0 });
+  assert.equal(allied.length, 1);
+  assert.equal(allied[0]?.kind, 'nuke');
+  assert.equal(allied[0]?.hasSource, true);
+  assert.equal(allied[0]?.sourceX, launchX / ONE);
+  assert.equal(allied[0]?.sourceY, launchY / ONE);
 });
 
 test('effect field affordances expose persistent spell field presentation policy', () => {
