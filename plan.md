@@ -1236,7 +1236,7 @@ Source timing/data already present in local docs and sim tables:
 | Dark Swarm | 100 energy, range 9, 37.8s | persistent effect | Keep. |
 | Disruption Web | 125 energy, range 9, local docs say 15.12s | persistent effect | Fixed to sourced duration; expiry/attack-blocking coverage added. |
 | Scanner Sweep | 50 energy, global, local docs say about 6.8-11s, sim uses 8.4s | persistent effect | Accept provisional; document exact source when chosen. |
-| Nuclear Strike channel | local docs say Ghost channels about 14.5s; sim uses 8.4s effect delay | `Order.Cast` + effect | Fix timing and cancellation semantics after source reconciliation. |
+| Nuclear Strike channel | local docs say Ghost channels about 14.5s | `Order.Cast` + effect | Fixed to sourced channel duration; tests cover old-delay regression, impact timing, missile spend, and interruption. |
 | Yamato Gun | 150 energy, range 10, 260 damage | instant damage | Add windup/cast execution before damage after sourcing cast frames. |
 
 Implementation:
@@ -1305,7 +1305,8 @@ Stats and source work before implementation:
   - Irradiate duration fixed: research doc says 25.2s for the damage window and
     `data-abilities.ts` now models 250 integer damage over that window.
   - Disruption Web duration fixed: research doc says 15.12s and `data-abilities.ts` now matches.
-  - Nuclear Strike channel: research doc says about 14.5s; `data.ts` uses 8.4s.
+  - Nuclear Strike channel fixed: research doc says about 14.5s and `data-abilities.ts`
+    now uses that channel duration.
 - Source missing animation/cast frame counts before coding:
   - Siege Tank siege and unsiege deploy duration.
   - Burrow and unburrow duration by unit class, or a verified shared BW value if one exists.

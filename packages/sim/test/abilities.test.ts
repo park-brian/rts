@@ -863,13 +863,16 @@ test('ready nuke lookup and consumption are internal-product backed', () => {
   assert.equal(hasReadyNuke(s, 0), false);
 });
 
-test('nuclear strike consumes a missile and deals delayed area damage', () => {
+test('nuclear strike consumes a missile and deals damage after the sourced channel window', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 394 });
   const ghost = spawn(Kind.Ghost, 0, fx(400), fx(400));
   const silo = loadedSilo(s, spawn, 0);
   const marine = spawn(Kind.Marine, 1, fx(720), fx(400));
   const cc = spawn(Kind.CommandCenter, 1, fx(740), fx(400));
   const far = spawn(Kind.CommandCenter, 1, fx(1200), fx(400));
+  const nuke = Abilities[Ability.NuclearStrike]!;
+
+  assert.equal(nuke.duration, sec(14.5));
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
@@ -879,6 +882,10 @@ test('nuclear strike consumes a missile and deals delayed area damage', () => {
   assert.equal(s.e.specialAmmo[slotOf(silo)], 0);
   assert.equal(s.e.alive[slotOf(marine)], 1);
   for (let t = 0; t < sec(8.5); t++) sim.step([]);
+  assert.equal(s.e.alive[slotOf(marine)], 1, 'old 8.4s delay must not resolve the strike early');
+  assert.equal(s.e.hp[slotOf(cc)], Units[Kind.CommandCenter]!.hp);
+
+  for (let t = sec(8.5); t < nuke.duration - 1; t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 0);
   assert.equal(s.e.hp[slotOf(cc)], Units[Kind.CommandCenter]!.hp - 500);
   assert.equal(s.e.hp[slotOf(far)], Units[Kind.CommandCenter]!.hp);
@@ -894,12 +901,15 @@ test('nuclear strike requires a ready missile and cancels if the ghost moves', (
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: false, reason: 'missing-requirement' }]);
 
   loadedSilo(s, spawn, 0);
+  const silo = readyNukeSilo(s, 0);
   assert.deepEqual(sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: ghost, ability: Ability.NuclearStrike, x: fx(720), y: fx(400) },
   ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.equal(s.e.specialAmmo[silo], 0, 'accepted launch spends the ready missile immediately');
   sim.step([{ player: 0, cmds: [{ t: 'move', unit: ghost, x: fx(200), y: fx(400) }] }]);
-  for (let t = 0; t < sec(9); t++) sim.step([]);
+  for (let t = 0; t < Abilities[Ability.NuclearStrike]!.duration; t++) sim.step([]);
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.specialAmmo[silo], 0, 'interrupted channel does not refund the launched missile');
 });
 
 test('nuclear silos build one internal missile ammo', () => {

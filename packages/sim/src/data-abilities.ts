@@ -243,7 +243,7 @@ export const Abilities: Record<number, AbilityDef> = {
   [Ability.NuclearStrike]: {
     name: 'Nuclear Strike', target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Ghost],
-    energyCost: 0, hpCost: 0, range: tiles(10), radius: fx(192), duration: sec(8.4), period: 0, damage: 500,
+    energyCost: 0, hpCost: 0, range: tiles(10), radius: fx(192), duration: sec(14.5), period: 0, damage: 500,
   },
   [Ability.ShieldRecharge]: {
     name: 'Recharge Shields', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
