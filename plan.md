@@ -471,6 +471,9 @@ Remaining work:
     - Capability-classification slice is done: base incidents now distinguish Nydus breaches,
       transport drops, static threat zones, and long-range siege containments from unit data
       (kind, cargo capacity, roles, and weapon range) before later directors choose the response.
+    - Incident-memory slice is done: visible incidents now refresh deterministic `BotMemory`, decay
+      for `TACTICAL_INCIDENT_MEMORY_TICKS` after vision drops, and the live bot attack-moves
+      retaskable defenders to remembered incident centers when no visible target remains.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -644,6 +647,9 @@ Done when:
 - Classified first tactical incident capabilities for Nydus, transport, static-defense, and
   long-range containment threats using shared unit/weapon data instead of scenario-specific bot
   branches.
+- Added deterministic tactical incident memory and live remembered-defense behavior, so vanished
+  drops, Nydus breaches, siege positions, and other base-local threats keep a short defensive
+  response alive instead of disappearing the moment fog hides the target.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

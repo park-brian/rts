@@ -17,7 +17,14 @@ import {
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
-import { collectBotFacts, deriveTacticalIncidents, type TacticalIncident } from './macro.ts';
+import {
+  collectBotFacts,
+  createBotMemory,
+  deriveTacticalIncidents,
+  rememberTacticalIncidents,
+  type BotMemory,
+  type TacticalIncident,
+} from './macro.ts';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
@@ -250,6 +257,24 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
   const armyDef = Units[faction.armyUnit]!;
   const supplyDef = Units[faction.supplyStructure]!;
   const rax = Units[faction.armyStructure]!;
+  const memories = new Map<number, BotMemory>();
+  const memoryFor = (player: number): BotMemory => {
+    let memory = memories.get(player);
+    if (!memory) {
+      memory = createBotMemory();
+      memories.set(player, memory);
+    }
+    return memory;
+  };
+  const prepareMemory = (player: number, tick: number): BotMemory => {
+    let memory = memoryFor(player);
+    if (tick < memory.lastTick) {
+      memory = createBotMemory();
+      memories.set(player, memory);
+    }
+    memory.lastTick = tick;
+    return memory;
+  };
 
   return (s: State, p: number): Command[] => {
     const e = s.e;
@@ -420,17 +445,23 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     // 5) Defense: incidents protect every owned base, not only the initial depot.
-    const incident = deriveTacticalIncidents(s, facts)[0];
+    const visibleIncidents = deriveTacticalIncidents(s, facts);
+    const incident = rememberTacticalIncidents(prepareMemory(p, s.tick), visibleIncidents, s.tick)[0];
     const threat = incident ? incidentTarget(s, incident) : NONE;
-    if (threat !== NONE) {
-      castTacticalAbilities(s, p, cmds, casters, e.x[threat]!, e.y[threat]!);
+    if (incident) {
+      const focusX = threat !== NONE ? e.x[threat]! : incident.x;
+      const focusY = threat !== NONE ? e.y[threat]! : incident.y;
+      if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
       for (const a of retaskableArmy) {
-        if (maybeLaySpiderMine(s, cmds, a, threat)) continue;
-        if (maybeBurrowForFight(s, cmds, a, threat)) continue;
-        if (maybeTransformForFight(s, cmds, a, e.x[threat]!, e.y[threat]!)) continue;
+        if (threat !== NONE && maybeLaySpiderMine(s, cmds, a, threat)) continue;
+        if (threat !== NONE && maybeBurrowForFight(s, cmds, a, threat)) continue;
+        if (maybeTransformForFight(s, cmds, a, focusX, focusY)) continue;
         maybeStim(s, cmds, a);
-        if (weaponForTarget(Units[e.kind[a]!]!, Units[e.kind[threat]!]!)) cmds.push({ t: 'attack', unit: eid(e, a), target: eid(e, threat) });
-        else cmds.push({ t: 'amove', unit: eid(e, a), x: e.x[threat]!, y: e.y[threat]! });
+        if (threat !== NONE && weaponForTarget(Units[e.kind[a]!]!, Units[e.kind[threat]!]!)) {
+          cmds.push({ t: 'attack', unit: eid(e, a), target: eid(e, threat) });
+        } else {
+          cmds.push({ t: 'amove', unit: eid(e, a), x: focusX, y: focusY });
+        }
       }
     } else if (army >= c.attackThreshold) {
       // 6) Offense: send idle army to the nearest enemy structure (else any enemy).

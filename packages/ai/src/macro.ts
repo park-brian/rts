@@ -79,6 +79,9 @@ export type TacticalIncident = {
   y: number;
   base?: number;
   enemies?: number[];
+  expiresAt?: number;
+  lastSeenTick?: number;
+  remembered?: boolean;
 };
 
 export type BotThreat = {
@@ -122,16 +125,21 @@ export type BotFacts = {
 };
 
 export type BotMemory = {
+  lastTick: number;
   blockedSites: Map<string, { reason: BotFailureReason; tick: number }>;
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
+  tacticalIncidents: Map<string, TacticalIncident>;
 };
 
 export const createBotMemory = (): BotMemory => ({
+  lastTick: -1,
   blockedSites: new Map(),
   suspectedInvisibleThreats: new Map(),
+  tacticalIncidents: new Map(),
 });
 
 const BASE_THREAT_TILES = 18;
+export const TACTICAL_INCIDENT_MEMORY_TICKS = 8 * 24;
 
 export const canRetaskArmy = (s: State, slot: number): boolean => {
   const e = s.e;
@@ -180,6 +188,16 @@ const incidentKindBonus = (kind: TacticalIncidentKind): number => {
     default: return 0;
   }
 };
+
+const incidentKey = (incident: TacticalIncident): string => {
+  if (incident.base !== undefined) return `${incident.kind}:base:${incident.base}`;
+  return `${incident.kind}:tile:${tileCoord(incident.x, 10_000)},${tileCoord(incident.y, 10_000)}`;
+};
+
+const incidentSort = (a: TacticalIncident, b: TacticalIncident): number =>
+  b.severity - a.severity ||
+  (a.base ?? NONE) - (b.base ?? NONE) ||
+  a.kind.localeCompare(b.kind);
 
 const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncidentKind => {
   const e = s.e;
@@ -364,7 +382,46 @@ export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalInci
       enemies,
     });
   }
-  incidents.sort((a, b) => b.severity - a.severity || (a.base ?? NONE) - (b.base ?? NONE));
+  incidents.sort(incidentSort);
+  return incidents;
+};
+
+export const rememberTacticalIncidents = (
+  memory: BotMemory,
+  visibleIncidents: readonly TacticalIncident[],
+  tick: number,
+): TacticalIncident[] => {
+  if (visibleIncidents.length === 0 && memory.tacticalIncidents.size === 0) return [];
+
+  const visibleKeys = new Set<string>();
+  for (const incident of visibleIncidents) {
+    const key = incidentKey(incident);
+    visibleKeys.add(key);
+    memory.tacticalIncidents.set(key, {
+      ...incident,
+      expiresAt: tick + TACTICAL_INCIDENT_MEMORY_TICKS,
+      lastSeenTick: tick,
+      remembered: false,
+    });
+  }
+
+  const incidents = [...visibleIncidents];
+  for (const [key, incident] of memory.tacticalIncidents) {
+    if ((incident.expiresAt ?? tick) <= tick) {
+      memory.tacticalIncidents.delete(key);
+      continue;
+    }
+    if (visibleKeys.has(key)) continue;
+    const age = tick - (incident.lastSeenTick ?? tick);
+    incidents.push({
+      ...incident,
+      enemies: [],
+      remembered: true,
+      severity: Math.max(1, incident.severity - Math.trunc(age / 24) * 10),
+    });
+  }
+
+  incidents.sort(incidentSort);
   return incidents;
 };
 
