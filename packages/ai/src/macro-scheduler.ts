@@ -10,14 +10,14 @@ import {
   maybeSetArmyStructureRallies,
   summarizeEconomyRoster,
 } from './macro-economy.ts';
-import { maybeQueueExpansion } from './macro-expansion.ts';
+import { queueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
-import type { BotIntent } from './macro-intents.ts';
+import type { BotIntent, BotIntentRecord } from './macro-intents.ts';
 import type { BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
@@ -32,6 +32,7 @@ export type MacroSchedule = {
   builder: number;
   army: number;
   intents: BotIntent[];
+  intentResults: BotIntentRecord[];
   retaskableArmy: number[];
   casters: number[];
 };
@@ -127,6 +128,7 @@ export const scheduleBotMacro = (
   const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtArmyStructures;
   const usedProducers = new Set<number>();
   const reservedTechProducers: ProducerReservations = new Set();
+  const intentResults: BotIntentRecord[] = [];
   let builderUsed = false;
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
@@ -215,7 +217,9 @@ export const scheduleBotMacro = (
   }
 
   if (!builderUsed) {
-    builderUsed = maybeQueueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory);
+    const expansion = queueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory);
+    builderUsed = expansion.queued;
+    if (expansion.blocked) intentResults.push(expansion.blocked);
   }
 
   if (!builderUsed) {
@@ -239,6 +243,7 @@ export const scheduleBotMacro = (
     builder: economy.builder,
     army: facts.army.length,
     intents: macroIntentsFromCommands(cmds.slice(commandStart), faction),
+    intentResults,
     retaskableArmy: facts.retaskableArmy,
     casters: facts.casters,
   };

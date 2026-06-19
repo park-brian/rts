@@ -19,6 +19,7 @@ import {
   type State,
 } from '@rts/sim';
 import { maybeQueueStructureAtPoint, type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
+import type { BotIntentRecord } from './macro-intents.ts';
 import { locationBlockedByIntentMemory, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
@@ -40,6 +41,11 @@ const siteCenter = (site: BaseSite): { x: number; y: number } => ({
   x: site.x * TILE_FX + (TILE_FX >> 1),
   y: site.y * TILE_FX + (TILE_FX >> 1),
 });
+
+export type ExpansionAttempt = {
+  queued: boolean;
+  blocked?: BotIntentRecord;
+};
 
 const depotKind = (kind: number): boolean =>
   kind === Kind.CommandCenter || kind === Kind.Nexus || isLarvaSourceKind(kind);
@@ -80,6 +86,14 @@ const ownedOrPendingDepotCount = (s: State, player: number, plannedKind: number)
 const desiredDepotCount = (minerals: number): number =>
   Math.min(EXPANSION_MAX, 2 + Math.trunc((minerals - EXPANSION_BANK) / EXPANSION_STEP));
 
+const blockedExpansion = (
+  faction: Faction,
+  point: { x: number; y: number },
+): BotIntentRecord => ({
+  intent: { kind: 'expand', urgency: 35, targetKind: faction.depot, x: point.x, y: point.y },
+  result: { status: 'blocked', reason: 'occupied-location' },
+});
+
 const candidateSites = (
   s: State,
   player: number,
@@ -112,15 +126,17 @@ const candidateSites = (
     });
 };
 
-const maybeLandLiftedIslandDepot = (
+const queueLiftedIslandDepot = (
   s: State,
   player: number,
+  faction: Faction,
   home: number,
   plannedKind: number,
   cmds: Command[],
   memory?: BotMemory,
-): boolean => {
+): ExpansionAttempt => {
   const e = s.e;
+  let blocked: BotIntentRecord | undefined;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== plannedKind) continue;
     if (e.order[i] !== Order.Idle || !isLiftedStructureFlags(e.flags[i]!)) continue;
@@ -129,10 +145,47 @@ const maybeLandLiftedIslandDepot = (
       const command: Command = { t: 'land', building: eid(e, i), x: point.x, y: point.y };
       if (!validateCommand(s, player, command).ok) continue;
       cmds.push(command);
-      return true;
+      return { queued: true };
+    }
+    if (!blocked) {
+      for (const site of candidateSites(s, player, home, plannedKind, { islands: true })) {
+        const point = siteCenter(site);
+        if (memory && locationBlockedByIntentMemory(memory, point.x, point.y)) continue;
+        blocked = blockedExpansion(faction, point);
+        break;
+      }
     }
   }
-  return false;
+  return { queued: false, ...(blocked ? { blocked } : {}) };
+};
+
+export const queueExpansion = (
+  s: State,
+  player: number,
+  faction: Faction,
+  facts: BotFacts,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  findSpot: PointSpotFinder,
+  memory?: BotMemory,
+): ExpansionAttempt => {
+  if (facts.primaryBase === NONE) return { queued: false };
+  const lifted = queueLiftedIslandDepot(s, player, faction, facts.primaryBase, faction.depot, cmds, memory);
+  if (lifted.queued || lifted.blocked) return lifted;
+  if (worker === NONE) return { queued: false };
+  if (budget.minerals < EXPANSION_BANK) return { queued: false };
+  if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return { queued: false };
+
+  let blocked: BotIntentRecord | undefined;
+  for (const site of candidateSites(s, player, facts.primaryBase, faction.depot, { memory })) {
+    const point = siteCenter(site);
+    if (maybeQueueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot)) {
+      return { queued: true };
+    }
+    blocked ??= blockedExpansion(faction, point);
+  }
+  return { queued: false, ...(blocked ? { blocked } : {}) };
 };
 
 export const maybeQueueExpansion = (
@@ -145,18 +198,4 @@ export const maybeQueueExpansion = (
   worker: number,
   findSpot: PointSpotFinder,
   memory?: BotMemory,
-): boolean => {
-  if (facts.primaryBase === NONE) return false;
-  if (maybeLandLiftedIslandDepot(s, player, facts.primaryBase, faction.depot, cmds, memory)) return true;
-  if (worker === NONE) return false;
-  if (budget.minerals < EXPANSION_BANK) return false;
-  if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return false;
-
-  for (const site of candidateSites(s, player, facts.primaryBase, faction.depot, { memory })) {
-    const point = siteCenter(site);
-    if (maybeQueueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot)) {
-      return true;
-    }
-  }
-  return false;
-};
+): boolean => queueExpansion(s, player, faction, facts, cmds, budget, worker, findSpot, memory).queued;

@@ -724,6 +724,10 @@ Remaining work:
       skip sites remembered as blocked in `BotMemory`, while keeping the same shared placement
       validator for the selected fallback site. Remaining work: expansion executors still need to
       report blocked/unsafe/occupied outcomes when placement or routes fail live.
+    - Expansion blocked-outcome slice is done: failed live expansion placement now surfaces a blocked
+      `expand` intent result instead of disappearing as "no macro command", and the planner feeds
+      that outcome into the same intent-memory path. Remaining work: route/path failures and truly
+      unsafe expansion sites still need their own outcome sources.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

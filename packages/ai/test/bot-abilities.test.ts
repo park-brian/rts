@@ -1912,6 +1912,30 @@ test('terran bot skips remembered blocked expansion sites', () => {
   assert.notEqual(tileX(build.x), natural.x);
 });
 
+test('live bot planner reports blocked expansion placement outcomes', () => {
+  const scenario = bankedExpansionScenario(515);
+  const natural = playerNatural(scenario);
+  blockBuildTilesAround(
+    scenario.sim,
+    fx(natural.x * TILE + TILE / 2),
+    fx(natural.y * TILE + TILE / 2),
+    8,
+  );
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.targetKind === Kind.CommandCenter &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'occupied-location'));
+});
+
 test('terran bot does not duplicate an already occupied expansion site', () => {
   const scenario = bankedExpansionScenario(513);
   const natural = playerNatural(scenario);

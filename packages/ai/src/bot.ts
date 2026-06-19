@@ -76,6 +76,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     const memory = prepareMemory(p, s.tick);
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, c, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
+    intentResults.push(...macro.intentResults);
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const defenseProposal = proposeTacticalDefense(s, facts, memory);
