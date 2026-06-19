@@ -5,7 +5,15 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/spatial/pathing.ts';
 import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/spatial/flow.ts';
 import { stepWorld } from '../src/tick.ts';
-import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/map/procedural.ts';
+import {
+  generateMap,
+  mapBaseReservationsValid,
+  mapConnected,
+  mapGroundConnected,
+  mapIslandBasesDisconnected,
+  mapResourcesValid,
+  selectBaseCluster,
+} from '../src/map/procedural.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/map/harvest-calibration.ts';
 import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map/core.ts';
 import { Kind, Order, ResourceType, TILE } from '../src/data/index.ts';
@@ -325,6 +333,33 @@ test('fortress preset adds validated fortified expansions without breaking groun
   }
 
   assert.ok(fortresses.every((base) => base.owner === undefined), 'fortress expansions are neutral base sites');
+});
+
+test('island-expansion preset makes disconnected neutral islands explicit', () => {
+  const m = generateMap(2, 94, { preset: 'islandExpansions' });
+  const bases = m.bases ?? [];
+  const mains = bases.filter((base) => base.kind === 'main');
+  const islands = bases.filter((base) => base.kind === 'island');
+
+  assert.equal(m.starts.length, 4);
+  assert.equal(mains.length, 4);
+  assert.equal(islands.length, 2);
+  assert.equal(mapConnected(m), false, 'strict connectivity still rejects unreachable island bases');
+  assert.equal(mapGroundConnected(m), true, 'starts and non-island bases stay ground-connected');
+  assert.equal(mapIslandBasesDisconnected(m), true, 'islands are neutral, disconnected expansion pockets');
+  assert.equal(mapResourcesValid(m), true);
+  assert.equal(mapBaseReservationsValid(m), true);
+  assert.equal(mainBaseMineralRoutesValid(m, { maxResourceOrderRouteSpreadFrames: Number.POSITIVE_INFINITY }), true);
+  assert.equal(baseGasRoutesValid(m), true);
+  assertBaseDepotAnchorsLegal(m);
+  assert.ok(islands.every((base) => base.owner === undefined && base.team === -1), 'island expansions are neutral base sites');
+  assert.deepEqual(islands.map((base) => base.resourceDir), ['east', 'west']);
+
+  for (const base of islands) {
+    assert.equal(m.elev[base.y * m.w + base.x], 1, 'island base sits on a closed high-ground pocket');
+    assert.equal(base.rampX, undefined, 'island pockets do not expose a ground ramp');
+    assert.equal(base.rampY, undefined, 'island pockets do not expose a ground ramp');
+  }
 });
 
 test('procedural base reservations reject overlapping whole-base clusters', () => {

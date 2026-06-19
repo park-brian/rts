@@ -16,7 +16,8 @@ import { makeRng, range, type Rng } from '../rng.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
-export type MapPreset = 'teamPlateaus' | 'cornerBases' | 'isolatedMains' | 'fortress';
+export const MAP_PRESETS = ['teamPlateaus', 'cornerBases', 'isolatedMains', 'fortress', 'islandExpansions'] as const;
+export type MapPreset = typeof MAP_PRESETS[number];
 export type GenerateMapOptions = {
   preset?: MapPreset;
   midfield?: MidfieldModule;
@@ -272,6 +273,13 @@ const stampPocketRim = (b: MapBuilder, rect: Rect, rampX: number, rampY: number)
   fillRect(b.map.build, b.map.w, rampX - RAMP_HALF_W, rampY, rampX + RAMP_HALF_W, rampY, 0);
 };
 
+const stampClosedPocketRim = (b: MapBuilder, rect: Rect): void => {
+  b.stampBlock({ x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y0 });
+  b.stampBlock({ x0: rect.x0, x1: rect.x1, y0: rect.y1, y1: rect.y1 });
+  b.stampBlock({ x0: rect.x0, x1: rect.x0, y0: rect.y0, y1: rect.y1 });
+  b.stampBlock({ x0: rect.x1, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
+};
+
 const stampMainPocket = (b: MapBuilder, centerX: number, south: boolean): { start: StartLoc; rampY: number } => {
   const m = b.map;
   const rect: Rect = south
@@ -402,6 +410,23 @@ const stampCornerBases = (b: MapBuilder): void => {
   }
 };
 
+const stampIslandExpansions = (b: MapBuilder): void => {
+  stampCornerBases(b);
+  const m = b.map;
+  const blockedReservations = (m.bases ?? []).flatMap((base) => base.reservation === undefined ? [] : [base.reservation]);
+
+  for (let i = 0; i < b.perTeam; i++) {
+    const x = laneCenter(i);
+    const rect: Rect = { x0: x - 19, x1: x + 19, y0: 37, y1: 59 };
+    b.fill(rect, 1, 1, 1);
+    stampClosedPocketRim(b, rect);
+
+    const dir: BaseResourceDir = i % 2 === 0 ? 'east' : 'west';
+    const island = stampBaseCluster(m, { x, y: 48 }, dir, 'island', blockedReservations);
+    addBaseSite(m, 'island', -1, island);
+  }
+};
+
 const mirrorY = (m: MapDef, rect: Rect): Rect => ({
   x0: rect.x0,
   x1: rect.x1,
@@ -519,6 +544,46 @@ export const mapConnected = (m: MapDef): boolean => {
   return true;
 };
 
+const resourceInBaseReservation = (r: ResourceSpawn, base: BaseSite): boolean =>
+  base.reservation !== undefined && resourceFootprintsOverlap(resourceSpawnFootprint(r), base.reservation);
+
+export const mapGroundConnected = (m: MapDef): boolean => {
+  const s0 = m.starts[0];
+  if (s0 === undefined) return false;
+  const seen = reachableFrom(m, s0.x, s0.y);
+  for (const st of m.starts) if (seen[st.y * m.w + st.x] !== 1) return false;
+  for (const base of m.bases ?? []) {
+    if (base.kind !== 'island' && seen[base.y * m.w + base.x] !== 1) return false;
+  }
+  const islands = (m.bases ?? []).filter((base) => base.kind === 'island');
+  for (const r of m.resources) {
+    if (islands.some((base) => resourceInBaseReservation(r, base))) continue;
+    const fp = resourceSpawnFootprint(r);
+    if (seen[fp.y0 * m.w + fp.x0] !== 1) return false;
+  }
+  return true;
+};
+
+export const mapIslandBasesDisconnected = (m: MapDef): boolean => {
+  const s0 = m.starts[0];
+  if (s0 === undefined) return false;
+  const seen = reachableFrom(m, s0.x, s0.y);
+  const islands = (m.bases ?? []).filter((base) => base.kind === 'island');
+  if (islands.length === 0) return false;
+  for (const base of islands) {
+    if (base.owner !== undefined || seen[base.y * m.w + base.x] === 1) return false;
+    let resources = 0;
+    for (const r of m.resources) {
+      if (!resourceInBaseReservation(r, base)) continue;
+      resources++;
+      const fp = resourceSpawnFootprint(r);
+      if (seen[fp.y0 * m.w + fp.x0] === 1) return false;
+    }
+    if (resources === 0) return false;
+  }
+  return true;
+};
+
 const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: MidfieldModule): MapDef => {
   const builder = new MapBuilder(perTeam, seed);
   switch (preset) {
@@ -526,6 +591,7 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
     case 'cornerBases': stampCornerBases(builder); break;
     case 'isolatedMains': stampIsolatedMains(builder); break;
     case 'fortress': stampFortress(builder); break;
+    case 'islandExpansions': stampIslandExpansions(builder); break;
   }
   applyMidfieldModule(builder, midfield, makeRng(seed));
   return builder.map;
@@ -539,7 +605,9 @@ const mainMineralRoutesValidForPreset = (m: MapDef, preset: MapPreset): boolean 
 };
 
 const generatedMapValid = (m: MapDef, preset: MapPreset): boolean =>
-  mapConnected(m) &&
+  (preset === 'islandExpansions'
+    ? mapGroundConnected(m) && mapIslandBasesDisconnected(m)
+    : mapConnected(m)) &&
   mapResourcesValid(m) &&
   mapBaseReservationsValid(m) &&
   mainMineralRoutesValidForPreset(m, preset) &&

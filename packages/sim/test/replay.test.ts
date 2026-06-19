@@ -226,6 +226,17 @@ test('procedural replay specs preserve optional generator knobs', () => {
   }));
   assert.deepEqual(parsedFortress.map, fortress);
   assert.equal(mapFromSpec(parsedFortress.map).bases?.filter((base) => base.kind === 'fortress').length, 4);
+
+  const islandExpansions: MapSpec = { kind: 'procedural', perTeam: 2, seed: 20, preset: 'islandExpansions' };
+  const parsedIslandExpansions = parseReplay(JSON.stringify({
+    version: 1,
+    map: islandExpansions,
+    players: 4,
+    seed: 20,
+    frames: [],
+  }));
+  assert.deepEqual(parsedIslandExpansions.map, islandExpansions);
+  assert.equal(mapFromSpec(parsedIslandExpansions.map).bases?.filter((base) => base.kind === 'island').length, 2);
 });
 
 test('replay preserves selected player factions', () => {

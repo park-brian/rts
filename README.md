@@ -151,7 +151,8 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   per patch — derived from round-trip timing — with auto re-routing on depletion), **gas via
   refineries** built on vespene geysers, per-structure **rally points** (CCs default to the
   mineral line), the SC1 damage model, and procedural symmetric NvN maps (base plateaus, ramps,
-  validated connectivity). **Fog of war** is computed sim-side and exposed through a fog-limited
+  validated ground connectivity, and explicit neutral island-expansion variants). **Fog of war** is
+  computed sim-side and exposed through a fog-limited
   `observe(player)` (the fair-play view for network/RL, vs. `fullState()`'s god view; opt-in so
   headless throughput skips it). **Replays** are first-class: opt-in command-stream recording,
   `play`/`replayHashes` re-simulation, and `serialize()`/`deserialize()` of full state to a flat

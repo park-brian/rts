@@ -350,6 +350,12 @@ Remaining work:
     this list; prefer spec-backed table rows over kind-wide branches.
 - Expand procedural maps beyond the ground-connected presets with later island variants once
   disconnected-ground validity and AI semantics are explicit.
+  - Island-expansion generator slice is done: replay-visible `islandExpansions` maps keep starts and
+    non-island bases ground-connected, add neutral closed-pocket island expansions, preserve strict
+    `mapConnected` semantics for callers that require full ground reachability, and expose explicit
+    `mapGroundConnected` / `mapIslandBasesDisconnected` validators. Remaining island work:
+    transport-aware AI expansion logic and player/UI affordances for air-only or transport-only base
+    access.
 
 Done when:
 
@@ -487,6 +493,8 @@ Done when:
 - Added orientation-aware resource arcs and a side-facing `cornerBases` procedural preset.
 - Added a replay-visible `isolatedMains` procedural preset with ground-connected high-ground pockets.
 - Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
+- Added a replay-visible `islandExpansions` procedural preset with explicit disconnected-island
+  validation while preserving strict full-ground-connectivity checks for older presets.
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
 - Extracted stop command validation.

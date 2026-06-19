@@ -8,7 +8,7 @@ import { Sim } from '../sim.ts';
 import type { Command, PlayerCommands } from '../commands/types.ts';
 import { Factions, factionNameOf, type FactionName } from '../data/index.ts';
 import { sliceMap, type MapDef } from '../map/core.ts';
-import { generateMap, type MapPreset, type MidfieldModule } from '../map/procedural.ts';
+import { generateMap, MAP_PRESETS, type MapPreset, type MidfieldModule } from '../map/procedural.ts';
 
 export const REPLAY_VERSION = 1;
 
@@ -74,7 +74,7 @@ const readArray = (x: unknown, msg: string): unknown[] => {
 };
 
 const validateMapPreset = (x: unknown): MapPreset => {
-  if (x === 'teamPlateaus' || x === 'cornerBases' || x === 'isolatedMains' || x === 'fortress') return x;
+  if (typeof x === 'string' && (MAP_PRESETS as readonly string[]).includes(x)) return x as MapPreset;
   return fail('unknown procedural map preset');
 };
 
