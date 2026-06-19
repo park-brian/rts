@@ -7,6 +7,7 @@
 
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
+import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
 import { Order } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import {
@@ -94,6 +95,7 @@ export const settleMovement = (s: State): void => {
       continue;
     }
 
+    if (startNextQueuedTravelOrder(s, i)) continue;
     e.order[i] = Order.Idle;
     e.target[i] = NONE;
     e.intentTarget[i] = NONE;

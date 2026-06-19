@@ -10,6 +10,7 @@ import { isDisabled } from '../systems/status.ts';
 import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, isEnemy, NONE, slotOf } from '../entity/world.ts';
+import { clearOrderQueue } from '../entity/order-queue.ts';
 
 export type CommandRejection = { ok: false; reason: CommandRejectReason };
 
@@ -146,5 +147,6 @@ export const clearSettled = (s: State, slot: number): void => {
 };
 
 export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
+  clearOrderQueue(s.e, slot);
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
 };

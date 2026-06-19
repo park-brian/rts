@@ -54,6 +54,23 @@ export type Entities = {
   target: Int32Array; // Legacy EntityId or NONE (current behavior source of truth)
   intentTarget: Int32Array; // Future movement/interact/follow target, or NONE
   combatTarget: Int32Array; // Future forced/acquired combat target, or NONE
+  orderQueueLen: Uint8Array;
+  orderQueue0: Uint8Array;
+  orderQueue1: Uint8Array;
+  orderQueue2: Uint8Array;
+  orderQueue3: Uint8Array;
+  orderQueueTarget0: Int32Array;
+  orderQueueTarget1: Int32Array;
+  orderQueueTarget2: Int32Array;
+  orderQueueTarget3: Int32Array;
+  orderQueueX0: Int32Array;
+  orderQueueX1: Int32Array;
+  orderQueueX2: Int32Array;
+  orderQueueX3: Int32Array;
+  orderQueueY0: Int32Array;
+  orderQueueY1: Int32Array;
+  orderQueueY2: Int32Array;
+  orderQueueY3: Int32Array;
   tx: Int32Array; // fixed-point target/destination point
   ty: Int32Array;
   settled: Uint8Array; // post-collision move/attack-move has settled into place
@@ -102,6 +119,11 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['opticalFlare', 'u8'], ['parasiteOwner', 'u8'], ['illusion', 'u8'], ['lifeTimer', 'i32'],
   ['cloakAura', 'u8'], ['burrowed', 'u8'], ['flags', 'u16'], ['order', 'u8'],
   ['target', 'i32'], ['intentTarget', 'i32'], ['combatTarget', 'i32'],
+  ['orderQueueLen', 'u8'],
+  ['orderQueue0', 'u8'], ['orderQueue1', 'u8'], ['orderQueue2', 'u8'], ['orderQueue3', 'u8'],
+  ['orderQueueTarget0', 'i32'], ['orderQueueTarget1', 'i32'], ['orderQueueTarget2', 'i32'], ['orderQueueTarget3', 'i32'],
+  ['orderQueueX0', 'i32'], ['orderQueueX1', 'i32'], ['orderQueueX2', 'i32'], ['orderQueueX3', 'i32'],
+  ['orderQueueY0', 'i32'], ['orderQueueY1', 'i32'], ['orderQueueY2', 'i32'], ['orderQueueY3', 'i32'],
   ['tx', 'i32'], ['ty', 'i32'], ['settled', 'u8'], ['vx', 'i32'], ['vy', 'i32'], ['faceX', 'i32'], ['faceY', 'i32'], ['timer', 'i32'], ['wcd', 'i32'],
   ['ctimer', 'i32'], ['built', 'u8'], ['buildKind', 'u16'], ['morphFromKind', 'u16'], ['buildCostMinerals', 'i32'],
   ['buildCostGas', 'i32'], ['specialAmmo', 'u8'], ['cargo', 'i32'],
@@ -231,6 +253,23 @@ const makeEntities = (): Entities => {
     target: new Int32Array(CAP),
     intentTarget: new Int32Array(CAP),
     combatTarget: new Int32Array(CAP),
+    orderQueueLen: new Uint8Array(CAP),
+    orderQueue0: new Uint8Array(CAP),
+    orderQueue1: new Uint8Array(CAP),
+    orderQueue2: new Uint8Array(CAP),
+    orderQueue3: new Uint8Array(CAP),
+    orderQueueTarget0: new Int32Array(CAP),
+    orderQueueTarget1: new Int32Array(CAP),
+    orderQueueTarget2: new Int32Array(CAP),
+    orderQueueTarget3: new Int32Array(CAP),
+    orderQueueX0: new Int32Array(CAP),
+    orderQueueX1: new Int32Array(CAP),
+    orderQueueX2: new Int32Array(CAP),
+    orderQueueX3: new Int32Array(CAP),
+    orderQueueY0: new Int32Array(CAP),
+    orderQueueY1: new Int32Array(CAP),
+    orderQueueY2: new Int32Array(CAP),
+    orderQueueY3: new Int32Array(CAP),
     tx: new Int32Array(CAP),
     ty: new Int32Array(CAP),
     settled: new Uint8Array(CAP),
@@ -376,6 +415,23 @@ export const trySpawn = (
   e.target[slot] = NONE;
   e.intentTarget[slot] = NONE;
   e.combatTarget[slot] = NONE;
+  e.orderQueueLen[slot] = 0;
+  e.orderQueue0[slot] = 0;
+  e.orderQueue1[slot] = 0;
+  e.orderQueue2[slot] = 0;
+  e.orderQueue3[slot] = 0;
+  e.orderQueueTarget0[slot] = NONE;
+  e.orderQueueTarget1[slot] = NONE;
+  e.orderQueueTarget2[slot] = NONE;
+  e.orderQueueTarget3[slot] = NONE;
+  e.orderQueueX0[slot] = 0;
+  e.orderQueueX1[slot] = 0;
+  e.orderQueueX2[slot] = 0;
+  e.orderQueueX3[slot] = 0;
+  e.orderQueueY0[slot] = 0;
+  e.orderQueueY1[slot] = 0;
+  e.orderQueueY2[slot] = 0;
+  e.orderQueueY3[slot] = 0;
   e.tx[slot] = 0;
   e.ty[slot] = 0;
   e.settled[slot] = 0;
@@ -483,6 +539,7 @@ export const kill = (s: State, slot: number): void => {
   e.morphFromKind[slot] = 0;
   e.container[slot] = NONE;
   e.home[slot] = NONE;
+  e.orderQueueLen[slot] = 0;
   e.vx[slot] = 0;
   e.vy[slot] = 0;
   e.alive[slot] = 0;
@@ -616,6 +673,23 @@ export const hashState = (s: State): number => {
     h = fold(h, e.target[i]!);
     h = fold(h, e.intentTarget[i]!);
     h = fold(h, e.combatTarget[i]!);
+    h = fold(h, e.orderQueueLen[i]!);
+    h = fold(h, e.orderQueue0[i]!);
+    h = fold(h, e.orderQueue1[i]!);
+    h = fold(h, e.orderQueue2[i]!);
+    h = fold(h, e.orderQueue3[i]!);
+    h = fold(h, e.orderQueueTarget0[i]!);
+    h = fold(h, e.orderQueueTarget1[i]!);
+    h = fold(h, e.orderQueueTarget2[i]!);
+    h = fold(h, e.orderQueueTarget3[i]!);
+    h = fold(h, e.orderQueueX0[i]!);
+    h = fold(h, e.orderQueueX1[i]!);
+    h = fold(h, e.orderQueueX2[i]!);
+    h = fold(h, e.orderQueueX3[i]!);
+    h = fold(h, e.orderQueueY0[i]!);
+    h = fold(h, e.orderQueueY1[i]!);
+    h = fold(h, e.orderQueueY2[i]!);
+    h = fold(h, e.orderQueueY3[i]!);
     h = fold(h, e.tx[i]!);
     h = fold(h, e.ty[i]!);
     h = fold(h, e.settled[i]!);

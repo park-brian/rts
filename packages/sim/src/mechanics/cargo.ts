@@ -2,6 +2,7 @@ import { Kind, Order, Role, Tech, Units, tiles } from '../data/index.ts';
 import { tileX, tileY } from '../spatial/pathing.ts';
 import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from '../entity/world.ts';
+import { clearOrderQueue } from '../entity/order-queue.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from '../spatial/flow.ts';
 import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from '../spatial/geometry.ts';
 import { isDisabled } from '../systems/status.ts';
@@ -110,6 +111,7 @@ export const withinLoadRange = (s: State, transport: number, unit: number): bool
 export const loadUnitInto = (s: State, transport: number, unit: number): void => {
   const e = s.e;
   e.settled[unit] = 0;
+  clearOrderQueue(e, unit);
   clearVelocity(e, unit);
   e.container[unit] = eid(e, transport);
   e.x[unit] = e.x[transport]!;
@@ -123,6 +125,7 @@ export const loadUnitInto = (s: State, transport: number, unit: number): void =>
 export const unloadUnit = (s: State, unit: number, x: number, y: number): void => {
   const e = s.e;
   e.settled[unit] = 0;
+  clearOrderQueue(e, unit);
   clearVelocity(e, unit);
   e.container[unit] = NONE;
   e.x[unit] = x;

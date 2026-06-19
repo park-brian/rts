@@ -6,6 +6,7 @@
 
 import type { State } from '../entity/world.ts';
 import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../entity/world.ts';
+import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
 import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
 import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { faceToward, within } from '../spatial/motion.ts';
@@ -237,7 +238,7 @@ export const combat = (s: State, grid: Grid): void => {
         clearCombatTarget(s, i);
       }
       else if (order === Order.AttackMove) {
-        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i)) {
+        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i) && !startNextQueuedTravelOrder(s, i)) {
           e.order[i] = Order.Idle;
           clearCombatTarget(s, i);
         }

@@ -126,8 +126,17 @@ Remaining work:
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
   cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
   producer version of the same idea, not a separate UI-only concept.
+  - First kernel slice is done for move / attack-move / follow travel: queued travel lives in
+    typed-array entity columns, participates in clone/serialize/hash, replays through the `queue`
+    command flag, dispatches after current travel settles, and clears on replacement or hard unit
+    state transitions. Remaining queue work: expose queue append in action masks / observations,
+    wire desktop Shift and mobile queue mode through the app, and extend append semantics to the
+    other command families with explicit interruption tests.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
+- Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only
+  as short-lived strangler scaffolding; each migration slice should either delete the old-path shim or
+  leave a named follow-up that explains which callers still depend on it.
 
 Done when:
 
@@ -476,6 +485,9 @@ Done when:
 - Retired the root `data.ts` compatibility shim: sim internals and sim tests now import the real
   `data/index.ts` owner directly, and the package barrel exports that owner without preserving the
   old root helper path.
+- Added the first deterministic queued-order kernel for travel commands: move, follow, and
+  attack-move can append to a four-entry per-entity queue, queued orders are serialized/hashed, replay
+  JSON preserves the `queue` flag, and normal replacement commands clear queued travel.
 
 ## Review Checklist
 

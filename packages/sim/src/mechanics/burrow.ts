@@ -1,6 +1,7 @@
 import { Kind, Order, Role, Tech, Units } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
+import { clearOrderQueue } from '../entity/order-queue.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { getTechLevel } from './tech.ts';
 
@@ -44,6 +45,7 @@ export const canUseWeaponNow = (s: State, slot: number): boolean => {
 export const setBurrowed = (s: State, slot: number, active: boolean): void => {
   const e = s.e;
   e.settled[slot] = 0;
+  clearOrderQueue(e, slot);
   clearVelocity(e, slot);
   e.burrowed[slot] = active ? 1 : 0;
   e.order[slot] = Order.Idle;

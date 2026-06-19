@@ -65,6 +65,9 @@ const readBool = (x: unknown, msg: string): boolean => {
   return fail(msg);
 };
 
+const readOptionalQueue = (r: Record<string, unknown>, msg: string): { queue?: boolean } =>
+  r.queue === undefined ? {} : { queue: readBool(r.queue, msg) };
+
 const readArray = (x: unknown, msg: string): unknown[] => {
   if (Array.isArray(x)) return x;
   return fail(msg);
@@ -198,6 +201,7 @@ const validateCommand = (x: unknown): Command => {
         unit: readNonNegativeInt(unit, 'invalid move command'),
         x: readInt(xPos, 'invalid move command'),
         y: readInt(yPos, 'invalid move command'),
+        ...readOptionalQueue(r, 'invalid move command'),
       };
       if (r.target !== undefined) cmd.target = readNonNegativeInt(r.target, 'invalid move command');
       return cmd;
@@ -215,6 +219,7 @@ const validateCommand = (x: unknown): Command => {
         unit: readNonNegativeInt(unit, 'invalid amove command'),
         x: readInt(xPos, 'invalid amove command'),
         y: readInt(yPos, 'invalid amove command'),
+        ...readOptionalQueue(r, 'invalid amove command'),
       };
     }
     case 'ability': {

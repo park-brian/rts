@@ -10,6 +10,7 @@ import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../mechanics/cargo.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
+import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
@@ -152,6 +153,6 @@ export const movement = (s: State): void => {
       clearVelocity(e, i);
       e.settled[i] = 1;
     }
-    else if (arrived && !isLocalAvoidanceSolid(s, i)) e.order[i] = Order.Idle;
+    else if (arrived && !isLocalAvoidanceSolid(s, i) && !startNextQueuedTravelOrder(s, i)) e.order[i] = Order.Idle;
   }
 };

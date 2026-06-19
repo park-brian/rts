@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commandHeadAllowed, commandHeadMask, entityTargetMask } from '../src/io/action-mask.ts';
 import { validateMoveCommand } from '../src/commands/move.ts';
-import { Kind } from '../src/data/index.ts';
+import { Kind, Order } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
@@ -121,4 +121,67 @@ test('targeted move masks follow shared follow-target validation', () => {
 
   assert.deepEqual([...mask], targets.map((target) =>
     validateCommand(s, 0, { t: 'move', unit: marine, x: opts.x, y: opts.y, target }).ok ? 1 : 0));
+});
+
+test('queued travel commands append and dispatch after current travel settles', () => {
+  const scenario = simScenario({ players: 1, seed: 654 });
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const slot = slotOf(marine);
+  const first = { x: fx(340), y: fx(300) };
+  const second = { x: fx(390), y: fx(300) };
+
+  const results = scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, ...first },
+    { t: 'move', unit: marine, ...second, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(scenario.state.e.order[slot], Order.Move);
+  assert.equal(scenario.state.e.tx[slot], first.x);
+  assert.equal(scenario.state.e.orderQueueLen[slot], 1);
+  assert.equal(scenario.state.e.orderQueueX0[slot], second.x);
+
+  for (let i = 0; i < 200 && scenario.state.e.tx[slot] !== second.x; i++) {
+    scenario.sim.step([]);
+  }
+
+  assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  assert.equal(scenario.state.e.tx[slot], second.x);
+});
+
+test('replacement travel commands clear queued travel', () => {
+  const scenario = simScenario({ players: 1, seed: 655 });
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const slot = slotOf(marine);
+
+  scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(340), y: fx(300) },
+    { t: 'move', unit: marine, x: fx(380), y: fx(300), queue: true },
+  ] }]);
+  assert.equal(scenario.state.e.orderQueueLen[slot], 1);
+
+  scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(420), y: fx(300) },
+  ] }]);
+
+  assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  assert.equal(scenario.state.e.tx[slot], fx(420));
+});
+
+test('queued travel validation rejects full per-entity queues', () => {
+  const scenario = simScenario({ players: 1, seed: 656 });
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+
+  const results = scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(320), y: fx(300) },
+    { t: 'move', unit: marine, x: fx(340), y: fx(300), queue: true },
+    { t: 'move', unit: marine, x: fx(360), y: fx(300), queue: true },
+    { t: 'move', unit: marine, x: fx(380), y: fx(300), queue: true },
+    { t: 'move', unit: marine, x: fx(400), y: fx(300), queue: true },
+    { t: 'move', unit: marine, x: fx(420), y: fx(300), queue: true },
+  ] }]);
+
+  assert.equal(scenario.state.e.orderQueueLen[slotOf(marine)], 4);
+  assert.deepEqual(results.map((r) => r.ok), [true, true, true, true, true, false]);
+  assert.deepEqual(results.at(-1), { player: 0, index: 5, t: 'move', ok: false, reason: 'queue-full' });
 });

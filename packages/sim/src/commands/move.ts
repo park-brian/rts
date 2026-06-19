@@ -1,10 +1,11 @@
 import type { Command } from './types.ts';
-import { Kind, Role } from '../data/index.ts';
+import { Kind, Order, Role } from '../data/index.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { commandMoveSpeed } from '../mechanics/terran-mobility.ts';
 import { isGatherTargetSlot } from '../mechanics/resources.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, slotOf } from '../entity/world.ts';
+import { canQueueOrder } from '../entity/order-queue.ts';
 import { issueTravelOrder } from './travel.ts';
 import {
   canReceiveOrder,
@@ -34,6 +35,7 @@ export const validateMoveCommand = (s: State, player: number, command: MoveComma
     }
     if (isGatherTargetSlot(s, target)) return reject('target-not-allowed');
   }
+  if (command.queue && e.order[slot] !== Order.Idle && !canQueueOrder(e, slot)) return reject('queue-full');
   return { ok: true };
 };
 
@@ -43,7 +45,9 @@ export const applyMoveCommand = (
   destination: MoveDestination,
 ): void => {
   const slot = slotOf(command.unit);
-  cancelPendingBeforeOrder(s, slot);
+  if (!command.queue) {
+    cancelPendingBeforeOrder(s, slot);
+  }
   clearSettled(s, slot);
-  issueTravelOrder(s, slot, destination, command.t === 'amove' ? 'attack-move' : 'move');
+  issueTravelOrder(s, slot, destination, command.t === 'amove' ? 'attack-move' : 'move', command.queue === true);
 };
