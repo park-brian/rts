@@ -513,6 +513,9 @@ Remaining work:
         commit decision with a `forced` marker for under-threshold attacks that have waited long
         enough, making "freezing is worse than forcing a response" a tested bot contract instead of
         a hidden boolean.
+      - Memory ownership slice is done: `packages/ai/src/macro-memory.ts` owns controller memory
+        state and initialization, so commitment pressure, tactical incidents, and the live bot share
+        one deterministic memory contract instead of routing memory through fact collection.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -641,6 +644,9 @@ Remaining work:
     last-seen enemy tech/composition, reserved expansion sites, scout reports, and ongoing intents.
     Memory must update from observed state and tick order only; replay determinism still comes from
     the command stream.
+    - Memory ownership slice is done: `packages/ai/src/macro-memory.ts` owns `BotMemory` and
+      `createBotMemory`; facts, incidents, pressure, tactics, offense, and the live controller now
+      import that contract directly.
   - Directors propose intents only; they do not spend resources or emit commands directly. Initial
     directors should be `DefenseDirector`, `EconomyDirector`, `ProductionDirector`, `TechDirector`,
     `ExpansionDirector`, `CombatDirector`, `HarassDirector`, and `CounterDirector`.

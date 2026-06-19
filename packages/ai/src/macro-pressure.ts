@@ -1,5 +1,6 @@
 import { NONE, ONE, TILE, distanceSq, isEnemy, nearest, type State } from '@rts/sim';
-import { type BotFacts, type BotMemory, type ProtectedRegion } from './macro.ts';
+import type { BotMemory } from './macro-memory.ts';
+import { type BotFacts, type ProtectedRegion } from './macro.ts';
 import { riskAt } from './macro-risk.ts';
 
 export type PressureFocus = { x: number; y: number; target: number };

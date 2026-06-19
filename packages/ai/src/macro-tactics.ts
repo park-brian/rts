@@ -10,8 +10,8 @@ import {
 } from './macro-incidents.ts';
 import {
   type BotFacts,
-  type BotMemory,
 } from './macro.ts';
+import type { BotMemory } from './macro-memory.ts';
 
 export type TacticalSchedule = {
   incident: TacticalIncident | undefined;

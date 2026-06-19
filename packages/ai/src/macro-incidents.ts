@@ -16,9 +16,9 @@ import {
 } from '@rts/sim';
 import {
   type BotFacts,
-  type BotMemory,
   type ProtectedRegion,
 } from './macro.ts';
+import type { BotMemory } from './macro-memory.ts';
 import { riskAtLayer } from './macro-risk.ts';
 
 export type TacticalIncidentKind =

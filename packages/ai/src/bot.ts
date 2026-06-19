@@ -9,11 +9,8 @@ import { schedulePressureOffense } from './macro-offense.ts';
 import { findSpot } from './macro-placement.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { scheduleTacticalDefense } from './macro-tactics.ts';
-import {
-  collectBotFacts,
-  createBotMemory,
-  type BotMemory,
-} from './macro.ts';
+import { createBotMemory, type BotMemory } from './macro-memory.ts';
+import { collectBotFacts } from './macro.ts';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count

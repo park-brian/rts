@@ -4,7 +4,8 @@ import { type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
 import { issuePressureEngagement } from './macro-combat.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
 import { markPressureCommitted, pressureCommitmentDecision, pressureFocus } from './macro-pressure.ts';
-import { collectBotFacts, type BotFacts, type BotMemory } from './macro.ts';
+import type { BotMemory } from './macro-memory.ts';
+import { collectBotFacts, type BotFacts } from './macro.ts';
 
 export type PressureScheduleOptions = {
   attackThreshold: number;
