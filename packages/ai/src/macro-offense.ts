@@ -3,7 +3,13 @@ import { castTacticalAbilities } from './ability-policies.ts';
 import { type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
 import { issuePressureEngagement } from './macro-combat.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
-import { markPressureCommitted, pressureCommitmentDecision, pressureFocus } from './macro-pressure.ts';
+import {
+  markPressureCommitted,
+  pressureCommitmentDecision,
+  pressureFocus,
+  type PressureCommitmentDecision,
+  type PressureFocus,
+} from './macro-pressure.ts';
 import type { BotMemory } from './macro-memory.ts';
 import { collectBotFacts, type BotFacts } from './macro.ts';
 
@@ -12,6 +18,13 @@ export type PressureScheduleOptions = {
   force: number;
   strategicOnly: boolean;
   builderUsed: boolean;
+};
+
+export type PressureScheduleResult = {
+  builderUsed: boolean;
+  decision: PressureCommitmentDecision;
+  focus: PressureFocus | null;
+  issued: boolean;
 };
 
 export const schedulePressureOffense = (
@@ -28,16 +41,16 @@ export const schedulePressureOffense = (
   worker: number,
   findSpot: PointSpotFinder,
   options: PressureScheduleOptions,
-): boolean => {
+): PressureScheduleResult => {
   let builderUsed = options.builderUsed;
-  const commitment = pressureCommitmentDecision(memory, s.tick, options.force, options.attackThreshold);
-  if (commitment.status !== 'commit') return builderUsed;
+  const decision = pressureCommitmentDecision(memory, s.tick, options.force, options.attackThreshold);
+  if (decision.status !== 'commit') return { builderUsed, decision, focus: null, issued: false };
 
   const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
     ? collectBotFacts(s, player, faction)
     : facts;
   const focus = pressureFocus(s, player, pressureFacts, depot, { strategicOnly: options.strategicOnly });
-  if (!focus) return builderUsed;
+  if (!focus) return { builderUsed, decision, focus: null, issued: false };
 
   let issuedOffense = false;
   if (!builderUsed) {
@@ -49,5 +62,5 @@ export const schedulePressureOffense = (
     issuedOffense = true;
   }
   if (issuedOffense) markPressureCommitted(memory, s.tick);
-  return builderUsed;
+  return { builderUsed, decision, focus, issued: issuedOffense };
 };

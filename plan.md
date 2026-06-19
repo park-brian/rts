@@ -513,6 +513,9 @@ Remaining work:
         commit decision with a `forced` marker for under-threshold attacks that have waited long
         enough, making "freezing is worse than forcing a response" a tested bot contract instead of
         a hidden boolean.
+      - Pressure-scheduler result slice is done: `schedulePressureOffense` now returns its decision,
+        focus, issued flag, and builder state, so later harass/counterattack directors can compose
+        with forced pressure instead of rediscovering or ignoring it.
       - Memory ownership slice is done: `packages/ai/src/macro-memory.ts` owns controller memory
         state and initialization, so commitment pressure, tactical incidents, and the live bot share
         one deterministic memory contract instead of routing memory through fact collection.

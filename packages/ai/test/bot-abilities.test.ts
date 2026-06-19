@@ -14,6 +14,7 @@ import {
   pressureFocus,
   pressureCommitmentTicks,
   rankedTacticalResponders,
+  schedulePressureOffense,
   selectTacticalResponders,
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
@@ -740,6 +741,52 @@ test('bot pressure commitment exposes forced least-bad decisions', () => {
     pressureCommitmentDecision(memory, 30 + wait, 3, threshold),
     { status: 'commit', waitTicks: wait, waitedTicks: wait, forced: true },
   );
+});
+
+test('bot pressure scheduler exposes forced commitment results', () => {
+  const scenario = botScenario({ seed: 821 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const facts = collectBotFacts(s, 0, Terran);
+  const enemyRegion = enemyOffensiveRegion(facts, base);
+  const marines = Array.from({ length: 3 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const memory = createBotMemory();
+  const threshold = 12;
+  const wait = pressureCommitmentTicks(marines.length, threshold);
+  const cmds: Command[] = [];
+
+  assert.equal(pressureCommitmentDecision(memory, s.tick, marines.length, threshold).status, 'waiting');
+  s.tick += wait;
+  const result = schedulePressureOffense(
+    s,
+    0,
+    Terran,
+    cmds,
+    facts,
+    memory,
+    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    marines.map(slotOf),
+    [],
+    { minerals: 0, gas: 0 },
+    NONE,
+    () => null,
+    {
+      attackThreshold: threshold,
+      force: marines.length,
+      strategicOnly: false,
+      builderUsed: true,
+    },
+  );
+  const offense = cmds.filter((cmd): cmd is Extract<BotCommand, { t: 'amove' }> =>
+    cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y);
+
+  assert.equal(result.decision.status, 'commit');
+  assert.equal(result.decision.forced, true);
+  assert.equal(result.issued, true);
+  assert.equal(result.focus?.x, enemyRegion.x);
+  assert.equal(result.focus?.y, enemyRegion.y);
+  assert.deepEqual(offense.map((cmd) => cmd.unit), marines);
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {
