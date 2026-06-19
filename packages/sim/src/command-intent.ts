@@ -7,6 +7,7 @@ import {
 } from './rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
+import { transformFor } from './unit-transform.ts';
 import { validateCommand } from './validation.ts';
 import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
 
@@ -206,6 +207,46 @@ export const unloadSelectionCandidates = (
         commands.push(command);
         n++;
       }
+    }
+  }
+  return commands;
+};
+
+export const transformSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  kind: number,
+): Command[] => {
+  const e = s.e;
+  const used = new Set<number>();
+  const mergePartnerForSelection = (id: number): number => {
+    if (!isAlive(e, id)) return NONE;
+    for (const other of selected) {
+      if (other === id || used.has(other) || !isAlive(e, other)) continue;
+      const command: Command = { t: 'transform', unit: id, kind, target: other };
+      if (validateCommand(s, player, command).ok) return other;
+    }
+    return NONE;
+  };
+  const commands: Command[] = [];
+  for (const id of selected) {
+    if (used.has(id)) continue;
+    const command: Command = { t: 'transform', unit: id, kind };
+    if (!isAlive(e, id) || !validateCommand(s, player, command).ok) continue;
+    const transform = transformFor(e.kind[slotOf(id)]!, kind);
+    if (transform?.mode === 'merge') {
+      const partner = mergePartnerForSelection(id);
+      if (partner !== NONE) {
+        commands.push({ ...command, target: partner });
+        used.add(id);
+        used.add(partner);
+      } else {
+        commands.push(command);
+        used.add(id);
+      }
+    } else {
+      commands.push(command);
     }
   }
   return commands;

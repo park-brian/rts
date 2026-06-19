@@ -1,8 +1,8 @@
 import {
   Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
-  internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformFor, transformTargetsFor,
-  unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
+  transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -135,46 +135,6 @@ const lifecycleCanReceiveStandardCommands = (lifecycle: EntityLifecycle): boolea
     default:
       return false;
   }
-};
-
-const transformCommandsForSelection = (
-  s: State,
-  player: number,
-  selected: readonly number[],
-  kind: number,
-): Command[] => {
-  const e = s.e;
-  const used = new Set<number>();
-  const mergePairFor = (id: number): number => {
-    if (!isAlive(e, id)) return NONE;
-    for (const other of selected) {
-      if (other === id || used.has(other) || !isAlive(e, other)) continue;
-      const c: Command = { t: 'transform', unit: id, kind, target: other };
-      if (validateCommand(s, player, c).ok) return other;
-    }
-    return NONE;
-  };
-  const commands: Command[] = [];
-  for (const id of selected) {
-    if (used.has(id)) continue;
-    const c: Command = { t: 'transform', unit: id, kind };
-    if (!isAlive(e, id) || !validateCommand(s, player, c).ok) continue;
-    const transform = transformFor(e.kind[slotOf(id)]!, kind);
-    if (transform?.mode === 'merge') {
-      const partner = mergePairFor(id);
-      if (partner !== NONE) {
-        commands.push({ ...c, target: partner });
-        used.add(id);
-        used.add(partner);
-      } else {
-        commands.push(c);
-        used.add(id);
-      }
-    } else {
-      commands.push(c);
-    }
-  }
-  return commands;
 };
 
 export const selectionCapabilities = (
@@ -312,7 +272,7 @@ export const selectionCapabilities = (
 
   for (const option of transformOptions.values()) {
     if (!option.ok) continue;
-    option.commands = transformCommandsForSelection(s, player, selected, option.id);
+    option.commands = transformSelectionCandidates(s, player, selected, option.id);
   }
   for (const option of abilityOptions.values()) {
     if (!option.ok) continue;

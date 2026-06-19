@@ -1,14 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, TILE, Units } from '../src/data.ts';
+import { Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
   attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, smartCommandCandidates,
+  transformSelectionCandidates,
   unloadSelectionCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
+import { setTechLevel } from '../src/tech.ts';
 import { eid, makeState, NEUTRAL, NONE, slotOf } from '../src/world.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
@@ -222,6 +224,36 @@ test('unload command-card candidates route Nydus cargo to the default network ex
     { t: 'unload', transport: entrance, unit: marine, x: tc(16), y: tc(8) + fx(64) },
   ]);
   assert.deepEqual(unloadSelectionCandidates(s, 0, [exit]), []);
+});
+
+test('transform command-card candidates queue simple valid transforms', () => {
+  const s = makeState(open(), 1, 1227);
+  const hydra = spawnUnit(s, Kind.Hydralisk, 0, tc(8), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(9), tc(8));
+  spawnUnit(s, Kind.HydraliskDen, 0, tc(12), tc(8));
+
+  assert.deepEqual(transformSelectionCandidates(s, 0, [hydra, marine], Kind.Lurker), []);
+  setTechLevel(s, 0, Tech.LurkerAspect, 1);
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 1_000;
+
+  assert.deepEqual(transformSelectionCandidates(s, 0, [hydra, marine], Kind.Lurker), [
+    { t: 'transform', unit: hydra, kind: Kind.Lurker },
+  ]);
+});
+
+test('transform command-card candidates pair merge units deterministically', () => {
+  const s = makeState(open(), 1, 1228);
+  const a = spawnUnit(s, Kind.HighTemplar, 0, tc(8), tc(8));
+  const b = spawnUnit(s, Kind.HighTemplar, 0, tc(9), tc(8));
+  const c = spawnUnit(s, Kind.HighTemplar, 0, tc(12), tc(8));
+  const d = spawnUnit(s, Kind.HighTemplar, 0, tc(13), tc(8));
+
+  assert.deepEqual(transformSelectionCandidates(s, 0, [a, b, c, d], Kind.Archon), [
+    { t: 'transform', unit: a, kind: Kind.Archon, target: b },
+    { t: 'transform', unit: c, kind: Kind.Archon, target: d },
+  ]);
 });
 
 test('armed rally mode targets valid friendly units and gather targets', () => {

@@ -1486,6 +1486,9 @@ Rework slices:
      and unload. `selectionCapabilities` consumes `loadSelectionCandidates` and
      `unloadSelectionCandidates`, while unload fan-out offsets, validation filtering, and Nydus exit
      routing live beside the other command-intent candidate helpers.
+   - Transform option execution candidates now also resolve through `transformSelectionCandidates`,
+     so simple morph commands and deterministic merge pairing live in the sim command-intent layer
+     instead of the app command-card presenter.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,
