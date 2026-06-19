@@ -62,6 +62,8 @@ export type AbilityExecution =
   | { mode: 'target-buffer'; buffer: AbilityTargetBuffer }
   | { mode: 'target-damage' }
   | { mode: 'target-energy-feedback' }
+  | { mode: 'target-cleanse' }
+  | { mode: 'target-sacrifice-energy' }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
   | { mode: 'persistent-effect'; effect: EffectKind };
 export type AbilityDef = {
@@ -173,6 +175,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Consume', tech: Tech.Consume, target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: Role.Structure,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Defiler],
     energyCost: 0, hpCost: 0, range: tiles(1), radius: 0, duration: 0, period: 0, damage: 50,
+    execution: { mode: 'target-sacrifice-energy' },
   },
   [Ability.DarkSwarm]: {
     name: 'Dark Swarm', target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
@@ -208,6 +211,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Restoration', tech: Tech.Restoration, target: 'entity', targetTeam: 'any', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Medic],
     energyCost: 50, hpCost: 0, range: tiles(6), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-cleanse' },
   },
   [Ability.OpticalFlare]: {
     name: 'Optical Flare', tech: Tech.OpticalFlare, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,

@@ -183,6 +183,15 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       applyIndependentDamage(s, target, drained);
       break;
     }
+    case 'target-cleanse':
+      restoreStatuses(s, slotOf(c.target!));
+      break;
+    case 'target-sacrifice-energy': {
+      const target = slotOf(c.target!);
+      kill(s, target);
+      e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
+      break;
+    }
     case 'self-toggle': {
       const enabled = e[execution.flag][slot] !== 1;
       e[execution.flag][slot] = enabled ? 1 : 0;
@@ -225,7 +234,7 @@ const tickEntityDots = (s: State): void => {
     if (e.irradiateTimer[i]! > 0 && e.irradiateTimer[i]! % Abilities[Ability.Irradiate]!.period === 0) {
       const a = Abilities[Ability.Irradiate]!;
       for (let j = 0; j < e.hi; j++) {
-          if (e.alive[j] !== 1 || isContained(s, j) || !inRadius(s, j, e.x[i]!, e.y[i]!, a.radius)) continue;
+        if (e.alive[j] !== 1 || isContained(s, j) || !inRadius(s, j, e.x[i]!, e.y[i]!, a.radius)) continue;
         if ((unitTraits(e.kind[j]!) & Trait.Biological) === 0 || (e.flags[j]! & Role.Mobile) === 0) continue;
         applyIndependentDamage(s, j, a.damage);
       }
@@ -291,7 +300,7 @@ const tickEffects = (s: State): void => {
   }
 };
 
-const restoreStatuses = (s: State, target: number): void => {
+function restoreStatuses(s: State, target: number): void {
   const e = s.e;
   e.irradiateTimer[target] = 0;
   e.plagueTimer[target] = 0;
@@ -302,7 +311,7 @@ const restoreStatuses = (s: State, target: number): void => {
   e.acidSporeTimer[target] = 0;
   e.opticalFlare[target] = 0;
   e.parasiteOwner[target] = NEUTRAL;
-};
+}
 
 const recallUnits = (s: State, caster: number, x: number, y: number, radius: number): void => {
   const e = s.e;
@@ -358,15 +367,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.lifeTimer[slotOf(b)] = sec(75.2);
       break;
     }
-    case Ability.Consume: {
-      const target = slotOf(c.target!);
-      kill(s, target);
-      e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
-      break;
-    }
-    case Ability.Restoration:
-      restoreStatuses(s, slotOf(c.target!));
-      break;
     case Ability.Recall:
       recallUnits(s, slot, c.x!, c.y!, ability.radius);
       break;

@@ -46,7 +46,7 @@ test('stim costs hit points and speeds the next attack cooldown', () => {
   assert.equal(s.e.wcd[m], 10);
 });
 
-test('simple timer marker and restore abilities are descriptor-backed', () => {
+test('simple utility abilities are descriptor-backed', () => {
   assert.equal(Units[Kind.Marine]!.abilities.includes(Ability.StimPack), true);
   assert.equal(Units[Kind.Ghost]!.abilities.includes(Ability.Lockdown), true);
   assert.equal(Units[Kind.ScienceVessel]!.abilities.includes(Ability.Irradiate), true);
@@ -66,11 +66,13 @@ test('simple timer marker and restore abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Plague]!.execution, { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
+  assert.deepEqual(Abilities[Ability.Consume]!.execution, { mode: 'target-sacrifice-energy' });
   assert.deepEqual(Abilities[Ability.PersonnelCloaking]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
   assert.deepEqual(Abilities[Ability.CloakingField]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
+  assert.deepEqual(Abilities[Ability.Restoration]!.execution, { mode: 'target-cleanse' });
   assert.deepEqual(Abilities[Ability.ShieldRecharge]!.execution, { mode: 'target-restore', pool: 'shield' });
   assert.deepEqual(Abilities[Ability.DisruptionWeb]!.execution, { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb });
   assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });

@@ -65,6 +65,51 @@ Keep these constraints:
 - Use the code-simplifier pass on touched files before validation so each slice reduces cognitive
   load rather than adding another clever layer.
 
+### Source Layout Direction
+
+The sim source should move from a flat file collection toward concept folders, but only in small
+mechanical slices that do not mix behavior changes with broad import churn. Keep temporary barrel
+files where useful so public imports and app/AI/RL callers remain stable during migration.
+
+Target layout:
+
+- `data/`: immutable BW definitions and descriptor tables:
+  - `core.ts`, `units.ts`, `weapons.ts`, `abilities.ts`, `tech.ts`, `index.ts`.
+- `entity/`: dense entity storage and entity-local helpers:
+  - `world.ts` or `store.ts`, `factory.ts`, `lifecycle.ts`, `kind.ts`, `state.ts`,
+    `approach.ts`, `work-queue.ts`.
+- `commands/`: command types, ingestion, validation, intent, specs, and family validators:
+  - `types.ts`, `validate.ts`, `intent.ts`, `specs.ts`, `move.ts`, `attack.ts`, `ability.ts`,
+    `build.ts`, `production.ts`, `rally.ts`, `cargo.ts`, `repair.ts`, `harvest.ts`,
+    `transform.ts`.
+- `systems/`: tick-time systems only, not command validation:
+  - `movement/`, `combat/`, `economy/`, `production/`, `abilities/`, `visibility/`,
+    `cargo/`, `construction/`, `victory.ts`.
+- `spatial/`: fixed-point geometry, footprints, grids, pathing, flow fields, local avoidance,
+  movement slots, anchors, terrain, and map diagnostics.
+- `mechanics/`: cross-system mechanic helpers that are not tick systems themselves:
+  - `damage.ts`, `weapons.ts`, `upgrades.ts`, `requirements.ts`, `placement.ts`, `power.ts`,
+    `creep.ts`, `addons.ts`, `transforms.ts`, `internal-products.ts`.
+- `io/`: deterministic boundaries:
+  - `serialize.ts`, `hash.ts`, `replay.ts`, `observe.ts`, `action-mask.ts`.
+- `map/`: map definitions, procedural generation, resource placement, calibration, diagnostics,
+  and setup presets.
+- `render/`: sim-owned render descriptors and math-renderer geometry contracts, not app canvas
+  orchestration.
+
+Migration rules:
+
+- Move one concept folder at a time, preferably immediately after touching that concept for a real
+  cleanup.
+- Keep behavior changes and pure import moves in separate commits unless the move is tiny.
+- Preserve typed-array hot loops and caller-owned buffers; folder cleanup must not introduce object
+  allocation on per-tick paths.
+- Prefer `index.ts` barrels only at stable folder boundaries. Avoid deep barrel chains that hide
+  dependencies or create cycles.
+- Use dependency direction as the sanity check: `data` has no sim imports; `entity` knows storage;
+  `commands` validates intent; `systems` mutates per tick; `io` observes/serializes; app/AI/RL
+  depend on exported facades rather than private system internals.
+
 ### 1. Finish Architecture Compression
 
 Purpose: keep each gameplay concept owned in one place so UI, AI, replay, tests, and RL masks do
@@ -72,6 +117,9 @@ not rediscover slightly different rules.
 
 Remaining work:
 
+- Begin source-layout migration with low-risk folders: move `data-*` into `data/`, then
+  `entity-*` plus `factory/world` into `entity/`, keeping compatibility exports until callers are
+  migrated.
 - Split command ingestion by command family without changing replay semantics.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
@@ -282,6 +330,10 @@ Done when:
 - Extracted narrow `canTargetEntity` target gates for attack and entity-target ability validation.
 - Extracted narrow busy-state predicates for active production, research, and add-on targets.
 - Extracted a narrow `isTransitioning` state predicate for unfinished construction, morph, and merge phases.
+- Recorded the target sim source folder structure and migration rules for data, entity, commands,
+  systems, spatial, mechanics, IO, map, and render ownership.
+- Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
+  branches.
 
 ## Review Checklist
 
