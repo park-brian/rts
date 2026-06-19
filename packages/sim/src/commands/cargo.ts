@@ -22,6 +22,7 @@ import {
   reject,
   rejectMissingOwnedSlot,
   ownedSlot,
+  discardQueuedOrders,
   type CommandValidation,
   type SlotCommandValidation,
 } from './shared.ts';
@@ -76,9 +77,12 @@ export const validateUnloadCommand = (s: State, player: number, command: UnloadC
 };
 
 export const applyLoadCommand = (s: State, command: LoadCommand): void => {
-  loadUnitInto(s, slotOf(command.transport), slotOf(command.unit));
+  const transport = slotOf(command.transport);
+  discardQueuedOrders(s, transport);
+  loadUnitInto(s, transport, slotOf(command.unit));
 };
 
 export const applyUnloadCommand = (s: State, command: UnloadCommand): void => {
+  discardQueuedOrders(s, slotOf(command.transport));
   unloadUnit(s, slotOf(command.unit), command.x, command.y);
 };

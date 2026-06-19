@@ -147,6 +147,10 @@ Remaining work:
     point travel, and leaves attack / harvest / repair / load / spells immediate until those command
     families gain first-class queued interruption semantics. Remaining queue work: extend append
     semantics to the other command families with explicit interruption tests.
+  - Immediate interruption slice is done: direct spell, worker-build, spider-mine, load, and unload
+    commands now discard stale future queued travel for their actor through command-owned helpers,
+    matching the existing attack / harvest / repair / stop / transform replacement behavior while
+    leaving true Shift-queued non-travel commands as later first-class work.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
   - Command surface guard slice is done: the runtime `COMMAND_TYPES` registry is typechecked
@@ -513,6 +517,8 @@ Done when:
   command-owned entity targets such as harvest, build, repair, direct attack, add-ons, and cargo.
 - Added command-surface architecture guards tying the `Command` union to command specs, action-mask
   encode/decode, replay ingestion, and app command-card option consumption.
+- Locked down immediate queue interruption for spells, worker builds, spider mines, and transport
+  load/unload so non-queued commands cannot leave surprising future travel waypoints behind.
 
 ## Review Checklist
 

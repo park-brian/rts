@@ -8,7 +8,7 @@ import { NONE, slotOf } from '../entity/world.ts';
 import { castAbility } from '../systems/abilities.ts';
 import { withinRangeSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { abilityCapacityAvailable, abilityTechAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
-import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './shared.ts';
+import { canReceiveOrder, canTargetEntity, discardQueuedOrders, reject, type CommandValidation } from './shared.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -71,6 +71,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
 
 export const applyAbilityCommand = (s: State, command: AbilityCommand): void => {
   const slot = slotOf(command.unit);
+  discardQueuedOrders(s, slot);
   s.e.settled[slot] = 0;
   s.e.intentTarget[slot] = NONE;
   s.e.combatTarget[slot] = NONE;

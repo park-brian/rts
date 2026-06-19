@@ -8,6 +8,7 @@ import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import {
   canPay,
+  discardQueuedOrders,
   reject,
   rejectMissingOwnedSlot,
   ownedSlot,
@@ -93,6 +94,7 @@ export const beginWorkerBuild = (
   const def = Units[kind];
   if (!def) return;
   if (hasPendingBuild(e, workerSlot)) cancelPendingBuild(s, workerSlot);
+  discardQueuedOrders(s, workerSlot);
   e.settled[workerSlot] = 0;
   s.players.minerals[player] = s.players.minerals[player]! - def.minerals;
   s.players.gas[player] = s.players.gas[player]! - def.gas;

@@ -4,7 +4,7 @@ import { hasInternalProductReady, internalProductCapacity } from '../mechanics/i
 import { laySpiderMine } from '../mechanics/spider-mine.ts';
 import type { State } from '../entity/world.ts';
 import { canSpawnEntity, slotOf } from '../entity/world.ts';
-import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';
+import { canReceiveOrder, discardQueuedOrders, reject, type CommandValidation } from './shared.ts';
 
 type MineCommand = Extract<Command, { t: 'mine' }>;
 
@@ -21,5 +21,7 @@ export const validateMineCommand = (s: State, player: number, command: MineComma
 };
 
 export const applyMineCommand = (s: State, command: MineCommand): void => {
-  laySpiderMine(s, slotOf(command.unit));
+  const slot = slotOf(command.unit);
+  discardQueuedOrders(s, slot);
+  laySpiderMine(s, slot);
 };

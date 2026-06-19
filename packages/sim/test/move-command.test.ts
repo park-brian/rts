@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commandHeadAllowed, commandHeadMask, entityTargetMask } from '../src/io/action-mask.ts';
 import { validateMoveCommand } from '../src/commands/move.ts';
-import { Kind, Order } from '../src/data/index.ts';
+import { Ability, Kind, Order, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
@@ -184,4 +184,71 @@ test('queued travel validation rejects full per-entity queues', () => {
   assert.equal(scenario.state.e.orderQueueLen[slotOf(marine)], 4);
   assert.deepEqual(results.map((r) => r.ok), [true, true, true, true, true, false]);
   assert.deepEqual(results.at(-1), { player: 0, index: 5, t: 'move', ok: false, reason: 'queue-full' });
+});
+
+test('immediate command families discard queued travel for their actor', () => {
+  const queueFutureMove = (kind: number, seed: number) => {
+    const scenario = simScenario({ players: 1, seed });
+    const actor = scenario.spawn(kind, 0, fx(300), fx(300));
+    scenario.sim.step([{ player: 0, cmds: [
+      { t: 'move', unit: actor, x: fx(340), y: fx(300) },
+      { t: 'move', unit: actor, x: fx(380), y: fx(300), queue: true },
+    ] }]);
+    assert.equal(scenario.state.e.orderQueueLen[slotOf(actor)], 1);
+    return { scenario, actor, slot: slotOf(actor) };
+  };
+
+  {
+    const { scenario, actor, slot } = queueFutureMove(Kind.Marine, 657);
+    scenario.grant(0, Tech.StimPack, 1);
+    const [result] = scenario.sim.step([{ player: 0, cmds: [{ t: 'ability', unit: actor, ability: Ability.StimPack }] }]);
+    assert.equal(result?.ok, true);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  }
+
+  {
+    const { scenario, actor, slot } = queueFutureMove(Kind.SCV, 658);
+    scenario.state.players.minerals[0] = 1_000;
+    const [result] = scenario.sim.step([{ player: 0, cmds: [
+      { t: 'build', unit: actor, kind: Kind.SupplyDepot, x: fx(600), y: fx(600) },
+    ] }]);
+    assert.equal(result?.ok, true);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  }
+
+  {
+    const { scenario, actor, slot } = queueFutureMove(Kind.Vulture, 659);
+    scenario.grant(0, Tech.SpiderMines, 1);
+    scenario.state.e.specialAmmo[slot] = 1;
+    const [result] = scenario.sim.step([{ player: 0, cmds: [{ t: 'mine', unit: actor }] }]);
+    assert.equal(result?.ok, true);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  }
+
+  {
+    const { scenario, actor: dropship, slot } = queueFutureMove(Kind.Dropship, 660);
+    const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+    const [result] = scenario.sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: marine }] }]);
+    assert.equal(result?.ok, true);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  }
+
+  {
+    const scenario = simScenario({ players: 1, seed: 661 });
+    const dropship = scenario.spawn(Kind.Dropship, 0, fx(300), fx(300));
+    const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+    scenario.sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: marine }] }]);
+    scenario.sim.step([{ player: 0, cmds: [
+      { t: 'move', unit: dropship, x: fx(340), y: fx(300) },
+      { t: 'move', unit: dropship, x: fx(380), y: fx(300), queue: true },
+    ] }]);
+    const slot = slotOf(dropship);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 1);
+
+    const [result] = scenario.sim.step([{ player: 0, cmds: [
+      { t: 'unload', transport: dropship, unit: marine, x: fx(320), y: fx(300) },
+    ] }]);
+    assert.equal(result?.ok, true);
+    assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  }
 });

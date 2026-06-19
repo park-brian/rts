@@ -146,7 +146,11 @@ export const clearSettled = (s: State, slot: number): void => {
   s.e.settled[slot] = 0;
 };
 
-export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
+export const discardQueuedOrders = (s: State, slot: number): void => {
   clearOrderQueue(s.e, slot);
+};
+
+export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
+  discardQueuedOrders(s, slot);
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
 };
