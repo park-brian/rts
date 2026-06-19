@@ -4,7 +4,7 @@ import { addonParentKind, addonPosition, isAddonKind, startAddon } from '../mech
 import { canSpawnEntity, NONE, slotOf } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
-import { placementForStructure } from '../placement.ts';
+import { placementForStructure } from '../mechanics/placement.ts';
 import {
   canPay,
   canUseProducer,

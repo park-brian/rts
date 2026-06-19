@@ -1,13 +1,14 @@
-import type { CommandRejectReason } from './commands/types.ts';
-import { Kind, ResourceType, Role, TILE, Units } from './data.ts';
-import { fx } from './fixed.ts';
-import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';
-import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
-import { hasPendingBuild } from './mechanics/build-cancel.ts';
-import { hasCreepAt, requiresCreep } from './mechanics/creep.ts';
-import { hasPowerAt, requiresPower } from './mechanics/power.ts';
-import { isContained } from './cargo.ts';
-import { nearest, NONE, type State } from './entity/world.ts';
+import type { CommandRejectReason } from '../commands/types.ts';
+import { Kind, ResourceType, Role, TILE, Units } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { nearest, NONE } from '../entity/world.ts';
+import { fx } from '../fixed.ts';
+import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint } from '../footprint.ts';
+import { buildable, inBounds, resourceSpawnFootprint } from '../map.ts';
+import { isContained } from '../cargo.ts';
+import { hasPendingBuild } from './build-cancel.ts';
+import { hasCreepAt, requiresCreep } from './creep.ts';
+import { hasPowerAt, requiresPower } from './power.ts';
 
 export type PlacementResult =
   | { ok: true; x: number; y: number; geyser: number }

@@ -1,7 +1,7 @@
 import type { Command } from './types.ts';
 import { Role } from '../data.ts';
 import { isTransitioning } from '../entity/state.ts';
-import { placementForStructure } from '../placement.ts';
+import { placementForStructure } from '../mechanics/placement.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';
 import {

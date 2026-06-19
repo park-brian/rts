@@ -384,6 +384,9 @@ Done when:
 - Moved transform, morph, and merge descriptors plus application helpers under
   `mechanics/transforms.ts`, deleting the old root `unit-transform.ts` helper while preserving the
   stable package export.
+- Moved structure placement validation and resource-depot exclusion geometry under
+  `mechanics/placement.ts`, deleting the old root `placement.ts` helper while preserving the public
+  `commands/validate.ts` preflight facade.
 
 ## Review Checklist
 
