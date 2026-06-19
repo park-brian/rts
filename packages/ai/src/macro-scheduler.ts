@@ -1,4 +1,15 @@
-import { Kind, NONE, Units, type Command, type Faction, type State } from '@rts/sim';
+import {
+  Kind,
+  NONE,
+  Units,
+  eid,
+  productionCostCount,
+  productionCount,
+  validateCommand,
+  type Command,
+  type Faction,
+  type State,
+} from '@rts/sim';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
@@ -17,7 +28,7 @@ import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
-import type { BotIntent, BotIntentRecord } from './macro-intents.ts';
+import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import type { BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
@@ -51,6 +62,79 @@ const intentUrgency = (kind: BotIntent['kind']): number => {
 
 const techTransformKind = (kind: number): boolean =>
   kind === Kind.Lair || kind === Kind.Hive || kind === Kind.GreaterSpire;
+
+const trainIntentKind = (kind: number): BotIntent['kind'] =>
+  Units[kind]?.buildMethod === 'larva' ? 'spend-larva' : 'train-counter';
+
+const trainOutcome = (
+  kind: number,
+  reason: BotFailureReason,
+): BotIntentRecord => {
+  const intentKind = trainIntentKind(kind);
+  return {
+    intent: { kind: intentKind, urgency: intentUrgency(intentKind), targetKind: kind },
+    result: { status: 'waiting', reason },
+  };
+};
+
+const trainValidationFailure = (
+  s: State,
+  player: number,
+  producers: readonly number[],
+  usedProducers: Set<number>,
+  supplyBudget: SupplyBudget,
+  kind: number,
+): BotFailureReason | null => {
+  for (const producer of producers) {
+    if (producer === NONE || usedProducers.has(producer)) continue;
+    const result = validateCommand(s, player, { t: 'train', building: eid(s.e, producer), kind }, {
+      reservedSupply: supplyBudget.used,
+    });
+    if (result.ok) return null;
+    switch (result.reason) {
+      case 'not-affordable': return 'resource-starved';
+      case 'supply-blocked': return 'supply-blocked';
+      case 'missing-requirement': return 'missing-prerequisite';
+      case 'queue-full':
+      case 'capacity-full':
+      case 'incomplete-producer':
+      case 'missing-capability':
+        return 'no-production-capacity';
+      default:
+        break;
+    }
+  }
+  return 'no-producer';
+};
+
+const trainFailureReason = (
+  s: State,
+  player: number,
+  producers: readonly number[],
+  usedProducers: Set<number>,
+  budget: ResourceBudget,
+  supplyBudget: SupplyBudget,
+  kind: number,
+): BotFailureReason | null => {
+  const def = Units[kind]!;
+  let producersSeen = 0;
+  let producersReady = 0;
+  for (const producer of producers) {
+    if (producer === NONE) continue;
+    producersSeen++;
+    if (!usedProducers.has(producer) && s.e.prodKind[producer] === Kind.None) producersReady++;
+  }
+  if (producersSeen === 0) return def.buildMethod === 'larva' ? 'no-production-capacity' : 'no-producer';
+  if (producersReady === 0) return 'no-production-capacity';
+
+  const costCount = productionCostCount(kind);
+  const producedCount = productionCount(kind);
+  if (budget.minerals < def.minerals * costCount || budget.gas < def.gas * costCount) {
+    return 'resource-starved';
+  }
+  if (supplyBudget.used + def.supply * producedCount > supplyBudget.max) return 'supply-blocked';
+  return trainValidationFailure(s, player, producers, usedProducers, supplyBudget, kind);
+};
 
 const commandMacroIntent = (command: Command, faction: Faction): BotIntent | null => {
   switch (command.t) {
@@ -197,9 +281,14 @@ export const scheduleBotMacro = (
   maybeQueueZergMorphs(s, player, faction, cmds, budget);
   maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
 
+  const armyCommandStart = cmds.length;
   for (const producer of armyProducer) {
     if (producer === NONE || e.prodKind[producer] !== Kind.None) continue;
     maybeQueueTrain(s, player, cmds, budget, supplyBudget, [producer], usedProducers, faction.armyUnit);
+  }
+  if (cmds.length === armyCommandStart) {
+    const reason = trainFailureReason(s, player, armyProducer, usedProducers, budget, supplyBudget, faction.armyUnit);
+    if (reason) intentResults.push(trainOutcome(faction.armyUnit, reason));
   }
 
   if (!builderUsed) {

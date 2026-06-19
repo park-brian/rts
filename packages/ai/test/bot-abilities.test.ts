@@ -1823,6 +1823,69 @@ test('terran bot adds core production capacity when mineral-banked past its targ
   expectBotBuildsLegal(scenario, Terran, Kind.Barracks, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 });
 });
 
+test('live bot planner reports resource-starved army training outcomes', () => {
+  const scenario = botScenario({ seed: 517, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Barracks, 0, base.x + fx(120), base.y);
+  scenario.resources(0, Units[Kind.Marine]!.minerals - 1, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Marine &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'resource-starved'));
+});
+
+test('live bot planner reports supply-blocked army training outcomes', () => {
+  const scenario = botScenario({ seed: 518, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Barracks, 0, base.x + fx(120), base.y);
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyUsed[0] = scenario.state.players.supplyMax[0]!;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Marine &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'supply-blocked'));
+});
+
+test('live bot planner reports occupied army producer outcomes', () => {
+  const scenario = botScenario({ seed: 519, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const barracks = scenario.spawn(Kind.Barracks, 0, base.x + fx(120), base.y);
+  scenario.resources(0, Units[Kind.Marine]!.minerals, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  scenario.state.e.prodKind[slotOf(barracks)] = Kind.Marine;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Marine &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-production-capacity'));
+});
+
+test('live bot planner reports missing army producer outcomes', () => {
+  const scenario = botScenario({ seed: 520, factions: [Terran, Zerg] });
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Marine &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-producer'));
+});
+
 test('protoss bot adds gateway capacity after higher-priority tech and spending are blocked', () => {
   const scenario = botScenario({ seed: 510, factions: [Protoss, Zerg] });
   const base = scenario.pos(scenario.entity(Kind.Nexus, 0));

@@ -733,6 +733,11 @@ Remaining work:
       and bank, but no available worker builder. Remaining work: macro directors still need explicit
       outcomes for resource starvation, supply blocks, and occupied producers where those states are
       genuinely actionable.
+    - Army-training outcome slice is done: failed army production now reports `train-counter` /
+      `spend-larva` waiting outcomes for resource starvation, supply blocks, missing producers, and
+      occupied production capacity after the normal validator-backed training path fails. Remaining
+      work: worker, research, add-on, morph, and tech-structure directors still need similarly
+      explicit outcomes where they are actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
