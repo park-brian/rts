@@ -1,7 +1,7 @@
 import {
   Ability, Kind, NONE, Role, Units,
-  addonParentKind, canWorkerStartStructure, isAlive,
-  abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
+  canWorkerStartStructure, isAlive,
+  abilitySelectionOptions, addonSelectionOptions, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
   researchSelectionOptions, trainSelectionOptions, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
@@ -16,8 +16,6 @@ import { EMPTY_SELECTION_VIEW, OrderOptionId, type ArmedCommand, type CommandOpt
 type OptionRecord = CommandOption & { priority?: number };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands' | 'arm'> & { priority?: number };
 type CanSeeEntity = (slot: number) => boolean;
-
-const ADDON_IDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
 
 const addOption = (options: Map<number, OptionRecord>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
   const current = options.get(id);
@@ -157,16 +155,6 @@ export const selectionCapabilities = (
     }
     if (ready && e.kind[slot] === Kind.SCV && e.illusion[slot] !== 1) canRepair = true;
     if ((e.flags[slot]! & Role.Structure) !== 0 && ready) canRally = true;
-    if (ready) {
-      for (const addon of ADDON_IDS) {
-        if (addonParentKind(addon) !== k) continue;
-        const command: Command = { t: 'addon', building: id, kind: addon };
-        const result = validateCommand(s, player, command);
-        if (result.ok || result.reason !== 'target-not-allowed') {
-          addOption(addonOptions, addon, result, { priority: selectionIndex });
-        }
-      }
-    }
     const burrowCommand: Command = { t: 'burrow', unit: id, active: true };
     if (validateCommand(s, player, burrowCommand).ok) {
       canBurrow = true;
@@ -216,9 +204,13 @@ export const selectionCapabilities = (
       { ...trainOptionMeta(s, slotOf(option.representative), option.id), commands: option.commands },
     );
   }
-  for (const option of addonOptions.values()) {
-    if (!option.ok) continue;
-    option.commands = addonSelectionCandidates(s, player, selected, option.id);
+  for (const option of addonSelectionOptions(s, player, readyVisibleSelected)) {
+    addOption(
+      addonOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      { commands: option.commands },
+    );
   }
   for (const option of researchSelectionOptions(s, player, readyVisibleSelected)) {
     addOption(

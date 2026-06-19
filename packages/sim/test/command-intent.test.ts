@@ -4,7 +4,7 @@ import { Ability, Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
-  abilitySelectionOptions, addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
+  abilitySelectionOptions, addonSelectionCandidates, addonSelectionOptions, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, trainSelectionOptions, transformSelectionCandidates, transformSelectionOptions,
   unloadSelectionCandidates,
@@ -351,6 +351,34 @@ test('add-on command-card candidates choose the first valid selected producer', 
     { t: 'addon', building: idle, kind: Kind.MachineShop },
   ]);
   assert.deepEqual(addonSelectionCandidates(s, 0, [barracks], Kind.MachineShop), []);
+});
+
+test('add-on command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1236);
+  const busy = spawnUnit(s, Kind.Factory, 0, tc(8), tc(8));
+  const idle = spawnUnit(s, Kind.Factory, 0, tc(12), tc(8));
+  const barracks = spawnUnit(s, Kind.Barracks, 0, tc(20), tc(8));
+  s.e.target[slotOf(busy)] = busy;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  let machineShop = addonSelectionOptions(s, 0, [busy, barracks, idle]).find((o) => o.id === Kind.MachineShop);
+  assert.deepEqual(machineShop, {
+    id: Kind.MachineShop,
+    ok: true,
+    representative: idle,
+    commands: [{ t: 'addon', building: idle, kind: Kind.MachineShop }],
+  });
+
+  s.players.minerals[0] = 0;
+  machineShop = addonSelectionOptions(s, 0, [idle]).find((o) => o.id === Kind.MachineShop);
+  assert.deepEqual(machineShop, {
+    id: Kind.MachineShop,
+    ok: false,
+    representative: idle,
+    reason: 'not-affordable',
+  });
+  assert.equal(addonSelectionOptions(s, 0, [barracks]).find((o) => o.id === Kind.MachineShop), undefined);
 });
 
 test('research command-card candidates choose the first valid selected producer', () => {

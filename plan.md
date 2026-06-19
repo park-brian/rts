@@ -1513,6 +1513,9 @@ Rework slices:
    - Train option availability now resolves through sim-owned `trainSelectionOptions`, preserving
      ready-only UI visibility, disabled reasons, least-loaded representative producers, and executable
      commands while app code keeps train labels and details.
+   - Add-on option availability now resolves through sim-owned `addonSelectionOptions`, preserving
+     ready-only UI visibility, target-not-allowed hiding, disabled reasons, first-valid representative
+     producers, and executable commands while app code only maps records into command-card options.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

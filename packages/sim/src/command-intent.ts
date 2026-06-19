@@ -1,5 +1,6 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import { Abilities, ResourceType, Role, TechDefs, Units, type AbilityTarget } from './data.ts';
+import { addonParentKind } from './addon.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
 import {
@@ -57,6 +58,14 @@ export type ResearchSelectionOption = {
 };
 
 export type TrainSelectionOption = {
+  id: number;
+  ok: boolean;
+  representative: number;
+  reason?: CommandRejectReason;
+  commands?: Command[];
+};
+
+export type AddonSelectionOption = {
   id: number;
   ok: boolean;
   representative: number;
@@ -429,6 +438,50 @@ export const addonSelectionCandidates = (
     if (validateCommand(s, player, command).ok) return [command];
   }
   return [];
+};
+
+const addAddonSelectionOption = (
+  options: Map<number, AddonSelectionOption>,
+  id: number,
+  representative: number,
+  result: CandidateValidation,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok) options.set(id, { id, ok: true, representative });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, representative, reason: result.reason });
+  }
+};
+
+const ADDON_KINDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
+
+export const addonSelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): AddonSelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, AddonSelectionOption>();
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const kind = e.kind[slotOf(building)]!;
+    for (const addon of ADDON_KINDS) {
+      if (addonParentKind(addon) !== kind) continue;
+      const command: Command = { t: 'addon', building, kind: addon };
+      const result = validateCommand(s, player, command);
+      if (result.ok || result.reason !== 'target-not-allowed') {
+        addAddonSelectionOption(options, addon, building, result);
+      }
+    }
+  }
+  for (const option of options.values()) {
+    if (option.ok) option.commands = addonSelectionCandidates(s, player, selected, option.id);
+  }
+  return [...options.values()].sort((a, b) => a.id - b.id);
 };
 
 export const researchSelectionCandidates = (
