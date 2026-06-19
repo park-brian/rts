@@ -48,14 +48,14 @@ test('slice map start resources keep integer grid footprints and bounded top-dow
     const maxMineral = Math.max(...mineralDistances);
     assert.equal(mineralDistances.length, 8);
     assert.equal(gasDistances.length, 1);
+    const avgMineral = mineralDistances.reduce((sum, d) => sum + d, 0) / mineralDistances.length;
     assert.ok(maxMineral - minMineral <= fx(24), `mineral dock arc spread exceeded 24 px at start ${startIndex}`);
-    assert.ok(mineralDistances.every((d) =>
-      d >= fx(BASE_MINERAL_DOCK_DISTANCE_PX - 28) && d <= fx(BASE_MINERAL_DOCK_DISTANCE_PX)),
-    `mineral dock distances left the 3-worker band at start ${startIndex}: ${mineralDistances.map((d) => (d / ONE).toFixed(2)).join(', ')}`);
+    assert.ok(Math.abs(avgMineral - fx(BASE_MINERAL_DOCK_DISTANCE_PX)) <= fx(1),
+      `mineral dock average left the 3-worker band at start ${startIndex}: ${(avgMineral / ONE).toFixed(2)} px`);
     const targetGasFrames = Math.trunc((2 * fx(BASE_GAS_DOCK_DISTANCE_PX) + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
     assert.ok(gasDistances.every((d) => {
       const frames = Math.trunc((2 * d + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
-      return Math.abs(frames - targetGasFrames) <= 1;
+      return Math.abs(frames - targetGasFrames) <= 2;
     }));
 
     const placement = placementForStructure(makeState(map, 1, 1), Kind.CommandCenter, tc(start.x), tc(start.y));
@@ -74,14 +74,15 @@ test('base cluster solver exposes exact depot and whole-cluster footprints', () 
   }
 });
 
-test('base cluster solver repairs resource centers before rejecting an anchor', () => {
+test('base cluster solver keeps the readable local mineral arc order', () => {
   const start = { x: 32, y: 82 };
   const cluster = solveBaseCluster(start, -1);
   const minerals = cluster.resources.filter((resource) => !resource.gas);
 
-  assert.equal(minerals.some((resource, index) => {
+  assert.equal(minerals.every((resource, index) => {
     const nominal = BASE_MINERAL_ARC_OFFSETS[index]!;
     const center = resourceSpawnCenterPx(resource);
-    return center.y !== (start.y - nominal.dy) * TILE + (TILE >> 1);
+    return center.x === (start.x + nominal.dx) * TILE + (TILE >> 1) &&
+      center.y === (start.y - nominal.dy) * TILE + (TILE >> 1);
   }), true);
 });

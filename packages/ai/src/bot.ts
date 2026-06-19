@@ -749,16 +749,6 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
   },
   {
-    ability: Ability.Consume,
-    target: 'friendly-entity',
-    minScore: 80,
-    canCast: (s, _player, caster) => {
-      const ability = Abilities[Ability.Consume]!;
-      return s.e.energy[caster]! <= s.e.energyMax[caster]! - ability.damage;
-    },
-    scoreTarget: (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
-  },
-  {
     ability: Ability.Hallucination,
     target: 'friendly-entity',
     minScore: 120,
@@ -886,6 +876,16 @@ const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
     target: 'enemy-point',
     minScore: 60,
     scorePoint: (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y),
+  },
+  {
+    ability: Ability.Consume,
+    target: 'friendly-entity',
+    minScore: 80,
+    canCast: (s, _player, caster) => {
+      const ability = Abilities[Ability.Consume]!;
+      return s.e.energy[caster]! <= s.e.energyMax[caster]! - ability.damage;
+    },
+    scoreTarget: (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
   },
 ];
 

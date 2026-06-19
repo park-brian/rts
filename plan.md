@@ -209,8 +209,21 @@ Remaining work:
   game-space UI.
 - Add app-side spell field, last-known, and fog affordances once effect descriptors exist.
 - Keep Math renderer as the exact footprint/body/power/creep reference renderer.
+- Audit the full spatial affordance contract for melee, harvest, repair, weapon range, ability
+  range, body bounds, visible art, selection bases, and Math renderer overlays. The player should
+  never see a unit appear to mine, repair, melee, or shoot from a distance that contradicts the
+  visible bodies/range affordances. Math mode is the canonical test oracle here: its hulls and grid
+  must match the same interaction rectangles used by combat, entity-target spells, repair, harvest,
+  cargo, scarabs, selection, and placement. Mineral harvesting exposed the first symptom: gameplay
+  contact used a wider body than the visible crystal art, making workers look too far away on the X
+  axis. Treat this as a systemic geometry/presentation audit, not a mineral-only asset fix; remaining
+  follow-up should focus on point-area ability radius semantics and any art that visibly disagrees
+  with its canonical Math hull.
 - Add richer construction, warp-in, repair, and sound cues after the refreshed asset pass.
 - Maintain sprite footprint/art placement checks for every imported asset refresh.
+- Generalize base resource arcs from the current vertical-facing local arc into a tiny rotated
+  orientation primitive, so procedural maps can place corner and side bases that face valleys or
+  enemy lanes while preserving the same 2x1 mineral, 4x2 geyser, and average-cadence timing rules.
 - Split `Game` selection, input, HUD, replay, and renderer coordination once command-card growth
   stabilizes.
 

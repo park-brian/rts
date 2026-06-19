@@ -9,7 +9,7 @@ import type { State } from './world.ts';
 import { isAlive, isEnemy, NONE, slotOf } from './world.ts';
 import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
-import { withinRangeSq } from './spatial.ts';
+import { withinRangeSq, withinTopDownEdgeRange } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
 
@@ -59,7 +59,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   if (command.target === undefined || !isAlive(e, command.target)) return reject('target-not-found');
   const target = slotOf(command.target);
   if (isContained(s, target)) return reject('target-not-allowed');
-  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, ability.range)) {
+  if (!withinTopDownEdgeRange(s, slot, target, ability.range)) {
     return reject('target-out-of-range');
   }
   if (ability.targetTeam === 'own' && e.owner[target] !== player) return reject('target-not-allowed');

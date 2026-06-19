@@ -10,7 +10,7 @@ import {
   bwRange,
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance } from '../src/spatial.ts';
+import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
 import type { MapDef } from '../src/map.ts';
 import { producedUnitRallyIntent } from '../src/command-intent.ts';
@@ -121,10 +121,10 @@ test('diagonal mineral approaches dock on a face, not a point-contact corner', (
     fx(200),
     fx(600),
   );
-  const mineral = bodyBounds(Kind.Mineral);
+  const mineral = topDownInteractionRect(Kind.Mineral, e.x[node]!, e.y[node]!, e.flags[node]!);
   const scv = bodyBounds(Kind.SCV);
-  const cornerX = e.x[node]! - mineral.left - scv.right;
-  const cornerY = e.y[node]! + mineral.down + scv.up;
+  const cornerX = mineral.x0 - scv.right;
+  const cornerY = mineral.y1 + scv.up;
   assert.equal(dock.y, cornerY, 'the worker docks on the mineral face closest to the depot');
   assert.ok(dock.x > cornerX, 'the worker overlaps the face instead of touching only the corner');
 

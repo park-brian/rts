@@ -39,6 +39,23 @@ test('top-down structure interaction uses build footprint hulls, not smaller BW 
   });
 });
 
+test('top-down footprint actors fill their whole grid square for interaction', () => {
+  const x = fx(12 * TILE + (TILE >> 1));
+  const y = fx(12 * TILE + (TILE >> 1));
+  const cases = [
+    [Kind.CommandCenter, Units[Kind.CommandCenter]!.roles],
+    [Kind.Refinery, Units[Kind.Refinery]!.roles],
+    [Kind.Geyser, Units[Kind.Geyser]!.roles],
+    [Kind.Mineral, Units[Kind.Mineral]!.roles],
+  ] as const;
+
+  for (const [kind, flags] of cases) {
+    const rect = topDownInteractionRect(kind, x, y, flags);
+    assert.equal(rect.x1 - rect.x0, fx(Units[kind]!.footprintW * TILE), Units[kind]!.name);
+    assert.equal(rect.y1 - rect.y0, fx(Units[kind]!.footprintH * TILE), Units[kind]!.name);
+  }
+});
+
 test('BW approximate edge distance stays distinct from top-down physical distance', () => {
   const map: MapDef = {
     name: 'open', w: 24, h: 24,

@@ -106,6 +106,21 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(terrainCanvas!, 0, 0);
 
+  // Math mode is the canonical gameplay-geometry view; draw the build-tile grid
+  // subtly so footprint, range, and placement bugs can be compared to exact tiles.
+  ctx.strokeStyle = 'rgba(125, 170, 210, 0.10)';
+  ctx.lineWidth = 1 / game.zoom;
+  ctx.beginPath();
+  for (let x = 0; x <= m.w * TILE; x += TILE) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, m.h * TILE);
+  }
+  for (let y = 0; y <= m.h * TILE; y += TILE) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(m.w * TILE, y);
+  }
+  ctx.stroke();
+
   // Visible tile range (for fog + culling).
   const tx0 = Math.max(0, Math.floor(game.camX / TILE));
   const ty0 = Math.max(0, Math.floor(game.camY / TILE));

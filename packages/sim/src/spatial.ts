@@ -239,8 +239,11 @@ const footprintRect = (kind: number, x: number, y: number): InteractionRect => {
   };
 };
 
+export const usesFootprintInteractionHull = (kind: number, flags = Units[kind]?.roles ?? 0): boolean =>
+  (flags & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser;
+
 export const topDownInteractionRect = (kind: number, x: number, y: number, flags = Units[kind]?.roles ?? 0): InteractionRect => {
-  if ((flags & Role.Structure) !== 0 && (flags & Role.Resource) === 0) return footprintRect(kind, x, y);
+  if (usesFootprintInteractionHull(kind, flags)) return footprintRect(kind, x, y);
   return bodyRect(kind, x, y);
 };
 

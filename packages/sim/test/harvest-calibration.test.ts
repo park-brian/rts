@@ -115,16 +115,16 @@ test('base gas diagnostics validate the three-worker refinery cadence target', (
   }
 });
 
-test('main-base route quality reports invalid and overly asymmetric layouts', () => {
+test('main-base route quality reports missing and overly asymmetric layouts', () => {
   const invalid = sliceMap();
   invalid.resources = invalid.resources.map((resource, index) =>
     index === 0
-      ? { ...resource, px: invalid.starts[0]!.x * TILE + (TILE >> 1), py: (invalid.starts[0]!.y - 6) * TILE + (TILE >> 1) }
+      ? { ...resource, px: invalid.starts[0]!.x * TILE + (TILE >> 1), py: (invalid.starts[0]!.y - 10) * TILE + (TILE >> 1) }
       : resource,
   );
   const invalidQuality = mainBaseMineralRouteQuality(invalid);
   assert.equal(invalidQuality.ok, false);
-  assert.equal(invalidQuality.issues.some((issue) => issue.kind === 'invalid-route'), true);
+  assert.equal(invalidQuality.issues.some((issue) => issue.kind === 'missing-main-minerals'), true);
 
   const asymmetric = sliceMap();
   asymmetric.resources = asymmetric.resources.map((resource, index) =>

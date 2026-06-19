@@ -52,3 +52,12 @@ test('desktop console exposes control group chips without sharing command space'
   assert.match(ui, /e\.ctrlKey \|\| e\.metaKey/);
   assert.match(ui, /<SelectionPanel game=\{g\} compact=\{metrics\.compactSelection\} \/>/);
 });
+
+test('math renderer exposes a subtle build-tile grid for placement audits', () => {
+  const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+
+  assert.match(render2d, /Math mode is the canonical gameplay-geometry view/);
+  assert.match(render2d, /rgba\(125,\s*170,\s*210,\s*0\.10\)/);
+  assert.match(render2d, /for \(let x = 0; x <= m\.w \* TILE; x \+= TILE\)/);
+  assert.match(render2d, /for \(let y = 0; y <= m\.h \* TILE; y \+= TILE\)/);
+});

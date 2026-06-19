@@ -5,7 +5,7 @@ import { isCloaked } from './detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from './entity-lifecycle.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
-import { bodyBounds, distanceSqToRect } from './spatial.ts';
+import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial.ts';
 import { eid, isAlive, NONE, slotOf, type State } from './world.ts';
 
 export type EntityPresentationState =
@@ -185,7 +185,7 @@ const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0
 
 export const usesFootprintHull = (kind: number): boolean => {
   const def = Units[kind]!;
-  return (def.roles & (Role.Structure | Role.Resource)) !== 0 || kind === Kind.Geyser;
+  return usesFootprintInteractionHull(kind, def.roles);
 };
 
 export const entityRenderHull = (kind: number, x: number, y: number): EntityRenderHull => {

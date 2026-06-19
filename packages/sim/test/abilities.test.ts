@@ -267,6 +267,24 @@ test('yamato gun deals descriptor-backed target damage', () => {
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.ScienceVessel]!.hp - (Abilities[Ability.YamatoGun]!.damage - 50 - 40));
 });
 
+test('entity-target ability range uses top-down interaction edges', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 2611 });
+  const battlecruiser = spawn(Kind.Battlecruiser, 0, fx(400), fx(400));
+  const target = spawn(Kind.CommandCenter, 1, fx(830), fx(400));
+  s.e.energy[slotOf(battlecruiser)] = 150;
+  grant(0, Tech.YamatoCannon);
+  const hpBefore = s.e.hp[slotOf(target)]!;
+
+  assert.ok(fx(430) > Abilities[Ability.YamatoGun]!.range, 'center distance is outside Yamato range');
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: battlecruiser, ability: Ability.YamatoGun, target },
+  ] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
+  assert.ok(s.e.hp[slotOf(target)]! < hpBefore);
+});
+
 test('point area statuses apply through descriptor execution filters', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 262 });
   const arbiter = spawn(Kind.Arbiter, 0, fx(400), fx(400));

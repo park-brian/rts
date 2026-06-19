@@ -61,15 +61,18 @@ export const BASE_MINERAL_DOCK_DISTANCE_PX = 97;
 export const BASE_GAS_DOCK_DISTANCE_PX = 89;
 export const BASE_CLUSTER_RESERVATION_MARGIN_TILES = 1;
 
+// Local base-space resource arc for vertical-facing bases. Mineral patches are
+// 2x1 build footprints, so the useful invariant is the average depot-dock to
+// patch-dock trip distance, not a perfect circle through footprint centers.
 export const BASE_MINERAL_ARC_OFFSETS = [
+  { dx: -7, dy: 2 },
   { dx: -7, dy: 3 },
-  { dx: -6, dy: 5 },
-  { dx: -4, dy: 5 },
-  { dx: -2, dy: 5 },
-  { dx: 0, dy: 5 },
+  { dx: -6, dy: 4 },
+  { dx: -5, dy: 5 },
+  { dx: 0, dy: 6 },
   { dx: 2, dy: 5 },
-  { dx: 6, dy: 3 },
-  { dx: 6, dy: 2 },
+  { dx: 6, dy: 4 },
+  { dx: 7, dy: 3 },
 ] as const;
 export const BASE_GAS_ARC_OFFSET = { dx: 6, dy: 5 } as const;
 
@@ -207,7 +210,6 @@ const resourceCandidate = (
   const kind = gas ? Kind.Refinery : Kind.Mineral;
   const target = gas ? BASE_GAS_DOCK_DISTANCE_PX : BASE_MINERAL_DOCK_DISTANCE_PX;
   const distance = baseResourceDockDistance(kind, start.x, start.y, resource.px!, resource.py!);
-  if (!gas && distance > fx(target)) return null;
   const error = Math.abs(distance - fx(target));
   return {
     resource,

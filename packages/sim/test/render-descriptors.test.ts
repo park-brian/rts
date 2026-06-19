@@ -6,7 +6,7 @@ import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
-import { bodyBounds } from '../src/spatial.ts';
+import { bodyBounds, topDownInteractionRect } from '../src/spatial.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
   entityMinimapVisible, entitySelectionName, illusionPresentation, selectionBase, workActivities,
@@ -138,6 +138,29 @@ test('entity render hulls and selection bases expose gameplay math', () => {
     offsetX: 0,
     offsetY: 0,
   });
+});
+
+test('entity render hulls match top-down interaction rectangles for Math mode', () => {
+  const cases = [
+    Kind.CommandCenter,
+    Kind.Refinery,
+    Kind.Geyser,
+    Kind.Mineral,
+    Kind.Marine,
+    Kind.Zealot,
+  ] as const;
+  const x = fx(12 * TILE + (TILE >> 1));
+  const y = fx(12 * TILE + (TILE >> 1));
+
+  for (const kind of cases) {
+    const hull = entityRenderHull(kind, x, y);
+    const rect = topDownInteractionRect(kind, x, y, Units[kind]!.roles);
+    assert.deepEqual(
+      { x0: fx(hull.x0), y0: fx(hull.y0), x1: fx(hull.x1), y1: fx(hull.y1) },
+      rect,
+      Units[kind]!.name,
+    );
+  }
 });
 
 test('entity life bars expose selected life and lifecycle progress policy', () => {
