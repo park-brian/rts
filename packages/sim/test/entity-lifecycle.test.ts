@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { entityLifecycle, isTransitioning } from '../src/entity/lifecycle.ts';
-import { Kind, Order, Tech, Units } from '../src/data/index.ts';
+import { Ability, Kind, Order, Tech, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
@@ -116,9 +116,15 @@ test('entityLifecycle reports active production, research, and channeling', () =
   s.e.researchKind[barracks] = Kind.None;
   s.e.researchTimer[barracks] = 0;
   s.e.order[barracks] = Order.Cast;
+  s.e.castAbility[barracks] = Ability.YamatoGun;
+  s.e.timer[barracks] = 5;
   life = entityLifecycle(s, barracks);
   assert.equal(life.state, 'channeling');
   assert.equal(life.label, 'Casting');
+  assert.equal(life.detail, 'Yamato Gun');
+  assert.equal(life.remaining, 5);
+  assert.equal(life.total, 5);
+  assert.equal(life.targetKind, Ability.YamatoGun);
   assert.equal(life.busy, true);
 });
 

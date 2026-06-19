@@ -69,7 +69,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Ensnare]!.execution, { mode: 'point-area-status', timer: 'ensnare', team: 'enemy', rolesAny: Role.Mobile, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.Plague]!.execution, { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.SpawnBroodling]!.execution, { mode: 'target-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2), killTarget: true });
-  assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
+  assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-channel-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
   assert.deepEqual(Abilities[Ability.Consume]!.execution, { mode: 'target-sacrifice-energy' });
   assert.deepEqual(Abilities[Ability.PersonnelCloaking]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
@@ -274,7 +274,7 @@ test('feedback drains energy and deals matching damage', () => {
   assert.equal(s.e.hp[slotOf(vessel)], Units[Kind.ScienceVessel]!.hp - (80 - matrixHp));
 });
 
-test('yamato gun deals descriptor-backed target damage', () => {
+test('yamato gun resolves descriptor-backed target channel damage', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 261 });
   const battlecruiser = spawn(Kind.Battlecruiser, 0, fx(400), fx(400));
   const target = spawn(Kind.ScienceVessel, 1, fx(650), fx(400));
@@ -295,6 +295,76 @@ test('yamato gun deals descriptor-backed target damage', () => {
   assert.equal(s.e.matrixTimer[slotOf(target)], 0);
   assert.equal(s.e.shield[slotOf(target)], 0);
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.ScienceVessel]!.hp - (Abilities[Ability.YamatoGun]!.damage - 50 - 40));
+});
+
+test('target channel damage waits for its caster channel and can be interrupted', () => {
+  const ability = Abilities[Ability.YamatoGun]!;
+  const oldDuration = ability.duration;
+  ability.duration = 3;
+  try {
+    const { sim, state: s, spawn, grant } = simScenario({ seed: 2612 });
+    const battlecruiser = spawn(Kind.Battlecruiser, 0, fx(400), fx(400));
+    const target = spawn(Kind.ScienceVessel, 1, fx(650), fx(400));
+    const bc = slotOf(battlecruiser);
+    const tv = slotOf(target);
+    s.e.energy[bc] = 150;
+    s.e.wcd[bc] = 999;
+    const hpBefore = s.e.hp[tv]!;
+    grant(0, Tech.YamatoCannon);
+
+    assert.deepEqual(sim.step([{ player: 0, cmds: [
+      { t: 'ability', unit: battlecruiser, ability: Ability.YamatoGun, target },
+    ] }]), [{ player: 0, index: 0, t: 'ability', ok: true }]);
+    assert.equal(s.e.order[bc], Order.Cast);
+    assert.equal(s.e.castAbility[bc], Ability.YamatoGun);
+    assert.equal(s.e.timer[bc], 2);
+    assert.equal(s.e.hp[tv], hpBefore);
+
+    assert.deepEqual(sim.step([{ player: 0, cmds: [
+      { t: 'stop', unit: battlecruiser },
+    ] }]), [{ player: 0, index: 0, t: 'stop', ok: true }]);
+    assert.equal(s.e.order[bc], Order.Idle);
+    assert.equal(s.e.castAbility[bc], 0);
+    assert.equal(s.e.timer[bc], 0);
+    assert.equal(s.e.hp[tv], hpBefore);
+  } finally {
+    ability.duration = oldDuration;
+  }
+});
+
+test('target channel damage applies when the channel completes', () => {
+  const ability = Abilities[Ability.YamatoGun]!;
+  const oldDuration = ability.duration;
+  ability.duration = 2;
+  try {
+    const { sim, state: s, spawn, grant } = simScenario({ seed: 2613 });
+    const battlecruiser = spawn(Kind.Battlecruiser, 0, fx(400), fx(400));
+    const target = spawn(Kind.ScienceVessel, 1, fx(650), fx(400));
+    const bc = slotOf(battlecruiser);
+    const tv = slotOf(target);
+    s.e.energy[bc] = 150;
+    s.e.wcd[bc] = 999;
+    s.e.shield[tv] = 40;
+    s.e.matrixHp[tv] = 50;
+    s.e.matrixTimer[tv] = sec(10);
+    const hpBefore = s.e.hp[tv]!;
+    grant(0, Tech.YamatoCannon);
+
+    sim.step([{ player: 0, cmds: [
+      { t: 'ability', unit: battlecruiser, ability: Ability.YamatoGun, target },
+    ] }]);
+    assert.equal(s.e.order[bc], Order.Cast);
+    assert.equal(s.e.castAbility[bc], Ability.YamatoGun);
+    assert.equal(s.e.timer[bc], 1);
+    assert.equal(s.e.hp[tv], hpBefore);
+
+    sim.step([]);
+    assert.equal(s.e.order[bc], Order.Idle);
+    assert.equal(s.e.castAbility[bc], 0);
+    assert.equal(s.e.hp[tv], hpBefore - (ability.damage - 50 - 40));
+  } finally {
+    ability.duration = oldDuration;
+  }
 });
 
 test('entity-target ability range uses top-down interaction edges', () => {

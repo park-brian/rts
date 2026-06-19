@@ -41,7 +41,8 @@ Historical implementation notes and completed phase detail live in
   validation semantics, supported mechanics, setup, or major engine constraints change.
 - HEAVY NOTE: eliminate all compatibility shims eventually. Shims are temporary migration
   scaffolding, not architecture. A slice that leaves a shim must name the remaining caller or
-  deletion condition in this roadmap so the project does not normalize old paths forever.
+  deletion condition in this roadmap so the project does not normalize old paths forever; never
+  mark a folder migration complete while an old-path shim still exists for that concept.
 
 ## Active Roadmap
 
@@ -257,9 +258,13 @@ Remaining work:
   - Nuclear Strike launch descriptor slice is done: the Ghost now spawns the delayed point effect,
     consumes a ready nuke, and enters caster-channel state through a data-backed
     `point-channel-effect` execution path instead of a bespoke cast switch branch.
-  - Remaining: Yamato still needs a generic target-channel or windup execution model so its caster
-    timing, interruption, presentation, and damage application are represented by the same ability
-    descriptor architecture rather than by an instant target-damage shortcut.
+  - Yamato target-channel slice is done: Yamato now enters through a generic
+    `target-channel-damage` execution descriptor, active caster channels store their ability id in
+    deterministic entity state/observations/lifecycle, and zero duration preserves the currently
+    sourced instant gameplay behavior until exact Brood War windup frames are sourced.
+  - Remaining: source exact Yamato windup/interruption frames from stronger references than the
+    currently available local BWAPI order/weapon/range/damage data, then update the descriptor
+    duration and timing tests without adding a Yamato-only execution branch.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
   - Point-target range slice is done: point abilities now measure target reach from the caster's
@@ -625,6 +630,9 @@ Done when:
 - Moved Nuclear Strike launch through an ability execution descriptor, including delayed effect
   spawn, ready-missile consumption, and caster channel state; Yamato target-channel/windup remains
   the next high-risk ability timing audit.
+- Moved Yamato through a generic `target-channel-damage` ability descriptor with deterministic
+  caster-channel state exposed to lifecycle and observations; exact BW windup timing remains a
+  sourced-data follow-up instead of an invented constant.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded

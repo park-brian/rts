@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Ability, Abilities, Kind, Units, unitTraits } from '../data/index.ts';
+import { Ability, Abilities, Kind, Order, Units, unitTraits } from '../data/index.ts';
 import { isActiveAddon } from '../mechanics/addons.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { hasReadyNuke } from '../mechanics/nuke.ts';
@@ -75,5 +75,11 @@ export const applyAbilityCommand = (s: State, command: AbilityCommand): void => 
   s.e.settled[slot] = 0;
   s.e.intentTarget[slot] = NONE;
   s.e.combatTarget[slot] = NONE;
+  if (s.e.order[slot] === Order.Cast) {
+    s.e.order[slot] = Order.Idle;
+    s.e.castAbility[slot] = 0;
+    s.e.timer[slot] = 0;
+    s.e.target[slot] = NONE;
+  }
   castAbility(s, slot, command);
 };

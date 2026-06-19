@@ -59,6 +59,7 @@ export type Entities = {
   target: Int32Array; // Command-owned EntityId or NONE; acquired combat lives in combatTarget.
   intentTarget: Int32Array; // Movement/interact/follow target, or NONE.
   combatTarget: Int32Array; // Forced/acquired combat target, or NONE.
+  castAbility: Uint16Array; // active Order.Cast ability id, or 0 when no caster channel is active.
   orderQueueLen: Uint8Array;
   orderQueue0: Uint8Array;
   orderQueue1: Uint8Array;
@@ -128,7 +129,7 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['modeTransitionType', 'u8'], ['modeTransitionTargetKind', 'u16'], ['modeTransitionTargetState', 'u8'],
   ['modeTransitionTimer', 'i32'], ['modeTransitionTotal', 'i32'],
   ['flags', 'u16'], ['order', 'u8'],
-  ['target', 'i32'], ['intentTarget', 'i32'], ['combatTarget', 'i32'],
+  ['target', 'i32'], ['intentTarget', 'i32'], ['combatTarget', 'i32'], ['castAbility', 'u16'],
   ['orderQueueLen', 'u8'],
   ['orderQueue0', 'u8'], ['orderQueue1', 'u8'], ['orderQueue2', 'u8'], ['orderQueue3', 'u8'],
   ['orderQueueTarget0', 'i32'], ['orderQueueTarget1', 'i32'], ['orderQueueTarget2', 'i32'], ['orderQueueTarget3', 'i32'],
@@ -268,6 +269,7 @@ const makeEntities = (): Entities => {
     target: new Int32Array(CAP),
     intentTarget: new Int32Array(CAP),
     combatTarget: new Int32Array(CAP),
+    castAbility: new Uint16Array(CAP),
     orderQueueLen: new Uint8Array(CAP),
     orderQueue0: new Uint8Array(CAP),
     orderQueue1: new Uint8Array(CAP),
@@ -437,6 +439,7 @@ export const trySpawn = (
   e.target[slot] = NONE;
   e.intentTarget[slot] = NONE;
   e.combatTarget[slot] = NONE;
+  e.castAbility[slot] = 0;
   e.orderQueueLen[slot] = 0;
   e.orderQueue0[slot] = 0;
   e.orderQueue1[slot] = 0;
@@ -707,6 +710,7 @@ export const hashState = (s: State): number => {
     h = fold(h, e.target[i]!);
     h = fold(h, e.intentTarget[i]!);
     h = fold(h, e.combatTarget[i]!);
+    h = fold(h, e.castAbility[i]!);
     h = fold(h, e.orderQueueLen[i]!);
     h = fold(h, e.orderQueue0[i]!);
     h = fold(h, e.orderQueue1[i]!);

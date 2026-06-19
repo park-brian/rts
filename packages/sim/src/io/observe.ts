@@ -81,6 +81,8 @@ export type StatusView = {
   modeTransitionTargetState: number;
   modeTransitionTimer: number;
   modeTransitionTotal: number;
+  castAbility: number;
+  castTimer: number;
 };
 
 export type EffectView = {
@@ -132,7 +134,7 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 4;
+export const OBSERVATION_SCHEMA_VERSION = 5;
 // id, kind, owner, x, y, hp, built, order, orderTarget, intentTarget,
 // combatTarget, tx, ty, patrolX, patrolY
 export const OBS_ENTITY_STRIDE = 15;
@@ -143,8 +145,8 @@ export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
 // ensnareTimer, lockdownTimer, stasisTimer, maelstromTimer, acidSporeCount,
 // acidSporeTimer, opticalFlare, parasiteOwner, illusion, lifeTimer, cloakActive,
 // cloakTimer, cloakAura, burrowed, modeTransitionType, modeTransitionTargetKind,
-// modeTransitionTargetState, modeTransitionTimer, modeTransitionTotal
-export const OBS_STATUS_STRIDE = 27;
+// modeTransitionTargetState, modeTransitionTimer, modeTransitionTotal, castAbility, castTimer
+export const OBS_STATUS_STRIDE = 29;
 export const OBS_EFFECT_STRIDE = 9; // id, kind, owner, x, y, radius, timer, period, damage
 export const OBS_LARVA_STRIDE = 4; // id, count, max, timer
 export const OBS_COVERAGE_STRIDE = 6; // id, kind, owner, x, y, radius
@@ -232,7 +234,8 @@ const hasStatus = (e: State['e'], i: number): boolean =>
   e.cloakTimer[i]! > 0 ||
   e.cloakAura[i]! > 0 ||
   e.burrowed[i]! > 0 ||
-  e.modeTransitionTimer[i]! > 0;
+  e.modeTransitionTimer[i]! > 0 ||
+  e.castAbility[i]! > 0;
 
 const statusView = (e: State['e'], i: number): StatusView => ({
   id: eid(e, i),
@@ -262,6 +265,8 @@ const statusView = (e: State['e'], i: number): StatusView => ({
   modeTransitionTargetState: e.modeTransitionTargetState[i]!,
   modeTransitionTimer: e.modeTransitionTimer[i]!,
   modeTransitionTotal: e.modeTransitionTotal[i]!,
+  castAbility: e.castAbility[i]!,
+  castTimer: e.castAbility[i]! > 0 ? e.timer[i]! : 0,
 });
 
 const writeStatus = (out: Int32Array, row: number, e: State['e'], i: number): void => {
@@ -293,6 +298,8 @@ const writeStatus = (out: Int32Array, row: number, e: State['e'], i: number): vo
   out[p++] = e.modeTransitionTargetState[i]!;
   out[p++] = e.modeTransitionTimer[i]!;
   out[p++] = e.modeTransitionTotal[i]!;
+  out[p++] = e.castAbility[i]!;
+  out[p++] = e.castAbility[i]! > 0 ? e.timer[i]! : 0;
 };
 
 const tileVisibilityAt = (s: State, player: number, x: number, y: number): number => {

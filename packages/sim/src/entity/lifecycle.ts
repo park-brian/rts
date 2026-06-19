@@ -1,4 +1,4 @@
-import { Kind, Order, Role, Units } from '../data/index.ts';
+import { Abilities, Kind, Order, Role, Units } from '../data/index.ts';
 import { isModeTransitioning, isTransitioning } from './state.ts';
 import { modeTransitionDetail, modeTransitionLabel } from '../mechanics/mode-transition.ts';
 import { entityWorkQueue } from './work-queue.ts';
@@ -144,11 +144,18 @@ export const entityLifecycle = (s: State, slot: number): EntityLifecycle => {
     };
   }
   if (e.order[slot] === Order.Cast) {
+    const ability = Abilities[e.castAbility[slot]!];
+    const remaining = e.castAbility[slot]! > 0 ? e.timer[slot]! : 0;
+    const total = ability?.duration && ability.duration > 0 ? ability.duration : remaining;
     return {
       ...emptyLifecycle('channeling', 'Casting'),
+      detail: ability?.name ?? '',
+      progress: clampProgress(remaining, total),
+      remaining,
+      total,
       displayKind: kind,
       sourceKind: kind,
-      targetKind: kind,
+      targetKind: e.castAbility[slot]!,
     };
   }
   return {

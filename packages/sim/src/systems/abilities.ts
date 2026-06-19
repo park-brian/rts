@@ -139,6 +139,21 @@ const applyTargetBuffer = (e: State['e'], buffer: AbilityTargetBuffer, target: n
   }
 };
 
+const beginTargetChannel = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
+  const e = s.e;
+  const ability = Abilities[c.ability]!;
+  if (ability.duration <= 0) {
+    applyIndependentDamage(s, slotOf(c.target!), ability.damage);
+    return;
+  }
+  e.order[slot] = Order.Cast;
+  e.target[slot] = c.target!;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.castAbility[slot] = c.ability;
+  e.timer[slot] = ability.duration;
+};
+
 const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
@@ -175,8 +190,8 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     case 'target-buffer':
       applyTargetBuffer(e, execution.buffer, slotOf(c.target!), ability.damage, ability.duration);
       break;
-    case 'target-damage':
-      applyIndependentDamage(s, slotOf(c.target!), ability.damage);
+    case 'target-channel-damage':
+      beginTargetChannel(s, slot, c);
       break;
     case 'target-energy-feedback': {
       const target = slotOf(c.target!);
@@ -253,6 +268,7 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       e.target[slot] = NONE;
       e.intentTarget[slot] = NONE;
       e.combatTarget[slot] = NONE;
+      e.castAbility[slot] = c.ability;
       break;
   }
 };
@@ -312,8 +328,10 @@ const tickEffects = (s: State): void => {
       if (!isAlive(s.e, source)) { fx.alive[i] = 0; continue; }
       const caster = slotOf(source);
       if (isDisabled(s.e, caster) || s.e.order[caster] !== Order.Cast ||
+          s.e.castAbility[caster] !== Ability.NuclearStrike ||
           s.e.x[caster] !== fx.sourceX[i] || s.e.y[caster] !== fx.sourceY[i]) {
         if (s.e.order[caster] === Order.Cast) s.e.order[caster] = Order.Idle;
+        if (s.e.castAbility[caster] === Ability.NuclearStrike) s.e.castAbility[caster] = 0;
         fx.alive[i] = 0;
         continue;
       }
@@ -333,7 +351,10 @@ const tickEffects = (s: State): void => {
         );
         if (pct > 0) applyNuclearStrikeDamage(s, j, fx.damage[i]!, pct);
       }
-      if (s.e.alive[caster] === 1 && s.e.order[caster] === Order.Cast) s.e.order[caster] = Order.Idle;
+      if (s.e.alive[caster] === 1 && s.e.order[caster] === Order.Cast) {
+        s.e.order[caster] = Order.Idle;
+        s.e.castAbility[caster] = 0;
+      }
       fx.alive[i] = 0;
       continue;
     }
@@ -352,6 +373,39 @@ const tickEffects = (s: State): void => {
     }
     fx.timer[i] = fx.timer[i]! - 1;
     if (fx.timer[i]! <= 0) fx.alive[i] = 0;
+  }
+};
+
+const clearCasterChannel = (e: State['e'], slot: number, clearTarget = true): void => {
+  e.castAbility[slot] = 0;
+  e.timer[slot] = 0;
+  if (clearTarget) e.target[slot] = NONE;
+};
+
+const tickTargetChannels = (s: State): void => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.castAbility[i]! === 0) continue;
+    const ability = Abilities[e.castAbility[i]!];
+    if (!ability || ability.execution?.mode !== 'target-channel-damage') continue;
+    if (e.order[i] !== Order.Cast) {
+      clearCasterChannel(e, i, false);
+      continue;
+    }
+    if (isDisabled(e, i) || !isAlive(e, e.target[i]!)) {
+      clearCasterChannel(e, i);
+      continue;
+    }
+    const target = slotOf(e.target[i]!);
+    if (isContained(s, target)) {
+      clearCasterChannel(e, i);
+      continue;
+    }
+    e.timer[i] = e.timer[i]! - 1;
+    if (e.timer[i]! > 0) continue;
+    applyIndependentDamage(s, target, ability.damage);
+    e.order[i] = Order.Idle;
+    clearCasterChannel(e, i);
   }
 };
 
@@ -412,6 +466,7 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
 export const abilities = (s: State): void => {
   updateCloakAuras(s);
   tickEffects(s);
+  tickTargetChannels(s);
   tickEntityDots(s);
   tickLifeTimers(s);
   tickCloak(s);

@@ -251,6 +251,7 @@ test('observe returns sparse own energy and status records without leaking enemy
   const medic = slotOf(spawn(Kind.Medic, 0, fx(700), fx(700)));
   const marine = slotOf(spawn(Kind.Marine, 0, fx(730), fx(700)));
   const tank = spawn(Kind.SiegeTank, 0, fx(790), fx(700));
+  const battlecruiser = slotOf(spawn(Kind.Battlecruiser, 0, fx(860), fx(700)));
   const enemyTank = spawn(Kind.SiegeTank, 1, fx(830), fx(700));
   const enemyQueen = slotOf(spawn(Kind.Queen, 1, fx(760), fx(700)));
   e.energy[medic] = 77;
@@ -272,6 +273,9 @@ test('observe returns sparse own energy and status records without leaking enemy
     player: 1,
     cmds: [{ t: 'transform', unit: enemyTank, kind: Kind.SiegeTankSieged }],
   }]);
+  e.order[battlecruiser] = Order.Cast;
+  e.castAbility[battlecruiser] = Ability.YamatoGun;
+  e.timer[battlecruiser] = 7;
 
   const obs = sim.observe(0);
   assert.equal(obs.statuses.some((v) => v.id === eid(e, enemyQueen)), false);
@@ -301,6 +305,11 @@ test('observe returns sparse own energy and status records without leaking enemy
   assert.ok(tankStatus.modeTransitionTimer > 0);
   assert.ok(tankStatus.modeTransitionTotal >= tankStatus.modeTransitionTimer);
 
+  const cruiserStatus = obs.statuses.find((v) => v.id === eid(e, battlecruiser));
+  assert.ok(cruiserStatus);
+  assert.equal(cruiserStatus.castAbility, Ability.YamatoGun);
+  assert.equal(cruiserStatus.castTimer, 7);
+
   const buffers = createObservationBuffers(s.map, { statuses: 16 });
   const counts = writeObservation(s, 0, buffers);
   assert.equal(counts.statuses, obs.statuses.length);
@@ -312,8 +321,10 @@ test('observe returns sparse own energy and status records without leaking enemy
   };
   const marineRow = statusRowFor(eid(e, marine));
   const tankRow = statusRowFor(tank);
+  const cruiserRow = statusRowFor(eid(e, battlecruiser));
   assert.notEqual(marineRow, -1);
   assert.notEqual(tankRow, -1);
+  assert.notEqual(cruiserRow, -1);
   assert.deepEqual([...buffers.statuses.slice(marineRow + STATUS_CLOAK_OFFSET, marineRow + STATUS_MODE_TRANSITION_OFFSET)], [
     e.cloakActive[marine]!, e.cloakTimer[marine]!, e.cloakAura[marine]!, e.burrowed[marine]!,
   ]);
@@ -323,6 +334,12 @@ test('observe returns sparse own energy and status records without leaking enemy
     0,
     tankStatus.modeTransitionTimer,
     tankStatus.modeTransitionTotal,
+    0,
+    0,
+  ]);
+  assert.deepEqual([...buffers.statuses.slice(cruiserRow + OBS_STATUS_STRIDE - 2, cruiserRow + OBS_STATUS_STRIDE)], [
+    Ability.YamatoGun,
+    7,
   ]);
 
   const mutableStatus: { energy: number } = medicStatus;
