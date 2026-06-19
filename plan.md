@@ -288,6 +288,12 @@ Migration plan:
   indexed runtime tables. Preserve readable rows, but expose hot queries through bit flags/direct
   arrays. This should be behavior-preserving and covered by actor commandability, render
   presentation, and command validation tests.
+  - First indexed actor pass is done: `ActorDefs` remains the readable review surface, while
+    commandability, normal-combat participation, external steering, projectile presentation,
+    min-readable radius, trigger lookup, and `ActorDefByKind` now come from compiled by-kind
+    arrays/bit flags. No file split was introduced yet because the current actor owner is still
+    small; split into `capabilities.ts` only when structure/producer/cargo/caster facets make the
+    single file harder to scan.
 - Second pass should move Trigger and Projectile/Sortie constants out of isolated systems where it
   improves ownership: Spider Mine trigger facts, Scarab lifetime/impact policy, and Interceptor
   leash/orbit/return policy. Keep the systems as interpreters unless shared execution becomes
