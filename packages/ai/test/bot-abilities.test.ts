@@ -1942,6 +1942,79 @@ test('live bot planner reports unavailable placement without blocked-site memory
     record.result.reason === 'placement-unavailable'));
 });
 
+test('live bot planner reports missing-prerequisite zerg morph outcomes', () => {
+  const scenario = botScenario({ seed: 538, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  scenario.state.e.kind[slotOf(hatchery)] = Kind.Lair;
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'rebuild-tech' &&
+    record.intent.targetKind === Kind.Hive &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'missing-prerequisite'));
+});
+
+test('live bot planner reports resource-starved zerg morph outcomes', () => {
+  const scenario = botScenario({ seed: 539, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  scenario.state.e.kind[slotOf(hatchery)] = Kind.Lair;
+  scenario.spawn(Kind.QueensNest, 0, base.x + fx(180), base.y);
+  scenario.resources(0, 1_000, Units[Kind.Hive]!.gas - 1);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'rebuild-tech' &&
+    record.intent.targetKind === Kind.Hive &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'resource-starved'));
+});
+
+test('live bot planner reports occupied zerg morph producer outcomes', () => {
+  const scenario = botScenario({ seed: 540, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  const lair = slotOf(hatchery);
+  scenario.state.e.kind[lair] = Kind.Lair;
+  scenario.state.e.prodKind[lair] = Kind.Drone;
+  scenario.spawn(Kind.QueensNest, 0, base.x + fx(180), base.y);
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'rebuild-tech' &&
+    record.intent.targetKind === Kind.Hive &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-production-capacity'));
+});
+
+test('live bot planner reports missing lurker morph tech outcomes', () => {
+  const scenario = botScenario({ seed: 541, factions: [Zerg, Terran] });
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  scenario.state.e.kind[slotOf(hatchery)] = Kind.Hive;
+  scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(120), base.y);
+  scenario.spawn(Kind.Hydralisk, 0, base.x + fx(32), base.y);
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Lurker &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'missing-prerequisite'));
+});
+
 test('live bot planner reports resource-starved worker training outcomes', () => {
   const scenario = botScenario({ seed: 521, factions: [Terran, Zerg] });
   scenario.resources(0, Units[Kind.SCV]!.minerals - 1, 0);

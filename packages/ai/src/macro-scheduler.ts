@@ -275,7 +275,14 @@ export const scheduleBotMacro = (
         : { status: 'waiting', reason: addonBlock.reason },
     });
   }
-  maybeQueueZergMorphs(s, player, faction, cmds, budget);
+  const morphBlock = maybeQueueZergMorphs(s, player, faction, cmds, budget);
+  if (morphBlock) {
+    const intentKind = techTransformKind(morphBlock.kind) ? 'rebuild-tech' : trainIntentKind(morphBlock.kind, faction);
+    intentResults.push({
+      intent: { kind: intentKind, urgency: intentUrgency(intentKind), targetKind: morphBlock.kind },
+      result: { status: 'waiting', reason: morphBlock.reason },
+    });
+  }
   const researchBlock = maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
   if (researchBlock) {
     intentResults.push({

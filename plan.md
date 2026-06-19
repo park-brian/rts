@@ -754,8 +754,11 @@ Remaining work:
     - Supply/build outcome slice is done: supply structures, first army production structures,
       Protoss/Zerg tech structures, Terran/Protoss anti-float capacity, and Zerg macro Hatcheries
       now use the richer shared structure-queue result so resource starvation, missing builders,
-      missing prerequisites, and placement availability are visible to intent results. Remaining
-      work: morph directors still need explicit outcomes where actionable.
+      missing prerequisites, and placement availability are visible to intent results.
+    - Morph-outcome slice is done: Zerg unique tech morphs and Hydralisk-to-Lurker morph attempts
+      now return validator-backed intent results for missing prerequisites/tech, resource starvation,
+      supply blocks, and busy morph sources. Non-actionable "no source unit exists yet" cases stay
+      quiet so earlier macro/tech directors can own the prerequisite work.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
