@@ -1,8 +1,8 @@
-import { Kind, Order, Role, Tech, Units } from './data.ts';
-import { getTechLevel } from './mechanics/tech.ts';
-import type { State } from './entity/world.ts';
-import { NONE } from './entity/world.ts';
-import { clearVelocity } from './spatial/motion.ts';
+import { Kind, Order, Role, Tech, Units } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { NONE } from '../entity/world.ts';
+import { clearVelocity } from '../spatial/motion.ts';
+import { getTechLevel } from './tech.ts';
 
 const BURROWABLE = new Set<number>([
   Kind.Drone,
@@ -20,8 +20,9 @@ export const hasBurrowAccess = (s: State, player: number, kind: number): boolean
 
 export const canBurrowSlot = (s: State, slot: number): boolean => {
   const e = s.e;
-  const def = Units[e.kind[slot]!];
-  if (!def || !canBurrowKind(e.kind[slot]!)) return false;
+  const kind = e.kind[slot]!;
+  const def = Units[kind];
+  if (!def || !canBurrowKind(kind)) return false;
   return e.built[slot] === 1 &&
     (e.flags[slot]! & Role.Mobile) !== 0 &&
     (e.flags[slot]! & (Role.Air | Role.Structure | Role.Resource)) === 0;
@@ -30,9 +31,14 @@ export const canBurrowSlot = (s: State, slot: number): boolean => {
 export const canUseWeaponNow = (s: State, slot: number): boolean => {
   const e = s.e;
   if (e.built[slot] !== 1) return false;
-  if (e.kind[slot] === Kind.Lurker) return e.burrowed[slot] === 1;
-  if (e.kind[slot] === Kind.SpiderMine) return e.burrowed[slot] !== 1;
-  return e.burrowed[slot] !== 1;
+  switch (e.kind[slot]) {
+    case Kind.Lurker:
+      return e.burrowed[slot] === 1;
+    case Kind.SpiderMine:
+      return e.burrowed[slot] !== 1;
+    default:
+      return e.burrowed[slot] !== 1;
+  }
 };
 
 export const setBurrowed = (s: State, slot: number, active: boolean): void => {

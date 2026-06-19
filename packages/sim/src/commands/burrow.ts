@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { canBurrowSlot, hasBurrowAccess, setBurrowed } from '../burrow.ts';
+import { canBurrowSlot, hasBurrowAccess, setBurrowed } from '../mechanics/burrow.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { isDisabled } from '../systems/status.ts';
 import type { State } from '../entity/world.ts';

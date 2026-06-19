@@ -465,6 +465,8 @@ Done when:
   `mechanics/tech.ts`, deleting the old root helper path while preserving the stable package export.
 - Moved Spider Mine placement helpers under `mechanics/spider-mine.ts`, deleting the old root helper
   path while keeping Vulture mine commands pointed at the mechanic owner.
+- Moved shared burrow capability, access, weapon-availability, and state transition rules under
+  `mechanics/burrow.ts`, deleting the old root helper path while preserving the stable package export.
 
 ## Review Checklist
 

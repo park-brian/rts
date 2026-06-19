@@ -20,7 +20,7 @@ export * from './mechanics/refund-ledger.ts';
 export * from './mechanics/addons.ts';
 export * from './mechanics/terran-mobility.ts';
 export * from './mechanics/transforms.ts';
-export * from './burrow.ts';
+export * from './mechanics/burrow.ts';
 export * from './mechanics/cargo.ts';
 export * from './mechanics/effects.ts';
 export * from './mechanics/creep.ts';
