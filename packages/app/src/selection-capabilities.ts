@@ -1,7 +1,7 @@
 import {
   Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
-  internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
+  addonSelectionCandidates, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
   trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
@@ -205,7 +205,7 @@ export const selectionCapabilities = (
         const command: Command = { t: 'addon', building: id, kind: addon };
         const result = validateCommand(s, player, command);
         if (result.ok || result.reason !== 'target-not-allowed') {
-          addOption(addonOptions, addon, result, { commands: result.ok ? [command] : undefined, priority: selectionIndex });
+          addOption(addonOptions, addon, result, { priority: selectionIndex });
         }
       }
       for (const train of Units[k]!.produces) {
@@ -276,6 +276,10 @@ export const selectionCapabilities = (
   for (const option of trainOptions.values()) {
     if (!option.ok) continue;
     option.commands = trainSelectionCandidates(s, player, selected, option.id);
+  }
+  for (const option of addonOptions.values()) {
+    if (!option.ok) continue;
+    option.commands = addonSelectionCandidates(s, player, selected, option.id);
   }
   for (const option of abilityOptions.values()) {
     if (!option.ok) continue;

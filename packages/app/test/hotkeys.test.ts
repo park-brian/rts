@@ -137,6 +137,26 @@ test('desktop train options queue the least-loaded selected producer', () => {
   assert.deepEqual(g.queued.pop(), { t: 'train', building: idle, kind: Kind.Marine });
 });
 
+test('desktop add-on options queue the first valid selected producer', () => {
+  resetHotkeys();
+  const g = desktopGame(99);
+  const s = g.sim.fullState();
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+
+  const busy = spawnUnit(s, Kind.Factory, 0, fx(700), fx(700));
+  const idle = spawnUnit(s, Kind.Factory, 0, fx(900), fx(700));
+  s.e.target[slotOf(busy)] = busy;
+  select(g, [busy, idle]);
+  g.fastForward(0);
+
+  assert.deepEqual(ui.selectionView.value.options.addon.find((o) => o.id === Kind.MachineShop)?.commands, [
+    { t: 'addon', building: idle, kind: Kind.MachineShop },
+  ]);
+  assert.equal(dispatchHotkey(g, 'KeyM'), true);
+  assert.deepEqual(g.queued.pop(), { t: 'addon', building: idle, kind: Kind.MachineShop });
+});
+
 test('desktop cancel hotkey executes cancellable morph option before deselect', () => {
   resetHotkeys();
   const g = desktopGame(96);

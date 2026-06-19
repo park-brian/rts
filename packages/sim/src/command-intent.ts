@@ -275,6 +275,21 @@ export const trainSelectionCandidates = (
   return best ? [best] : [];
 };
 
+export const addonSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  kind: number,
+): Command[] => {
+  const e = s.e;
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const command: Command = { t: 'addon', building, kind };
+    if (validateCommand(s, player, command).ok) return [command];
+  }
+  return [];
+};
+
 export const rallyModeCandidates = (
   s: State,
   player: number,

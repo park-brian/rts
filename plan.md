@@ -1492,6 +1492,9 @@ Rework slices:
    - Train option execution candidates now resolve through `trainSelectionCandidates`, preserving
      the least-loaded selected producer rule in the sim command-intent layer while app code keeps
      train labels and disabled reasons.
+   - Add-on option execution candidates now resolve through `addonSelectionCandidates`, preserving
+     selection-order choice in the sim command-intent layer while app code keeps add-on visibility
+     and disabled reasons.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

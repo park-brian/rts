@@ -4,7 +4,7 @@ import { Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
-  attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
+  addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, smartCommandCandidates,
   trainSelectionCandidates, transformSelectionCandidates,
   unloadSelectionCandidates,
@@ -272,6 +272,21 @@ test('train command-card candidates choose the least-loaded valid producer', () 
     { t: 'train', building: idle, kind: Kind.Marine },
   ]);
   assert.deepEqual(trainSelectionCandidates(s, 0, [academy], Kind.Marine), []);
+});
+
+test('add-on command-card candidates choose the first valid selected producer', () => {
+  const s = makeState(open(), 1, 1230);
+  const busy = spawnUnit(s, Kind.Factory, 0, tc(8), tc(8));
+  const idle = spawnUnit(s, Kind.Factory, 0, tc(12), tc(8));
+  const barracks = spawnUnit(s, Kind.Barracks, 0, tc(20), tc(8));
+  s.e.target[slotOf(busy)] = busy;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  assert.deepEqual(addonSelectionCandidates(s, 0, [busy, barracks, idle], Kind.MachineShop), [
+    { t: 'addon', building: idle, kind: Kind.MachineShop },
+  ]);
+  assert.deepEqual(addonSelectionCandidates(s, 0, [barracks], Kind.MachineShop), []);
 });
 
 test('armed rally mode targets valid friendly units and gather targets', () => {
