@@ -150,6 +150,24 @@ test('psionic storm creates persistent area damage for units but not structures'
   assert.equal(s.e.alive[slotOf(friendly)], 0);
 });
 
+test('persistent area effects use top-down body overlap', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 231 });
+  const templar = spawn(Kind.HighTemplar, 0, fx(400), fx(400));
+  const storm = Abilities[Ability.PsionicStorm]!;
+  const stormX = fx(500);
+  const edgeMarine = spawn(Kind.Marine, 1, stormX + storm.radius + fx(6), fx(400));
+  const outsideMarine = spawn(Kind.Marine, 1, stormX + storm.radius + fx(12), fx(480));
+  s.e.energy[slotOf(templar)] = storm.energyCost;
+  grant(0, Tech.PsionicStorm);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: templar, ability: Ability.PsionicStorm, x: stormX, y: fx(400) },
+  ] }]);
+
+  assert.equal(s.e.hp[slotOf(edgeMarine)], Units[Kind.Marine]!.hp - storm.damage);
+  assert.equal(s.e.hp[slotOf(outsideMarine)], Units[Kind.Marine]!.hp);
+});
+
 test('defensive matrix absorbs incoming weapon damage before shields and hp', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 24 });
   const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
@@ -340,6 +358,24 @@ test('point area statuses apply through descriptor execution filters', () => {
   assert.equal(s.e.plagueTimer[slotOf(plagueMobile)], Abilities[Ability.Plague]!.duration - 1);
   assert.equal(s.e.plagueTimer[slotOf(plagueStructure)], Abilities[Ability.Plague]!.duration - 1);
   assert.equal(s.e.plagueTimer[slotOf(plagueFriendly)], 0);
+});
+
+test('point area statuses use top-down body overlap', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 2621 });
+  const arbiter = spawn(Kind.Arbiter, 0, fx(400), fx(400));
+  const stasis = Abilities[Ability.StasisField]!;
+  const stasisX = fx(500);
+  const edgeMarine = spawn(Kind.Marine, 1, stasisX + stasis.radius + fx(6), fx(400));
+  const outsideMarine = spawn(Kind.Marine, 1, stasisX + stasis.radius + fx(12), fx(480));
+  s.e.energy[slotOf(arbiter)] = stasis.energyCost;
+  grant(0, Tech.StasisField);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: arbiter, ability: Ability.StasisField, x: stasisX, y: fx(400) },
+  ] }]);
+
+  assert.equal(s.e.stasisTimer[slotOf(edgeMarine)], stasis.duration - 1);
+  assert.equal(s.e.stasisTimer[slotOf(outsideMarine)], 0);
 });
 
 test('stasis field uses the sourced duration and expires through shared disabled gates', () => {

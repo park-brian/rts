@@ -39,6 +39,9 @@ Historical implementation notes and completed phase detail live in
   obvious next step; make the continuation call directly from the roadmap, tests, and code state.
 - Keep `README.md` current as the durable product/architecture summary whenever controls,
   validation semantics, supported mechanics, setup, or major engine constraints change.
+- HEAVY NOTE: eliminate all compatibility shims eventually. Shims are temporary migration
+  scaffolding, not architecture. A slice that leaves a shim must name the remaining caller or
+  deletion condition in this roadmap so the project does not normalize old paths forever.
 
 ## Active Roadmap
 
@@ -236,7 +239,11 @@ Remaining work:
   metrics, but spell validation still needs explicit per-ability geometry decisions.
   - Point-target range slice is done: point abilities now measure target reach from the caster's
     top-down interaction hull to the target point, while entity-target abilities continue using
-    entity-to-entity top-down edge distance. Remaining: audit point-area radius inclusion semantics.
+    entity-to-entity top-down edge distance.
+  - Point-area radius slice is done: shared effect/area membership now measures the target
+    entity's top-down interaction hull against the spell/effect radius, covering persistent areas
+    and descriptor-driven area statuses through one helper. Remaining: audit falloff mechanics that
+    intentionally still use center distance, especially Nuclear Strike and weapon splash.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
