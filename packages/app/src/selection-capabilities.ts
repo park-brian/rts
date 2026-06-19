@@ -1,8 +1,8 @@
 import {
   Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, isAlive,
-  abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
-  researchSelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
+  researchSelectionCandidates, trainSelectionCandidates, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -130,6 +130,7 @@ export const selectionCapabilities = (
   const researchOptions = new Map<number, OptionRecord>();
   const selected = [...selectedIds].filter((id) => isAlive(e, id));
   const visibleSelected: number[] = [];
+  const readyVisibleSelected: number[] = [];
 
   for (const [selectionIndex, id] of selected.entries()) {
     const slot = slotOf(id);
@@ -139,6 +140,7 @@ export const selectionCapabilities = (
     const k = e.kind[slot]!;
     const lifecycle = entityLifecycle(s, slot);
     const ready = lifecycleCanReceiveStandardCommands(lifecycle);
+    if (ready) readyVisibleSelected.push(id);
     if (primarySlot < 0) primarySlot = slot;
     kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
@@ -174,9 +176,6 @@ export const selectionCapabilities = (
           ...trainOptionMeta(s, slot, train),
           priority: load,
         });
-      }
-      for (const target of transformTargetsFor(k)) {
-        addOption(transformOptions, target, validateCommand(s, player, { t: 'transform', unit: id, kind: target }));
       }
       for (const tech of TECH_IDS) {
         const def = TechDefs[tech];
@@ -221,9 +220,13 @@ export const selectionCapabilities = (
     }
   }
 
-  for (const option of transformOptions.values()) {
-    if (!option.ok) continue;
-    option.commands = transformSelectionCandidates(s, player, selected, option.id);
+  for (const option of transformSelectionOptions(s, player, readyVisibleSelected)) {
+    addOption(
+      transformOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      { commands: option.commands },
+    );
   }
   for (const option of trainOptions.values()) {
     if (!option.ok) continue;

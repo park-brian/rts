@@ -8,7 +8,7 @@ import {
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
 import { entityWorkQueue } from './entity-work-queue.ts';
-import { transformFor } from './unit-transform.ts';
+import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { validateCommand } from './validation.ts';
 import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
 
@@ -35,6 +35,14 @@ export type AbilitySelectionOption = {
   id: number;
   ok: boolean;
   target: AbilityTarget;
+  representative: number;
+  reason?: CommandRejectReason;
+  commands?: Command[];
+};
+
+export type TransformSelectionOption = {
+  id: number;
+  ok: boolean;
   representative: number;
   reason?: CommandRejectReason;
   commands?: Command[];
@@ -285,6 +293,42 @@ export const transformSelectionCandidates = (
     }
   }
   return commands;
+};
+
+const addTransformSelectionOption = (
+  options: Map<number, TransformSelectionOption>,
+  id: number,
+  representative: number,
+  result: CandidateValidation,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok) options.set(id, { id, ok: true, representative });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, representative, reason: result.reason });
+  }
+};
+
+export const transformSelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): TransformSelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, TransformSelectionOption>();
+  for (const id of selected) {
+    if (!isAlive(e, id)) continue;
+    for (const kind of transformTargetsFor(e.kind[slotOf(id)]!)) {
+      addTransformSelectionOption(options, kind, id, validateCommand(s, player, { t: 'transform', unit: id, kind }));
+    }
+  }
+  for (const option of options.values()) {
+    if (option.ok) option.commands = transformSelectionCandidates(s, player, selected, option.id);
+  }
+  return [...options.values()].sort((a, b) => a.id - b.id);
 };
 
 export const trainSelectionCandidates = (

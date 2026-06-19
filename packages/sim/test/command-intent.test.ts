@@ -6,7 +6,7 @@ import type { MapDef } from '../src/map.ts';
 import {
   abilitySelectionOptions, addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, selfAbilitySelectionCandidates, smartCommandCandidates,
-  trainSelectionCandidates, transformSelectionCandidates,
+  trainSelectionCandidates, transformSelectionCandidates, transformSelectionOptions,
   unloadSelectionCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
@@ -254,6 +254,40 @@ test('transform command-card candidates pair merge units deterministically', () 
     { t: 'transform', unit: a, kind: Kind.Archon, target: b },
     { t: 'transform', unit: c, kind: Kind.Archon, target: d },
   ]);
+});
+
+test('transform command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1209);
+  const hydra = spawnUnit(s, Kind.Hydralisk, 0, tc(8), tc(8));
+  const templarA = spawnUnit(s, Kind.HighTemplar, 0, tc(10), tc(8));
+  const templarB = spawnUnit(s, Kind.HighTemplar, 0, tc(11), tc(8));
+  spawnUnit(s, Kind.HydraliskDen, 0, tc(13), tc(8));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 1_000;
+
+  let options = transformSelectionOptions(s, 0, [hydra, templarA, templarB]);
+  assert.deepEqual(options.find((o) => o.id === Kind.Lurker), {
+    id: Kind.Lurker,
+    ok: false,
+    representative: hydra,
+    reason: 'missing-requirement',
+  });
+  assert.deepEqual(options.find((o) => o.id === Kind.Archon), {
+    id: Kind.Archon,
+    ok: true,
+    representative: templarA,
+    commands: [{ t: 'transform', unit: templarA, kind: Kind.Archon, target: templarB }],
+  });
+
+  setTechLevel(s, 0, Tech.LurkerAspect, 1);
+  options = transformSelectionOptions(s, 0, [hydra]);
+  assert.deepEqual(options.find((o) => o.id === Kind.Lurker), {
+    id: Kind.Lurker,
+    ok: true,
+    representative: hydra,
+    commands: [{ t: 'transform', unit: hydra, kind: Kind.Lurker }],
+  });
 });
 
 test('train command-card candidates choose the least-loaded valid producer', () => {

@@ -1504,6 +1504,9 @@ Rework slices:
    - Ability option availability now resolves through sim-owned `abilitySelectionOptions`, including
      representative casters, disabled reasons, self-cast commands, and targeted ability arm modes;
      app code only maps those records to command-card presentation.
+   - Transform option availability now resolves through sim-owned `transformSelectionOptions`,
+     preserving ready-only UI visibility, disabled reasons, representative actors, and merge/morph
+     execution commands while app code only maps the records into command-card options.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,
