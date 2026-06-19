@@ -14,10 +14,10 @@ import {
   abilityTechAvailable,
   hasInternalProductReady,
   distanceSq, withinRangeSq,
-  isLarvaSourceKind,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
+import { maybeQueueZergMacroHatchery, type ResourceBudget } from './macro-capacity.ts';
 import {
   collectBotFacts,
   commitTacticalResponders,
@@ -41,9 +41,6 @@ const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously m
 const EMERGENCY_WORKER_RESPONSE_TILES = 10;
 const OFFENSE_COMMITMENT_TICKS = 45 * 24;
 const OFFENSE_MIN_FORCE = 2;
-const ZERG_MACRO_HATCHERY_BANK = 800;
-const ZERG_MACRO_HATCHERY_STEP = 600;
-const ZERG_MACRO_HATCHERY_MAX = 6;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const TERRAN_RESEARCH_MACRO = [
   Tech.StimPack,
@@ -155,7 +152,6 @@ const ZERG_REPEATABLE_MORPH_MACRO = [
 ] as const;
 const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
-type ResourceBudget = { minerals: number; gas: number };
 type ProducerReservations = Set<number>;
 type OffenseFocus = { x: number; y: number; target: number };
 
@@ -284,28 +280,6 @@ const hasOwnedOrPendingStructure = (s: State, player: number, kind: number): boo
     if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === kind) return true;
   }
   return false;
-};
-
-const larvaCapacityCount = (s: State, player: number): number => {
-  const e = s.e;
-  let count = 0;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
-    if (isLarvaSourceKind(e.kind[i]!)) {
-      count++;
-      continue;
-    }
-    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === Kind.Hatchery) count++;
-  }
-  return count;
-};
-
-const remainingIdleLarvae = (idleLarvae: readonly number[], usedProducers: Set<number>): number => {
-  let count = 0;
-  for (const larva of idleLarvae) {
-    if (!usedProducers.has(larva)) count++;
-  }
-  return count;
 };
 
 const zergUniqueMorphMask = (kind: number): number => {
@@ -547,7 +521,18 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     if (!builderUsed) {
-      builderUsed = maybeQueueZergMacroHatchery(s, p, faction, cmds, budget, aWorker, depot, idleLarvae, usedProducers);
+      builderUsed = maybeQueueZergMacroHatchery(
+        s,
+        p,
+        faction,
+        cmds,
+        budget,
+        aWorker,
+        depot,
+        idleLarvae,
+        usedProducers,
+        findMacroSpot,
+      );
       minerals = budget.minerals;
     }
 
@@ -696,39 +681,6 @@ const maybeQueueZergTechStructures = (
     if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
   }
   return false;
-};
-
-const maybeQueueZergMacroHatchery = (
-  s: State,
-  player: number,
-  faction: Faction,
-  cmds: Command[],
-  budget: ResourceBudget,
-  worker: number,
-  anchor: number,
-  idleLarvae: readonly number[],
-  usedProducers: Set<number>,
-): boolean => {
-  if (faction.name !== 'Zerg') return false;
-  if (worker === NONE || remainingIdleLarvae(idleLarvae, usedProducers) > 0) return false;
-  if (budget.minerals < ZERG_MACRO_HATCHERY_BANK) return false;
-
-  const desired = Math.min(
-    ZERG_MACRO_HATCHERY_MAX,
-    2 + Math.trunc((budget.minerals - ZERG_MACRO_HATCHERY_BANK) / ZERG_MACRO_HATCHERY_STEP),
-  );
-  if (larvaCapacityCount(s, player) >= desired) return false;
-
-  const def = Units[Kind.Hatchery]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
-  const spot = findMacroSpot(s, player, worker, Kind.Hatchery, anchor);
-  if (!spot) return false;
-  const command: Command = { t: 'build', unit: eid(s.e, worker), kind: Kind.Hatchery, x: spot.x, y: spot.y };
-  if (!validateCommand(s, player, command).ok) return false;
-  cmds.push(command);
-  budget.minerals -= def.minerals;
-  budget.gas -= def.gas;
-  return true;
 };
 
 const maybeQueueResearch = (

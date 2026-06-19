@@ -641,6 +641,9 @@ Remaining work:
     - First Zerg capacity slice is done: after normal larva spending, a larva-starved Zerg bot with
       a large mineral bank adds bounded repeatable Hatchery capacity through shared build validation,
       while pending Hatcheries and remaining idle larvae suppress the anti-float build.
+    - Capacity-policy extraction slice is done: Zerg Hatchery anti-float pressure now lives in
+      `packages/ai/src/macro-capacity.ts`, keeping the live bot controller from absorbing the next
+      Terran/Protoss production-capacity policies as more inline branching.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
