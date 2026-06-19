@@ -2,12 +2,12 @@
 // straight path is blocked. The external map remains build-tile based, but
 // movement routes over the finer path lattice exported by flow.ts.
 
-import type { State } from './entity/world.ts';
-import type { MapDef } from './map.ts';
-import { Role, TILE, Units } from './data.ts';
-import { ONE, isqrt } from './fixed.ts';
-import { acceleratedStep, moveToward } from './spatial/motion.ts';
-import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './spatial/local-avoidance.ts';
+import type { State } from '../entity/world.ts';
+import type { MapDef } from '../map.ts';
+import { Role, TILE, Units } from '../data.ts';
+import { ONE, isqrt } from '../fixed.ts';
+import { acceleratedStep, moveToward } from './motion.ts';
+import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './local-avoidance.ts';
 import {
   clearancePxForKind,
   downhill,
@@ -24,7 +24,7 @@ import {
   pathW,
   pathX,
   pathY,
-} from './spatial/flow.ts';
+} from './flow.ts';
 
 const TILE_FX = TILE * ONE;
 const PATH_CELL_FX = TILE_FX / PATH_CELLS_PER_TILE;

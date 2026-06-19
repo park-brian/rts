@@ -41,7 +41,7 @@ export * from './rally.ts';
 export * from './resource-targets.ts';
 export * from './ability-availability.ts';
 export * from './entity/world.ts';
-export * from './pathing.ts';
+export * from './spatial/pathing.ts';
 export * from './procedural.ts';
 export * from './entity/factory.ts';
 export * from './systems/census.ts';

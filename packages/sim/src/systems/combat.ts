@@ -9,7 +9,7 @@ import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../entity/world.ts';
 import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type Weapon, weaponForTarget } from '../data.ts';
 import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { faceToward, within } from '../spatial/motion.ts';
-import { navigate } from '../pathing.ts';
+import { navigate } from '../spatial/pathing.ts';
 import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../spatial/grid.ts';
 import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from './status.ts';
 import { coveredByEffect } from '../effects.ts';

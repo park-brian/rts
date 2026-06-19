@@ -5,7 +5,7 @@ import { fx } from '../src/fixed.ts';
 import { eid, isAlive, NONE, slotOf } from '../src/entity/world.ts';
 import { deserializeState, serializeState } from '../src/io/serialize.ts';
 import { parseReplay } from '../src/io/replay.ts';
-import { tileX, tileY } from '../src/pathing.ts';
+import { tileX, tileY } from '../src/spatial/pathing.ts';
 import { topDownEdgeDistance } from '../src/spatial/geometry.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

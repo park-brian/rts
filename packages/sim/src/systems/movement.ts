@@ -4,7 +4,7 @@
 
 import type { State } from '../entity/world.ts';
 import { Order, Units } from '../data.ts';
-import { navigate } from '../pathing.ts';
+import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../terran-mobility.ts';
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';

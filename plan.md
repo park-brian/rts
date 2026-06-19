@@ -422,6 +422,8 @@ Done when:
 - Moved fixed-point motion primitives (`clearVelocity`, facing, direct movement, acceleration, and
   radius checks) under `spatial/motion.ts`, deleting the old `systems/move.ts` helper so pathing no
   longer depends on a tick-system module.
+- Moved shared navigation, route-distance, and tile-coordinate helpers under `spatial/pathing.ts`,
+  deleting the old root `pathing.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

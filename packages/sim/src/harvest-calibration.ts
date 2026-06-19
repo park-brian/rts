@@ -1,6 +1,6 @@
 import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from './data.ts';
 import { fx, isqrt } from './fixed.ts';
-import { pathRouteDistance } from './pathing.ts';
+import { pathRouteDistance } from './spatial/pathing.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
   resourceDirVector,

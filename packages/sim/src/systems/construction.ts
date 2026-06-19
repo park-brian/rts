@@ -7,7 +7,7 @@ import type { State } from '../entity/world.ts';
 import { spawn, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
 import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, ResourceType, TILE, tiles } from '../data.ts';
 import { ONE } from '../fixed.ts';
-import { navigate } from '../pathing.ts';
+import { navigate } from '../spatial/pathing.ts';
 import { navPassable } from '../spatial/flow.ts';
 import { pickPatch } from './harvest.ts';
 import { faceToward, within } from '../spatial/motion.ts';

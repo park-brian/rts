@@ -4,7 +4,7 @@ import { Kind, Role, Units, weaponForTarget } from '../data.ts';
 import { trySpawnUnit } from '../entity/factory.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
-import { navigate } from '../pathing.ts';
+import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';
 import { effectiveSpeed } from './status.ts';
