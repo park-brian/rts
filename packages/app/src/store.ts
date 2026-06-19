@@ -130,6 +130,7 @@ export const ui = {
   setupOpen: signal(true),
   mathRenderer: signal(false),
   controlScheme: signal<ControlScheme>(initialControlScheme()),
+  mobileQueueMode: signal(false),
   humanPlayer: signal(0),
   playerRaces: signal<string[]>(['terran', 'terran']),
   selectionView: signal<SelectionView>(EMPTY_SELECTION_VIEW),

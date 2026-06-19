@@ -237,6 +237,9 @@ const TopBar = (p: { game: Game }) => {
       <Btn compact label="⟳ Map" onClick={() => p.game.restart(ui.mode.value === 'replay' ? 'spectate' : ui.mode.value)} />
       <Btn compact label="▭ Load" onClick={() => loadReplay(p.game)} />
       <Btn compact label="▣ Math" active={ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = !ui.mathRenderer.value)} />
+      {ui.controlScheme.value === 'mobile' && (
+        <Btn compact label="Queue" active={ui.mobileQueueMode.value} onClick={() => (ui.mobileQueueMode.value = !ui.mobileQueueMode.value)} />
+      )}
       <Btn compact label={ui.controlScheme.value === 'desktop' ? '⌨ Desktop' : '☝ Mobile'}
         active={ui.controlScheme.value === 'desktop'}
         onClick={() => setControlScheme(ui.controlScheme.value === 'desktop' ? 'mobile' : 'desktop')} />

@@ -42,6 +42,16 @@ test('command console uses a fixed-cell table with no horizontal scroll lane', (
   assert.doesNotMatch(ui, /`Build \$\{short/);
 });
 
+test('mobile chrome exposes a compact queued-travel toggle', () => {
+  const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+
+  assert.match(store, /mobileQueueMode:\s*signal\(false\)/);
+  assert.match(ui, /ui\.controlScheme\.value === 'mobile' &&/);
+  assert.match(ui, /label="Queue" active=\{ui\.mobileQueueMode\.value\}/);
+  assert.match(ui, /ui\.mobileQueueMode\.value = !ui\.mobileQueueMode\.value/);
+});
+
 test('desktop console exposes control group chips without sharing command space', () => {
   const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
 

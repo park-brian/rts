@@ -47,7 +47,8 @@ export class TapSelectionController {
     }
 
     if (armed.t === 'attackMove') {
-      if (this.queueAttackMode(hit, tx, ty, opts.shift === true)) clearArmedCommand();
+      const queueTravel = opts.shift === true || this.mobileQueueMode();
+      if (this.queueAttackMode(hit, tx, ty, queueTravel)) clearArmedCommand();
       return;
     }
 
@@ -71,8 +72,9 @@ export class TapSelectionController {
 
     const mobile = this.mobileSelection(e);
     const candidates = mobile.length === 0 ? g.selection : mobile;
+    const queueTravel = this.mobileQueueMode();
     for (const id of candidates) {
-      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'mobile');
+      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'mobile', { queueTravel });
       if (command) g.queued.push(command);
     }
   }
@@ -144,6 +146,10 @@ export class TapSelectionController {
       if ((e.flags[slotOf(id)]! & Role.Structure) === 0) ids.push(id);
     }
     return ids;
+  }
+
+  private mobileQueueMode(): boolean {
+    return ui.controlScheme.value === 'mobile' && ui.mobileQueueMode.value;
   }
 
   private queueRallyMode(hit: number, x: number, y: number): void {

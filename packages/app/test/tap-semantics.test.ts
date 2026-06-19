@@ -570,6 +570,54 @@ test('mobile normal tap matches shared command intent when selection does not in
   assert.deepEqual(g.queued, rallyExpected ? [rallyExpected] : []);
 });
 
+test('mobile queue mode appends validated travel without changing non-travel smart actions', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'mobile';
+  ui.mobileQueueMode.value = true;
+  try {
+    const s = g.sim.fullState();
+    const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+    const enemy = spawnUnit(s, Kind.Zealot, 1, fx(520), fx(400));
+    select(g, [marine]);
+    centerOnEntity(g, marine);
+    g.fastForward(1);
+
+    const ground = { x: g.viewW / 2 + 80, y: g.viewH / 2 + 80 };
+    g.tap(ground.x, ground.y);
+    assert.deepEqual(g.queued, [{
+      t: 'move',
+      unit: marine,
+      ...fixedPointAt(g, ground),
+      queue: true,
+    }]);
+
+    g.queued = [];
+    centerOnEntity(g, enemy);
+    const enemyPoint = screenOf(g, enemy);
+    g.tap(enemyPoint.x, enemyPoint.y, { preferredHit: enemy });
+    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+
+    g.queued = [];
+    centerOnEntity(g, marine);
+    ui.armedCommand.value = { t: 'attackMove' };
+    g.tap(ground.x, ground.y);
+    assert.deepEqual(g.queued, [{
+      t: 'amove',
+      unit: marine,
+      ...fixedPointAt(g, ground),
+      queue: true,
+    }]);
+
+    g.queued = [];
+    ui.armedCommand.value = { t: 'attackMove' };
+    centerOnEntity(g, enemy);
+    g.tap(enemyPoint.x, enemyPoint.y, { preferredHit: enemy });
+    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  } finally {
+    ui.mobileQueueMode.value = false;
+  }
+});
+
 test('harvest target mode sends selected workers to an owned gas structure', () => {
   const g = freshGame();
   const s = g.sim.fullState();

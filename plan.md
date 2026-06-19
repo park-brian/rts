@@ -106,7 +106,8 @@ Migration rules:
   migrated to the new stable path, delete the old root shim in the same cleanup track.
 - Heavy note: eliminate all compatibility shims eventually. A folder migration is only architecturally
   complete once the shim is deleted, imports point at the real owner, and the stable public barrels are
-  intentional API rather than old-path preservation.
+  intentional API rather than old-path preservation. No shim should be counted as finished
+  architecture; it is a named cleanup debt with an owner and an expiry.
 - Preserve typed-array hot loops and caller-owned buffers; folder cleanup must not introduce object
   allocation on per-tick paths.
 - Prefer `index.ts` barrels only at stable folder boundaries. Avoid deep barrel chains that hide
@@ -140,8 +141,12 @@ Remaining work:
     current immediate semantics.
   - Queued waypoint rendering slice is done for queued travel: selected units expose sim-owned
     queued travel waypoint descriptors, and the shared overlay draws move/follow and attack-move
-    paths in both WebGL and Math/fallback rendering. Remaining queue work: add mobile queue mode
-    and extend append semantics to the other command families with explicit interruption tests.
+    paths in both WebGL and Math/fallback rendering.
+  - Mobile queue-mode slice is done for queued travel: the compact mobile toggle feeds the same
+    validator-backed command-intent option as desktop Shift, appends move / follow and attack-move
+    point travel, and leaves attack / harvest / repair / load / spells immediate until those command
+    families gain first-class queued interruption semantics. Remaining queue work: extend append
+    semantics to the other command families with explicit interruption tests.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
 - Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only
