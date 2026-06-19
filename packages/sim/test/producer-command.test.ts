@@ -1,12 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addonKindMask, researchTechMask, trainKindMask } from '../src/io/action-mask.ts';
+import { addonKindMask, researchTechMask, trainKindCandidates, trainKindMask } from '../src/io/action-mask.ts';
 import { validateAddonCommand } from '../src/commands/addon.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateTrainCommand } from '../src/commands/production.ts';
 import { validateResearchCommand } from '../src/commands/research.ts';
+import {
+  canProduceKind,
+  producedKindsFor,
+  producerKindDirectlyProducesOnlyWorkers,
+  producerKindSupportsWorkerRally,
+} from '../src/mechanics/capabilities.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { NONE, slotOf } from '../src/entity/world.ts';
@@ -43,6 +49,24 @@ const assertAddon = (
   assert.deepEqual(validateAddonCommand(s, 0, command), expected);
   assert.deepEqual(validateCommand(s, 0, command), expected);
 };
+
+test('producer capability facts own products and worker-rally classification', () => {
+  const scenario = simScenario({ players: 1, seed: 693 });
+  const { state: s, spawn } = scenario;
+  const gateway = spawn(Kind.Gateway, 0, fx(300), fx(300));
+
+  assert.deepEqual([...producedKindsFor(Kind.CommandCenter)], [Kind.SCV]);
+  assert.equal(canProduceKind(Kind.CommandCenter, Kind.SCV), true);
+  assert.equal(canProduceKind(Kind.CommandCenter, Kind.Marine), false);
+  assert.equal(producerKindSupportsWorkerRally(Kind.CommandCenter), true);
+  assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.CommandCenter), true);
+  assert.equal(producerKindSupportsWorkerRally(Kind.Gateway), false);
+  assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.Gateway), false);
+  assert.equal(producerKindSupportsWorkerRally(Kind.Hatchery), true);
+  assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.Hatchery), false);
+
+  assert.deepEqual([...trainKindCandidates(s, gateway)], [...producedKindsFor(Kind.Gateway)]);
+});
 
 test('train validation shares producer preflight without hiding product rules', () => {
   const scenario = simScenario({ players: 2, seed: 694 });

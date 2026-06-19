@@ -10,6 +10,7 @@ import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from '../mechanics/rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
+import { producedKindsFor } from '../mechanics/capabilities.ts';
 import type { TravelEndpoint, TravelIntent } from './travel.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
 import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
@@ -434,7 +435,7 @@ export const trainSelectionOptions = (
   for (const building of selected) {
     if (!isAlive(e, building)) continue;
     const slot = slotOf(building);
-    for (const kind of Units[e.kind[slot]!]!.produces) {
+    for (const kind of producedKindsFor(e.kind[slot]!)) {
       const command: Command = { t: 'train', building, kind };
       const result = validateCommand(s, player, command);
       if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;

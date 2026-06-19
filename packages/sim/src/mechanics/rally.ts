@@ -1,20 +1,16 @@
-import { Role, Units, isLarvaSourceKind } from '../data/index.ts';
 import { isAlive, nearest, slotOf, NONE, type State } from '../entity/world.ts';
 import { isContained, sameTeam } from './cargo.ts';
+import { producerKindDirectlyProducesOnlyWorkers, producerKindSupportsWorkerRally } from './capabilities.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resources.ts';
 
 export type RallyEndpoint = { x: number; y: number; target: number };
 
 export const producerSupportsWorkerRally = (s: State, producer: number): boolean => {
-  const kind = s.e.kind[producer]!;
-  if (isLarvaSourceKind(kind)) return true;
-  const def = Units[kind];
-  return !!def && def.produces.some((product) => (Units[product]?.roles ?? 0) & Role.Worker);
+  return producerKindSupportsWorkerRally(s.e.kind[producer]!);
 };
 
 export const producerDirectlyProducesOnlyWorkers = (s: State, producer: number): boolean => {
-  const produced = Units[s.e.kind[producer]!]?.produces ?? [];
-  return produced.length > 0 && produced.every((product) => ((Units[product]?.roles ?? 0) & Role.Worker) !== 0);
+  return producerKindDirectlyProducesOnlyWorkers(s.e.kind[producer]!);
 };
 
 const nearestFriendlyRallyTarget = (s: State, producer: number, exclude: number): number => {

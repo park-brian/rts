@@ -10,6 +10,7 @@ import {
   hasAnyWeapon,
   isEnemy,
   isLarvaSourceKind,
+  canProduceKind,
   withinRangeSq,
   type Command,
   type Controller,
@@ -268,7 +269,7 @@ export const createMacroBot = (faction: Faction): Controller => {
     const facts = collectBotFacts(s, player, faction);
     const cmds: Command[] = [];
     for (const producer of facts.idleProducers) {
-      if (!Units[s.e.kind[producer]!]!.produces.includes(faction.worker)) continue;
+      if (!canProduceKind(s.e.kind[producer]!, faction.worker)) continue;
       if (s.players.minerals[player]! < worker.minerals) continue;
       if (s.players.supplyUsed[player]! + worker.supply > s.players.supplyMax[player]!) continue;
       cmds.push({ t: 'train', building: eid(s.e, producer), kind: faction.worker });

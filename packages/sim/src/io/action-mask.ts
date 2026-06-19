@@ -17,6 +17,7 @@ import {
   workerBuildKindsFor,
 } from '../data/index.ts';
 import { addonParentKind } from '../mechanics/addons.ts';
+import { producedKindsFor } from '../mechanics/capabilities.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from '../mechanics/tech.ts';
@@ -591,8 +592,7 @@ const actorKind = (s: State, actor: number): number => {
 };
 
 export const trainKindCandidates = (s: State, producer: number): readonly number[] => {
-  const def = Units[actorKind(s, producer)];
-  return def?.produces ?? [];
+  return producedKindsFor(actorKind(s, producer));
 };
 
 export const buildKindCandidates = (s: State, worker: number): readonly number[] => {

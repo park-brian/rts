@@ -33,6 +33,7 @@ export * from './mechanics/tech.ts';
 export * from './mechanics/requirements.ts';
 export * from './mechanics/internal-products.ts';
 export * from './mechanics/actors.ts';
+export * from './mechanics/capabilities.ts';
 export * from './mechanics/interceptor.ts';
 export * from './mechanics/weapons.ts';
 export * from './render/descriptors.ts';

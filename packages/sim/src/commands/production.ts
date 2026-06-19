@@ -1,5 +1,6 @@
 import type { Command } from './types.ts';
 import { Kind, MAX_QUEUE, Order, Role, Units, productionCostCount, productionCount } from '../data/index.ts';
+import { canProduceKind } from '../mechanics/capabilities.ts';
 import { canQueueInternalProduct, internalProductCapacity } from '../mechanics/internal-products.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import type { State } from '../entity/world.ts';
@@ -68,8 +69,7 @@ export const validateTrainCommand = (
   if (!producer.ok) return producer;
   const { slot } = producer;
   const def = Units[command.kind];
-  const building = Units[e.kind[slot]!];
-  if (!def || !building || !building.produces.includes(command.kind)) return reject('target-not-allowed');
+  if (!def || !canProduceKind(e.kind[slot]!, command.kind)) return reject('target-not-allowed');
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
   const queued = queuedProductionCount(e, slot);
   const internalCapacity = internalProductCapacity(s, slot, command.kind);

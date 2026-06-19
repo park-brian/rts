@@ -305,6 +305,11 @@ Migration plan:
 - Third pass should add `StructureCapabilityFacet` and migrate building facts by category:
   production/rally, cargo/Nydus, power/creep, add-ons/lift, resource depots, static weapons, and
   detectors. Each category should delete at least one duplicated UI/AI/validator/system rule.
+  - First producer/rally capability slice is done: `mechanics/capabilities.ts` now owns indexed
+    product lists, producer/product legality, worker-rally support, and worker-only producer facts.
+    Train validation, command-card train discovery, action-mask train candidates, rally helpers, and
+    the macro bot worker-production loop consume the same capability owner instead of reading
+    `Units[kind].produces` independently.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
