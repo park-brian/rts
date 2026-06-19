@@ -64,12 +64,19 @@ test('desktop console exposes control group chips without sharing command space'
 });
 
 test('command card consumes every shared selection option group through executeOption', () => {
+  const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');
   const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
 
   for (const group of ['train', 'addon', 'transform', 'build', 'research', 'ability']) {
     assert.match(ui, new RegExp(`selection\\.options\\.${group}`), `missing ${group} command option group`);
   }
   assert.match(ui, /selection\.options\.order\.find\(\(o\) => o\.id === id\)/);
+  const orderIdBlock = store.match(/export const OrderOptionId = \{(?<body>[\s\S]*?)\} as const;/)?.groups?.body ?? '';
+  const orderIds = [...orderIdBlock.matchAll(/^\s+([A-Za-z]+):\s+\d+,/gm)].map((match) => match[1]!);
+  assert.ok(orderIds.length > 0, 'expected OrderOptionId entries');
+  for (const id of orderIds) {
+    assert.match(ui, new RegExp(`addOrderButton\\(OrderOptionId\\.${id},`), `missing rendered order option ${id}`);
+  }
   assert.match(ui, /const executeOption = \(option: CommandOption\): void =>/);
   assert.match(ui, /g\.executeOption\(option\)/);
 });

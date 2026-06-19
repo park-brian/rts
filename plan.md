@@ -315,6 +315,9 @@ Remaining work:
   - Move command-card slice is done: mobile and desktop command cards expose first-class Move for
     mobile units, `M` arms Move/follow mode in desktop hotkeys, and armed Move taps use shared
     move validation for point movement, friendly follow targets, and queued travel.
+  - Order render guard slice is done: the command-card test now parses `OrderOptionId` and proves
+    every shared order id is rendered through `addOrderButton`, which caught the missing visible
+    Move button after the selection/hotkey path already existed.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
@@ -550,6 +553,8 @@ Done when:
   player-available sim command missing from the UI surface.
 - Made `Sim.lastCommandResults` an immutable snapshot while preserving caller-owned `Sim.step()`
   receipts for batch trainers and headless loops.
+- Added a command-card guard that forces every `OrderOptionId` to be rendered by the UI, and wired
+  the missing visible Move order button.
 
 ## Review Checklist
 

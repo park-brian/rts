@@ -619,6 +619,7 @@ const Hotbar = (p: { game: Game }) => {
     addOrderButton(OrderOptionId.Lift, 'Lift Off');
     addOrderButton(OrderOptionId.Land, 'Land');
     addOrderButton(OrderOptionId.Cancel, 'Cancel');
+    addOrderButton(OrderOptionId.Move, 'Move');
     addOrderButton(OrderOptionId.AttackMove, 'Atk-Move');
     addOrderButton(OrderOptionId.Hold, 'Hold');
     addOrderButton(OrderOptionId.Patrol, 'Patrol');
