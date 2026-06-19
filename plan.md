@@ -687,6 +687,10 @@ Remaining work:
     - Tactical-defense intent slice is done: defense proposals now translate incidents into shared
       `BotIntent` rows (`defend-base`, `get-detection`, or `clear-site`) before execution spends
       responders, giving the scheduler-visible vocabulary a second live producer after pressure.
+    - Macro intent-surface slice is done: the macro scheduler now returns shared `BotIntent` rows
+      derived from the macro commands it emitted (`expand`, `add-production`, `rebuild-tech`,
+      `research-upgrade`, `spend-larva`, and `train-counter`), giving future arbitration a live
+      macro vocabulary without changing command ordering yet.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

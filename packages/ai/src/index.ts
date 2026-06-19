@@ -18,6 +18,7 @@ export * from './macro-pressure.ts';
 export * from './macro-reserve.ts';
 export * from './macro-risk.ts';
 export * from './macro-research.ts';
+export * from './macro-scheduler.ts';
 export * from './macro-tactics.ts';
 export * from './macro-tech.ts';
 export * from './bot.ts';

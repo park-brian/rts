@@ -13,6 +13,7 @@ import {
   deriveTacticalIncidents,
   executePressureIntent,
   executeTacticalDefense,
+  macroIntentsFromCommands,
   missingStructureKinds,
   pressureCommitmentDecision,
   pressureFocus,
@@ -21,6 +22,7 @@ import {
   proposeTacticalDefense,
   rankedTacticalResponders,
   schedulePressureOffense,
+  scheduleBotMacro,
   selectTacticalResponders,
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
@@ -190,6 +192,46 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
   ] as const) {
     assert.equal(kinds.has(kind), true, `missing bot intent kind ${kind}`);
   }
+});
+
+test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
+  const intents = macroIntentsFromCommands([
+    { t: 'build', unit: 1, kind: Kind.CommandCenter, x: fx(100), y: fx(100) },
+    { t: 'build', unit: 1, kind: Kind.Barracks, x: fx(120), y: fx(100) },
+    { t: 'research', building: 2, tech: Tech.StimPack },
+    { t: 'train', building: 3, kind: Kind.Marine },
+    { t: 'rally', building: 3, x: fx(140), y: fx(100) },
+  ], Terran);
+
+  assert.deepEqual(intents.map((intent) => intent.kind), [
+    'expand',
+    'add-production',
+    'research-upgrade',
+    'train-counter',
+  ]);
+  assert.equal(intents[0]?.targetKind, Kind.CommandCenter);
+  assert.equal(intents[1]?.targetKind, Kind.Barracks);
+  assert.equal(intents[3]?.targetKind, Kind.Marine);
+});
+
+test('macro scheduler returns intents for live macro commands', () => {
+  const scenario = botScenario({ seed: 830 });
+  const cmds: Command[] = [];
+  scenario.resources(0, 1_000, 0);
+
+  const result = scheduleBotMacro(
+    scenario.state,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(scenario.state, 0, Terran),
+    { workerTarget: 0, barracksTarget: 1 },
+  );
+
+  const build = findBuild(cmds, Kind.Barracks);
+  assert.ok(build);
+  assert.ok(result.intents.some((intent) =>
+    intent.kind === 'add-production' && intent.targetKind === Kind.Barracks && intent.x === build.x && intent.y === build.y));
 });
 
 const linkAddon = (s: State, parent: number, addon: number): void => {
