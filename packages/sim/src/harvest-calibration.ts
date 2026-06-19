@@ -3,7 +3,9 @@ import { fx, isqrt } from './fixed.ts';
 import { pathRouteDistance } from './pathing.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
+  resourceDirVector,
   resourceSpawnCenterPx,
+  type BaseResourceDir,
   type BaseSiteKind,
   type MapDef,
   type ResourceSpawn,
@@ -53,7 +55,7 @@ export type HarvestCalibrationBase = {
   owner?: number;
   x: number;
   y: number;
-  resourceDir: -1 | 1;
+  resourceDir: BaseResourceDir;
 };
 
 export type MineralRouteCalibration = {
@@ -212,8 +214,13 @@ const targetRouteFrames = (profile: HarvestTimingProfile): number => {
   return ceilDiv(routeTenths, 10);
 };
 
-const resourceDirection = (m: MapDef, start: StartLoc): -1 | 1 =>
+const resourceDirection = (m: MapDef, start: StartLoc): BaseResourceDir =>
   start.y > (m.h >> 1) ? -1 : 1;
+
+const resourceInFront = (base: HarvestCalibrationBase, depotX: number, depotY: number, center: { x: number; y: number }): boolean => {
+  const dir = resourceDirVector(base.resourceDir);
+  return (center.x - depotX) * dir.x + (center.y - depotY) * dir.y > 0;
+};
 
 const fallbackBase = (m: MapDef, start: StartLoc, index: number): HarvestCalibrationBase => ({
   kind: 'start',
@@ -246,7 +253,7 @@ const nearbyMinerals = (
     .map((resource, index): IndexedMineral | null => {
       if (resource.gas) return null;
       const center = resourceSpawnCenterPx(resource);
-      if ((center.y - depotY) * base.resourceDir <= 0) return null;
+      if (!resourceInFront(base, depotX, depotY, center)) return null;
       const edgeDistance = bwApproxEdgeDistanceBetween(
         profile.depotKind,
         fx(depotX),
@@ -281,7 +288,7 @@ const nearbyGas = (
     .map((resource, index): IndexedGas | null => {
       if (!resource.gas) return null;
       const center = resourceSpawnCenterPx(resource);
-      if ((center.y - depotY) * base.resourceDir <= 0) return null;
+      if (!resourceInFront(base, depotX, depotY, center)) return null;
       const edgeDistance = bwApproxEdgeDistanceBetween(
         profile.depotKind,
         fx(depotX),

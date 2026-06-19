@@ -14,7 +14,7 @@ import {
   mineralTimingProfile,
   type HarvestCalibrationBase,
 } from '../src/harvest-calibration.ts';
-import { resourceSpawnCenterPx, sliceMap, type ResourceSpawn } from '../src/map.ts';
+import { resourceSpawnCenterPx, sliceMap, solveBaseCluster, type BaseResourceDir, type MapDef, type ResourceSpawn } from '../src/map.ts';
 import { Kind, TILE } from '../src/data.ts';
 import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
 import { topDownEdgeDistance } from '../src/spatial.ts';
@@ -29,6 +29,34 @@ const withWalkBarrier = (map: ReturnType<typeof sliceMap>): ReturnType<typeof sl
   teams: [...map.teams],
   bases: map.bases?.map((base) => ({ ...base })),
 });
+
+const sideBaseMap = (dir: Extract<BaseResourceDir, 'east' | 'west'>): MapDef => {
+  const w = 96;
+  const h = 96;
+  const start = { x: 48, y: 48 };
+  const cluster = solveBaseCluster(start, dir);
+  return {
+    name: `side-base-${dir}`,
+    w,
+    h,
+    walk: new Uint8Array(w * h).fill(1),
+    build: new Uint8Array(w * h).fill(1),
+    elev: new Uint8Array(w * h),
+    starts: [start],
+    resources: cluster.resources,
+    teams: [0],
+    bases: [{
+      kind: 'main',
+      team: 0,
+      owner: 0,
+      x: start.x,
+      y: start.y,
+      depotFootprint: cluster.depotFootprint,
+      reservation: cluster.reservation,
+      resourceDir: dir,
+    }],
+  };
+};
 
 test('main-base mineral diagnostics expose positive-only BW route slack data', () => {
   const map = sliceMap();
@@ -91,6 +119,19 @@ test('generated main bases produce calibration rows for every main mineral patch
   assert.equal(mainBaseMineralRoutesValid(map), true);
   for (const base of mainBases.keys()) {
     assert.equal(entries.filter((entry) => entry.baseIndex === base).length, 8);
+  }
+});
+
+test('harvest diagnostics support side-facing base resource directions', () => {
+  for (const dir of ['east', 'west'] as const) {
+    const map = sideBaseMap(dir);
+    const minerals = mainBaseMineralRouteCalibrations(map, mineralTimingProfile(Kind.SCV, Kind.CommandCenter));
+    const gas = baseGasRouteQuality(map, { profile: gasTimingProfile(Kind.SCV, Kind.CommandCenter) });
+
+    assert.equal(minerals.length, 8, dir);
+    assert.equal(minerals.every((entry) => entry.valid), true, dir);
+    assert.equal(mainBaseMineralRoutesValid(map), true, dir);
+    assert.equal(gas.ok, true, dir);
   }
 });
 

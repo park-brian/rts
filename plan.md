@@ -221,9 +221,9 @@ Remaining work:
   with its canonical Math hull.
 - Add richer construction, warp-in, repair, and sound cues after the refreshed asset pass.
 - Maintain sprite footprint/art placement checks for every imported asset refresh.
-- Generalize base resource arcs from the current vertical-facing local arc into a tiny rotated
-  orientation primitive, so procedural maps can place corner and side bases that face valleys or
-  enemy lanes while preserving the same 2x1 mineral, 4x2 geyser, and average-cadence timing rules.
+- Use the orientation-aware base resource arc primitive in actual side/corner procedural layouts, so
+  generated bases can face valleys or enemy lanes while preserving the same 2x1 mineral, 4x2 geyser,
+  and average-cadence timing rules.
 - Split `Game` selection, input, HUD, replay, and renderer coordination once command-card growth
   stabilizes.
 
