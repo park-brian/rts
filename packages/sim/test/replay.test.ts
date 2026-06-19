@@ -9,7 +9,7 @@ import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands/types.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { deserializeState, serializeState } from '../src/serialize.ts';
+import { deserializeState, serializeState } from '../src/io/serialize.ts';
 
 // A deterministic controller exercising train + group amove (movement/flow/separation),
 // standing in for a mixed human/bot command stream.

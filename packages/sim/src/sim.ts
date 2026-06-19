@@ -8,7 +8,7 @@ import { Terran, type Faction } from './data.ts';
 import { cloneState, hashState } from './entity/world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
-import { serializeState, deserializeState } from './serialize.ts';
+import { serializeState, deserializeState } from './io/serialize.ts';
 import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './observe.ts';
 import { vision } from './systems/vision.ts';
 

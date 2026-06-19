@@ -392,6 +392,8 @@ Done when:
   the stable package export.
 - Moved deterministic FNV hashing under `io/hash.ts`, deleting the old root `hash.ts` helper while
   preserving the stable package export.
+- Moved byte state snapshot serialization under `io/serialize.ts`, deleting the old root
+  `serialize.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 
