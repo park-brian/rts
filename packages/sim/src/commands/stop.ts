@@ -1,6 +1,7 @@
 import type { Command } from './types.ts';
 import { Order, Role } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
+import { isUserCommandableKind } from '../mechanics/actors.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import { clearVelocity } from '../spatial/motion.ts';
@@ -19,6 +20,7 @@ export const validateStopCommand = (s: State, player: number, command: StopComma
   const e = s.e;
   const slot = ownedSlot(s, command.unit, player);
   if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
+  if (!isUserCommandableKind(e.kind[slot]!)) return reject('missing-capability');
   if (isContained(s, slot)) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
   return { ok: true };

@@ -11,6 +11,7 @@ import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, isEnemy, NONE, slotOf } from '../entity/world.ts';
 import { clearOrderQueue } from '../entity/order-queue.ts';
+import { isUserCommandableKind } from '../mechanics/actors.ts';
 
 export type CommandRejection = { ok: false; reason: CommandRejectReason };
 
@@ -103,6 +104,7 @@ export const canReceiveOrder = (
   const e = s.e;
   const slot = ownedSlot(s, id, player);
   if (slot === null) return rejectMissingOwnedSlot(s, id);
+  if (!isUserCommandableKind(e.kind[slot]!)) return reject('missing-capability');
   if (isContained(s, slot)) return reject('missing-capability');
   if (options.rejectBurrowed && e.burrowed[slot] === 1) return reject('missing-capability');
   if (options.rejectIllusion && e.illusion[slot] === 1) return reject('missing-capability');

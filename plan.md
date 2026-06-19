@@ -201,6 +201,9 @@ Migration plan:
 - Keep command validation as the public legality gate. Actor descriptors may answer "can this actor
   ever do X?", but concrete legality still flows through `validateCommand` so UI, AI, replay, and
   action masks cannot drift.
+  - Actor commandability gate slice is done: shared receive-order validation and Stop validation now
+    reject non-commandable actors from `mechanics/actors.ts`, with coverage across move,
+    attack-move, patrol, attack, hold, and stop commands.
 - Add actor lifecycle tests before deleting existing systems: descriptor coverage, replay/hash,
   snapshot/restore, render presentation, action-mask/observation visibility where relevant, and
   focused behavior tests for each old quirk.
@@ -1337,6 +1340,8 @@ Done when:
 - Added Spider Mine to the actor descriptor table with indexed actor lookup, descriptor-owned wake
   range/target/order metadata, and app selection coverage proving non-commandable actors do not
   steal hit tests.
+- Routed non-commandable actor metadata through public command validation, so internal actors are
+  rejected consistently by UI, replay/API command ingestion, and shared command-family validators.
 - Moved shared active-effect radius and coverage helpers under `mechanics/effects.ts`, deleting the
   old root helper path while preserving the stable package export.
 - Collapsed the root production queue helper into `commands/production.ts`, so train validation,
