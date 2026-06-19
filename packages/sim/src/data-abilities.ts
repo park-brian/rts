@@ -112,7 +112,7 @@ export const Abilities: Record<number, AbilityDef> = {
   [Ability.Irradiate]: {
     name: 'Irradiate', tech: Tech.Irradiate, target: 'entity', targetTeam: 'any', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: Trait.Biological, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.ScienceVessel],
-    energyCost: 75, hpCost: 0, range: tiles(9), radius: fx(32), duration: sec(37.8), period: 8, damage: 9,
+    energyCost: 75, hpCost: 0, range: tiles(9), radius: fx(32), duration: sec(25.2), period: sec(1), damage: 10,
     execution: { mode: 'target-status', timer: 'irradiate' },
   },
   [Ability.Lockdown]: {

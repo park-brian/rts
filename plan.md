@@ -1230,7 +1230,7 @@ Source timing/data already present in local docs and sim tables:
 | Maelstrom | 100 energy, range 10, about 7.48/7.56s | entity status timer | Keep. |
 | Psionic Storm | 75 energy, range 9, 2.67s, 8-frame period, 112 total damage | persistent effect | Keep; verify period/damage total. |
 | Defensive Matrix | 100 energy, range 10, 250 HP, 56.7s | entity status pool/timer | Keep. |
-| Irradiate | 75 energy, range 9, 25.2-37.8s mismatch in local docs/data, 32px radius | entity status/dot | Reconcile docs/spec/data before changing. |
+| Irradiate | 75 energy, range 9, local research doc says 249.9 damage over 25.2s, 32px radius | entity status/dot | Fixed to 25.2s damage window with 250 integer total damage coverage. |
 | Ensnare | 75 energy, range 9, 25.2s | entity status timer | Keep. |
 | Plague | 150 energy, range 9, 25.2s, periodic damage, cannot kill | entity status/dot | Keep; verify min-1-HP invariant remains covered. |
 | Dark Swarm | 100 energy, range 9, 37.8s | persistent effect | Keep. |
@@ -1302,7 +1302,8 @@ Stats and source work before implementation:
 - Reconcile local doc/spec mismatches:
   - Stasis duration fixed: `docs/research/sc1-spells-upgrades.md` says about 43.8s and
     `data-abilities.ts` now matches.
-  - Irradiate duration: research doc says 25.2s for the damage window; `data.ts` uses 37.8s.
+  - Irradiate duration fixed: research doc says 25.2s for the damage window and
+    `data-abilities.ts` now models 250 integer damage over that window.
   - Disruption Web duration fixed: research doc says 15.12s and `data-abilities.ts` now matches.
   - Nuclear Strike channel: research doc says about 14.5s; `data.ts` uses 8.4s.
 - Source missing animation/cast frame counts before coding:

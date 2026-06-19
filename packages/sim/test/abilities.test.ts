@@ -169,19 +169,35 @@ test('defensive matrix absorbs incoming weapon damage before shields and hp', ()
   assert.equal(s.e.hp[z], Units[Kind.Zealot]!.hp);
 });
 
-test('irradiate sets its target timer through descriptor execution', () => {
+test('irradiate uses the sourced damage window through descriptor execution', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 241 });
   const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
   const medic = spawn(Kind.Medic, 1, fx(430), fx(400));
+  const nearby = spawn(Kind.Medic, 1, fx(450), fx(400));
+  const outside = spawn(Kind.Medic, 1, fx(500), fx(400));
+  const irradiate = Abilities[Ability.Irradiate]!;
+  const startHp = 400;
+  s.e.hp[slotOf(medic)] = startHp;
+  s.e.hp[slotOf(nearby)] = startHp;
+  s.e.hp[slotOf(outside)] = startHp;
   s.e.energy[slotOf(vessel)] = 75;
   grant(0, Tech.Irradiate);
+  assert.equal(irradiate.duration, sec(25.2));
+  assert.equal(irradiate.period, sec(1));
+  assert.equal(irradiate.damage, 10);
 
   const results = sim.step([{ player: 0, cmds: [
     { t: 'ability', unit: vessel, ability: Ability.Irradiate, target: medic },
   ] }]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'ability', ok: true }]);
-  assert.equal(s.e.irradiateTimer[slotOf(medic)], Abilities[Ability.Irradiate]!.duration - 1);
+  assert.equal(s.e.irradiateTimer[slotOf(medic)], irradiate.duration - 1);
+
+  for (let t = 0; t < irradiate.duration - 1; t++) sim.step([]);
+  assert.equal(s.e.irradiateTimer[slotOf(medic)], 0);
+  assert.equal(s.e.hp[slotOf(medic)], startHp - 250);
+  assert.equal(s.e.hp[slotOf(nearby)], startHp - 250);
+  assert.equal(s.e.hp[slotOf(outside)], startHp);
 });
 
 test('lockdown prevents a mechanical unit from moving or attacking', () => {
