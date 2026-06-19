@@ -8,11 +8,9 @@ import {
   Kind, Units,
   NONE, type Faction, type State, type Command, type Controller,
 } from '@rts/sim';
-import { castTacticalAbilities } from './ability-policies.ts';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
-import { issuePressureEngagement } from './macro-combat.ts';
 import {
   desiredWorkerCount,
   maybeQueueArmyStructure,
@@ -23,11 +21,10 @@ import {
 } from './macro-economy.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
-import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
+import { schedulePressureOffense } from './macro-offense.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
-import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { scheduleTacticalDefense } from './macro-tactics.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
@@ -215,25 +212,27 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       builderUsed ? aWorker : NONE,
     );
 
-    if (shouldCommitPressure(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
-      // 6) Offense: pressure the enemy's most valuable exposed region.
-      const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
-        ? collectBotFacts(s, p, faction)
-        : facts;
-      const focus = pressureFocus(s, p, pressureFacts, depot, { strategicOnly: incident !== undefined });
-      if (focus) {
-        let issuedOffense = false;
-        if (!builderUsed) {
-          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, focus.x, focus.y, findSpot);
-        }
-        if (!incident) castTacticalAbilities(s, p, cmds, casters, focus.x, focus.y);
-        for (const a of attackCandidates) {
-          issuePressureEngagement(s, p, cmds, a, focus);
-          issuedOffense = true;
-        }
-        if (issuedOffense) markPressureCommitted(memory, s.tick);
-      }
-    }
+    // 6) Offense: pressure the enemy's most valuable exposed region.
+    builderUsed = schedulePressureOffense(
+      s,
+      p,
+      faction,
+      cmds,
+      facts,
+      memory,
+      depot,
+      attackCandidates,
+      casters,
+      budget,
+      aWorker,
+      findSpot,
+      {
+        attackThreshold: c.attackThreshold,
+        force: incident ? attackCandidates.length : army,
+        strategicOnly: incident !== undefined,
+        builderUsed,
+      },
+    );
 
     return cmds;
   };
