@@ -15,7 +15,7 @@ import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/pathing-an
 import { placementForStructure } from '../src/validation.ts';
 import { applyCommands } from '../src/systems/ingest.ts';
 import { workersCanShareResourceRouteCollision } from '../src/worker-collision.ts';
-import { entityApproachPoint } from '../src/entity-approach.ts';
+import { entityApproachPoint } from '../src/entity/approach.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px
 const depotKinds = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery] as const;

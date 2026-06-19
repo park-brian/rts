@@ -3,7 +3,7 @@ import { Role, TILE } from './data.ts';
 import { fx } from './fixed.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
-import { isTransitioning } from './entity-state.ts';
+import { isTransitioning } from './entity/state.ts';
 import { producerSupportsWorkerRally } from './rally.ts';
 import type { State } from './world.ts';
 import { NONE, eid, isAlive, nearest, slotOf } from './world.ts';

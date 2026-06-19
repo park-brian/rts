@@ -12,7 +12,7 @@ import { placementForStructure } from '../placement.ts';
 import { eid, isAlive, NONE, slotOf } from '../world.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 import { clearVelocity } from './move.ts';
-import { entityApproachPoint } from '../entity-approach.ts';
+import { entityApproachPoint } from '../entity/approach.ts';
 import { roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
 
 type FollowPlan = {

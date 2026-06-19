@@ -3,7 +3,7 @@ import { isActiveAddon } from './addon.ts';
 import { isContained } from './cargo.ts';
 import { Kind } from './data.ts';
 import { canDetect } from './detection.ts';
-import { isTransitioning } from './entity-state.ts';
+import { isTransitioning } from './entity/state.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';

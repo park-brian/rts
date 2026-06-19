@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { entityApproachPoint } from '../src/entity-approach.ts';
+import { entityApproachPoint } from '../src/entity/approach.ts';
 import { spawnUnit } from '../src/factory.ts';
 import type { MapDef } from '../src/map.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial.ts';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entityLifecycle, isTransitioning } from '../src/entity-lifecycle.ts';
+import { entityLifecycle, isTransitioning } from '../src/entity/lifecycle.ts';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/world.ts';

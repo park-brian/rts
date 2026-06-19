@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EffectKind, Kind, Order, TILE, Units } from '../src/data.ts';
-import { entityLifecycle } from '../src/entity-lifecycle.ts';
+import { entityLifecycle } from '../src/entity/lifecycle.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { sliceMap } from '../src/map.ts';

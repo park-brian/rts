@@ -339,6 +339,7 @@ Done when:
   compatibility shims.
 - Moved entity helper modules under `src/entity/` while keeping old root entity exports as
   compatibility shims.
+- Migrated sim/test callers to `src/entity/*` and deleted the temporary root entity shims.
 
 ## Review Checklist
 

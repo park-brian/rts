@@ -1,7 +1,7 @@
 import type { Entities, State } from './world.ts';
 import { NONE, eid, isAlive, kill, slotOf } from './world.ts';
 import { Kind, Order } from './data.ts';
-import { setEntityKind } from './entity-kind.ts';
+import { setEntityKind } from './entity/kind.ts';
 
 export const hasPendingBuild = (e: Entities, slot: number): boolean =>
   e.order[slot] === Order.Build && e.buildKind[slot] !== 0;

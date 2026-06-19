@@ -1,5 +1,5 @@
 import { Order, Units, hasAnyWeapon } from './data.ts';
-import { entityApproachPoint } from './entity-approach.ts';
+import { entityApproachPoint } from './entity/approach.ts';
 import { eid, NONE, type State } from './world.ts';
 
 export type TravelIntent = 'move' | 'attack-move' | 'smart';

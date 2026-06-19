@@ -1,6 +1,6 @@
 import type { Command } from './commands.ts';
 import { Role } from './data.ts';
-import { isTransitioning } from './entity-state.ts';
+import { isTransitioning } from './entity/state.ts';
 import { placementForStructure } from './placement.ts';
 import type { State } from './world.ts';
 import { isLiftableTerranStructureKind, isLiftedStructureFlags } from './terran-mobility.ts';

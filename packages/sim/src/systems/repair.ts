@@ -7,7 +7,7 @@ import { faceToward } from './move.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial.ts';
-import { entityApproachPoint } from '../entity-approach.ts';
+import { entityApproachPoint } from '../entity/approach.ts';
 
 export const repair = (s: State): void => {
   const e = s.e;

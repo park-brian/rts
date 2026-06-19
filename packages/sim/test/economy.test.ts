@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf } from '../src/world.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { Kind, Order, TILE, Units, START_MINERALS, START_WORKERS } from '../src/data.ts';
-import { entityApproachPoint } from '../src/entity-approach.ts';
+import { entityApproachPoint } from '../src/entity/approach.ts';
 import { fx } from '../src/fixed.ts';
 import { stepWorld } from '../src/tick.ts';
 import type { MapDef } from '../src/map.ts';

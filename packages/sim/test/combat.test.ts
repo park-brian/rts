@@ -9,7 +9,7 @@ import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial.ts';
 import { applyWeaponDamage } from '../src/damage.ts';
 import { setTechLevel } from '../src/tech.ts';
-import { entityApproachPoint } from '../src/entity-approach.ts';
+import { entityApproachPoint } from '../src/entity/approach.ts';
 
 test('two enemy marines fight and at least one dies', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 5 });
