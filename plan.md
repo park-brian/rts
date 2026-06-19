@@ -464,6 +464,10 @@ Remaining work:
       Remaining incident work: classify mineral-line harassment, drops, Nydus breaches, siege
       containments, cloaked/invisible damage, route traps, and kiting pressure from the same facts
       and memory instead of adding command-time special cases.
+    - Defense-consumer slice is done: the live bot now reads the incident stream for threatened-base
+      response, so expansions are protected through the same path as the main base. Normal bot
+      generation can request BotFacts without materializing the full risk matrix; route/site
+      directors should opt into full risk only when they actually score map tiles.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -632,6 +636,8 @@ Done when:
 - Added the first TacticalIncident derivation layer over BotFacts, grouping visible base threats
   into deterministic, severity-sorted base-intrusion incidents for later defense-director
   scheduling.
+- Wired the live bot's defense choice to the TacticalIncident stream, covering threatened
+  expansions while keeping full risk-map construction optional for normal command generation.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

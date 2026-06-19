@@ -19,7 +19,7 @@ import {
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
-  tileY, validateCommand, type Command, type State,
+  tileY, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
@@ -247,6 +247,11 @@ test('bot risk uses visible-map enemies when fog tracking is active', () => {
   assert.deepEqual(facts.visibleEnemies, [slotOf(enemy)]);
   assert.deepEqual(facts.baseThreats, [{ base: slotOf(hatchery), enemy: slotOf(enemy) }]);
   assert.ok(facts.risk.values[tileY(base.y) * facts.risk.w + tileX(base.x + fx(40))]! > 0);
+
+  const cheapFacts = collectBotFacts(scenario.state, 0, Zerg, { risk: 'none' });
+  assert.equal(cheapFacts.risk.vision, 'omitted');
+  assert.equal(cheapFacts.risk.values.length, 0);
+  assert.equal(deriveTacticalIncidents(scenario.state, cheapFacts)[0]!.severity, 125);
 });
 
 test('bot facts count completed and pending structures for rebuild planning', () => {
@@ -292,6 +297,30 @@ test('bot defense attack commands match shared target attack intent', () => {
   }));
   assert.ok(command);
   assertPublicSurfaceExposes(s, 0, command);
+});
+
+test('bot defends threatened expansions through tactical incidents', () => {
+  const scenario = botScenario({ seed: 4004 });
+  const home = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, home.x + fx(20), home.y);
+  const expansion = scenario.spawn(Kind.CommandCenter, 0, home.x + fx(720), home.y);
+  const enemy = scenario.spawn(Kind.Zealot, 1, home.x + fx(760), home.y);
+  const e = scenario.state.e;
+  const enemySlot = slotOf(enemy);
+  const expansionSlot = slotOf(expansion);
+  const baseThreatRadius = fx(18 * 32);
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })
+    .find((c): c is Extract<BotCommand, { t: 'attack' }> =>
+      c.t === 'attack' && c.unit === marine && c.target === enemy);
+
+  assert.ok(command);
+  assert.equal(withinRangeSq(e.x[enemySlot]!, e.y[enemySlot]!, home.x, home.y, baseThreatRadius), false);
+  assert.equal(
+    withinRangeSq(e.x[enemySlot]!, e.y[enemySlot]!, e.x[expansionSlot]!, e.y[expansionSlot]!, baseThreatRadius),
+    true,
+  );
+  assertPublicSurfaceExposes(scenario.state, 0, command);
 });
 
 test('bot attack waves use public point attack-move intent', () => {

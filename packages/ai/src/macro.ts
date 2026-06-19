@@ -7,6 +7,7 @@ import {
   TILE,
   Units,
   eid,
+  hasAnyWeapon,
   isEnemy,
   isLarvaSourceKind,
   withinRangeSq,
@@ -90,7 +91,11 @@ export type BotRiskMap = {
   h: number;
   values: Int16Array;
   visible: Uint8Array;
-  vision: 'visible' | 'omniscient';
+  vision: 'visible' | 'omniscient' | 'omitted';
+};
+
+export type BotFactsOptions = {
+  risk?: 'full' | 'none';
 };
 
 export type BotFacts = {
@@ -141,6 +146,8 @@ const tileCoord = (v: number, max: number): number =>
   Math.max(0, Math.min(max - 1, Math.trunc(v / (TILE * ONE))));
 
 const tileCenter = (tile: number): number => (tile * TILE + (TILE >> 1)) * ONE;
+const EMPTY_I16 = new Int16Array(0);
+const EMPTY_U8 = new Uint8Array(0);
 
 const tileVisible = (s: State, player: number, tx: number, ty: number): boolean => {
   if (!s.trackVision) return true;
@@ -203,8 +210,18 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
   return { w, h, values, visible, vision: s.trackVision ? 'visible' : 'omniscient' };
 };
 
-export const riskAt = (risk: BotRiskMap, x: number, y: number): number =>
-  risk.values[tileCoord(y, risk.h) * risk.w + tileCoord(x, risk.w)]!;
+export const riskAt = (risk: BotRiskMap, x: number, y: number): number => {
+  if (risk.values.length === 0) return 0;
+  return risk.values[tileCoord(y, risk.h) * risk.w + tileCoord(x, risk.w)]!;
+};
+
+const omittedRiskMap = (s: State): BotRiskMap => ({
+  w: s.map.w,
+  h: s.map.h,
+  values: EMPTY_I16,
+  visible: EMPTY_U8,
+  vision: 'omitted',
+});
 
 type BotFactsDraft = Omit<BotFacts, 'risk'>;
 
@@ -213,7 +230,12 @@ const recordOwnedStructure = (facts: BotFactsDraft, kind: number): void => {
   if (def && (def.roles & Role.Structure) !== 0) facts.ownedOrPendingStructureKinds.add(kind);
 };
 
-export const collectBotFacts = (s: State, player: number, faction: Faction): BotFacts => {
+export const collectBotFacts = (
+  s: State,
+  player: number,
+  faction: Faction,
+  options: BotFactsOptions = {},
+): BotFacts => {
   const e = s.e;
   const facts: BotFactsDraft = {
     tick: s.tick,
@@ -269,7 +291,7 @@ export const collectBotFacts = (s: State, player: number, faction: Faction): Bot
       facts.idleProducers.push(i);
     }
     if (kind === faction.armyUnit) facts.army.push(i);
-    if (kind !== faction.worker && (flags & Role.Mobile) !== 0 && canRetaskArmy(s, i)) {
+    if (kind !== faction.worker && (flags & Role.Mobile) !== 0 && hasAnyWeapon(Units[kind]!) && canRetaskArmy(s, i)) {
       facts.retaskableArmy.push(i);
     }
   }
@@ -279,13 +301,18 @@ export const collectBotFacts = (s: State, player: number, faction: Faction): Bot
       if (near(s, enemy, e.x[base]!, e.y[base]!, BASE_THREAT_TILES)) facts.baseThreats.push({ base, enemy });
     }
   }
-  return { ...facts, risk: buildRiskMap(s, player, facts.visibleEnemies) };
+  const risk = options.risk === 'none'
+    ? omittedRiskMap(s)
+    : buildRiskMap(s, player, facts.visibleEnemies);
+  return { ...facts, risk };
 };
 
 export const missingStructureKinds = (facts: BotFacts, kinds: readonly number[]): number[] =>
   kinds.filter((kind) => !facts.ownedOrPendingStructureKinds.has(kind));
 
 export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalIncident[] => {
+  if (facts.baseThreats.length === 0) return [];
+
   const e = s.e;
   const byBase = new Map<number, number[]>();
   for (const threat of facts.baseThreats) {

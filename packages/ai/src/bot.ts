@@ -8,7 +8,7 @@ import {
   Ability, Role, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest,
   NONE, TILE, SUPPLY_CAP, supply, slotOf, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, nextTechLevel, productionCostCount, productionCount,
-  activeAddonParentSlot, addonParentKind, hasAnyWeapon, hasCompletedKind, isLarvaSourceKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  activeAddonParentSlot, addonParentKind, hasCompletedKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
   techGas, techMinerals,
   abilityTechAvailable,
@@ -17,6 +17,7 @@ import {
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
+import { collectBotFacts, deriveTacticalIncidents, type TacticalIncident } from './macro.ts';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
@@ -141,10 +142,18 @@ type ResourceBudget = { minerals: number; gas: number };
 type ProducerReservations = Set<number>;
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
-const canRetaskArmy = (s: State, slot: number): boolean => {
+const incidentTarget = (s: State, incident: TacticalIncident): number => {
   const e = s.e;
-  return e.order[slot] === Order.Idle ||
-    (e.order[slot] === Order.AttackMove && e.intentTarget[slot] !== NONE && e.combatTarget[slot] === NONE);
+  let best = NONE;
+  let bestD = Infinity;
+  for (const enemy of incident.enemies ?? []) {
+    if (enemy < 0 || enemy >= e.hi || e.alive[enemy] !== 1) continue;
+    const d = distanceSq(incident.x, incident.y, e.x[enemy]!, e.y[enemy]!);
+    if (d >= bestD) continue;
+    best = enemy;
+    bestD = d;
+  }
+  return best;
 };
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
@@ -239,7 +248,6 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
   const armyDef = Units[faction.armyUnit]!;
-  const depotDef = Units[faction.depot]!;
   const supplyDef = Units[faction.supplyStructure]!;
   const rax = Units[faction.armyStructure]!;
 
@@ -247,50 +255,39 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const e = s.e;
     const cmds: Command[] = [];
 
-    // Single pass to read our economy + army + an enemy near our base.
-    let depot = NONE; // first built depot
-    let workers = 0;
+    const facts = collectBotFacts(s, p, faction, { risk: 'none' });
+    const depot = facts.primaryBase;
+    if (depot === NONE) return cmds; // no base: nothing to do
+
+    let workers = facts.workers.length;
     let idleDepots: number[] = [];
-    const idleLarvae: number[] = [];
+    const idleLarvae = facts.idleLarvae;
     let builtBarracks: number[] = [];
     let pendingBarracks = 0;
     let pendingSupply = 0;
-    let army = 0;
-    const retaskableArmy: number[] = [];
-    const casters: number[] = [];
+    const army = facts.army.length;
+    const retaskableArmy = facts.retaskableArmy;
+    const casters = facts.casters;
     let aWorker = NONE; // a worker we can pull to build
 
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== p) continue;
       const k = e.kind[i]!;
       const fl = e.flags[i]!;
-      if (Units[k]!.abilities.length > 0) casters.push(i);
       if (e.prodKind[i] === faction.supplyStructure) pendingSupply++;
       if (k === faction.worker) {
-        workers++;
         if (aWorker === NONE && e.order[i] === Order.Harvest) aWorker = i;
         if ((fl & Role.Worker) !== 0 && e.buildKind[i] === faction.supplyStructure) pendingSupply++;
         if ((fl & Role.Worker) !== 0 && e.buildKind[i] === faction.armyStructure) pendingBarracks++;
-      } else if (k === faction.armyUnit) {
-        army++;
-        if (canRetaskArmy(s, i)) retaskableArmy.push(i);
       } else if (k === faction.depot && e.built[i] === 1) {
-        if (depot === NONE) depot = i;
         if (e.prodKind[i] === Kind.None) idleDepots.push(i);
-      } else if (faction.name === 'Zerg' && isLarvaSourceKind(k) && e.built[i] === 1) {
-        if (depot === NONE) depot = i;
-      } else if (k === Kind.Larva && e.built[i] === 1) {
-        idleLarvae.push(i);
       } else if (k === faction.armyStructure) {
         if (e.built[i] === 1) builtBarracks.push(i);
         else pendingBarracks++;
       } else if (k === faction.supplyStructure && e.built[i] !== 1) {
         pendingSupply++;
       }
-      const def = Units[k]!;
-      if (k !== faction.armyUnit && (fl & Role.Mobile) !== 0 && hasAnyWeapon(def) && canRetaskArmy(s, i)) retaskableArmy.push(i);
     }
-    if (depot === NONE) return cmds; // no base: nothing to do
 
     const budget: ResourceBudget = { minerals: s.players.minerals[p]!, gas: s.players.gas[p]! };
     let minerals = budget.minerals;
@@ -422,8 +419,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       }
     }
 
-    // 5) Defense: enemy near our base -> idle army engages the nearest enemy.
-    const threat = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && withinTiles(s, sl, e.x[depot]!, e.y[depot]!, 18));
+    // 5) Defense: incidents protect every owned base, not only the initial depot.
+    const incident = deriveTacticalIncidents(s, facts)[0];
+    const threat = incident ? incidentTarget(s, incident) : NONE;
     if (threat !== NONE) {
       castTacticalAbilities(s, p, cmds, casters, e.x[threat]!, e.y[threat]!);
       for (const a of retaskableArmy) {
