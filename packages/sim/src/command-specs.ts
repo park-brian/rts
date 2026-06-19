@@ -1,21 +1,17 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import {
-  Kind, Order, Units,
-} from './data.ts';
+import { Order } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import {
   liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
 import { NONE, isAlive, slotOf } from './world.ts';
-import { isContained, loadUnitInto, unloadUnit } from './cargo.ts';
-import { isDisabled } from './systems/status.ts';
+import { loadUnitInto, unloadUnit } from './cargo.ts';
 import { setBurrowed } from './burrow.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
-import { getTechLevel, queueResearch } from './tech.ts';
+import { queueResearch } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
-import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
-import { requirementsMet } from './requirements.ts';
+import { applyTransform } from './unit-transform.ts';
 import { placementForStructure } from './placement.ts';
 import { startAddon } from './addon.ts';
 import { queueProduction } from './production-queue.ts';
@@ -39,6 +35,7 @@ import { validateBurrowCommand } from './burrow-command.ts';
 import { validateStopCommand } from './stop-command.ts';
 import { validateLandCommand, validateLiftCommand } from './terran-mobility-command.ts';
 import { validateMoveCommand } from './move-command.ts';
+import { validateTransformCommand } from './transform-command.ts';
 
 export { snapRallyTarget };
 
@@ -68,45 +65,12 @@ type CommandSpec<C extends CommandSpecCommand> = {
   validate(s: State, player: number, command: C, ctx?: CommandSpecValidationContext): CommandValidation;
 };
 
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
-
 export const clearSettled = (s: State, slot: number): void => {
   s.e.settled[slot] = 0;
 };
 
 export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
   if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
-};
-
-const validateTransform = (s: State, player: number, command: Extract<Command, { t: 'transform' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot) || e.built[slot] !== 1) return reject('missing-capability');
-  const transform = transformFor(e.kind[slot]!, command.kind);
-  if (!transform) return reject('target-not-allowed');
-  if (transform.tech !== undefined && getTechLevel(s, player, transform.tech) <= 0) return reject('missing-requirement');
-  if (transform.mode === 'merge') {
-    if (mergePartnerFor(s, slot, command.kind, command.target ?? NONE) === NONE) return reject('target-not-allowed');
-  }
-  if (transform.mode === 'morph') {
-    const def = Units[command.kind]!;
-    const source = Units[e.kind[slot]!]!;
-    if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-    if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
-    if (s.players.minerals[player]! < def.minerals || s.players.gas[player]! < def.gas) return reject('not-affordable');
-    const supplyDelta = def.supply - source.supply;
-    if (supplyDelta > 0 && s.players.supplyUsed[player]! + supplyDelta > s.players.supplyMax[player]!) return reject('supply-blocked');
-  }
-  return { ok: true };
 };
 
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
@@ -207,7 +171,7 @@ const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
 };
 
 const transformSpec: CommandSpec<Extract<Command, { t: 'transform' }>> = {
-  validate: validateTransform,
+  validate: validateTransformCommand,
   apply(s, _player, command): void {
     const slot = slotOf(command.unit);
     cancelPendingBeforeOrder(s, slot);
