@@ -3,7 +3,7 @@ import { eid, isEnemy, NONE } from '../entity/world.ts';
 import { Kind, Order, Role, tiles } from '../data/index.ts';
 import { canDetect } from '../mechanics/detection.ts';
 import { isContained } from '../mechanics/cargo.ts';
-import { distanceSq } from '../spatial/geometry.ts';
+import { topDownEdgeDistanceSq } from '../spatial/geometry.ts';
 
 const TRIGGER_RANGE = tiles(3);
 
@@ -24,7 +24,7 @@ export const mines = (s: State): void => {
     let bestD = trigger2 + 1;
     for (let target = 0; target < e.hi; target++) {
       if (!validMineTarget(s, mine, target)) continue;
-      const d = distanceSq(e.x[mine]!, e.y[mine]!, e.x[target]!, e.y[target]!);
+      const d = topDownEdgeDistanceSq(s, mine, target);
       if (d <= trigger2 && (d < bestD || (d === bestD && target < best))) { best = target; bestD = d; }
     }
     if (best === NONE) continue;

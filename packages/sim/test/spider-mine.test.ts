@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units } from '../src/data/index.ts';
+import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import {
   consumeInternalProduct,
@@ -15,6 +15,7 @@ import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { validateMineCommand } from '../src/commands/mine.ts';
 import { validateCommand } from '../src/commands/validate.ts';
+import { bodyBounds, distanceSq, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
@@ -161,6 +162,26 @@ test('spider mines ignore nearby air-only targets', () => {
   assert.equal(e.alive[mine], 1);
   assert.equal(e.burrowed[mine], 1);
   assert.equal(e.order[mine], Order.Idle);
+});
+
+test('spider mine wake range uses top-down body edges', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 2131 });
+  const e = s.e;
+  grant(0, Tech.SpiderMines);
+  const trigger = tiles(3);
+  const vulture = spawn(Kind.Vulture, 0, fx(400), fx(400));
+  const targetX = e.x[slotOf(vulture)]! + trigger + bodyBounds(Kind.SpiderMine).right + bodyBounds(Kind.SiegeTank).left - fx(4);
+  const tank = spawn(Kind.SiegeTank, 1, targetX, e.y[slotOf(vulture)]!);
+  e.specialAmmo[slotOf(vulture)] = 1;
+
+  sim.step([{ player: 0, cmds: [{ t: 'mine', unit: vulture }] }]);
+  const mine = mineSlots(sim)[0]!;
+
+  assert.ok(distanceSq(e.x[mine]!, e.y[mine]!, e.x[slotOf(tank)]!, e.y[slotOf(tank)]!) > trigger * trigger);
+  assert.ok(topDownEdgeDistanceSq(s, mine, slotOf(tank)) <= trigger * trigger);
+  assert.equal(e.burrowed[mine], 0);
+  assert.equal(e.order[mine], Order.Attack);
+  assert.equal(e.target[mine], tank);
 });
 
 test('spider mine state round-trips through byte snapshots', () => {

@@ -247,6 +247,10 @@ Remaining work:
     target entity's top-down interaction hull against the impact point, sharing one falloff helper
     instead of center-distance branches. Remaining: audit non-radial mechanics separately,
     especially Lurker line width, Mutalisk bounce selection, and Spider Mine wake range.
+  - Spider Mine wake range slice is done: burrowed mines acquire ground targets by top-down
+    entity-to-entity hull distance, with a regression proving body-edge wakeup when the target
+    center remains outside the trigger circle. Remaining non-radial audits: Lurker line width and
+    Mutalisk bounce selection.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
