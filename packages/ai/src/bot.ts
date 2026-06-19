@@ -5,19 +5,18 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Ability, Role, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid,
+  Role, Order, Kind, Units, canPlaceStructure, tileX, tileY, eid,
   NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
-  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
-  addonParentKind, hasCompletedKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  UNLOAD_RANGE, productionCostCount, productionCount,
+  addonParentKind, hasCompletedKind, sameTeam, validateCommand,
   requiresPower,
-  abilityTechAvailable,
-  hasInternalProductReady,
   distanceSq, withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
+import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
@@ -391,15 +390,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const defenderSet = new Set(defenders);
       attackCandidates = retaskableArmy.filter((slot) => !defenderSet.has(slot));
       for (const a of defenders) {
-        if (threat !== NONE && maybeLaySpiderMine(s, cmds, a, threat)) continue;
-        if (threat !== NONE && maybeBurrowForFight(s, cmds, a, threat)) continue;
-        if (maybeTransformForFight(s, cmds, a, focusX, focusY)) continue;
-        maybeStim(s, cmds, a);
-        if (threat !== NONE && weaponForTarget(Units[e.kind[a]!]!, Units[e.kind[threat]!]!)) {
-          cmds.push({ t: 'attack', unit: eid(e, a), target: eid(e, threat) });
-        } else {
-          cmds.push({ t: 'amove', unit: eid(e, a), x: focusX, y: focusY });
-        }
+        issueDefenseEngagement(s, cmds, a, { x: focusX, y: focusY, target: threat });
       }
     }
 
@@ -414,24 +405,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         }
         if (!incident) castTacticalAbilities(s, p, cmds, casters, focus.x, focus.y);
         for (const a of attackCandidates) {
-          if (maybeUseNydusNetwork(s, p, cmds, a, focus.x, focus.y)) {
-            issuedOffense = true;
-            continue;
-          }
-          if (focus.target !== NONE && maybeLaySpiderMine(s, cmds, a, focus.target)) {
-            issuedOffense = true;
-            continue;
-          }
-          if (focus.target !== NONE && maybeBurrowForFight(s, cmds, a, focus.target)) {
-            issuedOffense = true;
-            continue;
-          }
-          if (maybeTransformForFight(s, cmds, a, focus.x, focus.y)) {
-            issuedOffense = true;
-            continue;
-          }
-          maybeStim(s, cmds, a);
-          cmds.push({ t: 'amove', unit: eid(e, a), x: focus.x, y: focus.y });
+          issuePressureEngagement(s, p, cmds, a, focus);
           issuedOffense = true;
         }
         if (issuedOffense) markPressureCommitted(memory, s.tick);
@@ -579,109 +553,6 @@ const maybeQueueZergMorphs = (
     }
     if (uniqueMorphs === ALL_ZERG_UNIQUE_MORPHS && repeatableMorphStarted) return;
   }
-};
-
-const maybeStim = (s: State, cmds: Command[], slot: number): void => {
-  const e = s.e;
-  const def = Units[e.kind[slot]!]!;
-  if (!def.abilities.includes(Ability.StimPack)) return;
-  if (!abilityTechAvailable(s, e.owner[slot]!, Ability.StimPack)) return;
-  if (e.stimTimer[slot]! > 0 || e.hp[slot]! <= 20) return;
-  cmds.push({ t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });
-};
-
-const maybeTransformForFight = (s: State, cmds: Command[], slot: number, focusX: number, focusY: number): boolean => {
-  const e = s.e;
-  const kind = e.kind[slot]!;
-  if (kind !== Kind.SiegeTank && kind !== Kind.SiegeTankSieged) return false;
-  const owner = e.owner[slot]!;
-  if (kind === Kind.SiegeTank && getTechLevel(s, owner, Tech.SiegeTech) <= 0) return false;
-  const weapon = Units[Kind.SiegeTankSieged]!.weapon!;
-  const d2 = distanceSq(focusX, focusY, e.x[slot]!, e.y[slot]!);
-  const min = weapon.minRange ?? 0;
-  const usefulSiege = d2 >= min * min && d2 <= weapon.range * weapon.range;
-  if (kind === Kind.SiegeTank && usefulSiege) {
-    cmds.push({ t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTankSieged });
-    return true;
-  }
-  if (kind === Kind.SiegeTankSieged && !usefulSiege) {
-    cmds.push({ t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTank });
-    return true;
-  }
-  return false;
-};
-
-const maybeBurrowForFight = (s: State, cmds: Command[], slot: number, target: number): boolean => {
-  const e = s.e;
-  if (e.kind[slot] !== Kind.Lurker || e.burrowed[slot] === 1) return false;
-  const weapon = Units[Kind.Lurker]!.weapon!;
-  if (!weaponForTarget(Units[Kind.Lurker]!, Units[e.kind[target]!]!)) return false;
-  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, weapon.range)) return false;
-  cmds.push({ t: 'burrow', unit: eid(e, slot), active: true });
-  return true;
-};
-
-const maybeLaySpiderMine = (s: State, cmds: Command[], slot: number, target: number): boolean => {
-  const e = s.e;
-  if (e.kind[slot] !== Kind.Vulture || !hasInternalProductReady(s, slot, Kind.SpiderMine)) return false;
-  if ((e.flags[target]! & (Role.Mobile | Role.Air | Role.Structure | Role.Resource)) !== Role.Mobile) return false;
-  if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, TILE * ONE * 4)) return false;
-  cmds.push({ t: 'mine', unit: eid(e, slot) });
-  return true;
-};
-
-const maybeUseNydusNetwork = (s: State, player: number, cmds: Command[], unit: number, focusX: number, focusY: number): boolean => {
-  const e = s.e;
-  const def = Units[e.kind[unit]!]!;
-  if (e.container[unit] !== NONE || def.cargoSize <= 0) return false;
-  if ((e.flags[unit]! & (Role.Mobile | Role.Structure | Role.Air | Role.Resource)) !== Role.Mobile) return false;
-
-  let entrance = NONE;
-  let exit = NONE;
-  let bestD = Infinity;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.kind[i] !== Kind.NydusCanal || e.built[i] !== 1) continue;
-    if (!sameTeam(s, player, e.owner[i]!)) continue;
-    const candidateExit = unloadAnchorSlot(s, i, focusX, focusY);
-    if (candidateExit === NONE) continue;
-    if (!canLoadInto(s, i, unit) || cargoUsed(s, i) + def.cargoSize > Units[Kind.NydusCanal]!.cargoCapacity) continue;
-    const loadD = distanceSq(e.x[i]!, e.y[i]!, e.x[unit]!, e.y[unit]!);
-    if (loadD > LOAD_RANGE * LOAD_RANGE || loadD >= bestD) continue;
-    entrance = i;
-    exit = candidateExit;
-    bestD = loadD;
-  }
-  if (entrance === NONE || exit === NONE) return false;
-
-  const point = nydusUnloadPoint(s, exit, focusX, focusY);
-  if (!point) return false;
-  cmds.push({ t: 'load', transport: eid(e, entrance), unit: eid(e, unit) });
-  cmds.push({ t: 'unload', transport: eid(e, entrance), unit: eid(e, unit), x: point.x, y: point.y });
-  return true;
-};
-
-const nydusUnloadPoint = (s: State, exit: number, focusX: number, focusY: number): { x: number; y: number } | null => {
-  const e = s.e;
-  const dx = focusX - e.x[exit]!;
-  const dy = focusY - e.y[exit]!;
-  const d = isqrt(dx * dx + dy * dy) || 1;
-  const step = Math.min(2 * TILE * ONE, UNLOAD_RANGE);
-  const ux = Math.trunc((dx * step) / d);
-  const uy = Math.trunc((dy * step) / d);
-  const options: ReadonlyArray<readonly [number, number]> = [
-    [e.x[exit]! - ux, e.y[exit]! - uy],
-    [e.x[exit]! + ux, e.y[exit]! + uy],
-    [e.x[exit]! + step, e.y[exit]!],
-    [e.x[exit]! - step, e.y[exit]!],
-    [e.x[exit]!, e.y[exit]! + step],
-    [e.x[exit]!, e.y[exit]! - step],
-  ];
-  for (const [x, y] of options) {
-    if (withinRangeSq(e.x[exit]!, e.y[exit]!, x, y, UNLOAD_RANGE) && unloadPassable(s, x, y)) {
-      return { x, y };
-    }
-  }
-  return null;
 };
 
 const withinTiles = (s: State, slot: number, x: number, y: number, t: number): boolean => {

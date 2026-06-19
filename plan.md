@@ -685,6 +685,10 @@ Remaining work:
   - Lone-force pressure slice is done: the deterministic pressure wait no longer requires two
     combat units. Any positive leftover combat force can eventually attack-move toward the pressure
     focus, while zero available force still resets the timer and defense reservations still win.
+  - Combat-engagement extraction slice is done: defense and pressure command emission now share
+    `packages/ai/src/macro-combat.ts` for Stim, Siege/Lurker/Vulture prep, attack-vs-attack-move
+    fallback, and same-team Nydus shortcut loading. The live bot controller keeps choosing incidents
+    and pressure focus, but no longer carries duplicate tactical command ladders inline.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -831,6 +835,8 @@ Done when:
   live bot controller without changing research ordering or legality checks.
 - Removed the pressure director's artificial two-unit floor so a lone available combat unit
   eventually commits after the deterministic wait instead of freezing forever.
+- Extracted shared bot combat engagement issuing into `packages/ai/src/macro-combat.ts`, reducing
+  duplicated defense/offense micro branches in the live bot controller while preserving behavior.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as
