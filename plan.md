@@ -711,6 +711,9 @@ Remaining work:
     `packages/ai/src/macro-combat.ts` for Stim, Siege/Lurker/Vulture prep, attack-vs-attack-move
     fallback, and same-team Nydus shortcut loading. The live bot controller keeps choosing incidents
     and pressure focus, but no longer carries duplicate tactical command ladders inline.
+  - Nydus endpoint macro extraction slice is done: offensive Nydus endpoint construction now lives
+    in `packages/ai/src/macro-nydus.ts` as a reusable validator-backed macro primitive; the live bot
+    only passes the current pressure focus and legal spot finder.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -861,6 +864,8 @@ Done when:
   eventually commits after the deterministic wait instead of freezing forever.
 - Extracted shared bot combat engagement issuing into `packages/ai/src/macro-combat.ts`, reducing
   duplicated defense/offense micro branches in the live bot controller while preserving behavior.
+- Extracted offensive Nydus endpoint construction into `packages/ai/src/macro-nydus.ts`, keeping the
+  live bot controller focused on scheduling and preserving the existing legal spot search.
 - Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start

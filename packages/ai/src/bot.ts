@@ -7,8 +7,8 @@
 import {
   Role, Order, Kind, Units, canPlaceStructure, tileX, tileY, eid,
   NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
-  UNLOAD_RANGE, productionCostCount, productionCount,
-  addonParentKind, hasCompletedKind, sameTeam, validateCommand,
+  productionCostCount, productionCount,
+  addonParentKind, hasCompletedKind, validateCommand,
   requiresPower,
   withinRangeSq,
 } from '@rts/sim';
@@ -19,6 +19,7 @@ import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from '.
 import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
 import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
+import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
 import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
@@ -360,7 +361,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       if (focus) {
         let issuedOffense = false;
         if (!builderUsed) {
-          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, focus.x, focus.y);
+          builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, focus.x, focus.y, findSpot);
           minerals = budget.minerals;
         }
         if (!incident) castTacticalAbilities(s, p, cmds, casters, focus.x, focus.y);
@@ -389,51 +390,6 @@ const maybeQueueTerranAddons = (
     if (maybeQueueAddon(s, player, cmds, budget, kind, reserved)) return;
   }
   maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player), reserved);
-};
-
-const maybeQueueNydusEndpoint = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  worker: number,
-  focusX: number,
-  focusY: number,
-): boolean => {
-  if (worker === NONE) return false;
-  const def = Units[Kind.NydusCanal]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
-
-  const e = s.e;
-  let completedOwnEndpoints = 0;
-  let hasEndpointNearFocus = false;
-  let hasPendingEndpoint = false;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1) continue;
-    if (e.kind[i] === Kind.NydusCanal) {
-      if (!sameTeam(s, player, e.owner[i]!)) continue;
-      if (e.built[i] === 1) {
-        if (e.owner[i] === player) completedOwnEndpoints++;
-        if (withinRangeSq(e.x[i]!, e.y[i]!, focusX, focusY, UNLOAD_RANGE)) hasEndpointNearFocus = true;
-      } else if (e.owner[i] === player) {
-        hasPendingEndpoint = true;
-      }
-      continue;
-    }
-    if (e.owner[i] === player && (e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === Kind.NydusCanal) {
-      hasPendingEndpoint = true;
-    }
-  }
-  if (completedOwnEndpoints < 1 || hasEndpointNearFocus || hasPendingEndpoint) return false;
-
-  const spot = findSpot(s, player, worker, Kind.NydusCanal, focusX, focusY);
-  if (!spot) return false;
-  const command: Command = { t: 'build', unit: eid(e, worker), kind: Kind.NydusCanal, x: spot.x, y: spot.y };
-  if (!validateCommand(s, player, command).ok) return false;
-  cmds.push(command);
-  budget.minerals -= def.minerals;
-  budget.gas -= def.gas;
-  return true;
 };
 
 const maybeQueueAddon = (
