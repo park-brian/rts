@@ -11,19 +11,26 @@ export type BotFailureReason =
   | 'resource-starved'
   | 'path-blocked';
 
-export type BotIntentKind =
-  | 'defend-base'
-  | 'get-detection'
-  | 'clear-site'
-  | 'rebuild-tech'
-  | 'add-production'
-  | 'expand'
-  | 'spend-larva'
-  | 'train-counter'
-  | 'research-upgrade'
-  | 'attack-wave'
-  | 'harass'
-  | 'retreat';
+export const BOT_INTENT_KINDS = [
+  'defend-base',
+  'get-detection',
+  'clear-site',
+  'evacuate-workers',
+  'rebuild-tech',
+  'add-production',
+  'expand',
+  'spend-larva',
+  'train-counter',
+  'research-upgrade',
+  'scout',
+  'attack-wave',
+  'harass',
+  'contain',
+  'counterattack',
+  'retreat',
+] as const;
+
+export type BotIntentKind = typeof BOT_INTENT_KINDS[number];
 
 export type BotIntent = {
   kind: BotIntentKind;

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACTIVE_CLOAK_ABILITIES,
+  BOT_INTENT_KINDS,
   PRESSURE_COMMITMENT_TICKS,
   TACTICAL_ABILITY_POLICIES,
   collectBotFacts,
@@ -165,6 +166,25 @@ test('bot tactical ability policy descriptors match sim ability target modes', (
     const ability = Abilities[abilityId]!;
     assert.equal(ability.target, 'self');
     assert.deepEqual(ability.execution, { mode: 'self-toggle', flag: 'cloakActive' });
+  }
+});
+
+test('bot intent vocabulary covers proactive and reflex directors', () => {
+  const kinds = new Set(BOT_INTENT_KINDS);
+
+  for (const kind of [
+    'defend-base',
+    'get-detection',
+    'clear-site',
+    'evacuate-workers',
+    'scout',
+    'attack-wave',
+    'harass',
+    'contain',
+    'counterattack',
+    'retreat',
+  ] as const) {
+    assert.equal(kinds.has(kind), true, `missing bot intent kind ${kind}`);
   }
 });
 

@@ -665,8 +665,12 @@ Remaining work:
     threatened; a fast-tech bot should not ignore workers dying, and a turtle bot should still
     counterattack when the enemy overcommits and home risk is bounded.
   - Intents are game concepts with urgency, actor needs, costs, and expiry, for example
-    `defend-base`, `get-detection`, `clear-site`, `rebuild-tech`, `add-production`, `expand`,
-    `spend-larva`, `train-counter`, `research-upgrade`, `attack-wave`, `harass`, and `retreat`.
+    `defend-base`, `get-detection`, `clear-site`, `evacuate-workers`, `rebuild-tech`,
+    `add-production`, `expand`, `spend-larva`, `train-counter`, `research-upgrade`, `scout`,
+    `attack-wave`, `harass`, `contain`, `counterattack`, and `retreat`.
+    - Intent-vocabulary registry slice is done: `BOT_INTENT_KINDS` now owns the runtime vocabulary
+      for reflex and proactive directors, including scout, contain, counterattack, and worker
+      evacuation. Remaining work: make directors emit these intents instead of scheduling directly.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
