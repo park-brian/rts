@@ -96,7 +96,8 @@ Target layout:
   movement slots, anchors, terrain, and map diagnostics.
 - `mechanics/`: cross-system mechanic helpers that are not tick systems themselves:
   - `damage.ts`, `weapons.ts`, `upgrades.ts`, `requirements.ts`, `placement.ts`, `power.ts`,
-    `creep.ts`, `addons.ts`, `transforms.ts`, `internal-products.ts`.
+    `creep.ts`, `addons.ts`, `transforms.ts`, `internal-products.ts`, `actors.ts`,
+    `capabilities.ts` if actor facets outgrow one file.
 - `io/`: deterministic boundaries:
   - `serialize.ts`, `hash.ts`, `replay.ts`, `observe.ts`, `action-mask.ts`.
 - `map/`: map definitions, procedural generation, resource placement, calibration, diagnostics,
@@ -154,22 +155,128 @@ Principles:
 
 Target representation:
 
-- `ActorCapabilityDef`: compact data predicates for commandable, mobile, structure, producer,
-  container, resource, detector, cloaked, spellcaster, child actor, static field, and internally
-  produced ammo.
-- `ActorLifecycleDef`: optional spawn, wake, active, impact, return, expire, death, cancel, refund,
-  and restore-ammo hooks. Scarabs, interceptors, spider mines, hallucinations, nuke markers, and
-  temporary spell effects should differ by lifecycle data plus tiny named handlers, not by whole
-  bespoke systems.
-- `ActorSteeringDef`: `none`, `normal-nav`, `orbit-target`, `home-return`, `seek-impact`,
-  `stationary-trigger`, and future simple steering modes. Interceptors orbit and return; Scarabs
-  seek impact; Spider Mines wake from stationary trigger then become normal attackers.
-- `ActorActionDef`: weapon fire, launch child, apply impact weapon, provide contained fire,
-  produce internal ammo, gather/return resources, repair/build, cast, transform, load/unload, and
-  passive aura/field effects. This keeps "things that act on the world" in one vocabulary.
-- `ActorPresentationDef`: renderer-neutral math hull, visible hull/art scaling, health/progress bar,
-  cloak opacity, child/projectile presentation, selected/status labels, and debug overlays. Math mode
-  remains the oracle for the same actor body that combat/pathing/interaction use.
+- Use **faceted composition**, not inheritance and not one mega optional-field actor object. A `Kind`
+  opts into small static facets such as core actor facts, structure facts, producer facts, cargo
+  facts, trigger facts, projectile/sortie facts, caster facts, rally facts, and presentation facts.
+  Entities remain dense typed-array slots; facets are immutable per-kind rule data.
+- Keep readable source rows, then compile them at module load into indexed by-kind facts for hot
+  loops. The readable rows are for review; the runtime path should use integer bit flags, small
+  numeric arrays, or direct by-kind tables rather than repeated `.find()` calls, object allocation,
+  closures, or per-entity polymorphism.
+- `ActorCore`: commandable, selectable, normal-combat participant, presentation role, steering owner,
+  and internal/projectile flags. This owns generic actor eligibility used by UI, commands, combat,
+  render, AI, replay/API validation, and action masks.
+- `TriggerFacet`: stationary sensor actors such as Spider Mines. It owns trigger range, target
+  policy, wake order, and any future wake cooldown/state. The tick interpreter may stay explicit,
+  but it reads policy from the facet.
+- `ProjectileFacet` / `SortieFacet`: Scarabs, Interceptors, future spell/projectile markers, and
+  other home/target/lifetime actors. It owns lifetime/leash/return/impact policy names and constants,
+  while timing-heavy interpreters stay explicit until a shared loop is demonstrably clearer.
+- `StructureCapabilityFacet`: footprint actor, producer, add-on parent/child, lift/land, cargo,
+  Nydus endpoint, detector/static weapon, power provider, creep provider, resource depot, rally, and
+  gather-rally facts. Buildings should become actors by capability, not by building-only branches.
+- `ProducerFacet`: products, queue kind, larva/egg/normal/internal product mode, rally policy,
+  tech/research producer capability, and busy-state semantics. It should reduce UI/AI/action-mask
+  duplication without hiding production timing.
+- `ContainerFacet`: capacity, accepted cargo policy, load range, unload range, death behavior,
+  contained-fire provider behavior, and Nydus/team transport policy.
+- `CasterFacet`: ability list, energy policy, default autocast/AI policy hooks, and research gates
+  where those can be represented as facts without duplicating command validation.
+- `ActorPresentationFacet`: renderer-neutral math hull links, visible hull/art scaling, health and
+  progress bar policy, cloak/illusion opacity, selected/status labels, projectile readability, and
+  debug overlays. Math mode remains the oracle for the same actor body that combat, pathing, and
+  interaction use.
+- `ActorActionFacet`: only after facts have stabilized, name reusable action policies such as weapon
+  fire, launch child, apply impact weapon, provide contained fire, produce internal ammo,
+  gather/return resources, repair/build, cast, transform, load/unload, and passive aura/field
+  effects. Do not introduce this as a generic executor until it deletes real duplication.
+
+Faceted composition requirements and ramifications:
+
+- **No inheritance:** no `Unit`, `Building`, `Projectile`, or race subclasses. Composition is
+  per-kind static facts plus dense entity columns. Adding a unit means adding rows/facets, not
+  adding a class hierarchy or overriding methods.
+- **No optional-field soup:** if a fact family grows beyond a handful of fields, split it into its
+  own facet table. `ActorDef` should stay core identity/eligibility, not become the dumping ground
+  for production, cargo, spells, rendering, and pathing.
+- **One query owner per rule:** command cards, smart-click/desktop controls, AI, action masks,
+  replay/API validation, observations, and renderers should call shared facet/validator queries
+  instead of rediscovering "can this actor do X?" in their own files.
+- **Determinism stays structural:** facet tables are immutable, indexed deterministically, and never
+  mutate per tick. Gameplay-affecting dynamic state remains in entity/effect/player typed arrays so
+  clone, serialize, hash, and replay do not gain hidden object state.
+- **Runtime stays cheap:** hot paths use by-kind numbers and bit tests. Any descriptor-to-index
+  compilation happens once at module load. Systems should not allocate policy objects or call
+  closures inside per-entity loops.
+- **Systems stay verb/phase based:** `stepWorld` remains an explicit deterministic scheduler.
+  Facets answer what an actor is and what policies apply; systems still execute movement, combat,
+  production, harvest, cargo, abilities, and effects in fixed order.
+- **Generic interpreters are earned, not assumed:** merge Scarab/Interceptor/Mine/etc. interpreters
+  only when facts have moved out and the merged loop is smaller, faster or neutral, and easier to
+  audit against focused tests. Readability beats theoretical unification.
+- **BW fidelity has veto power:** if a mechanic has awkward exact rules, represent the awkwardness
+  explicitly with a named policy or small interpreter. Do not smooth over carrier bays, scarab dud
+  behavior, mine wake/detection rules, larva, add-ons, or Nydus semantics for abstraction symmetry.
+- **AI/RL compatibility:** observations and action masks should expose capability facts needed for
+  policies without forcing trainers to infer them from kind ids. The same validators remain the final
+  legality gate.
+- **UI compatibility:** command-card option discovery should flow from facets plus shared command
+  validation so every build/train/research/spell/transform/load/rally command the sim supports can
+  be discovered and rendered without app-only tables.
+- **Math/debug renderer compatibility:** the fallback/math renderer should read presentation and
+  footprint facts from the same facet owners used by pathing, selection, command targeting, and
+  combat range checks.
+- **Reviewability:** every facet migration slice needs a before/after audit showing which duplicate
+  rule moved, which callers now share it, and which old branch or shim disappeared. A slice that only
+  adds a table without deleting duplicated interpretation is incomplete unless it names the next
+  deletion step.
+
+Acceptance criteria for this architecture:
+
+- A new actor-like mechanic can be reviewed from a small number of rows/facets plus, at most, one
+  named interpreter policy. The reviewer should not need to chase command cards, AI kind ladders,
+  render branches, and validation branches to understand whether it is commandable, selectable,
+  targetable, visible, renderable, or legal.
+- Existing awkward actors remain faithful: Spider Mines wake and attack only under their BW-like
+  target rules; Scarabs keep lifetime, dud, pathing, impact, and splash semantics; Interceptors keep
+  launch cadence, leash, orbit, return, bay/ammo restoration, and carrier death behavior; building
+  liftoff/landing keeps the "building as actor" model without special UI paths.
+- UI discovery improves rather than regresses. If a unit can train, build, research, cast, load,
+  unload, rally, gather-rally, lift, land, morph, merge, burrow, cloak, siege, or transform, the
+  command surface should be able to discover that through shared capability queries and final
+  validators.
+- Desktop and mobile controls remain clients of the same command model. Actor facets can inform
+  defaults and enabled states, but they must not create separate legality semantics for pointer,
+  hotkey, replay, AI, or RL callers.
+- The fallback/math renderer remains a correctness tool. Selection circles, footprints, projectile
+  bodies, cloaked/illusion presentation, health/progress bars, creep, power, range, and targeting
+  overlays should come from canonical sim facts, not app approximations.
+- Headless performance does not regress. Any facet query used in movement, combat, visibility,
+  harvesting, production, or AI observation must compile to by-kind numeric lookups, bit tests, or
+  caller-owned buffers; no per-tick descriptor allocation or dynamic dispatch belongs in hot loops.
+- Determinism stays easy to audit. Static facets may change rules, but all dynamic gameplay state
+  still lives in typed arrays/effect tables that snapshot, restore, serialize, deserialize, hash, and
+  replay can cover directly.
+- AI and future RL gain information, not hidden behavior. Bots may use the same capability facts to
+  reason about producers, counters, transports, detectors, static defenses, resource depots, and
+  casters, but any strategic or micro decision still emits ordinary validated commands.
+- Folder organization improves ownership. A slice that moves actor facts should leave imports
+  pointing toward the stable concept owner, not create a maze of barrels, compatibility aliases, or
+  cyclic dependencies.
+
+Risks to watch during migration:
+
+- A too-general `ActorActionFacet` could become a tiny scripting language that is harder to debug
+  than the explicit systems it replaces. Delay it until multiple action interpreters have already
+  collapsed naturally.
+- A too-wide `ActorCore` could become another optional-field dump. Split facts early when a field
+  is only meaningful for structures, production, cargo, spells, triggers, sorties, or presentation.
+- A renderer-driven presentation shortcut could desync math mode from interaction math. Presentation
+  is allowed to describe visible art, but footprints, ranges, and target bodies remain sim-owned.
+- A UI-only or AI-only capability cache could drift from validation. If a convenience cache exists,
+  it must be derived from the same facet owners and command validators.
+- Over-collapsing systems can hide exact BW behavior. Prefer three short explicit interpreters over
+  one opaque generic loop when the generic loop makes Mine/Scarab/Interceptor quirks harder to see.
 
 Migration plan:
 
@@ -177,6 +284,25 @@ Migration plan:
   `systems/combat.ts`, `systems/production/*`, `systems/abilities.ts`, and structure mobility for
   common actor lifecycle and action shapes. Do this before rewriting; the goal is to collapse only
   proven duplication.
+- First faceted composition pass should split `mechanics/actors.ts` into core actor facts plus
+  indexed runtime tables. Preserve readable rows, but expose hot queries through bit flags/direct
+  arrays. This should be behavior-preserving and covered by actor commandability, render
+  presentation, and command validation tests.
+- Second pass should move Trigger and Projectile/Sortie constants out of isolated systems where it
+  improves ownership: Spider Mine trigger facts, Scarab lifetime/impact policy, and Interceptor
+  leash/orbit/return policy. Keep the systems as interpreters unless shared execution becomes
+  visibly simpler.
+- Third pass should add `StructureCapabilityFacet` and migrate building facts by category:
+  production/rally, cargo/Nydus, power/creep, add-ons/lift, resource depots, static weapons, and
+  detectors. Each category should delete at least one duplicated UI/AI/validator/system rule.
+- Fourth pass should make command option discovery and command-card rendering consume facets plus
+  shared validators, closing gaps where the sim can perform actions the UI cannot discover.
+- Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
+  policies can reason about producers, transporters, static defenses, detectors, and spellcasters
+  without hard-coded kind ladders.
+- Sixth pass, only after facts stabilize, should evaluate whether any explicit systems can merge.
+  Candidate merges must be proven with replay/hash tests, focused mechanic tests, and benchmarks;
+  otherwise leave the small systems alone.
 - First descriptor ownership slice is done: `mechanics/actors.ts` now owns Scarab and Interceptor
   actor metadata for commandability, normal combat participation, lifecycle, steering,
   external-system steering, presentation, and readable projectile radius. Existing Scarab and
