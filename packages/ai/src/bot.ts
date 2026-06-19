@@ -12,8 +12,7 @@ import { castTacticalAbilities } from './ability-policies.ts';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
-import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
-import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
+import { issuePressureEngagement } from './macro-combat.ts';
 import {
   desiredWorkerCount,
   maybeQueueArmyStructure,
@@ -30,13 +29,11 @@ import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
+import { scheduleTacticalDefense } from './macro-tactics.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
 import {
   collectBotFacts,
-  commitTacticalResponders,
   createBotMemory,
-  deriveTacticalIncidents,
-  rememberTacticalIncidents,
   type BotMemory,
 } from './macro.ts';
 
@@ -205,24 +202,18 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       );
     }
 
-    // 5) Defense: incidents protect every owned base, not only the initial depot.
-    const visibleIncidents = deriveTacticalIncidents(s, facts);
+    // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const memory = prepareMemory(p, s.tick);
-    const incident = rememberTacticalIncidents(memory, visibleIncidents, s.tick)[0];
-    const threat = incident ? incidentTarget(s, incident) : NONE;
-    let attackCandidates = retaskableArmy;
-    if (incident) {
-      const focusX = threat !== NONE ? e.x[threat]! : incident.x;
-      const focusY = threat !== NONE ? e.y[threat]! : incident.y;
-      if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
-      const defenders = commitTacticalResponders(s, memory, retaskableArmy, incident, threat, s.tick);
-      defenders.push(...emergencyWorkerResponders(s, facts.workers, incident, defenders.length, builderUsed ? aWorker : NONE));
-      const defenderSet = new Set(defenders);
-      attackCandidates = retaskableArmy.filter((slot) => !defenderSet.has(slot));
-      for (const a of defenders) {
-        issueDefenseEngagement(s, cmds, a, { x: focusX, y: focusY, target: threat });
-      }
-    }
+    const { incident, attackCandidates } = scheduleTacticalDefense(
+      s,
+      p,
+      cmds,
+      facts,
+      memory,
+      retaskableArmy,
+      casters,
+      builderUsed ? aWorker : NONE,
+    );
 
     if (shouldCommitPressure(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
       // 6) Offense: pressure the enemy's most valuable exposed region.

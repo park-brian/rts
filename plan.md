@@ -588,6 +588,10 @@ Remaining work:
       reservations are explicit.
       Remaining reservation work: expose leftover force to lower-priority harass, scout, and
       counterattack directors as those directors become first-class intents.
+    - Tactical scheduler extraction slice is done: deriving remembered incidents, selecting
+      defenders, pulling emergency workers, casting defensive abilities, and emitting defense
+      engagements now live in `packages/ai/src/macro-tactics.ts`, leaving the live controller to
+      schedule the returned incident plus leftover attack candidates.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -916,6 +920,9 @@ Done when:
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.
+- Extracted tactical defense scheduling into `packages/ai/src/macro-tactics.ts`, so incident memory,
+  defender reservations, emergency worker pulls, defensive spell casting, and defense engagement
+  emission are no longer embedded in the live bot controller.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as
