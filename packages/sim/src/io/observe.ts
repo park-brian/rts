@@ -76,6 +76,11 @@ export type StatusView = {
   cloakTimer: number;
   cloakAura: number;
   burrowed: number;
+  modeTransitionType: number;
+  modeTransitionTargetKind: number;
+  modeTransitionTargetState: number;
+  modeTransitionTimer: number;
+  modeTransitionTotal: number;
 };
 
 export type EffectView = {
@@ -127,14 +132,19 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 3;
+export const OBSERVATION_SCHEMA_VERSION = 4;
 // id, kind, owner, x, y, hp, built, order, orderTarget, intentTarget,
 // combatTarget, tx, ty, patrolX, patrolY
 export const OBS_ENTITY_STRIDE = 15;
 export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
 export const OBS_ORDER_QUEUE_STRIDE = 2 + ORDER_QUEUE_CAP * 4; // id, len, then order,target,x,y per queued travel entry
 export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
-export const OBS_STATUS_STRIDE = 20;
+// id, energy, energyMax, stimTimer, matrixHp, matrixTimer, irradiateTimer, plagueTimer,
+// ensnareTimer, lockdownTimer, stasisTimer, maelstromTimer, acidSporeCount,
+// acidSporeTimer, opticalFlare, parasiteOwner, illusion, lifeTimer, cloakActive,
+// cloakTimer, cloakAura, burrowed, modeTransitionType, modeTransitionTargetKind,
+// modeTransitionTargetState, modeTransitionTimer, modeTransitionTotal
+export const OBS_STATUS_STRIDE = 27;
 export const OBS_EFFECT_STRIDE = 9; // id, kind, owner, x, y, radius, timer, period, damage
 export const OBS_LARVA_STRIDE = 4; // id, count, max, timer
 export const OBS_COVERAGE_STRIDE = 6; // id, kind, owner, x, y, radius
@@ -221,7 +231,8 @@ const hasStatus = (e: State['e'], i: number): boolean =>
   e.cloakActive[i]! > 0 ||
   e.cloakTimer[i]! > 0 ||
   e.cloakAura[i]! > 0 ||
-  e.burrowed[i]! > 0;
+  e.burrowed[i]! > 0 ||
+  e.modeTransitionTimer[i]! > 0;
 
 const statusView = (e: State['e'], i: number): StatusView => ({
   id: eid(e, i),
@@ -246,6 +257,11 @@ const statusView = (e: State['e'], i: number): StatusView => ({
   cloakTimer: e.cloakTimer[i]!,
   cloakAura: e.cloakAura[i]!,
   burrowed: e.burrowed[i]!,
+  modeTransitionType: e.modeTransitionType[i]!,
+  modeTransitionTargetKind: e.modeTransitionTargetKind[i]!,
+  modeTransitionTargetState: e.modeTransitionTargetState[i]!,
+  modeTransitionTimer: e.modeTransitionTimer[i]!,
+  modeTransitionTotal: e.modeTransitionTotal[i]!,
 });
 
 const writeStatus = (out: Int32Array, row: number, e: State['e'], i: number): void => {
@@ -269,7 +285,14 @@ const writeStatus = (out: Int32Array, row: number, e: State['e'], i: number): vo
   out[p++] = e.illusion[i]!;
   out[p++] = e.lifeTimer[i]!;
   out[p++] = e.cloakActive[i]!;
+  out[p++] = e.cloakTimer[i]!;
+  out[p++] = e.cloakAura[i]!;
   out[p++] = e.burrowed[i]!;
+  out[p++] = e.modeTransitionType[i]!;
+  out[p++] = e.modeTransitionTargetKind[i]!;
+  out[p++] = e.modeTransitionTargetState[i]!;
+  out[p++] = e.modeTransitionTimer[i]!;
+  out[p++] = e.modeTransitionTotal[i]!;
 };
 
 const tileVisibilityAt = (s: State, player: number, x: number, y: number): number => {

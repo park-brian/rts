@@ -174,6 +174,9 @@ Current substrate contract:
   reservation scratch, buffer observation, and a benchmarked larva observation stress lane. The
   next measured slice, if large command batches make it matter, is numeric/scratch-backed grouped
   command ingestion.
+- Sparse own-status observations include energy, active timers/statuses, cloak/burrow state, and
+  mode-transition type/target/timer fields so policies can distinguish idle units from units busy
+  sieging, unsieging, burrowing, or unburrowing without reading app state.
 
 ## 10. Evaluation
 

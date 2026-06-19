@@ -4,6 +4,7 @@ import { Sim } from '../src/sim.ts';
 import {
   OBS_ENTITY_STRIDE,
   OBS_ORDER_QUEUE_STRIDE,
+  OBS_STATUS_STRIDE,
   OBSERVATION_SCHEMA_VERSION,
   createObservationBuffers,
   writeObservation,
@@ -15,6 +16,7 @@ import { Ability, EffectKind, Kind, Order, Tech, TILE } from '../src/data/index.
 import { fx } from '../src/fixed.ts';
 import { CREEP_RADIUS } from '../src/mechanics/creep.ts';
 import { LARVA_MAX } from '../src/mechanics/larva.ts';
+import { ModeTransition } from '../src/mechanics/mode-transition.ts';
 import { POWER_RADIUS } from '../src/mechanics/power.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
@@ -23,6 +25,8 @@ const tileCenter = (w: number, idx: number): { x: number; y: number } => {
   const ty = Math.floor(idx / w);
   return { x: fx((tx + 0.5) * TILE), y: fx((ty + 0.5) * TILE) };
 };
+const STATUS_CLOAK_OFFSET = 18;
+const STATUS_MODE_TRANSITION_OFFSET = 22;
 
 test('observe requires vision tracking and returns a defensive vision copy', () => {
   const noVision = new Sim({ map: sliceMap(), players: 1, seed: 201 });
@@ -242,10 +246,12 @@ test('observe returns usable own cargo without leaking enemy cargo', () => {
 });
 
 test('observe returns sparse own energy and status records without leaking enemy status', () => {
-  const { sim, state: s, spawn } = simScenario({ players: 2, seed: 211, vision: true });
+  const { sim, state: s, spawn, grant } = simScenario({ players: 2, seed: 211, vision: true });
   const e = s.e;
   const medic = slotOf(spawn(Kind.Medic, 0, fx(700), fx(700)));
   const marine = slotOf(spawn(Kind.Marine, 0, fx(730), fx(700)));
+  const tank = spawn(Kind.SiegeTank, 0, fx(790), fx(700));
+  const enemyTank = spawn(Kind.SiegeTank, 1, fx(830), fx(700));
   const enemyQueen = slotOf(spawn(Kind.Queen, 1, fx(760), fx(700)));
   e.energy[medic] = 77;
   e.energyMax[medic] = 250;
@@ -260,9 +266,16 @@ test('observe returns sparse own energy and status records without leaking enemy
   e.energy[enemyQueen] = 88;
   e.energyMax[enemyQueen] = 200;
   e.plagueTimer[enemyQueen] = 99;
+  grant(0, Tech.SiegeTech);
+  grant(1, Tech.SiegeTech);
+  sim.step([{ player: 0, cmds: [{ t: 'transform', unit: tank, kind: Kind.SiegeTankSieged }] }, {
+    player: 1,
+    cmds: [{ t: 'transform', unit: enemyTank, kind: Kind.SiegeTankSieged }],
+  }]);
 
   const obs = sim.observe(0);
   assert.equal(obs.statuses.some((v) => v.id === eid(e, enemyQueen)), false);
+  assert.equal(obs.statuses.some((v) => v.id === enemyTank), false);
 
   const medicStatus = obs.statuses.find((v) => v.id === eid(e, medic));
   assert.ok(medicStatus);
@@ -271,14 +284,46 @@ test('observe returns sparse own energy and status records without leaking enemy
 
   const marineStatus = obs.statuses.find((v) => v.id === eid(e, marine));
   assert.ok(marineStatus);
-  assert.equal(marineStatus.stimTimer, 9);
+  assert.equal(marineStatus.stimTimer, e.stimTimer[marine]);
   assert.equal(marineStatus.matrixHp, 120);
-  assert.equal(marineStatus.matrixTimer, 20);
-  assert.equal(marineStatus.ensnareTimer, 30);
+  assert.equal(marineStatus.matrixTimer, e.matrixTimer[marine]);
+  assert.equal(marineStatus.ensnareTimer, e.ensnareTimer[marine]);
   assert.equal(marineStatus.acidSporeCount, 2);
-  assert.equal(marineStatus.acidSporeTimer, 40);
+  assert.equal(marineStatus.acidSporeTimer, e.acidSporeTimer[marine]);
   assert.equal(marineStatus.parasiteOwner, 1);
   assert.equal(marineStatus.burrowed, 1);
+
+  const tankStatus = obs.statuses.find((v) => v.id === tank);
+  assert.ok(tankStatus);
+  assert.equal(tankStatus.modeTransitionType, ModeTransition.Transform);
+  assert.equal(tankStatus.modeTransitionTargetKind, Kind.SiegeTankSieged);
+  assert.equal(tankStatus.modeTransitionTargetState, 0);
+  assert.ok(tankStatus.modeTransitionTimer > 0);
+  assert.ok(tankStatus.modeTransitionTotal >= tankStatus.modeTransitionTimer);
+
+  const buffers = createObservationBuffers(s.map, { statuses: 16 });
+  const counts = writeObservation(s, 0, buffers);
+  assert.equal(counts.statuses, obs.statuses.length);
+  const statusRowFor = (id: number): number => {
+    for (let i = 0; i < counts.statuses; i++) {
+      if (buffers.statuses[i * OBS_STATUS_STRIDE] === id) return i * OBS_STATUS_STRIDE;
+    }
+    return -1;
+  };
+  const marineRow = statusRowFor(eid(e, marine));
+  const tankRow = statusRowFor(tank);
+  assert.notEqual(marineRow, -1);
+  assert.notEqual(tankRow, -1);
+  assert.deepEqual([...buffers.statuses.slice(marineRow + STATUS_CLOAK_OFFSET, marineRow + STATUS_MODE_TRANSITION_OFFSET)], [
+    e.cloakActive[marine]!, e.cloakTimer[marine]!, e.cloakAura[marine]!, e.burrowed[marine]!,
+  ]);
+  assert.deepEqual([...buffers.statuses.slice(tankRow + STATUS_MODE_TRANSITION_OFFSET, tankRow + OBS_STATUS_STRIDE)], [
+    ModeTransition.Transform,
+    Kind.SiegeTankSieged,
+    0,
+    tankStatus.modeTransitionTimer,
+    tankStatus.modeTransitionTotal,
+  ]);
 
   const mutableStatus: { energy: number } = medicStatus;
   mutableStatus.energy = 0;

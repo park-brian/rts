@@ -286,6 +286,9 @@ Remaining work:
   - Active order observation slice is done: object observations and caller-owned entity buffers now
     expose own command target, intent target, combat target, destination point, and Patrol return
     endpoint, while visible enemy rows keep those intent fields hidden to avoid leaking future plans.
+  - Mode-transition observation slice is done: object and caller-owned status observations expose
+    own mode-transition type, target kind/state, remaining timer, and total timer; enemy status rows
+    still do not leak, and the status buffer schema now includes the full cloak timer/aura fields.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
 - Add ML benchmark lanes for:
   - action masks;
