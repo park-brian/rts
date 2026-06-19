@@ -2,21 +2,18 @@ import type { Command } from './commands.ts';
 import { Kind, Units } from './data.ts';
 import { requirementsMet } from './requirements.ts';
 import { getTechLevel } from './tech.ts';
-import { isContained } from './cargo.ts';
-import { isDisabled } from './systems/status.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import type { State } from './world.ts';
 import { NONE } from './world.ts';
-import { canPay, reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import { canPay, canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type TransformCommand = Extract<Command, { t: 'transform' }>;
 
 export const validateTransformCommand = (s: State, player: number, command: TransformCommand): CommandValidation => {
   const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot) || e.built[slot] !== 1) return reject('missing-capability');
+  const actor = canReceiveOrder(s, player, command.unit, { rejectBurrowed: true, rejectIllusion: true });
+  if (!actor.ok) return actor;
+  const slot = actor.slot;
 
   const transform = transformFor(e.kind[slot]!, command.kind);
   if (!transform) return reject('target-not-allowed');
