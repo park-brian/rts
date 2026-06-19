@@ -11,8 +11,7 @@ import {
 import type { State } from './world.ts';
 import { NONE, canSpawnEntity, eid, isAlive, isEnemy, nearest, slotOf } from './world.ts';
 import {
-  UNLOAD_RANGE, canLoadInto, canUnloadAt, cargoUsed, containedBy, isContained, loadUnitInto,
-  sameTeam, transportCapacity, unloadAnchorSlot, unloadUnit, withinLoadRange,
+  isContained, loadUnitInto, sameTeam, unloadUnit,
 } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
 import { isPowered } from './power.ts';
@@ -26,7 +25,6 @@ import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
-import { withinRangeSq } from './spatial.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
 import { queueProduction, queuedProductionCount } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
@@ -36,6 +34,7 @@ import { clearVelocity } from './systems/move.ts';
 import { issueTravelOrder } from './travel-intent.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-targets.ts';
 import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from './rally.ts';
+import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 
 type CommandValidation =
   | { ok: true }
@@ -71,14 +70,6 @@ const ownedSlot = (s: State, id: number, player: number): number | null => {
   if (!isAlive(e, id)) return null;
   const slot = slotOf(id);
   return e.owner[slot] === player ? slot : null;
-};
-
-const usableTransportSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  if (e.owner[slot] === player) return slot;
-  return e.kind[slot] === Kind.NydusCanal && sameTeam(s, player, e.owner[slot]!) ? slot : null;
 };
 
 export const clearSettled = (s: State, slot: number): void => {
@@ -239,41 +230,6 @@ const validateAddon = (s: State, player: number, command: Extract<Command, { t: 
   const pos = addonPosition(s, slot, command.kind);
   const placement = placementForStructure(s, command.kind, pos.x, pos.y, NONE, player);
   return placement.ok ? { ok: true } : reject(placement.reason);
-};
-
-const validateLoad = (s: State, player: number, command: Extract<Command, { t: 'load' }>): CommandValidation => {
-  const e = s.e;
-  const transport = usableTransportSlot(s, command.transport, player);
-  if (transport === null) return isAlive(e, command.transport) ? reject('wrong-owner') : reject('stale-entity');
-  const unit = ownedSlot(s, command.unit, player);
-  if (unit === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (transport === unit || isContained(s, transport)) return reject('target-not-allowed');
-  const capacity = transportCapacity(s, transport);
-  if (capacity <= 0 || e.built[transport] !== 1 || isDisabled(e, transport) || e.illusion[transport] === 1) {
-    return reject('missing-capability');
-  }
-  if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
-  const unitSize = Units[e.kind[unit]!]!.cargoSize;
-  if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
-  if (!withinLoadRange(s, transport, unit)) {
-    return reject('target-out-of-range');
-  }
-  return { ok: true };
-};
-
-const validateUnload = (s: State, player: number, command: Extract<Command, { t: 'unload' }>): CommandValidation => {
-  const e = s.e;
-  const transport = usableTransportSlot(s, command.transport, player);
-  if (transport === null) return isAlive(e, command.transport) ? reject('wrong-owner') : reject('stale-entity');
-  const unit = ownedSlot(s, command.unit, player);
-  if (unit === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
-  const anchor = unloadAnchorSlot(s, transport, command.x, command.y);
-  if (anchor === NONE || !withinRangeSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y, UNLOAD_RANGE)) {
-    return reject('target-out-of-range');
-  }
-  if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');
-  return { ok: true };
 };
 
 const validateTransform = (s: State, player: number, command: Extract<Command, { t: 'transform' }>): CommandValidation => {
@@ -481,7 +437,7 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
 };
 
 const loadSpec: CommandSpec<Extract<Command, { t: 'load' }>> = {
-  validate: validateLoad,
+  validate: validateLoadCommand,
   apply(s, _player, command): void {
     loadUnitInto(s, slotOf(command.transport), slotOf(command.unit));
   },
@@ -521,7 +477,7 @@ const transformSpec: CommandSpec<Extract<Command, { t: 'transform' }>> = {
 };
 
 const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
-  validate: validateUnload,
+  validate: validateUnloadCommand,
   apply(s, _player, command): void {
     unloadUnit(s, slotOf(command.unit), command.x, command.y);
   },

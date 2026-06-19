@@ -1525,6 +1525,8 @@ Rework slices:
      transform, and cancel validators.
    - Share predicates such as `isBusy`, `isTransitioning`, `isDisabled`, `canReceiveOrder`,
      `canTargetEntity`, `canUseProducer`, and `canPay`.
+   - Cargo command legality now lives in `cargo-command.ts` for `load`/`unload`, while
+     `command-specs.ts` keeps dispatch and side effects unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.
