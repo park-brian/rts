@@ -367,6 +367,8 @@ Done when:
   the old root helper instead of leaving a compatibility shim.
 - Added producer-selected batch reservations for Nuclear Strike so multi-action decoding cannot
   overbook one ready missile while still accepting separate ready Nuclear Silos deterministically.
+- Moved Nuclear Strike silo lookup and missile consumption helpers under `mechanics/nuke.ts`,
+  deleting the old root helper path while preserving the stable package export.
 
 ## Review Checklist
 

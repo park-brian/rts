@@ -15,7 +15,7 @@ import { updateCloakAuras } from '../detection.ts';
 import { faceToward } from './move.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../cargo.ts';
-import { consumeReadyNuke } from '../nuke.ts';
+import { consumeReadyNuke } from '../mechanics/nuke.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 import { splashDamagePercent } from './weapon-hit.ts';
 

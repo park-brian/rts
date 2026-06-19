@@ -2,7 +2,7 @@ import type { Command } from './types.ts';
 import { Ability, Abilities, Kind, Units, unitTraits } from '../data.ts';
 import { isActiveAddon } from '../addon.ts';
 import { isPowered } from '../power.ts';
-import { hasReadyNuke } from '../nuke.ts';
+import { hasReadyNuke } from '../mechanics/nuke.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import { castAbility } from '../systems/abilities.ts';

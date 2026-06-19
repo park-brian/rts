@@ -24,7 +24,7 @@ export * from './cargo.ts';
 export * from './effects.ts';
 export * from './creep.ts';
 export * from './larva.ts';
-export * from './nuke.ts';
+export * from './mechanics/nuke.ts';
 export * from './detection.ts';
 export * from './power.ts';
 export * from './repair.ts';

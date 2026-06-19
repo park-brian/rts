@@ -23,7 +23,7 @@ import { techGas, techMinerals, nextTechLevel } from './tech.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
 import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from './commands/intent.ts';
-import { readyNukeSilo } from './nuke.ts';
+import { readyNukeSilo } from './mechanics/nuke.ts';
 
 export const ACTION_SCHEMA_VERSION = 1;
 

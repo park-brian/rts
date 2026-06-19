@@ -1,8 +1,8 @@
-import { Kind } from './data.ts';
-import type { State } from './entity/world.ts';
-import { activeAddonParentSlot } from './addon.ts';
-import { consumeInternalProduct, internalProductReadyCount } from './mechanics/internal-products.ts';
-import { NONE } from './entity/world.ts';
+import { activeAddonParentSlot } from '../addon.ts';
+import { Kind } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { NONE } from '../entity/world.ts';
+import { consumeInternalProduct, internalProductReadyCount } from './internal-products.ts';
 
 export type NukeSiloReservation = (slot: number) => number;
 
