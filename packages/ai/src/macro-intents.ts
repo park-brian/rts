@@ -19,6 +19,7 @@ export const BOT_INTENT_KINDS = [
   'rebuild-tech',
   'add-production',
   'expand',
+  'train-worker',
   'spend-larva',
   'train-counter',
   'research-upgrade',

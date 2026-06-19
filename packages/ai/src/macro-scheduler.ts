@@ -2,10 +2,6 @@ import {
   Kind,
   NONE,
   Units,
-  eid,
-  productionCostCount,
-  productionCount,
-  validateCommand,
   type Command,
   type Faction,
   type State,
@@ -24,7 +20,7 @@ import {
 import { queueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
-import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
+import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
@@ -52,6 +48,7 @@ const intentUrgency = (kind: BotIntent['kind']): number => {
   switch (kind) {
     case 'rebuild-tech': return 45;
     case 'expand': return 35;
+    case 'train-worker': return 35;
     case 'spend-larva': return 35;
     case 'add-production': return 30;
     case 'train-counter': return 30;
@@ -63,77 +60,21 @@ const intentUrgency = (kind: BotIntent['kind']): number => {
 const techTransformKind = (kind: number): boolean =>
   kind === Kind.Lair || kind === Kind.Hive || kind === Kind.GreaterSpire;
 
-const trainIntentKind = (kind: number): BotIntent['kind'] =>
-  Units[kind]?.buildMethod === 'larva' ? 'spend-larva' : 'train-counter';
+const trainIntentKind = (kind: number, faction: Faction): BotIntent['kind'] => {
+  if (kind === faction.worker) return 'train-worker';
+  return Units[kind]?.buildMethod === 'larva' ? 'spend-larva' : 'train-counter';
+};
 
 const trainOutcome = (
+  faction: Faction,
   kind: number,
   reason: BotFailureReason,
 ): BotIntentRecord => {
-  const intentKind = trainIntentKind(kind);
+  const intentKind = trainIntentKind(kind, faction);
   return {
     intent: { kind: intentKind, urgency: intentUrgency(intentKind), targetKind: kind },
     result: { status: 'waiting', reason },
   };
-};
-
-const trainValidationFailure = (
-  s: State,
-  player: number,
-  producers: readonly number[],
-  usedProducers: Set<number>,
-  supplyBudget: SupplyBudget,
-  kind: number,
-): BotFailureReason | null => {
-  for (const producer of producers) {
-    if (producer === NONE || usedProducers.has(producer)) continue;
-    const result = validateCommand(s, player, { t: 'train', building: eid(s.e, producer), kind }, {
-      reservedSupply: supplyBudget.used,
-    });
-    if (result.ok) return null;
-    switch (result.reason) {
-      case 'not-affordable': return 'resource-starved';
-      case 'supply-blocked': return 'supply-blocked';
-      case 'missing-requirement': return 'missing-prerequisite';
-      case 'queue-full':
-      case 'capacity-full':
-      case 'incomplete-producer':
-      case 'missing-capability':
-        return 'no-production-capacity';
-      default:
-        break;
-    }
-  }
-  return 'no-producer';
-};
-
-const trainFailureReason = (
-  s: State,
-  player: number,
-  producers: readonly number[],
-  usedProducers: Set<number>,
-  budget: ResourceBudget,
-  supplyBudget: SupplyBudget,
-  kind: number,
-): BotFailureReason | null => {
-  const def = Units[kind]!;
-  let producersSeen = 0;
-  let producersReady = 0;
-  for (const producer of producers) {
-    if (producer === NONE) continue;
-    producersSeen++;
-    if (!usedProducers.has(producer) && s.e.prodKind[producer] === Kind.None) producersReady++;
-  }
-  if (producersSeen === 0) return def.buildMethod === 'larva' ? 'no-production-capacity' : 'no-producer';
-  if (producersReady === 0) return 'no-production-capacity';
-
-  const costCount = productionCostCount(kind);
-  const producedCount = productionCount(kind);
-  if (budget.minerals < def.minerals * costCount || budget.gas < def.gas * costCount) {
-    return 'resource-starved';
-  }
-  if (supplyBudget.used + def.supply * producedCount > supplyBudget.max) return 'supply-blocked';
-  return trainValidationFailure(s, player, producers, usedProducers, supplyBudget, kind);
 };
 
 const commandMacroIntent = (command: Command, faction: Faction): BotIntent | null => {
@@ -152,12 +93,11 @@ const commandMacroIntent = (command: Command, faction: Faction): BotIntent | nul
       return { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: command.kind };
     case 'research':
       return { kind: 'research-upgrade', urgency: intentUrgency('research-upgrade') };
-    case 'train':
-      return Units[command.kind]?.buildMethod === 'larva'
-        ? { kind: 'spend-larva', urgency: intentUrgency('spend-larva'), targetKind: command.kind }
-        : command.kind === faction.armyUnit
-          ? { kind: 'train-counter', urgency: intentUrgency('train-counter'), targetKind: command.kind }
-          : null;
+    case 'train': {
+      const kind = trainIntentKind(command.kind, faction);
+      if (kind === 'train-counter' && command.kind !== faction.armyUnit) return null;
+      return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
+    }
     case 'transform': {
       const kind = techTransformKind(command.kind) ? 'rebuild-tech' : 'train-counter';
       return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
@@ -199,6 +139,7 @@ export const scheduleBotMacro = (
   const economy = summarizeEconomyRoster(s, player, faction);
   const workers = facts.workers.length;
   const idleDepots = economy.idleDepots;
+  const builtDepots = economy.builtDepots;
   const idleLarvae = facts.idleLarvae;
   const builtArmyStructures = economy.builtArmyStructures;
   const pendingArmyStructures = economy.pendingArmyStructures;
@@ -209,6 +150,7 @@ export const scheduleBotMacro = (
   const workerDef = Units[faction.worker]!;
   const armyDef = Units[faction.armyUnit]!;
   const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
+  const workerOutcomeProducer = workerDef.buildMethod === 'larva' ? idleLarvae : builtDepots;
   const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtArmyStructures;
   const usedProducers = new Set<number>();
   const reservedTechProducers: ProducerReservations = new Set();
@@ -218,7 +160,8 @@ export const scheduleBotMacro = (
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
 
-  maybeQueueWorkers(
+  const workerCommandStart = cmds.length;
+  const queuedWorkers = maybeQueueWorkers(
     s,
     player,
     cmds,
@@ -230,6 +173,10 @@ export const scheduleBotMacro = (
     workers,
     workerTarget,
   );
+  if (workers < workerTarget && queuedWorkers === 0 && cmds.length === workerCommandStart) {
+    const reason = trainFailureReason(s, player, workerOutcomeProducer, usedProducers, budget, supplyBudget, faction.worker);
+    if (reason) intentResults.push(trainOutcome(faction, faction.worker, reason));
+  }
 
   const supplyQueued = maybeQueueSupply(
     s,
@@ -288,7 +235,7 @@ export const scheduleBotMacro = (
   }
   if (cmds.length === armyCommandStart) {
     const reason = trainFailureReason(s, player, armyProducer, usedProducers, budget, supplyBudget, faction.armyUnit);
-    if (reason) intentResults.push(trainOutcome(faction.armyUnit, reason));
+    if (reason) intentResults.push(trainOutcome(faction, faction.armyUnit, reason));
   }
 
   if (!builderUsed) {

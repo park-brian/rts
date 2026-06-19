@@ -738,6 +738,11 @@ Remaining work:
       occupied production capacity after the normal validator-backed training path fails. Remaining
       work: worker, research, add-on, morph, and tech-structure directors still need similarly
       explicit outcomes where they are actionable.
+    - Worker-training outcome slice is done: successful worker production now surfaces a
+      `train-worker` intent, and failed worker production reuses the shared train-failure classifier
+      for resource starvation, supply blocks, and occupied producer capacity. Remaining work:
+      supply/build, research, add-on, morph, and tech-structure directors still need explicit
+      outcomes where they are actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

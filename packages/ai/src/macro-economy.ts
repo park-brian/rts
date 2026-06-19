@@ -30,6 +30,7 @@ const withinTiles = (s: State, slot: number, x: number, y: number, tiles: number
   withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, tiles * TILE * ONE);
 
 export type EconomyRoster = {
+  builtDepots: number[];
   idleDepots: number[];
   builtArmyStructures: number[];
   pendingArmyStructures: number;
@@ -40,6 +41,7 @@ export type EconomyRoster = {
 export const summarizeEconomyRoster = (s: State, player: number, faction: Faction): EconomyRoster => {
   const e = s.e;
   const roster: EconomyRoster = {
+    builtDepots: [],
     idleDepots: [],
     builtArmyStructures: [],
     pendingArmyStructures: 0,
@@ -57,6 +59,7 @@ export const summarizeEconomyRoster = (s: State, player: number, faction: Factio
       if ((flags & Role.Worker) !== 0 && e.buildKind[i] === faction.supplyStructure) roster.pendingSupply++;
       if ((flags & Role.Worker) !== 0 && e.buildKind[i] === faction.armyStructure) roster.pendingArmyStructures++;
     } else if (kind === faction.depot && e.built[i] === 1) {
+      roster.builtDepots.push(i);
       if (e.prodKind[i] === Kind.None) roster.idleDepots.push(i);
     } else if (kind === faction.armyStructure) {
       if (e.built[i] === 1) roster.builtArmyStructures.push(i);

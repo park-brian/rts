@@ -43,7 +43,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 import {
-  Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
+  Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, MAX_QUEUE, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   generateMap,
   Role, TILE, ONE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, liftStructure, validateCommand, withinRangeSq, type Command, type State,
@@ -226,6 +226,7 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
     'get-detection',
     'clear-site',
     'evacuate-workers',
+    'train-worker',
     'scout',
     'attack-wave',
     'harass',
@@ -242,6 +243,7 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
     { t: 'build', unit: 1, kind: Kind.CommandCenter, x: fx(100), y: fx(100) },
     { t: 'build', unit: 1, kind: Kind.Barracks, x: fx(120), y: fx(100) },
     { t: 'research', building: 2, tech: Tech.StimPack },
+    { t: 'train', building: 3, kind: Kind.SCV },
     { t: 'train', building: 3, kind: Kind.Marine },
     { t: 'rally', building: 3, x: fx(140), y: fx(100) },
   ], Terran);
@@ -250,11 +252,13 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
     'expand',
     'add-production',
     'research-upgrade',
+    'train-worker',
     'train-counter',
   ]);
   assert.equal(intents[0]?.targetKind, Kind.CommandCenter);
   assert.equal(intents[1]?.targetKind, Kind.Barracks);
-  assert.equal(intents[3]?.targetKind, Kind.Marine);
+  assert.equal(intents[3]?.targetKind, Kind.SCV);
+  assert.equal(intents[4]?.targetKind, Kind.Marine);
 });
 
 test('macro scheduler returns intents for live macro commands', () => {
@@ -1821,6 +1825,51 @@ test('terran bot adds core production capacity when mineral-banked past its targ
   scenario.state.players.supplyMax[0] = 1_000;
 
   expectBotBuildsLegal(scenario, Terran, Kind.Barracks, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 });
+});
+
+test('live bot planner reports resource-starved worker training outcomes', () => {
+  const scenario = botScenario({ seed: 521, factions: [Terran, Zerg] });
+  scenario.resources(0, Units[Kind.SCV]!.minerals - 1, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 99, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-worker' &&
+    record.intent.targetKind === Kind.SCV &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'resource-starved'));
+});
+
+test('live bot planner reports supply-blocked worker training outcomes', () => {
+  const scenario = botScenario({ seed: 522, factions: [Terran, Zerg] });
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyUsed[0] = scenario.state.players.supplyMax[0]!;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 99, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-worker' &&
+    record.intent.targetKind === Kind.SCV &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'supply-blocked'));
+});
+
+test('live bot planner reports occupied worker producer outcomes', () => {
+  const scenario = botScenario({ seed: 523, factions: [Terran, Zerg] });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  scenario.state.e.prodKind[slotOf(commandCenter)] = Kind.SCV;
+  scenario.state.e.prodQueued[slotOf(commandCenter)] = MAX_QUEUE - 1;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 99, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-worker' &&
+    record.intent.targetKind === Kind.SCV &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-production-capacity'));
 });
 
 test('live bot planner reports resource-starved army training outcomes', () => {
