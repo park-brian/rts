@@ -370,9 +370,13 @@ test('live bot planner exposes sorted macro, defense, and pressure intents', () 
 
   const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 1, attackThreshold: 1 })(s, 0);
   const kinds = plan.intents.map((intent) => intent.kind);
+  const resultKinds = plan.intentResults.map((record) => record.intent.kind);
+  const statuses = plan.intentResults.map((record) => record.result.status);
 
   assert.equal(plan.commands.length > 0, true);
   assert.deepEqual(kinds.slice(0, 3), ['defend-base', 'counterattack', 'add-production']);
+  assert.deepEqual(resultKinds.slice(0, 3), kinds.slice(0, 3));
+  assert.deepEqual(statuses.slice(0, 3), ['done', 'done', 'done']);
   assert.equal(plan.intents[0]!.urgency >= plan.intents[1]!.urgency, true);
   assert.equal(plan.intents[1]!.urgency >= plan.intents[2]!.urgency, true);
 });

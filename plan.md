@@ -700,6 +700,10 @@ Remaining work:
       sorted director-intent list while `createBot` remains the command-only controller. Macro,
       tactical defense, and pressure intents can now be inspected together without changing current
       command ordering or introducing a parallel scheduler.
+    - Live intent-outcome slice is done: planner turns now also return sorted `{ intent, result }`
+      records, marking macro intents done when command emission created them and marking tactical or
+      pressure intents done only when their executor emitted commands. This gives the future
+      scheduler a regression surface for "proposed but no actor moved" failures.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

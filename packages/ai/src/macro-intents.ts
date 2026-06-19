@@ -47,3 +47,8 @@ export type BotIntentResult =
   | { status: 'waiting'; reason: BotFailureReason }
   | { status: 'blocked'; reason: BotFailureReason; followup?: BotIntent }
   | { status: 'failed'; reason: BotFailureReason };
+
+export type BotIntentRecord = {
+  intent: BotIntent;
+  result: BotIntentResult;
+};

@@ -12,7 +12,7 @@ import { scheduleBotMacro } from './macro-scheduler.ts';
 import { executeTacticalDefense, proposeTacticalDefense } from './macro-tactics.ts';
 import { createBotMemory, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
-import type { BotIntent } from './macro-intents.ts';
+import type { BotIntent, BotIntentRecord, BotIntentResult } from './macro-intents.ts';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
@@ -23,14 +23,21 @@ export type BotConfig = {
 export type BotTurnPlan = {
   commands: Command[];
   intents: BotIntent[];
+  intentResults: BotIntentRecord[];
 };
 
 export type BotPlanner = (s: State, p: number) => BotTurnPlan;
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 
-const rankIntents = (intents: BotIntent[]): BotIntent[] =>
-  intents.sort((a, b) => b.urgency - a.urgency);
+const rankIntentRecords = (records: BotIntentRecord[]): BotIntentRecord[] =>
+  records.sort((a, b) => b.intent.urgency - a.intent.urgency);
+
+const done: BotIntentResult = { status: 'done' };
+const waitingForForce: BotIntentResult = { status: 'waiting', reason: 'insufficient-force' };
+
+const intentResult = (issued: boolean): BotIntentResult =>
+  issued ? done : waitingForForce;
 
 export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {}): BotPlanner => {
   const c = { ...DEFAULT, ...cfg };
@@ -55,19 +62,19 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
 
   return (s: State, p: number): BotTurnPlan => {
     const cmds: Command[] = [];
-    const intents: BotIntent[] = [];
+    const intentResults: BotIntentRecord[] = [];
 
     const facts = collectBotFacts(s, p, faction, { risk: 'none' });
     const depot = facts.primaryBase;
-    if (depot === NONE) return { commands: cmds, intents }; // no base: nothing to do
+    if (depot === NONE) return { commands: cmds, intents: [], intentResults }; // no base: nothing to do
 
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, c);
-    intents.push(...macro.intents);
+    for (const intent of macro.intents) intentResults.push({ intent, result: done });
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const memory = prepareMemory(p, s.tick);
     const defenseProposal = proposeTacticalDefense(s, facts, memory);
-    if (defenseProposal.intent) intents.push(defenseProposal.intent);
+    const defenseCommandStart = cmds.length;
     const { incident, reserve } = executeTacticalDefense(
       s,
       p,
@@ -79,6 +86,12 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       macro.casters,
       macro.builderUsed ? macro.builder : NONE,
     );
+    if (defenseProposal.intent) {
+      intentResults.push({
+        intent: defenseProposal.intent,
+        result: intentResult(cmds.length > defenseCommandStart),
+      });
+    }
     const pressureReserve = combatReserve(
       reserve.units,
       incident ? reserve.commitmentForce : macro.army,
@@ -99,8 +112,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
         strategicOnly: incident !== undefined,
       },
     );
-    if (pressureProposal.intent) intents.push(pressureProposal.intent);
-    executePressureIntent(
+    const pressureResult = executePressureIntent(
       s,
       p,
       cmds,
@@ -115,8 +127,19 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
         builderUsed: macro.builderUsed,
       },
     );
+    if (pressureProposal.intent) {
+      intentResults.push({
+        intent: pressureProposal.intent,
+        result: intentResult(pressureResult.issued),
+      });
+    }
 
-    return { commands: cmds, intents: rankIntents(intents) };
+    const rankedIntentResults = rankIntentRecords(intentResults);
+    return {
+      commands: cmds,
+      intents: rankedIntentResults.map((record) => record.intent),
+      intentResults: rankedIntentResults,
+    };
   };
 };
 
