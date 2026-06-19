@@ -2,7 +2,7 @@ import {
   Ability, Kind, NONE, Role, Units,
   addonParentKind, canWorkerStartStructure, isAlive,
   abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
-  researchSelectionOptions, trainSelectionCandidates, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  researchSelectionOptions, trainSelectionOptions, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -166,16 +166,6 @@ export const selectionCapabilities = (
           addOption(addonOptions, addon, result, { priority: selectionIndex });
         }
       }
-      for (const train of Units[k]!.produces) {
-        const command: Command = { t: 'train', building: id, kind: train };
-        const result = validateCommand(s, player, command);
-        if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
-        const load = entityWorkQueue(s, slot).producerLoad;
-        addOption(trainOptions, train, result, {
-          ...trainOptionMeta(s, slot, train),
-          priority: load,
-        });
-      }
     }
     const burrowCommand: Command = { t: 'burrow', unit: id, active: true };
     if (validateCommand(s, player, burrowCommand).ok) {
@@ -218,9 +208,13 @@ export const selectionCapabilities = (
       { commands: option.commands },
     );
   }
-  for (const option of trainOptions.values()) {
-    if (!option.ok) continue;
-    option.commands = trainSelectionCandidates(s, player, selected, option.id);
+  for (const option of trainSelectionOptions(s, player, readyVisibleSelected)) {
+    addOption(
+      trainOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      { ...trainOptionMeta(s, slotOf(option.representative), option.id), commands: option.commands },
+    );
   }
   for (const option of addonOptions.values()) {
     if (!option.ok) continue;

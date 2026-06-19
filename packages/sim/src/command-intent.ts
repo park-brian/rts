@@ -56,6 +56,14 @@ export type ResearchSelectionOption = {
   commands?: Command[];
 };
 
+export type TrainSelectionOption = {
+  id: number;
+  ok: boolean;
+  representative: number;
+  reason?: CommandRejectReason;
+  commands?: Command[];
+};
+
 export const commandRejectReasonPriority: Record<CommandRejectReason, number> = {
   'missing-requirement': 0,
   'not-affordable': 1,
@@ -359,6 +367,53 @@ export const trainSelectionCandidates = (
     }
   }
   return best ? [best] : [];
+};
+
+type TrainSelectionOptionRecord = TrainSelectionOption & { priority?: number };
+
+const addTrainSelectionOption = (
+  options: Map<number, TrainSelectionOptionRecord>,
+  id: number,
+  representative: number,
+  result: CandidateValidation,
+  priority: number,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok || priority < (current.priority ?? Infinity)) {
+      options.set(id, { id, ok: true, representative, priority });
+    }
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, representative, reason: result.reason, priority });
+  }
+};
+
+export const trainSelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): TrainSelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, TrainSelectionOptionRecord>();
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const slot = slotOf(building);
+    for (const kind of Units[e.kind[slot]!]!.produces) {
+      const command: Command = { t: 'train', building, kind };
+      const result = validateCommand(s, player, command);
+      if (e.illusion[slot] === 1 && !result.ok && result.reason === 'missing-capability') continue;
+      addTrainSelectionOption(options, kind, building, result, entityWorkQueue(s, slot).producerLoad);
+    }
+  }
+  for (const option of options.values()) {
+    if (option.ok) option.commands = trainSelectionCandidates(s, player, selected, option.id);
+  }
+  return [...options.values()]
+    .sort((a, b) => a.id - b.id)
+    .map(({ priority: _priority, ...option }) => option);
 };
 
 export const addonSelectionCandidates = (

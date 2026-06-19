@@ -6,7 +6,7 @@ import type { MapDef } from '../src/map.ts';
 import {
   abilitySelectionOptions, addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,
-  trainSelectionCandidates, transformSelectionCandidates, transformSelectionOptions,
+  trainSelectionCandidates, trainSelectionOptions, transformSelectionCandidates, transformSelectionOptions,
   unloadSelectionCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
@@ -306,6 +306,36 @@ test('train command-card candidates choose the least-loaded valid producer', () 
     { t: 'train', building: idle, kind: Kind.Marine },
   ]);
   assert.deepEqual(trainSelectionCandidates(s, 0, [academy], Kind.Marine), []);
+});
+
+test('train command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1234);
+  const busy = spawnUnit(s, Kind.Barracks, 0, tc(8), tc(8));
+  const idle = spawnUnit(s, Kind.Barracks, 0, tc(12), tc(8));
+  const academy = spawnUnit(s, Kind.Academy, 0, tc(16), tc(8));
+  const busySlot = slotOf(busy);
+  s.e.prodKind[busySlot] = Kind.Marine;
+  s.e.prodTimer[busySlot] = 100;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 1_000;
+
+  let marine = trainSelectionOptions(s, 0, [busy, academy, idle]).find((o) => o.id === Kind.Marine);
+  assert.deepEqual(marine, {
+    id: Kind.Marine,
+    ok: true,
+    representative: idle,
+    commands: [{ t: 'train', building: idle, kind: Kind.Marine }],
+  });
+
+  s.players.minerals[0] = 0;
+  marine = trainSelectionOptions(s, 0, [idle]).find((o) => o.id === Kind.Marine);
+  assert.deepEqual(marine, {
+    id: Kind.Marine,
+    ok: false,
+    representative: idle,
+    reason: 'not-affordable',
+  });
 });
 
 test('add-on command-card candidates choose the first valid selected producer', () => {
