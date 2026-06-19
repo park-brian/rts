@@ -567,6 +567,9 @@ Done when:
 - Retired the root `data.ts` compatibility shim: sim internals and sim tests now import the real
   `data/index.ts` owner directly, and the package barrel exports that owner without preserving the
   old root helper path.
+- Audited the sim source root after folder migrations: no flat root compatibility shims remain;
+  `fixed.ts`, `rng.ts`, `sim.ts`, and `tick.ts` are real root owners, and `index.ts` is the stable
+  public package barrel rather than an old-path shim.
 - Added the first deterministic queued-order kernel for travel commands: move, follow, and
   attack-move can append to a four-entry per-entity queue, queued orders are serialized/hashed, replay
   JSON preserves the `queue` flag, and normal replacement commands clear queued travel.
