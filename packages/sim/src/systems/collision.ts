@@ -23,7 +23,7 @@ import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../spa
 import { isContained } from '../cargo.ts';
 import { isPathingAnchor } from '../spatial/pathing-anchor.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
-import { workersCanShareResourceRouteCollision } from '../worker-collision.ts';
+import { workersCanShareResourceRouteCollision } from '../spatial/worker-collision.ts';
 
 const PUSH_MAX = ONE * 4; // max collision displacement per tick (fixed px); bounded to stay stable
 const TILE_FX = TILE * ONE;

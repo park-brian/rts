@@ -14,7 +14,7 @@ import type { MapDef } from '../src/map.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/spatial/pathing-anchor.ts';
 import { placementForStructure } from '../src/commands/validate.ts';
 import { applyCommands } from '../src/commands/ingest.ts';
-import { workersCanShareResourceRouteCollision } from '../src/worker-collision.ts';
+import { workersCanShareResourceRouteCollision } from '../src/spatial/worker-collision.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1)); // tile center px

@@ -415,6 +415,8 @@ Done when:
   deleting the old root helper instead of leaving a shim.
 - Moved firing-unit pathing anchor detection under `spatial/pathing-anchor.ts`, deleting the old
   root helper instead of leaving a shim.
+- Moved worker mineral/gas route collision phasing under `spatial/worker-collision.ts`, deleting
+  the old root helper instead of leaving a shim.
 
 ## Review Checklist
 
