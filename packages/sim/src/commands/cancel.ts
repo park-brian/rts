@@ -1,6 +1,8 @@
 import type { Command } from './types.ts';
 import { Kind, Role } from '../data.ts';
+import { cancelFoundation } from '../build-cost.ts';
 import type { State } from '../entity/world.ts';
+import { slotOf } from '../entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
 
 type CancelBuildCommand = Extract<Command, { t: 'cancelBuild' }>;
@@ -15,4 +17,8 @@ export const validateCancelBuildCommand = (s: State, player: number, command: Ca
     return reject('target-not-allowed');
   }
   return { ok: true };
+};
+
+export const applyCancelBuildCommand = (s: State, command: CancelBuildCommand): void => {
+  cancelFoundation(s, slotOf(command.building));
 };

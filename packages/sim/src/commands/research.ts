@@ -1,8 +1,16 @@
 import type { Command } from './types.ts';
 import { Role, TECH_CAP, TechDefs } from '../data.ts';
 import { requirementsMet } from '../requirements.ts';
-import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from '../tech.ts';
+import {
+  getTechLevel,
+  isTechInProgress,
+  nextTechLevel,
+  queueResearch,
+  techGas,
+  techMinerals,
+} from '../tech.ts';
 import type { State } from '../entity/world.ts';
+import { slotOf } from '../entity/world.ts';
 import {
   canPay,
   canUseProducer,
@@ -38,4 +46,8 @@ export const validateResearchCommand = (s: State, player: number, command: Resea
   const payment = canPay(s, player, { minerals: techMinerals(def, level), gas: techGas(def, level) });
   if (!payment.ok) return payment;
   return { ok: true };
+};
+
+export const applyResearchCommand = (s: State, player: number, command: ResearchCommand): void => {
+  queueResearch(s, slotOf(command.building), command.tech, player);
 };

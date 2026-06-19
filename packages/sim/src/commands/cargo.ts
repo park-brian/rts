@@ -9,8 +9,10 @@ import {
   cargoUsed,
   containedBy,
   isContained,
+  loadUnitInto,
   sameTeam,
   transportCapacity,
+  unloadUnit,
   unloadAnchorSlot,
   withinLoadRange,
 } from '../cargo.ts';
@@ -71,4 +73,12 @@ export const validateUnloadCommand = (s: State, player: number, command: UnloadC
   }
   if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');
   return { ok: true };
+};
+
+export const applyLoadCommand = (s: State, command: LoadCommand): void => {
+  loadUnitInto(s, slotOf(command.transport), slotOf(command.unit));
+};
+
+export const applyUnloadCommand = (s: State, command: UnloadCommand): void => {
+  unloadUnit(s, slotOf(command.unit), command.x, command.y);
 };

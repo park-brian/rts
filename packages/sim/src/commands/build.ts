@@ -2,7 +2,7 @@ import type { Command } from './types.ts';
 import { Order, Role, Units, workerBuildKindsFor } from '../data.ts';
 import { cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
 import { requirementsMet } from '../requirements.ts';
-import { canPlaceStructure, type PlacementResult } from '../placement.ts';
+import { canPlaceStructure, placementForStructure, type PlacementResult } from '../placement.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';
 import { isContained } from '../cargo.ts';
@@ -105,4 +105,10 @@ export const beginWorkerBuild = (
   e.combatTarget[workerSlot] = NONE;
   e.tx[workerSlot] = placement.x;
   e.ty[workerSlot] = placement.y;
+};
+
+export const applyBuildCommand = (s: State, player: number, command: BuildCommand): void => {
+  const slot = slotOf(command.unit);
+  const placement = placementForStructure(s, command.kind, command.x, command.y, slot, player);
+  if (placement.ok) beginWorkerBuild(s, slot, command.kind, placement, player);
 };

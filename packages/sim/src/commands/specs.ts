@@ -1,38 +1,31 @@
 import type { Command, CommandRejectReason } from './types.ts';
-import { cancelFoundation } from '../build-cost.ts';
-import {
-  liftStructure, startStructureLanding,
-} from '../terran-mobility.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
-import { loadUnitInto, unloadUnit } from '../cargo.ts';
-import { setBurrowed } from '../burrow.ts';
-import { queueResearch } from '../tech.ts';
-import { laySpiderMine } from '../spider-mine.ts';
-import { applyTransform } from '../unit-transform.ts';
-import { placementForStructure } from '../placement.ts';
-import { startAddon } from '../addon.ts';
 import { queueProduction } from '../production-queue.ts';
-import { beginWorkerBuild, validateBuildCommand } from './build.ts';
+import { applyBuildCommand, validateBuildCommand } from './build.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability.ts';
 import { isGatherTargetSlot } from '../resource-targets.ts';
 import { producerDirectlyProducesOnlyWorkers } from '../rally.ts';
-import { validateLoadCommand, validateUnloadCommand } from './cargo.ts';
-import { validateCancelBuildCommand } from './cancel.ts';
+import { applyLoadCommand, applyUnloadCommand, validateLoadCommand, validateUnloadCommand } from './cargo.ts';
+import { applyCancelBuildCommand, validateCancelBuildCommand } from './cancel.ts';
 import { applyHarvestCommand, validateHarvestCommand } from './harvest.ts';
 import { applyRepairCommand, validateRepairCommand } from './repair.ts';
-import { validateAddonCommand } from './addon.ts';
-import { validateMineCommand } from './mine.ts';
+import { applyAddonCommand, validateAddonCommand } from './addon.ts';
+import { applyMineCommand, validateMineCommand } from './mine.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally.ts';
 import { validateTrainCommand } from './production.ts';
-import { validateResearchCommand } from './research.ts';
+import { applyResearchCommand, validateResearchCommand } from './research.ts';
 import { applyAttackCommand, validateAttackCommand } from './attack.ts';
-import { validateBurrowCommand } from './burrow.ts';
+import { applyBurrowCommand, validateBurrowCommand } from './burrow.ts';
 import { applyStopCommand, validateStopCommand } from './stop.ts';
-import { validateLandCommand, validateLiftCommand } from './terran-mobility.ts';
+import {
+  applyLandCommand,
+  applyLiftCommand,
+  validateLandCommand,
+  validateLiftCommand,
+} from './terran-mobility.ts';
 import { applyMoveCommand, validateMoveCommand } from './move.ts';
-import { validateTransformCommand } from './transform.ts';
-import { cancelPendingBeforeOrder } from './shared.ts';
+import { applyTransformCommand, validateTransformCommand } from './transform.ts';
 
 export { snapRallyTarget };
 
@@ -79,30 +72,28 @@ const abilitySpec: CommandSpec<Extract<Command, { t: 'ability' }>> = {
 const addonSpec: CommandSpec<Extract<Command, { t: 'addon' }>> = {
   validate: validateAddonCommand,
   apply(s, player, command): void {
-    startAddon(s, slotOf(command.building), command.kind, player);
+    applyAddonCommand(s, player, command);
   },
 };
 
 const cancelBuildSpec: CommandSpec<Extract<Command, { t: 'cancelBuild' }>> = {
   validate: validateCancelBuildCommand,
   apply(s, _player, command): void {
-    cancelFoundation(s, slotOf(command.building));
+    applyCancelBuildCommand(s, command);
   },
 };
 
 const burrowSpec: CommandSpec<Extract<Command, { t: 'burrow' }>> = {
   validate: validateBurrowCommand,
   apply(s, _player, command): void {
-    setBurrowed(s, slotOf(command.unit), command.active);
+    applyBurrowCommand(s, command);
   },
 };
 
 const buildSpec: CommandSpec<Extract<Command, { t: 'build' }>> = {
   validate: validateBuildCommand,
   apply(s, player, command): void {
-    const slot = slotOf(command.unit);
-    const placement = placementForStructure(s, command.kind, command.x, command.y, slot, player);
-    if (placement.ok) beginWorkerBuild(s, slot, command.kind, placement, player);
+    applyBuildCommand(s, player, command);
   },
 };
 
@@ -116,47 +107,42 @@ const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
 const loadSpec: CommandSpec<Extract<Command, { t: 'load' }>> = {
   validate: validateLoadCommand,
   apply(s, _player, command): void {
-    loadUnitInto(s, slotOf(command.transport), slotOf(command.unit));
+    applyLoadCommand(s, command);
   },
 };
 
 const liftSpec: CommandSpec<Extract<Command, { t: 'lift' }>> = {
   validate: validateLiftCommand,
   apply(s, _player, command): void {
-    liftStructure(s, slotOf(command.building));
+    applyLiftCommand(s, command);
   },
 };
 
 const landSpec: CommandSpec<Extract<Command, { t: 'land' }>> = {
   validate: validateLandCommand,
   apply(s, player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.building);
-    const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
-    if (placement.ok) startStructureLanding(s, slot, placement.x, placement.y);
+    applyLandCommand(s, player, command);
   },
 };
 
 const mineSpec: CommandSpec<Extract<Command, { t: 'mine' }>> = {
   validate: validateMineCommand,
   apply(s, _player, command): void {
-    laySpiderMine(s, slotOf(command.unit));
+    applyMineCommand(s, command);
   },
 };
 
 const transformSpec: CommandSpec<Extract<Command, { t: 'transform' }>> = {
   validate: validateTransformCommand,
   apply(s, _player, command): void {
-    const slot = slotOf(command.unit);
-    cancelPendingBeforeOrder(s, slot);
-    applyTransform(s, slot, command.kind, command.target ?? NONE);
+    applyTransformCommand(s, command);
   },
 };
 
 const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
   validate: validateUnloadCommand,
   apply(s, _player, command): void {
-    unloadUnit(s, slotOf(command.unit), command.x, command.y);
+    applyUnloadCommand(s, command);
   },
 };
 
@@ -170,7 +156,7 @@ const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
 const researchSpec: CommandSpec<Extract<Command, { t: 'research' }>> = {
   validate: validateResearchCommand,
   apply(s, player, command): void {
-    queueResearch(s, slotOf(command.building), command.tech, player);
+    applyResearchCommand(s, player, command);
   },
 };
 

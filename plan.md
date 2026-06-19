@@ -352,6 +352,9 @@ Done when:
   command ingestion under `src/commands/` with no root compatibility shims.
 - Moved direct unit-order apply logic for attack, harvest, repair, move/attack-move, and stop next
   to their command-family validators, leaving `commands/specs.ts` as shared dispatch/context glue.
+- Moved simple apply logic for add-ons, cancel-build, burrow, build, cargo, Terran lift/land,
+  spider mines, research, and transforms into their command-family modules; `commands/specs.ts`
+  now mainly retains shared dispatch plus rally/train context handling.
 
 ## Review Checklist
 

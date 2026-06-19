@@ -3,7 +3,13 @@ import { Role } from '../data.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { placementForStructure } from '../placement.ts';
 import type { State } from '../entity/world.ts';
-import { isLiftableTerranStructureKind, isLiftedStructureFlags } from '../terran-mobility.ts';
+import { slotOf } from '../entity/world.ts';
+import {
+  isLiftableTerranStructureKind,
+  isLiftedStructureFlags,
+  liftStructure,
+  startStructureLanding,
+} from '../terran-mobility.ts';
 import {
   hasActiveAddonTarget,
   isBusy,
@@ -38,4 +44,15 @@ export const validateLandCommand = (s: State, player: number, command: LandComma
   }
   const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
   return placement.ok ? { ok: true } : reject(placement.reason);
+};
+
+export const applyLiftCommand = (s: State, command: LiftCommand): void => {
+  liftStructure(s, slotOf(command.building));
+};
+
+export const applyLandCommand = (s: State, player: number, command: LandCommand): void => {
+  const e = s.e;
+  const slot = slotOf(command.building);
+  const placement = placementForStructure(s, e.kind[slot]!, command.x, command.y, slot, player);
+  if (placement.ok) startStructureLanding(s, slot, placement.x, placement.y);
 };

@@ -1,8 +1,9 @@
 import type { Command } from './types.ts';
 import { Kind } from '../data.ts';
 import { hasInternalProductReady, internalProductCapacity } from '../internal-products.ts';
+import { laySpiderMine } from '../spider-mine.ts';
 import type { State } from '../entity/world.ts';
-import { canSpawnEntity } from '../entity/world.ts';
+import { canSpawnEntity, slotOf } from '../entity/world.ts';
 import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';
 
 type MineCommand = Extract<Command, { t: 'mine' }>;
@@ -17,4 +18,8 @@ export const validateMineCommand = (s: State, player: number, command: MineComma
   if (!hasInternalProductReady(s, slot, Kind.SpiderMine)) return reject('target-not-allowed');
   if (!canSpawnEntity(s)) return reject('capacity-full');
   return { ok: true };
+};
+
+export const applyMineCommand = (s: State, command: MineCommand): void => {
+  laySpiderMine(s, slotOf(command.unit));
 };

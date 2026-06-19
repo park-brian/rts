@@ -1,8 +1,9 @@
 import type { Command } from './types.ts';
-import { canBurrowSlot, hasBurrowAccess } from '../burrow.ts';
+import { canBurrowSlot, hasBurrowAccess, setBurrowed } from '../burrow.ts';
 import { isContained } from '../cargo.ts';
 import { isDisabled } from '../systems/status.ts';
 import type { State } from '../entity/world.ts';
+import { slotOf } from '../entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
 
 type BurrowCommand = Extract<Command, { t: 'burrow' }>;
@@ -16,4 +17,8 @@ export const validateBurrowCommand = (s: State, player: number, command: BurrowC
   if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
   if ((e.burrowed[slot] === 1) === command.active) return reject('target-not-allowed');
   return { ok: true };
+};
+
+export const applyBurrowCommand = (s: State, command: BurrowCommand): void => {
+  setBurrowed(s, slotOf(command.unit), command.active);
 };
