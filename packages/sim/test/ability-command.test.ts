@@ -65,3 +65,31 @@ test('ability validation shares actor ownership and capability gates', () => {
   expectAbility('disabled', { ok: false, reason: 'missing-capability' });
   expectAbility('unfinished', { ok: false, reason: 'missing-capability' });
 });
+
+test('entity ability target gates preserve range before team-specific legality', () => {
+  const { state: s, spawn } = simScenario({ players: 2, seed: 681 });
+  const e = s.e;
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(300), fx(300));
+  const friendly = spawn(Kind.Marine, 0, fx(330), fx(300));
+  const contained = spawn(Kind.Marine, 0, fx(360), fx(300));
+  const farEnemy = spawn(Kind.Marine, 1, fx(900), fx(300));
+  const closeEnemy = spawn(Kind.Marine, 1, fx(335), fx(300));
+  e.energy[slotOf(vessel)] = 250;
+  e.container[slotOf(contained)] = spawn(Kind.Dropship, 0, fx(360), fx(330));
+
+  const command = (target: number): AbilityCommand => ({
+    t: 'ability',
+    unit: vessel,
+    ability: Ability.DefensiveMatrix,
+    target,
+  });
+  const assertAbility = (target: number, expected: Expected): void => {
+    assert.deepEqual(validateAbilityCommand(s, 0, command(target)), expected);
+    assert.deepEqual(validateCommand(s, 0, command(target)), expected);
+  };
+
+  assertAbility(friendly, { ok: true });
+  assertAbility(contained, { ok: false, reason: 'target-not-allowed' });
+  assertAbility(farEnemy, { ok: false, reason: 'target-out-of-range' });
+  assertAbility(closeEnemy, { ok: false, reason: 'target-not-allowed' });
+});

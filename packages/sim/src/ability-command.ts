@@ -1,17 +1,15 @@
 import type { Command } from './commands.ts';
 import { Ability, Abilities, Kind, Units, unitTraits } from './data.ts';
 import { isActiveAddon } from './addon.ts';
-import { isContained } from './cargo.ts';
-import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
 import { hasReadyNuke } from './nuke.ts';
 import type { State } from './world.ts';
-import { isAlive, isEnemy, NONE, slotOf } from './world.ts';
+import { NONE, slotOf } from './world.ts';
 import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq, withinTopDownEdgeRange } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
-import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
+import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './command-validation.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
@@ -41,20 +39,17 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
     }
     return { ok: true };
   }
-  if (command.target === undefined || !isAlive(e, command.target)) return reject('target-not-found');
-  const target = slotOf(command.target);
-  if (isContained(s, target)) return reject('target-not-allowed');
+  const targetResult = canTargetEntity(s, player, command.target);
+  if (!targetResult.ok) return targetResult;
+  const target = targetResult.slot;
   if (!withinTopDownEdgeRange(s, slot, target, ability.range)) {
     return reject('target-out-of-range');
   }
-  if (ability.targetTeam === 'own' && e.owner[target] !== player) return reject('target-not-allowed');
-  if (ability.targetTeam === 'enemy') {
-    if (!isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
-    if (!canDetect(s, player, target)) return reject('target-not-allowed');
-  }
-  if (ability.targetTeam === 'any' && isEnemy(s, player, e.owner[target]!) && !canDetect(s, player, target)) {
-    return reject('target-not-allowed');
-  }
+  const targetTeam = canTargetEntity(s, player, command.target, {
+    team: ability.targetTeam,
+    requireDetection: ability.targetTeam !== 'own',
+  });
+  if (!targetTeam.ok) return targetTeam;
   if (command.ability === Ability.Consume && target === slot) return reject('target-not-allowed');
   if (ability.targetRolesAny !== 0 && (e.flags[target]! & ability.targetRolesAny) === 0) return reject('target-not-allowed');
   if (ability.targetRolesNone !== 0 && (e.flags[target]! & ability.targetRolesNone) !== 0) return reject('target-not-allowed');

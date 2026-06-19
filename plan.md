@@ -48,8 +48,6 @@ Remaining work:
 - Finish extracting shared command predicates where they reduce drift:
   - `isBusy`;
   - `isTransitioning`;
-  - `isDisabled`;
-  - `canTargetEntity`;
 - Split command ingestion by command family without changing replay semantics.
 - Split production into named sub-systems for queueing, internal products, larva spawn, spawn rally,
   gather rally, load rally, refunds, and completion placement.
@@ -248,6 +246,7 @@ Done when:
 - Extended `canReceiveOrder` to ability caster validation while keeping ability-specific gates local.
 - Extended `canReceiveOrder` to transform validation while keeping transform, morph, and merge rules local.
 - Extended `canReceiveOrder` to harvest, repair, and mine validation while keeping utility-specific rules local.
+- Extracted narrow `canTargetEntity` target gates for attack and entity-target ability validation.
 
 ## Review Checklist
 

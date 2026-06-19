@@ -12,7 +12,7 @@ type AttackCommand = Extract<Command, { t: 'attack' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
 type EntityKey =
   | 'marine' | 'enemy' | 'friendly' | 'firebat' | 'mutalisk' | 'depot' | 'hidden'
-  | 'reaver' | 'contained' | 'disabled' | 'unfinished' | 'stale';
+  | 'reaver' | 'contained' | 'enemyContained' | 'disabled' | 'unfinished' | 'stale';
 type AttackCase = { unit: EntityKey | number; target: EntityKey | number };
 
 const expectAttack = (input: AttackCase, expected: Expected): void => {
@@ -28,11 +28,13 @@ const expectAttack = (input: AttackCase, expected: Expected): void => {
   const hidden = scenario.spawn(Kind.Zergling, 1, fx(360), fx(300));
   const reaver = scenario.spawn(Kind.Reaver, 0, fx(300), fx(360));
   const contained = scenario.spawn(Kind.Marine, 0, fx(300), fx(390));
+  const enemyContained = scenario.spawn(Kind.Zealot, 1, fx(340), fx(390));
   const disabled = scenario.spawn(Kind.Marine, 0, fx(330), fx(390));
   const unfinished = scenario.spawn(Kind.Marine, 0, fx(360), fx(390));
 
   e.burrowed[slotOf(hidden)] = 1;
   e.container[slotOf(contained)] = scenario.spawn(Kind.Dropship, 0, fx(300), fx(420));
+  e.container[slotOf(enemyContained)] = scenario.spawn(Kind.Dropship, 1, fx(340), fx(420));
   e.lockdownTimer[slotOf(disabled)] = 10;
   e.built[slotOf(unfinished)] = 0;
   kill(s, enemy);
@@ -47,6 +49,7 @@ const expectAttack = (input: AttackCase, expected: Expected): void => {
     hidden,
     reaver,
     contained,
+    enemyContained,
     disabled,
     unfinished,
     stale: enemy,
@@ -86,6 +89,10 @@ test('targeted attack validation lives in the attack command module', () => {
     reason: 'target-not-allowed',
   });
   expectAttack({ unit: 'marine', target: 'hidden' }, {
+    ok: false,
+    reason: 'target-not-allowed',
+  });
+  expectAttack({ unit: 'marine', target: 'enemyContained' }, {
     ok: false,
     reason: 'target-not-allowed',
   });

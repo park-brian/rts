@@ -1,11 +1,12 @@
 import type { CommandRejectReason } from './commands.ts';
 import { isActiveAddon } from './addon.ts';
 import { isContained } from './cargo.ts';
+import { canDetect } from './detection.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
 import type { State } from './world.ts';
-import { isAlive, slotOf } from './world.ts';
+import { isAlive, isEnemy, slotOf } from './world.ts';
 
 export type CommandRejection = { ok: false; reason: CommandRejectReason };
 
@@ -42,6 +43,11 @@ type ProducerUseOptions = {
 type ReceiveOrderOptions = {
   rejectBurrowed?: boolean;
   rejectIllusion?: boolean;
+};
+
+type TargetEntityOptions = {
+  team?: 'own' | 'enemy' | 'any';
+  requireDetection?: boolean;
 };
 
 export type ResourceAmount = {
@@ -98,5 +104,22 @@ export const canReceiveOrder = (
   if (options.rejectIllusion && e.illusion[slot] === 1) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
   if (e.built[slot] !== 1) return reject('missing-capability');
+  return { ok: true, slot };
+};
+
+export const canTargetEntity = (
+  s: State,
+  player: number,
+  id: number | undefined,
+  options: TargetEntityOptions = {},
+): SlotCommandValidation => {
+  const e = s.e;
+  if (id === undefined || !isAlive(e, id)) return reject('target-not-found');
+  const slot = slotOf(id);
+  if (isContained(s, slot)) return reject('target-not-allowed');
+  if (options.team === 'own' && e.owner[slot] !== player) return reject('target-not-allowed');
+  const enemy = isEnemy(s, player, e.owner[slot]!);
+  if (options.team === 'enemy' && !enemy) return reject('target-not-allowed');
+  if (options.requireDetection && enemy && !canDetect(s, player, slot)) return reject('target-not-allowed');
   return { ok: true, slot };
 };
