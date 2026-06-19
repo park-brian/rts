@@ -35,6 +35,9 @@ const pruneOlderThan = <T extends { tick: number }>(entries: Map<string, T>, tic
 const locationFailure = (reason: BotFailureReason): boolean =>
   reason === 'unsafe-location' || reason === 'occupied-location' || reason === 'path-blocked';
 
+export const locationBlockedByIntentMemory = (memory: BotMemory, x: number, y: number): boolean =>
+  memory.blockedSites.has(tileKey(x, y));
+
 export const rememberIntentOutcomes = (
   memory: BotMemory,
   records: readonly BotIntentRecord[],

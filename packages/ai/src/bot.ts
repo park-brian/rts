@@ -73,11 +73,11 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     const depot = facts.primaryBase;
     if (depot === NONE) return { commands: cmds, intents: [], intentResults }; // no base: nothing to do
 
-    const macro = scheduleBotMacro(s, p, faction, cmds, facts, c);
+    const memory = prepareMemory(p, s.tick);
+    const macro = scheduleBotMacro(s, p, faction, cmds, facts, c, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
-    const memory = prepareMemory(p, s.tick);
     const defenseProposal = proposeTacticalDefense(s, facts, memory);
     const defenseCommandStart = cmds.length;
     const { incident, reserve } = executeTacticalDefense(

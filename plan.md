@@ -720,6 +720,10 @@ Remaining work:
       bookkeeping for suspected invisible threats and blocked map locations. Remaining work:
       expansion and route executors still need to emit real blocked/unsafe/occupied outcomes and
       directors need to consume those remembered locations when choosing follow-up intents.
+    - Expansion blocked-site consumer slice is done: macro expansion and lifted island landing now
+      skip sites remembered as blocked in `BotMemory`, while keeping the same shared placement
+      validator for the selected fallback site. Remaining work: expansion executors still need to
+      report blocked/unsafe/occupied outcomes when placement or routes fail live.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

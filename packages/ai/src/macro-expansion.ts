@@ -19,6 +19,7 @@ import {
   type State,
 } from '@rts/sim';
 import { maybeQueueStructureAtPoint, type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
+import { locationBlockedByIntentMemory, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
 const EXPANSION_BANK = 1_000;
@@ -84,7 +85,7 @@ const candidateSites = (
   player: number,
   home: number,
   plannedKind: number,
-  options: { islands?: boolean } = {},
+  options: { islands?: boolean; memory?: BotMemory } = {},
 ): BaseSite[] => {
   const e = s.e;
   const ownTeam = s.teams[player] ?? player;
@@ -94,6 +95,11 @@ const candidateSites = (
     .filter((site) => options.islands === true ? site.kind === 'island' : site.kind !== 'island')
     .filter((site) => site.owner === undefined || site.owner === player)
     .filter((site) => site.team < 0 || site.team === ownTeam)
+    .filter((site) => {
+      if (!options.memory) return true;
+      const point = siteCenter(site);
+      return !locationBlockedByIntentMemory(options.memory, point.x, point.y);
+    })
     .filter((site) => !siteReservedByTeam(s, player, site, plannedKind))
     .sort((a, b) => {
       const ar = siteRank[a.kind] - siteRank[b.kind];
@@ -112,12 +118,13 @@ const maybeLandLiftedIslandDepot = (
   home: number,
   plannedKind: number,
   cmds: Command[],
+  memory?: BotMemory,
 ): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== plannedKind) continue;
     if (e.order[i] !== Order.Idle || !isLiftedStructureFlags(e.flags[i]!)) continue;
-    for (const site of candidateSites(s, player, home, plannedKind, { islands: true })) {
+    for (const site of candidateSites(s, player, home, plannedKind, { islands: true, memory })) {
       const point = siteCenter(site);
       const command: Command = { t: 'land', building: eid(e, i), x: point.x, y: point.y };
       if (!validateCommand(s, player, command).ok) continue;
@@ -137,14 +144,15 @@ export const maybeQueueExpansion = (
   budget: ResourceBudget,
   worker: number,
   findSpot: PointSpotFinder,
+  memory?: BotMemory,
 ): boolean => {
   if (facts.primaryBase === NONE) return false;
-  if (maybeLandLiftedIslandDepot(s, player, facts.primaryBase, faction.depot, cmds)) return true;
+  if (maybeLandLiftedIslandDepot(s, player, facts.primaryBase, faction.depot, cmds, memory)) return true;
   if (worker === NONE) return false;
   if (budget.minerals < EXPANSION_BANK) return false;
   if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return false;
 
-  for (const site of candidateSites(s, player, facts.primaryBase, faction.depot)) {
+  for (const site of candidateSites(s, player, facts.primaryBase, faction.depot, { memory })) {
     const point = siteCenter(site);
     if (maybeQueueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot)) {
       return true;

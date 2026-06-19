@@ -1874,6 +1874,44 @@ test('terran bot expands to the nearest open base site when mineral-banked', () 
   assert.equal(tileY(build.y), natural.y);
 });
 
+test('terran bot skips remembered blocked expansion sites', () => {
+  const scenario = botScenario({
+    seed: 514,
+    players: 4,
+    map: generateMap(2, 514, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg, Protoss, Zerg],
+  });
+  scenario.resources(0, 1_200, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const natural = playerNatural(scenario);
+  const memory = createBotMemory();
+  rememberIntentOutcomes(memory, [{
+    intent: {
+      kind: 'expand',
+      urgency: 35,
+      x: fx(natural.x * TILE + TILE / 2),
+      y: fx(natural.y * TILE + TILE / 2),
+    },
+    result: { status: 'blocked', reason: 'occupied-location' },
+  }], scenario.state.tick);
+
+  const cmds: Command[] = [];
+  scheduleBotMacro(
+    scenario.state,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(scenario.state, 0, Terran),
+    { barracksTarget: 0, workerTarget: 0 },
+    memory,
+  );
+
+  const build = findCommandBuild(cmds, Kind.CommandCenter);
+  assert.ok(build);
+  assertPublicSurfaceExposes(scenario.state, 0, build);
+  assert.notEqual(tileX(build.x), natural.x);
+});
+
 test('terran bot does not duplicate an already occupied expansion site', () => {
   const scenario = bankedExpansionScenario(513);
   const natural = playerNatural(scenario);

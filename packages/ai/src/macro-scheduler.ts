@@ -18,6 +18,7 @@ import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
 import type { BotIntent } from './macro-intents.ts';
+import type { BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
 export type MacroScheduleConfig = {
@@ -105,6 +106,7 @@ export const scheduleBotMacro = (
   cmds: Command[],
   facts: BotFacts,
   config: MacroScheduleConfig,
+  memory?: BotMemory,
 ): MacroSchedule => {
   const e = s.e;
   const commandStart = cmds.length;
@@ -213,7 +215,7 @@ export const scheduleBotMacro = (
   }
 
   if (!builderUsed) {
-    builderUsed = maybeQueueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot);
+    builderUsed = maybeQueueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory);
   }
 
   if (!builderUsed) {
