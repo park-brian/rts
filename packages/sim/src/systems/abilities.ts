@@ -3,7 +3,7 @@ import {
   Ability, Abilities, EffectKind, Kind, Order, Role, SplashPx, Trait, Units, sec, unitTraits,
   type AbilityAreaStatusTimer, type AbilityRestorePool, type AbilityStatusTimer, type AbilityTargetBuffer, type AbilityTargetMarker,
 } from '../data.ts';
-import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
+import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../mechanics/damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';

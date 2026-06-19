@@ -7,8 +7,7 @@ import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import { castAbility } from '../systems/abilities.ts';
 import { withinRangeSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
-import { abilityTechAvailable } from '../ability-availability.ts';
-import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
+import { abilityCapacityAvailable, abilityTechAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './shared.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;

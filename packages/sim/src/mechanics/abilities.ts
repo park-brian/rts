@@ -1,7 +1,13 @@
-import { Abilities, Ability } from './data.ts';
-import type { AbilityDef } from './data.ts';
-import { canSpawnEffect, canSpawnEntity } from './entity/world.ts';
-import type { State } from './entity/world.ts';
+import { Abilities, Ability } from '../data.ts';
+import type { AbilityDef } from '../data.ts';
+import { canSpawnEffect, canSpawnEntity } from '../entity/world.ts';
+import type { State } from '../entity/world.ts';
+import { getTechLevel } from '../tech.ts';
+
+export const abilityTechAvailable = (s: State, player: number, abilityId: number): boolean => {
+  const ability = Abilities[abilityId];
+  return ability !== undefined && (ability.tech === undefined || getTechLevel(s, player, ability.tech) > 0);
+};
 
 export const isFreeAbilityToggleOff = (e: State['e'], slot: number, ability: AbilityDef): boolean =>
   ability.execution?.mode === 'self-toggle' &&

@@ -21,7 +21,7 @@ import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from '../tech.ts';
 import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
-import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
+import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from '../commands/intent.ts';
 import { readyNukeSilo } from '../mechanics/nuke.ts';
 

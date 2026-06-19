@@ -40,7 +40,7 @@ export * from './entity/lifecycle.ts';
 export * from './mechanics/upgrades.ts';
 export * from './rally.ts';
 export * from './mechanics/resources.ts';
-export * from './ability-availability.ts';
+export * from './mechanics/abilities.ts';
 export * from './entity/world.ts';
 export * from './spatial/pathing.ts';
 export * from './map/procedural.ts';
