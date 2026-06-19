@@ -4,7 +4,9 @@ import { Kind, Order, Tech, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
-import { weaponUpgradeBonus } from '../src/mechanics/upgrades.ts';
+import {
+  upgradedCooldown, upgradedEnergyMax, upgradedRange, upgradedSight, upgradedSpeed, weaponUpgradeBonus,
+} from '../src/mechanics/upgrades.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('weapon and shield armor upgrades affect weapon hits', () => {
@@ -84,6 +86,29 @@ test('range upgrades let units hit from upgraded distance', () => {
   assert.equal(s.e.hp[slotOf(target)], Units[Kind.Medic]!.hp - 5);
 });
 
+test('range upgrade table applies only to the intended unit weapons', () => {
+  const cases = [
+    { kind: Kind.Marine, tech: Tech.U238Shells, weapon: Units[Kind.Marine]!.weapon!, bonus: fx(32) },
+    { kind: Kind.Dragoon, tech: Tech.SingularityCharge, weapon: Units[Kind.Dragoon]!.weapon!, bonus: fx(64) },
+    { kind: Kind.Hydralisk, tech: Tech.GroovedSpines, weapon: Units[Kind.Hydralisk]!.weapon!, bonus: fx(32) },
+    { kind: Kind.Goliath, tech: Tech.CharonBoosters, weapon: Units[Kind.Goliath]!.airWeapon!, bonus: fx(96) },
+  ];
+
+  for (const c of cases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 780 + c.kind });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech);
+
+    assert.equal(upgradedRange(s, slotOf(unit), c.weapon), c.weapon.range + c.bonus, Units[c.kind]!.name);
+  }
+
+  const { state: s, spawn, grant } = simScenario({ seed: 781 });
+  const goliath = spawn(Kind.Goliath, 0, fx(400), fx(400));
+  const ground = Units[Kind.Goliath]!.weapon!;
+  grant(0, Tech.CharonBoosters);
+  assert.equal(upgradedRange(s, slotOf(goliath), ground), ground.range);
+});
+
 test('speed upgrades feed movement through the shared speed helper', () => {
   const fast = simScenario({ seed: 73 });
   const slow = simScenario({ seed: 74 });
@@ -95,6 +120,68 @@ test('speed upgrades feed movement through the shared speed helper', () => {
   slow.sim.step([{ player: 0, cmds: [{ t: 'move', unit: vs, x: fx(800), y: fx(400) }] }]);
 
   assert.ok(fast.state.e.x[slotOf(vf)]! > slow.state.e.x[slotOf(vs)]!);
+});
+
+test('speed, cooldown, sight, and energy upgrades are data-driven by unit kind', () => {
+  const speedCases = [
+    { kind: Kind.Vulture, tech: Tech.IonThrusters, num: 3, den: 2 },
+    { kind: Kind.Zealot, tech: Tech.LegEnhancements, num: 3, den: 2 },
+    { kind: Kind.Shuttle, tech: Tech.GraviticDrive, num: 3, den: 2 },
+    { kind: Kind.Observer, tech: Tech.GraviticBoosters, num: 3, den: 2 },
+    { kind: Kind.Scout, tech: Tech.GraviticThrusters, num: 3, den: 2 },
+    { kind: Kind.Zergling, tech: Tech.MetabolicBoost, num: 3, den: 2 },
+    { kind: Kind.Hydralisk, tech: Tech.MuscularAugments, num: 5, den: 4 },
+    { kind: Kind.Overlord, tech: Tech.PneumatizedCarapace, num: 2, den: 1 },
+    { kind: Kind.Ultralisk, tech: Tech.AnabolicSynthesis, num: 4, den: 3 },
+  ];
+  for (const c of speedCases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 790 + c.kind });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    const base = Units[c.kind]!.speed;
+    grant(0, c.tech);
+
+    assert.equal(upgradedSpeed(s, slotOf(unit), base), Math.trunc((base * c.num) / c.den), Units[c.kind]!.name);
+  }
+
+  const { state: cooldownState, spawn: spawnCooldown, grant: grantCooldown } = simScenario({ seed: 791 });
+  const zergling = spawnCooldown(Kind.Zergling, 0, fx(400), fx(400));
+  grantCooldown(0, Tech.AdrenalGlands);
+  assert.equal(upgradedCooldown(cooldownState, slotOf(zergling), Units[Kind.Zergling]!.weapon!.cooldown), 6);
+
+  const sightCases = [
+    { kind: Kind.Ghost, tech: Tech.OcularImplants },
+    { kind: Kind.Overlord, tech: Tech.Antennae },
+    { kind: Kind.Observer, tech: Tech.SensorArray },
+    { kind: Kind.Scout, tech: Tech.ApialSensors },
+  ];
+  for (const c of sightCases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 800 + c.kind });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech);
+
+    assert.equal(upgradedSight(s, slotOf(unit), Units[c.kind]!.sight), Units[c.kind]!.sight + 2, Units[c.kind]!.name);
+  }
+
+  const energyCases = [
+    { kind: Kind.Medic, tech: Tech.CaduceusReactor },
+    { kind: Kind.Ghost, tech: Tech.MoebiusReactor },
+    { kind: Kind.Wraith, tech: Tech.ApolloReactor },
+    { kind: Kind.Battlecruiser, tech: Tech.ColossusReactor },
+    { kind: Kind.ScienceVessel, tech: Tech.TitanReactor },
+    { kind: Kind.HighTemplar, tech: Tech.KhaydarinAmulet },
+    { kind: Kind.DarkArchon, tech: Tech.ArgusTalisman },
+    { kind: Kind.Arbiter, tech: Tech.KhaydarinCore },
+    { kind: Kind.Corsair, tech: Tech.ArgusJewel },
+    { kind: Kind.Queen, tech: Tech.GameteMeiosis },
+    { kind: Kind.Defiler, tech: Tech.MetasynapticNode },
+  ];
+  for (const c of energyCases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 810 + c.kind });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech);
+
+    assert.equal(upgradedEnergyMax(s, slotOf(unit), Units[c.kind]!.energyMax), 250, Units[c.kind]!.name);
+  }
 });
 
 test('adrenal glands applies exact zergling attack cooldown', () => {

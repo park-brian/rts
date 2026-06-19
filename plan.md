@@ -212,6 +212,11 @@ Remaining work:
   Plague/Irradiate overlays, detection affordances, and future persistent spell fields.
 - Table-drive upgrade effects where clearer than switches, especially range, speed, energy, armor,
   shield, and weapon-specific bonus cases.
+  - First upgrade-effect table slice is done: range, speed, cooldown, sight, and caster-energy-cap
+    upgrades now run through local descriptor tables in `mechanics/upgrades.ts`, with focused tests
+    covering every table entry and the Goliath air-weapon-only range exception. Remaining work:
+    consider weapon and armor race/category bonuses separately, since those still encode broader
+    faction rules rather than simple per-kind scalar upgrades.
 
 Done when:
 
@@ -631,6 +636,9 @@ Done when:
 - Extracted tactical AI spell policy descriptors and scoring helpers from the giant bot controller
   into `packages/ai/src/ability-policies.ts`, exported them through the AI barrel, and added a guard
   that keeps policy target shapes aligned with sim ability definitions.
+- Table-drove scalar upgrade helpers for range, speed, cooldown, sight, and caster energy caps,
+  replacing per-kind switches with local upgrade descriptor tables and adding focused coverage for
+  every descriptor entry.
 
 ## Review Checklist
 

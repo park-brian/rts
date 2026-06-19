@@ -25,6 +25,52 @@ const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
   [Kind.Ultralisk]: 3,
 };
 
+type RangeUpgradeDef = { tech: number; bonus: number; weapon?: 'air' | 'ground' };
+const RANGE_UPGRADES: Partial<Record<number, RangeUpgradeDef>> = {
+  [Kind.Marine]: { tech: Tech.U238Shells, bonus: bwRange(WeaponRangeUpgradePx.U238Shells) },
+  [Kind.Goliath]: { tech: Tech.CharonBoosters, bonus: bwRange(WeaponRangeUpgradePx.CharonBoosters), weapon: 'air' },
+  [Kind.Dragoon]: { tech: Tech.SingularityCharge, bonus: bwRange(WeaponRangeUpgradePx.SingularityCharge) },
+  [Kind.Hydralisk]: { tech: Tech.GroovedSpines, bonus: bwRange(WeaponRangeUpgradePx.GroovedSpines) },
+};
+
+type SpeedUpgradeDef = { tech: number; num: number; den: number };
+const SPEED_UPGRADES: Partial<Record<number, SpeedUpgradeDef>> = {
+  [Kind.Vulture]: { tech: Tech.IonThrusters, num: 3, den: 2 },
+  [Kind.Zealot]: { tech: Tech.LegEnhancements, num: 3, den: 2 },
+  [Kind.Shuttle]: { tech: Tech.GraviticDrive, num: 3, den: 2 },
+  [Kind.Observer]: { tech: Tech.GraviticBoosters, num: 3, den: 2 },
+  [Kind.Scout]: { tech: Tech.GraviticThrusters, num: 3, den: 2 },
+  [Kind.Zergling]: { tech: Tech.MetabolicBoost, num: 3, den: 2 },
+  [Kind.Hydralisk]: { tech: Tech.MuscularAugments, num: 5, den: 4 },
+  [Kind.Overlord]: { tech: Tech.PneumatizedCarapace, num: 2, den: 1 },
+  [Kind.Ultralisk]: { tech: Tech.AnabolicSynthesis, num: 4, den: 3 },
+};
+
+const COOLDOWN_UPGRADES: Partial<Record<number, { tech: number; cooldown: number }>> = {
+  [Kind.Zergling]: { tech: Tech.AdrenalGlands, cooldown: 6 },
+};
+
+const SIGHT_UPGRADES: Partial<Record<number, { tech: number; bonus: number }>> = {
+  [Kind.Ghost]: { tech: Tech.OcularImplants, bonus: 2 },
+  [Kind.Overlord]: { tech: Tech.Antennae, bonus: 2 },
+  [Kind.Observer]: { tech: Tech.SensorArray, bonus: 2 },
+  [Kind.Scout]: { tech: Tech.ApialSensors, bonus: 2 },
+};
+
+const ENERGY_UPGRADES: Partial<Record<number, { tech: number; max: number }>> = {
+  [Kind.Medic]: { tech: Tech.CaduceusReactor, max: 250 },
+  [Kind.Ghost]: { tech: Tech.MoebiusReactor, max: 250 },
+  [Kind.Wraith]: { tech: Tech.ApolloReactor, max: 250 },
+  [Kind.Battlecruiser]: { tech: Tech.ColossusReactor, max: 250 },
+  [Kind.ScienceVessel]: { tech: Tech.TitanReactor, max: 250 },
+  [Kind.HighTemplar]: { tech: Tech.KhaydarinAmulet, max: 250 },
+  [Kind.DarkArchon]: { tech: Tech.ArgusTalisman, max: 250 },
+  [Kind.Arbiter]: { tech: Tech.KhaydarinCore, max: 250 },
+  [Kind.Corsair]: { tech: Tech.ArgusJewel, max: 250 },
+  [Kind.Queen]: { tech: Tech.GameteMeiosis, max: 250 },
+  [Kind.Defiler]: { tech: Tech.MetasynapticNode, max: 250 },
+};
+
 const weaponUpgradeStep = (kind: number, _weapon?: Weapon): number =>
   UPGRADE_DAMAGE_STEP[kind] ?? 1;
 
@@ -67,66 +113,39 @@ export const shieldArmorBonus = (s: State, target: number): number =>
 export const upgradedRange = (s: State, attacker: number, weapon: Weapon): number => {
   const e = s.e;
   const owner = e.owner[attacker]!;
-  switch (e.kind[attacker]!) {
-    case Kind.Marine: return weapon.range + (level(s, owner, Tech.U238Shells) > 0 ? bwRange(WeaponRangeUpgradePx.U238Shells) : 0);
-    case Kind.Goliath: return weapon === Units[Kind.Goliath]!.airWeapon && level(s, owner, Tech.CharonBoosters) > 0 ? weapon.range + bwRange(WeaponRangeUpgradePx.CharonBoosters) : weapon.range;
-    case Kind.Dragoon: return weapon.range + (level(s, owner, Tech.SingularityCharge) > 0 ? bwRange(WeaponRangeUpgradePx.SingularityCharge) : 0);
-    case Kind.Hydralisk: return weapon.range + (level(s, owner, Tech.GroovedSpines) > 0 ? bwRange(WeaponRangeUpgradePx.GroovedSpines) : 0);
-    default: return weapon.range;
-  }
+  const kind = e.kind[attacker]!;
+  const upgrade = RANGE_UPGRADES[kind];
+  if (!upgrade || level(s, owner, upgrade.tech) <= 0) return weapon.range;
+  if (upgrade.weapon === 'air' && weapon !== Units[kind]!.airWeapon) return weapon.range;
+  if (upgrade.weapon === 'ground' && weapon !== Units[kind]!.weapon) return weapon.range;
+  return weapon.range + upgrade.bonus;
 };
 
 export const upgradedSpeed = (s: State, slot: number, baseSpeed: number): number => {
   if (baseSpeed <= 0) return 0;
   const owner = s.e.owner[slot]!;
-  switch (s.e.kind[slot]!) {
-    case Kind.Vulture: return level(s, owner, Tech.IonThrusters) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Zealot: return level(s, owner, Tech.LegEnhancements) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Shuttle: return level(s, owner, Tech.GraviticDrive) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Observer: return level(s, owner, Tech.GraviticBoosters) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Scout: return level(s, owner, Tech.GraviticThrusters) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Zergling: return level(s, owner, Tech.MetabolicBoost) > 0 ? Math.trunc((baseSpeed * 3) / 2) : baseSpeed;
-    case Kind.Hydralisk: return level(s, owner, Tech.MuscularAugments) > 0 ? Math.trunc((baseSpeed * 5) / 4) : baseSpeed;
-    case Kind.Overlord: return level(s, owner, Tech.PneumatizedCarapace) > 0 ? baseSpeed * 2 : baseSpeed;
-    case Kind.Ultralisk: return level(s, owner, Tech.AnabolicSynthesis) > 0 ? Math.trunc((baseSpeed * 4) / 3) : baseSpeed;
-    default: return baseSpeed;
-  }
+  const upgrade = SPEED_UPGRADES[s.e.kind[slot]!];
+  if (!upgrade || level(s, owner, upgrade.tech) <= 0) return baseSpeed;
+  return Math.trunc((baseSpeed * upgrade.num) / upgrade.den);
 };
 
 export const upgradedCooldown = (s: State, slot: number, baseCooldown: number): number => {
   const owner = s.e.owner[slot]!;
-  if (s.e.kind[slot] === Kind.Zergling && level(s, owner, Tech.AdrenalGlands) > 0) return 6;
-  return baseCooldown;
+  const upgrade = COOLDOWN_UPGRADES[s.e.kind[slot]!];
+  return upgrade && level(s, owner, upgrade.tech) > 0 ? upgrade.cooldown : baseCooldown;
 };
 
 export const upgradedSight = (s: State, slot: number, baseSight: number): number => {
   const owner = s.e.owner[slot]!;
-  switch (s.e.kind[slot]!) {
-    case Kind.Ghost: return baseSight + (level(s, owner, Tech.OcularImplants) > 0 ? 2 : 0);
-    case Kind.Overlord: return baseSight + (level(s, owner, Tech.Antennae) > 0 ? 2 : 0);
-    case Kind.Observer: return baseSight + (level(s, owner, Tech.SensorArray) > 0 ? 2 : 0);
-    case Kind.Scout: return baseSight + (level(s, owner, Tech.ApialSensors) > 0 ? 2 : 0);
-    default: return baseSight;
-  }
+  const upgrade = SIGHT_UPGRADES[s.e.kind[slot]!];
+  return upgrade && level(s, owner, upgrade.tech) > 0 ? baseSight + upgrade.bonus : baseSight;
 };
 
 export const upgradedEnergyMax = (s: State, slot: number, baseMax: number): number => {
   if (baseMax <= 0) return 0;
   const owner = s.e.owner[slot]!;
-  switch (s.e.kind[slot]!) {
-    case Kind.Medic: return level(s, owner, Tech.CaduceusReactor) > 0 ? 250 : baseMax;
-    case Kind.Ghost: return level(s, owner, Tech.MoebiusReactor) > 0 ? 250 : baseMax;
-    case Kind.Wraith: return level(s, owner, Tech.ApolloReactor) > 0 ? 250 : baseMax;
-    case Kind.Battlecruiser: return level(s, owner, Tech.ColossusReactor) > 0 ? 250 : baseMax;
-    case Kind.ScienceVessel: return level(s, owner, Tech.TitanReactor) > 0 ? 250 : baseMax;
-    case Kind.HighTemplar: return level(s, owner, Tech.KhaydarinAmulet) > 0 ? 250 : baseMax;
-    case Kind.DarkArchon: return level(s, owner, Tech.ArgusTalisman) > 0 ? 250 : baseMax;
-    case Kind.Arbiter: return level(s, owner, Tech.KhaydarinCore) > 0 ? 250 : baseMax;
-    case Kind.Corsair: return level(s, owner, Tech.ArgusJewel) > 0 ? 250 : baseMax;
-    case Kind.Queen: return level(s, owner, Tech.GameteMeiosis) > 0 ? 250 : baseMax;
-    case Kind.Defiler: return level(s, owner, Tech.MetasynapticNode) > 0 ? 250 : baseMax;
-    default: return baseMax;
-  }
+  const upgrade = ENERGY_UPGRADES[s.e.kind[slot]!];
+  return upgrade && level(s, owner, upgrade.tech) > 0 ? upgrade.max : baseMax;
 };
 
 export const reaverScarabCapacity = (s: State, slot: number): number =>
