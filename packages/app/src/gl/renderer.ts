@@ -23,7 +23,9 @@ import { spritePlacement, visualRadius } from '../art/placement.ts';
 import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
-import { type VisibilityAffordance, visibilityAffordances } from '../visibility-affordances.ts';
+import {
+  fieldAffordances, type FieldAffordance, type VisibilityAffordance, visibilityAffordances,
+} from '../visibility-affordances.ts';
 import { entityPresentation } from '../entity-presentation.ts';
 
 // Per-player team colors (RGB 0..1) + neutral, mirroring render2d's palette.
@@ -177,6 +179,7 @@ export class GlRenderer {
   private prevKind = new Uint16Array(CAP);
   private workScratch: WorkActivity[] = [];
   private visibilityScratch: VisibilityAffordance[] = [];
+  private fieldScratch: FieldAffordance[] = [];
   private last = 0; // wall-clock seconds of the previous frame
 
   constructor(core: Gl, atlas: Atlas) {
@@ -269,6 +272,7 @@ export class GlRenderer {
     this.sprites.reset();
     this.fx.reset();
     this.cullAndShadows(game); // → sprites (shadows), fills drawn/rr/wx/wy caches
+    this.effectFields(game);
     this.bodies(game); // → sprites (bodies) + fx (ambient glows)
     this.workSparks(game);
     this.visibilityAffordances(game);
@@ -443,6 +447,20 @@ export class GlRenderer {
         this.sprites.push(a.x, a.y, a.radius * 0.8, 2 / zoom, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
         this.sprites.push(a.x, a.y, 2 / zoom, a.radius * 0.8, 0, this.atlas.uv.white!, 1, 0.22, 0.18, 0.95, 0, 0, 0);
       }
+    }
+  }
+
+  private effectFields(game: Game): void {
+    const s = game.sim.fullState();
+    const ring = this.atlas.uv.ring!;
+    const glow = this.atlas.uv.glow!;
+    for (const field of fieldAffordances(game, this.fieldScratch)) {
+      const phase = ((s.tick + field.timer) % 36) / 36;
+      const d = field.radius * 2 * (0.88 + phase * 0.08);
+      const fill = field.fill;
+      const stroke = field.stroke;
+      this.fx.push(field.x, field.y, d, d, 0, glow, fill[0] / 255, fill[1] / 255, fill[2] / 255, field.alpha * 0.38, 0, 0, 0);
+      this.sprites.push(field.x, field.y, d, d, 0, ring, stroke[0] / 255, stroke[1] / 255, stroke[2] / 255, field.alpha * 2.2, 0, 0, 0);
     }
   }
 

@@ -136,3 +136,13 @@ test('renderer draws queued travel waypoints from sim descriptors', () => {
   assert.match(render2d, /drawQueuedTravelWaypoints\(ctx, game\)/);
   assert.match(render2d, /attack-move/);
 });
+
+test('renderers draw persistent spell fields from sim descriptors', () => {
+  const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+  const gl = readFileSync(resolve(appRoot, 'src', 'gl', 'renderer.ts'), 'utf8');
+
+  assert.match(render2d, /fieldAffordances/);
+  assert.match(render2d, /drawEffectFields\(ctx, game\)/);
+  assert.match(gl, /fieldAffordances/);
+  assert.match(gl, /effectFields\(game\)/);
+});

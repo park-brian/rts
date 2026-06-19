@@ -9,9 +9,9 @@ import { NONE, eid, makeState, slotOf, spawnEffect } from '../src/entity/world.t
 import { enqueueTravelOrder } from '../src/entity/order-queue.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
-  EffectPresentationDefs, effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation,
-  entityRenderHull, entityMinimapVisible, entitySelectionName, illusionPresentation, queuedTravelWaypoints,
-  selectionBase, workActivities,
+  EffectPresentationDefs, effectFieldAffordances, effectVisibilityAffordances, entityCloakOpacity, entityLifeBar,
+  entityPresentation, entityRenderHull, entityMinimapVisible, entitySelectionName, illusionPresentation,
+  queuedTravelWaypoints, selectionBase, workActivities,
 } from '../src/render/descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -226,6 +226,29 @@ test('effect visibility affordances expose scan and nuke presentation policy', (
   assert.equal(explored.length, 1);
   assert.equal(explored[0]?.kind, 'nuke');
   assert.equal(explored[0]?.timer, 40);
+});
+
+test('effect field affordances expose persistent spell field presentation policy', () => {
+  assert.equal(EffectPresentationDefs[EffectKind.PsionicStorm]?.field?.kind, 'storm');
+  assert.equal(EffectPresentationDefs[EffectKind.DarkSwarm]?.field?.kind, 'swarm');
+  assert.equal(EffectPresentationDefs[EffectKind.DisruptionWeb]?.field?.kind, 'web');
+
+  const s = makeState(sliceMap(), 2, 81);
+  const x = fx(20 * TILE + TILE / 2);
+  const y = fx(20 * TILE + TILE / 2);
+  spawnEffect(s, EffectKind.PsionicStorm, 1, x, y, fx(2 * TILE), 10, 2, 14);
+  assert.deepEqual(effectFieldAffordances(s, { viewer: 0, tileVisible: () => 0 }), []);
+
+  const visible = effectFieldAffordances(s, { viewer: 0, tileVisible: () => 2 });
+  assert.equal(visible.length, 1);
+  assert.equal(visible[0]?.kind, 'storm');
+  assert.equal(visible[0]?.radius, (2 * TILE));
+  assert.equal(visible[0]?.timer, 10);
+
+  spawnEffect(s, EffectKind.DarkSwarm, 0, x, y, fx(3 * TILE), 20, 0, 0);
+  const owned = effectFieldAffordances(s, { viewer: 0, tileVisible: () => 0 });
+  assert.equal(owned.length, 1);
+  assert.equal(owned[0]?.kind, 'swarm');
 });
 
 test('queued travel waypoints expose selected travel plans without renderer state', () => {

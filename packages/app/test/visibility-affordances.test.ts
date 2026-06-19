@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { visibilityAffordances } from '../src/visibility-affordances.ts';
+import { fieldAffordances, visibilityAffordances } from '../src/visibility-affordances.ts';
 import type { Game } from '../src/game.ts';
 import { EffectKind, ONE, Sim, TILE, fx, sliceMap, spawnEffect } from '../src/sim.ts';
 
@@ -52,4 +52,22 @@ test('nuclear warning affordance respects fog knowledge', () => {
   assert.equal(shown.length, 1);
   assert.equal(shown[0]?.kind, 'nuke');
   assert.equal(shown[0]?.timer, 40);
+});
+
+test('spell field affordances expose visible persistent fields', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 803, vision: true });
+  const s = sim.fullState();
+  const tx = 54;
+  const ty = 54;
+  const x = tileCenter(tx);
+  const y = tileCenter(ty);
+  spawnEffect(s, EffectKind.PsionicStorm, 1, x, y, fx(2 * TILE), 18, 2, 14);
+
+  assert.deepEqual(fieldAffordances(fakeGame(sim)), []);
+
+  s.vision[0]![ty * s.map.w + tx] = 2;
+  const shown = fieldAffordances(fakeGame(sim));
+  assert.equal(shown.length, 1);
+  assert.equal(shown[0]?.kind, 'storm');
+  assert.equal(shown[0]?.timer, 18);
 });

@@ -214,6 +214,9 @@ Remaining work:
   - First effect-presentation slice is done: Scanner Sweep and Nuclear Strike affordance visibility
     now comes from sim-owned `EffectPresentationDefs`, preserving the existing scan visible-tile and
     nuke explored-tile policies while giving later Storm/Swarm/Web overlays a single descriptor home.
+  - Persistent spell-field slice is done: Psionic Storm, Dark Swarm, and Disruption Web now expose
+    descriptor-backed field affordances with sim-owned visibility and color policy, and both the
+    Canvas2D math renderer and WebGL renderer consume those descriptors.
 - Table-drive upgrade effects where clearer than switches, especially range, speed, energy, armor,
   shield, and weapon-specific bonus cases.
   - First upgrade-effect table slice is done: range, speed, cooldown, sight, and caster-energy-cap
@@ -644,6 +647,8 @@ Done when:
   timers onto caster state, preventing same-tick spell-plus-weapon double actions.
 - Descriptorized current scan/nuke effect visibility affordances under sim render descriptors, so
   app rendering consumes a small presentation table instead of hard-coded effect-kind branches.
+- Added descriptor-backed persistent field affordances for Storm, Swarm, and Web and wired both app
+  renderers to consume them from the sim presentation table.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded

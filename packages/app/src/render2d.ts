@@ -9,7 +9,9 @@ import {
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
-import { type VisibilityAffordance, visibilityAffordances } from './visibility-affordances.ts';
+import {
+  fieldAffordances, type FieldAffordance, type VisibilityAffordance, visibilityAffordances,
+} from './visibility-affordances.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
 
@@ -23,11 +25,14 @@ const footprintColor = (owner: number, alpha: number): string => {
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
 };
+const rgba = (rgb: readonly [number, number, number], alpha: number): string =>
+  `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
 
 let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
 const workScratch: WorkActivity[] = [];
 const affordanceScratch: VisibilityAffordance[] = [];
+const fieldScratch: FieldAffordance[] = [];
 const placementFieldScratch: PlacementFieldOverlay[] = [];
 const queuedTravelScratch: QueuedTravelWaypoint[] = [];
 
@@ -127,6 +132,8 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   const ty0 = Math.max(0, Math.floor(game.camY / TILE));
   const tx1 = Math.min(m.w - 1, Math.ceil((game.camX + game.viewW / game.zoom) / TILE));
   const ty1 = Math.min(m.h - 1, Math.ceil((game.camY + game.viewH / game.zoom) / TILE));
+
+  drawEffectFields(ctx, game);
 
   // Entities.
   for (let i = 0; i < e.hi; i++) {
@@ -334,6 +341,23 @@ const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {
     ctx.beginPath();
     ctx.arc(x, y, Math.max(1.2, 2.1 / game.zoom), 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+};
+
+const drawEffectFields = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const s = game.sim.fullState();
+  ctx.save();
+  for (const field of fieldAffordances(game, fieldScratch)) {
+    const phase = ((s.tick + field.timer) % 36) / 36;
+    const pulse = 0.88 + phase * 0.08;
+    ctx.fillStyle = rgba(field.fill, field.alpha);
+    ctx.strokeStyle = rgba(field.stroke, field.alpha * 2.8);
+    ctx.lineWidth = 1.2 / game.zoom;
+    ctx.beginPath();
+    ctx.arc(field.x, field.y, field.radius * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
   ctx.restore();
 };

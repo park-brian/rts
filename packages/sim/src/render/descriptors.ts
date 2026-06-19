@@ -50,12 +50,20 @@ export type EntityLifeBar = {
 };
 
 export type EffectAffordanceKind = 'scan' | 'nuke';
+export type EffectFieldKind = 'storm' | 'swarm' | 'web';
 export type EffectVisibilityRule = 'owner-or-visible' | 'owner-or-explored';
 
 export type EffectPresentationDef = {
-  affordance: {
+  affordance?: {
     kind: EffectAffordanceKind;
     visibility: EffectVisibilityRule;
+  };
+  field?: {
+    kind: EffectFieldKind;
+    visibility: EffectVisibilityRule;
+    fill: readonly [number, number, number];
+    stroke: readonly [number, number, number];
+    alpha: number;
   };
 };
 
@@ -67,12 +75,50 @@ export type EffectVisibilityAffordance = {
   timer: number;
 };
 
+export type EffectFieldAffordance = {
+  kind: EffectFieldKind;
+  x: number;
+  y: number;
+  radius: number;
+  timer: number;
+  fill: readonly [number, number, number];
+  stroke: readonly [number, number, number];
+  alpha: number;
+};
+
 export type EffectVisibilityQuery = {
   viewer: number;
   tileVisible: (tx: number, ty: number) => number;
 };
 
 export const EffectPresentationDefs: Partial<Record<number, EffectPresentationDef>> = {
+  [EffectKind.PsionicStorm]: {
+    field: {
+      kind: 'storm',
+      visibility: 'owner-or-visible',
+      fill: [125, 170, 255],
+      stroke: [185, 210, 255],
+      alpha: 0.14,
+    },
+  },
+  [EffectKind.DarkSwarm]: {
+    field: {
+      kind: 'swarm',
+      visibility: 'owner-or-visible',
+      fill: [120, 210, 110],
+      stroke: [170, 235, 140],
+      alpha: 0.13,
+    },
+  },
+  [EffectKind.DisruptionWeb]: {
+    field: {
+      kind: 'web',
+      visibility: 'owner-or-visible',
+      fill: [245, 245, 255],
+      stroke: [180, 205, 255],
+      alpha: 0.12,
+    },
+  },
   [EffectKind.ScannerSweep]: { affordance: { kind: 'scan', visibility: 'owner-or-visible' } },
   [EffectKind.NuclearStrike]: { affordance: { kind: 'nuke', visibility: 'owner-or-explored' } },
 };
@@ -356,6 +402,22 @@ export const entityPresentation = (s: State, slot: number): EntityPresentationDe
 export const entitySelectionName = (s: State, slot: number): string =>
   `${entityPresentation(s, slot).selectionPrefix}${Units[s.e.kind[slot]!]!.name}`;
 
+const effectVisibleForRule = (
+  s: State,
+  query: EffectVisibilityQuery,
+  effect: number,
+  visibility: EffectVisibilityRule,
+): boolean => {
+  const fx = s.effects;
+  const tx = Math.trunc(fx.x[effect]! / (ONE * TILE));
+  const ty = Math.trunc(fx.y[effect]! / (ONE * TILE));
+  const vis = query.viewer < 0 ? 2 : query.tileVisible(tx, ty);
+  const owned = query.viewer >= 0 && fx.owner[effect] === query.viewer;
+  if (owned) return true;
+  if (visibility === 'owner-or-visible') return vis === 2;
+  return vis !== 0;
+};
+
 export const effectVisibilityAffordances = (
   s: State,
   query: EffectVisibilityQuery,
@@ -367,18 +429,38 @@ export const effectVisibilityAffordances = (
     if (fx.alive[i] !== 1) continue;
     const affordance = EffectPresentationDefs[fx.kind[i]!]?.affordance;
     if (!affordance) continue;
-    const tx = Math.trunc(fx.x[i]! / (ONE * TILE));
-    const ty = Math.trunc(fx.y[i]! / (ONE * TILE));
-    const vis = query.viewer < 0 ? 2 : query.tileVisible(tx, ty);
-    const owned = query.viewer >= 0 && fx.owner[i] === query.viewer;
-    if (!owned && affordance.visibility === 'owner-or-visible' && vis !== 2) continue;
-    if (!owned && affordance.visibility === 'owner-or-explored' && vis === 0) continue;
+    if (!effectVisibleForRule(s, query, i, affordance.visibility)) continue;
     out.push({
       kind: affordance.kind,
       x: fx.x[i]! / ONE,
       y: fx.y[i]! / ONE,
       radius: fx.radius[i]! / ONE,
       timer: fx.timer[i]!,
+    });
+  }
+  return out;
+};
+
+export const effectFieldAffordances = (
+  s: State,
+  query: EffectVisibilityQuery,
+  out: EffectFieldAffordance[] = [],
+): EffectFieldAffordance[] => {
+  out.length = 0;
+  const fx = s.effects;
+  for (let i = 0; i < fx.hi; i++) {
+    if (fx.alive[i] !== 1) continue;
+    const field = EffectPresentationDefs[fx.kind[i]!]?.field;
+    if (!field || !effectVisibleForRule(s, query, i, field.visibility)) continue;
+    out.push({
+      kind: field.kind,
+      x: fx.x[i]! / ONE,
+      y: fx.y[i]! / ONE,
+      radius: fx.radius[i]! / ONE,
+      timer: fx.timer[i]!,
+      fill: field.fill,
+      stroke: field.stroke,
+      alpha: field.alpha,
     });
   }
   return out;
