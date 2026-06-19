@@ -1,22 +1,18 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, Order, Role, Tech, Units,
-  hasAnyWeapon, weaponForTarget,
+  Kind, Order, Role, Units,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import {
   commandMoveSpeed, isLiftableTerranStructureKind, isLiftedStructureFlags, liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
 import type { State } from './world.ts';
-import { NONE, canSpawnEntity, isAlive, isEnemy, slotOf } from './world.ts';
+import { NONE, isAlive, slotOf } from './world.ts';
 import {
   isContained, loadUnitInto, sameTeam, unloadUnit,
 } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
-import { isPowered } from './power.ts';
-import { canDetect } from './detection.ts';
-import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './burrow.ts';
-import { carrierCanAttack } from './interceptor.ts';
+import { canBurrowSlot, hasBurrowAccess, setBurrowed } from './burrow.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
 import { getTechLevel, queueResearch } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
@@ -27,7 +23,6 @@ import { isActiveAddon, startAddon } from './addon.ts';
 import { queueProduction } from './production-queue.ts';
 import { beginWorkerBuild, validateBuildCommand } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
-import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
 import { clearVelocity } from './systems/move.ts';
 import { issueTravelOrder } from './travel-intent.ts';
 import { isGatherTargetSlot } from './resource-targets.ts';
@@ -41,6 +36,7 @@ import { validateMineCommand } from './mine-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
+import { validateAttackCommand } from './attack-command.ts';
 
 export { snapRallyTarget };
 
@@ -171,32 +167,8 @@ const validateLand = (s: State, player: number, command: Extract<Command, { t: '
   return placement.ok ? { ok: true } : reject(placement.reason);
 };
 
-const validateAttack = (s: State, player: number, command: Extract<Command, { t: 'attack' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot)) return reject('missing-capability');
-  if (isDisabled(e, slot)) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('missing-capability');
-  if (!isPowered(s, slot)) return reject('missing-capability');
-  if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
-  const attacker = Units[e.kind[slot]!]!;
-  const mechanic = weaponMechanicDef(e.kind[slot]!);
-  const carrierAttack = e.kind[slot] === Kind.Carrier && isAlive(e, command.target) && carrierCanAttack(s, slot, slotOf(command.target));
-  if (!hasAnyWeapon(attacker) && !carrierAttack) return reject('missing-capability');
-  if (!canUseWeaponNow(s, slot)) return reject('missing-capability');
-  if (!hasWeaponMechanicAmmo(s, slot, mechanic)) return reject('target-not-allowed');
-  if (!isAlive(e, command.target)) return reject('target-not-found');
-  const target = slotOf(command.target);
-  if (isContained(s, target)) return reject('target-not-allowed');
-  if (!isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
-  if (!canDetect(s, player, target)) return reject('target-not-allowed');
-  if (!carrierAttack && !weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
-  return { ok: true };
-};
-
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
-  validate: validateAttack,
+  validate: validateAttackCommand,
   apply(s, _player, command): void {
     const e = s.e;
     const slot = slotOf(command.unit);

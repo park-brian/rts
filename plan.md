@@ -50,8 +50,7 @@ Remaining work:
   - stop / hold-style immediate commands;
   - burrow / unburrow;
   - transform / morph / merge;
-  - lift / land;
-  - targeted attack.
+  - lift / land.
 - Extract shared command predicates where they reduce drift:
   - `isBusy`;
   - `isTransitioning`;
@@ -244,6 +243,7 @@ Done when:
 - Added orientation-aware resource arcs and a side-facing `cornerBases` procedural preset.
 - Added a replay-visible `isolatedMains` procedural preset with ground-connected high-ground pockets.
 - Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
+- Extracted targeted attack command validation.
 
 ## Review Checklist
 
