@@ -3,7 +3,7 @@ import { tileX, tileY } from './pathing.ts';
 import { getTechLevel } from './tech.ts';
 import { eid, isAlive, NONE, type State } from './entity/world.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from './flow.ts';
-import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from './spatial.ts';
+import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from './spatial/geometry.ts';
 import { isDisabled } from './systems/status.ts';
 import { clearVelocity } from './systems/move.ts';
 

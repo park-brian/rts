@@ -1,6 +1,6 @@
 import { Kind, Role, Units, tiles } from '../data.ts';
 import type { State } from '../entity/world.ts';
-import { withinRangeSq } from '../spatial.ts';
+import { withinRangeSq } from '../spatial/geometry.ts';
 
 export const POWER_RADIUS = tiles(8);
 

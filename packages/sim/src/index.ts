@@ -10,7 +10,7 @@ export * from './commands/types.ts';
 export * from './commands/validate.ts';
 export * from './io/action-mask.ts';
 export * from './spatial/footprint.ts';
-export * from './spatial.ts';
+export * from './spatial/geometry.ts';
 export * from './entity/approach.ts';
 export * from './travel-intent.ts';
 export * from './commands/intent.ts';

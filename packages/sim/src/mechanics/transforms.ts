@@ -3,7 +3,7 @@ import type { State } from '../entity/world.ts';
 import { NONE, isAlive, kill, slotOf } from '../entity/world.ts';
 import { setEntityKind, setEntityKindFull } from '../entity/kind.ts';
 import { isContained } from '../cargo.ts';
-import { distanceSq, withinRangeSq } from '../spatial.ts';
+import { distanceSq, withinRangeSq } from '../spatial/geometry.ts';
 import { clearVelocity } from '../systems/move.ts';
 import { isDisabled } from '../systems/status.ts';
 

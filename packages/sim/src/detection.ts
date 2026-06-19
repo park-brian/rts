@@ -3,7 +3,7 @@ import type { State } from './entity/world.ts';
 import { effectiveSight } from './systems/status.ts';
 import { isPowered } from './mechanics/power.ts';
 import { isContained } from './cargo.ts';
-import { withinRangeSq } from './spatial.ts';
+import { withinRangeSq } from './spatial/geometry.ts';
 
 export const updateCloakAuras = (s: State): void => {
   const e = s.e;

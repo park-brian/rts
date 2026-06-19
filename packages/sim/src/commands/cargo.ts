@@ -17,7 +17,7 @@ import {
   withinLoadRange,
 } from '../cargo.ts';
 import { isDisabled } from '../systems/status.ts';
-import { withinRangeSq } from '../spatial.ts';
+import { withinRangeSq } from '../spatial/geometry.ts';
 import {
   reject,
   rejectMissingOwnedSlot,

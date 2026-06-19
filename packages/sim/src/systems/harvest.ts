@@ -22,7 +22,7 @@ import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
-import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial.ts';
+import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { canPlayerGatherTarget, isGatherTarget, isGatherTargetSlot } from '../resource-targets.ts';
 

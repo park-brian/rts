@@ -6,7 +6,7 @@ import {
   topDownInteractionRect,
   type InteractionPoint,
   type InteractionRect,
-} from '../spatial.ts';
+} from '../spatial/geometry.ts';
 import { isAlive, type State } from './world.ts';
 
 const SIDE_LEFT = 0;

@@ -6,7 +6,7 @@ import { entityLifecycle, type EntityLifecycleState } from './entity/lifecycle.t
 import { isTransitioning } from './entity/state.ts';
 import { structureFootprint } from './spatial/footprint.ts';
 import { isRepairableKind } from './repair.ts';
-import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial.ts';
+import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial/geometry.ts';
 import { eid, isAlive, NONE, slotOf, type State } from './entity/world.ts';
 
 export type EntityPresentationState =

@@ -7,7 +7,7 @@ import {
   type MineralRouteCalibration,
 } from './harvest-calibration.ts';
 import { resourceSpawnCenterPx, resourceSpawnFootprint, type MapDef, type ResourceFootprint } from './map.ts';
-import { bodyBounds, type InteractionPoint } from './spatial.ts';
+import { bodyBounds, type InteractionPoint } from './spatial/geometry.ts';
 
 export type DiagnosticRect = {
   id: string;

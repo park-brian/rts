@@ -11,7 +11,7 @@ import {
   type ResourceSpawn,
   type StartLoc,
 } from './map.ts';
-import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from './spatial.ts';
+import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from './spatial/geometry.ts';
 import { makeState, type State } from './entity/world.ts';
 
 const MAIN_BASE_MINERAL_COUNT = 8;

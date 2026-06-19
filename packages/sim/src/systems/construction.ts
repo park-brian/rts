@@ -17,7 +17,7 @@ import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isAddonKind } from '../mechanics/addons.ts';
 import { isContained } from '../cargo.ts';
-import { distanceSqToRect } from '../spatial.ts';
+import { distanceSqToRect } from '../spatial/geometry.ts';
 
 const becomeFoundation = (s: State, slot: number, kind: number, x: number, y: number): void => {
   const e = s.e;

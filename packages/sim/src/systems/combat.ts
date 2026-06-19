@@ -18,7 +18,7 @@ import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
-import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial.ts';
+import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';

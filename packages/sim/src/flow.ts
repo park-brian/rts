@@ -11,7 +11,7 @@ import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './io/hash.ts';
 import { structureFootprint } from './spatial/footprint.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
-import { bodyBounds } from './spatial.ts';
+import { bodyBounds } from './spatial/geometry.ts';
 
 export const INF = 0x7fffffff;
 export const PATH_CELLS_PER_TILE = 2;

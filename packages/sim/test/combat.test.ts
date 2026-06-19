@@ -6,7 +6,7 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial.ts';
+import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
 import { setTechLevel } from '../src/tech.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';

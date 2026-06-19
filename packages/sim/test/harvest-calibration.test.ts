@@ -17,7 +17,7 @@ import {
 import { resourceSpawnCenterPx, sliceMap, solveBaseCluster, type BaseResourceDir, type MapDef, type ResourceSpawn } from '../src/map.ts';
 import { Kind, TILE } from '../src/data.ts';
 import { makeState, NEUTRAL, slotOf } from '../src/entity/world.ts';
-import { topDownEdgeDistance } from '../src/spatial.ts';
+import { topDownEdgeDistance } from '../src/spatial/geometry.ts';
 
 const withWalkBarrier = (map: ReturnType<typeof sliceMap>): ReturnType<typeof sliceMap> => ({
   ...map,

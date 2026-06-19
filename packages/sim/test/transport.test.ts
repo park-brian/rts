@@ -6,7 +6,7 @@ import { eid, isAlive, NONE, slotOf } from '../src/entity/world.ts';
 import { deserializeState, serializeState } from '../src/io/serialize.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { tileX, tileY } from '../src/pathing.ts';
-import { topDownEdgeDistance } from '../src/spatial.ts';
+import { topDownEdgeDistance } from '../src/spatial/geometry.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('transports load, carry, and unload ground units through explicit commands', () => {

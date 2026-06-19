@@ -7,7 +7,7 @@ import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-exe
 import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../mechanics/damage.ts';
 import { inRadius } from '../effects.ts';
 import { fx } from '../fixed.ts';
-import { distanceSq } from '../spatial.ts';
+import { distanceSq } from '../spatial/geometry.ts';
 import type { State } from '../entity/world.ts';
 import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../entity/world.ts';
 import { trySpawnUnit } from '../entity/factory.ts';

@@ -6,7 +6,7 @@ import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, makeState, slotOf, spawnEffect } from '../src/entity/world.ts';
-import { bodyBounds, topDownInteractionRect } from '../src/spatial.ts';
+import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
   entityMinimapVisible, entitySelectionName, illusionPresentation, selectionBase, workActivities,

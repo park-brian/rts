@@ -4,7 +4,7 @@ import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { isContained } from '../cargo.ts';
 import { isLowGroundAttackingHigh } from '../terrain.ts';
 import { range } from '../rng.ts';
-import { distanceSq } from '../spatial.ts';
+import { distanceSq } from '../spatial/geometry.ts';
 
 const LOW_TO_HIGH_MISS_PERCENT = 53;
 

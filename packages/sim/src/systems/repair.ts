@@ -6,7 +6,7 @@ import { REPAIR_RATE, isRepairableKind, repairCost } from '../repair.ts';
 import { faceToward } from './move.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isContained } from '../cargo.ts';
-import { withinTopDownEdgeRange } from '../spatial.ts';
+import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 
 export const repair = (s: State): void => {

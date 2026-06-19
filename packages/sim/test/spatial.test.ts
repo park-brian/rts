@@ -7,7 +7,7 @@ import {
   bwApproxEdgeDistance,
   topDownEdgeDistance,
   topDownInteractionRect,
-} from '../src/spatial.ts';
+} from '../src/spatial/geometry.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { makeState, slotOf } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';

@@ -3,10 +3,10 @@
 // isometric/source compatibility layer, while the `topDown*` helpers are the
 // final reach/contact metric used by our orthographic game.
 
-import { Kind, Role, TILE, Units } from './data.ts';
-import { ONE, fx, isqrt } from './fixed.ts';
-import { structureFootprint } from './spatial/footprint.ts';
-import type { State } from './entity/world.ts';
+import { Kind, Role, TILE, Units } from '../data.ts';
+import { ONE, fx, isqrt } from '../fixed.ts';
+import { structureFootprint } from './footprint.ts';
+import type { State } from '../entity/world.ts';
 
 export type BodyBounds = {
   left: number;

@@ -403,6 +403,8 @@ Done when:
   root `observe.ts` helper while preserving the stable package export and `Sim.observe` facade.
 - Moved build-tile footprint snapping and overlap helpers under `spatial/footprint.ts`, deleting the
   old root `footprint.ts` helper while preserving the stable package export.
+- Moved top-down geometry, BW body bounds, and range/docking helpers under `spatial/geometry.ts`,
+  deleting the old root `spatial.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

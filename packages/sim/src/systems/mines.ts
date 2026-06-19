@@ -3,7 +3,7 @@ import { eid, isEnemy, NONE } from '../entity/world.ts';
 import { Kind, Order, Role, tiles } from '../data.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
-import { distanceSq } from '../spatial.ts';
+import { distanceSq } from '../spatial/geometry.ts';
 
 const TRIGGER_RANGE = tiles(3);
 
