@@ -25,13 +25,13 @@ import {
   distanceSq, distanceSqToRect, topDownEdgeDistanceSq, topDownInteractionRect, withinTopDownEdgeRange,
   type InteractionRect,
 } from '../spatial/geometry.ts';
-import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../mechanics/interceptor.ts';
+import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredChild, participatesInNormalCombat } from '../mechanics/child-actors.ts';
 import {
-  WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
+  WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, isInterceptorLaunchMechanic, weaponMechanicDef, type WeaponMechanicDef,
   type WeaponMechanicId,
 } from '../mechanics/weapons.ts';
 
@@ -239,7 +239,8 @@ export const combat = (s: State, grid: Grid): void => {
     const def = Units[e.kind[i]!];
     const mechanic = weaponMechanicDef(e.kind[i]!);
     const containerProvider = mechanic?.containerProvider === true;
-    const interceptorLaunch = mechanic?.id === WeaponMechanic.InterceptorLaunch;
+    const interceptorMechanic = isInterceptorLaunchMechanic(mechanic) ? mechanic : undefined;
+    const interceptorLaunch = interceptorMechanic !== undefined;
     if (!def || (!hasAnyWeapon(def) && !containerProvider && !interceptorLaunch)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
     if (!containerProvider && !interceptorLaunch && !hasWeaponMechanicAmmo(s, i, mechanic)) continue;
@@ -296,8 +297,8 @@ export const combat = (s: State, grid: Grid): void => {
       continue;
     }
     if (interceptorLaunch) {
-      if (withinTopDownEdgeRange(s, i, tgt, carrierLaunchRange())) {
-        if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorLaunchCooldown();
+      if (withinTopDownEdgeRange(s, i, tgt, interceptorMechanic.launchRange)) {
+        if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorMechanic.launchCooldown;
       } else if (holdPosition) {
         clearCombatTarget(s, i);
       } else {

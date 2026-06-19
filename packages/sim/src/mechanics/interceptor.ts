@@ -4,20 +4,15 @@ import { NONE, eid, slotOf, type State } from '../entity/world.ts';
 import { isqrt } from '../fixed.ts';
 import { faceToward } from '../spatial/motion.ts';
 import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
-import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapons.ts';
+import { isInterceptorLaunchMechanic, weaponMechanicDef, type InterceptorLaunchMechanic } from './weapons.ts';
 
 const BAY_FORWARD = tiles(0.3);
 const BAY_SIDE = tiles(0.58);
 
-type InterceptorMechanic = WeaponMechanicDef & { childKind: number; launchRange: number; launchCooldown: number };
-
-const interceptorMechanic = (): InterceptorMechanic => {
+const interceptorMechanic = (): InterceptorLaunchMechanic => {
   const mechanic = weaponMechanicDef(Kind.Carrier);
-  if (mechanic?.id !== WeaponMechanic.InterceptorLaunch ||
-      mechanic.childKind === undefined || mechanic.launchRange === undefined || mechanic.launchCooldown === undefined) {
-    throw new Error('missing carrier interceptor mechanic');
-  }
-  return mechanic as InterceptorMechanic;
+  if (!isInterceptorLaunchMechanic(mechanic)) throw new Error('missing carrier interceptor mechanic');
+  return mechanic;
 };
 
 export const INTERCEPTOR_SORTIE_TICKS = sec(4);

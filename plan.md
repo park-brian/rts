@@ -195,6 +195,11 @@ Remaining work:
     instead of a local switch ladder. Remaining work: consider whether delivery modes
     (scarab launch, interceptor launch, contained fire) can share an equally small dispatch shape
     without hiding their timing and target-acquisition differences.
+  - Carrier interceptor descriptor-narrowing slice is done: the complete interceptor launch shape
+    is validated by `mechanics/weapons.ts`, and combat reads launch range/cooldown from the
+    narrowed descriptor it already owns instead of reaching through carrier-specific wrapper
+    helpers. Remaining work: apply the same pattern only where it removes duplicate shape checks
+    or makes delivery timing visibly easier to audit.
 - Introduce ability execution descriptors:
   - `instant`;
   - `status`;

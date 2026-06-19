@@ -27,6 +27,13 @@ export type WeaponMechanicDef = {
   containerProvider?: boolean;
 };
 
+export type InterceptorLaunchMechanic = WeaponMechanicDef & {
+  id: typeof WeaponMechanic.InterceptorLaunch;
+  childKind: number;
+  launchRange: number;
+  launchCooldown: number;
+};
+
 export const WeaponMechanicDefs: readonly WeaponMechanicDef[] = [
   {
     unit: Kind.Reaver,
@@ -92,6 +99,12 @@ export const WeaponMechanicByUnit = indexWeaponMechanics(WeaponMechanicDefs);
 
 export const weaponMechanicDef = (kind: number): WeaponMechanicDef | undefined =>
   WeaponMechanicByUnit[kind];
+
+export const isInterceptorLaunchMechanic = (mechanic: WeaponMechanicDef | undefined): mechanic is InterceptorLaunchMechanic =>
+  mechanic?.id === WeaponMechanic.InterceptorLaunch &&
+  mechanic.childKind !== undefined &&
+  mechanic.launchRange !== undefined &&
+  mechanic.launchCooldown !== undefined;
 
 export const hasWeaponMechanicAmmo = (s: State, slot: number, mechanic?: WeaponMechanicDef): boolean => {
   if (mechanic?.consumesAmmoOnFire !== true) return true;
