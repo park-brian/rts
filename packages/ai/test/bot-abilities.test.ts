@@ -185,7 +185,13 @@ const makeHive = (scenario: BotScenario, hatchery: number): void => {
   scenario.state.e.kind[slotOf(hatchery)] = Kind.Hive;
 };
 
-const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number }, kinds: number[]): void => {
+const ZERG_POOL_DEN = [Kind.SpawningPool, Kind.HydraliskDen] as const;
+const ZERG_GROUND_TECH = [...ZERG_POOL_DEN, Kind.EvolutionChamber] as const;
+const ZERG_SPIRE_TECH = [...ZERG_GROUND_TECH, Kind.Spire] as const;
+const ZERG_LAIR_TECH = [...ZERG_SPIRE_TECH, Kind.QueensNest] as const;
+const ZERG_HIVE_TECH = [...ZERG_LAIR_TECH, Kind.DefilerMound] as const;
+
+const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number }, kinds: readonly number[]): void => {
   kinds.forEach((kind, i) => scenario.spawn(kind, 0, base.x + fx(120 + i * 40), base.y));
 };
 
@@ -381,109 +387,128 @@ test('zerg bot respects hydralisk den prerequisite, placement, duplicates, and b
   expectNoBotBuild(broke, Zerg, Kind.HydraliskDen, zergBuildOptions);
 });
 
-test('zerg bot places a legal spire after a completed lair', () => {
-  const { scenario } = zergBuildScenario(458, (scenario, base, hatchery) => {
-    makeLair(scenario, hatchery);
+test('zerg bot places a legal evolution chamber after a completed hydralisk den', () => {
+  const { scenario } = zergBuildScenario(458, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_POOL_DEN);
+  });
+
+  expectBotBuildsLegal(scenario, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+});
+
+test('zerg bot respects evolution chamber macro order, placement, duplicates, and budget', () => {
+  const { scenario: missingDen } = zergBuildScenario(459, (scenario, base) => {
     scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  });
+  expectNoBotBuild(missingDen, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(460, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_POOL_DEN);
+  });
+  blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
+  expectNoBotBuild(blocked, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+
+  const { scenario: duplicate } = zergBuildScenario(461, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
+  });
+  expectNoBotBuild(duplicate, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(462, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_POOL_DEN);
+  });
+  const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
+  pending.state.e.buildKind[worker] = Kind.EvolutionChamber;
+  expectNoBotBuild(pending, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+
+  const { scenario: broke } = zergBuildScenario(463, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_POOL_DEN);
+  });
+  broke.resources(0, Units[Kind.EvolutionChamber]!.minerals - 1, 1_000);
+  expectNoBotBuild(broke, Zerg, Kind.EvolutionChamber, zergBuildOptions);
+});
+
+test('zerg bot places a legal spire after a completed lair', () => {
+  const { scenario } = zergBuildScenario(464, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
   });
 
   expectBotBuildsLegal(scenario, Zerg, Kind.Spire, zergBuildOptions);
 });
 
 test('zerg bot respects spire prerequisite, placement, duplicates, and budget', () => {
-  const { scenario: missingLair } = zergBuildScenario(459, (scenario, base) => {
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+  const { scenario: missingLair } = zergBuildScenario(465, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
   });
   expectNoBotBuild(missingLair, Zerg, Kind.Spire, zergBuildOptions);
 
-  const { scenario: blocked, base: blockedBase } = zergBuildScenario(460, (scenario, base, hatchery) => {
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(466, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
   });
   blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
   expectNoBotBuild(blocked, Zerg, Kind.Spire, zergBuildOptions);
 
-  const { scenario: duplicate } = zergBuildScenario(461, (scenario, base, hatchery) => {
+  const { scenario: duplicate } = zergBuildScenario(467, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
   expectNoBotBuild(duplicate, Zerg, Kind.Spire, zergBuildOptions);
 
-  const { scenario: pending, base: pendingBase } = zergBuildScenario(462, (scenario, base, hatchery) => {
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(468, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
   });
   const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
   pending.state.e.buildKind[worker] = Kind.Spire;
   expectNoBotBuild(pending, Zerg, Kind.Spire, zergBuildOptions);
 
-  const { scenario: broke } = zergBuildScenario(463, (scenario, base, hatchery) => {
+  const { scenario: broke } = zergBuildScenario(469, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
+    spawnZergTechChain(scenario, base, ZERG_GROUND_TECH);
   });
   broke.resources(0, 1_000, Units[Kind.Spire]!.gas - 1);
   expectNoBotBuild(broke, Zerg, Kind.Spire, zergBuildOptions);
 });
 
 test('zerg bot places a legal queen nest after a completed lair', () => {
-  const { scenario } = zergBuildScenario(464, (scenario, base, hatchery) => {
+  const { scenario } = zergBuildScenario(470, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
 
   expectBotBuildsLegal(scenario, Zerg, Kind.QueensNest, zergBuildOptions);
 });
 
 test('zerg bot respects queen nest prerequisite, placement, duplicates, and budget', () => {
-  const { scenario: missingLair } = zergBuildScenario(465, (scenario, base) => {
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+  const { scenario: missingLair } = zergBuildScenario(471, (scenario, base) => {
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
   expectNoBotBuild(missingLair, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const { scenario: blocked, base: blockedBase } = zergBuildScenario(466, (scenario, base, hatchery) => {
+  const { scenario: blocked, base: blockedBase } = zergBuildScenario(472, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
   blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
   expectNoBotBuild(blocked, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const { scenario: duplicate } = zergBuildScenario(467, (scenario, base, hatchery) => {
+  const { scenario: duplicate } = zergBuildScenario(473, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
-    scenario.spawn(Kind.QueensNest, 0, base.x + fx(240), base.y);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   expectNoBotBuild(duplicate, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const { scenario: pending, base: pendingBase } = zergBuildScenario(468, (scenario, base, hatchery) => {
+  const { scenario: pending, base: pendingBase } = zergBuildScenario(474, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
   const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
   pending.state.e.buildKind[worker] = Kind.QueensNest;
   expectNoBotBuild(pending, Zerg, Kind.QueensNest, zergBuildOptions);
 
-  const { scenario: broke } = zergBuildScenario(469, (scenario, base, hatchery) => {
+  const { scenario: broke } = zergBuildScenario(475, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
-    scenario.spawn(Kind.HydraliskDen, 0, base.x + fx(160), base.y);
-    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    spawnZergTechChain(scenario, base, ZERG_SPIRE_TECH);
   });
   broke.resources(0, 1_000, Units[Kind.QueensNest]!.gas - 1);
   expectNoBotBuild(broke, Zerg, Kind.QueensNest, zergBuildOptions);
@@ -492,7 +517,7 @@ test('zerg bot respects queen nest prerequisite, placement, duplicates, and budg
 test('zerg bot places a legal nydus canal after a completed lair', () => {
   const { scenario } = zergBuildScenario(494, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
 
   expectBotBuildsLegal(scenario, Zerg, Kind.NydusCanal, zergBuildOptions);
@@ -500,26 +525,26 @@ test('zerg bot places a legal nydus canal after a completed lair', () => {
 
 test('zerg bot respects nydus canal prerequisite, placement, duplicates, and budget', () => {
   const { scenario: missingLair } = zergBuildScenario(495, (scenario, base) => {
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   expectNoBotBuild(missingLair, Zerg, Kind.NydusCanal, zergBuildOptions);
 
   const { scenario: blocked, base: blockedBase } = zergBuildScenario(496, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
   expectNoBotBuild(blocked, Zerg, Kind.NydusCanal, zergBuildOptions);
 
   const { scenario: duplicate } = zergBuildScenario(497, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.NydusCanal]);
+    spawnZergTechChain(scenario, base, [...ZERG_LAIR_TECH, Kind.NydusCanal]);
   });
   expectNoBotBuild(duplicate, Zerg, Kind.NydusCanal, zergBuildOptions);
 
   const { scenario: pending, base: pendingBase } = zergBuildScenario(498, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
   pending.state.e.buildKind[worker] = Kind.NydusCanal;
@@ -527,7 +552,7 @@ test('zerg bot respects nydus canal prerequisite, placement, duplicates, and bud
 
   const { scenario: broke } = zergBuildScenario(499, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   broke.resources(0, Units[Kind.NydusCanal]!.minerals - 1, 1_000);
   expectNoBotBuild(broke, Zerg, Kind.NydusCanal, zergBuildOptions);
@@ -543,9 +568,7 @@ const readyZergNydusEndpointScenario = (seed: number): { scenario: BotScenario; 
   makeLair(scenario, hatchery);
   const worker = slotOf(scenario.entity(Kind.Drone, 0));
   s.e.order[worker] = Order.Harvest;
-  scenario.spawn(Kind.SpawningPool, 0, home.x + fx(120), home.y);
-  scenario.spawn(Kind.HydraliskDen, 0, home.x + fx(160), home.y);
-  scenario.spawn(Kind.Spire, 0, home.x + fx(200), home.y);
+  spawnZergTechChain(scenario, home, ZERG_SPIRE_TECH);
   scenario.spawn(Kind.GreaterSpire, 0, home.x + fx(230), home.y);
   scenario.spawn(Kind.QueensNest, 0, home.x + fx(260), home.y);
   scenario.spawn(Kind.NydusCanal, 0, home.x + fx(300), home.y);
@@ -613,7 +636,7 @@ test('zerg bot respects nydus endpoint local network, duplicate, pending, and bu
 test('zerg bot places a legal defiler mound after a completed hive', () => {
   const { scenario } = zergBuildScenario(482, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
 
   expectBotBuildsLegal(scenario, Zerg, Kind.DefilerMound, zergBuildOptions);
@@ -622,26 +645,26 @@ test('zerg bot places a legal defiler mound after a completed hive', () => {
 test('zerg bot respects defiler mound prerequisite, placement, duplicates, and budget', () => {
   const { scenario: missingHive } = zergBuildScenario(483, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   expectNoBotBuild(missingHive, Zerg, Kind.DefilerMound, zergBuildOptions);
 
   const { scenario: blocked, base: blockedBase } = zergBuildScenario(484, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
   expectNoBotBuild(blocked, Zerg, Kind.DefilerMound, zergBuildOptions);
 
   const { scenario: duplicate } = zergBuildScenario(485, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
   expectNoBotBuild(duplicate, Zerg, Kind.DefilerMound, zergBuildOptions);
 
   const { scenario: pending, base: pendingBase } = zergBuildScenario(486, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
   pending.state.e.buildKind[worker] = Kind.DefilerMound;
@@ -649,7 +672,7 @@ test('zerg bot respects defiler mound prerequisite, placement, duplicates, and b
 
   const { scenario: broke } = zergBuildScenario(487, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest]);
+    spawnZergTechChain(scenario, base, ZERG_LAIR_TECH);
   });
   broke.resources(0, 1_000, Units[Kind.DefilerMound]!.gas - 1);
   expectNoBotBuild(broke, Zerg, Kind.DefilerMound, zergBuildOptions);
@@ -658,7 +681,7 @@ test('zerg bot respects defiler mound prerequisite, placement, duplicates, and b
 test('zerg bot places a legal ultralisk cavern after completed hive tech', () => {
   const { scenario } = zergBuildScenario(488, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
 
   expectBotBuildsLegal(scenario, Zerg, Kind.UltraliskCavern, zergBuildOptions);
@@ -667,33 +690,26 @@ test('zerg bot places a legal ultralisk cavern after completed hive tech', () =>
 test('zerg bot respects ultralisk cavern prerequisite, placement, duplicates, and budget', () => {
   const { scenario: missingHive } = zergBuildScenario(489, (scenario, base, hatchery) => {
     makeLair(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
   expectNoBotBuild(missingHive, Zerg, Kind.UltraliskCavern, zergBuildOptions);
 
   const { scenario: blocked, base: blockedBase } = zergBuildScenario(490, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
   blockBuildTilesAround(blocked.sim, blockedBase.x, blockedBase.y, 18);
   expectNoBotBuild(blocked, Zerg, Kind.UltraliskCavern, zergBuildOptions);
 
   const { scenario: duplicate } = zergBuildScenario(491, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [
-      Kind.SpawningPool,
-      Kind.HydraliskDen,
-      Kind.Spire,
-      Kind.QueensNest,
-      Kind.DefilerMound,
-      Kind.UltraliskCavern,
-    ]);
+    spawnZergTechChain(scenario, base, [...ZERG_HIVE_TECH, Kind.UltraliskCavern]);
   });
   expectNoBotBuild(duplicate, Zerg, Kind.UltraliskCavern, zergBuildOptions);
 
   const { scenario: pending, base: pendingBase } = zergBuildScenario(492, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
   const worker = slotOf(pending.spawn(Kind.Drone, 0, pendingBase.x - fx(32), pendingBase.y));
   pending.state.e.buildKind[worker] = Kind.UltraliskCavern;
@@ -701,7 +717,7 @@ test('zerg bot respects ultralisk cavern prerequisite, placement, duplicates, an
 
   const { scenario: broke } = zergBuildScenario(493, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);
-    spawnZergTechChain(scenario, base, [Kind.SpawningPool, Kind.HydraliskDen, Kind.Spire, Kind.QueensNest, Kind.DefilerMound]);
+    spawnZergTechChain(scenario, base, ZERG_HIVE_TECH);
   });
   broke.resources(0, 1_000, Units[Kind.UltraliskCavern]!.gas - 1);
   expectNoBotBuild(broke, Zerg, Kind.UltraliskCavern, zergBuildOptions);

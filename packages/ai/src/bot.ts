@@ -96,6 +96,7 @@ const PROTOSS_RESEARCH_MACRO = [
 ] as const;
 const ZERG_STRUCTURE_MACRO = [
   Kind.HydraliskDen,
+  Kind.EvolutionChamber,
   Kind.Spire,
   Kind.QueensNest,
   Kind.NydusCanal,

@@ -422,6 +422,10 @@ Remaining work:
   - Protoss and Zerg research macro slice is done: the bot walks every current `TechDefs` research
     and upgrade row for those races through the shared research validator, with table-driven
     producer, prerequisite, duplicate, busy, power, and budget coverage.
+  - Zerg Evolution Chamber macro slice is done: the bot now builds the missing ground-upgrade
+    producer after Hydralisk Den, and the Zerg build tests use named macro prefixes so Spire,
+    Queen's Nest, Nydus, Defiler Mound, and Ultralisk Cavern scenarios cannot silently skip earlier
+    tech producers.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;
@@ -520,6 +524,8 @@ Done when:
 - Extended Protoss and Zerg bot research macros to every current tech/upgrade row and replaced the
   hand-picked cases with table-driven producer, prerequisite, duplicate, busy, power, and budget
   coverage.
+- Added Evolution Chamber to the Zerg bot structure macro and named the Zerg macro-prefix fixtures
+  so build coverage reflects every current Zerg research producer before later tech structures.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.
