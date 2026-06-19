@@ -1,7 +1,7 @@
 import type { Command, CommandRejectReason } from './commands.ts';
 import {
-  Kind, MAX_QUEUE, Order, Role, TECH_CAP, Tech, TechDefs, Units,
-  hasAnyWeapon, productionCostCount, productionCount, weaponForTarget,
+  Kind, Order, Role, TECH_CAP, Tech, TechDefs, Units,
+  hasAnyWeapon, weaponForTarget,
 } from './data.ts';
 import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-cost.ts';
 import {
@@ -19,13 +19,13 @@ import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './
 import { carrierCanAttack } from './interceptor.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, queueResearch, techGas, techMinerals } from './tech.ts';
-import { canQueueInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
+import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
 import { applyTransform, mergePartnerFor, transformFor } from './unit-transform.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
 import { addonParentKind, addonPosition, isActiveAddon, isAddonKind, startAddon } from './addon.ts';
-import { queueProduction, queuedProductionCount } from './production-queue.ts';
+import { queueProduction } from './production-queue.ts';
 import { beginWorkerBuild, validateWorkerBuild } from './build-command.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability-command.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
@@ -35,6 +35,7 @@ import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resource-target
 import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
+import { validateTrainCommand } from './production-command.ts';
 
 export { snapRallyTarget };
 
@@ -107,43 +108,6 @@ const validateStop = (s: State, player: number, command: Extract<Command, { t: '
   if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
   if (isContained(s, slot)) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
-  return { ok: true };
-};
-
-const validateTrain = (
-  s: State,
-  player: number,
-  command: Extract<Command, { t: 'train' }>,
-  ctx: CommandSpecValidationContext = {},
-): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if (e.illusion[slot] === 1) return reject('missing-capability');
-  if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('incomplete-producer');
-  if (!isActiveAddon(s, slot)) return reject('missing-capability');
-  if (!isPowered(s, slot)) return reject('missing-capability');
-  const def = Units[command.kind];
-  const building = Units[e.kind[slot]!];
-  if (!def || !building || !building.produces.includes(command.kind)) return reject('target-not-allowed');
-  if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-  const queued = queuedProductionCount(e, slot);
-  const internalCapacity = internalProductCapacity(s, slot, command.kind);
-  if (internalCapacity > 0 && !canQueueInternalProduct(s, slot, command.kind, queued)) return reject('queue-full');
-  if (queued >= MAX_QUEUE) return reject('queue-full');
-  const entityCount = internalCapacity > 0
-    ? 0
-    : e.kind[slot] === Kind.Larva
-      ? Math.max(0, productionCount(command.kind) - 1)
-      : 1;
-  if (entityCount > 0 && !canSpawnEntity(s, entityCount)) return reject('capacity-full');
-  const costCount = productionCostCount(command.kind);
-  if (s.players.minerals[player]! < def.minerals * costCount || s.players.gas[player]! < def.gas * costCount) {
-    return reject('not-affordable');
-  }
-  const used = ctx.reservedSupply ?? s.players.supplyUsed[player]!;
-  if (used + def.supply * productionCount(command.kind) > s.players.supplyMax[player]!) return reject('supply-blocked');
   return { ok: true };
 };
 
@@ -477,7 +441,7 @@ const researchSpec: CommandSpec<Extract<Command, { t: 'research' }>> = {
 
 const trainSpec: CommandSpec<Extract<Command, { t: 'train' }>> = {
   validate(s, player, command, ctx): CommandValidation {
-    return validateTrain(s, player, command, ctx);
+    return validateTrainCommand(s, player, command, ctx);
   },
   apply(s, player, command, ctx): void {
     queueProduction(s, slotOf(command.building), command.kind, player);

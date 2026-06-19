@@ -1529,6 +1529,9 @@ Rework slices:
      `command-specs.ts` keeps dispatch and side effects unchanged.
    - Rally command legality and target snapping now live in `rally-command.ts`, while
      `command-specs.ts` keeps rally application/storage unchanged.
+   - Train command legality now lives in `production-command.ts`, preserving reserved-supply
+     validation, queue/internal-product capacity, larva spawn-count handling, and production apply
+     behavior in `command-specs.ts`.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.
