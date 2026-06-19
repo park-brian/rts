@@ -1,15 +1,15 @@
 import {
   Kind,
-  NONE,
   type Command,
   type Faction,
   type State,
 } from '@rts/sim';
 import { missingStructureKinds, type BotFacts } from './macro.ts';
 import {
-  maybeQueueStructureBuild,
+  queueStructureBuild,
   type MacroSpotFinder,
   type ResourceBudget,
+  type StructureBlock,
 } from './macro-build.ts';
 
 export const PROTOSS_TECH_STRUCTURE_MACRO = [
@@ -40,7 +40,12 @@ const raceTechStructureKinds = (faction: Faction): readonly number[] => {
   return [];
 };
 
-export const maybeQueueRaceTechStructure = (
+export type TechStructureQueueResult = {
+  queued: boolean;
+  block?: StructureBlock;
+};
+
+export const queueRaceTechStructure = (
   s: State,
   player: number,
   faction: Faction,
@@ -50,12 +55,14 @@ export const maybeQueueRaceTechStructure = (
   worker: number,
   anchor: number,
   findMacroSpot: MacroSpotFinder,
-): boolean => {
-  if (worker === NONE) return false;
+): TechStructureQueueResult => {
   const techStructures = raceTechStructureKinds(faction);
-  if (techStructures.length === 0) return false;
+  if (techStructures.length === 0) return { queued: false };
+  let firstBlock: StructureBlock | undefined;
   for (const kind of missingStructureKinds(facts, techStructures)) {
-    if (maybeQueueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot)) return true;
+    const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot);
+    if (result.queued) return { queued: true };
+    firstBlock ??= result.block;
   }
-  return false;
+  return { queued: false, ...(firstBlock ? { block: firstBlock } : {}) };
 };

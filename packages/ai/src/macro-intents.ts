@@ -7,6 +7,7 @@ export type BotFailureReason =
   | 'no-builder'
   | 'no-producer'
   | 'no-production-capacity'
+  | 'placement-unavailable'
   | 'supply-blocked'
   | 'resource-starved'
   | 'path-blocked';

@@ -751,6 +751,11 @@ Remaining work:
       for missing prerequisites/parents, resource starvation, occupied add-on slots, and blocked
       add-on placement after the normal validator-backed add-on queueing path fails. Remaining work:
       supply/build, morph, and tech-structure directors still need explicit outcomes where actionable.
+    - Supply/build outcome slice is done: supply structures, first army production structures,
+      Protoss/Zerg tech structures, Terran/Protoss anti-float capacity, and Zerg macro Hatcheries
+      now use the richer shared structure-queue result so resource starvation, missing builders,
+      missing prerequisites, and placement availability are visible to intent results. Remaining
+      work: morph directors still need explicit outcomes where actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -760,8 +765,21 @@ Remaining work:
   - Intent outcomes should be explicit: `done`, `waiting`, `blocked`, or `failed`. Avoid encoding
     every weird case directly; classify failures as `unsafe-location`, `occupied-location`,
     `missing-detection`, `missing-prerequisite`, `insufficient-force`, `no-builder`, `no-producer`,
-    `no-production-capacity`, `supply-blocked`, `resource-starved`, or `path-blocked`, then let
-    directors react with follow-up intents.
+    `no-production-capacity`, `placement-unavailable`, `supply-blocked`, `resource-starved`, or
+    `path-blocked`, then let directors react with follow-up intents.
+  - Macro placement is an optimization problem, not a blocked-site generator. Placement search should
+    enumerate legal grid anchors first, then score them deterministically: preserve passable rings
+    around production/tech buildings, leave worker and army lanes open, keep macro/tech/production
+    buildings out of the depot-to-mineral and depot-to-gas harvesting corridors, maintain add-on
+    clearance, prefer compact bases, intentionally wall at chosen choke points, keep defensive ground
+    structures covering ramps/resources/approach vectors, avoid trapping future expansions, and
+    optionally use the risk matrix to bias builders away from dangerous routes. Small static defenses
+    such as Missile Turrets, Photon Cannons, and Spore Colonies may sit between a mineral field and the
+    depot only when their footprint is small enough that the pathing/cadence model says worker travel is
+    unaffected or acceptably unchanged; otherwise they should tuck beside or behind the mineral line.
+    A failed generic macro spot search
+    reports `waiting: placement-unavailable`; only exact-target lifecycle intents such as expansion
+    sites should emit blocked location memory.
   - Expansion must be a lifecycle, not a one-shot build command: choose site, scout/verify when
     uncertain, reserve builder/resources/site, execute, monitor blocked/path/unsafe outcomes, clear
     or detect if needed, choose another site when better, and retry without command spam.

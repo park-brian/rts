@@ -7,11 +7,11 @@ import {
   type State,
 } from '@rts/sim';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
-import { type ResourceBudget } from './macro-build.ts';
-import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
+import { type ResourceBudget, type StructureBlock } from './macro-build.ts';
+import { queueCoreProductionCapacity, queueZergMacroHatchery } from './macro-capacity.ts';
 import {
   desiredWorkerCount,
-  maybeQueueArmyStructure,
+  queueArmyStructure,
   maybeQueueSupply,
   maybeQueueWorkers,
   maybeSetArmyStructureRallies,
@@ -23,7 +23,7 @@ import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
-import { maybeQueueRaceTechStructure } from './macro-tech.ts';
+import { queueRaceTechStructure } from './macro-tech.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import type { BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
@@ -77,14 +77,38 @@ const trainOutcome = (
   };
 };
 
+const structureIntentKind = (faction: Faction, kind: number): BotIntent['kind'] => {
+  if (kind === faction.depot) return 'expand';
+  if (kind === faction.supplyStructure || kind === faction.armyStructure || kind === Kind.Hatchery) {
+    return 'add-production';
+  }
+  return 'rebuild-tech';
+};
+
+const blockedStructureReason = (block: StructureBlock): boolean =>
+  block.x !== undefined &&
+  block.y !== undefined &&
+  (block.reason === 'occupied-location' || block.reason === 'path-blocked' || block.reason === 'unsafe-location');
+
+const structureOutcome = (faction: Faction, block: StructureBlock): BotIntentRecord => {
+  const kind = structureIntentKind(faction, block.kind);
+  return {
+    intent: {
+      kind,
+      urgency: intentUrgency(kind),
+      targetKind: block.kind,
+      ...(block.x !== undefined && block.y !== undefined ? { x: block.x, y: block.y } : {}),
+    },
+    result: blockedStructureReason(block)
+      ? { status: 'blocked', reason: block.reason }
+      : { status: 'waiting', reason: block.reason },
+  };
+};
+
 const commandMacroIntent = (command: Command, faction: Faction): BotIntent | null => {
   switch (command.t) {
     case 'build': {
-      const kind = command.kind === faction.depot
-        ? 'expand'
-        : command.kind === faction.supplyStructure || command.kind === faction.armyStructure || command.kind === Kind.Hatchery
-          ? 'add-production'
-          : 'rebuild-tech';
+      const kind = structureIntentKind(faction, command.kind);
       return { kind, urgency: intentUrgency(kind), targetKind: command.kind, x: command.x, y: command.y };
     }
     case 'land':
@@ -194,24 +218,33 @@ export const scheduleBotMacro = (
   );
   if (supplyQueued.queued) {
     builderUsed = supplyQueued.usedBuilder;
-  } else if (maybeQueueArmyStructure(
-    s,
-    player,
-    faction,
-    cmds,
-    budget,
-    economy.builder,
-    depot,
-    builtArmyStructures.length,
-    pendingArmyStructures,
-    config.barracksTarget,
-    findMacroSpot,
-  )) {
-    builderUsed = true;
+  } else if (supplyQueued.block) {
+    intentResults.push(structureOutcome(faction, supplyQueued.block));
+  }
+
+  if (!supplyQueued.queued) {
+    const armyStructure = queueArmyStructure(
+      s,
+      player,
+      faction,
+      cmds,
+      budget,
+      economy.builder,
+      depot,
+      builtArmyStructures.length,
+      pendingArmyStructures,
+      config.barracksTarget,
+      findMacroSpot,
+    );
+    if (armyStructure.queued) {
+      builderUsed = true;
+    } else if (armyStructure.block) {
+      intentResults.push(structureOutcome(faction, armyStructure.block));
+    }
   }
 
   if (!builderUsed) {
-    builderUsed = maybeQueueRaceTechStructure(
+    const techStructure = queueRaceTechStructure(
       s,
       player,
       faction,
@@ -222,6 +255,11 @@ export const scheduleBotMacro = (
       depot,
       findMacroSpot,
     );
+    if (techStructure.queued) {
+      builderUsed = true;
+    } else if (techStructure.block) {
+      intentResults.push(structureOutcome(faction, techStructure.block));
+    }
   }
 
   const addonBlock = maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
@@ -261,7 +299,7 @@ export const scheduleBotMacro = (
   }
 
   if (!builderUsed) {
-    builderUsed = maybeQueueCoreProductionCapacity(
+    const capacity = queueCoreProductionCapacity(
       s,
       player,
       faction,
@@ -272,6 +310,8 @@ export const scheduleBotMacro = (
       config.barracksTarget,
       findMacroSpot,
     );
+    builderUsed = capacity.queued;
+    if (capacity.block) intentResults.push(structureOutcome(faction, capacity.block));
   }
 
   if (!builderUsed) {
@@ -281,7 +321,7 @@ export const scheduleBotMacro = (
   }
 
   if (!builderUsed) {
-    builderUsed = maybeQueueZergMacroHatchery(
+    const macroHatchery = queueZergMacroHatchery(
       s,
       player,
       faction,
@@ -293,6 +333,8 @@ export const scheduleBotMacro = (
       usedProducers,
       findMacroSpot,
     );
+    builderUsed = macroHatchery.queued;
+    if (macroHatchery.block) intentResults.push(structureOutcome(faction, macroHatchery.block));
   }
 
   return {

@@ -17,12 +17,14 @@ import {
 } from '@rts/sim';
 import {
   maybeQueueStructureAtPoint,
-  maybeQueueStructureBuild,
+  queueStructureAtPoint,
+  queueStructureBuild,
   type MacroSpotFinder,
   type PointSpotFinder,
   type ResourceBudget,
+  type StructureBlock,
 } from './macro-build.ts';
-import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
+import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 
 const WORKERS_PER_PATCH = 2;
 
@@ -114,6 +116,7 @@ export const maybeQueueWorkers = (
 export type SupplyQueueResult = {
   queued: boolean;
   usedBuilder: boolean;
+  block?: StructureBlock;
 };
 
 export const maybeQueueSupply = (
@@ -135,7 +138,13 @@ export const maybeQueueSupply = (
   }
 
   const def = Units[faction.supplyStructure]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return { queued: false, usedBuilder: false };
+  if (budget.minerals < def.minerals || budget.gas < def.gas) {
+    return {
+      queued: false,
+      usedBuilder: false,
+      block: { kind: faction.supplyStructure, reason: 'resource-starved' },
+    };
+  }
 
   if (def.buildMethod === 'larva') {
     const queued = maybeQueueTrain(
@@ -148,25 +157,41 @@ export const maybeQueueSupply = (
       usedProducers,
       faction.supplyStructure,
     ) > 0;
-    return { queued, usedBuilder: false };
+    return {
+      queued,
+      usedBuilder: false,
+      ...(queued ? {} : {
+        block: {
+          kind: faction.supplyStructure,
+          reason: trainFailureReason(
+            s,
+            player,
+            idleLarvae,
+            usedProducers,
+            budget,
+            supplyBudget,
+            faction.supplyStructure,
+          ) ?? 'no-production-capacity',
+        },
+      }),
+    };
   }
 
-  const queued = worker !== NONE &&
-    maybeQueueStructureAtPoint(
-      s,
-      player,
-      cmds,
-      budget,
-      worker,
-      faction.supplyStructure,
-      s.e.x[depot]!,
-      s.e.y[depot]!,
-      findSpot,
-    );
-  return { queued, usedBuilder: queued };
+  const result = queueStructureAtPoint(
+    s,
+    player,
+    cmds,
+    budget,
+    worker,
+    faction.supplyStructure,
+    s.e.x[depot]!,
+    s.e.y[depot]!,
+    findSpot,
+  );
+  return { queued: result.queued, usedBuilder: result.queued, ...(result.block ? { block: result.block } : {}) };
 };
 
-export const maybeQueueArmyStructure = (
+export const queueArmyStructure = (
   s: State,
   player: number,
   faction: Faction,
@@ -178,11 +203,11 @@ export const maybeQueueArmyStructure = (
   pending: number,
   target: number,
   findMacroSpot: MacroSpotFinder,
-): boolean => {
+): { queued: boolean; block?: StructureBlock } => {
   const def = Units[faction.armyStructure]!;
-  if (def.buildMethod === 'larva') return false;
-  if (built + pending >= target || worker === NONE) return false;
-  return maybeQueueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
+  if (def.buildMethod === 'larva') return { queued: false };
+  if (built + pending >= target) return { queued: false };
+  return queueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
 };
 
 export const maybeSetArmyStructureRallies = (
