@@ -16,7 +16,7 @@ import { makeRng, range, type Rng } from './rng.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
-export type MapPreset = 'teamPlateaus' | 'cornerBases' | 'isolatedMains';
+export type MapPreset = 'teamPlateaus' | 'cornerBases' | 'isolatedMains' | 'fortress';
 export type GenerateMapOptions = {
   preset?: MapPreset;
   midfield?: MidfieldModule;
@@ -284,6 +284,17 @@ const stampMainPocket = (b: MapBuilder, centerX: number, south: boolean): { star
   return { start, rampY };
 };
 
+const stampFortressPocket = (b: MapBuilder, centerX: number, south: boolean): { anchor: StartLoc; rampY: number } => {
+  const rect: Rect = south
+    ? { x0: centerX - 18, x1: centerX + 18, y0: 50, y1: 69 }
+    : { x0: centerX - 18, x1: centerX + 18, y0: 27, y1: 46 };
+  const anchor: StartLoc = { x: centerX, y: south ? 60 : 36 };
+  const rampY = south ? rect.y0 : rect.y1;
+  b.fill(rect, 1, 1, 1);
+  stampPocketRim(b, rect, centerX, rampY);
+  return { anchor, rampY };
+};
+
 const stampTeamPlateaus = (b: MapBuilder): void => {
   const m = b.map;
   const blockedReservations: ResourceFootprint[] = [];
@@ -339,6 +350,33 @@ const stampIsolatedMains = (b: MapBuilder): void => {
 
     addBaseSite(m, 'main', 0, southCluster, i * 2, x, south.rampY);
     addBaseSite(m, 'main', 1, northCluster, i * 2 + 1, x, north.rampY);
+  }
+};
+
+const stampFortress = (b: MapBuilder): void => {
+  const m = b.map;
+  const blockedReservations: ResourceFootprint[] = [];
+
+  for (let i = 0; i < b.perTeam; i++) {
+    const x = laneCenter(i);
+    const south = stampMainPocket(b, x, true);
+    const north = stampMainPocket(b, x, false);
+    const southFortress = stampFortressPocket(b, x, true);
+    const northFortress = stampFortressPocket(b, x, false);
+    const southCluster = stampBaseCluster(m, south.start, -1, 'main', blockedReservations);
+    const northCluster = stampBaseCluster(m, north.start, 1, 'main', blockedReservations);
+    const southFortressCluster = stampBaseCluster(m, southFortress.anchor, -1, 'fortress', blockedReservations);
+    const northFortressCluster = stampBaseCluster(m, northFortress.anchor, 1, 'fortress', blockedReservations);
+
+    m.starts.push({ x: southCluster.x, y: southCluster.y });
+    m.teams.push(0);
+    m.starts.push({ x: northCluster.x, y: northCluster.y });
+    m.teams.push(1);
+
+    addBaseSite(m, 'main', 0, southCluster, i * 2, x, south.rampY);
+    addBaseSite(m, 'main', 1, northCluster, i * 2 + 1, x, north.rampY);
+    addBaseSite(m, 'fortress', 0, southFortressCluster, undefined, x, southFortress.rampY);
+    addBaseSite(m, 'fortress', 1, northFortressCluster, undefined, x, northFortress.rampY);
   }
 };
 
@@ -487,6 +525,7 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
     case 'teamPlateaus': stampTeamPlateaus(builder); break;
     case 'cornerBases': stampCornerBases(builder); break;
     case 'isolatedMains': stampIsolatedMains(builder); break;
+    case 'fortress': stampFortress(builder); break;
   }
   applyMidfieldModule(builder, midfield, makeRng(seed));
   return builder.map;

@@ -128,8 +128,8 @@ Remaining work:
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
-- Expand procedural maps beyond the shared-plateau, corner-base, and isolated-main presets:
-  fortress and later island variants.
+- Expand procedural maps beyond the ground-connected presets with later island variants once
+  disconnected-ground validity and AI semantics are explicit.
 
 Done when:
 
@@ -243,6 +243,7 @@ Done when:
 - Extracted Spider Mine command validation.
 - Added orientation-aware resource arcs and a side-facing `cornerBases` procedural preset.
 - Added a replay-visible `isolatedMains` procedural preset with ground-connected high-ground pockets.
+- Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
 
 ## Review Checklist
 

@@ -300,6 +300,32 @@ test('isolated-main preset gives each player a ground-connected high-ground pock
   assert.equal(m.elev[14 * m.w + 64], 0, 'team pockets do not form one shared north plateau');
 });
 
+test('fortress preset adds validated fortified expansions without breaking ground connectivity', () => {
+  const m = generateMap(2, 93, { preset: 'fortress' });
+  const bases = m.bases ?? [];
+  const mains = bases.filter((base) => base.kind === 'main');
+  const fortresses = bases.filter((base) => base.kind === 'fortress');
+
+  assert.equal(m.starts.length, 4);
+  assert.equal(mains.length, 4);
+  assert.equal(fortresses.length, 4);
+  assert.equal(mapConnected(m), true);
+  assert.equal(mapResourcesValid(m), true);
+  assert.equal(mapBaseReservationsValid(m), true);
+  assert.equal(mainBaseMineralRoutesValid(m), true);
+  assert.equal(baseGasRoutesValid(m), true);
+  assertBaseDepotAnchorsLegal(m);
+  assert.deepEqual(fortresses.map((base) => base.resourceDir), [-1, 1, -1, 1]);
+
+  for (const base of [...mains, ...fortresses]) {
+    assert.equal(m.elev[base.y * m.w + base.x], 1, `${base.kind} base is on fortified high ground`);
+    assert.equal(m.walk[base.rampY! * m.w + base.rampX!], 1, `${base.kind} ramp is walkable`);
+    assert.equal(m.build[base.rampY! * m.w + base.rampX!], 0, `${base.kind} ramp is not buildable`);
+  }
+
+  assert.ok(fortresses.every((base) => base.owner === undefined), 'fortress expansions are neutral base sites');
+});
+
 test('procedural base reservations reject overlapping whole-base clusters', () => {
   const m = generateMap(1, 88);
   assert.equal(mapBaseReservationsValid(m), true);
