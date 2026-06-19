@@ -9,7 +9,7 @@ import { validateTrainCommand } from '../src/production-command.ts';
 import { validateResearchCommand } from '../src/research-command.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
 import { validateCommand } from '../src/validation.ts';
-import { slotOf } from '../src/world.ts';
+import { NONE, slotOf } from '../src/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 type TrainCommand = Extract<Command, { t: 'train' }>;
@@ -78,6 +78,9 @@ test('research validation shares producer preflight and keeps research-specific 
   assertResearch(s, { t: 'research', building: forge, tech: Tech.GroundWeapons }, { ok: true });
   assertResearch(s, { t: 'research', building: unpoweredForge, tech: Tech.GroundWeapons }, { ok: false, reason: 'missing-capability' });
   assertResearch(s, { t: 'research', building: liftedFactory, tech: Tech.GroundWeapons }, { ok: false, reason: 'missing-capability' });
+  s.e.researchKind[slotOf(forge)] = Tech.GroundWeapons;
+  assertResearch(s, { t: 'research', building: forge, tech: 999_999 }, { ok: false, reason: 'queue-full' });
+  s.e.researchKind[slotOf(forge)] = Kind.None;
   assertResearch(s, { t: 'research', building: forge, tech: 999_999 }, { ok: false, reason: 'target-not-allowed' });
 
   const techs = [Tech.GroundWeapons] as const;
@@ -98,6 +101,10 @@ test('add-on validation shares producer preflight and leaves placement/cost loca
   assertAddon(s, { t: 'addon', building: liftedFactory, kind: Kind.MachineShop }, { ok: false, reason: 'missing-capability' });
   assertAddon(s, { t: 'addon', building: marine, kind: Kind.MachineShop }, { ok: false, reason: 'incomplete-producer' });
   assertAddon(s, { t: 'addon', building: factory, kind: Kind.ControlTower }, { ok: false, reason: 'target-not-allowed' });
+  s.e.target[slotOf(factory)] = spawn(Kind.MachineShop, 0, fx(1_200), fx(300));
+  assertAddon(s, { t: 'addon', building: factory, kind: Kind.ControlTower }, { ok: false, reason: 'target-not-allowed' });
+  assertAddon(s, { t: 'addon', building: factory, kind: Kind.MachineShop }, { ok: false, reason: 'queue-full' });
+  s.e.target[slotOf(factory)] = NONE;
 
   const addons = [Kind.MachineShop] as const;
   assert.deepEqual([...addonKindMask(s, 0, factory, addons)], [1]);

@@ -1,9 +1,15 @@
 import type { Command } from './commands.ts';
-import { Kind, Role, TECH_CAP, TechDefs } from './data.ts';
+import { Role, TECH_CAP, TechDefs } from './data.ts';
 import { requirementsMet } from './requirements.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
 import type { State } from './world.ts';
-import { canPay, canUseProducer, reject, type CommandValidation } from './command-validation.ts';
+import {
+  canPay,
+  canUseProducer,
+  hasActiveResearch,
+  reject,
+  type CommandValidation,
+} from './command-validation.ts';
 
 type ResearchCommand = Extract<Command, { t: 'research' }>;
 
@@ -20,7 +26,7 @@ export const validateResearchCommand = (s: State, player: number, command: Resea
   });
   if (!producer.ok) return producer;
   const { slot } = producer;
-  if (e.researchKind[slot] !== Kind.None) return reject('queue-full');
+  if (hasActiveResearch(s, slot)) return reject('queue-full');
   if (!validTechId(command.tech)) return reject('target-not-allowed');
   const def = TechDefs[command.tech];
   if (!def || !def.producers.includes(e.kind[slot]!)) return reject('target-not-allowed');

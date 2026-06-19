@@ -1,11 +1,11 @@
 import type { Command } from './commands.ts';
-import { Kind, Units } from './data.ts';
+import { Units } from './data.ts';
 import { requirementsMet } from './requirements.ts';
 import { getTechLevel } from './tech.ts';
 import { mergePartnerFor, transformFor } from './unit-transform.ts';
 import type { State } from './world.ts';
 import { NONE } from './world.ts';
-import { canPay, canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
+import { canPay, canReceiveOrder, isBusy, reject, type CommandValidation } from './command-validation.ts';
 
 type TransformCommand = Extract<Command, { t: 'transform' }>;
 
@@ -26,7 +26,7 @@ export const validateTransformCommand = (s: State, player: number, command: Tran
     const def = Units[command.kind]!;
     const source = Units[e.kind[slot]!]!;
     if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
-    if (e.prodKind[slot] !== Kind.None || e.researchKind[slot] !== Kind.None) return reject('queue-full');
+    if (isBusy(s, slot)) return reject('queue-full');
     const payment = canPay(s, player, { minerals: def.minerals, gas: def.gas });
     if (!payment.ok) return payment;
     const supplyDelta = def.supply - source.supply;

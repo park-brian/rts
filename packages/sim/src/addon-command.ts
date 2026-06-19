@@ -1,11 +1,17 @@
 import type { Command } from './commands.ts';
 import { Role, Units } from './data.ts';
 import { addonParentKind, addonPosition, isAddonKind } from './addon.ts';
-import { canSpawnEntity, isAlive, NONE } from './world.ts';
+import { canSpawnEntity, NONE } from './world.ts';
 import type { State } from './world.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
-import { canPay, canUseProducer, reject, type CommandValidation } from './command-validation.ts';
+import {
+  canPay,
+  canUseProducer,
+  hasActiveAddonTarget,
+  reject,
+  type CommandValidation,
+} from './command-validation.ts';
 
 type AddonCommand = Extract<Command, { t: 'addon' }>;
 
@@ -23,7 +29,7 @@ export const validateAddonCommand = (s: State, player: number, command: AddonCom
   if (!def || !isAddonKind(command.kind) || addonParentKind(command.kind) !== e.kind[slot]) {
     return reject('target-not-allowed');
   }
-  if (e.target[slot] !== NONE && isAlive(e, e.target[slot]!)) return reject('queue-full');
+  if (hasActiveAddonTarget(s, slot)) return reject('queue-full');
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
   const payment = canPay(s, player, { minerals: def.minerals, gas: def.gas });
   if (!payment.ok) return payment;

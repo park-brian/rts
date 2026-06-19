@@ -49,6 +49,10 @@ Remaining work:
   - `isBusy`;
   - `isTransitioning`;
 - Split command ingestion by command family without changing replay semantics.
+- Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
+  append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
+  cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
+  producer version of the same idea, not a separate UI-only concept.
 - Split production into named sub-systems for queueing, internal products, larva spawn, spawn rally,
   gather rally, load rally, refunds, and completion placement.
 - Route Spider Mines, Scarabs, Interceptors, and Nuclear Missiles through named internal-product
@@ -110,6 +114,8 @@ Remaining work:
 
 - Replace instant siege/unsiege and burrow/unburrow with verified timed transitions and shared
   busy-state validation.
+- Add missing core order semantics: Patrol, Hold Position, queued waypoints, and clear interruption
+  rules for Stop, attack, transport, spell, gather, repair, rally-spawned orders, and queued orders.
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
@@ -160,6 +166,8 @@ Purpose: make the game a clean training substrate, not just a playable browser a
 Remaining work:
 
 - Keep validator/action-mask parity for every command family and ability target mode.
+- Expose active and queued orders, production queues, and queue-append legality in observations and
+  action masks so policies can reason about future intent without depending on app-only state.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
 - Add ML benchmark lanes for:
   - action masks;
@@ -187,7 +195,8 @@ Remaining work:
   shared selection options and then rendered by the command card. Worker-built expansion town halls
   are the first fixed example: SCV -> Command Center, Probe -> Nexus, Drone -> Hatchery.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
-  hotgroups, remappable hotkeys, edge pan, scroll zoom, and middle-click pan.
+  hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
+  with visible queued waypoints/orders.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play.
 - Continue moving desktop HUD toward the StarCraft layout: minimap left, selected state center,
@@ -247,6 +256,7 @@ Done when:
 - Extended `canReceiveOrder` to transform validation while keeping transform, morph, and merge rules local.
 - Extended `canReceiveOrder` to harvest, repair, and mine validation while keeping utility-specific rules local.
 - Extracted narrow `canTargetEntity` target gates for attack and entity-target ability validation.
+- Extracted narrow busy-state predicates for active production, research, and add-on targets.
 
 ## Review Checklist
 

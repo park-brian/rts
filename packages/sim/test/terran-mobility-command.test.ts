@@ -14,7 +14,17 @@ type LandCommand = Extract<Command, { t: 'land' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
 
 type LiftKey =
-  | 'cc' | 'enemy' | 'marine' | 'unfinished' | 'depot' | 'lifted' | 'linked' | 'producing' | 'researching' | 'stale';
+  | 'cc'
+  | 'enemy'
+  | 'marine'
+  | 'unfinished'
+  | 'depot'
+  | 'lifted'
+  | 'linked'
+  | 'linkedProducing'
+  | 'producing'
+  | 'researching'
+  | 'stale';
 
 const expectLift = (building: LiftKey | number, expected: Expected): void => {
   const scenario = simScenario({ players: 2, seed: 640 });
@@ -29,14 +39,29 @@ const expectLift = (building: LiftKey | number, expected: Expected): void => {
   const linked = scenario.spawn(Kind.CommandCenter, 0, fx(1_020), fx(300));
   const producing = scenario.spawn(Kind.CommandCenter, 0, fx(1_140), fx(300));
   const researching = scenario.spawn(Kind.CommandCenter, 0, fx(1_260), fx(300));
+  const linkedProducing = scenario.spawn(Kind.CommandCenter, 0, fx(1_380), fx(300));
 
   e.built[slotOf(unfinished)] = 0;
   e.flags[slotOf(lifted)] = liftedStructureFlags(Kind.CommandCenter);
   e.target[slotOf(linked)] = scenario.spawn(Kind.ComsatStation, 0, fx(1_100), fx(300));
   e.prodKind[slotOf(producing)] = Kind.SCV;
   e.researchKind[slotOf(researching)] = Tech.StimPack;
+  e.target[slotOf(linkedProducing)] = scenario.spawn(Kind.ComsatStation, 0, fx(1_460), fx(300));
+  e.prodKind[slotOf(linkedProducing)] = Kind.SCV;
 
-  const ids = { cc, enemy, marine, unfinished, depot, lifted, linked, producing, researching, stale: 999_999 };
+  const ids = {
+    cc,
+    enemy,
+    marine,
+    unfinished,
+    depot,
+    lifted,
+    linked,
+    linkedProducing,
+    producing,
+    researching,
+    stale: 999_999,
+  };
   const resolve = (value: LiftKey | number): number => typeof value === 'number' ? value : ids[value];
   const command: LiftCommand = { t: 'lift', building: resolve(building) };
 
@@ -81,6 +106,7 @@ test('lift validation lives in the Terran mobility command module', () => {
   expectLift('depot', { ok: false, reason: 'target-not-allowed' });
   expectLift('lifted', { ok: false, reason: 'target-not-allowed' });
   expectLift('linked', { ok: false, reason: 'target-not-allowed' });
+  expectLift('linkedProducing', { ok: false, reason: 'target-not-allowed' });
   expectLift('producing', { ok: false, reason: 'queue-full' });
   expectLift('researching', { ok: false, reason: 'queue-full' });
 });
