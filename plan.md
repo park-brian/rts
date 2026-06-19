@@ -52,7 +52,6 @@ Remaining work:
   - `isDisabled`;
   - `canReceiveOrder`;
   - `canTargetEntity`;
-  - `canUseProducer`;
   - `canPay`.
 - Split command ingestion by command family without changing replay semantics.
 - Split production into named sub-systems for queueing, internal products, larva spawn, spawn rally,
@@ -245,6 +244,7 @@ Done when:
 - Extracted move / attack-move command validation.
 - Extracted transform / morph / merge command validation.
 - Began shared command validation predicates with common actor ownership / stale entity helpers.
+- Extracted shared producer preflight for train, research, and add-on validation.
 
 ## Review Checklist
 

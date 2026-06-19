@@ -1,31 +1,17 @@
-import type { Command, CommandRejectReason } from './commands.ts';
+import type { Command } from './commands.ts';
 import { Kind, MAX_QUEUE, Role, Units, productionCostCount, productionCount } from './data.ts';
 import { canQueueInternalProduct, internalProductCapacity } from './internal-products.ts';
 import { requirementsMet } from './requirements.ts';
-import { isActiveAddon } from './addon.ts';
-import { isPowered } from './power.ts';
 import { queuedProductionCount } from './production-queue.ts';
 import type { State } from './world.ts';
-import { canSpawnEntity, isAlive, slotOf } from './world.ts';
-
-type CommandValidation =
-  | { ok: true }
-  | { ok: false; reason: CommandRejectReason };
+import { canSpawnEntity } from './world.ts';
+import { canUseProducer, reject, type CommandValidation } from './command-validation.ts';
 
 export type ProductionValidationContext = {
   reservedSupply?: number;
 };
 
 type TrainCommand = Extract<Command, { t: 'train' }>;
-
-const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
-
-const ownedSlot = (s: State, id: number, player: number): number | null => {
-  const e = s.e;
-  if (!isAlive(e, id)) return null;
-  const slot = slotOf(id);
-  return e.owner[slot] === player ? slot : null;
-};
 
 export const validateTrainCommand = (
   s: State,
@@ -34,13 +20,15 @@ export const validateTrainCommand = (
   ctx: ProductionValidationContext = {},
 ): CommandValidation => {
   const e = s.e;
-  const slot = ownedSlot(s, command.building, player);
-  if (slot === null) return isAlive(e, command.building) ? reject('wrong-owner') : reject('stale-entity');
-  if (e.illusion[slot] === 1) return reject('missing-capability');
-  if ((e.flags[slot]! & Role.Producer) === 0) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('incomplete-producer');
-  if (!isActiveAddon(s, slot)) return reject('missing-capability');
-  if (!isPowered(s, slot)) return reject('missing-capability');
+  const producer = canUseProducer(s, player, command.building, {
+    role: Role.Producer,
+    requireBuilt: true,
+    rejectIllusion: true,
+    requireActiveAddon: true,
+    requirePowered: true,
+  });
+  if (!producer.ok) return producer;
+  const { slot } = producer;
   const def = Units[command.kind];
   const building = Units[e.kind[slot]!];
   if (!def || !building || !building.produces.includes(command.kind)) return reject('target-not-allowed');

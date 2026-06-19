@@ -1,0 +1,105 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { addonKindMask, researchTechMask, trainKindMask } from '../src/action-mask.ts';
+import { validateAddonCommand } from '../src/addon-command.ts';
+import type { Command, CommandRejectReason } from '../src/commands.ts';
+import { Kind, Tech } from '../src/data.ts';
+import { fx } from '../src/fixed.ts';
+import { validateTrainCommand } from '../src/production-command.ts';
+import { validateResearchCommand } from '../src/research-command.ts';
+import { liftedStructureFlags } from '../src/terran-mobility.ts';
+import { validateCommand } from '../src/validation.ts';
+import { slotOf } from '../src/world.ts';
+import { simScenario } from '../test-support/scenario.ts';
+
+type TrainCommand = Extract<Command, { t: 'train' }>;
+type ResearchCommand = Extract<Command, { t: 'research' }>;
+type AddonCommand = Extract<Command, { t: 'addon' }>;
+type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
+
+const assertTrain = (
+  s: ReturnType<typeof simScenario>['state'],
+  command: TrainCommand,
+  expected: Expected,
+): void => {
+  assert.deepEqual(validateTrainCommand(s, 0, command), expected);
+  assert.deepEqual(validateCommand(s, 0, command), expected);
+};
+
+const assertResearch = (
+  s: ReturnType<typeof simScenario>['state'],
+  command: ResearchCommand,
+  expected: Expected,
+): void => {
+  assert.deepEqual(validateResearchCommand(s, 0, command), expected);
+  assert.deepEqual(validateCommand(s, 0, command), expected);
+};
+
+const assertAddon = (
+  s: ReturnType<typeof simScenario>['state'],
+  command: AddonCommand,
+  expected: Expected,
+): void => {
+  assert.deepEqual(validateAddonCommand(s, 0, command), expected);
+  assert.deepEqual(validateCommand(s, 0, command), expected);
+};
+
+test('train validation shares producer preflight without hiding product rules', () => {
+  const scenario = simScenario({ players: 2, seed: 694 });
+  const { state: s, spawn, resources } = scenario;
+  resources(0, 2_000, 2_000);
+  const gateway = spawn(Kind.Gateway, 0, fx(300), fx(300));
+  spawn(Kind.Pylon, 0, fx(300), fx(300));
+  const enemyGateway = spawn(Kind.Gateway, 1, fx(460), fx(300));
+  const unpoweredGateway = spawn(Kind.Gateway, 0, fx(700), fx(300));
+  const marine = spawn(Kind.Marine, 0, fx(780), fx(300));
+
+  assertTrain(s, { t: 'train', building: gateway, kind: Kind.Zealot }, { ok: true });
+  assertTrain(s, { t: 'train', building: enemyGateway, kind: Kind.Zealot }, { ok: false, reason: 'wrong-owner' });
+  assertTrain(s, { t: 'train', building: 999_999, kind: Kind.Zealot }, { ok: false, reason: 'stale-entity' });
+  assertTrain(s, { t: 'train', building: unpoweredGateway, kind: Kind.Zealot }, { ok: false, reason: 'missing-capability' });
+  assertTrain(s, { t: 'train', building: marine, kind: Kind.Zealot }, { ok: false, reason: 'missing-capability' });
+
+  const kinds = [Kind.Zealot] as const;
+  assert.deepEqual([...trainKindMask(s, 0, gateway, kinds)], [1]);
+  assert.deepEqual([...trainKindMask(s, 0, unpoweredGateway, kinds)], [0]);
+});
+
+test('research validation shares producer preflight and keeps research-specific gates local', () => {
+  const scenario = simScenario({ players: 1, seed: 695 });
+  const { state: s, spawn, resources } = scenario;
+  resources(0, 2_000, 2_000);
+  const forge = spawn(Kind.Forge, 0, fx(300), fx(300));
+  spawn(Kind.Pylon, 0, fx(300), fx(300));
+  const unpoweredForge = spawn(Kind.Forge, 0, fx(700), fx(300));
+  const liftedFactory = spawn(Kind.Factory, 0, fx(820), fx(300));
+  s.e.flags[slotOf(liftedFactory)] = liftedStructureFlags(Kind.Factory);
+
+  assertResearch(s, { t: 'research', building: forge, tech: Tech.GroundWeapons }, { ok: true });
+  assertResearch(s, { t: 'research', building: unpoweredForge, tech: Tech.GroundWeapons }, { ok: false, reason: 'missing-capability' });
+  assertResearch(s, { t: 'research', building: liftedFactory, tech: Tech.GroundWeapons }, { ok: false, reason: 'missing-capability' });
+  assertResearch(s, { t: 'research', building: forge, tech: 999_999 }, { ok: false, reason: 'target-not-allowed' });
+
+  const techs = [Tech.GroundWeapons] as const;
+  assert.deepEqual([...researchTechMask(s, 0, forge, techs)], [1]);
+  assert.deepEqual([...researchTechMask(s, 0, unpoweredForge, techs)], [0]);
+});
+
+test('add-on validation shares producer preflight and leaves placement/cost local', () => {
+  const scenario = simScenario({ players: 1, seed: 696 });
+  const { state: s, spawn, resources } = scenario;
+  resources(0, 2_000, 2_000);
+  const factory = spawn(Kind.Factory, 0, fx(300), fx(300));
+  const liftedFactory = spawn(Kind.Factory, 0, fx(700), fx(300));
+  const marine = spawn(Kind.Marine, 0, fx(820), fx(300));
+  s.e.flags[slotOf(liftedFactory)] = liftedStructureFlags(Kind.Factory);
+
+  assertAddon(s, { t: 'addon', building: factory, kind: Kind.MachineShop }, { ok: true });
+  assertAddon(s, { t: 'addon', building: liftedFactory, kind: Kind.MachineShop }, { ok: false, reason: 'missing-capability' });
+  assertAddon(s, { t: 'addon', building: marine, kind: Kind.MachineShop }, { ok: false, reason: 'incomplete-producer' });
+  assertAddon(s, { t: 'addon', building: factory, kind: Kind.ControlTower }, { ok: false, reason: 'target-not-allowed' });
+
+  const addons = [Kind.MachineShop] as const;
+  assert.deepEqual([...addonKindMask(s, 0, factory, addons)], [1]);
+  assert.deepEqual([...addonKindMask(s, 0, liftedFactory, addons)], [0]);
+});
