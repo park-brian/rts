@@ -716,6 +716,10 @@ Remaining work:
     - Tactical-outcome reason slice is done: tactical defense outcome classification now lives with
       the tactical executor, so `get-detection` waits report `missing-detection` while ordinary
       `defend-base` / `clear-site` no-command outcomes remain `insufficient-force`.
+    - Intent-outcome memory slice is done: planner outcomes now feed deterministic `BotMemory`
+      bookkeeping for suspected invisible threats and blocked map locations. Remaining work:
+      expansion and route executors still need to emit real blocked/unsafe/occupied outcomes and
+      directors need to consume those remembered locations when choosing follow-up intents.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

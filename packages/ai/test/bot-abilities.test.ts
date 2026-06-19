@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ACTIVE_CLOAK_ABILITIES,
   BOT_INTENT_KINDS,
+  INTENT_OUTCOME_MEMORY_TICKS,
   PRESSURE_COMMITMENT_TICKS,
   TACTICAL_ABILITY_POLICIES,
   collectBotFacts,
@@ -16,6 +17,7 @@ import {
   executeTacticalDefense,
   macroIntentsFromCommands,
   missingStructureKinds,
+  rememberIntentOutcomes,
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
@@ -43,7 +45,7 @@ import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   generateMap,
-  Role, TILE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  Role, TILE, ONE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, liftStructure, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
 
@@ -430,6 +432,33 @@ test('tactical intent results distinguish missing detection from missing force',
     tacticalIntentResult({ kind: 'clear-site', urgency: 80 }, true),
     { status: 'done' },
   );
+});
+
+test('bot memory records actionable intent outcome locations', () => {
+  const memory = createBotMemory();
+  const x = 12 * TILE * ONE;
+  const y = 8 * TILE * ONE;
+  rememberIntentOutcomes(memory, [
+    {
+      intent: { kind: 'get-detection', urgency: 90, x, y },
+      result: { status: 'waiting', reason: 'missing-detection' },
+    },
+    {
+      intent: { kind: 'expand', urgency: 35, x: x + TILE * ONE, y },
+      result: { status: 'blocked', reason: 'occupied-location' },
+    },
+    {
+      intent: { kind: 'attack-wave', urgency: 40, x, y: y + TILE * ONE },
+      result: { status: 'waiting', reason: 'insufficient-force' },
+    },
+  ], 100);
+
+  assert.deepEqual([...memory.suspectedInvisibleThreats.values()], [{ x, y, tick: 100 }]);
+  assert.deepEqual([...memory.blockedSites.values()], [{ reason: 'occupied-location', tick: 100 }]);
+
+  rememberIntentOutcomes(memory, [], 100 + INTENT_OUTCOME_MEMORY_TICKS + 1);
+  assert.equal(memory.suspectedInvisibleThreats.size, 0);
+  assert.equal(memory.blockedSites.size, 0);
 });
 
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {

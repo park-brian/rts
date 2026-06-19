@@ -10,7 +10,7 @@ import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
-import { createBotMemory, type BotMemory } from './macro-memory.ts';
+import { createBotMemory, rememberIntentOutcomes, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
 import type { BotIntent, BotIntentRecord, BotIntentResult } from './macro-intents.ts';
 
@@ -140,6 +140,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     }
 
     const rankedIntentResults = rankIntentRecords(intentResults);
+    rememberIntentOutcomes(memory, rankedIntentResults, s.tick);
     return {
       commands: cmds,
       intents: rankedIntentResults.map((record) => record.intent),
