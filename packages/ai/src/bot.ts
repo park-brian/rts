@@ -5,12 +5,11 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Ability, Role, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid,
-  NONE, TILE, SUPPLY_CAP, supply, slotOf, type Faction, type State, type Command, type Controller,
-  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, nextTechLevel, productionCostCount, productionCount,
-  activeAddonParentSlot, addonParentKind, hasCompletedKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
+  Ability, Role, Order, Kind, Tech, Units, canPlaceStructure, tileX, tileY, eid,
+  NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
+  LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, productionCostCount, productionCount,
+  addonParentKind, hasCompletedKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
   requiresPower,
-  techGas, techMinerals,
   abilityTechAvailable,
   hasInternalProductReady,
   distanceSq, withinRangeSq,
@@ -20,7 +19,9 @@ import { castTacticalAbilities } from './ability-policies.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
+import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
+import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
 import {
   collectBotFacts,
@@ -43,86 +44,6 @@ const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThre
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const EMERGENCY_WORKER_RESPONSE_TILES = 10;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
-const TERRAN_RESEARCH_MACRO = [
-  Tech.StimPack,
-  Tech.U238Shells,
-  Tech.Restoration,
-  Tech.OpticalFlare,
-  Tech.CaduceusReactor,
-  Tech.SpiderMines,
-  Tech.SiegeTech,
-  Tech.CharonBoosters,
-  Tech.IonThrusters,
-  Tech.PersonnelCloaking,
-  Tech.Lockdown,
-  Tech.OcularImplants,
-  Tech.MoebiusReactor,
-  Tech.CloakingField,
-  Tech.ApolloReactor,
-  Tech.YamatoCannon,
-  Tech.ColossusReactor,
-  Tech.EMPShockwave,
-  Tech.Irradiate,
-  Tech.TitanReactor,
-  Tech.InfantryWeapons,
-  Tech.InfantryArmor,
-  Tech.VehicleWeapons,
-  Tech.VehiclePlating,
-  Tech.ShipWeapons,
-  Tech.ShipPlating,
-] as const;
-const PROTOSS_RESEARCH_MACRO = [
-  Tech.SingularityCharge,
-  Tech.GroundWeapons,
-  Tech.GroundArmor,
-  Tech.PlasmaShields,
-  Tech.AirWeapons,
-  Tech.AirArmor,
-  Tech.LegEnhancements,
-  Tech.PsionicStorm,
-  Tech.Hallucination,
-  Tech.KhaydarinAmulet,
-  Tech.Maelstrom,
-  Tech.MindControl,
-  Tech.ArgusTalisman,
-  Tech.StasisField,
-  Tech.Recall,
-  Tech.KhaydarinCore,
-  Tech.GraviticDrive,
-  Tech.ReaverCapacity,
-  Tech.ScarabDamage,
-  Tech.SensorArray,
-  Tech.GraviticBoosters,
-  Tech.GraviticThrusters,
-  Tech.CarrierCapacity,
-  Tech.ApialSensors,
-  Tech.ArgusJewel,
-  Tech.DisruptionWeb,
-] as const;
-const ZERG_RESEARCH_MACRO = [
-  Tech.Burrow,
-  Tech.MetabolicBoost,
-  Tech.LurkerAspect,
-  Tech.GroovedSpines,
-  Tech.MuscularAugments,
-  Tech.PneumatizedCarapace,
-  Tech.VentralSacs,
-  Tech.Antennae,
-  Tech.MeleeAttacks,
-  Tech.MissileAttacks,
-  Tech.Carapace,
-  Tech.FlyerAttacks,
-  Tech.FlyerCarapace,
-  Tech.GameteMeiosis,
-  Tech.Ensnare,
-  Tech.SpawnBroodling,
-  Tech.Plague,
-  Tech.Consume,
-  Tech.MetasynapticNode,
-  Tech.AnabolicSynthesis,
-  Tech.ChitinousPlating,
-  Tech.AdrenalGlands,
-] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
   { from: Kind.Lair, to: Kind.Hive, satisfiedBy: [Kind.Hive] },
@@ -133,7 +54,6 @@ const ZERG_REPEATABLE_MORPH_MACRO = [
 ] as const;
 const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
-type ProducerReservations = Set<number>;
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const incidentTarget = (s: State, incident: TacticalIncident): number => {
   const e = s.e;
@@ -239,30 +159,6 @@ const terranAddonMacro = (s: State, player: number): readonly number[] =>
   hasCompletedKind(s, player, Kind.CovertOps)
     ? [Kind.NuclearSilo, Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower]
     : TERRAN_ADDON_MACRO;
-
-const linkedActiveAddonSlot = (s: State, slot: number): number => {
-  const e = s.e;
-  const target = e.target[slot]!;
-  if (target === NONE) return NONE;
-  const addon = slotOf(target);
-  return addon >= 0 && addon < e.hi && activeAddonParentSlot(s, addon) === slot ? addon : NONE;
-};
-
-const producerReserved = (s: State, reserved: ProducerReservations, slot: number): boolean => {
-  if (reserved.has(slot)) return true;
-  const parent = activeAddonParentSlot(s, slot);
-  if (parent !== NONE && reserved.has(parent)) return true;
-  const addon = linkedActiveAddonSlot(s, slot);
-  return addon !== NONE && reserved.has(addon);
-};
-
-const reserveProducer = (s: State, reserved: ProducerReservations, slot: number): void => {
-  reserved.add(slot);
-  const parent = activeAddonParentSlot(s, slot);
-  if (parent !== NONE) reserved.add(parent);
-  const addon = linkedActiveAddonSlot(s, slot);
-  if (addon !== NONE) reserved.add(addon);
-};
 
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
@@ -426,16 +322,8 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
     minerals = budget.minerals;
 
-    if (faction.name === 'Terran') {
-      maybeQueueTerranResearch(s, p, cmds, budget, reservedTechProducers);
-      minerals = budget.minerals;
-    } else if (faction.name === 'Protoss') {
-      maybeQueueProtossResearch(s, p, cmds, budget);
-      minerals = budget.minerals;
-    } else if (faction.name === 'Zerg') {
-      maybeQueueZergResearch(s, p, cmds, budget);
-      minerals = budget.minerals;
-    }
+    maybeQueueRaceResearch(s, p, faction, cmds, budget, reservedTechProducers);
+    minerals = budget.minerals;
 
     // 4) Pump army from the faction's real producer.
     for (const b of armyProducer) {
@@ -567,71 +455,6 @@ const maybeQueueTerranAddons = (
     if (maybeQueueAddon(s, player, cmds, budget, kind, reserved)) return;
   }
   maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player), reserved);
-};
-
-const maybeQueueTerranResearch = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  reserved: ProducerReservations,
-): void => {
-  for (const tech of TERRAN_RESEARCH_MACRO) {
-    if (maybeQueueResearch(s, player, cmds, budget, tech, reserved)) return;
-  }
-};
-
-const maybeQueueProtossResearch = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-): void => {
-  for (const tech of PROTOSS_RESEARCH_MACRO) {
-    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
-  }
-};
-
-const maybeQueueZergResearch = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-): void => {
-  for (const tech of ZERG_RESEARCH_MACRO) {
-    if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
-  }
-};
-
-const maybeQueueResearch = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  tech: number,
-  reserved?: ProducerReservations,
-): boolean => {
-  const def = TechDefs[tech];
-  if (!def) return false;
-  if (getTechLevel(s, player, tech) >= def.maxLevel) return false;
-  const level = nextTechLevel(s, player, tech);
-  const minerals = techMinerals(def, level);
-  const gas = techGas(def, level);
-  if (budget.minerals < minerals || budget.gas < gas) return false;
-
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
-    if (reserved && producerReserved(s, reserved, i)) continue;
-    const command: Command = { t: 'research', building: eid(e, i), tech };
-    if (!validateCommand(s, player, command).ok) continue;
-    cmds.push(command);
-    if (reserved) reserveProducer(s, reserved, i);
-    budget.minerals -= minerals;
-    budget.gas -= gas;
-    return true;
-  }
-  return false;
 };
 
 const maybeQueueNydusEndpoint = (

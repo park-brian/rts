@@ -657,6 +657,11 @@ Remaining work:
       anchors and the shared build validator. Already occupied or pending friendly/ally expansion
       sites are skipped so the bot does not duplicate a natural. Later slices still need island and
       transport-aware expansion choices.
+    - Research-director extraction slice is done: race research ladders and shared producer/budget
+      validation now live in `packages/ai/src/macro-research.ts`, while Terran add-on/research
+      producer reservations live in `packages/ai/src/macro-producers.ts`. The live bot controller now
+      orchestrates one `maybeQueueRaceResearch` director call instead of carrying three inline
+      research ladders and a duplicate scan over research producers.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
@@ -818,6 +823,9 @@ Done when:
 - Extracted a narrow `isTransitioning` state predicate for unfinished construction, morph, and merge phases.
 - Recorded the target sim source folder structure and migration rules for data, entity, commands,
   systems, spatial, mechanics, IO, map, and render ownership.
+- Extracted the bot research macro into `packages/ai/src/macro-research.ts` and shared Terran
+  parent/add-on producer reservations through `packages/ai/src/macro-producers.ts`, shrinking the
+  live bot controller without changing research ordering or legality checks.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as

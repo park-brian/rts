@@ -2,6 +2,8 @@ export * from './ability-policies.ts';
 export * from './macro.ts';
 export * from './macro-build.ts';
 export * from './macro-capacity.ts';
+export * from './macro-producers.ts';
 export * from './macro-pressure.ts';
+export * from './macro-research.ts';
 export * from './macro-tech.ts';
 export * from './bot.ts';
