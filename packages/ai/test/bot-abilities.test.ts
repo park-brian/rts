@@ -29,7 +29,7 @@ import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   generateMap,
   Role, TILE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
-  tileY, validateCommand, withinRangeSq, type Command, type State,
+  tileY, liftStructure, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
@@ -1371,6 +1371,47 @@ test('terran bot does not duplicate an already occupied expansion site', () => {
     fx(natural.x * TILE + TILE / 2),
     fx(natural.y * TILE + TILE / 2),
   );
+
+  assert.equal(
+    hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.CommandCenter),
+    false,
+  );
+});
+
+const playerIsland = (scenario: BotScenario): NonNullable<typeof scenario.state.map.bases>[number] => {
+  const island = scenario.state.map.bases?.find((base) => base.kind === 'island');
+  assert.ok(island);
+  return island;
+};
+
+test('terran bot lands lifted command centers on open island expansions', () => {
+  const scenario = botScenario({
+    seed: 514,
+    map: generateMap(1, 514, { preset: 'islandExpansions' }),
+    factions: [Terran, Zerg],
+  });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const island = playerIsland(scenario);
+  const extra = slotOf(scenario.spawn(Kind.CommandCenter, 0, base.x + fx(160), base.y));
+  liftStructure(scenario.state, extra);
+
+  const command = scenario.run(Terran, 0, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })
+    .find((c): c is Extract<BotCommand, { t: 'land' }> => c.t === 'land');
+
+  assert.ok(command);
+  assert.equal(tileX(command.x), island.x);
+  assert.equal(tileY(command.y), island.y);
+  assertPublicSurfaceExposes(scenario.state, 0, command);
+});
+
+test('terran bot does not send workers to build unreachable island expansions', () => {
+  const scenario = botScenario({
+    seed: 515,
+    map: generateMap(1, 515, { preset: 'islandExpansions' }),
+    factions: [Terran, Zerg],
+  });
+  scenario.resources(0, 2_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
 
   assert.equal(
     hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.CommandCenter),

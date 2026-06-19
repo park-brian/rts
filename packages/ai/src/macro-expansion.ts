@@ -1,14 +1,18 @@
 import {
+  Order,
   Kind,
   NONE,
   ONE,
   Role,
   TILE,
   baseDepotFootprint,
+  eid,
   footprintsOverlap,
   isLarvaSourceKind,
+  isLiftedStructureFlags,
   sameTeam,
   structureFootprint,
+  validateCommand,
   type BaseSite,
   type Command,
   type Faction,
@@ -75,13 +79,19 @@ const ownedOrPendingDepotCount = (s: State, player: number, plannedKind: number)
 const desiredDepotCount = (minerals: number): number =>
   Math.min(EXPANSION_MAX, 2 + Math.trunc((minerals - EXPANSION_BANK) / EXPANSION_STEP));
 
-const candidateSites = (s: State, player: number, home: number, plannedKind: number): BaseSite[] => {
+const candidateSites = (
+  s: State,
+  player: number,
+  home: number,
+  plannedKind: number,
+  options: { islands?: boolean } = {},
+): BaseSite[] => {
   const e = s.e;
   const ownTeam = s.teams[player] ?? player;
   const hx = e.x[home]!;
   const hy = e.y[home]!;
   return [...(s.map.bases ?? [])]
-    .filter((site) => site.kind !== 'island')
+    .filter((site) => options.islands === true ? site.kind === 'island' : site.kind !== 'island')
     .filter((site) => site.owner === undefined || site.owner === player)
     .filter((site) => site.team < 0 || site.team === ownTeam)
     .filter((site) => !siteReservedByTeam(s, player, site, plannedKind))
@@ -96,6 +106,28 @@ const candidateSites = (s: State, player: number, home: number, plannedKind: num
     });
 };
 
+const maybeLandLiftedIslandDepot = (
+  s: State,
+  player: number,
+  home: number,
+  plannedKind: number,
+  cmds: Command[],
+): boolean => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== plannedKind) continue;
+    if (e.order[i] !== Order.Idle || !isLiftedStructureFlags(e.flags[i]!)) continue;
+    for (const site of candidateSites(s, player, home, plannedKind, { islands: true })) {
+      const point = siteCenter(site);
+      const command: Command = { t: 'land', building: eid(e, i), x: point.x, y: point.y };
+      if (!validateCommand(s, player, command).ok) continue;
+      cmds.push(command);
+      return true;
+    }
+  }
+  return false;
+};
+
 export const maybeQueueExpansion = (
   s: State,
   player: number,
@@ -106,7 +138,9 @@ export const maybeQueueExpansion = (
   worker: number,
   findSpot: PointSpotFinder,
 ): boolean => {
-  if (worker === NONE || facts.primaryBase === NONE) return false;
+  if (facts.primaryBase === NONE) return false;
+  if (maybeLandLiftedIslandDepot(s, player, facts.primaryBase, faction.depot, cmds)) return true;
+  if (worker === NONE) return false;
   if (budget.minerals < EXPANSION_BANK) return false;
   if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return false;
 

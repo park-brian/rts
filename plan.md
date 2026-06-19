@@ -359,6 +359,10 @@ Remaining work:
     `mapGroundConnected` / `mapIslandBasesDisconnected` validators. Remaining island work:
     transport-aware AI expansion logic and player/UI affordances for air-only or transport-only base
     access.
+  - Lifted-depot island landing slice is done: Terran expansion macro can land an existing idle
+    lifted Command Center on an open island expansion through the shared `land` validator, while
+    worker-built expansion choices still exclude islands until transport-aware builder logistics are
+    explicit.
 
 Done when:
 
@@ -666,6 +670,9 @@ Remaining work:
       anchors and the shared build validator. Already occupied or pending friendly/ally expansion
       sites are skipped so the bot does not duplicate a natural. Later slices still need island and
       transport-aware expansion choices.
+    - Lifted-depot island landing slice is done: the expansion director treats an idle lifted Terran
+      Command Center as an existing expansion asset and lands it on the nearest legal open island
+      site through shared validation, without teaching workers to issue impossible island builds.
     - Research-director extraction slice is done: race research ladders and shared producer/budget
       validation now live in `packages/ai/src/macro-research.ts`, while Terran add-on/research
       producer reservations live in `packages/ai/src/macro-producers.ts`. The live bot controller now
@@ -788,6 +795,8 @@ Done when:
 - Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
 - Added a replay-visible `islandExpansions` procedural preset with explicit disconnected-island
   validation while preserving strict full-ground-connectivity checks for older presets.
+- Let the Terran bot land an already lifted Command Center on an open island expansion through the
+  shared land validator while keeping worker-built expansion orders ground-reachable.
 - Extended the faction bot's validator-backed research macro to Terran tech/upgrades across
   Academy, Machine Shop, Covert Ops, Control Tower, Physics Lab, Science Facility, Engineering Bay,
   and Armory, with producer, duplicate, queue, and budget coverage.
