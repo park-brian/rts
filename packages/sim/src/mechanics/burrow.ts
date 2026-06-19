@@ -1,8 +1,6 @@
-import { Kind, Order, Role, Tech, Units } from '../data/index.ts';
+import { Kind, Role, Tech, Units } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
-import { NONE } from '../entity/world.ts';
-import { clearOrderQueue } from '../entity/order-queue.ts';
-import { clearVelocity } from '../spatial/motion.ts';
+import { isModeTransitioning } from '../entity/state.ts';
 import { getTechLevel } from './tech.ts';
 
 const BURROWABLE = new Set<number>([
@@ -32,6 +30,7 @@ export const canBurrowSlot = (s: State, slot: number): boolean => {
 export const canUseWeaponNow = (s: State, slot: number): boolean => {
   const e = s.e;
   if (e.built[slot] !== 1) return false;
+  if (isModeTransitioning(s, slot)) return false;
   switch (e.kind[slot]) {
     case Kind.Lurker:
       return e.burrowed[slot] === 1;
@@ -40,16 +39,4 @@ export const canUseWeaponNow = (s: State, slot: number): boolean => {
     default:
       return e.burrowed[slot] !== 1;
   }
-};
-
-export const setBurrowed = (s: State, slot: number, active: boolean): void => {
-  const e = s.e;
-  e.settled[slot] = 0;
-  clearOrderQueue(e, slot);
-  clearVelocity(e, slot);
-  e.burrowed[slot] = active ? 1 : 0;
-  e.order[slot] = Order.Idle;
-  e.target[slot] = NONE;
-  e.intentTarget[slot] = NONE;
-  e.combatTarget[slot] = NONE;
 };

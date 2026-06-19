@@ -6,6 +6,7 @@ import type { CommandResult, PlayerCommands } from './commands/types.ts';
 import { census } from './systems/census.ts';
 import { applyCommands } from './commands/ingest.ts';
 import { construction } from './systems/construction.ts';
+import { modeTransitions } from './systems/mode-transitions.ts';
 import { production } from './systems/production/index.ts';
 import { research } from './systems/research.ts';
 import { harvest } from './systems/harvest.ts';
@@ -39,6 +40,7 @@ export const stepWorld = (s: State, batch: PlayerCommands[]): CommandResult[] =>
     census(s); // derive supply used/cap
     updateCloakAuras(s); // derived, but command validation needs current aura cloak
     const results = applyCommands(s, batch);
+    modeTransitions(s);
     construction(s);
     production(s);
     research(s);

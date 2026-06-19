@@ -8,6 +8,12 @@ import { canDetect } from '../src/mechanics/detection.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
+const finishTransition = (sim: Sim, slot: number): void => {
+  const e = sim.fullState().e;
+  for (let i = 0; i < 200 && e.modeTransitionTimer[slot]! > 0; i++) sim.step([]);
+  assert.equal(e.modeTransitionTimer[slot], 0);
+};
+
 test('burrow requires tech for normal zerg units and cloaks them from non-detectors', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 80 });
   const e = s.e;
@@ -20,6 +26,9 @@ test('burrow requires tech for normal zerg units and cloaks them from non-detect
   grant(0, Tech.Burrow);
   results = sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: zergling, active: true }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'burrow', ok: true }]);
+  assert.equal(e.burrowed[slotOf(zergling)], 0);
+  assert.ok(e.modeTransitionTimer[slotOf(zergling)]! > 0);
+  finishTransition(sim, slotOf(zergling));
   assert.equal(e.burrowed[slotOf(zergling)], 1);
   assert.equal(canDetect(s, 1, slotOf(zergling)), false);
 
@@ -50,6 +59,8 @@ test('lurkers burrow innately and only attack while burrowed', () => {
 
   results = sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: lurker, active: true }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'burrow', ok: true }]);
+  assert.equal(e.burrowed[slotOf(lurker)], 0);
+  finishTransition(sim, slotOf(lurker));
   assert.equal(e.burrowed[slotOf(lurker)], 1);
 
   marine = spawn(Kind.Marine, 1, fx(455), fx(400));
@@ -64,6 +75,7 @@ test('lurker attack line damages ground units along the spine path', () => {
   const e = s.e;
   const lurker = spawn(Kind.Lurker, 0, fx(400), fx(400));
   sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: lurker, active: true }] }]);
+  finishTransition(sim, slotOf(lurker));
   const target = spawn(Kind.SiegeTank, 1, fx(560), fx(400));
   const along = spawn(Kind.Marine, 1, fx(490), fx(405));
   const friendlyAlong = spawn(Kind.Medic, 0, fx(520), fx(398));
@@ -89,6 +101,7 @@ test('burrow state round-trips through byte snapshots', () => {
   const zergling = spawn(Kind.Zergling, 0, fx(400), fx(400));
   grant(0, Tech.Burrow);
   sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: zergling, active: true }] }]);
+  finishTransition(sim, slotOf(zergling));
 
   const restored = Sim.deserialize(sim.serialize());
 

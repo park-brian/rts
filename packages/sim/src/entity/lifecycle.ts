@@ -1,5 +1,6 @@
 import { Kind, Order, Role, Units } from '../data/index.ts';
-import { isTransitioning } from './state.ts';
+import { isModeTransitioning, isTransitioning } from './state.ts';
+import { modeTransitionDetail, modeTransitionLabel } from '../mechanics/mode-transition.ts';
 import { entityWorkQueue } from './work-queue.ts';
 import type { State } from './world.ts';
 
@@ -83,11 +84,33 @@ const unfinishedLifecycle = (s: State, slot: number): EntityLifecycle => {
   };
 };
 
+const modeTransitionLifecycle = (s: State, slot: number): EntityLifecycle => {
+  const e = s.e;
+  const kind = e.kind[slot]!;
+  const targetKind = e.modeTransitionTargetKind[slot]! || kind;
+  const total = e.modeTransitionTotal[slot]!;
+  const remaining = e.modeTransitionTimer[slot]!;
+  return {
+    state: 'transitioning',
+    label: modeTransitionLabel(s, slot),
+    detail: modeTransitionDetail(s, slot),
+    progress: clampProgress(remaining, total),
+    remaining,
+    total,
+    displayKind: kind,
+    sourceKind: kind,
+    targetKind,
+    busy: true,
+    cancelable: false,
+  };
+};
+
 export const entityLifecycle = (s: State, slot: number): EntityLifecycle => {
   const e = s.e;
   if (e.alive[slot] !== 1) return emptyLifecycle('dead', 'Dead');
   const kind = e.kind[slot]!;
   if (isTransitioning(s, slot)) return unfinishedLifecycle(s, slot);
+  if (isModeTransitioning(s, slot)) return modeTransitionLifecycle(s, slot);
 
   const work = entityWorkQueue(s, slot);
   if (work.active?.t === 'production') {

@@ -49,6 +49,11 @@ export type Entities = {
   cloakTimer: Int32Array;
   cloakAura: Uint8Array;
   burrowed: Uint8Array;
+  modeTransitionType: Uint8Array;
+  modeTransitionTargetKind: Uint16Array;
+  modeTransitionTargetState: Uint8Array;
+  modeTransitionTimer: Int32Array;
+  modeTransitionTotal: Int32Array;
   flags: Uint16Array; // Role bitflags (copied from the unit def at spawn)
   order: Uint8Array;
   target: Int32Array; // Command-owned EntityId or NONE; acquired combat lives in combatTarget.
@@ -119,7 +124,10 @@ export const ENTITY_COLUMNS: ReadonlyArray<readonly [keyof Entities, ColType]> =
   ['stasisTimer', 'i32'], ['maelstromTimer', 'i32'], ['acidSporeCount', 'u8'], ['acidSporeTimer', 'i32'],
   ['cloakActive', 'u8'], ['cloakTimer', 'i32'],
   ['opticalFlare', 'u8'], ['parasiteOwner', 'u8'], ['illusion', 'u8'], ['lifeTimer', 'i32'],
-  ['cloakAura', 'u8'], ['burrowed', 'u8'], ['flags', 'u16'], ['order', 'u8'],
+  ['cloakAura', 'u8'], ['burrowed', 'u8'],
+  ['modeTransitionType', 'u8'], ['modeTransitionTargetKind', 'u16'], ['modeTransitionTargetState', 'u8'],
+  ['modeTransitionTimer', 'i32'], ['modeTransitionTotal', 'i32'],
+  ['flags', 'u16'], ['order', 'u8'],
   ['target', 'i32'], ['intentTarget', 'i32'], ['combatTarget', 'i32'],
   ['orderQueueLen', 'u8'],
   ['orderQueue0', 'u8'], ['orderQueue1', 'u8'], ['orderQueue2', 'u8'], ['orderQueue3', 'u8'],
@@ -250,6 +258,11 @@ const makeEntities = (): Entities => {
     cloakTimer: new Int32Array(CAP),
     cloakAura: new Uint8Array(CAP),
     burrowed: new Uint8Array(CAP),
+    modeTransitionType: new Uint8Array(CAP),
+    modeTransitionTargetKind: new Uint16Array(CAP),
+    modeTransitionTargetState: new Uint8Array(CAP),
+    modeTransitionTimer: new Int32Array(CAP),
+    modeTransitionTotal: new Int32Array(CAP),
     flags: new Uint16Array(CAP),
     order: new Uint8Array(CAP),
     target: new Int32Array(CAP),
@@ -414,6 +427,11 @@ export const trySpawn = (
   e.cloakTimer[slot] = 0;
   e.cloakAura[slot] = 0;
   e.burrowed[slot] = 0;
+  e.modeTransitionType[slot] = 0;
+  e.modeTransitionTargetKind[slot] = 0;
+  e.modeTransitionTargetState[slot] = 0;
+  e.modeTransitionTimer[slot] = 0;
+  e.modeTransitionTotal[slot] = 0;
   e.flags[slot] = flags;
   e.order[slot] = 0;
   e.target[slot] = NONE;
@@ -543,6 +561,11 @@ export const kill = (s: State, slot: number): void => {
   }
   e.buildKind[slot] = 0;
   e.morphFromKind[slot] = 0;
+  e.modeTransitionType[slot] = 0;
+  e.modeTransitionTargetKind[slot] = 0;
+  e.modeTransitionTargetState[slot] = 0;
+  e.modeTransitionTimer[slot] = 0;
+  e.modeTransitionTotal[slot] = 0;
   e.container[slot] = NONE;
   e.home[slot] = NONE;
   e.orderQueueLen[slot] = 0;
@@ -675,6 +698,11 @@ export const hashState = (s: State): number => {
     h = fold(h, e.cloakTimer[i]!);
     h = fold(h, e.cloakAura[i]!);
     h = fold(h, e.burrowed[i]!);
+    h = fold(h, e.modeTransitionType[i]!);
+    h = fold(h, e.modeTransitionTargetKind[i]!);
+    h = fold(h, e.modeTransitionTargetState[i]!);
+    h = fold(h, e.modeTransitionTimer[i]!);
+    h = fold(h, e.modeTransitionTotal[i]!);
     h = fold(h, e.order[i]!);
     h = fold(h, e.target[i]!);
     h = fold(h, e.intentTarget[i]!);

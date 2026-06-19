@@ -6,17 +6,18 @@ import { isContained } from './cargo.ts';
 import { distanceSq, withinRangeSq } from '../spatial/geometry.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { isDisabled } from '../systems/status.ts';
+import { startModeTransform } from './mode-transition.ts';
 
 export type UnitTransform = {
   from: number;
   to: number;
   tech?: number;
-  mode?: 'instant' | 'morph' | 'merge';
+  mode?: 'instant' | 'morph' | 'merge' | 'deploy';
 };
 
 export const UnitTransforms: readonly UnitTransform[] = [
-  { from: Kind.SiegeTank, to: Kind.SiegeTankSieged, tech: Tech.SiegeTech },
-  { from: Kind.SiegeTankSieged, to: Kind.SiegeTank },
+  { from: Kind.SiegeTank, to: Kind.SiegeTankSieged, tech: Tech.SiegeTech, mode: 'deploy' },
+  { from: Kind.SiegeTankSieged, to: Kind.SiegeTank, mode: 'deploy' },
   { from: Kind.HighTemplar, to: Kind.Archon, mode: 'merge' },
   { from: Kind.DarkTemplar, to: Kind.DarkArchon, mode: 'merge' },
   { from: Kind.Hydralisk, to: Kind.Lurker, tech: Tech.LurkerAspect, mode: 'morph' },
@@ -136,5 +137,6 @@ export const applyTransform = (s: State, slot: number, kind: number, target = NO
     const partner = mergePartnerFor(s, slot, kind, target);
     if (partner !== NONE) startMerge(s, slot, kind, partner);
   } else if (transform?.mode === 'morph') startMorph(s, slot, kind);
+  else if (transform?.mode === 'deploy') startModeTransform(s, slot, kind);
   else transformUnit(s, slot, kind);
 };

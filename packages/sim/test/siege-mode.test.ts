@@ -5,6 +5,13 @@ import { fx } from '../src/fixed.ts';
 import { eid, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
+import type { Sim } from '../src/sim.ts';
+
+const finishTransition = (sim: Sim, slot: number): void => {
+  const e = sim.fullState().e;
+  for (let i = 0; i < 200 && e.modeTransitionTimer[slot]! > 0; i++) sim.step([]);
+  assert.equal(e.modeTransitionTimer[slot], 0);
+};
 
 test('siege transform requires research and preserves unit state', () => {
   const { sim, state: s, spawn, grant } = simScenario({ players: 1, seed: 150 });
@@ -19,16 +26,23 @@ test('siege transform requires research and preserves unit state', () => {
   grant(0, Tech.SiegeTech);
   const accepted = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: eid(e, tank), kind: Kind.SiegeTankSieged }] }]);
   assert.deepEqual(accepted, [{ player: 0, index: 0, t: 'transform', ok: true }]);
-  assert.equal(e.kind[tank], Kind.SiegeTankSieged);
+  assert.equal(e.kind[tank], Kind.SiegeTank);
   assert.equal(e.hp[tank], 91);
   assert.equal(e.order[tank], Order.Idle);
-  assert.equal(e.flags[tank], Units[Kind.SiegeTankSieged]!.roles);
+  assert.ok(e.modeTransitionTimer[tank]! > 0);
 
   const move = sim.step([{ player: 0, cmds: [{ t: 'move', unit: eid(e, tank), x: fx(900), y: fx(700) }] }]);
   assert.deepEqual(move, [{ player: 0, index: 0, t: 'move', ok: false, reason: 'missing-capability' }]);
+  finishTransition(sim, tank);
+  assert.equal(e.kind[tank], Kind.SiegeTankSieged);
+  assert.equal(e.hp[tank], 91);
+  assert.equal(e.flags[tank], Units[Kind.SiegeTankSieged]!.roles);
 
   const unsiege = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: eid(e, tank), kind: Kind.SiegeTank }] }]);
   assert.deepEqual(unsiege, [{ player: 0, index: 0, t: 'transform', ok: true }]);
+  assert.equal(e.kind[tank], Kind.SiegeTankSieged);
+  assert.ok(e.modeTransitionTimer[tank]! > 0);
+  finishTransition(sim, tank);
   assert.equal(e.kind[tank], Kind.SiegeTank);
 });
 

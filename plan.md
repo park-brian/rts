@@ -216,6 +216,12 @@ Remaining work:
 
 - Replace instant siege/unsiege and burrow/unburrow with verified timed transitions and shared
   busy-state validation.
+  - Shared mode-transition slice is done: siege/unsiege and burrow/unburrow now enter a serialized,
+    hashed, lifecycle-visible busy state, reject other commands through common validation while
+    transitioning, and complete deterministically through one tick system.
+  - Remaining: source exact BW frame counts for each transition from stronger references than the
+    currently available local BWAPI command/order names, then update the named timing constants and
+    timing tests if needed.
 - Add missing core order semantics: queued waypoints, and clear interruption
   rules for Stop, attack, transport, spell, gather, repair, rally-spawned orders, and queued orders.
   - Hold Position slice is done: `hold` is a first-class command, replay/action-mask encoded, exposed

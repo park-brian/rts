@@ -8,7 +8,7 @@ import { eid, hashState, makeState, slotOf } from '../src/entity/world.ts';
 import { applyCommands } from '../src/commands/ingest.ts';
 import { stepWorld } from '../src/tick.ts';
 import { loadUnitInto, unloadUnit } from '../src/mechanics/cargo.ts';
-import { setBurrowed } from '../src/mechanics/burrow.ts';
+import { startBurrowTransition } from '../src/mechanics/mode-transition.ts';
 import { liftStructure, startStructureLanding } from '../src/mechanics/terran-mobility.ts';
 import { applyTransform } from '../src/mechanics/transforms.ts';
 import { tickStatusTimers } from '../src/systems/status.ts';
@@ -131,7 +131,7 @@ test('hard unit-state transitions clear persistent movement velocity', () => {
   const siegeTank = slotOf(spawnUnit(s, Kind.SiegeTank, 0, fx(12 * 32), fx(12 * 32)));
 
   setVelocity(s, zergling);
-  setBurrowed(s, zergling, true);
+  startBurrowTransition(s, zergling, true);
   assertVelocityCleared(s, zergling);
 
   setVelocity(s, commandCenter);

@@ -121,3 +121,23 @@ test('entityLifecycle reports active production, research, and channeling', () =
   assert.equal(life.label, 'Casting');
   assert.equal(life.busy, true);
 });
+
+test('entityLifecycle reports mode transitions separately from construction', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 9005 });
+  const tank = spawn(Kind.SiegeTank, 0, fx(400), fx(400));
+  grant(0, Tech.SiegeTech);
+
+  assert.deepEqual(sim.step([{ player: 0, cmds: [{ t: 'transform', unit: tank, kind: Kind.SiegeTankSieged }] }]), [
+    { player: 0, index: 0, t: 'transform', ok: true },
+  ]);
+
+  const life = entityLifecycle(s, slotOf(tank));
+  assert.equal(isTransitioning(s, slotOf(tank)), false);
+  assert.equal(life.state, 'transitioning');
+  assert.equal(life.label, 'Sieging');
+  assert.equal(life.sourceKind, Kind.SiegeTank);
+  assert.equal(life.targetKind, Kind.SiegeTankSieged);
+  assert.equal(life.busy, true);
+  assert.equal(life.cancelable, false);
+  assert.ok(life.progress > 0);
+});

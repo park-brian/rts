@@ -4,7 +4,7 @@ import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.t
 import { isContained } from '../mechanics/cargo.ts';
 import { Kind } from '../data/index.ts';
 import { canDetect } from '../mechanics/detection.ts';
-import { isTransitioning } from '../entity/state.ts';
+import { isModeTransitioning, isTransitioning } from '../entity/state.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isDisabled } from '../systems/status.ts';
 import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';
@@ -107,7 +107,7 @@ export const canReceiveOrder = (
   if (options.rejectBurrowed && e.burrowed[slot] === 1) return reject('missing-capability');
   if (options.rejectIllusion && e.illusion[slot] === 1) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
-  if (isTransitioning(s, slot)) return reject('missing-capability');
+  if (isTransitioning(s, slot) || isModeTransitioning(s, slot)) return reject('missing-capability');
   return { ok: true, slot };
 };
 
@@ -140,7 +140,7 @@ export const hasActiveAddonTarget = (s: State, slot: number): boolean => {
 };
 
 export const isBusy = (s: State, slot: number): boolean =>
-  hasActiveProduction(s, slot) || hasActiveResearch(s, slot);
+  hasActiveProduction(s, slot) || hasActiveResearch(s, slot) || isModeTransitioning(s, slot);
 
 export const clearSettled = (s: State, slot: number): void => {
   s.e.settled[slot] = 0;
