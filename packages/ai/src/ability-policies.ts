@@ -25,179 +25,91 @@ export type PointAbilityPolicy = {
 
 export type AbilityPolicy = EntityAbilityPolicy | PointAbilityPolicy;
 
+const entityPolicy = (
+  target: EntityAbilityPolicy['target'],
+  ability: number,
+  minScore: number,
+  scoreTarget: EntityAbilityPolicy['scoreTarget'],
+  canCast?: EntityAbilityPolicy['canCast'],
+): EntityAbilityPolicy => {
+  const policy: EntityAbilityPolicy = { ability, target, minScore, scoreTarget };
+  if (canCast) policy.canCast = canCast;
+  return policy;
+};
+
+const pointPolicy = (
+  target: PointAbilityPolicy['target'],
+  ability: number,
+  minScore: number,
+  scorePoint: PointAbilityPolicy['scorePoint'],
+  canCast?: PointAbilityPolicy['canCast'],
+): PointAbilityPolicy => {
+  const policy: PointAbilityPolicy = { ability, target, minScore, scorePoint };
+  if (canCast) policy.canCast = canCast;
+  return policy;
+};
+
 // Order is tactical priority; each caster emits at most one tactical ability per tick.
 export const TACTICAL_ABILITY_POLICIES: readonly AbilityPolicy[] = [
-  {
-    ability: Ability.ShieldRecharge,
-    target: 'friendly-entity',
-    minScore: 8,
-    scoreTarget: (s, player, target) => {
-      const e = s.e;
-      if (e.owner[target] !== player || (e.flags[target]! & Role.Mobile) === 0) return 0;
-      return Units[e.kind[target]!]!.shields - e.shield[target]!;
-    },
-  },
-  {
-    ability: Ability.Restoration,
-    target: 'friendly-entity',
-    minScore: 1,
-    scoreTarget: (s, _player, target) => scoreRestorationTarget(s, target),
-  },
-  {
-    ability: Ability.Heal,
-    target: 'friendly-entity',
-    minScore: 6,
-    scoreTarget: (s, player, target) => {
-      const e = s.e;
-      if (e.owner[target] !== player || (unitTraits(e.kind[target]!) & Trait.Biological) === 0) return 0;
-      return Units[e.kind[target]!]!.hp - e.hp[target]!;
-    },
-  },
-  {
-    ability: Ability.ScannerSweep,
-    target: 'enemy-point',
-    minScore: 0,
-    scorePoint: (s, player, x, y) => scoreScannerTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.Hallucination,
-    target: 'friendly-entity',
-    minScore: 120,
-    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
-  },
-  {
-    ability: Ability.Recall,
-    target: 'friendly-point',
-    minScore: 180,
-    canCast: (s, _player, caster, focusX, focusY) =>
-      withinRangeSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY, TILE_FX * 12),
-    scorePoint: (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
-  },
-  {
-    ability: Ability.MindControl,
-    target: 'enemy-entity',
-    minScore: 180,
-    scoreTarget: (s, player, target) => scoreMindControlTarget(s, player, target),
-  },
-  {
-    ability: Ability.YamatoGun,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreYamatoTarget(s, player, target),
-  },
-  {
-    ability: Ability.NuclearStrike,
-    target: 'enemy-point',
-    minScore: 650,
-    canCast: (s, player) => hasReadyNuke(s, player),
-    scorePoint: (s, player, x, y) => scoreNukeTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.InfestCommandCenter,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreInfestTarget(s, player, target),
-  },
-  {
-    ability: Ability.SpawnBroodling,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreBroodlingTarget(s, player, target),
-  },
-  {
-    ability: Ability.Parasite,
-    target: 'enemy-entity',
-    minScore: 220,
-    scoreTarget: (s, player, target) => scoreParasiteTarget(s, player, target),
-  },
-  {
-    ability: Ability.Feedback,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreFeedbackTarget(s, player, target),
-  },
-  {
-    ability: Ability.OpticalFlare,
-    target: 'enemy-entity',
-    minScore: 100,
-    scoreTarget: (s, player, target) => scoreOpticalFlareTarget(s, player, target),
-  },
-  {
-    ability: Ability.Lockdown,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreLockdownTarget(s, player, target),
-  },
-  {
-    ability: Ability.Irradiate,
-    target: 'enemy-entity',
-    minScore: 1,
-    scoreTarget: (s, player, target) => scoreIrradiateTarget(s, player, target),
-  },
-  {
-    ability: Ability.EMPShockwave,
-    target: 'enemy-point',
-    minScore: 100,
-    scorePoint: (s, player, x, y) => scoreEmpTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.PsionicStorm,
-    target: 'enemy-point',
-    minScore: 70,
-    scorePoint: (s, player, x, y) => scoreStormTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.Plague,
-    target: 'enemy-point',
-    minScore: 40,
-    scorePoint: (s, player, x, y) => scorePlagueTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.Ensnare,
-    target: 'enemy-point',
-    minScore: 80,
-    scorePoint: (s, player, x, y) => scoreEnsnareTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.Maelstrom,
-    target: 'enemy-point',
-    minScore: 90,
-    scorePoint: (s, player, x, y) => scoreMaelstromTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.StasisField,
-    target: 'enemy-point',
-    minScore: 140,
-    scorePoint: (s, player, x, y) => scoreStasisTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.DisruptionWeb,
-    target: 'enemy-point',
-    minScore: 70,
-    scorePoint: (s, player, x, y) => scoreDisruptionWebTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.DefensiveMatrix,
-    target: 'friendly-entity',
-    minScore: 90,
-    scoreTarget: (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
-  },
-  {
-    ability: Ability.DarkSwarm,
-    target: 'enemy-point',
-    minScore: 60,
-    scorePoint: (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y),
-  },
-  {
-    ability: Ability.Consume,
-    target: 'friendly-entity',
-    minScore: 80,
-    canCast: (s, _player, caster) => {
+  entityPolicy('friendly-entity', Ability.ShieldRecharge, 8, (s, player, target) => {
+    const e = s.e;
+    if (e.owner[target] !== player || (e.flags[target]! & Role.Mobile) === 0) return 0;
+    return Units[e.kind[target]!]!.shields - e.shield[target]!;
+  }),
+  entityPolicy('friendly-entity', Ability.Restoration, 1, (s, _player, target) => scoreRestorationTarget(s, target)),
+  entityPolicy('friendly-entity', Ability.Heal, 6, (s, player, target) => {
+    const e = s.e;
+    if (e.owner[target] !== player || (unitTraits(e.kind[target]!) & Trait.Biological) === 0) return 0;
+    return Units[e.kind[target]!]!.hp - e.hp[target]!;
+  }),
+  pointPolicy('enemy-point', Ability.ScannerSweep, 0, (s, player, x, y) => scoreScannerTarget(s, player, x, y)),
+  entityPolicy(
+    'friendly-entity',
+    Ability.Hallucination,
+    120,
+    (s, player, target, _caster, focusX, focusY) => scoreHallucinationTarget(s, player, target, focusX, focusY),
+  ),
+  pointPolicy(
+    'friendly-point',
+    Ability.Recall,
+    180,
+    (s, player, x, y) => scoreFriendlyRecallCluster(s, player, x, y, Abilities[Ability.Recall]!.radius),
+    (s, _player, caster, focusX, focusY) => withinRangeSq(s.e.x[caster]!, s.e.y[caster]!, focusX, focusY, TILE_FX * 12),
+  ),
+  entityPolicy('enemy-entity', Ability.MindControl, 180, (s, player, target) => scoreMindControlTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.YamatoGun, 1, (s, player, target) => scoreYamatoTarget(s, player, target)),
+  pointPolicy('enemy-point', Ability.NuclearStrike, 650, (s, player, x, y) => scoreNukeTarget(s, player, x, y), (s, player) => hasReadyNuke(s, player)),
+  entityPolicy('enemy-entity', Ability.InfestCommandCenter, 1, (s, player, target) => scoreInfestTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.SpawnBroodling, 1, (s, player, target) => scoreBroodlingTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.Parasite, 220, (s, player, target) => scoreParasiteTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.Feedback, 1, (s, player, target) => scoreFeedbackTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.OpticalFlare, 100, (s, player, target) => scoreOpticalFlareTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.Lockdown, 1, (s, player, target) => scoreLockdownTarget(s, player, target)),
+  entityPolicy('enemy-entity', Ability.Irradiate, 1, (s, player, target) => scoreIrradiateTarget(s, player, target)),
+  pointPolicy('enemy-point', Ability.EMPShockwave, 100, (s, player, x, y) => scoreEmpTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.PsionicStorm, 70, (s, player, x, y) => scoreStormTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.Plague, 40, (s, player, x, y) => scorePlagueTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.Ensnare, 80, (s, player, x, y) => scoreEnsnareTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.Maelstrom, 90, (s, player, x, y) => scoreMaelstromTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.StasisField, 140, (s, player, x, y) => scoreStasisTarget(s, player, x, y)),
+  pointPolicy('enemy-point', Ability.DisruptionWeb, 70, (s, player, x, y) => scoreDisruptionWebTarget(s, player, x, y)),
+  entityPolicy(
+    'friendly-entity',
+    Ability.DefensiveMatrix,
+    90,
+    (s, player, target, _caster, focusX, focusY) => scoreMatrixTarget(s, player, target, focusX, focusY),
+  ),
+  pointPolicy('enemy-point', Ability.DarkSwarm, 60, (s, player, x, y) => scoreDarkSwarmTarget(s, player, x, y)),
+  entityPolicy(
+    'friendly-entity',
+    Ability.Consume,
+    80,
+    (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
+    (s, _player, caster) => {
       const ability = Abilities[Ability.Consume]!;
       return s.e.energy[caster]! <= s.e.energyMax[caster]! - ability.damage;
     },
-    scoreTarget: (s, _player, target, caster) => scoreConsumeTarget(s, caster, target),
-  },
+  ),
 ];
 
 export const ACTIVE_CLOAK_ABILITIES: readonly number[] = [Ability.PersonnelCloaking, Ability.CloakingField];

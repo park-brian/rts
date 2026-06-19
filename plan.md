@@ -213,6 +213,9 @@ Remaining work:
     guard test tying policy target shape to sim ability target modes. Remaining work: progressively
     name reusable scorer/candidate patterns where that reduces duplication without hiding tactical
     intent in opaque callbacks.
+  - Tactical policy row-constructor slice is done: entity-target and point-target policy rows now
+    use tiny constructors that make target shape, ability id, threshold, scorer, and optional cast
+    gate explicit without repeating object boilerplate or changing priority order.
 - Add effect presentation descriptors for Scanner Sweep, Nuclear Strike, Storm, Swarm, Web,
   Plague/Irradiate overlays, detection affordances, and future persistent spell fields.
   - First effect-presentation slice is done: Scanner Sweep and Nuclear Strike affordance visibility
@@ -660,6 +663,8 @@ Done when:
   sim render descriptors so the app no longer owns those visibility/status policy strings.
 - Replaced ability-interpreter switch ladders for status timers, area timers, marker flags, restore
   pools, and target buffers with descriptor routing maps, keeping execution variants data-owned.
+- Simplified tactical AI ability policy rows with explicit entity/point policy constructors, so the
+  table emphasizes priority and scoring instead of repeated wrapper fields.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded
