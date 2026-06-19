@@ -4,7 +4,7 @@ import { Kind, Order, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, NONE, slotOf } from '../src/entity/world.ts';
 import { deserializeState, serializeState } from '../src/io/serialize.ts';
-import { parseReplay } from '../src/replay.ts';
+import { parseReplay } from '../src/io/replay.ts';
 import { tileX, tileY } from '../src/pathing.ts';
 import { topDownEdgeDistance } from '../src/spatial.ts';
 import { simScenario } from '../test-support/scenario.ts';

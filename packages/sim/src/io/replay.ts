@@ -4,11 +4,11 @@
 // trajectory format — and the substrate for "what-ifs": restore a snapshot at tick
 // T (Sim.snapshot/serialize) and feed alternative commands to branch the future.
 
-import { Sim } from './sim.ts';
-import type { Command, PlayerCommands } from './commands/types.ts';
-import { Factions, factionNameOf, type FactionName } from './data.ts';
-import { sliceMap, type MapDef } from './map.ts';
-import { generateMap, type MapPreset, type MidfieldModule } from './procedural.ts';
+import { Sim } from '../sim.ts';
+import type { Command, PlayerCommands } from '../commands/types.ts';
+import { Factions, factionNameOf, type FactionName } from '../data.ts';
+import { sliceMap, type MapDef } from '../map.ts';
+import { generateMap, type MapPreset, type MidfieldModule } from '../procedural.ts';
 
 export const REPLAY_VERSION = 1;
 

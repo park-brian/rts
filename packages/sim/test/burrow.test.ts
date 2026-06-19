@@ -5,7 +5,7 @@ import { Kind, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/detection.ts';
-import { parseReplay } from '../src/replay.ts';
+import { parseReplay } from '../src/io/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('burrow requires tech for normal zerg units and cloaks them from non-detectors', () => {

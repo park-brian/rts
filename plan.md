@@ -394,6 +394,9 @@ Done when:
   preserving the stable package export.
 - Moved byte state snapshot serialization under `io/serialize.ts`, deleting the old root
   `serialize.ts` helper while preserving the stable package export.
+- Moved replay parsing, validation, map reconstruction, and deterministic replay playback under
+  `io/replay.ts`, deleting the old root `replay.ts` helper while preserving the stable package
+  export.
 
 ## Review Checklist
 

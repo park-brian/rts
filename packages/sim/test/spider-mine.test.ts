@@ -12,7 +12,7 @@ import {
   refillInternalProduct,
 } from '../src/mechanics/internal-products.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
-import { parseReplay } from '../src/replay.ts';
+import { parseReplay } from '../src/io/replay.ts';
 import { validateMineCommand } from '../src/commands/mine.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario } from '../test-support/scenario.ts';

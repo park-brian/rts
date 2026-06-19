@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { Kind, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { parseReplay } from '../src/replay.ts';
+import { parseReplay } from '../src/io/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('templar merge consumes a nearby partner and creates an unfinished archon', () => {

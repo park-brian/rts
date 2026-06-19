@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/replay.ts';
+import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/io/replay.ts';
 import { generateMap } from '../src/procedural.ts';
 import { eid, ENTITY_COLUMNS, hashState, kill, makeState, slotOf, type State } from '../src/entity/world.ts';
 import { sliceMap } from '../src/map.ts';

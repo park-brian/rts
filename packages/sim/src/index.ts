@@ -50,5 +50,5 @@ export * from './tick.ts';
 export * from './setup.ts';
 export * from './sim.ts';
 export * from './io/serialize.ts';
-export * from './replay.ts';
+export * from './io/replay.ts';
 export * from './observe.ts';
