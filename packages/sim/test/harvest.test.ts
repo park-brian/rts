@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { stepWorld } from '../src/tick.ts';
-import { setupMatch } from '../src/setup.ts';
+import { setupMatch } from '../src/map/setup.ts';
 import { resourceSpawnCenterPx, sliceMap } from '../src/map/core.ts';
 import {
   Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, Units,

@@ -433,6 +433,8 @@ Done when:
   and harvest-calibration math it validates.
 - Moved deterministic procedural map generation under `map/procedural.ts`, keeping the stable package
   export while removing another root-level map concern.
+- Moved match setup under `map/setup.ts`, since it is the map-to-initial-state bridge rather than
+  a runtime system.
 
 ## Review Checklist
 

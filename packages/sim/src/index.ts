@@ -48,7 +48,7 @@ export * from './entity/factory.ts';
 export * from './systems/census.ts';
 export { readCollisionPressureStats, resetCollisionPressureStats, type CollisionPressureStats } from './systems/collision.ts';
 export * from './tick.ts';
-export * from './setup.ts';
+export * from './map/setup.ts';
 export * from './sim.ts';
 export * from './io/serialize.ts';
 export * from './io/replay.ts';

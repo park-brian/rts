@@ -6,7 +6,7 @@ import type { State } from './entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from './commands/types.ts';
 import { Terran, type Faction } from './data.ts';
 import { cloneState, hashState } from './entity/world.ts';
-import { setupMatch } from './setup.ts';
+import { setupMatch } from './map/setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './io/serialize.ts';
 import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './io/observe.ts';
