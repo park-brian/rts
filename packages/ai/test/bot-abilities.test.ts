@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBot } from '../src/bot.ts';
+import { ACTIVE_CLOAK_ABILITIES, TACTICAL_ABILITY_POLICIES, createBot } from '../src/index.ts';
 import {
   botScenario,
   expectBotBuildsLegal,
@@ -10,7 +10,7 @@ import {
   type BotScenario,
 } from '../test-support/bot-scenario.ts';
 import {
-  Sim, sliceMap, spawnUnit, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
+  Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, type Command, type State,
 } from '@rts/sim';
@@ -92,6 +92,53 @@ const assertPublicSurfaceExposes = (s: State, player: number, command: Command):
 };
 
 const grant = (sim: Sim, player: number, tech: number): void => setTechLevel(sim.fullState(), player, tech, 1);
+
+test('bot tactical ability policy descriptors match sim ability target modes', () => {
+  const expectedTactical = [
+    Ability.ShieldRecharge,
+    Ability.Restoration,
+    Ability.Heal,
+    Ability.ScannerSweep,
+    Ability.Hallucination,
+    Ability.Recall,
+    Ability.MindControl,
+    Ability.YamatoGun,
+    Ability.NuclearStrike,
+    Ability.InfestCommandCenter,
+    Ability.SpawnBroodling,
+    Ability.Parasite,
+    Ability.Feedback,
+    Ability.OpticalFlare,
+    Ability.Lockdown,
+    Ability.Irradiate,
+    Ability.EMPShockwave,
+    Ability.PsionicStorm,
+    Ability.Plague,
+    Ability.Ensnare,
+    Ability.Maelstrom,
+    Ability.StasisField,
+    Ability.DisruptionWeb,
+    Ability.DefensiveMatrix,
+    Ability.DarkSwarm,
+    Ability.Consume,
+  ].sort((a, b) => a - b);
+
+  const actualTactical = TACTICAL_ABILITY_POLICIES.map((policy) => {
+    const ability = Abilities[policy.ability]!;
+    assert.ok(ability, `missing ability ${policy.ability}`);
+    assert.equal(policy.minScore >= 0, true, `${ability.name} policy must use a nonnegative threshold`);
+    assert.equal(ability.target, 'scorePoint' in policy ? 'point' : 'entity', `${ability.name} policy target shape`);
+    return policy.ability;
+  }).sort((a, b) => a - b);
+  assert.deepEqual(actualTactical, expectedTactical);
+
+  assert.deepEqual(ACTIVE_CLOAK_ABILITIES, [Ability.PersonnelCloaking, Ability.CloakingField]);
+  for (const abilityId of ACTIVE_CLOAK_ABILITIES) {
+    const ability = Abilities[abilityId]!;
+    assert.equal(ability.target, 'self');
+    assert.deepEqual(ability.execution, { mode: 'self-toggle', flag: 'cloakActive' });
+  }
+});
 
 const linkAddon = (s: State, parent: number, addon: number): void => {
   const e = s.e;

@@ -203,6 +203,11 @@ Remaining work:
   - `projectile`.
 - Attach AI policy descriptors to abilities so casting logic, target filters, range checks, energy
   thresholds, and tech gates do not live only in a long AI chain.
+  - First AI policy ownership slice is done: tactical spell policy descriptors and scoring helpers
+    now live in `packages/ai/src/ability-policies.ts`, are exported through the AI barrel, and have a
+    guard test tying policy target shape to sim ability target modes. Remaining work: progressively
+    name reusable scorer/candidate patterns where that reduces duplication without hiding tactical
+    intent in opaque callbacks.
 - Add effect presentation descriptors for Scanner Sweep, Nuclear Strike, Storm, Swarm, Web,
   Plague/Irradiate overlays, detection affordances, and future persistent spell fields.
 - Table-drive upgrade effects where clearer than switches, especially range, speed, energy, armor,
@@ -623,6 +628,9 @@ Done when:
 - Moved Recall through a `point-recall` ability descriptor, so all current ability execution paths
   enter through the ability execution table; Recall's deterministic friendly-unit teleport helper
   remains explicit as the spatial implementation.
+- Extracted tactical AI spell policy descriptors and scoring helpers from the giant bot controller
+  into `packages/ai/src/ability-policies.ts`, exported them through the AI barrel, and added a guard
+  that keeps policy target shapes aligned with sim ability definitions.
 
 ## Review Checklist
 
