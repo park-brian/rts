@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateAbilityCommand } from '../src/commands/ability.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
-import { Ability, Kind, Tech } from '../src/data/index.ts';
+import { Ability, Abilities, Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
@@ -92,4 +92,32 @@ test('entity ability target gates preserve range before team-specific legality',
   assertAbility(contained, { ok: false, reason: 'target-not-allowed' });
   assertAbility(farEnemy, { ok: false, reason: 'target-out-of-range' });
   assertAbility(closeEnemy, { ok: false, reason: 'target-not-allowed' });
+});
+
+test('point ability target range uses the caster top-down interaction hull', () => {
+  const { state: s, spawn, grant } = simScenario({ players: 1, seed: 682 });
+  const e = s.e;
+  const vessel = spawn(Kind.ScienceVessel, 0, fx(400), fx(400));
+  const vesselSlot = slotOf(vessel);
+  e.energy[vesselSlot] = 100;
+  grant(0, Tech.EMPShockwave);
+  const range = Abilities[Ability.EMPShockwave]!.range;
+
+  const command = (x: number): AbilityCommand => ({
+    t: 'ability',
+    unit: vessel,
+    ability: Ability.EMPShockwave,
+    x,
+    y: e.y[vesselSlot]!,
+  });
+  const edgeReachPoint = e.x[vesselSlot]! + range + fx(20);
+  const outsidePoint = e.x[vesselSlot]! + range + fx(40);
+
+  assert.ok(edgeReachPoint - e.x[vesselSlot]! > range, 'center distance is outside EMP range');
+  assert.deepEqual(validateAbilityCommand(s, 0, command(edgeReachPoint)), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, command(edgeReachPoint)), { ok: true });
+  assert.deepEqual(validateAbilityCommand(s, 0, command(outsidePoint)), {
+    ok: false,
+    reason: 'target-out-of-range',
+  });
 });

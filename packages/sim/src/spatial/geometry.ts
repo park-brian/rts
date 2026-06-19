@@ -323,11 +323,20 @@ export const topDownEdgeDistanceSq = (s: State, a: number, b: number): number =>
   return topDownEdgeDistanceSqBetween(e.kind[a]!, e.x[a]!, e.y[a]!, e.flags[a]!, e.kind[b]!, e.x[b]!, e.y[b]!, e.flags[b]!);
 };
 
+export const topDownPointDistanceSq = (s: State, slot: number, x: number, y: number): number => {
+  const e = s.e;
+  const rect = topDownInteractionRect(e.kind[slot]!, e.x[slot]!, e.y[slot]!, e.flags[slot]!);
+  return distanceSqToRect(x, y, rect.x0, rect.y0, rect.x1, rect.y1);
+};
+
 export const topDownEdgeDistance = (s: State, a: number, b: number): number =>
   isqrt(topDownEdgeDistanceSq(s, a, b));
 
 export const withinTopDownEdgeRange = (s: State, a: number, b: number, range: number): boolean =>
   topDownEdgeDistanceSq(s, a, b) <= range * range;
+
+export const withinTopDownPointRange = (s: State, slot: number, x: number, y: number, range: number): boolean =>
+  topDownPointDistanceSq(s, slot, x, y) <= range * range;
 
 export const bwApproxEdgeDistanceSq = (s: State, a: number, b: number): number => {
   const d = bwApproxEdgeDistance(s, a, b);

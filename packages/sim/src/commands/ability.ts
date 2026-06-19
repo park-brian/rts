@@ -6,7 +6,7 @@ import { hasReadyNuke } from '../mechanics/nuke.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import { castAbility } from '../systems/abilities.ts';
-import { withinRangeSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
+import { withinTopDownEdgeRange, withinTopDownPointRange } from '../spatial/geometry.ts';
 import { abilityCapacityAvailable, abilityTechAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { canReceiveOrder, canTargetEntity, discardQueuedOrders, reject, type CommandValidation } from './shared.ts';
 
@@ -33,7 +33,7 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   if (ability.target === 'self') return { ok: true };
   if (ability.target === 'point') {
     if (typeof command.x !== 'number' || typeof command.y !== 'number') return reject('target-not-found');
-    if (!withinRangeSq(e.x[slot]!, e.y[slot]!, command.x, command.y, ability.range)) {
+    if (!withinTopDownPointRange(s, slot, command.x, command.y, ability.range)) {
       return reject('target-out-of-range');
     }
     return { ok: true };

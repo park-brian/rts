@@ -234,6 +234,9 @@ Remaining work:
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
+  - Point-target range slice is done: point abilities now measure target reach from the caster's
+    top-down interaction hull to the target point, while entity-target abilities continue using
+    entity-to-entity top-down edge distance. Remaining: audit point-area radius inclusion semantics.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
