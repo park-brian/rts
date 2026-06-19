@@ -407,6 +407,8 @@ Done when:
   deleting the old root `spatial.ts` helper while preserving the stable package export.
 - Moved the typed-array target-acquisition bucket grid under `spatial/grid.ts`, deleting the old root
   `grid.ts` helper.
+- Moved flow-field path passability, clearance, and shared route-field caching under
+  `spatial/flow.ts`, deleting the old root `flow.ts` helper.
 
 ## Review Checklist
 

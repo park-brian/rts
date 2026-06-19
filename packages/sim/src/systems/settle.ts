@@ -16,7 +16,7 @@ import {
   pathW,
   pathX,
   pathY,
-} from '../flow.ts';
+} from '../spatial/flow.ts';
 import { isContained } from '../cargo.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 

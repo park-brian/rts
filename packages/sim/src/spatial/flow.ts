@@ -5,13 +5,13 @@
 // wider bodies reject gaps they cannot actually fit through. Flow fields are still
 // shared per goal, now keyed by the unit clearance class as well.
 
-import { NONE, type State } from './entity/world.ts';
-import { Role, Size, TILE, Units } from './data.ts';
-import { ONE } from './fixed.ts';
-import { fold, FNV_OFFSET } from './io/hash.ts';
-import { structureFootprint } from './spatial/footprint.ts';
-import { isPathingAnchor } from './pathing-anchor.ts';
-import { bodyBounds } from './spatial/geometry.ts';
+import { NONE, type State } from '../entity/world.ts';
+import { Role, Size, TILE, Units } from '../data.ts';
+import { ONE } from '../fixed.ts';
+import { fold, FNV_OFFSET } from '../io/hash.ts';
+import { structureFootprint } from './footprint.ts';
+import { isPathingAnchor } from '../pathing-anchor.ts';
+import { bodyBounds } from './geometry.ts';
 
 export const INF = 0x7fffffff;
 export const PATH_CELLS_PER_TILE = 2;

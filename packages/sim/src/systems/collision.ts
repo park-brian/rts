@@ -19,7 +19,7 @@ import type { State } from '../entity/world.ts';
 import { CAP } from '../entity/world.ts';
 import { Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
-import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../flow.ts';
+import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../spatial/flow.ts';
 import { isContained } from '../cargo.ts';
 import { isPathingAnchor } from '../pathing-anchor.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';

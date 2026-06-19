@@ -24,7 +24,7 @@ import {
   pathW,
   pathX,
   pathY,
-} from './flow.ts';
+} from './spatial/flow.ts';
 
 const TILE_FX = TILE * ONE;
 const PATH_CELL_FX = TILE_FX / PATH_CELLS_PER_TILE;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { eid, kill, makeState, NONE, slotOf, hashState } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
-import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/flow.ts';
+import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/spatial/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
