@@ -1541,6 +1541,9 @@ Rework slices:
    - Harvest command legality now lives in `harvest-command.ts`, preserving worker/burrow/illusion,
      stale/wrong-owner, disabled-unit, and resource target gates while `command-specs.ts` keeps harvest
      order side effects unchanged.
+   - Repair command legality now lives in `repair-command.ts`, preserving SCV-only, construction
+     resume, target ownership, affordability, and repairability gates while `command-specs.ts` keeps
+     repair/resume-construction side effects unchanged.
 5. Split command ingestion by command family without changing replay semantics.
    - Keep deterministic command ordering and stable rejection behavior.
    - Move side effects into small apply functions that pair with validation families.

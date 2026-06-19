@@ -17,7 +17,7 @@ import { isPowered } from './power.ts';
 import { canDetect } from './detection.ts';
 import { canBurrowSlot, canUseWeaponNow, hasBurrowAccess, setBurrowed } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
-import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost, resumeConstruction } from './repair.ts';
+import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
 import { getTechLevel, queueResearch } from './tech.ts';
 import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
 import { laySpiderMine } from './spider-mine.ts';
@@ -36,6 +36,7 @@ import { producerDirectlyProducesOnlyWorkers } from './rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo-command.ts';
 import { validateCancelBuildCommand } from './cancel-command.ts';
 import { validateHarvestCommand } from './harvest-command.ts';
+import { validateRepairCommand } from './repair-command.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
@@ -233,24 +234,6 @@ const validateAttack = (s: State, player: number, command: Extract<Command, { t:
   return { ok: true };
 };
 
-const validateRepair = (s: State, player: number, command: Extract<Command, { t: 'repair' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
-  if (!isAlive(e, command.target)) return reject('target-not-found');
-  const target = slotOf(command.target);
-  if (isContained(s, target)) return reject('target-not-allowed');
-  if (isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
-  const def = Units[e.kind[target]!];
-  if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
-  if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
-  const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
-  if (s.players.minerals[player]! < cost.minerals || s.players.gas[player]! < cost.gas) return reject('not-affordable');
-  return { ok: true };
-};
-
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   validate: validateAttack,
   apply(s, _player, command): void {
@@ -365,7 +348,7 @@ const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
 };
 
 const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
-  validate: validateRepair,
+  validate: validateRepairCommand,
   apply(s, _player, command): void {
     const e = s.e;
     const slot = slotOf(command.unit);

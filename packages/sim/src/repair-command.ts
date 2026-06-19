@@ -1,0 +1,40 @@
+import type { Command, CommandRejectReason } from './commands.ts';
+import { Kind, Units } from './data.ts';
+import { isContained } from './cargo.ts';
+import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
+import { isDisabled } from './systems/status.ts';
+import type { State } from './world.ts';
+import { isAlive, isEnemy, slotOf } from './world.ts';
+
+type CommandValidation =
+  | { ok: true }
+  | { ok: false; reason: CommandRejectReason };
+
+type RepairCommand = Extract<Command, { t: 'repair' }>;
+
+const reject = (reason: CommandRejectReason): CommandValidation => ({ ok: false, reason });
+
+const ownedSlot = (s: State, id: number, player: number): number | null => {
+  const e = s.e;
+  if (!isAlive(e, id)) return null;
+  const slot = slotOf(id);
+  return e.owner[slot] === player ? slot : null;
+};
+
+export const validateRepairCommand = (s: State, player: number, command: RepairCommand): CommandValidation => {
+  const e = s.e;
+  const slot = ownedSlot(s, command.unit, player);
+  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
+  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
+  if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
+  if (!isAlive(e, command.target)) return reject('target-not-found');
+  const target = slotOf(command.target);
+  if (isContained(s, target)) return reject('target-not-allowed');
+  if (isEnemy(s, player, e.owner[target]!)) return reject('target-not-allowed');
+  const def = Units[e.kind[target]!];
+  if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
+  if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
+  const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
+  if (s.players.minerals[player]! < cost.minerals || s.players.gas[player]! < cost.gas) return reject('not-affordable');
+  return { ok: true };
+};
