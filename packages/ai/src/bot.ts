@@ -17,7 +17,7 @@ import {
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
-import { maybeQueueZergMacroHatchery, type ResourceBudget } from './macro-capacity.ts';
+import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery, type ResourceBudget } from './macro-capacity.ts';
 import {
   collectBotFacts,
   commitTacticalResponders,
@@ -518,6 +518,21 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         spend(cost, gasCost);
         reservedSupply += armyDef.supply * n;
       }
+    }
+
+    if (!builderUsed) {
+      builderUsed = maybeQueueCoreProductionCapacity(
+        s,
+        p,
+        faction,
+        cmds,
+        budget,
+        aWorker,
+        depot,
+        c.barracksTarget,
+        findMacroSpot,
+      );
+      minerals = budget.minerals;
     }
 
     if (!builderUsed) {

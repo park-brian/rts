@@ -1190,6 +1190,36 @@ test('zerg bot does not add macro hatcheries while idle larvae remain', () => {
   assert.equal(hasBuild(createBot(Zerg, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(s, 0), Kind.Hatchery), false);
 });
 
+test('terran bot adds core production capacity when mineral-banked past its target', () => {
+  const scenario = botScenario({ seed: 509, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Barracks, 0, base.x + fx(120), base.y);
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  expectBotBuildsLegal(scenario, Terran, Kind.Barracks, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 });
+});
+
+test('protoss bot adds gateway capacity after higher-priority tech and spending are blocked', () => {
+  const scenario = botScenario({ seed: 510, factions: [Protoss, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.Nexus, 0));
+  scenario.spawn(Kind.Pylon, 0, base.x + fx(120), base.y);
+  scenario.spawn(Kind.Gateway, 0, base.x + fx(160), base.y);
+  scenario.spawn(Kind.CyberneticsCore, 0, base.x + fx(200), base.y);
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  expectBotBuildsLegal(scenario, Protoss, Kind.Gateway, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 });
+});
+
+test('core production anti-float respects disabled army-structure targets', () => {
+  const scenario = botScenario({ seed: 511, factions: [Terran, Zerg] });
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  assert.equal(hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.Barracks), false);
+});
+
 test('zerg bot places a legal defiler mound after a completed hive', () => {
   const { scenario } = zergBuildScenario(482, (scenario, base, hatchery) => {
     makeHive(scenario, hatchery);

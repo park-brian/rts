@@ -644,6 +644,9 @@ Remaining work:
     - Capacity-policy extraction slice is done: Zerg Hatchery anti-float pressure now lives in
       `packages/ai/src/macro-capacity.ts`, keeping the live bot controller from absorbing the next
       Terran/Protoss production-capacity policies as more inline branching.
+    - Core production anti-float slice is done: Terran and Protoss can now add extra Barracks/Gateway
+      capacity from the shared capacity-policy module when mineral-banked beyond a positive configured
+      target, after higher-priority tech/research/army spending gets first claim on the builder.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
