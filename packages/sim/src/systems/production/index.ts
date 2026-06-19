@@ -8,7 +8,7 @@ import { NONE } from '../../entity/world.ts';
 import { Kind } from '../../data.ts';
 import { isPowered } from '../../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../../terran-mobility.ts';
-import { activeAddonParentSlot, isAddonKind } from '../../addon.ts';
+import { activeAddonParentSlot, isAddonKind } from '../../mechanics/addons.ts';
 import { tickLarvae } from './larva.ts';
 import { assignRallyMoveSlots, type RallyMove } from './rally.ts';
 import { finishInternalProductQueue } from './internal-products.ts';

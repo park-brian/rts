@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eid, isAlive, kill, slotOf } from '../src/entity/world.ts';
 import { Ability, Kind, Tech, Units } from '../src/data.ts';
-import { addonPosition } from '../src/addon.ts';
+import { addonPosition } from '../src/mechanics/addons.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';

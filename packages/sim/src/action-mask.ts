@@ -16,7 +16,7 @@ import {
   Abilities, Ability, Kind, Role, TechDefs, Units, productionCostCount, productionCount,
   workerBuildKindsFor,
 } from './data.ts';
-import { addonParentKind } from './addon.ts';
+import { addonParentKind } from './mechanics/addons.ts';
 import { hasPendingBuild } from './mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from './mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from './tech.ts';

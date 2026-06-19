@@ -377,6 +377,8 @@ Done when:
   `creep.ts` helper while preserving the stable package export.
 - Moved Protoss power coverage and producer gating helpers under `mechanics/power.ts`, deleting the
   old root `power.ts` helper while preserving the stable package export.
+- Moved Terran add-on parent linkage, placement, and start helpers under `mechanics/addons.ts`,
+  deleting the old root `addon.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

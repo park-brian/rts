@@ -5,7 +5,7 @@ import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../derived.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
-import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
+import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';
 import { refillInternalProduct } from '../mechanics/internal-products.ts';
 
 const refreshEnergyMax = (s: State, player: number): void => {

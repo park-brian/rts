@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Ability, Abilities, Kind, Units, unitTraits } from '../data.ts';
-import { isActiveAddon } from '../addon.ts';
+import { isActiveAddon } from '../mechanics/addons.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { hasReadyNuke } from '../mechanics/nuke.ts';
 import type { State } from '../entity/world.ts';

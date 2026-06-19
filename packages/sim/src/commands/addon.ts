@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Role, Units } from '../data.ts';
-import { addonParentKind, addonPosition, isAddonKind, startAddon } from '../addon.ts';
+import { addonParentKind, addonPosition, isAddonKind, startAddon } from '../mechanics/addons.ts';
 import { canSpawnEntity, NONE, slotOf } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';

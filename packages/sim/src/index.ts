@@ -16,7 +16,7 @@ export * from './travel-intent.ts';
 export * from './commands/intent.ts';
 export * from './mechanics/build-cancel.ts';
 export * from './mechanics/refund-ledger.ts';
-export * from './addon.ts';
+export * from './mechanics/addons.ts';
 export * from './terran-mobility.ts';
 export * from './unit-transform.ts';
 export * from './burrow.ts';

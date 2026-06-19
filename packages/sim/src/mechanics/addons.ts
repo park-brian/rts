@@ -1,8 +1,8 @@
-import { Kind, Units, tiles } from './data.ts';
-import { isLiftedStructureFlags } from './terran-mobility.ts';
-import type { State } from './entity/world.ts';
-import { NONE, eid, isAlive, slotOf } from './entity/world.ts';
-import { trySpawnUnit } from './entity/factory.ts';
+import { Kind, Units, tiles } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { NONE, eid, isAlive, slotOf } from '../entity/world.ts';
+import { trySpawnUnit } from '../entity/factory.ts';
+import { isLiftedStructureFlags } from '../terran-mobility.ts';
 
 export const addonParentKind = (addonKind: number): number => {
   switch (addonKind) {

@@ -1,6 +1,6 @@
 import type { Command, CommandRejectReason } from './types.ts';
 import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from '../data.ts';
-import { addonParentKind } from '../addon.ts';
+import { addonParentKind } from '../mechanics/addons.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../cargo.ts';

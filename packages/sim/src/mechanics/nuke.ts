@@ -1,4 +1,4 @@
-import { activeAddonParentSlot } from '../addon.ts';
+import { activeAddonParentSlot } from './addons.ts';
 import { Kind } from '../data.ts';
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';

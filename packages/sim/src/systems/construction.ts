@@ -15,7 +15,7 @@ import { placementForStructure } from '../placement.ts';
 import { structureFootprint } from '../footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
-import { isAddonKind } from '../addon.ts';
+import { isAddonKind } from '../mechanics/addons.ts';
 import { isContained } from '../cargo.ts';
 import { distanceSqToRect } from '../spatial.ts';
 

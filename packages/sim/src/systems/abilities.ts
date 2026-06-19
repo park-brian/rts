@@ -16,7 +16,7 @@ import { faceToward } from './move.ts';
 import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../cargo.ts';
 import { consumeReadyNuke } from '../mechanics/nuke.ts';
-import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
+import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';
 import { splashDamagePercent } from './weapon-hit.ts';
 
 const NUKE_SPLASH_INNER = fx(SplashPx.NuclearStrike.inner);
