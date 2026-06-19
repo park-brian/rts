@@ -1,6 +1,5 @@
 import type { Command, CommandRejectReason } from './types.ts';
-import { Order } from '../data.ts';
-import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
+import { cancelFoundation } from '../build-cost.ts';
 import {
   liftStructure, startStructureLanding,
 } from '../terran-mobility.ts';
@@ -8,7 +7,6 @@ import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
 import { loadUnitInto, unloadUnit } from '../cargo.ts';
 import { setBurrowed } from '../burrow.ts';
-import { canContinueConstructionKind, resumeConstruction } from '../repair.ts';
 import { queueResearch } from '../tech.ts';
 import { laySpiderMine } from '../spider-mine.ts';
 import { applyTransform } from '../unit-transform.ts';
@@ -17,25 +15,24 @@ import { startAddon } from '../addon.ts';
 import { queueProduction } from '../production-queue.ts';
 import { beginWorkerBuild, validateBuildCommand } from './build.ts';
 import { applyAbilityCommand, validateAbilityCommand } from './ability.ts';
-import { clearVelocity } from '../systems/move.ts';
-import { issueTravelOrder } from '../travel-intent.ts';
 import { isGatherTargetSlot } from '../resource-targets.ts';
 import { producerDirectlyProducesOnlyWorkers } from '../rally.ts';
 import { validateLoadCommand, validateUnloadCommand } from './cargo.ts';
 import { validateCancelBuildCommand } from './cancel.ts';
-import { validateHarvestCommand } from './harvest.ts';
-import { validateRepairCommand } from './repair.ts';
+import { applyHarvestCommand, validateHarvestCommand } from './harvest.ts';
+import { applyRepairCommand, validateRepairCommand } from './repair.ts';
 import { validateAddonCommand } from './addon.ts';
 import { validateMineCommand } from './mine.ts';
 import { snapRallyTarget, validateRallyCommand } from './rally.ts';
 import { validateTrainCommand } from './production.ts';
 import { validateResearchCommand } from './research.ts';
-import { validateAttackCommand } from './attack.ts';
+import { applyAttackCommand, validateAttackCommand } from './attack.ts';
 import { validateBurrowCommand } from './burrow.ts';
-import { validateStopCommand } from './stop.ts';
+import { applyStopCommand, validateStopCommand } from './stop.ts';
 import { validateLandCommand, validateLiftCommand } from './terran-mobility.ts';
-import { validateMoveCommand } from './move.ts';
+import { applyMoveCommand, validateMoveCommand } from './move.ts';
 import { validateTransformCommand } from './transform.ts';
+import { cancelPendingBeforeOrder } from './shared.ts';
 
 export { snapRallyTarget };
 
@@ -65,25 +62,10 @@ type CommandSpec<C extends CommandSpecCommand> = {
   validate(s: State, player: number, command: C, ctx?: CommandSpecValidationContext): CommandValidation;
 };
 
-export const clearSettled = (s: State, slot: number): void => {
-  s.e.settled[slot] = 0;
-};
-
-export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
-  if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
-};
-
 const attackSpec: CommandSpec<Extract<Command, { t: 'attack' }>> = {
   validate: validateAttackCommand,
   apply(s, _player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.unit);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    e.order[slot] = Order.Attack;
-    e.target[slot] = command.target;
-    e.combatTarget[slot] = command.target;
-    e.intentTarget[slot] = NONE;
+    applyAttackCommand(s, command);
   },
 };
 
@@ -127,15 +109,7 @@ const buildSpec: CommandSpec<Extract<Command, { t: 'build' }>> = {
 const harvestSpec: CommandSpec<Extract<Command, { t: 'harvest' }>> = {
   validate: validateHarvestCommand,
   apply(s, _player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.unit);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    e.order[slot] = Order.Harvest;
-    e.target[slot] = command.patch;
-    e.intentTarget[slot] = NONE;
-    e.combatTarget[slot] = NONE;
-    e.timer[slot] = 0;
+    applyHarvestCommand(s, command);
   },
 };
 
@@ -189,20 +163,7 @@ const unloadSpec: CommandSpec<Extract<Command, { t: 'unload' }>> = {
 const repairSpec: CommandSpec<Extract<Command, { t: 'repair' }>> = {
   validate: validateRepairCommand,
   apply(s, _player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.unit);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    e.intentTarget[slot] = NONE;
-    e.combatTarget[slot] = NONE;
-    const target = slotOf(command.target);
-    if (e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) {
-      resumeConstruction(s, slot, target);
-    } else {
-      e.order[slot] = Order.Repair;
-      e.target[slot] = command.target;
-      e.timer[slot] = 0;
-    }
+    applyRepairCommand(s, command);
   },
 };
 
@@ -262,10 +223,7 @@ const moveSpec: CommandSpec<Extract<Command, { t: 'move' }>> = {
   validate: validateMoveCommand,
   apply(s, player, command, ctx): void {
     const slot = slotOf(command.unit);
-    const dest = ctx.destination(command, slot, player);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    issueTravelOrder(s, slot, dest, 'move');
+    applyMoveCommand(s, command, ctx.destination(command, slot, player));
   },
 };
 
@@ -273,25 +231,14 @@ const amoveSpec: CommandSpec<Extract<Command, { t: 'amove' }>> = {
   validate: validateMoveCommand,
   apply(s, player, command, ctx): void {
     const slot = slotOf(command.unit);
-    const dest = ctx.destination(command, slot, player);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    issueTravelOrder(s, slot, dest, 'attack-move');
+    applyMoveCommand(s, command, ctx.destination(command, slot, player));
   },
 };
 
 const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
   validate: validateStopCommand,
   apply(s, _player, command): void {
-    const e = s.e;
-    const slot = slotOf(command.unit);
-    cancelPendingBeforeOrder(s, slot);
-    clearSettled(s, slot);
-    clearVelocity(e, slot);
-    e.order[slot] = Order.Idle;
-    e.target[slot] = NONE;
-    e.intentTarget[slot] = NONE;
-    e.combatTarget[slot] = NONE;
+    applyStopCommand(s, command);
   },
 };
 

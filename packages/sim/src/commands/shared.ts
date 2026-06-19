@@ -1,5 +1,6 @@
 import type { CommandRejectReason } from './types.ts';
 import { isActiveAddon } from '../addon.ts';
+import { cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
 import { isContained } from '../cargo.ts';
 import { Kind } from '../data.ts';
 import { canDetect } from '../detection.ts';
@@ -139,3 +140,11 @@ export const hasActiveAddonTarget = (s: State, slot: number): boolean => {
 
 export const isBusy = (s: State, slot: number): boolean =>
   hasActiveProduction(s, slot) || hasActiveResearch(s, slot);
+
+export const clearSettled = (s: State, slot: number): void => {
+  s.e.settled[slot] = 0;
+};
+
+export const cancelPendingBeforeOrder = (s: State, slot: number): void => {
+  if (hasPendingBuild(s.e, slot)) cancelPendingBuild(s, slot);
+};

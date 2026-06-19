@@ -1,12 +1,19 @@
 import type { Command } from './types.ts';
-import { Kind, Units, hasAnyWeapon, weaponForTarget } from '../data.ts';
+import { Kind, Order, Units, hasAnyWeapon, weaponForTarget } from '../data.ts';
 import { isPowered } from '../power.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { carrierCanAttack } from '../interceptor.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../weapon-mechanics.ts';
 import type { State } from '../entity/world.ts';
-import { isAlive, slotOf } from '../entity/world.ts';
-import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './shared.ts';
+import { NONE, isAlive, slotOf } from '../entity/world.ts';
+import {
+  canReceiveOrder,
+  canTargetEntity,
+  cancelPendingBeforeOrder,
+  clearSettled,
+  reject,
+  type CommandValidation,
+} from './shared.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;
 
@@ -28,4 +35,15 @@ export const validateAttackCommand = (s: State, player: number, command: AttackC
   const target = targetResult.slot;
   if (!carrierAttack && !weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
   return { ok: true };
+};
+
+export const applyAttackCommand = (s: State, command: AttackCommand): void => {
+  const e = s.e;
+  const slot = slotOf(command.unit);
+  cancelPendingBeforeOrder(s, slot);
+  clearSettled(s, slot);
+  e.order[slot] = Order.Attack;
+  e.target[slot] = command.target;
+  e.combatTarget[slot] = command.target;
+  e.intentTarget[slot] = NONE;
 };

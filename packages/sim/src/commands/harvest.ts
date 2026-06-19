@@ -1,9 +1,15 @@
 import type { Command } from './types.ts';
-import { Role } from '../data.ts';
+import { Order, Role } from '../data.ts';
 import { canPlayerGatherTargetSlot } from '../resource-targets.ts';
 import type { State } from '../entity/world.ts';
-import { isAlive, slotOf } from '../entity/world.ts';
-import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';
+import { NONE, isAlive, slotOf } from '../entity/world.ts';
+import {
+  canReceiveOrder,
+  cancelPendingBeforeOrder,
+  clearSettled,
+  reject,
+  type CommandValidation,
+} from './shared.ts';
 
 type HarvestCommand = Extract<Command, { t: 'harvest' }>;
 
@@ -17,4 +23,16 @@ export const validateHarvestCommand = (s: State, player: number, command: Harves
   const target = slotOf(command.patch);
   if (!canPlayerGatherTargetSlot(s, player, target)) return reject('target-not-allowed');
   return { ok: true };
+};
+
+export const applyHarvestCommand = (s: State, command: HarvestCommand): void => {
+  const e = s.e;
+  const slot = slotOf(command.unit);
+  cancelPendingBeforeOrder(s, slot);
+  clearSettled(s, slot);
+  e.order[slot] = Order.Harvest;
+  e.target[slot] = command.patch;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.timer[slot] = 0;
 };

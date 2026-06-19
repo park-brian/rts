@@ -5,9 +5,17 @@ import { commandMoveSpeed } from '../terran-mobility.ts';
 import { isGatherTargetSlot } from '../resource-targets.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, slotOf } from '../entity/world.ts';
-import { canReceiveOrder, reject, type CommandValidation } from './shared.ts';
+import { issueTravelOrder } from '../travel-intent.ts';
+import {
+  canReceiveOrder,
+  cancelPendingBeforeOrder,
+  clearSettled,
+  reject,
+  type CommandValidation,
+} from './shared.ts';
 
 type MoveCommand = Extract<Command, { t: 'move' | 'amove' }>;
+export type MoveDestination = { x: number; y: number; target?: number };
 
 export const validateMoveCommand = (s: State, player: number, command: MoveCommand): CommandValidation => {
   const e = s.e;
@@ -27,4 +35,15 @@ export const validateMoveCommand = (s: State, player: number, command: MoveComma
     if (isGatherTargetSlot(s, target)) return reject('target-not-allowed');
   }
   return { ok: true };
+};
+
+export const applyMoveCommand = (
+  s: State,
+  command: MoveCommand,
+  destination: MoveDestination,
+): void => {
+  const slot = slotOf(command.unit);
+  cancelPendingBeforeOrder(s, slot);
+  clearSettled(s, slot);
+  issueTravelOrder(s, slot, destination, command.t === 'amove' ? 'attack-move' : 'move');
 };

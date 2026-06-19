@@ -350,6 +350,8 @@ Done when:
   root `world.ts` and `factory.ts` shims.
 - Moved command types, public validation, command intent, command specs, family validators, and
   command ingestion under `src/commands/` with no root compatibility shims.
+- Moved direct unit-order apply logic for attack, harvest, repair, move/attack-move, and stop next
+  to their command-family validators, leaving `commands/specs.ts` as shared dispatch/context glue.
 
 ## Review Checklist
 
