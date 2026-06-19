@@ -224,7 +224,19 @@ export const scheduleBotMacro = (
     );
   }
 
-  maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
+  const addonBlock = maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
+  if (addonBlock) {
+    intentResults.push({
+      intent: {
+        kind: 'add-production',
+        urgency: intentUrgency('add-production'),
+        targetKind: addonBlock.kind,
+      },
+      result: addonBlock.reason === 'occupied-location'
+        ? { status: 'blocked', reason: addonBlock.reason }
+        : { status: 'waiting', reason: addonBlock.reason },
+    });
+  }
   maybeQueueZergMorphs(s, player, faction, cmds, budget);
   const researchBlock = maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
   if (researchBlock) {

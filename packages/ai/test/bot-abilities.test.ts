@@ -1920,6 +1920,74 @@ test('live bot planner reports occupied research producer outcomes', () => {
     record.result.reason === 'no-production-capacity'));
 });
 
+test('live bot planner reports missing-prerequisite add-on outcomes', () => {
+  const scenario = botScenario({ seed: 527, factions: [Terran, Zerg] });
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.ComsatStation &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'missing-prerequisite'));
+});
+
+test('live bot planner reports resource-starved add-on outcomes', () => {
+  const scenario = botScenario({ seed: 528, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Academy, 0, base.x + fx(120), base.y);
+  scenario.resources(0, 0, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.ComsatStation &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'resource-starved'));
+});
+
+test('live bot planner reports occupied add-on slot outcomes', () => {
+  const scenario = botScenario({ seed: 529, factions: [Terran, Zerg] });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  const commandCenterSlot = slotOf(commandCenter);
+  const pos = addonPosition(scenario.state, commandCenterSlot, Kind.ComsatStation);
+  const comsat = scenario.spawn(Kind.ComsatStation, 0, pos.x, pos.y);
+  linkAddon(scenario.state, commandCenter, comsat);
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.ComsatStation &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-production-capacity'));
+});
+
+test('live bot planner reports blocked add-on placement outcomes', () => {
+  const scenario = botScenario({ seed: 530, factions: [Terran, Zerg] });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  const base = scenario.pos(commandCenter);
+  const pos = addonPosition(scenario.state, slotOf(commandCenter), Kind.ComsatStation);
+  scenario.spawn(Kind.Academy, 0, base.x + fx(120), base.y);
+  scenario.spawn(Kind.SupplyDepot, 0, pos.x, pos.y);
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.ComsatStation &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'occupied-location'));
+});
+
 test('live bot planner reports resource-starved army training outcomes', () => {
   const scenario = botScenario({ seed: 517, factions: [Terran, Zerg] });
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));

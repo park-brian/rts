@@ -747,6 +747,10 @@ Remaining work:
       reports waiting outcomes for missing prerequisite producers, resource starvation, and occupied
       research capacity when it cannot queue any upgrade/spell research. Remaining work: supply/build,
       add-on, morph, and tech-structure directors still need explicit outcomes where actionable.
+    - Add-on outcome slice is done: Terran add-on macro now reports `add-production` outcomes
+      for missing prerequisites/parents, resource starvation, occupied add-on slots, and blocked
+      add-on placement after the normal validator-backed add-on queueing path fails. Remaining work:
+      supply/build, morph, and tech-structure directors still need explicit outcomes where actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
