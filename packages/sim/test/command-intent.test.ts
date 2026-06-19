@@ -6,6 +6,7 @@ import type { MapDef } from '../src/map.ts';
 import {
   attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, smartCommandCandidates,
+  unloadSelectionCandidates,
 } from '../src/command-intent.ts';
 import { spawnUnit } from '../src/factory.ts';
 import { eid, makeState, NEUTRAL, NONE, slotOf } from '../src/world.ts';
@@ -194,6 +195,33 @@ test('load command-card candidates ignore invalid cargo and non-selected transpo
     { t: 'load', transport: dropship, unit: tank },
     { t: 'load', transport: bunker, unit: marine },
   ]);
+});
+
+test('unload command-card candidates fan out contained units around selected transports', () => {
+  const s = makeState(open(), 1, 1225);
+  const dropship = spawnUnit(s, Kind.Dropship, 0, tc(10), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(10), tc(8));
+  const firebat = spawnUnit(s, Kind.Firebat, 0, tc(10), tc(8));
+  s.e.container[slotOf(marine)] = dropship;
+  s.e.container[slotOf(firebat)] = dropship;
+
+  assert.deepEqual(unloadSelectionCandidates(s, 0, [dropship]), [
+    { t: 'unload', transport: dropship, unit: marine, x: tc(10), y: tc(8) + fx(64) },
+    { t: 'unload', transport: dropship, unit: firebat, x: tc(10) + fx(64), y: tc(8) },
+  ]);
+});
+
+test('unload command-card candidates route Nydus cargo to the default network exit', () => {
+  const s = makeState(open(), 1, 1226);
+  const entrance = spawnUnit(s, Kind.NydusCanal, 0, tc(8), tc(8));
+  const exit = spawnUnit(s, Kind.NydusCanal, 0, tc(16), tc(8));
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  s.e.container[slotOf(marine)] = entrance;
+
+  assert.deepEqual(unloadSelectionCandidates(s, 0, [entrance]), [
+    { t: 'unload', transport: entrance, unit: marine, x: tc(16), y: tc(8) + fx(64) },
+  ]);
+  assert.deepEqual(unloadSelectionCandidates(s, 0, [exit]), []);
 });
 
 test('armed rally mode targets valid friendly units and gather targets', () => {

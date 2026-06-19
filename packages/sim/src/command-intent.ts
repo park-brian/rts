@@ -1,13 +1,14 @@
 import type { Command } from './commands.ts';
 import { ResourceType, Role, Units } from './data.ts';
-import { canAcceptCargo, sameTeam, transportCapacity } from './cargo.ts';
+import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
+import { ONE } from './fixed.ts';
 import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from './rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
 import { validateCommand } from './validation.ts';
-import { NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
+import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
 
 export type SmartCommandScheme = 'mobile' | 'desktop';
 
@@ -167,6 +168,44 @@ export const loadSelectionCandidates = (
       if (transports.includes(unit)) continue;
       const command: Command = { t: 'load', transport, unit };
       if (validateCommand(s, player, command).ok) commands.push(command);
+    }
+  }
+  return commands;
+};
+
+const unloadOffsets: readonly (readonly [number, number])[] = [
+  [0, 64], [64, 0], [-64, 0], [0, -64],
+  [64, 64], [-64, 64], [64, -64], [-64, -64],
+];
+
+export const unloadSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): Command[] => {
+  const e = s.e;
+  const commands: Command[] = [];
+  for (const transport of selected) {
+    if (!isAlive(e, transport)) continue;
+    const transportSlot = slotOf(transport);
+    const anchor = unloadAnchorSlot(s, transportSlot);
+    if (anchor === NONE) continue;
+    let n = 0;
+    for (let i = 0; i < e.hi; i++) {
+      if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== transport) continue;
+      const [ox, oy] = unloadOffsets[n % unloadOffsets.length]!;
+      const ring = Math.trunc(n / unloadOffsets.length);
+      const command: Command = {
+        t: 'unload',
+        transport,
+        unit: eid(e, i),
+        x: e.x[anchor]! + (ox + ring * 24) * ONE,
+        y: e.y[anchor]! + oy * ONE,
+      };
+      if (validateCommand(s, player, command).ok) {
+        commands.push(command);
+        n++;
+      }
     }
   }
   return commands;

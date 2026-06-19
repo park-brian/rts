@@ -1,8 +1,8 @@
 import {
-  Abilities, Ability, Kind, NONE, ONE, Role, TechDefs, Units,
+  Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformFor, transformTargetsFor,
-  unloadAnchorSlot, validateCommand, workerBuildKindsFor,
+  unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -137,11 +137,6 @@ const lifecycleCanReceiveStandardCommands = (lifecycle: EntityLifecycle): boolea
   }
 };
 
-const unloadOffsets: readonly (readonly [number, number])[] = [
-  [0, 64], [64, 0], [-64, 0], [0, -64],
-  [64, 64], [-64, 64], [64, -64], [-64, -64],
-];
-
 const transformCommandsForSelection = (
   s: State,
   player: number,
@@ -177,35 +172,6 @@ const transformCommandsForSelection = (
       }
     } else {
       commands.push(c);
-    }
-  }
-  return commands;
-};
-
-const unloadCommandsForSelection = (s: State, player: number, selected: readonly number[]): Command[] => {
-  const e = s.e;
-  const commands: Command[] = [];
-  for (const transport of selected) {
-    if (!isAlive(e, transport)) continue;
-    const tslot = slotOf(transport);
-    const anchor = unloadAnchorSlot(s, tslot);
-    if (anchor === NONE) continue;
-    let n = 0;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== transport) continue;
-      const [ox, oy] = unloadOffsets[n % unloadOffsets.length]!;
-      const ring = Math.trunc(n / unloadOffsets.length);
-      const command: Command = {
-        t: 'unload',
-        transport,
-        unit: eid(e, i),
-        x: e.x[anchor]! + (ox + ring * 24) * ONE,
-        y: e.y[anchor]! + oy * ONE,
-      };
-      if (validateCommand(s, player, command).ok) {
-        commands.push(command);
-        n++;
-      }
     }
   }
   return commands;
@@ -358,7 +324,7 @@ export const selectionCapabilities = (
 
   if (count === 0) return EMPTY_SELECTION_VIEW;
   const loadCommands = loadSelectionCandidates(s, player, selected);
-  const unloadCommands = unloadCommandsForSelection(s, player, selected);
+  const unloadCommands = unloadSelectionCandidates(s, player, selected);
   canLoad = loadCommands.length > 0;
   canUnload = unloadCommands.length > 0;
   const orderOptions: CommandOption[] = [

@@ -1482,6 +1482,10 @@ Rework slices:
    - Return compact option records with command, hotkey id, enabled reason, affordability, target mode,
      and representative actor.
    - Feed mobile command cards, desktop command grid, AI action masks, and tests from the same query.
+   - Slice 3 started: cargo order discovery now uses sim-owned selection candidates for both load
+     and unload. `selectionCapabilities` consumes `loadSelectionCandidates` and
+     `unloadSelectionCandidates`, while unload fan-out offsets, validation filtering, and Nydus exit
+     routing live beside the other command-intent candidate helpers.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,
