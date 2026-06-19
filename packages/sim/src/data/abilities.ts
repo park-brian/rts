@@ -63,6 +63,7 @@ export type AbilityExecution =
   | { mode: 'target-damage' }
   | { mode: 'target-energy-feedback' }
   | { mode: 'target-cleanse' }
+  | { mode: 'target-convert'; drainCasterShield?: boolean }
   | { mode: 'target-sacrifice-energy' }
   | { mode: 'target-spawn'; kind: number | 'target'; count: number; spread: number; life: number; killTarget?: boolean; illusion?: boolean }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
@@ -237,6 +238,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Mind Control', tech: Tech.MindControl, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.DarkArchon],
     energyCost: 150, hpCost: 0, range: tiles(8), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-convert', drainCasterShield: true },
   },
   [Ability.Hallucination]: {
     name: 'Hallucination', tech: Tech.Hallucination, target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,

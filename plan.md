@@ -611,6 +611,8 @@ Done when:
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded
   child-spawn counts.
+- Moved Mind Control through a `target-convert` ability descriptor, keeping ownership transfer,
+  target order clearing, and caster shield drain in the generic ability execution table.
 
 ## Review Checklist
 

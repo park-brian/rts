@@ -185,6 +185,16 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     case 'target-cleanse':
       restoreStatuses(s, slotOf(c.target!));
       break;
+    case 'target-convert': {
+      const target = slotOf(c.target!);
+      e.owner[target] = e.owner[slot]!;
+      e.order[target] = Order.Idle;
+      e.target[target] = NONE;
+      e.intentTarget[target] = NONE;
+      e.combatTarget[target] = NONE;
+      if (execution.drainCasterShield === true) e.shield[slot] = 0;
+      break;
+    }
     case 'target-sacrifice-energy': {
       const target = slotOf(c.target!);
       kill(s, target);
@@ -385,16 +395,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     case Ability.Recall:
       recallUnits(s, slot, c.x!, c.y!, ability.radius);
       break;
-    case Ability.MindControl: {
-      const target = slotOf(c.target!);
-      e.owner[target] = e.owner[slot]!;
-      e.order[target] = Order.Idle;
-      e.target[target] = NONE;
-      e.intentTarget[target] = NONE;
-      e.combatTarget[target] = NONE;
-      e.shield[slot] = 0;
-      break;
-    }
     case Ability.InfestCommandCenter: {
       const target = slotOf(c.target!);
       const def = Units[Kind.InfestedCommandCenter]!;
