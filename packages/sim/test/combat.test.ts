@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap } from '../src/map/core.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';

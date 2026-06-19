@@ -8,7 +8,7 @@
 import { TECH_CAP } from '../data.ts';
 import type { State } from '../entity/world.ts';
 import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from '../entity/world.ts';
-import type { MapDef, StartLoc, ResourceSpawn } from '../map.ts';
+import type { MapDef, StartLoc, ResourceSpawn } from '../map/core.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'
 const VERSION = 22;

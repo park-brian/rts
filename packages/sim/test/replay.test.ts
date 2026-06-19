@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } from '../src/io/replay.ts';
 import { generateMap } from '../src/procedural.ts';
 import { eid, ENTITY_COLUMNS, hashState, kill, makeState, slotOf, type State } from '../src/entity/world.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap } from '../src/map/core.ts';
 import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands/types.ts';

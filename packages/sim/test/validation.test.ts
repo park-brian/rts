@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { type MapDef } from '../src/map.ts';
+import { type MapDef } from '../src/map/core.ts';
 import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';

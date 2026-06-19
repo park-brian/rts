@@ -18,7 +18,7 @@ import {
   solveBaseCluster,
   type BaseResourceDir,
   type ResourceFootprint,
-} from '../src/map.ts';
+} from '../src/map/core.ts';
 import { placementForStructure } from '../src/commands/validate.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));

@@ -424,6 +424,9 @@ Done when:
   longer depends on a tick-system module.
 - Moved shared navigation, route-distance, and tile-coordinate helpers under `spatial/pathing.ts`,
   deleting the old root `pathing.ts` helper while preserving the stable package export.
+- Moved the static map definition, base-cluster solver, resource-footprint math, and `sliceMap`
+  under `map/core.ts`, deleting the old root `map.ts` helper while preserving the stable package
+  export.
 
 ## Review Checklist
 

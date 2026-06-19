@@ -4,7 +4,7 @@ import { EffectKind, Kind, Order, TILE, Units } from '../src/data.ts';
 import { entityLifecycle } from '../src/entity/lifecycle.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap } from '../src/map/core.ts';
 import { eid, makeState, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {

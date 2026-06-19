@@ -10,7 +10,7 @@ import {
   type MapDef,
   type ResourceSpawn,
   type StartLoc,
-} from './map.ts';
+} from './map/core.ts';
 import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from './spatial/geometry.ts';
 import { makeState, type State } from './entity/world.ts';
 

@@ -1,7 +1,7 @@
 // The Sim: a thin wrapper over world state + the tick pipeline, exposing the
 // public engine API (see docs/specs/architecture.md §4). Pure: no I/O, no DOM.
 
-import type { MapDef } from './map.ts';
+import type { MapDef } from './map/core.ts';
 import type { State } from './entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from './commands/types.ts';
 import { Terran, type Faction } from './data.ts';

@@ -4,9 +4,9 @@
 // (`px`,`py`) for exact dock-distance and harvest timing.
 // See docs/specs/maps.md.
 
-import { Kind, PATCH_AMOUNT, TILE, Units } from './data.ts';
-import { fx, isqrt, ONE } from './fixed.ts';
-import { topDownDockingPoint } from './spatial/geometry.ts';
+import { Kind, PATCH_AMOUNT, TILE, Units } from '../data.ts';
+import { fx, isqrt, ONE } from '../fixed.ts';
+import { topDownDockingPoint } from '../spatial/geometry.ts';
 
 export type ResourceSpawn = { x: number; y: number; amount: number; gas: boolean; px?: number; py?: number };
 export type StartLoc = { x: number; y: number };

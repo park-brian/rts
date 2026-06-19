@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateMap } from '../src/procedural.ts';
 import { mapDiagnosticsOverlay } from '../src/map-diagnostics.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap } from '../src/map/core.ts';
 
 const sliceWithWalkBarrier = (): ReturnType<typeof sliceMap> => {
   const map = sliceMap();

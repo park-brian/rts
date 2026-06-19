@@ -7,10 +7,10 @@ import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pat
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
-import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map.ts';
+import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map/core.ts';
 import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/spatial/pathing-anchor.ts';
 import { placementForStructure } from '../src/commands/validate.ts';
 import { applyCommands } from '../src/commands/ingest.ts';

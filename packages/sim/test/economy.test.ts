@@ -6,7 +6,7 @@ import { Kind, Order, TILE, Units, START_MINERALS, START_WORKERS } from '../src/
 import { entityApproachPoint } from '../src/entity/approach.ts';
 import { fx } from '../src/fixed.ts';
 import { stepWorld } from '../src/tick.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 const open = (w: number, h: number): MapDef => ({

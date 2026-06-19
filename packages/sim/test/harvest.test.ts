@@ -4,7 +4,7 @@ import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/setup.ts';
-import { resourceSpawnCenterPx, sliceMap } from '../src/map.ts';
+import { resourceSpawnCenterPx, sliceMap } from '../src/map/core.ts';
 import {
   Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, Units,
   bwRange,
@@ -12,7 +12,7 @@ import {
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 import { producedUnitRallyIntent } from '../src/commands/intent.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));

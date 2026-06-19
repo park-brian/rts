@@ -5,13 +5,13 @@
 // midfield. Optional midfield modules can add blockers/chokes later without
 // changing the base/economy contract.
 
-import type { BaseCluster, BaseResourceDir, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
+import type { BaseCluster, BaseResourceDir, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map/core.ts';
 import {
   baseDepotFootprint,
   resourceFootprintsOverlap,
   resourceSpawnFootprint,
   solveBaseCluster,
-} from './map.ts';
+} from './map/core.ts';
 import { makeRng, range, type Rng } from './rng.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 

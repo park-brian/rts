@@ -7,7 +7,7 @@ import {
   createObservationBuffers,
   writeObservation,
 } from '../src/io/observe.ts';
-import { sliceMap } from '../src/map.ts';
+import { sliceMap } from '../src/map/core.ts';
 import { eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';

@@ -2,8 +2,8 @@
 // resources, then each player's depot + starting workers (auto-mining). Faction-
 // driven, so it is not specific to any race.
 
-import type { MapDef } from './map.ts';
-import { resourceSpawnCenterPx } from './map.ts';
+import type { MapDef } from './map/core.ts';
+import { resourceSpawnCenterPx } from './map/core.ts';
 import type { State } from './entity/world.ts';
 import { makeState, slotOf, eid, NEUTRAL, NONE } from './entity/world.ts';
 import { spawnUnit } from './entity/factory.ts';

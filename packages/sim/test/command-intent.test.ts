@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Ability, Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 import {
   abilitySelectionOptions, addonSelectionCandidates, addonSelectionOptions, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,

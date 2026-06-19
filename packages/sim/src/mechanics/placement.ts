@@ -4,7 +4,7 @@ import type { State } from '../entity/world.ts';
 import { nearest, NONE } from '../entity/world.ts';
 import { fx } from '../fixed.ts';
 import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint } from '../spatial/footprint.ts';
-import { buildable, inBounds, resourceSpawnFootprint } from '../map.ts';
+import { buildable, inBounds, resourceSpawnFootprint } from '../map/core.ts';
 import { isContained } from '../cargo.ts';
 import { hasPendingBuild } from './build-cancel.ts';
 import { hasCreepAt, requiresCreep } from './creep.ts';

@@ -4,7 +4,7 @@ import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import { makeState, slotOf } from '../src/entity/world.ts';
 

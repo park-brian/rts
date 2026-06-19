@@ -11,7 +11,7 @@ import {
 import { fx, ONE } from '../src/fixed.ts';
 import { makeState, slotOf } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import type { MapDef } from '../src/map.ts';
+import type { MapDef } from '../src/map/core.ts';
 
 test('current unit registry has explicit BW body bounds', () => {
   for (const kind of Object.keys(Units).map(Number)) {
