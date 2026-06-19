@@ -459,6 +459,8 @@ Done when:
   old root helper path while preserving the stable package export.
 - Collapsed the root production queue helper into `commands/production.ts`, so train validation,
   train application, larva-to-egg queueing, and same-tick supply reservation share one command owner.
+- Moved shared larva cap, nearest-source, and count helpers under `mechanics/larva.ts`, leaving
+  `systems/production/larva.ts` as the tick-time larva spawner.
 
 ## Review Checklist
 

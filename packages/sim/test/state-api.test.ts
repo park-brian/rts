@@ -13,7 +13,7 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { CREEP_RADIUS } from '../src/mechanics/creep.ts';
-import { LARVA_MAX } from '../src/larva.ts';
+import { LARVA_MAX } from '../src/mechanics/larva.ts';
 import { POWER_RADIUS } from '../src/mechanics/power.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

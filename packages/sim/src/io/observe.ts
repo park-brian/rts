@@ -10,7 +10,7 @@ import { ONE } from '../fixed.ts';
 import { canDetect } from '../detection.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { CREEP_RADIUS, providesCreep } from '../mechanics/creep.ts';
-import { LARVA_MAX, nearestLarvaSource } from '../larva.ts';
+import { LARVA_MAX, nearestLarvaSource } from '../mechanics/larva.ts';
 import { POWER_RADIUS } from '../mechanics/power.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
 

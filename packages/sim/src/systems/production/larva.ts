@@ -3,7 +3,7 @@ import type { State } from '../../entity/world.ts';
 import { canSpawnEntity } from '../../entity/world.ts';
 import { trySpawnUnit } from '../../entity/factory.ts';
 import { fx } from '../../fixed.ts';
-import { LARVA_MAX, countLarvae } from '../../larva.ts';
+import { LARVA_MAX, countLarvae } from '../../mechanics/larva.ts';
 
 const LARVA_INTERVAL = sec(15);
 const LARVA_OFFSETS: readonly [number, number][] = [

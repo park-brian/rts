@@ -24,7 +24,7 @@ export * from './burrow.ts';
 export * from './mechanics/cargo.ts';
 export * from './mechanics/effects.ts';
 export * from './mechanics/creep.ts';
-export * from './larva.ts';
+export * from './mechanics/larva.ts';
 export * from './mechanics/nuke.ts';
 export * from './detection.ts';
 export * from './mechanics/power.ts';
