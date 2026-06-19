@@ -11,7 +11,7 @@ import {
 } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial/geometry.ts';
-import { calibrateMineralRoute, mineralTimingProfile } from '../src/harvest-calibration.ts';
+import { calibrateMineralRoute, mineralTimingProfile } from '../src/map/harvest-calibration.ts';
 import type { MapDef } from '../src/map/core.ts';
 import { producedUnitRallyIntent } from '../src/commands/intent.ts';
 

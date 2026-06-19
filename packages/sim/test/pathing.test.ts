@@ -6,7 +6,7 @@ import { navigate, lineClear, tileX, tileY } from '../src/spatial/pathing.ts';
 import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/spatial/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
-import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
+import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/map/harvest-calibration.ts';
 import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map/core.ts';
 import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';

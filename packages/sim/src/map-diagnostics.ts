@@ -5,7 +5,7 @@ import {
   mainBaseMineralRouteCalibrations,
   type GasRouteCalibration,
   type MineralRouteCalibration,
-} from './harvest-calibration.ts';
+} from './map/harvest-calibration.ts';
 import { resourceSpawnCenterPx, resourceSpawnFootprint, type MapDef, type ResourceFootprint } from './map/core.ts';
 import { bodyBounds, type InteractionPoint } from './spatial/geometry.ts';
 

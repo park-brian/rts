@@ -13,7 +13,7 @@ import {
   solveBaseCluster,
 } from './map/core.ts';
 import { makeRng, range, type Rng } from './rng.ts';
-import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
+import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './map/harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
 export type MapPreset = 'teamPlateaus' | 'cornerBases' | 'isolatedMains' | 'fortress';

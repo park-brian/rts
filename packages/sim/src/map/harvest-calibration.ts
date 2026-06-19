@@ -1,6 +1,6 @@
-import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from './data.ts';
-import { fx, isqrt } from './fixed.ts';
-import { pathRouteDistance } from './spatial/pathing.ts';
+import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from '../data.ts';
+import { fx, isqrt } from '../fixed.ts';
+import { pathRouteDistance } from '../spatial/pathing.ts';
 import {
   BASE_GAS_DOCK_DISTANCE_PX,
   resourceDirVector,
@@ -10,9 +10,9 @@ import {
   type MapDef,
   type ResourceSpawn,
   type StartLoc,
-} from './map/core.ts';
-import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from './spatial/geometry.ts';
-import { makeState, type State } from './entity/world.ts';
+} from './core.ts';
+import { bwApproxEdgeDistanceBetween, topDownDockingPoint, type InteractionPoint } from '../spatial/geometry.ts';
+import { makeState, type State } from '../entity/world.ts';
 
 const MAIN_BASE_MINERAL_COUNT = 8;
 const BASE_RESOURCE_EDGE_LIMIT_PX = 192;

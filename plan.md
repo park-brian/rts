@@ -427,6 +427,8 @@ Done when:
 - Moved the static map definition, base-cluster solver, resource-footprint math, and `sliceMap`
   under `map/core.ts`, deleting the old root `map.ts` helper while preserving the stable package
   export.
+- Moved harvest route timing and route-quality calibration under `map/harvest-calibration.ts`,
+  deleting the old root helper while preserving the stable package export.
 
 ## Review Checklist
 
