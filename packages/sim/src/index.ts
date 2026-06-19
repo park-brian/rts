@@ -22,7 +22,7 @@ export * from './unit-transform.ts';
 export * from './burrow.ts';
 export * from './cargo.ts';
 export * from './effects.ts';
-export * from './creep.ts';
+export * from './mechanics/creep.ts';
 export * from './larva.ts';
 export * from './mechanics/nuke.ts';
 export * from './detection.ts';

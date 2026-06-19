@@ -373,6 +373,8 @@ Done when:
   root `weapon-mechanics.ts` helper while preserving the stable package export.
 - Moved tech/build prerequisite helpers under `mechanics/requirements.ts`, deleting the old root
   `requirements.ts` helper while preserving the stable package export.
+- Moved Zerg creep coverage and placement helpers under `mechanics/creep.ts`, deleting the old root
+  `creep.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

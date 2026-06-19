@@ -12,7 +12,7 @@ import { eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { CREEP_RADIUS } from '../src/creep.ts';
+import { CREEP_RADIUS } from '../src/mechanics/creep.ts';
 import { LARVA_MAX } from '../src/larva.ts';
 import { POWER_RADIUS } from '../src/power.ts';
 import { simScenario } from '../test-support/scenario.ts';
