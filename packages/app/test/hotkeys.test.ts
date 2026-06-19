@@ -114,6 +114,29 @@ test('desktop command-card hotkeys expose train, research, add-on, lift, and lan
   assert.deepEqual(ui.armedCommand.value, { t: 'land', kind: Kind.Barracks });
 });
 
+test('desktop train options queue the least-loaded selected producer', () => {
+  resetHotkeys();
+  const g = desktopGame(98);
+  const s = g.sim.fullState();
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+  s.players.supplyMax[0] = 400;
+
+  const busy = spawnUnit(s, Kind.Barracks, 0, fx(700), fx(700));
+  const idle = spawnUnit(s, Kind.Barracks, 0, fx(900), fx(700));
+  const busySlot = slotOf(busy);
+  s.e.prodKind[busySlot] = Kind.Marine;
+  s.e.prodTimer[busySlot] = 100;
+  select(g, [busy, idle]);
+  g.fastForward(0);
+
+  assert.deepEqual(ui.selectionView.value.options.train.find((o) => o.id === Kind.Marine)?.commands, [
+    { t: 'train', building: idle, kind: Kind.Marine },
+  ]);
+  assert.equal(dispatchHotkey(g, 'KeyM'), true);
+  assert.deepEqual(g.queued.pop(), { t: 'train', building: idle, kind: Kind.Marine });
+});
+
 test('desktop cancel hotkey executes cancellable morph option before deselect', () => {
   resetHotkeys();
   const g = desktopGame(96);

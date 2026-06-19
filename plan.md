@@ -1489,6 +1489,9 @@ Rework slices:
    - Transform option execution candidates now also resolve through `transformSelectionCandidates`,
      so simple morph commands and deterministic merge pairing live in the sim command-intent layer
      instead of the app command-card presenter.
+   - Train option execution candidates now resolve through `trainSelectionCandidates`, preserving
+     the least-loaded selected producer rule in the sim command-intent layer while app code keeps
+     train labels and disabled reasons.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

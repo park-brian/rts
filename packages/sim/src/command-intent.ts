@@ -7,6 +7,7 @@ import {
 } from './rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from './resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
+import { entityWorkQueue } from './entity-work-queue.ts';
 import { transformFor } from './unit-transform.ts';
 import { validateCommand } from './validation.ts';
 import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
@@ -250,6 +251,28 @@ export const transformSelectionCandidates = (
     }
   }
   return commands;
+};
+
+export const trainSelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  kind: number,
+): Command[] => {
+  const e = s.e;
+  let best: Command | null = null;
+  let bestLoad = Infinity;
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const command: Command = { t: 'train', building, kind };
+    if (!validateCommand(s, player, command).ok) continue;
+    const load = entityWorkQueue(s, slotOf(building)).producerLoad;
+    if (load < bestLoad) {
+      best = command;
+      bestLoad = load;
+    }
+  }
+  return best ? [best] : [];
 };
 
 export const rallyModeCandidates = (
