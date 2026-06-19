@@ -136,7 +136,7 @@ export const Abilities: Record<number, AbilityDef> = {
   [Ability.StasisField]: {
     name: 'Stasis Field', tech: Tech.StasisField, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Arbiter],
-    energyCost: 100, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(37.8), period: 0, damage: 0,
+    energyCost: 100, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(43.8), period: 0, damage: 0,
     execution: { mode: 'point-area-status', timer: 'stasis', team: 'any', rolesAny: Role.Mobile, traitsAny: 0 },
   },
   [Ability.Maelstrom]: {

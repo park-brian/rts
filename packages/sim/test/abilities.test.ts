@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Abilities, Ability, EffectKind, Kind, Role, Tech, Trait, Units, sec } from '../src/data.ts';
+import { Abilities, Ability, EffectKind, Kind, Order, Role, Tech, Trait, Units, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { canDetect } from '../src/detection.ts';
+import { applyIndependentDamage } from '../src/damage.ts';
 import { consumeReadyNuke, hasReadyNuke, readyNukeSilo } from '../src/nuke.ts';
 import { validateCommand } from '../src/validation.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
@@ -303,6 +304,44 @@ test('point area statuses apply through descriptor execution filters', () => {
   assert.equal(s.e.plagueTimer[slotOf(plagueMobile)], Abilities[Ability.Plague]!.duration - 1);
   assert.equal(s.e.plagueTimer[slotOf(plagueStructure)], Abilities[Ability.Plague]!.duration - 1);
   assert.equal(s.e.plagueTimer[slotOf(plagueFriendly)], 0);
+});
+
+test('stasis field uses the sourced duration and expires through shared disabled gates', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 263 });
+  const arbiter = spawn(Kind.Arbiter, 0, fx(150), fx(400));
+  const stasisMarine = spawn(Kind.Marine, 1, fx(430), fx(400));
+  const target = spawn(Kind.Zealot, 0, fx(500), fx(400));
+  const stasis = Abilities[Ability.StasisField]!;
+  assert.equal(stasis.duration, sec(43.8));
+  s.e.energy[slotOf(arbiter)] = stasis.energyCost;
+  grant(0, Tech.StasisField);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: arbiter, ability: Ability.StasisField, x: fx(430), y: fx(400) },
+  ] }]);
+
+  const stasisSlot = slotOf(stasisMarine);
+  const targetSlot = slotOf(target);
+  const stasisHp = s.e.hp[stasisSlot]!;
+  const targetShield = s.e.shield[targetSlot]!;
+  assert.equal(s.e.stasisTimer[stasisSlot], stasis.duration - 1);
+
+  const blocked = sim.step([{ player: 1, cmds: [{ t: 'attack', unit: stasisMarine, target }] }]);
+  assert.deepEqual(blocked, [{ player: 1, index: 0, t: 'attack', ok: false, reason: 'missing-capability' }]);
+  assert.equal(s.e.wcd[stasisSlot], 0);
+  assert.equal(s.e.shield[targetSlot], targetShield);
+  applyIndependentDamage(s, stasisSlot, 20);
+  assert.equal(s.e.hp[stasisSlot], stasisHp);
+  s.e.order[stasisSlot] = Order.Move;
+  s.e.tx[stasisSlot] = fx(100);
+  s.e.ty[stasisSlot] = s.e.y[stasisSlot]!;
+
+  for (let t = 0; t < stasis.duration - 2; t++) sim.step([]);
+  assert.equal(s.e.stasisTimer[stasisSlot], 0);
+  const resumed = sim.step([{ player: 1, cmds: [{ t: 'attack', unit: stasisMarine, target }] }]);
+  assert.deepEqual(resumed, [{ player: 1, index: 0, t: 'attack', ok: true }]);
+  assert.equal(s.e.wcd[stasisSlot], Units[Kind.Marine]!.weapon!.cooldown);
+  assert.equal(s.e.shield[targetSlot], targetShield - Units[Kind.Marine]!.weapon!.damage);
 });
 
 test('plague damages but cannot kill', () => {

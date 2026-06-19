@@ -1226,7 +1226,7 @@ Source timing/data already present in local docs and sim tables:
 | Siege Tech research | 150M/150G, 50.4s | researched, but siege/unsiege toggles instantly | Add timed siege/unsiege transition after sourcing frame count. |
 | Stim Pack | 10 HP, 12.6s duration | entity status timer | Keep. |
 | Lockdown | 100 energy, range 8, 43.8s status | entity status timer | Keep; verify all systems use `isDisabled`. |
-| Stasis Field | 100 energy, range 9, about 37.8-43.8s in local docs/specs | entity status timer | Reconcile docs/spec mismatch, then keep as status. |
+| Stasis Field | 100 energy, range 9, local research doc says about 43.8s | entity status timer | Fixed to sourced duration; disabled/invulnerable/expiry coverage added. |
 | Maelstrom | 100 energy, range 10, about 7.48/7.56s | entity status timer | Keep. |
 | Psionic Storm | 75 energy, range 9, 2.67s, 8-frame period, 112 total damage | persistent effect | Keep; verify period/damage total. |
 | Defensive Matrix | 100 energy, range 10, 250 HP, 56.7s | entity status pool/timer | Keep. |
@@ -1300,7 +1300,8 @@ Stats and source work before implementation:
     `iscript.bin`/order data, or add a measurement harness from replay/game traces, then record the
     exact frame counts here with source paths.
 - Reconcile local doc/spec mismatches:
-  - Stasis duration: `docs/research/sc1-spells-upgrades.md` says about 43.8s; `data.ts` uses 37.8s.
+  - Stasis duration fixed: `docs/research/sc1-spells-upgrades.md` says about 43.8s and
+    `data-abilities.ts` now matches.
   - Irradiate duration: research doc says 25.2s for the damage window; `data.ts` uses 37.8s.
   - Disruption Web duration fixed: research doc says 15.12s and `data-abilities.ts` now matches.
   - Nuclear Strike channel: research doc says about 14.5s; `data.ts` uses 8.4s.
