@@ -647,6 +647,11 @@ Remaining work:
     - Core production anti-float slice is done: Terran and Protoss can now add extra Barracks/Gateway
       capacity from the shared capacity-policy module when mineral-banked beyond a positive configured
       target, after higher-priority tech/research/army spending gets first claim on the builder.
+    - Fact-driven tech-structure rebuild slice is done: Protoss/Zerg unique tech structure order now
+      lives in `packages/ai/src/macro-tech.ts`, consumes `BotFacts.ownedOrPendingStructureKinds`, and
+      shares the neutral `macro-build` structure-queue primitive. The live bot no longer carries a
+      second owned/pending structure scan for these tech rebuilds, and regression tests cover missing
+      Cybernetics Core / Hydralisk Den rebuilds when later tech survived.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
@@ -765,6 +770,9 @@ Done when:
   coverage.
 - Added Evolution Chamber to the Zerg bot structure macro and named the Zerg macro-prefix fixtures
   so build coverage reflects every current Zerg research producer before later tech structures.
+- Moved Protoss/Zerg unique tech-structure macro into `packages/ai/src/macro-tech.ts`, backed by
+  `BotFacts.ownedOrPendingStructureKinds`, and added destroyed-prerequisite rebuild coverage for
+  missing Cybernetics Core and Hydralisk Den after later tech structures survived.
 - Added the first bot intent/facts foundation: bot macro vocabulary, deterministic memory shape,
   fog-aware visible-enemy facts, completed/pending structure summaries, and a compact risk matrix
   for visible-map or god-vision tactical scoring.

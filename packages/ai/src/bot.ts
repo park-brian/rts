@@ -17,8 +17,10 @@ import {
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
-import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery, type ResourceBudget } from './macro-capacity.ts';
+import { type ResourceBudget } from './macro-build.ts';
+import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
+import { maybeQueueRaceTechStructure } from './macro-tech.ts';
 import {
   collectBotFacts,
   commitTacticalResponders,
@@ -68,17 +70,6 @@ const TERRAN_RESEARCH_MACRO = [
   Tech.ShipWeapons,
   Tech.ShipPlating,
 ] as const;
-const PROTOSS_STRUCTURE_MACRO = [
-  Kind.CyberneticsCore,
-  Kind.RoboticsFacility,
-  Kind.RoboticsSupportBay,
-  Kind.Observatory,
-  Kind.Stargate,
-  Kind.FleetBeacon,
-  Kind.CitadelOfAdun,
-  Kind.TemplarArchives,
-  Kind.ArbiterTribunal,
-] as const;
 const PROTOSS_RESEARCH_MACRO = [
   Tech.SingularityCharge,
   Tech.GroundWeapons,
@@ -106,15 +97,6 @@ const PROTOSS_RESEARCH_MACRO = [
   Tech.ApialSensors,
   Tech.ArgusJewel,
   Tech.DisruptionWeb,
-] as const;
-const ZERG_STRUCTURE_MACRO = [
-  Kind.HydraliskDen,
-  Kind.EvolutionChamber,
-  Kind.Spire,
-  Kind.QueensNest,
-  Kind.NydusCanal,
-  Kind.DefilerMound,
-  Kind.UltraliskCavern,
 ] as const;
 const ZERG_RESEARCH_MACRO = [
   Tech.Burrow,
@@ -222,16 +204,6 @@ const findMacroSpot = (s: State, player: number, worker: number, kind: number, f
   }
 
   return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
-};
-
-const hasOwnedOrPendingStructure = (s: State, player: number, kind: number): boolean => {
-  const e = s.e;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
-    if (e.kind[i] === kind) return true;
-    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === kind) return true;
-  }
-  return false;
 };
 
 const zergUniqueMorphMask = (kind: number): number => {
@@ -431,12 +403,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     if (!builderUsed) {
-      builderUsed = maybeQueueProtossTechStructures(s, p, faction, cmds, budget, aWorker, depot);
-      minerals = budget.minerals;
-    }
-
-    if (!builderUsed) {
-      builderUsed = maybeQueueZergTechStructures(s, p, faction, cmds, budget, aWorker, depot);
+      builderUsed = maybeQueueRaceTechStructure(s, p, faction, facts, cmds, budget, aWorker, depot, findMacroSpot);
       minerals = budget.minerals;
     }
 
@@ -596,22 +563,6 @@ const maybeQueueTerranResearch = (
   }
 };
 
-const maybeQueueProtossTechStructures = (
-  s: State,
-  player: number,
-  faction: Faction,
-  cmds: Command[],
-  budget: ResourceBudget,
-  worker: number,
-  anchor: number,
-): boolean => {
-  if (faction.name !== 'Protoss') return false;
-  for (const kind of PROTOSS_STRUCTURE_MACRO) {
-    if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
-  }
-  return false;
-};
-
 const maybeQueueProtossResearch = (
   s: State,
   player: number,
@@ -632,22 +583,6 @@ const maybeQueueZergResearch = (
   for (const tech of ZERG_RESEARCH_MACRO) {
     if (maybeQueueResearch(s, player, cmds, budget, tech)) return;
   }
-};
-
-const maybeQueueZergTechStructures = (
-  s: State,
-  player: number,
-  faction: Faction,
-  cmds: Command[],
-  budget: ResourceBudget,
-  worker: number,
-  anchor: number,
-): boolean => {
-  if (faction.name !== 'Zerg') return false;
-  for (const kind of ZERG_STRUCTURE_MACRO) {
-    if (maybeQueueStructure(s, player, cmds, budget, worker, anchor, kind)) return true;
-  }
-  return false;
 };
 
 const maybeQueueResearch = (
@@ -679,28 +614,6 @@ const maybeQueueResearch = (
     return true;
   }
   return false;
-};
-
-const maybeQueueStructure = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  worker: number,
-  anchor: number,
-  kind: number,
-): boolean => {
-  if (worker === NONE || hasOwnedOrPendingStructure(s, player, kind)) return false;
-  const def = Units[kind]!;
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
-  const spot = findMacroSpot(s, player, worker, kind, anchor);
-  if (!spot) return false;
-  const command: Command = { t: 'build', unit: eid(s.e, worker), kind, x: spot.x, y: spot.y };
-  if (!validateCommand(s, player, command).ok) return false;
-  cmds.push(command);
-  budget.minerals -= def.minerals;
-  budget.gas -= def.gas;
-  return true;
 };
 
 const maybeQueueNydusEndpoint = (

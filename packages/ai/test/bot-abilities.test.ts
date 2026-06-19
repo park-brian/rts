@@ -908,6 +908,18 @@ test('zerg bot places a legal hydralisk den after a completed spawning pool', ()
   expectBotBuildsLegal(scenario, Zerg, Kind.HydraliskDen, zergBuildOptions);
 });
 
+test('zerg bot rebuilds a missing hydralisk den before later tech structures', () => {
+  const { scenario } = zergBuildScenario(451, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+    scenario.spawn(Kind.EvolutionChamber, 0, base.x + fx(160), base.y);
+    scenario.spawn(Kind.Spire, 0, base.x + fx(200), base.y);
+    scenario.spawn(Kind.QueensNest, 0, base.x + fx(240), base.y);
+  });
+
+  expectBotBuildsLegal(scenario, Zerg, Kind.HydraliskDen, zergBuildOptions);
+});
+
 test('zerg bot respects hydralisk den prerequisite, placement, duplicates, and budget', () => {
   const { scenario: missingPool } = zergBuildScenario(453);
   expectNoBotBuild(missingPool, Zerg, Kind.HydraliskDen, zergBuildOptions);
@@ -1803,6 +1815,20 @@ test('protoss bot places a legal cybernetics core after a completed gateway', ()
 
   assert.ok(build);
   assert.deepEqual(validateCommand(s, 0, build), { ok: true });
+});
+
+test('protoss bot rebuilds a missing cybernetics core before later tech structures', () => {
+  const scenario = botScenario({ seed: 430, factions: [Protoss, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.Nexus, 0));
+  scenario.spawn(Kind.Pylon, 0, base.x + fx(120), base.y);
+  scenario.spawn(Kind.Gateway, 0, base.x + fx(160), base.y);
+  scenario.spawn(Kind.RoboticsFacility, 0, base.x + fx(200), base.y);
+  scenario.spawn(Kind.RoboticsSupportBay, 0, base.x + fx(240), base.y);
+  scenario.spawn(Kind.Observatory, 0, base.x + fx(280), base.y);
+  scenario.spawn(Kind.Stargate, 0, base.x + fx(320), base.y);
+  scenario.resources(0, 1_000, 1_000);
+
+  expectBotBuildsLegal(scenario, Protoss, Kind.CyberneticsCore, { barracksTarget: 1, workerTarget: 0 });
 });
 
 test('protoss bot respects cybernetics core prerequisite, power, and budget', () => {
