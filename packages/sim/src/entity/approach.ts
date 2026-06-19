@@ -7,7 +7,7 @@ import {
   type InteractionPoint,
   type InteractionRect,
 } from '../spatial.ts';
-import { isAlive, type State } from '../world.ts';
+import { isAlive, type State } from './world.ts';
 
 const SIDE_LEFT = 0;
 const SIDE_RIGHT = 1;

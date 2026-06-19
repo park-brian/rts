@@ -1,5 +1,5 @@
 import { Units } from '../data.ts';
-import type { State } from '../world.ts';
+import type { State } from './world.ts';
 
 export const setEntityKind = (s: State, slot: number, kind: number): void => {
   const def = Units[kind]!;

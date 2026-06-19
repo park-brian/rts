@@ -1,4 +1,4 @@
-import type { State } from '../world.ts';
+import type { State } from './world.ts';
 
 export const isTransitioning = (s: State, slot: number): boolean => {
   const e = s.e;
