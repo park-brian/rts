@@ -287,6 +287,9 @@ Remaining work:
   - buffer observations;
   - bot command generation;
   - N-env batch stepping.
+  - ML benchmark lane slice is done: the headless benchmark and its stable-output test now cover
+    action-mask generation, object observations, caller-owned buffer observations, bot command
+    generation, and four-env sequential batch stepping.
 - Add event-stream benchmark coverage if a public gameplay event stream grows.
 - Keep step results caller-owned or immutable so batch training cannot corrupt state between envs.
 
@@ -535,6 +538,8 @@ Done when:
   combat-aware two-point movement.
 - Exposed active own order intent in fair-play object and buffer observations while preserving
   hidden enemy destination/target secrecy.
+- Locked in the existing ML benchmark lanes for action masks, object observations, buffer
+  observations, bot generation, and N-env batch stepping as completed roadmap coverage.
 
 ## Review Checklist
 
