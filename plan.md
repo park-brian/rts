@@ -783,6 +783,13 @@ Remaining work:
     A failed generic macro spot search
     reports `waiting: placement-unavailable`; only exact-target lifecycle intents such as expansion
     sites should emit blocked location memory.
+    - First macro-placement scoring slice is done: generic spot search now enumerates all legal
+      nearby anchors and picks the best deterministic score instead of returning the first legal ring
+      tile. The scorer penalizes base resource reservations and depot-to-resource harvest corridors,
+      with smaller penalties for compact static defenses, while all build legality still flows
+      through the shared sim placement validator. Remaining placement work: score passable building
+      rings, add-on clearance, wall/choke intent, defensive coverage, route risk, and cadence-aware
+      exceptions for mineral-line static defenses.
   - Expansion must be a lifecycle, not a one-shot build command: choose site, scout/verify when
     uncertain, reserve builder/resources/site, execute, monitor blocked/path/unsafe outcomes, clear
     or detect if needed, choose another site when better, and retry without command spam.

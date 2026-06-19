@@ -21,6 +21,7 @@ import {
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
+  findSpot,
   proposePressureIntent,
   proposeTacticalDefense,
   rankedTacticalResponders,
@@ -45,8 +46,9 @@ import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, MAX_QUEUE, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   generateMap,
-  Role, TILE, ONE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
-  tileY, liftStructure, validateCommand, withinRangeSq, type Command, type State,
+  Role, TILE, ONE, addonParentKind, addonPosition, baseDepotFootprint, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand,
+  entityTargetMask, footprintsOverlap, fx, setTechLevel, NONE, slotOf, structureFootprint, tileX, tileY, liftStructure, validateCommand,
+  withinRangeSq, type Command, type ResourceFootprint, type State,
 } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
@@ -2949,6 +2951,35 @@ test('terran bot reserves add-on parents before same-chain research', () => {
   assert.equal(hasResearch(cmds, Tech.EMPShockwave), false);
   assert.equal(hasResearch(cmds, Tech.Irradiate), false);
   assert.equal(hasResearch(cmds, Tech.TitanReactor), false);
+});
+
+test('macro placement avoids main harvest reservations for large structures', () => {
+  const map = sliceMap();
+  const start = map.starts[0]!;
+  const reservation: ResourceFootprint = {
+    x0: start.x - 6,
+    y0: start.y - 8,
+    x1: start.x + 6,
+    y1: start.y - 2,
+  };
+  map.bases = [{
+    kind: 'main',
+    team: 0,
+    owner: 0,
+    x: start.x,
+    y: start.y,
+    resourceDir: -1,
+    depotFootprint: baseDepotFootprint(start),
+    reservation,
+  }];
+  const sim = new Sim({ map, players: 2, seed: 1119, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const depot = slotOf(findEntity(sim, Kind.CommandCenter, 0));
+  const spot = findSpot(s, 0, worker, Kind.Barracks, s.e.x[depot]!, s.e.y[depot]!);
+
+  assert.ok(spot);
+  assert.equal(footprintsOverlap(structureFootprint(Kind.Barracks, spot.x, spot.y), reservation), false);
 });
 
 test('protoss bot places gateways from completed pylon power anchors', () => {
