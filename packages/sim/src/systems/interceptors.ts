@@ -1,7 +1,7 @@
 import type { State } from '../entity/world.ts';
 import { isAlive, kill, NONE, slotOf } from '../entity/world.ts';
 import { Kind, Order, Units, tiles } from '../data.ts';
-import { storeInternalProduct } from '../internal-products.ts';
+import { storeInternalProduct } from '../mechanics/internal-products.ts';
 import { carrierBayPoint } from '../interceptor.ts';
 import { navigate } from '../pathing.ts';
 import { faceToward, within } from './move.ts';

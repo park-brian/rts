@@ -126,8 +126,6 @@ Remaining work:
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
   cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
   producer version of the same idea, not a separate UI-only concept.
-- Route Spider Mines, Scarabs, Interceptors, and Nuclear Missiles through named internal-product
-  helpers so `specialAmmo` does not become a hidden multi-purpose protocol.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
 
@@ -237,6 +235,9 @@ Purpose: make the game a clean training substrate, not just a playable browser a
 Remaining work:
 
 - Keep validator/action-mask parity for every command family and ability target mode.
+- Add batch-action reservation for producer-selected internal products, especially Nuclear Strike
+  across one or more ready Nuclear Silos, so multi-action decoding cannot overbook a missile but
+  still accepts separate ready silos deterministically.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
@@ -364,6 +365,9 @@ Done when:
   `systems/production/queue.ts` and `systems/production/completion.ts`.
 - Moved build refund ledger math and build/foundation cancellation ownership into
   `mechanics/refund-ledger.ts` and `mechanics/build-cancel.ts`, deleting the old root helper.
+- Moved internal-product descriptors and `specialAmmo` mutation helpers under
+  `mechanics/internal-products.ts`, migrated production callers to the real owner path, and removed
+  the old root helper instead of leaving a compatibility shim.
 
 ## Review Checklist
 

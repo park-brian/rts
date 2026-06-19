@@ -1,6 +1,6 @@
 import { Kind, Order } from './data.ts';
 import { trySpawnUnit } from './entity/factory.ts';
-import { consumeInternalProduct } from './internal-products.ts';
+import { consumeInternalProduct } from './mechanics/internal-products.ts';
 import type { State } from './entity/world.ts';
 import { NONE, canSpawnEntity, slotOf } from './entity/world.ts';
 

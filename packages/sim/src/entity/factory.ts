@@ -5,7 +5,7 @@ import type { State } from './world.ts';
 import { NONE, slotOf, spawn, trySpawn } from './world.ts';
 import { Kind, Units } from '../data.ts';
 import { upgradedEnergyMax } from '../derived.ts';
-import { refillInternalProduct } from '../internal-products.ts';
+import { refillInternalProduct } from '../mechanics/internal-products.ts';
 
 /** Spawn an entity of `kind`, applying its def's hp and role flags. */
 export const spawnUnit = (

@@ -6,7 +6,7 @@ import { upgradedEnergyMax } from '../derived.ts';
 import { isPowered } from '../power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
-import { refillInternalProduct } from '../internal-products.ts';
+import { refillInternalProduct } from '../mechanics/internal-products.ts';
 
 const refreshEnergyMax = (s: State, player: number): void => {
   const e = s.e;

@@ -13,7 +13,7 @@ import { setTechLevel } from '../src/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/derived.ts';
 import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
-} from '../src/internal-products.ts';
+} from '../src/mechanics/internal-products.ts';
 import {
   childActorDef, isExternallySteeredChild, participatesInNormalCombat,
 } from '../src/child-actors.ts';

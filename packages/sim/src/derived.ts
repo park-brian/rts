@@ -4,7 +4,7 @@ import {
 } from './data.ts';
 import type { State } from './entity/world.ts';
 import { getTechLevel } from './tech.ts';
-import { internalProductCapacity } from './internal-products.ts';
+import { internalProductCapacity } from './mechanics/internal-products.ts';
 
 const level = (s: State, owner: number, tech: number): number =>
   owner < s.teams.length ? getTechLevel(s, owner, tech) : 0;

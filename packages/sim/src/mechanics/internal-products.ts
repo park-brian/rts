@@ -1,9 +1,9 @@
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
   REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, SPIDER_MINE_CHARGES, Tech,
-} from './data.ts';
-import { getTechLevel } from './tech.ts';
-import type { State } from './entity/world.ts';
+} from '../data.ts';
+import { getTechLevel } from '../tech.ts';
+import type { State } from '../entity/world.ts';
 
 export type InternalProductDisplay = {
   trainLabel?: string;

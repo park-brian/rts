@@ -18,7 +18,7 @@ import {
 } from './data.ts';
 import { addonParentKind } from './addon.ts';
 import { hasPendingBuild } from './mechanics/build-cancel.ts';
-import { internalProductCapacity } from './internal-products.ts';
+import { internalProductCapacity, internalProductReadyCount } from './mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from './tech.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
@@ -103,6 +103,7 @@ type ActionReservation = {
   hpSlot?: number;
   hp?: number;
   ammoSlot?: number;
+  ammoKind?: number;
   ammo?: number;
 };
 
@@ -375,7 +376,7 @@ const commandReservation = (s: State, player: number, command: Command): ActionR
       };
     }
     case 'mine':
-      return { entitySlots: 1, ammoSlot: slotOf(command.unit), ammo: 1 };
+      return { entitySlots: 1, ammoSlot: slotOf(command.unit), ammoKind: Kind.SpiderMine, ammo: 1 };
     case 'ability': {
       const slot = slotOf(command.unit);
       const ability = Abilities[command.ability];
@@ -414,8 +415,8 @@ const rejectReservation = (
       s.e.hp[r.hpSlot]! - sparseGet(ctx.hpSlots, ctx.hp, r.hpSlot) <= r.hp) {
     return 'not-enough-hit-points';
   }
-  if (r.ammoSlot !== undefined && r.ammo !== undefined &&
-      s.e.specialAmmo[r.ammoSlot]! - sparseGet(ctx.ammoSlots, ctx.ammo, r.ammoSlot) < r.ammo) {
+  if (r.ammoSlot !== undefined && r.ammoKind !== undefined && r.ammo !== undefined &&
+      internalProductReadyCount(s, r.ammoSlot, r.ammoKind) - sparseGet(ctx.ammoSlots, ctx.ammo, r.ammoSlot) < r.ammo) {
     return 'target-not-allowed';
   }
   return null;

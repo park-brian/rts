@@ -30,7 +30,7 @@ export * from './power.ts';
 export * from './repair.ts';
 export * from './tech.ts';
 export * from './requirements.ts';
-export * from './internal-products.ts';
+export * from './mechanics/internal-products.ts';
 export * from './child-actors.ts';
 export * from './weapon-mechanics.ts';
 export * from './render-descriptors.ts';
