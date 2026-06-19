@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateMap } from '../src/procedural.ts';
+import { generateMap } from '../src/map/procedural.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import {
   baseGasRouteCalibrations,

@@ -43,7 +43,7 @@ export * from './resource-targets.ts';
 export * from './ability-availability.ts';
 export * from './entity/world.ts';
 export * from './spatial/pathing.ts';
-export * from './procedural.ts';
+export * from './map/procedural.ts';
 export * from './entity/factory.ts';
 export * from './systems/census.ts';
 export { readCollisionPressureStats, resetCollisionPressureStats, type CollisionPressureStats } from './systems/collision.ts';

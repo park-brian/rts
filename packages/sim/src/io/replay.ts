@@ -8,7 +8,7 @@ import { Sim } from '../sim.ts';
 import type { Command, PlayerCommands } from '../commands/types.ts';
 import { Factions, factionNameOf, type FactionName } from '../data.ts';
 import { sliceMap, type MapDef } from '../map/core.ts';
-import { generateMap, type MapPreset, type MidfieldModule } from '../procedural.ts';
+import { generateMap, type MapPreset, type MidfieldModule } from '../map/procedural.ts';
 
 export const REPLAY_VERSION = 1;
 

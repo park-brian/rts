@@ -431,6 +431,8 @@ Done when:
   deleting the old root helper while preserving the stable package export.
 - Moved map diagnostics overlays under `map/diagnostics.ts` so debug geometry sits beside the map
   and harvest-calibration math it validates.
+- Moved deterministic procedural map generation under `map/procedural.ts`, keeping the stable package
+  export while removing another root-level map concern.
 
 ## Review Checklist
 
