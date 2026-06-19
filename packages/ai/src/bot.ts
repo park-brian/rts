@@ -5,7 +5,7 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Role, Order, Kind, Units, eid,
+  Kind, Units,
   NONE, type Faction, type State, type Command, type Controller,
 } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
@@ -16,9 +16,11 @@ import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.
 import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import {
   desiredWorkerCount,
+  maybeQueueArmyStructure,
   maybeQueueSupply,
   maybeQueueWorkers,
   maybeSetArmyStructureRallies,
+  summarizeEconomyRoster,
 } from './macro-economy.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
@@ -50,7 +52,6 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
   const armyDef = Units[faction.armyUnit]!;
-  const rax = Units[faction.armyStructure]!;
   const memories = new Map<number, BotMemory>();
   const memoryFor = (player: number): BotMemory => {
     let memory = memories.get(player);
@@ -78,41 +79,19 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const depot = facts.primaryBase;
     if (depot === NONE) return cmds; // no base: nothing to do
 
+    const economy = summarizeEconomyRoster(s, p, faction);
     let workers = facts.workers.length;
-    let idleDepots: number[] = [];
+    const idleDepots = economy.idleDepots;
     const idleLarvae = facts.idleLarvae;
-    let builtBarracks: number[] = [];
-    let pendingBarracks = 0;
-    let pendingSupply = 0;
+    const builtBarracks = economy.builtArmyStructures;
+    let pendingBarracks = economy.pendingArmyStructures;
+    let pendingSupply = economy.pendingSupply;
     const army = facts.army.length;
     const retaskableArmy = facts.retaskableArmy;
     const casters = facts.casters;
-    let aWorker = NONE; // a worker we can pull to build
-
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== p) continue;
-      const k = e.kind[i]!;
-      const fl = e.flags[i]!;
-      if (e.prodKind[i] === faction.supplyStructure) pendingSupply++;
-      if (k === faction.worker) {
-        if (aWorker === NONE && e.order[i] === Order.Harvest) aWorker = i;
-        if ((fl & Role.Worker) !== 0 && e.buildKind[i] === faction.supplyStructure) pendingSupply++;
-        if ((fl & Role.Worker) !== 0 && e.buildKind[i] === faction.armyStructure) pendingBarracks++;
-      } else if (k === faction.depot && e.built[i] === 1) {
-        if (e.prodKind[i] === Kind.None) idleDepots.push(i);
-      } else if (k === faction.armyStructure) {
-        if (e.built[i] === 1) builtBarracks.push(i);
-        else pendingBarracks++;
-      } else if (k === faction.supplyStructure && e.built[i] !== 1) {
-        pendingSupply++;
-      }
-    }
+    const aWorker = economy.builder;
 
     const budget: ResourceBudget = { minerals: s.players.minerals[p]!, gas: s.players.gas[p]! };
-    const spend = (mineralsAmount: number, gasAmount = 0): void => {
-      budget.minerals -= mineralsAmount;
-      budget.gas -= gasAmount;
-    };
     const supplyBudget: SupplyBudget = { used: s.players.supplyUsed[p]!, max: s.players.supplyMax[p]! };
     const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
     const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtBarracks;
@@ -158,12 +137,20 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     // 3) Army structures.
-    else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget &&
-             budget.minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE && !builderUsed) {
-      const spot = findMacroSpot(s, p, aWorker, faction.armyStructure, depot);
-      if (spot) {
-        cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
-        spend(rax.minerals, rax.gas);
+    else if (!builderUsed) {
+      if (maybeQueueArmyStructure(
+        s,
+        p,
+        faction,
+        cmds,
+        budget,
+        aWorker,
+        depot,
+        builtBarracks.length,
+        pendingBarracks,
+        c.barracksTarget,
+        findMacroSpot,
+      )) {
         builderUsed = true;
         pendingBarracks++;
       }

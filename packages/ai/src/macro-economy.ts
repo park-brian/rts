@@ -1,6 +1,8 @@
 import {
+  Kind,
   NONE,
   ONE,
+  Order,
   Role,
   SUPPLY_CAP,
   TILE,
@@ -13,13 +15,59 @@ import {
   type State,
   isqrt,
 } from '@rts/sim';
-import { maybeQueueStructureAtPoint, type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
+import {
+  maybeQueueStructureAtPoint,
+  maybeQueueStructureBuild,
+  type MacroSpotFinder,
+  type PointSpotFinder,
+  type ResourceBudget,
+} from './macro-build.ts';
 import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 
 const WORKERS_PER_PATCH = 2;
 
 const withinTiles = (s: State, slot: number, x: number, y: number, tiles: number): boolean =>
   withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, tiles * TILE * ONE);
+
+export type EconomyRoster = {
+  idleDepots: number[];
+  builtArmyStructures: number[];
+  pendingArmyStructures: number;
+  pendingSupply: number;
+  builder: number;
+};
+
+export const summarizeEconomyRoster = (s: State, player: number, faction: Faction): EconomyRoster => {
+  const e = s.e;
+  const roster: EconomyRoster = {
+    idleDepots: [],
+    builtArmyStructures: [],
+    pendingArmyStructures: 0,
+    pendingSupply: 0,
+    builder: NONE,
+  };
+
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player) continue;
+    const kind = e.kind[i]!;
+    const flags = e.flags[i]!;
+    if (e.prodKind[i] === faction.supplyStructure) roster.pendingSupply++;
+    if (kind === faction.worker) {
+      if (roster.builder === NONE && e.order[i] === Order.Harvest) roster.builder = i;
+      if ((flags & Role.Worker) !== 0 && e.buildKind[i] === faction.supplyStructure) roster.pendingSupply++;
+      if ((flags & Role.Worker) !== 0 && e.buildKind[i] === faction.armyStructure) roster.pendingArmyStructures++;
+    } else if (kind === faction.depot && e.built[i] === 1) {
+      if (e.prodKind[i] === Kind.None) roster.idleDepots.push(i);
+    } else if (kind === faction.armyStructure) {
+      if (e.built[i] === 1) roster.builtArmyStructures.push(i);
+      else roster.pendingArmyStructures++;
+    } else if (kind === faction.supplyStructure && e.built[i] !== 1) {
+      roster.pendingSupply++;
+    }
+  }
+
+  return roster;
+};
 
 export const desiredWorkerCount = (
   s: State,
@@ -113,6 +161,25 @@ export const maybeQueueSupply = (
       findSpot,
     );
   return { queued, usedBuilder: queued };
+};
+
+export const maybeQueueArmyStructure = (
+  s: State,
+  player: number,
+  faction: Faction,
+  cmds: Command[],
+  budget: ResourceBudget,
+  worker: number,
+  depot: number,
+  built: number,
+  pending: number,
+  target: number,
+  findMacroSpot: MacroSpotFinder,
+): boolean => {
+  const def = Units[faction.armyStructure]!;
+  if (def.buildMethod === 'larva') return false;
+  if (built + pending >= target || worker === NONE) return false;
+  return maybeQueueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
 };
 
 export const maybeSetArmyStructureRallies = (
