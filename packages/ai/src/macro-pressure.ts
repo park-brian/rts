@@ -2,6 +2,9 @@ import { NONE, ONE, TILE, distanceSq, isEnemy, nearest, type State } from '@rts/
 import { riskAt, type BotFacts, type BotMemory, type ProtectedRegion } from './macro.ts';
 
 export type PressureFocus = { x: number; y: number; target: number };
+export type PressureFocusOptions = {
+  strategicOnly?: boolean;
+};
 
 export const PRESSURE_COMMITMENT_TICKS = 45 * 24;
 const LETHAL_PRESSURE_RISK = 40;
@@ -121,7 +124,8 @@ export const pressureFocus = (
   player: number,
   facts: BotFacts,
   depot: number,
+  options: PressureFocusOptions = {},
 ): PressureFocus | null =>
   bestKnownEnemyRegion(s, facts, depot) ??
-  visibleEnemyFocus(s, player, facts, depot) ??
+  (options.strategicOnly ? null : visibleEnemyFocus(s, player, facts, depot)) ??
   publicEnemyStartFocus(s, player, depot);

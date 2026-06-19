@@ -743,6 +743,31 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
   assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
 });
 
+test('bot counter-pressures public enemy starts while defenders handle a fogged base incident', () => {
+  const scenario = botScenario({ seed: 820, factions: [Terran, Zerg], vision: true });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marines = Array.from({ length: 4 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 20), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(96), base.y);
+  s.vision[0]!.fill(0);
+  s.vision[0]![tileY(base.y) * s.map.w + tileX(base.x)] = 2;
+  s.vision[0]![tileY(s.e.y[slotOf(enemy)]!) * s.map.w + tileX(s.e.x[slotOf(enemy)]!)] = 2;
+
+  const cmds = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })(s, 0);
+  const publicStart = s.map.starts[1]!;
+  const offense = cmds.filter((c): c is Extract<BotCommand, { t: 'amove' }> =>
+    c.t === 'amove' && c.x === fx(publicStart.x * TILE + (TILE >> 1)) && c.y === fx(publicStart.y * TILE + (TILE >> 1)));
+  const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
+    c.t === 'attack' && c.target === enemy);
+  const defenders = new Set(defense.map((c) => c.unit));
+
+  assert.ok(defense.length > 0);
+  assert.ok(offense.length > 0);
+  assert.equal(defense.every((c) => marines.includes(c.unit)), true);
+  assert.equal(offense.every((c) => marines.includes(c.unit) && !defenders.has(c.unit)), true);
+});
+
 test('bot keeps defending remembered incidents after vision drops', () => {
   const scenario = botScenario({ seed: 812, vision: true });
   const s = scenario.state;

@@ -502,6 +502,9 @@ Remaining work:
       - Risk-aware pressure focus slice is done: committed pressure asks for full risk facts only
         while choosing among known enemy regions, prefers a non-lethal valuable target over a lethal
         economy dive, and still returns the least-bad focus when every known focus is dangerous.
+      - Counter-pressure focus slice is done: when a bounded defense squad is already handling a
+        base incident, leftover attack force uses strategic pressure focus and falls back to public
+        enemy starts instead of dogpiling the visible intruder under fog.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -900,6 +903,8 @@ Done when:
 - Made committed pressure focus risk-aware without making risk a normal macro tick cost: known enemy
   regions now avoid visibly lethal economy dives when a safer valuable focus exists, but still return
   a least-bad focus instead of freezing.
+- Added strategic counter-pressure focus for active defense incidents, so leftover forces can force a
+  response at known/public enemy locations while committed defenders handle the local threat.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

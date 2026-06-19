@@ -259,7 +259,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
         ? collectBotFacts(s, p, faction)
         : facts;
-      const focus = pressureFocus(s, p, pressureFacts, depot);
+      const focus = pressureFocus(s, p, pressureFacts, depot, { strategicOnly: incident !== undefined });
       if (focus) {
         let issuedOffense = false;
         if (!builderUsed) {
