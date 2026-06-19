@@ -175,6 +175,24 @@ test('batch action decode reserves entity capacity and command ammo', () => {
   assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'target-not-allowed' });
 });
 
+test('batch action decode reserves descriptor-backed child spawns', () => {
+  const scenario = simScenario({ players: 2, seed: 966 });
+  const { state: s, spawn, grant } = scenario;
+  const queen = spawn(Kind.Queen, 0, fx(300), fx(300));
+  const zealotA = spawn(Kind.Zealot, 1, fx(330), fx(300));
+  const zealotB = spawn(Kind.Zealot, 1, fx(360), fx(300));
+  s.e.energy[slotOf(queen)] = 300;
+  s.e.freeTop = 3;
+  grant(0, Tech.SpawnBroodling, 1);
+
+  const actionA = { head: 'ability' as const, actor: queen, ability: Ability.SpawnBroodling, target: zealotA };
+  const actionB = { head: 'ability' as const, actor: queen, ability: Ability.SpawnBroodling, target: zealotB };
+  const ctx = createBatchDecodeReservation(s, 0);
+
+  assert.equal(decodeBatchAction(s, ctx, actionA).ok, true);
+  assert.deepEqual(decodeBatchAction(s, ctx, actionB), { ok: false, command: decodeAction(actionB), reason: 'capacity-full' });
+});
+
 test('batch action decode reserves effect capacity and caster energy', () => {
   const scenario = simScenario({ players: 1, seed: 962, factions: [Protoss] });
   const { state: s, spawn, grant } = scenario;

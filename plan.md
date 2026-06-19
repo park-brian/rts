@@ -194,6 +194,7 @@ Remaining work:
   - `status`;
   - `persistentArea`;
   - `pointChannelArea`;
+  - `targetKillSpawn`;
   - `channel`;
   - `windup`;
   - `projectile`.
@@ -606,6 +607,9 @@ Done when:
 - Moved Nuclear Strike launch through an ability execution descriptor, including delayed effect
   spawn, ready-missile consumption, and caster channel state; Yamato target-channel/windup remains
   the next high-risk ability timing audit.
+- Moved Spawn Broodling through a `target-kill-spawn` ability descriptor, so target kill, Broodling
+  kind/count/spread/lifetime, normal command capacity, and RL batch capacity all read the same data
+  instead of carrying separate hard-coded child-spawn counts.
 
 ## Review Checklist
 

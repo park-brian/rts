@@ -65,6 +65,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Maelstrom]!.execution, { mode: 'point-area-status', timer: 'maelstrom', team: 'enemy', rolesAny: 0, traitsAny: Trait.Biological });
   assert.deepEqual(Abilities[Ability.Ensnare]!.execution, { mode: 'point-area-status', timer: 'ensnare', team: 'enemy', rolesAny: Role.Mobile, traitsAny: 0 });
   assert.deepEqual(Abilities[Ability.Plague]!.execution, { mode: 'point-area-status', timer: 'plague', team: 'enemy', rolesAny: Role.Mobile | Role.Structure, traitsAny: 0 });
+  assert.deepEqual(Abilities[Ability.SpawnBroodling]!.execution, { mode: 'target-kill-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2) });
   assert.deepEqual(Abilities[Ability.YamatoGun]!.execution, { mode: 'target-damage' });
   assert.deepEqual(Abilities[Ability.Feedback]!.execution, { mode: 'target-energy-feedback' });
   assert.deepEqual(Abilities[Ability.Consume]!.execution, { mode: 'target-sacrifice-energy' });

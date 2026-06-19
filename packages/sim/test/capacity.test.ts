@@ -83,6 +83,20 @@ test('entity-capacity command validation rejects spawning commands without throw
   });
 });
 
+test('spawn broodling validation requires both child entity slots', () => {
+  const { state: s, spawn, grant } = simScenario({ players: 2, seed: 1406 });
+  const queen = spawn(Kind.Queen, 0, fx(400), fx(400));
+  const zealot = spawn(Kind.Zealot, 1, fx(430), fx(400));
+  s.e.energy[slotOf(queen)] = 200;
+  s.e.freeTop = 1;
+  grant(0, Tech.SpawnBroodling, 1);
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'ability', unit: queen, ability: Ability.SpawnBroodling, target: zealot }), {
+    ok: false,
+    reason: 'capacity-full',
+  });
+});
+
 test('timed production holds ready when entity capacity is full', () => {
   const scenario = simScenario({ players: 1, seed: 1403 });
   const { sim, state: s, spawn } = scenario;

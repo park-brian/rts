@@ -191,6 +191,20 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       e.energy[slot] = Math.min(e.energyMax[slot]!, e.energy[slot]! + ability.damage);
       break;
     }
+    case 'target-kill-spawn': {
+      const target = slotOf(c.target!);
+      const owner = e.owner[slot]!;
+      const x = e.x[target]!;
+      const y = e.y[target]!;
+      kill(s, target);
+      for (let n = 0; n < execution.count; n++) {
+        const offset = (n * 2 - execution.count + 1) * execution.spread;
+        const id = trySpawnUnit(s, execution.kind, owner, x + offset, y);
+        if (id === NONE) break;
+        e.lifeTimer[slotOf(id)] = execution.life;
+      }
+      break;
+    }
     case 'self-toggle': {
       const enabled = e[execution.flag][slot] !== 1;
       e[execution.flag][slot] = enabled ? 1 : 0;
@@ -365,19 +379,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
   if (applyGenericExecution(s, slot, c)) return;
 
   switch (c.ability) {
-    case Ability.SpawnBroodling: {
-      const target = slotOf(c.target!);
-      const owner = e.owner[slot]!;
-      const x = e.x[target]!;
-      const y = e.y[target]!;
-      kill(s, target);
-      const a = trySpawnUnit(s, Kind.Broodling, owner, x - 6, y);
-      const b = trySpawnUnit(s, Kind.Broodling, owner, x + 6, y);
-      if (a === NONE || b === NONE) break;
-      e.lifeTimer[slotOf(a)] = sec(75.2);
-      e.lifeTimer[slotOf(b)] = sec(75.2);
-      break;
-    }
     case Ability.Recall:
       recallUnits(s, slot, c.x!, c.y!, ability.radius);
       break;

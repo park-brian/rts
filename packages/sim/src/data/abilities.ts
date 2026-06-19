@@ -64,6 +64,7 @@ export type AbilityExecution =
   | { mode: 'target-energy-feedback' }
   | { mode: 'target-cleanse' }
   | { mode: 'target-sacrifice-energy' }
+  | { mode: 'target-kill-spawn'; kind: number; count: number; spread: number; life: number }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
   | { mode: 'persistent-effect'; effect: EffectKind }
   | { mode: 'point-channel-effect'; effect: EffectKind; consumes: 'nuke' };
@@ -159,6 +160,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Spawn Broodling', tech: Tech.SpawnBroodling, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: Role.Air,
     targetTraitsAny: Trait.Biological, targetTraitsNone: Trait.Robotic, targetNeedsEnergy: false, casters: [Kind.Queen],
     energyCost: 150, hpCost: 0, range: tiles(9), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-kill-spawn', kind: Kind.Broodling, count: 2, spread: fx(6), life: sec(75.2) },
   },
   [Ability.Ensnare]: {
     name: 'Ensnare', tech: Tech.Ensnare, target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,

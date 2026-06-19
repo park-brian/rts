@@ -18,9 +18,8 @@ export const abilityCapacityAvailable = (s: State, abilityId: number): boolean =
   const ability = Abilities[abilityId];
   if (!ability) return false;
   if (ability.execution?.mode === 'persistent-effect' || ability.execution?.mode === 'point-channel-effect') return canSpawnEffect(s);
+  if (ability.execution?.mode === 'target-kill-spawn') return canSpawnEntity(s, ability.execution.count);
   switch (abilityId) {
-    case Ability.SpawnBroodling:
-      return canSpawnEntity(s, 1);
     case Ability.Hallucination:
       return canSpawnEntity(s, 2);
     default:

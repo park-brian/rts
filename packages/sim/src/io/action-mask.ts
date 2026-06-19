@@ -433,7 +433,7 @@ const commandReservation = (
         r.ammo = 1;
         r.ammoReject = 'missing-requirement';
       } else if (ability.execution?.mode === 'persistent-effect') r.effectSlots = 1;
-      else if (command.ability === Ability.SpawnBroodling) r.entitySlots = 1;
+      else if (ability.execution?.mode === 'target-kill-spawn') r.entitySlots = ability.execution.count;
       else if (command.ability === Ability.Hallucination) r.entitySlots = 2;
       return r;
     }
