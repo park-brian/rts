@@ -709,6 +709,10 @@ Remaining work:
       records, marking macro intents done when command emission created them and marking tactical or
       pressure intents done only when their executor emitted commands. This gives the future
       scheduler a regression surface for "proposed but no actor moved" failures.
+    - Waiting-pressure outcome slice is done: below-threshold pressure now produces a visible
+      `attack-wave` / `counterattack` intent with a `waiting: insufficient-force` result instead of
+      vanishing until the commitment timer fires, while committed pressure that cannot issue is
+      classified as blocked for the future scheduler.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

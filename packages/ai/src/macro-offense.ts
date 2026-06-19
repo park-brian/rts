@@ -52,13 +52,11 @@ const pressureIntentKind = (
 const pressureIntent = (
   reserve: CombatReserve,
   decision: PressureCommitmentDecision,
-  focus: PressureFocus,
+  focus: PressureFocus | null,
 ): BotIntent => ({
   kind: pressureIntentKind(reserve, decision),
   urgency: decision.forced ? 55 : 40,
-  targetSlot: focus.target,
-  x: focus.x,
-  y: focus.y,
+  ...(focus ? { targetSlot: focus.target, x: focus.x, y: focus.y } : {}),
 });
 
 export const proposePressureIntent = (
@@ -72,7 +70,8 @@ export const proposePressureIntent = (
   options: PressureProposalOptions,
 ): PressureIntentProposal => {
   const decision = pressureCommitmentDecision(memory, s.tick, reserve.commitmentForce, options.attackThreshold);
-  if (decision.status !== 'commit') return { decision, focus: null, intent: null, reserve };
+  if (decision.status === 'idle') return { decision, focus: null, intent: null, reserve };
+  if (decision.status === 'waiting') return { decision, focus: null, intent: pressureIntent(reserve, decision, null), reserve };
 
   const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
     ? collectBotFacts(s, player, faction)

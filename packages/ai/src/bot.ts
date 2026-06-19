@@ -5,7 +5,7 @@
 // the demonstrator we'll behavior-clone from later.
 
 import { NONE, type Command, type Controller, type Faction, type State } from '@rts/sim';
-import { executePressureIntent, proposePressureIntent } from './macro-offense.ts';
+import { executePressureIntent, proposePressureIntent, type PressureScheduleResult } from './macro-offense.ts';
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
@@ -38,6 +38,14 @@ const waitingForForce: BotIntentResult = { status: 'waiting', reason: 'insuffici
 
 const intentResult = (issued: boolean): BotIntentResult =>
   issued ? done : waitingForForce;
+
+const pressureIntentResult = (
+  result: Pick<PressureScheduleResult, 'decision' | 'focus' | 'issued'>,
+): BotIntentResult => {
+  if (result.issued) return done;
+  if (result.decision.status === 'waiting') return waitingForForce;
+  return { status: 'blocked', reason: result.focus ? 'insufficient-force' : 'path-blocked' };
+};
 
 export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {}): BotPlanner => {
   const c = { ...DEFAULT, ...cfg };
@@ -130,7 +138,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     if (pressureProposal.intent) {
       intentResults.push({
         intent: pressureProposal.intent,
-        result: intentResult(pressureResult.issued),
+        result: pressureIntentResult(pressureResult),
       });
     }
 

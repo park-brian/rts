@@ -401,6 +401,21 @@ test('live bot planner exposes sorted macro, defense, and pressure intents', () 
   assert.equal(plan.intents[1]!.urgency >= plan.intents[2]!.urgency, true);
 });
 
+test('live bot planner reports waiting pressure intent before commitment', () => {
+  const scenario = botScenario({ seed: 834, factions: [Terran, Terran] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.resources(0, 0, 0);
+  scenario.spawn(Kind.Marine, 0, base.x + fx(32), base.y);
+
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 6 })(s, 0);
+  const pressure = plan.intentResults.find((record) => record.intent.kind === 'attack-wave');
+
+  assert.ok(pressure);
+  assert.deepEqual(pressure.result, { status: 'waiting', reason: 'insufficient-force' });
+  assert.equal(plan.commands.some((cmd) => cmd.t === 'attack' || cmd.t === 'amove'), false);
+});
+
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
   const scenario = botScenario({ seed: 800, factions: [Zerg, Terran] });
   const hatchery = scenario.entity(Kind.Hatchery, 0);
