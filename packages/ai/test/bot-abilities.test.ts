@@ -53,6 +53,8 @@ const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number)
   cmds.find((c): c is Extract<BotCommand, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findBuild(cmds, kind) !== undefined;
+const findCommandBuild = (cmds: Command[], kind: number): Extract<Command, { t: 'build' }> | undefined =>
+  cmds.find((c): c is Extract<Command, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const findResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): Extract<BotCommand, { t: 'research' }> | undefined =>
   cmds.find((c): c is Extract<BotCommand, { t: 'research' }> => c.t === 'research' && c.tech === tech);
 const hasResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): boolean =>
@@ -147,6 +149,24 @@ const seedTerranMarineCore = (scenario: BotScenario, player: number): void => {
     scenario.spawn(Kind.SupplyDepot, player, base.x + fx(-180 + i * 48), base.y + fx(120 * yDir));
   }
 };
+
+test('aggressive marine bot builds depots and up to four barracks', () => {
+  const bot = createAggressiveMarineBot();
+  const barracksScenario = botScenario({ seed: 832, factions: [Terran, Terran] });
+  barracksScenario.resources(1, 1_000, 0);
+  const barracksCmds = bot(barracksScenario.state, 1);
+  const barracks = findCommandBuild(barracksCmds, Kind.Barracks);
+  assert.ok(barracks);
+  assert.deepEqual(validateCommand(barracksScenario.state, 1, barracks), { ok: true });
+
+  const depotScenario = botScenario({ seed: 833, factions: [Terran, Terran] });
+  depotScenario.resources(1, 1_000, 0);
+  depotScenario.state.players.supplyUsed[1] = depotScenario.state.players.supplyMax[1]! - 1;
+  const depotCmds = bot(depotScenario.state, 1);
+  const firstBuild = depotCmds.find((c): c is Extract<Command, { t: 'build' }> => c.t === 'build');
+  assert.equal(firstBuild?.kind, Kind.SupplyDepot);
+  assert.deepEqual(validateCommand(depotScenario.state, 1, firstBuild!), { ok: true });
+});
 
 test('bot tactical ability policy descriptors match sim ability target modes', () => {
   const expectedTactical = [
@@ -1108,7 +1128,7 @@ test('bot counter-pressures public enemy starts while defenders handle a fogged 
   assert.equal(offense.every((c) => marines.includes(c.unit) && !defenders.has(c.unit)), true);
 });
 
-test('bot stays active against a simple aggressive marine stream', () => {
+test('bot stays active against four-rax marine pressure', () => {
   const scenario = botScenario({ seed: 831, factions: [Terran, Terran] });
   const sim = scenario.sim;
   const s = scenario.state;

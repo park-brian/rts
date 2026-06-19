@@ -520,8 +520,9 @@ Remaining work:
         state and initialization, so commitment pressure, tactical incidents, and the live bot share
         one deterministic memory contract instead of routing memory through fact collection.
       - Aggressive-baseline test slice is done: `packages/ai/test-support/aggressive-bot.ts`
-        provides a deliberately simple Terran pressure controller that continuously trains SCVs and
-        Marines, streams Marines at the enemy depot, and shares normal command validation. The live
+        provides a deliberately simple four-Barracks Terran pressure controller that keeps SCVs and
+        Marines queued, builds Depots ahead of cap pressure, grows toward four owned-or-pending
+        Barracks, streams Marines at the enemy depot, and shares normal command validation. The live
         bot now has a deterministic multi-tick regression test proving it keeps producing combat
         responses against that baseline instead of freezing while pressure arrives.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
