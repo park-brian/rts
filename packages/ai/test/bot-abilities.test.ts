@@ -1936,6 +1936,27 @@ test('live bot planner reports blocked expansion placement outcomes', () => {
     record.result.reason === 'occupied-location'));
 });
 
+test('live bot planner reports waiting expansion outcomes when no builder exists', () => {
+  const scenario = bankedExpansionScenario(516);
+  const e = scenario.state.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.SCV) e.alive[i] = 0;
+  }
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.targetKind === Kind.CommandCenter &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-builder'));
+});
+
 test('terran bot does not duplicate an already occupied expansion site', () => {
   const scenario = bankedExpansionScenario(513);
   const natural = playerNatural(scenario);

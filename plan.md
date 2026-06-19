@@ -728,6 +728,11 @@ Remaining work:
       `expand` intent result instead of disappearing as "no macro command", and the planner feeds
       that outcome into the same intent-memory path. Remaining work: route/path failures and truly
       unsafe expansion sites still need their own outcome sources.
+    - Expansion no-builder outcome slice is done: expansion attempts now use a generic optional
+      outcome record and report `waiting: no-builder` when the bot wants a base, has a viable site
+      and bank, but no available worker builder. Remaining work: macro directors still need explicit
+      outcomes for resource starvation, supply blocks, and occupied producers where those states are
+      genuinely actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

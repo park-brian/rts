@@ -219,7 +219,7 @@ export const scheduleBotMacro = (
   if (!builderUsed) {
     const expansion = queueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory);
     builderUsed = expansion.queued;
-    if (expansion.blocked) intentResults.push(expansion.blocked);
+    if (expansion.outcome) intentResults.push(expansion.outcome);
   }
 
   if (!builderUsed) {
