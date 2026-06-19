@@ -688,6 +688,10 @@ Remaining work:
     - Terran add-on macro extraction slice is done: add-on priority, Science Facility add-on choice,
       parent reservation, and validator-backed add-on queueing now live in
       `packages/ai/src/macro-addons.ts` instead of the live bot controller.
+    - Macro placement helper extraction slice is done: deterministic ring placement, exact-point
+      placement, and pylon-anchor fallback now live in `packages/ai/src/macro-placement.ts`, so the
+      live controller passes shared placement policy into build, expansion, Nydus, and capacity
+      directors instead of owning it inline.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
@@ -877,6 +881,8 @@ Done when:
   live bot controller without changing transform ordering or legality checks.
 - Extracted Terran add-on macro into `packages/ai/src/macro-addons.ts`, keeping parent reservations
   shared with research while removing another policy table from the live bot controller.
+- Extracted bot macro placement helpers into `packages/ai/src/macro-placement.ts`, centralizing the
+  shared spot-finding policy used by tech, capacity, expansion, and Nydus macro directors.
 - Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start

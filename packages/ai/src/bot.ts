@@ -5,10 +5,9 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Role, Order, Kind, Units, canPlaceStructure, tileX, tileY, eid,
+  Role, Order, Kind, Units, eid,
   NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   productionCostCount, productionCount,
-  requiresPower,
   withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -21,6 +20,7 @@ import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
+import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
@@ -42,53 +42,6 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
-
-const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
-
-/** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
-const findSpot = (s: State, player: number, worker: number, kind: number, bx: number, by: number): { x: number; y: number } | null => {
-  const btx = tileX(bx);
-  const bty = tileY(by);
-  for (let r = 3; r <= 14; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
-        const tx = btx + dx;
-        const ty = bty + dy;
-        const cx = px(tx);
-        const cy = px(ty);
-        const placement = canPlaceStructure(s, player, worker, kind, cx, cy);
-        if (placement.ok) return { x: placement.x, y: placement.y };
-      }
-    }
-  }
-  return null;
-};
-
-const findExactSpot = (
-  s: State,
-  player: number,
-  worker: number,
-  kind: number,
-  x: number,
-  y: number,
-): { x: number; y: number } | null => {
-  const placement = canPlaceStructure(s, player, worker, kind, x, y);
-  return placement.ok ? { x: placement.x, y: placement.y } : null;
-};
-
-const findMacroSpot = (s: State, player: number, worker: number, kind: number, fallback: number): { x: number; y: number } | null => {
-  const e = s.e;
-  if (!requiresPower(kind)) return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
-
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1 || e.kind[i] !== Kind.Pylon) continue;
-    const spot = findSpot(s, player, worker, kind, e.x[i]!, e.y[i]!);
-    if (spot) return spot;
-  }
-
-  return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
-};
 
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
