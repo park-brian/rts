@@ -37,6 +37,8 @@ export type BotConfig = {
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const EMERGENCY_WORKER_RESPONSE_TILES = 10;
+const OFFENSE_COMMITMENT_TICKS = 45 * 24;
+const OFFENSE_MIN_FORCE = 2;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const TERRAN_RESEARCH_MACRO = [
   Tech.StimPack,
@@ -189,6 +191,24 @@ const emergencyWorkerResponders = (
     .sort((a, b) => a.distance - b.distance || a.slot - b.slot)
     .slice(0, needed)
     .map(({ slot }) => slot);
+};
+
+const shouldCommitOffense = (memory: BotMemory, tick: number, force: number, threshold: number): boolean => {
+  if (force <= 0) {
+    memory.offenseWaitSince = -1;
+    return false;
+  }
+  if (force >= threshold) return true;
+  if (force < OFFENSE_MIN_FORCE) {
+    memory.offenseWaitSince = -1;
+    return false;
+  }
+  if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
+  return tick - memory.offenseWaitSince >= OFFENSE_COMMITMENT_TICKS;
+};
+
+const markOffenseCommitted = (memory: BotMemory, tick: number): void => {
+  memory.offenseWaitSince = tick;
 };
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
@@ -499,24 +519,39 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       }
     }
 
-    if ((incident ? attackCandidates.length : army) >= c.attackThreshold) {
+    if (shouldCommitOffense(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
       // 6) Offense: send idle army to the nearest enemy structure (else any enemy).
       let tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
       if (tgt === NONE) tgt = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, p, e.owner[sl]!));
       if (tgt !== NONE) {
+        let issuedOffense = false;
         if (!builderUsed) {
           builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, e.x[tgt]!, e.y[tgt]!);
           minerals = budget.minerals;
         }
         if (!incident) castTacticalAbilities(s, p, cmds, casters, e.x[tgt]!, e.y[tgt]!);
         for (const a of attackCandidates) {
-          if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) continue;
-          if (maybeLaySpiderMine(s, cmds, a, tgt)) continue;
-          if (maybeBurrowForFight(s, cmds, a, tgt)) continue;
-          if (maybeTransformForFight(s, cmds, a, e.x[tgt]!, e.y[tgt]!)) continue;
+          if (maybeUseNydusNetwork(s, p, cmds, a, e.x[tgt]!, e.y[tgt]!)) {
+            issuedOffense = true;
+            continue;
+          }
+          if (maybeLaySpiderMine(s, cmds, a, tgt)) {
+            issuedOffense = true;
+            continue;
+          }
+          if (maybeBurrowForFight(s, cmds, a, tgt)) {
+            issuedOffense = true;
+            continue;
+          }
+          if (maybeTransformForFight(s, cmds, a, e.x[tgt]!, e.y[tgt]!)) {
+            issuedOffense = true;
+            continue;
+          }
           maybeStim(s, cmds, a);
           cmds.push({ t: 'amove', unit: eid(e, a), x: e.x[tgt]!, y: e.y[tgt]! });
+          issuedOffense = true;
         }
+        if (issuedOffense) markOffenseCommitted(memory, s.tick);
       }
     }
 

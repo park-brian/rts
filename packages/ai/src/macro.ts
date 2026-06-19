@@ -158,6 +158,7 @@ export type BotMemory = {
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
+  offenseWaitSince: number;
 };
 
 export const createBotMemory = (): BotMemory => ({
@@ -166,6 +167,7 @@ export const createBotMemory = (): BotMemory => ({
   suspectedInvisibleThreats: new Map(),
   tacticalIncidents: new Map(),
   tacticalCommitments: new Map(),
+  offenseWaitSince: -1,
 });
 
 const BASE_THREAT_TILES = 18;

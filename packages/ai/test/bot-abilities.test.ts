@@ -553,6 +553,49 @@ test('bot attacks with uncommitted army while a small defense squad responds', (
   assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
 });
 
+test('bot commitment pressure eventually sends an under-threshold army', () => {
+  const scenario = botScenario({ seed: 818 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
+  const enemyBasePos = scenario.pos(enemyBase);
+  const marines = Array.from({ length: 3 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 12 });
+  const isOffense = (cmd: BotCommand): cmd is Extract<BotCommand, { t: 'amove' }> =>
+    cmd.t === 'amove' && cmd.x === enemyBasePos.x && cmd.y === enemyBasePos.y;
+
+  assert.equal(bot(s, 0).some(isOffense), false);
+  s.tick += 45 * 24 + 1;
+  const offense = bot(s, 0).filter(isOffense);
+
+  assert.deepEqual(offense.map((c) => c.unit), marines);
+});
+
+test('bot commitment pressure spends only units not reserved for defense', () => {
+  const scenario = botScenario({ seed: 819 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threat = baseOnlyThreatPoint(collectBotFacts(s, 0, Terran), base);
+  const marines = Array.from({ length: 4 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
+  const enemyBase = scenario.entity(Kind.CommandCenter, 1);
+  const enemyBasePos = scenario.pos(enemyBase);
+  const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 12 });
+
+  bot(s, 0);
+  s.tick += 45 * 24 + 1;
+  const cmds = bot(s, 0);
+  const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
+    c.t === 'attack' && c.target === enemy);
+  const offense = cmds.filter((c): c is Extract<BotCommand, { t: 'amove' }> =>
+    c.t === 'amove' && c.x === enemyBasePos.x && c.y === enemyBasePos.y);
+
+  assert.deepEqual(defense.map((c) => c.unit), marines.slice(0, 2));
+  assert.deepEqual(offense.map((c) => c.unit), marines.slice(2));
+});
+
 test('bot keeps defending remembered incidents after vision drops', () => {
   const scenario = botScenario({ seed: 812, vision: true });
   const s = scenario.state;

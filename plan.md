@@ -479,6 +479,10 @@ Remaining work:
       The fallback intent should often be "force a response": hit workers, threaten tech, posture at
       a choke, pull the enemy army home, or trade a small squad for scouting and time. This prevents
       the bot from mistaking caution for strategy.
+      - First commitment-pressure slice is done: `BotMemory` tracks how long an under-threshold
+        offense force has been waiting, and the live bot eventually sends that remaining force once
+        waiting is worse than forcing a response. Tactical defense reservations still happen first,
+        so this pressure spends only uncommitted units instead of stealing active defenders.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
