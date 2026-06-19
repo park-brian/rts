@@ -68,6 +68,8 @@ Run:
 npm run research:bw-timings
 ```
 
-The audit looks for local primary-source candidates under `tmp/`, `docs/research/`, and optional
-extra roots passed on the command line. It intentionally reports "unsourced" until a primary source
-or measured trace is present and documented.
+The audit looks for local primary-source candidates under `tmp/`, `docs/research/`, `docs/specs/`,
+and optional extra roots passed on the command line. It prints a required-input checklist for
+`iscript.bin`, DAT mapping files, known BW MPQ/archive candidates, and measured timing traces. It
+intentionally reports "unsourced" until a primary source or measured trace is present and
+documented.

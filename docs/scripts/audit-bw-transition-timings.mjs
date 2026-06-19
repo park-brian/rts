@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { basename, join, relative, resolve } from 'node:path';
+import { basename, extname, join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const DOC = join(ROOT, 'docs', 'research', 'bw-transition-timings.md');
@@ -22,6 +22,13 @@ const sourceNames = new Set([
   'flingy.dat',
   'orders.dat',
 ]);
+const archiveNames = new Set([
+  'broodat.mpq',
+  'patch_rt.mpq',
+  'stardat.mpq',
+  'starcraft.mpq',
+  'broodwar.mpq',
+]);
 
 const traceExtensions = new Set(['.json', '.jsonl', '.csv', '.trace', '.rep']);
 const traceNeedles = [
@@ -41,6 +48,7 @@ const traceNeedles = [
 const skippedDirs = new Set(['.git', 'node_modules', 'dist', 'build', 'out', '.cache']);
 
 const normalize = (path) => relative(ROOT, path).replaceAll('\\', '/');
+const isPrimarySourceCandidate = (path) => sourceNames.has(basename(path).toLowerCase());
 
 const hashFile = (path) => {
   const bytes = readFileSync(path);
@@ -62,6 +70,14 @@ const isTraceCandidate = (path) => {
   }
 };
 
+const isArchiveCandidate = (path) => {
+  const name = basename(path).toLowerCase();
+  return archiveNames.has(name);
+};
+
+const isOtherMpqCandidate = (path) =>
+  extname(path).toLowerCase() === '.mpq' && !isArchiveCandidate(path);
+
 const walk = (root, out = []) => {
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     const path = join(root, entry.name);
@@ -73,14 +89,26 @@ const walk = (root, out = []) => {
     if (!entry.isFile()) continue;
 
     const lower = entry.name.toLowerCase();
-    if (sourceNames.has(lower) || isTraceCandidate(path)) out.push(path);
+    if (
+      sourceNames.has(lower) ||
+      isArchiveCandidate(path) ||
+      isOtherMpqCandidate(path) ||
+      isTraceCandidate(path)
+    ) {
+      out.push(path);
+    }
   }
   return out;
 };
 
 const candidates = roots.flatMap((root) => walk(root)).sort();
-const primary = candidates.filter((path) => sourceNames.has(basename(path).toLowerCase()));
-const traces = candidates.filter((path) => !sourceNames.has(basename(path).toLowerCase()));
+const primary = candidates.filter(isPrimarySourceCandidate);
+const archives = candidates.filter(isArchiveCandidate);
+const otherMpqs = candidates.filter(isOtherMpqCandidate);
+const traces = candidates.filter((path) =>
+  !isPrimarySourceCandidate(path) &&
+  !isArchiveCandidate(path) &&
+  !isOtherMpqCandidate(path));
 const doc = existsSync(DOC) ? readFileSync(DOC, 'utf8') : '';
 const unsourcedRows = [...doc.matchAll(/\|\s*([^|]+?)\s*\|[^|\n]*\|\s*[^|\n]*\|\s*Unsourced\s*\|/gi)]
   .map((match) => match[1].trim())
@@ -88,6 +116,39 @@ const unsourcedRows = [...doc.matchAll(/\|\s*([^|]+?)\s*\|[^|\n]*\|\s*[^|\n]*\|\
 
 console.log('Brood War transition timing source audit');
 console.log(`Roots: ${roots.map(normalize).join(', ') || '(none)'}`);
+console.log('');
+
+const matchesNamedInput = (names) => primary.filter((path) => names.includes(basename(path).toLowerCase()));
+const checklist = [
+  { label: 'Animation script', names: ['iscript.bin'] },
+  { label: 'Unit DAT', names: ['units.dat'] },
+  { label: 'Image/sprite/flingy DATs', names: ['images.dat', 'sprites.dat', 'flingy.dat'] },
+  { label: 'Order DAT', names: ['orders.dat'] },
+];
+
+console.log('Required source-input checklist:');
+for (const item of checklist) {
+  const found = matchesNamedInput(item.names);
+  if (found.length) {
+    console.log(`- ${item.label}: present (${found.map(normalize).join(', ')})`);
+  } else {
+    console.log(`- ${item.label}: missing (${item.names.join(', ')})`);
+  }
+}
+if (archives.length) {
+  console.log(`- Known BW archives: present (${archives.map(normalize).join(', ')})`);
+} else {
+  console.log('- Known BW archives: missing (BrooDat.mpq, StarDat.mpq, patch_rt.mpq, StarCraft.mpq, BroodWar.mpq)');
+}
+if (otherMpqs.length) {
+  console.log(`- Other MPQ files: ignored for timing source status (${otherMpqs.map(normalize).join(', ')})`);
+}
+if (traces.length) {
+  console.log(`- Measured timing traces: present (${traces.map(normalize).join(', ')})`);
+} else {
+  console.log('- Measured timing traces: missing (*.json/*.jsonl/*.csv/*.trace/*.rep containing timing keywords)');
+}
+
 console.log('');
 
 if (primary.length) {
@@ -101,6 +162,27 @@ if (primary.length) {
 }
 
 console.log('');
+
+if (archives.length) {
+  console.log('Known BW archive candidates:');
+  for (const path of archives) {
+    const st = statSync(path);
+    console.log(`- ${normalize(path)} (${st.size} bytes, sha256:${hashFile(path)})`);
+  }
+} else {
+  console.log('Known BW archive candidates: none');
+}
+
+console.log('');
+
+if (otherMpqs.length) {
+  console.log('Other MPQ files, not accepted as BW timing sources:');
+  for (const path of otherMpqs) {
+    const st = statSync(path);
+    console.log(`- ${normalize(path)} (${st.size} bytes, sha256:${hashFile(path)})`);
+  }
+  console.log('');
+}
 
 if (traces.length) {
   console.log('Measured trace candidates:');
