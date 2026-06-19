@@ -111,6 +111,7 @@ test('observe exposes own active order intent without leaking enemy destinations
   assert.equal(ownView.ty, fx(520));
   assert.equal(ownView.patrolX, fx(500));
   assert.equal(ownView.patrolY, fx(500));
+  assert.equal(ownView.queueSpace, 4);
 
   const enemyView = obs.entities.find((v) => v.id === enemy)!;
   assert.equal(enemyView.orderTarget, NONE);
@@ -120,6 +121,7 @@ test('observe exposes own active order intent without leaking enemy destinations
   assert.equal(enemyView.ty, 0);
   assert.equal(enemyView.patrolX, 0);
   assert.equal(enemyView.patrolY, 0);
+  assert.equal(enemyView.queueSpace, 0);
 
   const buffers = createObservationBuffers(s.map, { entities: 32 });
   const counts = writeObservation(s, 0, buffers);
@@ -133,11 +135,11 @@ test('observe exposes own active order intent without leaking enemy destinations
   const enemyRow = rowFor(enemy);
   assert.notEqual(ownRow, -1);
   assert.notEqual(enemyRow, -1);
-  assert.deepEqual([...buffers.entities.slice(ownRow + 7, ownRow + 15)], [
-    Order.Patrol, NONE, NONE, NONE, fx(700), fx(520), fx(500), fx(500),
+  assert.deepEqual([...buffers.entities.slice(ownRow + 7, ownRow + 16)], [
+    Order.Patrol, NONE, NONE, NONE, fx(700), fx(520), fx(500), fx(500), 4,
   ]);
-  assert.deepEqual([...buffers.entities.slice(enemyRow + 8, enemyRow + 15)], [
-    NONE, NONE, NONE, 0, 0, 0, 0,
+  assert.deepEqual([...buffers.entities.slice(enemyRow + 8, enemyRow + 16)], [
+    NONE, NONE, NONE, 0, 0, 0, 0, 0,
   ]);
 
   ownView.tx = 0;
@@ -198,6 +200,8 @@ test('observe returns active own queued travel orders without leaking enemy queu
       { order: Order.Patrol, target: NONE, x: fx(820), y: fx(540) },
     ],
   }]);
+  assert.equal(obs.entities.find((v) => v.id === marine)!.queueSpace, 1);
+  assert.equal(obs.entities.find((v) => v.id === enemy)!.queueSpace, 0);
 
   obs.orderQueues[0]!.entries[0]!.x = 0;
   assert.equal(sim.observe(0).orderQueues[0]!.entries[0]!.x, fx(740), 'mutating observation order queue does not mutate sim queue');
@@ -214,6 +218,16 @@ test('observe returns active own queued travel orders without leaking enemy queu
     Order.Move, friendly, fx(780), fx(500),
     Order.Patrol, NONE, fx(820), fx(540),
   ]);
+
+  const entityRow = (() => {
+    for (let i = 0; i < counts.entities; i++) {
+      const row = i * OBS_ENTITY_STRIDE;
+      if (buffers.entities[row] === marine) return row;
+    }
+    return -1;
+  })();
+  assert.notEqual(entityRow, -1);
+  assert.equal(buffers.entities[entityRow + 15], 1);
 });
 
 test('observe returns usable own cargo without leaking enemy cargo', () => {

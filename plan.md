@@ -403,6 +403,9 @@ Remaining work:
   - Active order observation slice is done: object observations and caller-owned entity buffers now
     expose own command target, intent target, combat target, destination point, and Patrol return
     endpoint, while visible enemy rows keep those intent fields hidden to avoid leaking future plans.
+  - Queue-space observation slice is done: own entity rows now expose remaining queued-travel
+    capacity in both object and caller-owned buffer observations, hidden enemy rows report zero, and
+    the observation schema version was bumped so RL consumers can gate on the new layout.
   - Mode-transition observation slice is done: object and caller-owned status observations expose
     own mode-transition type, target kind/state, remaining timer, and total timer; enemy status rows
     still do not leak, and the status buffer schema now includes the full cloak timer/aura fields.
@@ -685,6 +688,8 @@ Done when:
   allow Patrol while queue space remains and reject it through the same full-queue gate.
 - Exposed active own order intent in fair-play object and buffer observations while preserving
   hidden enemy destination/target secrecy.
+- Exposed own queued-travel capacity in fair-play entity observations and caller-owned entity
+  buffers while preserving hidden enemy queue secrecy.
 - Locked in the existing ML benchmark lanes for action masks, object observations, buffer
   observations, bot generation, and N-env batch stepping as completed roadmap coverage.
 - Exposed first-class Move on the command card and desktop hotkeys, closing the most obvious

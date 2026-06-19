@@ -20,6 +20,7 @@ export type EntityView = {
   x: number; y: number; hp: number; built: number; order: number;
   orderTarget: number; intentTarget: number; combatTarget: number;
   tx: number; ty: number; patrolX: number; patrolY: number;
+  queueSpace: number;
 };
 
 type EntityIntentView = Pick<
@@ -134,10 +135,10 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 5;
+export const OBSERVATION_SCHEMA_VERSION = 6;
 // id, kind, owner, x, y, hp, built, order, orderTarget, intentTarget,
-// combatTarget, tx, ty, patrolX, patrolY
-export const OBS_ENTITY_STRIDE = 15;
+// combatTarget, tx, ty, patrolX, patrolY, queueSpace
+export const OBS_ENTITY_STRIDE = 16;
 export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
 export const OBS_ORDER_QUEUE_STRIDE = 2 + ORDER_QUEUE_CAP * 4; // id, len, then order,target,x,y per queued travel entry
 export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
@@ -367,6 +368,9 @@ const entityIntentView = (
   patrolY: e.patrolY[i]!,
 } : hiddenEntityIntent;
 
+const entityQueueSpace = (e: State['e'], i: number, own: boolean): number =>
+  own ? ORDER_QUEUE_CAP - e.orderQueueLen[i]! : 0;
+
 const writeEntity = (out: Int32Array, row: number, s: State, i: number, own: boolean): void => {
   const e = s.e;
   const intent = entityIntentView(e, i, own);
@@ -386,6 +390,7 @@ const writeEntity = (out: Int32Array, row: number, s: State, i: number, own: boo
   out[p++] = intent.ty;
   out[p++] = intent.patrolX;
   out[p++] = intent.patrolY;
+  out[p++] = entityQueueSpace(e, i, own);
 };
 
 const writeQueue = (out: Int32Array, row: number, q: QueueView): void => {
@@ -707,6 +712,7 @@ export const observe = (s: State, player: number): Observation => {
       id: eid(e, i), kind: e.kind[i]!, owner: e.owner[i]!,
       x: e.x[i]!, y: e.y[i]!, hp: e.hp[i]!, built: e.built[i]!, order: e.order[i]!,
       ...entityIntentView(e, i, own),
+      queueSpace: entityQueueSpace(e, i, own),
     });
   }
   const larvaCounts = new Map<number, number>();
