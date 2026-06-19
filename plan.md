@@ -616,6 +616,9 @@ Remaining work:
       air-only weapons near a base are still visible facts but no longer inflate ground-asset danger.
       `riskAtLayer` is the intended helper shape for future named questions instead of raw array
       reads throughout directors.
+    - Risk ownership slice is done: `packages/ai/src/macro-risk.ts` now owns the risk-map type,
+      risk-map construction, and layer read helpers; facts choose whether to build the full map or
+      cheap omitted map, while incidents and pressure consume risk through the shared risk module.
       Remaining layers should be added only with consumers: suspected invisible risk from damage
       memory, protected-asset value for defense/evacuation, friendly response coverage for engage
       decisions, route congestion for scouting/retreat, and unknown-fog penalty for expansion and
@@ -742,6 +745,9 @@ Remaining work:
   - Incident ownership slice is done: `packages/ai/src/macro-incidents.ts` now owns tactical
     incident derivation, memory expiry, response budgeting, responder ranking, and responder
     commitment, leaving `macro.ts` focused on facts/risk and controller memory.
+  - Risk ownership slice is done: `packages/ai/src/macro-risk.ts` now owns the risk-map type,
+    construction, and read helpers, leaving `macro.ts` to collect facts and opt into full or omitted
+    risk per caller.
   - Pressure-policy extraction slice is done: attack-wave commitment and focus selection now live in
     `packages/ai/src/macro-pressure.ts`, with the explicit rule that freezing is worse than sending a
     usable force to create pressure after a deterministic wait. Under fair fog, pressure uses known
@@ -947,6 +953,8 @@ Done when:
 - Moved tactical incident derivation, memory, response scoring, response budgeting, and responder
   commitment into `packages/ai/src/macro-incidents.ts`, leaving `macro.ts` focused on facts/risk and
   controller memory.
+- Moved bot risk-map type, construction, and read helpers into `packages/ai/src/macro-risk.ts`,
+  leaving fact collection to choose full versus omitted risk without owning the risk algorithm.
 - Extracted bot defense targeting and emergency worker responder selection into
   `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
   defense behavior.

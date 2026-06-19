@@ -15,11 +15,11 @@ import {
   type State,
 } from '@rts/sim';
 import {
-  riskAtLayer,
   type BotFacts,
   type BotMemory,
   type ProtectedRegion,
 } from './macro.ts';
+import { riskAtLayer } from './macro-risk.ts';
 
 export type TacticalIncidentKind =
   | 'base-intrusion'
