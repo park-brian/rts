@@ -139,10 +139,10 @@ const applyTargetBuffer = (e: State['e'], buffer: AbilityTargetBuffer, target: n
   }
 };
 
-const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): boolean => {
+const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {
   const ability = Abilities[c.ability]!;
   const execution = ability.execution;
-  if (!execution) return false;
+  if (!execution) return;
   const e = s.e;
   switch (execution.mode) {
     case 'caster-status': {
@@ -162,6 +162,9 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       break;
     case 'point-area-drain':
       applyPointAreaDrain(s, c.x!, c.y!, ability.radius);
+      break;
+    case 'point-recall':
+      recallUnits(s, slot, c.x!, c.y!, ability.radius);
       break;
     case 'target-marker':
       applyTargetMarker(e, execution.marker, slotOf(c.target!), e.owner[slot]!);
@@ -252,7 +255,6 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       e.combatTarget[slot] = NONE;
       break;
   }
-  return true;
 };
 
 const tickCloak = (s: State): void => {
@@ -404,9 +406,7 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
     faceToward(e, slot, e.x[target]!, e.y[target]!);
   }
 
-  if (applyGenericExecution(s, slot, c)) return;
-
-  if (c.ability === Ability.Recall) recallUnits(s, slot, c.x!, c.y!, ability.radius);
+  applyGenericExecution(s, slot, c);
 };
 
 export const abilities = (s: State): void => {

@@ -197,6 +197,7 @@ Remaining work:
   - `targetSpawn`;
   - `targetConvert`;
   - `targetTransform`;
+  - `pointRecall`;
   - `channel`;
   - `windup`;
   - `projectile`.
@@ -618,7 +619,10 @@ Done when:
   target order clearing, and caster shield drain in the generic ability execution table.
 - Moved Infest Command Center through a `target-transform` ability descriptor, keeping in-place kind
   replacement, ownership transfer, hp/shield/role reset, and production clearing in the generic
-  ability execution table. Recall is now the only bespoke non-timing ability execution branch left.
+  ability execution table.
+- Moved Recall through a `point-recall` ability descriptor, so all current ability execution paths
+  enter through the ability execution table; Recall's deterministic friendly-unit teleport helper
+  remains explicit as the spatial implementation.
 
 ## Review Checklist
 

@@ -48,6 +48,9 @@ test('stim costs hit points and speeds the next attack cooldown', () => {
 });
 
 test('simple utility abilities are descriptor-backed', () => {
+  for (const [id, ability] of Object.entries(Abilities)) {
+    assert.ok(ability.execution, `ability ${id} (${ability.name}) must declare execution`);
+  }
   assert.equal(Units[Kind.Marine]!.abilities.includes(Ability.StimPack), true);
   assert.equal(Units[Kind.Ghost]!.abilities.includes(Ability.Lockdown), true);
   assert.equal(Units[Kind.ScienceVessel]!.abilities.includes(Ability.Irradiate), true);
@@ -73,6 +76,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.CloakingField]!.execution, { mode: 'self-toggle', flag: 'cloakActive' });
   assert.deepEqual(Abilities[Ability.OpticalFlare]!.execution, { mode: 'target-marker', marker: 'opticalFlare' });
   assert.deepEqual(Abilities[Ability.Parasite]!.execution, { mode: 'target-marker', marker: 'parasiteOwner' });
+  assert.deepEqual(Abilities[Ability.Recall]!.execution, { mode: 'point-recall' });
   assert.deepEqual(Abilities[Ability.Heal]!.execution, { mode: 'target-restore', pool: 'hp' });
   assert.deepEqual(Abilities[Ability.Restoration]!.execution, { mode: 'target-cleanse' });
   assert.deepEqual(Abilities[Ability.MindControl]!.execution, { mode: 'target-convert', drainCasterShield: true });

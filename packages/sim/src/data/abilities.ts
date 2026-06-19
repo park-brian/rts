@@ -57,6 +57,7 @@ export type AbilityExecution =
   | { mode: 'target-status'; timer: AbilityStatusTimer }
   | { mode: 'point-area-status'; timer: AbilityAreaStatusTimer; team: 'enemy' | 'any'; rolesAny: number; traitsAny: number }
   | { mode: 'point-area-drain' }
+  | { mode: 'point-recall' }
   | { mode: 'target-marker'; marker: AbilityTargetMarker }
   | { mode: 'target-restore'; pool: AbilityRestorePool }
   | { mode: 'target-buffer'; buffer: AbilityTargetBuffer }
@@ -234,6 +235,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Recall', tech: Tech.Recall, target: 'point', targetTeam: 'own', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Arbiter],
     energyCost: 150, hpCost: 0, range: tiles(999), radius: fx(70), duration: 0, period: 0, damage: 0,
+    execution: { mode: 'point-recall' },
   },
   [Ability.MindControl]: {
     name: 'Mind Control', tech: Tech.MindControl, target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Mobile, targetRolesNone: 0,
