@@ -19,6 +19,7 @@ import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
+import { maybeQueueExpansion } from './macro-expansion.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
 import {
@@ -191,6 +192,18 @@ const findSpot = (s: State, player: number, worker: number, kind: number, bx: nu
     }
   }
   return null;
+};
+
+const findExactSpot = (
+  s: State,
+  player: number,
+  worker: number,
+  kind: number,
+  x: number,
+  y: number,
+): { x: number; y: number } | null => {
+  const placement = canPlaceStructure(s, player, worker, kind, x, y);
+  return placement.ok ? { x: placement.x, y: placement.y } : null;
 };
 
 const findMacroSpot = (s: State, player: number, worker: number, kind: number, fallback: number): { x: number; y: number } | null => {
@@ -451,6 +464,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         c.barracksTarget,
         findMacroSpot,
       );
+      minerals = budget.minerals;
+    }
+
+    if (!builderUsed) {
+      builderUsed = maybeQueueExpansion(s, p, faction, facts, cmds, budget, aWorker, findExactSpot);
       minerals = budget.minerals;
     }
 

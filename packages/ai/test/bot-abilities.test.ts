@@ -26,6 +26,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
+  generateMap,
   Role, TILE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
@@ -1251,6 +1252,53 @@ test('core production anti-float respects disabled army-structure targets', () =
   scenario.state.players.supplyMax[0] = 1_000;
 
   assert.equal(hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.Barracks), false);
+});
+
+const bankedExpansionScenario = (seed: number): BotScenario => {
+  const scenario = botScenario({
+    seed,
+    map: generateMap(1, seed, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg],
+  });
+  scenario.resources(0, 1_200, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  return scenario;
+};
+
+const playerNatural = (scenario: BotScenario): NonNullable<typeof scenario.state.map.bases>[number] => {
+  const natural = scenario.state.map.bases?.find((base) => base.kind === 'natural' && base.team === 0);
+  assert.ok(natural);
+  return natural;
+};
+
+test('terran bot expands to the nearest open base site when mineral-banked', () => {
+  const scenario = bankedExpansionScenario(512);
+  const natural = playerNatural(scenario);
+
+  const build = expectBotBuildsLegal(scenario, Terran, Kind.CommandCenter, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  });
+
+  assert.equal(tileX(build.x), natural.x);
+  assert.equal(tileY(build.y), natural.y);
+});
+
+test('terran bot does not duplicate an already occupied expansion site', () => {
+  const scenario = bankedExpansionScenario(513);
+  const natural = playerNatural(scenario);
+  scenario.spawn(
+    Kind.CommandCenter,
+    0,
+    fx(natural.x * TILE + TILE / 2),
+    fx(natural.y * TILE + TILE / 2),
+  );
+
+  assert.equal(
+    hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.CommandCenter),
+    false,
+  );
 });
 
 test('zerg bot places a legal defiler mound after a completed hive', () => {

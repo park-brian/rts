@@ -652,15 +652,22 @@ Remaining work:
       shares the neutral `macro-build` structure-queue primitive. The live bot no longer carries a
       second owned/pending structure scan for these tech rebuilds, and regression tests cover missing
       Cybernetics Core / Hydralisk Den rebuilds when later tech survived.
+    - Ground expansion lifecycle slice is done: mineral-banked bots can now spend surplus on a legal
+      town hall at the nearest open same-side base site, using exact `MapDef.bases` depot-footprint
+      anchors and the shared build validator. Already occupied or pending friendly/ally expansion
+      sites are skipped so the bot does not duplicate a natural. Later slices still need island and
+      transport-aware expansion choices.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
     idle producers/larvae exist and safe spending options are available.
   - Migration order: first add the vocabulary and pure fact helpers beside the current bot; next
-    migrate defense and destroyed-prerequisite rebuilds; then migrate Zerg larva/Hatchery capacity
-    and expansion lifecycle; then migrate Terran/Protoss production capacity; then move tech,
-    counters, harassment, and combat squads into directors. Keep each step validator-backed and
-    benchmarked, and delete old priority-ladder branches as their intents take over.
+    migrate defense and destroyed-prerequisite rebuilds; then migrate Zerg larva/Hatchery capacity,
+    ground expansion lifecycle, and Terran/Protoss production capacity; then move tech, counters,
+    harassment, island expansion, and combat squads into directors. Keep each step locally tested
+    and benchmarked, and delete old priority-ladder branches as their intents take over. Do not use
+    the roadmap validator subagent for routine continuation; it slows iteration and usually agrees
+    with the local code/test evidence anyway.
   - First fact/risk slice is done: `packages/ai/src/macro.ts` now owns the bot intent/failure
     vocabulary, deterministic bot memory shape, `BotFacts`, fog-aware visible enemy collection,
     completed-or-pending structure summaries for rebuild planning, and a compact weapon-risk tile

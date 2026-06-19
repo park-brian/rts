@@ -3,6 +3,7 @@ import { createBot } from '../src/bot.ts';
 import {
   validateCommand,
   type Faction,
+  type MapDef,
 } from '@rts/sim';
 import { simScenario, type SimScenario } from '../../sim/test-support/scenario.ts';
 
@@ -11,6 +12,7 @@ export type BotCommand = BotCommands[number];
 
 type BotScenarioOptions = {
   factions?: Faction[];
+  map?: MapDef;
   players?: number;
   seed: number;
   vision?: boolean;
@@ -22,8 +24,8 @@ export type BotScenario = SimScenario & {
   run(faction: Faction, player?: number, options?: BotOptions): BotCommands;
 };
 
-export const botScenario = ({ factions, players = 2, seed, vision }: BotScenarioOptions): BotScenario => {
-  const base = simScenario({ factions, players, seed, ...(vision !== undefined ? { vision } : {}) });
+export const botScenario = ({ factions, map, players = 2, seed, vision }: BotScenarioOptions): BotScenario => {
+  const base = simScenario({ factions, map, players, seed, ...(vision !== undefined ? { vision } : {}) });
 
   return {
     ...base,
