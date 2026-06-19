@@ -1,6 +1,7 @@
 import {
   Kind,
   NONE,
+  Order,
   Role,
   Units,
   eid,
@@ -44,7 +45,9 @@ const firstIdleWorker = (s: State, player: number): number => {
       e.owner[i] === player &&
       e.built[i] === 1 &&
       (e.flags[i]! & Role.Worker) !== 0 &&
-      e.buildKind[i] === Kind.None
+      e.buildKind[i] === Kind.None &&
+      e.order[i] !== Order.Build &&
+      e.order[i] !== Order.Repair
     ) return i;
   }
   return NONE;

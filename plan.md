@@ -525,6 +525,10 @@ Remaining work:
         Barracks, streams Marines at the enemy depot, and shares normal command validation. The live
         bot now has a deterministic multi-tick regression test proving it keeps producing combat
         responses against that baseline instead of freezing while pressure arrives.
+      - Four-rax baseline hardening slice is done: the pressure bot no longer considers actively
+        building or repairing SCVs available for new structures, and the multi-tick pressure
+        regression now proves the opponent actually reaches four Barracks instead of only issuing
+        opening build commands.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce

@@ -1155,6 +1155,7 @@ test('bot stays active against four-rax marine pressure', () => {
 
   assert.equal(invalidCommands, 0);
   assert.ok(pressureCombatCommandTicks > 50, 'pressure bot must keep attacking');
+  assert.ok(countAlive(s, 1, Kind.Barracks) >= 4, 'pressure bot must grow to four barracks');
   assert.ok(countAlive(s, 1, Kind.Marine) > 0, 'pressure bot must sustain marine production');
   assert.ok(ownCombatCommandTicks > 0, 'standard bot must not freeze under marine pressure');
   assert.ok(countAlive(s, 0, Kind.CommandCenter) > 0, 'standard bot should keep its starting base alive');
