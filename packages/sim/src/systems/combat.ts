@@ -21,7 +21,10 @@ import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
-import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
+import {
+  distanceSq, distanceSqToRect, topDownEdgeDistanceSq, topDownInteractionRect, withinTopDownEdgeRange,
+  type InteractionRect,
+} from '../spatial/geometry.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
@@ -104,6 +107,39 @@ const distSqToSegment = (px: number, py: number, ax: number, ay: number, bx: num
   return distanceSq(px, py, cx, cy);
 };
 
+const segmentIntersectsRect = (ax: number, ay: number, bx: number, by: number, rect: InteractionRect): boolean => {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const clip = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return false;
+      if (t < t1) t1 = t;
+    }
+    return true;
+  };
+  return clip(-dx, ax - rect.x0) && clip(dx, rect.x1 - ax) &&
+    clip(-dy, ay - rect.y0) && clip(dy, rect.y1 - ay);
+};
+
+const distSqRectToSegment = (rect: InteractionRect, ax: number, ay: number, bx: number, by: number): number => {
+  if (segmentIntersectsRect(ax, ay, bx, by, rect)) return 0;
+  return Math.min(
+    distanceSqToRect(ax, ay, rect.x0, rect.y0, rect.x1, rect.y1),
+    distanceSqToRect(bx, by, rect.x0, rect.y0, rect.x1, rect.y1),
+    distSqToSegment(rect.x0, rect.y0, ax, ay, bx, by),
+    distSqToSegment(rect.x1, rect.y0, ax, ay, bx, by),
+    distSqToSegment(rect.x0, rect.y1, ax, ay, bx, by),
+    distSqToSegment(rect.x1, rect.y1, ax, ay, bx, by),
+  );
+};
+
 const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapon: Weapon): void => {
   const e = s.e;
   const ax = e.x[attacker]!;
@@ -115,7 +151,8 @@ const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapo
   for (let i = 0; i < e.hi; i++) {
     if (i === attacker || i === target || e.alive[i] !== 1 || isContained(s, i)) continue;
     if ((e.flags[i]! & (Role.Air | Role.Resource)) !== 0) continue;
-    if (distSqToSegment(e.x[i]!, e.y[i]!, ax, ay, tx, ty) <= width2) applyWeaponDamage(s, i, weapon, attacker);
+    const body = topDownInteractionRect(e.kind[i]!, e.x[i]!, e.y[i]!, e.flags[i]!);
+    if (distSqRectToSegment(body, ax, ay, tx, ty) <= width2) applyWeaponDamage(s, i, weapon, attacker);
   }
 };
 

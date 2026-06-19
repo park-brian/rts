@@ -254,6 +254,9 @@ Remaining work:
   - Mutalisk bounce selection slice is done: bounce chaining now picks nearby enemies by top-down
     entity hull distance, with a large-body regression covering targets whose centers are outside
     bounce range. Remaining non-radial audit: Lurker line width.
+  - Lurker line-width slice is done: spine splash now measures the target entity's top-down
+    interaction rectangle against the line segment from lurker to target, with a regression proving
+    body-edge hits when the target center is outside the old one-tile line check.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.

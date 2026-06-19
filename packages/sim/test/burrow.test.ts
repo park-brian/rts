@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Kind, Tech, Units } from '../src/data/index.ts';
+import { Kind, Tech, Units, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
 import { parseReplay } from '../src/io/replay.ts';
+import { bodyBounds } from '../src/spatial/geometry.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 const finishTransition = (sim: Sim, slot: number): void => {
@@ -94,6 +95,31 @@ test('lurker attack line damages ground units along the spine path', () => {
   assert.ok(e.hp[slotOf(friendlyAlong)]! < friendlyHp);
   assert.equal(e.hp[slotOf(offLine)], offLineHp);
   assert.equal(e.hp[slotOf(air)], airHp);
+});
+
+test('lurker attack line uses top-down body edges for width', () => {
+  const { sim, state: s, spawn } = simScenario({ seed: 821 });
+  const e = s.e;
+  const lurker = spawn(Kind.Lurker, 0, fx(400), fx(400));
+  sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: lurker, active: true }] }]);
+  finishTransition(sim, slotOf(lurker));
+  const target = spawn(Kind.SiegeTank, 1, fx(560), fx(400));
+  const lineWidth = tiles(1);
+  const tankUp = bodyBounds(Kind.SiegeTank).up;
+  const edgeSplash = spawn(Kind.SiegeTank, 1, fx(480), fx(400) + lineWidth + tankUp - fx(4));
+  const outsideSplash = spawn(Kind.SiegeTank, 1, fx(520), fx(400) + lineWidth + tankUp + fx(4));
+  const edgeSlot = slotOf(edgeSplash);
+  const outsideSlot = slotOf(outsideSplash);
+  const edgeHp = e.hp[edgeSlot]!;
+  const outsideHp = e.hp[outsideSlot]!;
+
+  assert.ok(Math.abs(e.y[edgeSlot]! - fx(400)) > lineWidth, 'edge case center is outside the old line-width check');
+
+  const results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: lurker, target }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
+  assert.ok(e.hp[edgeSlot]! < edgeHp);
+  assert.equal(e.hp[outsideSlot], outsideHp);
 });
 
 test('burrow state round-trips through byte snapshots', () => {
