@@ -190,6 +190,11 @@ Remaining work:
   - Devourer acid spores;
   - suicide attackers;
   - future splash/projectile variants.
+  - On-hit/post-fire routing-map slice is done: Lurker line splash, Mutalisk bounce, Devourer
+    acid spores, and suicide attackers now dispatch through mechanic-id applicator maps in combat
+    instead of a local switch ladder. Remaining work: consider whether delivery modes
+    (scarab launch, interceptor launch, contained fire) can share an equally small dispatch shape
+    without hiding their timing and target-acquisition differences.
 - Introduce ability execution descriptors:
   - `instant`;
   - `status`;

@@ -32,6 +32,7 @@ import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredChild, participatesInNormalCombat } from '../mechanics/child-actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
+  type WeaponMechanicId,
 } from '../mechanics/weapons.ts';
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
@@ -156,26 +157,29 @@ const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapo
   }
 };
 
+type WeaponMechanicOnHitApplicator = (s: State, attacker: number, target: number, weapon: Weapon) => void;
+type WeaponMechanicPostFireApplicator = (s: State, attacker: number) => void;
+
+const WeaponMechanicOnHitApplicators: Partial<Record<WeaponMechanicId, WeaponMechanicOnHitApplicator>> = {
+  [WeaponMechanic.LurkerLineSplash]: applyLurkerLineSplash,
+  [WeaponMechanic.MutaliskBounce]: applyMutaliskBounce,
+  [WeaponMechanic.AcidSpores]: (s, _attacker, target) => applyAcidSpore(s, target),
+};
+
+const WeaponMechanicPostFireApplicators: Partial<Record<WeaponMechanicId, WeaponMechanicPostFireApplicator>> = {
+  [WeaponMechanic.SuicideOnFire]: (s, attacker) => {
+    if (s.e.alive[attacker] === 1) kill(s, attacker);
+  },
+};
+
 const applyMechanicOnHit = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number, target: number, weapon: Weapon): void => {
-  switch (mechanic?.onHit) {
-    case WeaponMechanic.LurkerLineSplash:
-      applyLurkerLineSplash(s, attacker, target, weapon);
-      break;
-    case WeaponMechanic.MutaliskBounce:
-      applyMutaliskBounce(s, attacker, target, weapon);
-      break;
-    case WeaponMechanic.AcidSpores:
-      applyAcidSpore(s, target);
-      break;
-  }
+  const onHit = mechanic?.onHit;
+  if (onHit !== undefined) WeaponMechanicOnHitApplicators[onHit]?.(s, attacker, target, weapon);
 };
 
 const applyMechanicPostFire = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number): void => {
-  switch (mechanic?.postFire) {
-    case WeaponMechanic.SuicideOnFire:
-      if (s.e.alive[attacker] === 1) kill(s, attacker);
-      break;
-  }
+  const postFire = mechanic?.postFire;
+  if (postFire !== undefined) WeaponMechanicPostFireApplicators[postFire]?.(s, attacker);
 };
 
 const bunkerCanAttack = (s: State, bunker: number, target: number): boolean => {
