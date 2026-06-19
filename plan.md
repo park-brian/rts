@@ -102,6 +102,8 @@ Migration rules:
 - Move one concept folder at a time, preferably immediately after touching that concept for a real
   cleanup.
 - Keep behavior changes and pure import moves in separate commits unless the move is tiny.
+- Treat compatibility shims as temporary migration scaffolding. Once a folder's callers have been
+  migrated to the new stable path, delete the old root shim in the same cleanup track.
 - Preserve typed-array hot loops and caller-owned buffers; folder cleanup must not introduce object
   allocation on per-tick paths.
 - Prefer `index.ts` barrels only at stable folder boundaries. Avoid deep barrel chains that hide
@@ -117,8 +119,8 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Continue source-layout migration with `entity-*` plus `factory/world` into `entity/`, keeping
-  compatibility exports until callers are migrated.
+- Continue source-layout migration with `factory/world` into `entity/`, keeping compatibility
+  exports until callers are migrated.
 - Split command ingestion by command family without changing replay semantics.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
@@ -334,6 +336,8 @@ Done when:
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as
+  compatibility shims.
+- Moved entity helper modules under `src/entity/` while keeping old root entity exports as
   compatibility shims.
 
 ## Review Checklist
