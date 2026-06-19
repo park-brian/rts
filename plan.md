@@ -371,6 +371,8 @@ Done when:
   deleting the old root helper path while preserving the stable package export.
 - Moved weapon mechanic descriptors and ammo helpers under `mechanics/weapons.ts`, deleting the old
   root `weapon-mechanics.ts` helper while preserving the stable package export.
+- Moved tech/build prerequisite helpers under `mechanics/requirements.ts`, deleting the old root
+  `requirements.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

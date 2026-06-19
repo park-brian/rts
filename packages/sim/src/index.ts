@@ -29,7 +29,7 @@ export * from './detection.ts';
 export * from './power.ts';
 export * from './repair.ts';
 export * from './tech.ts';
-export * from './requirements.ts';
+export * from './mechanics/requirements.ts';
 export * from './mechanics/internal-products.ts';
 export * from './child-actors.ts';
 export * from './mechanics/weapons.ts';

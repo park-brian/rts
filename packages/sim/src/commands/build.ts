@@ -1,7 +1,7 @@
 import type { Command } from './types.ts';
 import { Order, Role, Units, workerBuildKindsFor } from '../data.ts';
 import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
-import { requirementsMet } from '../requirements.ts';
+import { requirementsMet } from '../mechanics/requirements.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from '../placement.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';

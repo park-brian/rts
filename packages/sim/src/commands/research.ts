@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Role, TECH_CAP, TechDefs } from '../data.ts';
-import { requirementsMet } from '../requirements.ts';
+import { requirementsMet } from '../mechanics/requirements.ts';
 import {
   getTechLevel,
   isTechInProgress,
