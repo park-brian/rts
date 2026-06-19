@@ -25,6 +25,50 @@ const NUKE_SPLASH_MEDIUM2 = NUKE_SPLASH_MEDIUM * NUKE_SPLASH_MEDIUM;
 
 const ENERGY_REGEN_TICKS = sec(1.78);
 
+type StatusTimerColumn = 'stimTimer' | 'lockdownTimer' | 'irradiateTimer';
+type AreaStatusTimerColumn = 'stasisTimer' | 'maelstromTimer' | 'ensnareTimer' | 'plagueTimer';
+type TimerColumn = StatusTimerColumn | AreaStatusTimerColumn;
+
+const StatusTimerColumns: Record<AbilityStatusTimer, StatusTimerColumn> = {
+  stim: 'stimTimer',
+  lockdown: 'lockdownTimer',
+  irradiate: 'irradiateTimer',
+};
+
+const AreaStatusTimerColumns: Record<AbilityAreaStatusTimer, AreaStatusTimerColumn> = {
+  stasis: 'stasisTimer',
+  maelstrom: 'maelstromTimer',
+  ensnare: 'ensnareTimer',
+  plague: 'plagueTimer',
+};
+
+const TargetMarkerApplicators: Record<AbilityTargetMarker, (e: State['e'], target: number, owner: number) => void> = {
+  opticalFlare: (e, target) => { e.opticalFlare[target] = 1; },
+  parasiteOwner: (e, target, owner) => { e.parasiteOwner[target] = owner; },
+};
+
+const TargetRestoreApplicators: Record<AbilityRestorePool, (e: State['e'], target: number, amount: number) => void> = {
+  hp: (e, target, amount) => {
+    const def = Units[e.kind[target]!]!;
+    e.hp[target] = Math.min(def.hp, e.hp[target]! + amount);
+  },
+  shield: (e, target, amount) => {
+    const def = Units[e.kind[target]!]!;
+    e.shield[target] = Math.min(def.shields, e.shield[target]! + amount);
+  },
+};
+
+const TargetBufferApplicators: Record<AbilityTargetBuffer, (e: State['e'], target: number, amount: number, duration: number) => void> = {
+  matrix: (e, target, amount, duration) => {
+    e.matrixHp[target] = Math.max(e.matrixHp[target]!, amount);
+    e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, duration);
+  },
+};
+
+const applyTimerColumn = (e: State['e'], column: TimerColumn, target: number, duration: number): void => {
+  e[column][target] = Math.max(e[column][target]!, duration);
+};
+
 const applyPointAreaDrain = (s: State, x: number, y: number, radius: number): void => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
@@ -72,17 +116,7 @@ const applyStatusTimer = (
   target: number,
   duration: number,
 ): void => {
-  switch (timer) {
-    case 'stim':
-      e.stimTimer[target] = Math.max(e.stimTimer[target]!, duration);
-      return;
-    case 'lockdown':
-      e.lockdownTimer[target] = Math.max(e.lockdownTimer[target]!, duration);
-      return;
-    case 'irradiate':
-      e.irradiateTimer[target] = Math.max(e.irradiateTimer[target]!, duration);
-      return;
-  }
+  applyTimerColumn(e, StatusTimerColumns[timer], target, duration);
 };
 
 const applyAreaStatusTimer = (
@@ -91,52 +125,19 @@ const applyAreaStatusTimer = (
   target: number,
   duration: number,
 ): void => {
-  switch (timer) {
-    case 'stasis':
-      e.stasisTimer[target] = Math.max(e.stasisTimer[target]!, duration);
-      return;
-    case 'maelstrom':
-      e.maelstromTimer[target] = Math.max(e.maelstromTimer[target]!, duration);
-      return;
-    case 'ensnare':
-      e.ensnareTimer[target] = Math.max(e.ensnareTimer[target]!, duration);
-      return;
-    case 'plague':
-      e.plagueTimer[target] = Math.max(e.plagueTimer[target]!, duration);
-      return;
-  }
+  applyTimerColumn(e, AreaStatusTimerColumns[timer], target, duration);
 };
 
 const applyTargetMarker = (e: State['e'], marker: AbilityTargetMarker, target: number, owner: number): void => {
-  switch (marker) {
-    case 'opticalFlare':
-      e.opticalFlare[target] = 1;
-      return;
-    case 'parasiteOwner':
-      e.parasiteOwner[target] = owner;
-      return;
-  }
+  TargetMarkerApplicators[marker](e, target, owner);
 };
 
 const applyTargetRestore = (e: State['e'], pool: AbilityRestorePool, target: number, amount: number): void => {
-  const def = Units[e.kind[target]!]!;
-  switch (pool) {
-    case 'hp':
-      e.hp[target] = Math.min(def.hp, e.hp[target]! + amount);
-      return;
-    case 'shield':
-      e.shield[target] = Math.min(def.shields, e.shield[target]! + amount);
-      return;
-  }
+  TargetRestoreApplicators[pool](e, target, amount);
 };
 
 const applyTargetBuffer = (e: State['e'], buffer: AbilityTargetBuffer, target: number, amount: number, duration: number): void => {
-  switch (buffer) {
-    case 'matrix':
-      e.matrixHp[target] = Math.max(e.matrixHp[target]!, amount);
-      e.matrixTimer[target] = Math.max(e.matrixTimer[target]!, duration);
-      return;
-  }
+  TargetBufferApplicators[buffer](e, target, amount, duration);
 };
 
 const beginTargetChannel = (s: State, slot: number, c: Extract<Command, { t: 'ability' }>): void => {

@@ -202,6 +202,10 @@ Remaining work:
   - `channel`;
   - `windup`;
   - `projectile`.
+  - Interpreter routing-map slice is done: status timers, area status timers, target markers,
+    target restore pools, and target buffers now resolve through small descriptor routing maps in
+    the ability interpreter instead of local switch ladders, so adding a descriptor variant names
+    its state column or applicator in one table.
 - Attach AI policy descriptors to abilities so casting logic, target filters, range checks, energy
   thresholds, and tech gates do not live only in a long AI chain.
   - First AI policy ownership slice is done: tactical spell policy descriptors and scoring helpers
@@ -654,6 +658,8 @@ Done when:
   renderers to consume them from the sim presentation table.
 - Moved selected-unit status labels for Burrowed, Cloaked, Detected, Irradiated, and Plagued behind
   sim render descriptors so the app no longer owns those visibility/status policy strings.
+- Replaced ability-interpreter switch ladders for status timers, area timers, marker flags, restore
+  pools, and target buffers with descriptor routing maps, keeping execution variants data-owned.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded
