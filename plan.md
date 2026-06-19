@@ -343,6 +343,11 @@ Remaining work:
     interception, dodge windows, or delayed damage beyond Scarabs/Interceptors.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
+  - Terran weapon-increment audit slice is done: Vehicle/Ship weapon upgrades now use the documented
+    per-weapon increments for Vulture, Tank, Siege Tank, Battlecruiser, and Goliath/Wraith air
+    weapons while keeping their ground weapons at the lower increment.
+  - Remaining: only newly discovered non-Terran or special-weapon upgrade exceptions should extend
+    this list; prefer spec-backed table rows over kind-wide branches.
 - Expand procedural maps beyond the ground-connected presets with later island variants once
   disconnected-ground validity and AI semantics are explicit.
 

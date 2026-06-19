@@ -11,6 +11,10 @@ const level = (s: State, owner: number, tech: number): number =>
 const kindSet = (...kinds: number[]): ReadonlySet<number> => new Set(kinds);
 
 const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
+  [Kind.Vulture]: 2,
+  [Kind.SiegeTank]: 3,
+  [Kind.SiegeTankSieged]: 5,
+  [Kind.Battlecruiser]: 3,
   [Kind.Dragoon]: 2,
   [Kind.DarkTemplar]: 3,
   [Kind.Archon]: 3,
@@ -21,12 +25,14 @@ const UPGRADE_DAMAGE_STEP: Partial<Record<number, number>> = {
 };
 
 type UpgradeKindRule = { tech: number; kinds: ReadonlySet<number> };
-type WeaponUpgradeRule = UpgradeKindRule & { bonus?: number; weaponKind?: number };
+type WeaponUpgradeRule = UpgradeKindRule & { bonus?: number; bonusPerLevel?: number; weaponKind?: number; weapon?: 'air' | 'ground' };
 type ArmorUpgradeRule = UpgradeKindRule & { bonusPerLevel?: number };
 
 const WEAPON_UPGRADES: readonly WeaponUpgradeRule[] = [
   { tech: Tech.InfantryWeapons, kinds: kindSet(Kind.Marine, Kind.Firebat, Kind.Ghost) },
+  { tech: Tech.VehicleWeapons, kinds: kindSet(Kind.Goliath), bonusPerLevel: 2, weapon: 'air' },
   { tech: Tech.VehicleWeapons, kinds: kindSet(Kind.Vulture, Kind.SiegeTank, Kind.SiegeTankSieged, Kind.Goliath) },
+  { tech: Tech.ShipWeapons, kinds: kindSet(Kind.Wraith), bonusPerLevel: 2, weapon: 'air' },
   { tech: Tech.ShipWeapons, kinds: kindSet(Kind.Wraith, Kind.Valkyrie, Kind.Battlecruiser) },
   { tech: Tech.GroundWeapons, kinds: kindSet(Kind.Zealot, Kind.Dragoon, Kind.DarkTemplar, Kind.Archon) },
   { tech: Tech.ScarabDamage, kinds: kindSet(Kind.Reaver), bonus: 25, weaponKind: Kind.Scarab },
@@ -108,7 +114,11 @@ const ENERGY_UPGRADES: Partial<Record<number, { tech: number; max: number }>> = 
 const weaponUpgradeStep = (kind: number): number =>
   UPGRADE_DAMAGE_STEP[kind] ?? 1;
 
-const weaponMatchesRule = (rule: WeaponUpgradeRule, weapon?: Weapon): boolean => {
+const weaponMatchesRule = (rule: WeaponUpgradeRule, kind: number, weapon?: Weapon): boolean => {
+  if (rule.weapon !== undefined) {
+    const def = Units[kind]!;
+    return weapon === (rule.weapon === 'air' ? def.airWeapon : def.weapon);
+  }
   if (rule.weaponKind === undefined) return true;
   const def = Units[rule.weaponKind]!;
   return weapon === def.weapon || weapon === def.airWeapon;
@@ -119,8 +129,9 @@ export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon):
   const owner = e.owner[attacker]!;
   const kind = e.kind[attacker]!;
   for (const rule of WEAPON_UPGRADES) {
-    if (!rule.kinds.has(kind) || !weaponMatchesRule(rule, weapon)) continue;
+    if (!rule.kinds.has(kind) || !weaponMatchesRule(rule, kind, weapon)) continue;
     const techLevel = level(s, owner, rule.tech);
+    if (rule.bonusPerLevel !== undefined) return techLevel * rule.bonusPerLevel;
     if (rule.bonus !== undefined) return techLevel > 0 ? rule.bonus : 0;
     return techLevel * weaponUpgradeStep(kind);
   }

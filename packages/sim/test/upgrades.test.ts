@@ -52,6 +52,14 @@ test('shield armor does not inflate overflow damage after shields break', () => 
 
 test('weapon upgrades use brood war per-unit damage increments', () => {
   const cases = [
+    { kind: Kind.Marine, tech: Tech.InfantryWeapons, step: 1 },
+    { kind: Kind.Vulture, tech: Tech.VehicleWeapons, step: 2 },
+    { kind: Kind.SiegeTank, tech: Tech.VehicleWeapons, step: 3 },
+    { kind: Kind.SiegeTankSieged, tech: Tech.VehicleWeapons, step: 5 },
+    { kind: Kind.Goliath, tech: Tech.VehicleWeapons, step: 1 },
+    { kind: Kind.Wraith, tech: Tech.ShipWeapons, step: 1 },
+    { kind: Kind.Valkyrie, tech: Tech.ShipWeapons, step: 1 },
+    { kind: Kind.Battlecruiser, tech: Tech.ShipWeapons, step: 3 },
     { kind: Kind.Zealot, tech: Tech.GroundWeapons, step: 1 },
     { kind: Kind.Dragoon, tech: Tech.GroundWeapons, step: 2 },
     { kind: Kind.DarkTemplar, tech: Tech.GroundWeapons, step: 3 },
@@ -73,6 +81,21 @@ test('weapon upgrades use brood war per-unit damage increments', () => {
     grant(0, c.tech, 2);
 
     assert.equal(weaponUpgradeBonus(s, slotOf(unit), weapon), c.step * 2, Units[c.kind]!.name);
+  }
+});
+
+test('weapon upgrades can use weapon-specific increments for mixed-weapon units', () => {
+  const cases = [
+    { kind: Kind.Goliath, tech: Tech.VehicleWeapons, weapon: Units[Kind.Goliath]!.airWeapon!, step: 2 },
+    { kind: Kind.Wraith, tech: Tech.ShipWeapons, weapon: Units[Kind.Wraith]!.airWeapon!, step: 2 },
+  ];
+
+  for (const c of cases) {
+    const { state: s, spawn, grant } = simScenario({ seed: 775 + c.kind });
+    const unit = spawn(c.kind, 0, fx(400), fx(400));
+    grant(0, c.tech, 2);
+
+    assert.equal(weaponUpgradeBonus(s, slotOf(unit), c.weapon), c.step * 2, Units[c.kind]!.name);
   }
 });
 
