@@ -5,11 +5,26 @@ export type ActorPresentation = 'projectile' | 'unit';
 export type ActorLifecycle = 'normal' | 'seek-impact' | 'sortie-return' | 'stationary-trigger';
 export type ActorSteering = 'normal' | 'seek-impact' | 'orbit-target';
 export type ActorTriggerTarget = 'enemy-detected-ground-mobile';
+export type ActorProjectileTarget = 'scarab-ground-detectable';
+export type ActorImpactPolicy = 'weapon-hit-from-home';
 
 export type ActorTriggerDef = {
   range: number;
   target: ActorTriggerTarget;
   wakeOrder: number;
+};
+
+export type ActorProjectileDef = {
+  lifetime: number;
+  target: ActorProjectileTarget;
+  impact: ActorImpactPolicy;
+};
+
+export type ActorSortieDef = {
+  orbitRadius: number;
+  leashRange: number;
+  returnRange: number;
+  orbitOffsets: readonly (readonly [number, number])[];
 };
 
 export type ActorDef = {
@@ -22,6 +37,8 @@ export type ActorDef = {
   presentation: ActorPresentation;
   minReadableScreenRadius?: number;
   trigger?: ActorTriggerDef;
+  projectile?: ActorProjectileDef;
+  sortie?: ActorSortieDef;
 };
 
 const ActorFlags = {
@@ -43,6 +60,11 @@ export const ActorDefs: readonly ActorDef[] = [
     externallySteeredWhenHomed: true,
     presentation: 'projectile',
     minReadableScreenRadius: 5,
+    projectile: {
+      lifetime: 180,
+      target: 'scarab-ground-detectable',
+      impact: 'weapon-hit-from-home',
+    },
   },
   {
     kind: Kind.Interceptor,
@@ -52,6 +74,15 @@ export const ActorDefs: readonly ActorDef[] = [
     steering: 'orbit-target',
     externallySteeredWhenHomed: true,
     presentation: 'unit',
+    sortie: {
+      orbitRadius: tiles(1),
+      leashRange: tiles(10),
+      returnRange: tiles(1),
+      orbitOffsets: [
+        [1, 0], [1, 1], [0, 1], [-1, 1],
+        [-1, 0], [-1, -1], [0, -1], [1, -1],
+      ],
+    },
   },
   {
     kind: Kind.SpiderMine,
@@ -98,11 +129,15 @@ const indexActorDefs = (
   flags: Uint8Array;
   minReadableScreenRadius: Int16Array;
   triggers: Array<ActorTriggerDef | undefined>;
+  projectiles: Array<ActorProjectileDef | undefined>;
+  sorties: Array<ActorSortieDef | undefined>;
 } => {
   const indexed = actorArray<ActorDef>();
   const flags = new Uint8Array(MAX_KIND + 1);
   const minReadableScreenRadius = new Int16Array(MAX_KIND + 1);
   const triggers = actorArray<ActorTriggerDef>();
+  const projectiles = actorArray<ActorProjectileDef>();
+  const sorties = actorArray<ActorSortieDef>();
   flags.fill(DEFAULT_ACTOR_FLAGS);
   minReadableScreenRadius.fill(-1);
   for (const def of defs) {
@@ -111,8 +146,10 @@ const indexActorDefs = (
     flags[def.kind] = actorFlag(def);
     minReadableScreenRadius[def.kind] = def.minReadableScreenRadius ?? -1;
     triggers[def.kind] = def.trigger;
+    projectiles[def.kind] = def.projectile;
+    sorties[def.kind] = def.sortie;
   }
-  return { byKind: indexed, flags, minReadableScreenRadius, triggers };
+  return { byKind: indexed, flags, minReadableScreenRadius, triggers, projectiles, sorties };
 };
 
 const ActorIndex = indexActorDefs(ActorDefs);
@@ -144,3 +181,9 @@ export const actorMinReadableScreenRadius = (kind: number): number | undefined =
 
 export const actorTrigger = (kind: number): ActorTriggerDef | undefined =>
   ActorIndex.triggers[kind];
+
+export const actorProjectile = (kind: number): ActorProjectileDef | undefined =>
+  ActorIndex.projectiles[kind];
+
+export const actorSortie = (kind: number): ActorSortieDef | undefined =>
+  ActorIndex.sorties[kind];

@@ -298,6 +298,10 @@ Migration plan:
   improves ownership: Spider Mine trigger facts, Scarab lifetime/impact policy, and Interceptor
   leash/orbit/return policy. Keep the systems as interpreters unless shared execution becomes
   visibly simpler.
+  - Projectile/sortie policy slice is done: Scarab lifetime/target/impact policy and Interceptor
+    orbit radius, leash range, return range, and orbit offsets now live in actor facets. The Scarab
+    and Interceptor systems still own timing-heavy interpretation, target validation, movement, dud,
+    splash, bay return, and ammo restoration semantics.
 - Third pass should add `StructureCapabilityFacet` and migrate building facts by category:
   production/rally, cargo/Nydus, power/creep, add-ons/lift, resource depots, static weapons, and
   detectors. Each category should delete at least one duplicated UI/AI/validator/system rule.

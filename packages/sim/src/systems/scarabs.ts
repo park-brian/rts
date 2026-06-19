@@ -7,10 +7,12 @@ import { isContained } from '../mechanics/cargo.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';
+import { actorProjectile } from '../mechanics/actors.ts';
 import { effectiveSpeed } from './status.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
 
-const SCARAB_LIFETIME = 180;
+const SCARAB_PROJECTILE = actorProjectile(Kind.Scarab);
+if (!SCARAB_PROJECTILE) throw new Error('missing Scarab actor projectile descriptor');
 
 const validScarabTarget = (s: State, scarab: number, reaver: number, target: number): boolean => {
   const e = s.e;
@@ -28,7 +30,7 @@ export const launchScarab = (s: State, reaver: number, target: number): boolean 
   const scarab = slotOf(id);
   e.home[scarab] = eid(e, reaver);
   e.target[scarab] = eid(e, target);
-  e.timer[scarab] = SCARAB_LIFETIME;
+  e.timer[scarab] = SCARAB_PROJECTILE.lifetime;
   faceToward(e, scarab, e.x[target]!, e.y[target]!);
   return true;
 };

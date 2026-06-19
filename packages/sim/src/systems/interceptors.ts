@@ -1,20 +1,15 @@
 import type { State } from '../entity/world.ts';
 import { isAlive, kill, NONE, slotOf } from '../entity/world.ts';
-import { Kind, Order, Units, tiles } from '../data/index.ts';
+import { Kind, Order, Units } from '../data/index.ts';
+import { actorSortie } from '../mechanics/actors.ts';
 import { storeInternalProduct } from '../mechanics/internal-products.ts';
 import { carrierBayPoint } from '../mechanics/interceptor.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { effectiveSpeed } from './status.ts';
 
-const ORBIT_RADIUS = tiles(1);
-const LEASH_RANGE = tiles(10);
-const RETURN_RANGE = tiles(1);
-
-const ORBIT: readonly [number, number][] = [
-  [1, 0], [1, 1], [0, 1], [-1, 1],
-  [-1, 0], [-1, -1], [0, -1], [1, -1],
-];
+const INTERCEPTOR_SORTIE = actorSortie(Kind.Interceptor);
+if (!INTERCEPTOR_SORTIE) throw new Error('missing Interceptor actor sortie descriptor');
 
 const returnToCarrier = (s: State, interceptor: number, carrier: number): void => {
   const e = s.e;
@@ -23,7 +18,7 @@ const returnToCarrier = (s: State, interceptor: number, carrier: number): void =
   e.order[interceptor] = Order.Idle;
   e.target[interceptor] = NONE;
   e.timer[interceptor] = -1;
-  if (within(e, interceptor, bay.x, bay.y, RETURN_RANGE)) {
+  if (within(e, interceptor, bay.x, bay.y, INTERCEPTOR_SORTIE.returnRange)) {
     storeInternalProduct(s, carrier, Kind.Interceptor);
     kill(s, interceptor);
     return;
@@ -44,7 +39,7 @@ export const interceptors = (s: State): void => {
     const target = slotOf(e.target[i]!);
     const dx = e.x[i]! - e.x[carrier]!;
     const dy = e.y[i]! - e.y[carrier]!;
-    if (dx * dx + dy * dy > LEASH_RANGE * LEASH_RANGE) {
+    if (dx * dx + dy * dy > INTERCEPTOR_SORTIE.leashRange * INTERCEPTOR_SORTIE.leashRange) {
       returnToCarrier(s, i, carrier);
       continue;
     }
@@ -53,9 +48,9 @@ export const interceptors = (s: State): void => {
       returnToCarrier(s, i, carrier);
       continue;
     }
-    const [ox, oy] = ORBIT[((s.tick >> 3) + i) & 7]!;
-    const tx = e.x[target]! + ox * ORBIT_RADIUS;
-    const ty = e.y[target]! + oy * ORBIT_RADIUS;
+    const [ox, oy] = INTERCEPTOR_SORTIE.orbitOffsets[((s.tick >> 3) + i) % INTERCEPTOR_SORTIE.orbitOffsets.length]!;
+    const tx = e.x[target]! + ox * INTERCEPTOR_SORTIE.orbitRadius;
+    const ty = e.y[target]! + oy * INTERCEPTOR_SORTIE.orbitRadius;
     faceToward(e, i, e.x[target]!, e.y[target]!);
     navigate(s, i, tx, ty, effectiveSpeed(s, e, i, Units[Kind.Interceptor]!.speed));
   }
