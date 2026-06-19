@@ -123,6 +123,115 @@ Migration rules:
   `commands` validates intent; `systems` mutates per tick; `io` observes/serializes; app/AI/RL
   depend on exported facades rather than private system internals.
 
+### Actor And Tactical Behavior Kernel
+
+The deeper architecture goal is that units, buildings, mines, scarabs, interceptors, spell fields,
+transport endpoints, and other temporary objects are all world actors with different capabilities,
+not separate engine species. `stepWorld` should remain an explicit deterministic phase scheduler,
+but phases should be named after verbs and state transitions rather than unit-specific quirks. A new
+system should be added only when it owns a general phase of the world, not because one Brood War
+object is awkward.
+
+Principles:
+
+- A dense entity slot is the universal actor representation. A building is an actor with structure,
+  footprint, producer, container, add-on, lift, power, or creep capabilities; a mobile unit is an
+  actor with movement, weapons, cargo, spells, or production capabilities; a child actor is an actor
+  with home/target/lifetime/return/impact policy. The distinction should be data and capabilities,
+  not separate control paths.
+- `stepWorld` stays as the deterministic ordering contract for replay and performance. The smell is
+  not that mines, scarabs, or interceptors appear in the tick pipeline; the smell is when their
+  behavior lives as isolated unit-specific systems instead of descriptor-driven actor lifecycle,
+  steering, impact, return, and ammo semantics.
+- Sim core should execute declared orders and actor policies deterministically. Smarter strategy and
+  micro should normally live in controller layers that emit ordinary validated commands, so bot,
+  assistive player AI, replay, and future RL can share it. Only low-level BW reflexes that truly
+  belong to the game rules, such as target acquisition, weapon cooldowns, interceptor sorties, mine
+  wakeup, or scarab impact, belong inside sim phases.
+- The hot loop must stay typed-array and grid friendly. Descriptors may choose behavior, but per-tick
+  execution should avoid allocation-heavy polymorphism, closures inside entity loops, or controller
+  logic hidden in the sim.
+
+Target representation:
+
+- `ActorCapabilityDef`: compact data predicates for commandable, mobile, structure, producer,
+  container, resource, detector, cloaked, spellcaster, child actor, static field, and internally
+  produced ammo.
+- `ActorLifecycleDef`: optional spawn, wake, active, impact, return, expire, death, cancel, refund,
+  and restore-ammo hooks. Scarabs, interceptors, spider mines, hallucinations, nuke markers, and
+  temporary spell effects should differ by lifecycle data plus tiny named handlers, not by whole
+  bespoke systems.
+- `ActorSteeringDef`: `none`, `normal-nav`, `orbit-target`, `home-return`, `seek-impact`,
+  `stationary-trigger`, and future simple steering modes. Interceptors orbit and return; Scarabs
+  seek impact; Spider Mines wake from stationary trigger then become normal attackers.
+- `ActorActionDef`: weapon fire, launch child, apply impact weapon, provide contained fire,
+  produce internal ammo, gather/return resources, repair/build, cast, transform, load/unload, and
+  passive aura/field effects. This keeps "things that act on the world" in one vocabulary.
+- `ActorPresentationDef`: renderer-neutral math hull, visible hull/art scaling, health/progress bar,
+  cloak opacity, child/projectile presentation, selected/status labels, and debug overlays. Math mode
+  remains the oracle for the same actor body that combat/pathing/interaction use.
+
+Migration plan:
+
+- Audit `systems/mines.ts`, `systems/scarabs.ts`, `systems/interceptors.ts`,
+  `systems/combat.ts`, `systems/production/*`, `systems/abilities.ts`, and structure mobility for
+  common actor lifecycle and action shapes. Do this before rewriting; the goal is to collapse only
+  proven duplication.
+- First extraction should be descriptor ownership, not behavior churn: expand
+  `mechanics/child-actors.ts` into a small actor-child/lifecycle descriptor that names commandable,
+  combat participation, steering mode, lifetime, return-to-home behavior, impact behavior, ammo
+  restore behavior, and presentation. Keep existing systems as interpreters until tests prove a
+  shared interpreter is clearer.
+- Fold Scarab and Interceptor steering only if the shared interpreter is smaller and easier to audit
+  than two tiny systems. It must preserve Scarab dud/impact behavior, pathing around terrain, splash
+  falloff, Interceptor launch cadence, orbit motion, leash, return-to-bay, ammo restoration, and
+  serialization/hash determinism.
+- Fold Spider Mine wakeup into the same actor-lifecycle vocabulary only after proving the trigger
+  phase can express "stationary burrowed sensor becomes normal attacker" without hiding the BW rules
+  for detection, air exclusion, target validity, wake range, and splash.
+- Treat buildings as actors with capabilities: production, add-ons, lift/land movement, cargo,
+  Nydus transport, detector/static weapon, power/creep provider, resource depot, and rally/gather
+  policy. Avoid building-only special cases when the same capability could be read from data.
+- Keep command validation as the public legality gate. Actor descriptors may answer "can this actor
+  ever do X?", but concrete legality still flows through `validateCommand` so UI, AI, replay, and
+  action masks cannot drift.
+- Add actor lifecycle tests before deleting existing systems: descriptor coverage, replay/hash,
+  snapshot/restore, render presentation, action-mask/observation visibility where relevant, and
+  focused behavior tests for each old quirk.
+- After actor descriptors are stable, reorganize folders so actor lifecycle lives under
+  `mechanics/actors.ts` or `entity/actors.ts`, while tick interpreters live under verb systems such
+  as `systems/actors/child.ts`, `systems/combat`, `systems/production`, and `systems/effects`.
+
+Tactical micro roadmap:
+
+- Smart army behavior should be a controller/micro layer over ordinary commands, not hidden magic
+  inside `stepWorld`. The same code should be usable by the built-in bot, optional player assist,
+  scripted benchmarks, and future RL baselines.
+- Add a `MicroDirector` after the intent/scheduler layer. It consumes `BotFacts`, risk fields,
+  terrain/choke analysis, unit capabilities, cooldowns, ranges, current orders, and squad
+  reservations, then emits validated move/attack/hold/patrol/spell/load/unload commands.
+- Ranged micro should be expressed as reusable policies: focus fire by time-to-kill and overkill
+  budget; stutter/kite when weapon cooldown, speed, and range advantage allow it; fall back to a
+  choke or friendly static field when local risk is too high; clump only when surrounded or when
+  splash risk is low; spread when enemy splash/area spells dominate; hold position when rooted fire
+  and body blocking are advantageous.
+- Melee micro should be expressed as surround and flow policies: assign deterministic surround slots
+  around target bodies, route around occupied slots, peel excess units toward secondary targets,
+  avoid over-clumping through chokes, and preserve pressure when the perfect surround is impossible.
+- Terrain-aware decisions should consume shared spatial fields: choke width, high/low ground,
+  threat ranges, static fields, friendly coverage, retreat vectors, route congestion, and unknown
+  fog. The micro layer should choose between engage, kite, hold, flank, surround, retreat,
+  counterattack, load/unload, or spell support without writing unit-name ladders.
+- Attack-move remains the simple sim order. Smart attack-move behavior is a controller policy that
+  may retask a squad over several ticks, so player commands, bot commands, replay, and RL all see the
+  same explicit command stream. If a future optional "smart command assist" is added for players, it
+  should use the same MicroDirector and be visible in replay inputs rather than mutating units
+  invisibly inside combat.
+- Benchmark micro separately from sim stepping: scenario lanes for marine-vs-zergling kiting,
+  ranged concave/focus fire, melee surround, choke hold, retreat under superior range, drop response,
+  minefield avoidance/clearing, and mixed army spell support. Metrics should include commands
+  emitted, unit survival, damage dealt, overkill, pathing pressure, and ticks/sec.
+
 ### 1. Finish Architecture Compression
 
 Purpose: keep each gameplay concept owned in one place so UI, AI, replay, tests, and RL masks do
