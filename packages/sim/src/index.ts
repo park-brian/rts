@@ -38,7 +38,7 @@ export * from './render/descriptors.ts';
 export * from './entity/work-queue.ts';
 export * from './entity/lifecycle.ts';
 export * from './mechanics/upgrades.ts';
-export * from './rally.ts';
+export * from './mechanics/rally.ts';
 export * from './mechanics/resources.ts';
 export * from './mechanics/abilities.ts';
 export * from './entity/world.ts';

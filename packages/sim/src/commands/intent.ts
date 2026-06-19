@@ -8,7 +8,7 @@ import { ONE } from '../fixed.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
-} from '../rally.ts';
+} from '../mechanics/rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
 import type { TravelEndpoint, TravelIntent } from './travel.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';

@@ -4,7 +4,7 @@ import { fx } from '../fixed.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from '../mechanics/resources.ts';
 import { isTransitioning } from '../entity/state.ts';
-import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from '../rally.ts';
+import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from '../mechanics/rally.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, eid, isAlive, nearest, slotOf } from '../entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';

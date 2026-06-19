@@ -447,6 +447,8 @@ Done when:
   `mechanics/cargo.ts`, leaving `systems/cargo.ts` as the small per-tick containment synchronizer.
 - Moved shared repair eligibility, cost, and construction-resume rules under `mechanics/repair.ts`,
   deleting the old root helper path while preserving the stable package export.
+- Moved shared rally endpoint resolution and worker-rally fallback rules under
+  `mechanics/rally.ts`, deleting the old root helper path while preserving the stable package export.
 
 ## Review Checklist
 
