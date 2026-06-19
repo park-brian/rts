@@ -8,13 +8,13 @@
 // synchronous and consumes the grid (combat + separation) within the same step
 // before any other sim steps, so there's no aliasing — and zero per-tick allocation.
 
-import type { State } from './entity/world.ts';
-import { CAP, NONE, isEnemy } from './entity/world.ts';
-import { TILE, Units, weaponForTarget } from './data.ts';
-import { ONE } from './fixed.ts';
-import { canDetect } from './detection.ts';
-import { isContained } from './cargo.ts';
-import { MAX_BODY_REACH, bodyBounds, topDownEdgeDistanceSq } from './spatial/geometry.ts';
+import type { State } from '../entity/world.ts';
+import { CAP, NONE, isEnemy } from '../entity/world.ts';
+import { TILE, Units, weaponForTarget } from '../data.ts';
+import { ONE } from '../fixed.ts';
+import { canDetect } from '../detection.ts';
+import { isContained } from '../cargo.ts';
+import { MAX_BODY_REACH, bodyBounds, topDownEdgeDistanceSq } from './geometry.ts';
 
 const CELL_TILES = 4;
 const CELL_FX = CELL_TILES * TILE * ONE; // cell size in fixed px

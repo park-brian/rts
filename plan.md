@@ -405,6 +405,8 @@ Done when:
   old root `footprint.ts` helper while preserving the stable package export.
 - Moved top-down geometry, BW body bounds, and range/docking helpers under `spatial/geometry.ts`,
   deleting the old root `spatial.ts` helper while preserving the stable package export.
+- Moved the typed-array target-acquisition bucket grid under `spatial/grid.ts`, deleting the old root
+  `grid.ts` helper.
 
 ## Review Checklist
 

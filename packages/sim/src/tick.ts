@@ -21,7 +21,7 @@ import { collide } from './systems/collision.ts';
 import { settleMovement } from './systems/settle.ts';
 import { vision } from './systems/vision.ts';
 import { victory } from './systems/victory.ts';
-import { buildGrid } from './grid.ts';
+import { buildGrid } from './spatial/grid.ts';
 import { prepareNav } from './flow.ts';
 import { prepareLocalAvoidance } from './local-avoidance.ts';
 import { updateCloakAuras } from './detection.ts';

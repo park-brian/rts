@@ -10,7 +10,7 @@ import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type We
 import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { faceToward, within } from './move.ts';
 import { navigate } from '../pathing.ts';
-import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../grid.ts';
+import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../spatial/grid.ts';
 import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from './status.ts';
 import { coveredByEffect } from '../effects.ts';
 import { canDetect } from '../detection.ts';
