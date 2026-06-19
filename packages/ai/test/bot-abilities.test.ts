@@ -4,11 +4,14 @@ import {
   ACTIVE_CLOAK_ABILITIES,
   TACTICAL_ABILITY_POLICIES,
   collectBotFacts,
+  commitTacticalResponders,
   createBot,
+  createBotMemory,
   deriveTacticalIncidents,
   missingStructureKinds,
   rankedTacticalResponders,
   selectTacticalResponders,
+  TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
   tacticalResponseBudget,
 } from '../src/index.ts';
@@ -345,6 +348,42 @@ test('bot selects only a bounded ranked squad for small incidents', () => {
   assert.equal(incident.kind, 'base-intrusion');
   assert.equal(responders.length, 2);
   assert.deepEqual(responders, marines.slice(0, 2).map(slotOf));
+});
+
+test('bot keeps valid tactical commitments stable until they expire', () => {
+  const scenario = botScenario({ seed: 815 });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  const base = scenario.pos(commandCenter);
+  const marines = Array.from({ length: 4 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+  const memory = createBotMemory();
+
+  const facts = collectBotFacts(scenario.state, 0, Terran);
+  const incident = deriveTacticalIncidents(scenario.state, facts)[0]!;
+  const first = commitTacticalResponders(
+    scenario.state,
+    memory,
+    marines.map(slotOf),
+    incident,
+    slotOf(enemy),
+    0,
+  );
+  const closer = scenario.spawn(Kind.Marine, 0, base.x + fx(4), base.y);
+  const candidates = [slotOf(closer), ...marines.map(slotOf)];
+  const stable = commitTacticalResponders(scenario.state, memory, candidates, incident, slotOf(enemy), 1);
+  const refreshed = commitTacticalResponders(
+    scenario.state,
+    memory,
+    candidates,
+    incident,
+    slotOf(enemy),
+    TACTICAL_COMMITMENT_TICKS + 2,
+  );
+
+  assert.deepEqual(first, marines.slice(0, 2).map(slotOf));
+  assert.deepEqual(stable, first);
+  assert.equal(refreshed[0], slotOf(closer));
 });
 
 test('bot does not pull every army unit for a small base intrusion', () => {

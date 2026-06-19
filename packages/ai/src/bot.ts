@@ -19,9 +19,9 @@ import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import {
   collectBotFacts,
+  commitTacticalResponders,
   createBotMemory,
   deriveTacticalIncidents,
-  selectTacticalResponders,
   rememberTacticalIncidents,
   type BotMemory,
   type TacticalIncident,
@@ -447,13 +447,14 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     // 5) Defense: incidents protect every owned base, not only the initial depot.
     const visibleIncidents = deriveTacticalIncidents(s, facts);
-    const incident = rememberTacticalIncidents(prepareMemory(p, s.tick), visibleIncidents, s.tick)[0];
+    const memory = prepareMemory(p, s.tick);
+    const incident = rememberTacticalIncidents(memory, visibleIncidents, s.tick)[0];
     const threat = incident ? incidentTarget(s, incident) : NONE;
     if (incident) {
       const focusX = threat !== NONE ? e.x[threat]! : incident.x;
       const focusY = threat !== NONE ? e.y[threat]! : incident.y;
       if (threat !== NONE) castTacticalAbilities(s, p, cmds, casters, focusX, focusY);
-      for (const a of selectTacticalResponders(s, retaskableArmy, incident, threat)) {
+      for (const a of commitTacticalResponders(s, memory, retaskableArmy, incident, threat, s.tick)) {
         if (threat !== NONE && maybeLaySpiderMine(s, cmds, a, threat)) continue;
         if (threat !== NONE && maybeBurrowForFight(s, cmds, a, threat)) continue;
         if (maybeTransformForFight(s, cmds, a, focusX, focusY)) continue;

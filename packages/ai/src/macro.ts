@@ -10,8 +10,10 @@ import {
   distanceSq,
   eid,
   hasAnyWeapon,
+  isAlive,
   isEnemy,
   isLarvaSourceKind,
+  slotOf,
   unitTraits,
   withinRangeSq,
   weaponForTarget,
@@ -133,6 +135,7 @@ export type BotMemory = {
   blockedSites: Map<string, { reason: BotFailureReason; tick: number }>;
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
   tacticalIncidents: Map<string, TacticalIncident>;
+  tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
 };
 
 export const createBotMemory = (): BotMemory => ({
@@ -140,10 +143,12 @@ export const createBotMemory = (): BotMemory => ({
   blockedSites: new Map(),
   suspectedInvisibleThreats: new Map(),
   tacticalIncidents: new Map(),
+  tacticalCommitments: new Map(),
 });
 
 const BASE_THREAT_TILES = 18;
 export const TACTICAL_INCIDENT_MEMORY_TICKS = 8 * 24;
+export const TACTICAL_COMMITMENT_TICKS = 4 * 24;
 
 export const canRetaskArmy = (s: State, slot: number): boolean => {
   const e = s.e;
@@ -291,6 +296,12 @@ export const rankedTacticalResponders = (
     .sort((a, b) => b.fit - a.fit || a.distance - b.distance || a.slot - b.slot)
     .map(({ slot }) => slot);
 
+const pruneTacticalCommitments = (memory: BotMemory, tick: number): void => {
+  for (const [key, commitment] of memory.tacticalCommitments) {
+    if (commitment.expiresAt <= tick) memory.tacticalCommitments.delete(key);
+  }
+};
+
 export const selectTacticalResponders = (
   s: State,
   candidates: readonly number[],
@@ -300,6 +311,48 @@ export const selectTacticalResponders = (
   const budget = tacticalResponseBudget(incident, candidates.length);
   if (budget === 0) return [];
   return rankedTacticalResponders(s, candidates, incident, target).slice(0, budget);
+};
+
+export const commitTacticalResponders = (
+  s: State,
+  memory: BotMemory,
+  candidates: readonly number[],
+  incident: TacticalIncident,
+  target: number,
+  tick: number,
+): number[] => {
+  const budget = tacticalResponseBudget(incident, candidates.length);
+  if (budget === 0) return [];
+
+  const key = incidentKey(incident);
+  const existing = memory.tacticalCommitments.get(key);
+  const candidateSet = new Set(candidates);
+  const selected: number[] = [];
+  if (existing && existing.expiresAt > tick) {
+    for (const id of existing.unitIds) {
+      if (!isAlive(s.e, id)) continue;
+      const slot = slotOf(id);
+      if (!candidateSet.has(slot)) continue;
+      selected.push(slot);
+      if (selected.length === budget) break;
+    }
+  }
+
+  if (selected.length < budget) {
+    const selectedSet = new Set(selected);
+    for (const slot of rankedTacticalResponders(s, candidates, incident, target)) {
+      if (selectedSet.has(slot)) continue;
+      selected.push(slot);
+      selectedSet.add(slot);
+      if (selected.length === budget) break;
+    }
+  }
+
+  memory.tacticalCommitments.set(key, {
+    unitIds: selected.map((slot) => eid(s.e, slot)),
+    expiresAt: tick + TACTICAL_COMMITMENT_TICKS,
+  });
+  return selected;
 };
 
 const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncidentKind => {
@@ -494,6 +547,7 @@ export const rememberTacticalIncidents = (
   visibleIncidents: readonly TacticalIncident[],
   tick: number,
 ): TacticalIncident[] => {
+  pruneTacticalCommitments(memory, tick);
   if (visibleIncidents.length === 0 && memory.tacticalIncidents.size === 0) return [];
 
   const visibleKeys = new Set<string>();

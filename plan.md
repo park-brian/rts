@@ -496,8 +496,11 @@ Remaining work:
     - Response-budget slice is done: tactical incidents now commit only a deterministic ranked squad
       sized by incident kind and severity, so a small intrusion does not consume the whole army while
       drops, Nydus breaches, siege fields, and high-severity incidents can request larger responses.
-      Remaining reservation work: carry those commitments across ticks and expose leftover force to
-      lower-priority harass, attack, scout, and counterattack directors.
+    - Commitment-memory slice is done: valid tactical responder assignments now persist for a short,
+      deterministic window using entity ids, refresh while the incident stays active or remembered,
+      and re-rank only after expiry or when assigned units leave the retaskable candidate set.
+      Remaining reservation work: expose leftover force to lower-priority harass, attack, scout, and
+      counterattack directors instead of suppressing all offense while any incident exists.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
