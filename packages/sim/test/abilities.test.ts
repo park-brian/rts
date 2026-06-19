@@ -360,6 +360,37 @@ test('dark swarm blocks ranged ground damage while disruption web prevents groun
   assert.equal(s.e.wcd[slotOf(marine)], 0);
 });
 
+test('disruption web uses the sourced duration and releases ground attacks on expiry', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 292 });
+  const corsair = spawn(Kind.Corsair, 0, fx(405), fx(400));
+  const marine = spawn(Kind.Marine, 1, fx(430), fx(400));
+  const zealot = spawn(Kind.Zealot, 0, fx(450), fx(400));
+  const web = Abilities[Ability.DisruptionWeb]!;
+  assert.equal(web.duration, sec(15.12));
+  s.e.energy[slotOf(corsair)] = web.energyCost;
+  grant(0, Tech.DisruptionWeb);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'ability', unit: corsair, ability: Ability.DisruptionWeb, x: fx(430), y: fx(400) },
+  ] }]);
+
+  const marineSlot = slotOf(marine);
+  const zealotSlot = slotOf(zealot);
+  assert.equal(s.effects.alive[0], 1);
+  assert.equal(s.effects.kind[0], EffectKind.DisruptionWeb);
+  assert.equal(s.effects.timer[0], web.duration - 1);
+
+  const blockedShield = s.e.shield[zealotSlot]!;
+  sim.step([{ player: 1, cmds: [{ t: 'attack', unit: marine, target: zealot }] }]);
+  assert.equal(s.e.shield[zealotSlot], blockedShield);
+  assert.equal(s.e.wcd[marineSlot], 0);
+
+  for (let t = 0; t < web.duration - 2; t++) sim.step([]);
+  assert.equal(s.effects.alive[0], 0);
+  assert.equal(s.e.wcd[marineSlot], Units[Kind.Marine]!.weapon!.cooldown);
+  assert.equal(s.e.shield[zealotSlot], blockedShield - Units[Kind.Marine]!.weapon!.damage);
+});
+
 test('persistent point effects spawn through descriptor execution', () => {
   const { sim, state: s, spawn, grant } = simScenario({ seed: 291 });
   const defiler = spawn(Kind.Defiler, 0, fx(400), fx(400));

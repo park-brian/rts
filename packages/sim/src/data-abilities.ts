@@ -148,7 +148,7 @@ export const Abilities: Record<number, AbilityDef> = {
   [Ability.DisruptionWeb]: {
     name: 'Disruption Web', tech: Tech.DisruptionWeb, target: 'point', targetTeam: 'any', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Corsair],
-    energyCost: 125, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(37.8), period: 0, damage: 0,
+    energyCost: 125, hpCost: 0, range: tiles(9), radius: fx(48), duration: sec(15.12), period: 0, damage: 0,
     execution: { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb },
   },
   [Ability.SpawnBroodling]: {

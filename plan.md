@@ -1234,7 +1234,7 @@ Source timing/data already present in local docs and sim tables:
 | Ensnare | 75 energy, range 9, 25.2s | entity status timer | Keep. |
 | Plague | 150 energy, range 9, 25.2s, periodic damage, cannot kill | entity status/dot | Keep; verify min-1-HP invariant remains covered. |
 | Dark Swarm | 100 energy, range 9, 37.8s | persistent effect | Keep. |
-| Disruption Web | 125 energy, range 9, local docs say 15.12s, sim uses 37.8s | persistent effect | Fix after source reconciliation. |
+| Disruption Web | 125 energy, range 9, local docs say 15.12s | persistent effect | Fixed to sourced duration; expiry/attack-blocking coverage added. |
 | Scanner Sweep | 50 energy, global, local docs say about 6.8-11s, sim uses 8.4s | persistent effect | Accept provisional; document exact source when chosen. |
 | Nuclear Strike channel | local docs say Ghost channels about 14.5s; sim uses 8.4s effect delay | `Order.Cast` + effect | Fix timing and cancellation semantics after source reconciliation. |
 | Yamato Gun | 150 energy, range 10, 260 damage | instant damage | Add windup/cast execution before damage after sourcing cast frames. |
@@ -1302,7 +1302,7 @@ Stats and source work before implementation:
 - Reconcile local doc/spec mismatches:
   - Stasis duration: `docs/research/sc1-spells-upgrades.md` says about 43.8s; `data.ts` uses 37.8s.
   - Irradiate duration: research doc says 25.2s for the damage window; `data.ts` uses 37.8s.
-  - Disruption Web duration: research doc says 15.12s; `data.ts` uses 37.8s.
+  - Disruption Web duration fixed: research doc says 15.12s and `data-abilities.ts` now matches.
   - Nuclear Strike channel: research doc says about 14.5s; `data.ts` uses 8.4s.
 - Source missing animation/cast frame counts before coding:
   - Siege Tank siege and unsiege deploy duration.
