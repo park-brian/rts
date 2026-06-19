@@ -1,9 +1,9 @@
 import {
-  FPS, Kind, ONE, Order, TILE, Units,
+  FPS, ONE, Order, TILE, Units,
   armorUpgradeBonus, canDetect, isCloaked, isLiftedStructureFlags,
   shieldArmorBonus, upgradedCooldown, upgradedRange,
   upgradedSight, upgradedSpeed, weaponUpgradeBonus,
-  entityWorkQueue,
+  entityLifecycle,
   type State, type Weapon,
 } from './sim.ts';
 import type { SelectionStatus } from './store.ts';
@@ -17,19 +17,6 @@ const ORDER_LABELS: Record<number, string> = {
   [Order.Build]: 'Building',
   [Order.Cast]: 'Casting',
   [Order.Repair]: 'Repairing',
-};
-
-const clampProgress = (remaining: number, total: number): number =>
-  total <= 0 ? 0 : Math.max(0, Math.min(1, 1 - remaining / total));
-
-const constructionVerb = (kind: number): string => {
-  switch (Units[kind]?.buildMethod) {
-    case 'warp': return 'Warping';
-    case 'morph': return 'Morphing';
-    case 'merge': return 'Summoning';
-    case 'addon': return 'Adding';
-    default: return 'Building';
-  }
 };
 
 const orderLabel = (order: number): string => ORDER_LABELS[order] ?? 'Acting';
@@ -83,31 +70,13 @@ const selectionVisibilityStats = (s: State, slot: number, viewer: number): strin
 
 export const entityLifecycleStatus = (s: State, slot: number, viewer: number): SelectionStatus => {
   const e = s.e;
-  const kind = e.kind[slot]!;
-  const def = Units[kind]!;
   const stats = [...selectionStats(s, slot), ...selectionVisibilityStats(s, slot, viewer)];
-  if (e.built[slot] !== 1) {
+  const lifecycle = entityLifecycle(s, slot);
+  if (lifecycle.state !== 'complete') {
     return {
-      label: constructionVerb(kind),
-      detail: def.name,
-      progress: clampProgress(e.ctimer[slot]!, def.buildTime),
-      stats,
-    };
-  }
-  const work = entityWorkQueue(s, slot);
-  if (work.active?.t === 'production') {
-    return {
-      label: work.active.label,
-      detail: work.active.detail,
-      progress: clampProgress(work.active.remaining, work.active.total),
-      stats,
-    };
-  }
-  if (work.active?.t === 'research') {
-    return {
-      label: work.active.label,
-      detail: work.active.detail,
-      progress: clampProgress(work.active.remaining, work.active.total),
+      label: lifecycle.label,
+      detail: lifecycle.detail,
+      progress: lifecycle.progress,
       stats,
     };
   }

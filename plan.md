@@ -1365,7 +1365,7 @@ Done when:
 
 ## Phase 12: Architecture Compression And Blind-Spot Reduction
 
-Status: planned.
+Status: in progress.
 
 Purpose: keep the codebase understandable at a glance as BW fidelity grows. This is not a rewrite:
 the deterministic SoA sim, typed-array hot loops, fixed tick pipeline, command stream, shared
@@ -1459,6 +1459,11 @@ Rework slices:
      cancelability.
    - Replace app lifecycle interpretation, selected status progress, render progress bars, and command
      card lifecycle labels with this helper.
+   - Slice 1 started: added a sim-side `entityLifecycle` derived query for complete, constructing,
+     morphing, merging, training, researching, channeling, and dead states; selected-unit status now
+     consumes this query for lifecycle labels/progress instead of reinterpreting `built`, `ctimer`,
+     `prodKind`, and `researchKind` app-side. Render progress bars and command-card labels remain
+     follow-up consumers.
 2. Add entity roles and commandability helpers.
    - Define child/projectile/user-commandable roles in sim data or derived helpers.
    - Replace app-side `Kind.Scarab`/`Kind.Interceptor` commandability checks.
