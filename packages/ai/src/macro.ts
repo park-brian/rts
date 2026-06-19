@@ -249,6 +249,33 @@ export const tacticalResponseFit = (
     proximityFit;
 };
 
+const TACTICAL_RESPONSE_MAX = 10;
+
+const baselineResponseBudget = (kind: TacticalIncidentKind): number => {
+  switch (kind) {
+    case 'nydus-breach': return 6;
+    case 'siege-containment': return 5;
+    case 'transport-drop': return 4;
+    case 'static-threat-zone': return 4;
+    case 'invisible-damage': return 3;
+    case 'mineral-line-harass': return 3;
+    case 'route-trap': return 3;
+    case 'army-under-kite': return 3;
+    case 'expansion-blocked': return 2;
+    case 'base-intrusion': return 2;
+  }
+};
+
+export const tacticalResponseBudget = (
+  incident: TacticalIncident,
+  candidates: number,
+): number => {
+  if (candidates <= 0) return 0;
+  const severityExtra = Math.trunc(Math.max(0, incident.severity - 100) / 150);
+  const budget = baselineResponseBudget(incident.kind) + severityExtra;
+  return Math.max(1, Math.min(candidates, TACTICAL_RESPONSE_MAX, budget));
+};
+
 export const rankedTacticalResponders = (
   s: State,
   candidates: readonly number[],
@@ -263,6 +290,17 @@ export const rankedTacticalResponders = (
     }))
     .sort((a, b) => b.fit - a.fit || a.distance - b.distance || a.slot - b.slot)
     .map(({ slot }) => slot);
+
+export const selectTacticalResponders = (
+  s: State,
+  candidates: readonly number[],
+  incident: TacticalIncident,
+  target: number,
+): number[] => {
+  const budget = tacticalResponseBudget(incident, candidates.length);
+  if (budget === 0) return [];
+  return rankedTacticalResponders(s, candidates, incident, target).slice(0, budget);
+};
 
 const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncidentKind => {
   const e = s.e;

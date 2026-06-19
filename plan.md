@@ -453,6 +453,22 @@ Remaining work:
     bot estimates time-to-impact, route safety, detection needs, and available response groups; then
     it emits `defend-base`, `intercept`, `evacuate-workers`, `get-detection`, `clear-site`,
     `retreat`, `contain`, or `counterattack` intents.
+    - The tactical model should be region-first, not event-name-first. A base, mineral line,
+      production cluster, army staging point, expansion site, transport route, and retreat route are
+      protected regions with value, owner, response radius, and escape routes. Any enemy weapon,
+      detector, spell, transport, burrow/cloak, or static-control capability that intersects those
+      regions raises an incident; the incident kind only names the dominant capability so scoring can
+      choose detectors, anti-air, fast interceptors, siege breakers, workers, or spell casters.
+    - Unexpected spatial patterns should compose from the same fields: a drop is a mobile air route
+      plus cargo threat near a protected region; a Nydus breach is an instant transport endpoint plus
+      ground threat; a bombing run is high time-to-impact air weapon risk; kiting is friendly
+      response coverage falling behind enemy threat projection; a trap is route risk rising faster
+      than army value can clear it; sieged units are static long-range fields that favor contain,
+      flank, or spell responses over walking directly through the field.
+    - The controller should reserve actors by commitment, not merely issue commands. A defender
+      committed to a base incident should be unavailable to a harassment or attack-wave director
+      until the incident expires, resolves, or is reprioritized. This is the bridge from the current
+      single-pass bot to multi-intent behavior without introducing a broad behavior-tree framework.
   - Add a `TacticalIncident` layer after `BotFacts`: incidents should be produced from visible
     enemies, risk-field changes, recent damage/deaths, blocked builders, last-seen memory, and
     protected-zone membership. Incident examples are `base-intrusion`, `mineral-line-harass`,
@@ -477,6 +493,11 @@ Remaining work:
     - Response-fit seed slice is done: tactical incidents now rank retaskable responders by target
       compatibility, detector/role fit, mobility, and distance before the live bot emits ordinary
       defense commands. This is intentionally a ranking layer, not a separate command system.
+    - Response-budget slice is done: tactical incidents now commit only a deterministic ranked squad
+      sized by incident kind and severity, so a small intrusion does not consume the whole army while
+      drops, Nydus breaches, siege fields, and high-severity incidents can request larger responses.
+      Remaining reservation work: carry those commitments across ticks and expose leftover force to
+      lower-priority harass, attack, scout, and counterattack directors.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first

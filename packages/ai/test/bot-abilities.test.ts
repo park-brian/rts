@@ -8,7 +8,9 @@ import {
   deriveTacticalIncidents,
   missingStructureKinds,
   rankedTacticalResponders,
+  selectTacticalResponders,
   TACTICAL_INCIDENT_MEMORY_TICKS,
+  tacticalResponseBudget,
 } from '../src/index.ts';
 import {
   botScenario,
@@ -309,6 +311,55 @@ test('bot ranks responders by tactical incident fit', () => {
 
   assert.equal(incident.kind, 'transport-drop');
   assert.equal(responders[0], slotOf(goliath));
+});
+
+test('bot budgets tactical responders by incident severity', () => {
+  const low = tacticalResponseBudget({ kind: 'base-intrusion', severity: 125, x: 0, y: 0 }, 12);
+  const drop = tacticalResponseBudget({ kind: 'transport-drop', severity: 275, x: 0, y: 0 }, 12);
+  const nydus = tacticalResponseBudget({ kind: 'nydus-breach', severity: 325, x: 0, y: 0 }, 12);
+
+  assert.equal(low, 2);
+  assert.ok(drop > low);
+  assert.ok(nydus > drop);
+  assert.equal(tacticalResponseBudget({ kind: 'nydus-breach', severity: 2_000, x: 0, y: 0 }, 99), 10);
+  assert.equal(tacticalResponseBudget({ kind: 'base-intrusion', severity: 125, x: 0, y: 0 }, 0), 0);
+});
+
+test('bot selects only a bounded ranked squad for small incidents', () => {
+  const scenario = botScenario({ seed: 813 });
+  const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+  const base = scenario.pos(commandCenter);
+  const marines = Array.from({ length: 6 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+
+  const facts = collectBotFacts(scenario.state, 0, Terran);
+  const incident = deriveTacticalIncidents(scenario.state, facts)[0]!;
+  const responders = selectTacticalResponders(
+    scenario.state,
+    marines.map(slotOf),
+    incident,
+    slotOf(enemy),
+  );
+
+  assert.equal(incident.kind, 'base-intrusion');
+  assert.equal(responders.length, 2);
+  assert.deepEqual(responders, marines.slice(0, 2).map(slotOf));
+});
+
+test('bot does not pull every army unit for a small base intrusion', () => {
+  const scenario = botScenario({ seed: 814 });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marines = Array.from({ length: 6 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const enemy = scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y);
+
+  const cmds = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const attacks = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
+    c.t === 'attack' && c.target === enemy);
+
+  assert.equal(attacks.length, 2);
+  assert.deepEqual(attacks.map((c) => c.unit), marines.slice(0, 2));
 });
 
 test('bot keeps defending remembered incidents after vision drops', () => {
