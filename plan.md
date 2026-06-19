@@ -46,7 +46,6 @@ not rediscover slightly different rules.
 Remaining work:
 
 - Finish extracting shared command predicates where they reduce drift:
-  - common actor ownership / stale entity gates;
   - `isBusy`;
   - `isTransitioning`;
   - `isDisabled`;

@@ -13,7 +13,13 @@ import {
 } from '../src/internal-products.ts';
 import { eid, isAlive, slotOf } from '../src/world.ts';
 import { parseReplay } from '../src/replay.ts';
+import { validateMineCommand } from '../src/mine-command.ts';
+import { validateCommand } from '../src/validation.ts';
 import { simScenario } from '../test-support/scenario.ts';
+import type { Command, CommandRejectReason } from '../src/commands.ts';
+
+type MineCommand = Extract<Command, { t: 'mine' }>;
+type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
 
 const mineSlots = (sim: Sim): number[] => {
   const e = sim.fullState().e;
@@ -64,6 +70,23 @@ test('vultures lay researched spider mines with finite charges', () => {
   assert.equal(mines.length, 1);
   assert.equal(e.burrowed[mines[0]!], 1);
   assert.equal(e.owner[mines[0]!], 0);
+});
+
+test('mine validation shares actor ownership gates', () => {
+  const { state: s, spawn, grant } = simScenario({ players: 2, seed: 2101 });
+  const friendly = spawn(Kind.Vulture, 0, fx(400), fx(400));
+  const enemy = spawn(Kind.Vulture, 1, fx(430), fx(400));
+  grant(0, Tech.SpiderMines);
+  s.e.specialAmmo[slotOf(friendly)] = SPIDER_MINE_CHARGES;
+
+  const assertMine = (command: MineCommand, expected: Expected): void => {
+    assert.deepEqual(validateMineCommand(s, 0, command), expected);
+    assert.deepEqual(validateCommand(s, 0, command), expected);
+  };
+
+  assertMine({ t: 'mine', unit: friendly }, { ok: true });
+  assertMine({ t: 'mine', unit: enemy }, { ok: false, reason: 'wrong-owner' });
+  assertMine({ t: 'mine', unit: 999_999 }, { ok: false, reason: 'stale-entity' });
 });
 
 test('spider mine tech grants charges to current and future vultures', () => {

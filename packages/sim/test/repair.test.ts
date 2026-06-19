@@ -5,7 +5,13 @@ import { Kind, Order, Units } from '../src/data.ts';
 import { repairCost } from '../src/repair.ts';
 import { parseReplay } from '../src/replay.ts';
 import { fx } from '../src/fixed.ts';
+import { validateRepairCommand } from '../src/repair-command.ts';
+import { validateCommand } from '../src/validation.ts';
 import { simScenario } from '../test-support/scenario.ts';
+import type { Command, CommandRejectReason } from '../src/commands.ts';
+
+type RepairCommand = Extract<Command, { t: 'repair' }>;
+type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
 
 test('SCVs repair damaged mechanical units and spend resources', () => {
   const { sim, state: s, spawn } = simScenario({ players: 1, seed: 120 });
@@ -57,6 +63,26 @@ test('repair rejects invalid targets but allows SCVs to resume Terran foundation
   ]);
   assert.equal(e.order[scv], Order.Build);
   assert.equal(e.target[scv], eid(e, depot));
+});
+
+test('repair validation shares actor ownership gates', () => {
+  const { state: s, spawn } = simScenario({ players: 2, seed: 122 });
+  const e = s.e;
+  const scv = spawn(Kind.SCV, 0, fx(400), fx(400));
+  const enemyScv = spawn(Kind.SCV, 1, fx(430), fx(400));
+  const tank = spawn(Kind.SiegeTank, 0, fx(460), fx(400));
+  e.hp[slotOf(tank)] = Units[Kind.SiegeTank]!.hp - 8;
+  s.players.minerals[0] = 100;
+  s.players.gas[0] = 100;
+
+  const assertRepair = (command: RepairCommand, expected: Expected): void => {
+    assert.deepEqual(validateRepairCommand(s, 0, command), expected);
+    assert.deepEqual(validateCommand(s, 0, command), expected);
+  };
+
+  assertRepair({ t: 'repair', unit: scv, target: tank }, { ok: true });
+  assertRepair({ t: 'repair', unit: enemyScv, target: tank }, { ok: false, reason: 'wrong-owner' });
+  assertRepair({ t: 'repair', unit: 999_999, target: tank }, { ok: false, reason: 'stale-entity' });
 });
 
 test('replay parser accepts repair commands', () => {
