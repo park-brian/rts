@@ -696,6 +696,10 @@ Remaining work:
       derived from the macro commands it emitted (`expand`, `add-production`, `rebuild-tech`,
       `research-upgrade`, `spend-larva`, and `train-counter`), giving future arbitration a live
       macro vocabulary without changing command ordering yet.
+    - Live planner-intent seam slice is done: `createBotPlanner` now returns both commands and a
+      sorted director-intent list while `createBot` remains the command-only controller. Macro,
+      tactical defense, and pressure intents can now be inspected together without changing current
+      command ordering or introducing a parallel scheduler.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

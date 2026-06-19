@@ -9,6 +9,7 @@ import {
   combatReserve,
   commitTacticalResponders,
   createBot,
+  createBotPlanner,
   createBotMemory,
   deriveTacticalIncidents,
   executePressureIntent,
@@ -356,6 +357,25 @@ const baseOnlyThreatPoint = (facts: ReturnType<typeof collectBotFacts>, base: { 
     y: Math.trunc(base.y + (dy / d) * fx(distance)),
   };
 };
+
+test('live bot planner exposes sorted macro, defense, and pressure intents', () => {
+  const scenario = botScenario({ seed: 832 });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const threat = baseOnlyThreatPoint(collectBotFacts(s, 0, Terran), base);
+  scenario.resources(0, 1_000, 0);
+  Array.from({ length: 4 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 12), base.y));
+  scenario.spawn(Kind.Zealot, 1, threat.x, threat.y);
+
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 1, attackThreshold: 1 })(s, 0);
+  const kinds = plan.intents.map((intent) => intent.kind);
+
+  assert.equal(plan.commands.length > 0, true);
+  assert.deepEqual(kinds.slice(0, 3), ['defend-base', 'counterattack', 'add-production']);
+  assert.equal(plan.intents[0]!.urgency >= plan.intents[1]!.urgency, true);
+  assert.equal(plan.intents[1]!.urgency >= plan.intents[2]!.urgency, true);
+});
 
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
   const scenario = botScenario({ seed: 800, factions: [Zerg, Terran] });

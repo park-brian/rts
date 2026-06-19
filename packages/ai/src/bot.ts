@@ -12,6 +12,7 @@ import { scheduleBotMacro } from './macro-scheduler.ts';
 import { executeTacticalDefense, proposeTacticalDefense } from './macro-tactics.ts';
 import { createBotMemory, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
+import type { BotIntent } from './macro-intents.ts';
 
 export type BotConfig = {
   workerTarget?: number; // omit to auto-derive from the base's mineral-patch count
@@ -19,9 +20,19 @@ export type BotConfig = {
   attackThreshold: number; // army size that triggers an attack wave
 };
 
+export type BotTurnPlan = {
+  commands: Command[];
+  intents: BotIntent[];
+};
+
+export type BotPlanner = (s: State, p: number) => BotTurnPlan;
+
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 
-export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
+const rankIntents = (intents: BotIntent[]): BotIntent[] =>
+  intents.sort((a, b) => b.urgency - a.urgency);
+
+export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {}): BotPlanner => {
   const c = { ...DEFAULT, ...cfg };
   const memories = new Map<number, BotMemory>();
   const memoryFor = (player: number): BotMemory => {
@@ -42,18 +53,21 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     return memory;
   };
 
-  return (s: State, p: number): Command[] => {
+  return (s: State, p: number): BotTurnPlan => {
     const cmds: Command[] = [];
+    const intents: BotIntent[] = [];
 
     const facts = collectBotFacts(s, p, faction, { risk: 'none' });
     const depot = facts.primaryBase;
-    if (depot === NONE) return cmds; // no base: nothing to do
+    if (depot === NONE) return { commands: cmds, intents }; // no base: nothing to do
 
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, c);
+    intents.push(...macro.intents);
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const memory = prepareMemory(p, s.tick);
     const defenseProposal = proposeTacticalDefense(s, facts, memory);
+    if (defenseProposal.intent) intents.push(defenseProposal.intent);
     const { incident, reserve } = executeTacticalDefense(
       s,
       p,
@@ -85,6 +99,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         strategicOnly: incident !== undefined,
       },
     );
+    if (pressureProposal.intent) intents.push(pressureProposal.intent);
     executePressureIntent(
       s,
       p,
@@ -101,6 +116,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       },
     );
 
-    return cmds;
+    return { commands: cmds, intents: rankIntents(intents) };
   };
+};
+
+export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
+  const plan = createBotPlanner(faction, cfg);
+  return (s: State, p: number): Command[] => plan(s, p).commands;
 };
