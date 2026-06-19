@@ -7,22 +7,19 @@ import { isPowered } from './power.ts';
 import { hasReadyNuke } from './nuke.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, NONE, slotOf } from './world.ts';
-import { isDisabled } from './systems/status.ts';
 import { castAbility } from './systems/abilities.ts';
 import { withinRangeSq, withinTopDownEdgeRange } from './spatial.ts';
 import { abilityTechAvailable } from './ability-availability.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
-import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type AbilityCommand = Extract<Command, { t: 'ability' }>;
 
 export const validateAbilityCommand = (s: State, player: number, command: AbilityCommand): CommandValidation => {
   const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot)) return reject('missing-capability');
-  if (e.built[slot] !== 1) return reject('missing-capability');
+  const actor = canReceiveOrder(s, player, command.unit, { rejectBurrowed: true, rejectIllusion: true });
+  if (!actor.ok) return actor;
+  const slot = actor.slot;
   if (!isActiveAddon(s, slot)) return reject('missing-capability');
   if (!isPowered(s, slot)) return reject('missing-capability');
   const caster = Units[e.kind[slot]!]!;

@@ -245,6 +245,7 @@ Done when:
 - Extracted shared producer preflight for train, research, and add-on validation.
 - Extracted shared validation-time affordability checks.
 - Began shared direct-order preflight with `canReceiveOrder` for move and attack validation.
+- Extended `canReceiveOrder` to ability caster validation while keeping ability-specific gates local.
 
 ## Review Checklist
 

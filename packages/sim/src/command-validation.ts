@@ -41,6 +41,7 @@ type ProducerUseOptions = {
 
 type ReceiveOrderOptions = {
   rejectBurrowed?: boolean;
+  rejectIllusion?: boolean;
 };
 
 export type ResourceAmount = {
@@ -94,6 +95,7 @@ export const canReceiveOrder = (
   if (slot === null) return rejectMissingOwnedSlot(s, id);
   if (isContained(s, slot)) return reject('missing-capability');
   if (options.rejectBurrowed && e.burrowed[slot] === 1) return reject('missing-capability');
+  if (options.rejectIllusion && e.illusion[slot] === 1) return reject('missing-capability');
   if (isDisabled(e, slot)) return reject('missing-capability');
   if (e.built[slot] !== 1) return reject('missing-capability');
   return { ok: true, slot };
