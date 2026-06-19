@@ -430,6 +430,10 @@ Remaining work:
     producer after Hydralisk Den, and the Zerg build tests use named macro prefixes so Spire,
     Queen's Nest, Nydus, Defiler Mound, and Ultralisk Cavern scenarios cannot silently skip earlier
     tech producers.
+  - Macro scheduler extraction slice is done: worker/supply, tech, add-ons, morphs, research, army
+    production, production-capacity, expansion, and macro-hatchery scheduling now run through
+    `packages/ai/src/macro-scheduler.ts`, leaving the live bot controller to sequence macro,
+    tactical defense, and pressure offense.
 - Replace the current single-pass scripted bot priority ladder with a small intent/macro engine.
   Real SC2 tournament bots and full-game research agents usually win with hierarchy rather than one
   flat action chooser: directors read game facts, propose macro/tactical intents, a scheduler
@@ -929,6 +933,9 @@ Done when:
 - Extracted pressure offense scheduling into `packages/ai/src/macro-offense.ts`, so commitment
   timing, focus refresh, Nydus endpoint planning, offensive spell casting, pressure engagement
   emission, and pressure-memory refresh no longer live in the live bot controller.
+- Extracted the live bot macro ladder into `packages/ai/src/macro-scheduler.ts`, so worker/supply,
+  tech, add-ons, morphs, research, army production, capacity, expansion, and macro-hatchery
+  scheduling return only the budget, builder, army, and caster context needed by tactics/offense.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as
