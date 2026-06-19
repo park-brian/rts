@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Order, Tech, Units } from '../src/data/index.ts';
+import { Kind, Order, Tech, Units, sec } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/io/replay.ts';
+import { ModeTransitionTimings } from '../src/mechanics/mode-transition.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Sim } from '../src/sim.ts';
 
@@ -44,6 +45,12 @@ test('siege transform requires research and preserves unit state', () => {
   assert.ok(e.modeTransitionTimer[tank]! > 0);
   finishTransition(sim, tank);
   assert.equal(e.kind[tank], Kind.SiegeTank);
+});
+
+test('siege transition timing remains explicitly unsourced', () => {
+  assert.equal(ModeTransitionTimings.Siege.sourceStatus, 'unsourced');
+  assert.equal(ModeTransitionTimings.Siege.duration, sec(2));
+  assert.match(ModeTransitionTimings.Siege.note, /iscript\/DAT|measured BWAPI traces/);
 });
 
 test('sieged tank respects minimum range and deals splash around the target', () => {

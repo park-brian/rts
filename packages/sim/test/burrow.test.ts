@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Kind, Tech, Units, tiles } from '../src/data/index.ts';
+import { Kind, Tech, Units, sec, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
+import { ModeTransitionTimings } from '../src/mechanics/mode-transition.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 const finishTransition = (sim: Sim, slot: number): void => {
@@ -69,6 +70,12 @@ test('lurkers burrow innately and only attack while burrowed', () => {
   results = sim.step([{ player: 0, cmds: [{ t: 'attack', unit: lurker, target: marine }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
   assert.ok(e.hp[slotOf(marine)]! < hpBefore);
+});
+
+test('burrow transition timing remains explicitly unsourced', () => {
+  assert.equal(ModeTransitionTimings.Burrow.sourceStatus, 'unsourced');
+  assert.equal(ModeTransitionTimings.Burrow.duration, sec(1));
+  assert.match(ModeTransitionTimings.Burrow.note, /iscript\/DAT|measured BWAPI traces/);
 });
 
 test('lurker attack line damages ground units along the spine path', () => {

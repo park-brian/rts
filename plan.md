@@ -272,6 +272,10 @@ Remaining work:
   - Shared mode-transition slice is done: siege/unsiege and burrow/unburrow now enter a serialized,
     hashed, lifecycle-visible busy state, reject other commands through common validation while
     transitioning, and complete deterministically through one tick system.
+  - Transition timing provenance slice is done: provisional siege and burrow durations now live in
+    `ModeTransitionTimings` with explicit `sourceStatus: 'unsourced'`, tests pin that provenance,
+    and `docs/research/bw-transition-timings.md` describes the current timed placeholder behavior
+    instead of the old instant-state wording.
   - Remaining: source exact BW frame counts for each transition from stronger references than the
     currently available local BWAPI command/order names, then update the named timing constants and
     timing tests if needed.

@@ -12,10 +12,26 @@ export const ModeTransition = {
 } as const;
 export type ModeTransition = (typeof ModeTransition)[keyof typeof ModeTransition];
 
-// Local references confirm these are real BW orders, but exact frame counts are
-// still marked unsourced in docs/research/bw-transition-timings.md.
-export const SIEGE_TRANSITION_TICKS = sec(2);
-export const BURROW_TRANSITION_TICKS = sec(1);
+export type ModeTransitionTimingDef = {
+  duration: number;
+  sourceStatus: 'sourced' | 'unsourced';
+  note: string;
+};
+
+// Local references confirm these are real BW orders, but exact frame counts are still unsourced.
+// Keep that fact in data so tests and reviews cannot mistake provisional gameplay feel for BW fact.
+export const ModeTransitionTimings = {
+  Siege: {
+    duration: sec(2),
+    sourceStatus: 'unsourced',
+    note: 'Provisional until iscript/DAT extraction or measured BWAPI traces prove siege/unsiege frames.',
+  },
+  Burrow: {
+    duration: sec(1),
+    sourceStatus: 'unsourced',
+    note: 'Provisional until iscript/DAT extraction or measured BWAPI traces prove burrow/unburrow frames.',
+  },
+} as const satisfies Record<string, ModeTransitionTimingDef>;
 
 const clearActiveOrder = (s: State, slot: number): void => {
   const e = s.e;
@@ -50,13 +66,13 @@ export const startModeTransform = (s: State, slot: number, targetKind: number): 
   const duration =
     (source === Kind.SiegeTank && targetKind === Kind.SiegeTankSieged) ||
     (source === Kind.SiegeTankSieged && targetKind === Kind.SiegeTank)
-      ? SIEGE_TRANSITION_TICKS
+      ? ModeTransitionTimings.Siege.duration
       : 1;
   startTransition(s, slot, ModeTransition.Transform, targetKind, 0, duration);
 };
 
 export const startBurrowTransition = (s: State, slot: number, active: boolean): void => {
-  startTransition(s, slot, ModeTransition.Burrow, s.e.kind[slot]!, active ? 1 : 0, BURROW_TRANSITION_TICKS);
+  startTransition(s, slot, ModeTransition.Burrow, s.e.kind[slot]!, active ? 1 : 0, ModeTransitionTimings.Burrow.duration);
 };
 
 const finishTransition = (s: State, slot: number): void => {

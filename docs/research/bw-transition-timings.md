@@ -8,10 +8,10 @@ these rows from memory, feel, or animation guesses.
 
 | Transition | Current sim behavior | Confirmed source facts | Timing status |
 |---|---|---|---|
-| Siege Tank: tank -> siege | Instant `Kind.SiegeTank` -> `Kind.SiegeTankSieged` transform | Local specs/data confirm Siege Tech cost/time and tank/siege unit stats. `tmp/bwapi` confirms explicit `Siege` command, tech-toggle mapping from `Tank_Siege_Mode`, dispatch to `BW::Orders::Siege`, and temporary `Orders::Sieging`. | Unsourced |
-| Siege Tank: siege -> tank | Instant `Kind.SiegeTankSieged` -> `Kind.SiegeTank` transform | `tmp/bwapi` confirms explicit `Unsiege` command and dispatch to `BW::Orders::Unsiege`. | Unsourced |
-| Zerg burrow | Instant burrow flag/state change | Local specs/data confirm Burrow research cost/time. `tmp/bwapi` confirms explicit `Burrow` command, tech-toggle mapping from `Burrowing`, dispatch to `BW::Orders::Burrow`, and temporary `Orders::Burrowing`. | Unsourced |
-| Zerg unburrow | Instant unburrow flag/state change | `tmp/bwapi` confirms explicit `Unburrow` command, dispatch to `BW::Orders::Unburrow`, and temporary `Orders::Unburrowing`. | Unsourced |
+| Siege Tank: tank -> siege | Timed provisional mode transition via `ModeTransitionTimings.Siege` (`sec(2)`) before `Kind.SiegeTank` -> `Kind.SiegeTankSieged` | Local specs/data confirm Siege Tech cost/time and tank/siege unit stats. `tmp/bwapi` confirms explicit `Siege` command, tech-toggle mapping from `Tank_Siege_Mode`, dispatch to `BW::Orders::Siege`, and temporary `Orders::Sieging`. | Unsourced |
+| Siege Tank: siege -> tank | Timed provisional mode transition via `ModeTransitionTimings.Siege` (`sec(2)`) before `Kind.SiegeTankSieged` -> `Kind.SiegeTank` | `tmp/bwapi` confirms explicit `Unsiege` command and dispatch to `BW::Orders::Unsiege`. | Unsourced |
+| Zerg burrow | Timed provisional mode transition via `ModeTransitionTimings.Burrow` (`sec(1)`) before setting the burrow flag | Local specs/data confirm Burrow research cost/time. `tmp/bwapi` confirms explicit `Burrow` command, tech-toggle mapping from `Burrowing`, dispatch to `BW::Orders::Burrow`, and temporary `Orders::Burrowing`. | Unsourced |
+| Zerg unburrow | Timed provisional mode transition via `ModeTransitionTimings.Burrow` (`sec(1)`) before clearing the burrow flag | `tmp/bwapi` confirms explicit `Unburrow` command, dispatch to `BW::Orders::Unburrow`, and temporary `Orders::Unburrowing`. | Unsourced |
 | Yamato Gun cast/windup | Instant 260 independent target damage | Local specs/data confirm 150 energy, range 10, 260 damage, and Physics Lab research. `tmp/bwapi` confirms `TechTypes::Yamato_Gun` maps to `Orders::FireYamatoGun`, weapon id 30 has 260 damage and 320px range, and `MoveToFireYamatoGun` reports as `FireYamatoGun`. | Unsourced |
 
 ## Sources Checked
@@ -38,6 +38,9 @@ these rows from memory, feel, or animation guesses.
 
 BWAPI is useful for command legality and order vocabulary, but the checked paths do not carry the
 animation frame counts needed for deterministic transition timers or Yamato cast execution.
+
+The sim's current siege and burrow durations are deliberately marked as unsourced descriptor data in
+`ModeTransitionTimings`; they are gameplay placeholders, not BW frame claims.
 
 ## Required Next Source
 
