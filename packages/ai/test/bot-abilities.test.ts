@@ -15,8 +15,10 @@ import {
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
+  proposePressureIntent,
   rankedTacticalResponders,
   schedulePressureOffense,
+  executePressureIntent,
   selectTacticalResponders,
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
@@ -767,7 +769,8 @@ test('bot pressure commitment exposes forced least-bad decisions', () => {
 test('bot pressure scheduler exposes forced commitment results', () => {
   const scenario = botScenario({ seed: 821 });
   const s = scenario.state;
-  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const base = scenario.pos(depot);
   const facts = collectBotFacts(s, 0, Terran);
   const enemyRegion = enemyOffensiveRegion(facts, base);
   const marines = Array.from({ length: 3 }, (_, i) =>
@@ -786,7 +789,7 @@ test('bot pressure scheduler exposes forced commitment results', () => {
     cmds,
     facts,
     memory,
-    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    depot,
     combatReserve(marines.map(slotOf)),
     [],
     { minerals: 0, gas: 0 },
@@ -813,7 +816,8 @@ test('bot pressure scheduler exposes forced commitment results', () => {
 test('bot pressure scheduler classifies ready pressure as attack wave', () => {
   const scenario = botScenario({ seed: 823 });
   const s = scenario.state;
-  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const base = scenario.pos(depot);
   const facts = collectBotFacts(s, 0, Terran);
   const marines = Array.from({ length: 2 }, (_, i) =>
     scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
@@ -825,7 +829,7 @@ test('bot pressure scheduler classifies ready pressure as attack wave', () => {
     [],
     facts,
     createBotMemory(),
-    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    depot,
     combatReserve(marines.map(slotOf)),
     [],
     { minerals: 0, gas: 0 },
@@ -841,6 +845,55 @@ test('bot pressure scheduler classifies ready pressure as attack wave', () => {
   assert.equal(result.decision.forced, false);
   assert.equal(result.intent?.kind, 'attack-wave');
   assert.equal(result.issued, true);
+});
+
+test('bot pressure proposal separates intent choice from command execution', () => {
+  const scenario = botScenario({ seed: 824 });
+  const s = scenario.state;
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const base = scenario.pos(depot);
+  const facts = collectBotFacts(s, 0, Terran);
+  const enemyRegion = enemyOffensiveRegion(facts, base);
+  const marines = Array.from({ length: 2 }, (_, i) =>
+    scenario.spawn(Kind.Marine, 0, base.x + fx(20 + i * 10), base.y));
+  const reserve = combatReserve(marines.map(slotOf));
+  const memory = createBotMemory();
+  const cmds: Command[] = [];
+
+  const proposal = proposePressureIntent(
+    s,
+    0,
+    Terran,
+    facts,
+    memory,
+    depot,
+    reserve,
+    { attackThreshold: 1, strategicOnly: false },
+  );
+
+  assert.equal(proposal.intent?.kind, 'attack-wave');
+  assert.equal(proposal.focus?.x, enemyRegion.x);
+  assert.equal(proposal.focus?.y, enemyRegion.y);
+  assert.equal(cmds.length, 0);
+
+  const result = executePressureIntent(
+    s,
+    0,
+    cmds,
+    memory,
+    proposal,
+    [],
+    { minerals: 0, gas: 0 },
+    NONE,
+    () => null,
+    { strategicOnly: false, builderUsed: true },
+  );
+  const offense = cmds.filter((cmd): cmd is Extract<BotCommand, { t: 'amove' }> =>
+    cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y);
+
+  assert.equal(result.intent?.kind, 'attack-wave');
+  assert.equal(result.issued, true);
+  assert.deepEqual(offense.map((cmd) => cmd.unit), marines);
 });
 
 test('bot commitment pressure spends only units not reserved for defense', () => {
@@ -869,7 +922,8 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
 test('bot pressure scheduler classifies defense-time pressure as counterattack', () => {
   const scenario = botScenario({ seed: 822 });
   const s = scenario.state;
-  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const base = scenario.pos(depot);
   const facts = collectBotFacts(s, 0, Terran);
   const enemyRegion = enemyOffensiveRegion(facts, base);
   const marines = Array.from({ length: 2 }, (_, i) =>
@@ -883,7 +937,7 @@ test('bot pressure scheduler classifies defense-time pressure as counterattack',
     cmds,
     facts,
     createBotMemory(),
-    slotOf(scenario.entity(Kind.CommandCenter, 0)),
+    depot,
     combatReserve(marines.map(slotOf), marines.length, true),
     [],
     { minerals: 0, gas: 0 },

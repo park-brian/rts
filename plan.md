@@ -674,6 +674,10 @@ Remaining work:
     - Pressure-intent result slice is done: pressure scheduling now reports the intent it satisfied,
       classifying normal waves as `attack-wave`, forced under-threshold pressure as `harass`, and
       defense-time leftover pressure as `counterattack` while preserving the existing command output.
+    - Pressure director/executor split slice is done: pressure now has a proposal step that chooses
+      intent/focus without emitting commands and an executor step that consumes the proposal to issue
+      validator-backed combat commands. The old scheduler remains as a thin wrapper while the live
+      bot migrates one director family at a time.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
