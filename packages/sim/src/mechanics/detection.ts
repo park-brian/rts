@@ -1,4 +1,4 @@
-import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTraits } from '../data.ts';
+import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTraits } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
 import { effectiveSight } from '../systems/status.ts';

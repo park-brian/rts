@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind } from '../data.ts';
+import { Kind } from '../data/index.ts';
 import { hasInternalProductReady, internalProductCapacity } from '../mechanics/internal-products.ts';
 import { laySpiderMine } from '../mechanics/spider-mine.ts';
 import type { State } from '../entity/world.ts';

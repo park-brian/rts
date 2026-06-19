@@ -1,4 +1,4 @@
-import { Kind, Role, Units, isLarvaSourceKind, tiles } from '../data.ts';
+import { Kind, Role, Units, isLarvaSourceKind, tiles } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
 

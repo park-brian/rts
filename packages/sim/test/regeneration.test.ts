@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Units, sec } from '../src/data.ts';
+import { Kind, Units, sec } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';

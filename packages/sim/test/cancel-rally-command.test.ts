@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateCancelBuildCommand } from '../src/commands/cancel.ts';
 import { validateRallyCommand } from '../src/commands/rally.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
-import { Kind } from '../src/data.ts';
+import { Kind } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';

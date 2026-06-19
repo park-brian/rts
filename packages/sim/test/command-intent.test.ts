@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Ability, Kind, Tech, TILE, Units } from '../src/data.ts';
+import { Ability, Kind, Tech, TILE, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map/core.ts';
 import {

@@ -1,4 +1,4 @@
-import { Order, Units, hasAnyWeapon } from '../data.ts';
+import { Order, Units, hasAnyWeapon } from '../data/index.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { eid, NONE, type State } from '../entity/world.ts';
 

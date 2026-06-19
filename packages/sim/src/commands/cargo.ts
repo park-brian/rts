@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Units } from '../data.ts';
+import { Kind, Units } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
 import {

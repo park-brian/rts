@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eid, kill, slotOf, type State } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
-import { Kind, Protoss, Tech, Units } from '../src/data.ts';
+import { Kind, Protoss, Tech, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

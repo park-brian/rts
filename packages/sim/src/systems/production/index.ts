@@ -5,7 +5,7 @@
 
 import type { State } from '../../entity/world.ts';
 import { NONE } from '../../entity/world.ts';
-import { Kind } from '../../data.ts';
+import { Kind } from '../../data/index.ts';
 import { isPowered } from '../../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../../mechanics/terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../../mechanics/addons.ts';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Order, Tech } from '../src/data.ts';
+import { Kind, Order, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, NONE, slotOf } from '../src/entity/world.ts';
 import { deserializeState, serializeState } from '../src/io/serialize.ts';

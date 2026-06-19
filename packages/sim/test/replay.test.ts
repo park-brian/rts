@@ -5,7 +5,7 @@ import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } 
 import { generateMap } from '../src/map/procedural.ts';
 import { eid, ENTITY_COLUMNS, hashState, kill, makeState, slotOf, type State } from '../src/entity/world.ts';
 import { sliceMap } from '../src/map/core.ts';
-import { Kind, Protoss, Role, Units, Zerg } from '../src/data.ts';
+import { Kind, Protoss, Role, Units, Zerg } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands/types.ts';
 import { spawnUnit } from '../src/entity/factory.ts';

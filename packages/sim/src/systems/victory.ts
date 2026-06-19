@@ -2,7 +2,7 @@
 // when at most one team remains; the survivor (if any) is the winner.
 
 import type { State } from '../entity/world.ts';
-import { Role } from '../data.ts';
+import { Role } from '../data/index.ts';
 
 const aliveScratch: number[] = [];
 

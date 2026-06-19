@@ -1,6 +1,6 @@
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
-import { Kind, Tech, TechDefs } from '../data.ts';
+import { Kind, Tech, TechDefs } from '../data/index.ts';
 import { nextTechLevel, setTechLevel } from '../mechanics/tech.ts';
 import { upgradedEnergyMax } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';

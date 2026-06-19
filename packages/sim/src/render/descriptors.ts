@@ -1,4 +1,4 @@
-import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from '../data.ts';
+import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { childActorDef, type ChildActorPresentation } from '../mechanics/child-actors.ts';
 import { isCloaked } from '../mechanics/detection.ts';

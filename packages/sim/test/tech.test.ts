@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Ability, Kind, Tech, TechDefs } from '../src/data.ts';
+import { Ability, Kind, Tech, TechDefs } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { getTechLevel } from '../src/mechanics/tech.ts';

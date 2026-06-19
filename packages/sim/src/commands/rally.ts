@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Role, TILE } from '../data.ts';
+import { Role, TILE } from '../data/index.ts';
 import { fx } from '../fixed.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from '../mechanics/resources.ts';

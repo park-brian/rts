@@ -1,4 +1,4 @@
-import { Order } from '../data.ts';
+import { Order } from '../data/index.ts';
 import { isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 

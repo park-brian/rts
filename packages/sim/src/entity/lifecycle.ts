@@ -1,4 +1,4 @@
-import { Kind, Order, Role, Units } from '../data.ts';
+import { Kind, Order, Role, Units } from '../data/index.ts';
 import { isTransitioning } from './state.ts';
 import { entityWorkQueue } from './work-queue.ts';
 import type { State } from './world.ts';

@@ -1,5 +1,5 @@
 import { activeAddonParentSlot } from './addons.ts';
-import { Kind } from '../data.ts';
+import { Kind } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
 import { consumeInternalProduct, internalProductReadyCount } from './internal-products.ts';

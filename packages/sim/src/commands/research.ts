@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Role, TECH_CAP, TechDefs } from '../data.ts';
+import { Role, TECH_CAP, TechDefs } from '../data/index.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import {
   getTechLevel,

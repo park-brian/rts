@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import type { MapDef } from '../src/map/core.ts';
 import { count, eid, isAlive, kill, makeState, slotOf, type State } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
+import { Kind, Tech, Units, Zerg, sec } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { placementForStructure, validateCommand } from '../src/commands/validate.ts';
 import { buildKindMask } from '../src/io/action-mask.ts';

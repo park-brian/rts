@@ -1,4 +1,4 @@
-import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount } from '../../data.ts';
+import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount } from '../../data/index.ts';
 import type { State } from '../../entity/world.ts';
 import { canSpawnEntity, nearest, NONE, slotOf } from '../../entity/world.ts';
 import { trySpawnUnit } from '../../entity/factory.ts';

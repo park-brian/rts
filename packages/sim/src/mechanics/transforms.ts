@@ -1,4 +1,4 @@
-import { Kind, Order, Tech, Units, tiles } from '../data.ts';
+import { Kind, Order, Tech, Units, tiles } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, kill, slotOf } from '../entity/world.ts';
 import { setEntityKind, setEntityKindFull } from '../entity/kind.ts';

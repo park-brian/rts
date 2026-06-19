@@ -1,4 +1,4 @@
-import { Kind, Order, Role, Tech, Units } from '../data.ts';
+import { Kind, Order, Role, Tech, Units } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
 import { clearVelocity } from '../spatial/motion.ts';

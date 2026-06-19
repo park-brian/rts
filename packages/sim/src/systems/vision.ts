@@ -9,7 +9,7 @@
 // lists live in a WeakMap (transient); a fork rebuilds them from its vision grid.
 
 import type { State } from '../entity/world.ts';
-import { EffectKind, Role, Units, TILE } from '../data.ts';
+import { EffectKind, Role, Units, TILE } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { effectiveSight } from './status.ts';
 import { isContained } from '../mechanics/cargo.ts';

@@ -3,7 +3,7 @@
 // escort intent can survive transient combat targets.
 
 import type { State } from '../entity/world.ts';
-import { Order, Units } from '../data.ts';
+import { Order, Units } from '../data/index.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../mechanics/terran-mobility.ts';

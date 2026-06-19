@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Kind, Role, Units, WorkerBuildKinds } from '../src/data.ts';
+import { Kind, Role, Units, WorkerBuildKinds } from '../src/data/index.ts';
 
 const PLAN = [
   '../../../plan.md',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, TILE, Units } from '../src/data.ts';
+import { Kind, TILE, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 import { spawnUnit } from '../src/entity/factory.ts';

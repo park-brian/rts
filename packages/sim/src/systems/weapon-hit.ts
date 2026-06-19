@@ -1,5 +1,5 @@
 import type { State } from '../entity/world.ts';
-import { Role, type Weapon } from '../data.ts';
+import { Role, type Weapon } from '../data/index.ts';
 import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { isLowGroundAttackingHigh } from '../spatial/terrain.ts';

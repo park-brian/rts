@@ -1,5 +1,5 @@
 import type { Command, CommandRejectReason } from './types.ts';
-import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from '../data.ts';
+import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from '../data/index.ts';
 import { addonParentKind } from '../mechanics/addons.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';

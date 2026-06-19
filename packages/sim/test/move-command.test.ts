@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commandHeadAllowed, commandHeadMask, entityTargetMask } from '../src/io/action-mask.ts';
 import { validateMoveCommand } from '../src/commands/move.ts';
-import { Kind } from '../src/data.ts';
+import { Kind } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';

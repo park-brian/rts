@@ -1,4 +1,4 @@
-import { Kind, Units } from '../../data.ts';
+import { Kind, Units } from '../../data/index.ts';
 import type { State } from '../../entity/world.ts';
 
 export const finishCurrentProduction = (s: State, producer: number, kind: number): void => {

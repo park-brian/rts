@@ -1,4 +1,4 @@
-import { Role, Units, isLarvaSourceKind } from '../data.ts';
+import { Role, Units, isLarvaSourceKind } from '../data/index.ts';
 import { isAlive, nearest, slotOf, NONE, type State } from '../entity/world.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from './resources.ts';

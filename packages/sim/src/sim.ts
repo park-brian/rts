@@ -4,7 +4,7 @@
 import type { MapDef } from './map/core.ts';
 import type { State } from './entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from './commands/types.ts';
-import { Terran, type Faction } from './data.ts';
+import { Terran, type Faction } from './data/index.ts';
 import { cloneState, hashState } from './entity/world.ts';
 import { setupMatch } from './map/setup.ts';
 import { stepWorld } from './tick.ts';

@@ -1,4 +1,4 @@
-import { Kind, TechDefs, Units } from '../data.ts';
+import { Kind, TechDefs, Units } from '../data/index.ts';
 import { internalProductDef, internalProductReadyCount, internalProductsForProducer } from '../mechanics/internal-products.ts';
 import { nextTechLevel, techTime } from '../mechanics/tech.ts';
 import type { State } from './world.ts';

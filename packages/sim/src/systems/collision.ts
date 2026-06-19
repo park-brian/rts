@@ -17,7 +17,7 @@
 
 import type { State } from '../entity/world.ts';
 import { CAP } from '../entity/world.ts';
-import { Units, TILE } from '../data.ts';
+import { Units, TILE } from '../data/index.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../spatial/flow.ts';
 import { isContained } from '../mechanics/cargo.ts';

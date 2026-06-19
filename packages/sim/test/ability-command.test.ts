@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateAbilityCommand } from '../src/commands/ability.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
-import { Ability, Kind, Tech } from '../src/data.ts';
+import { Ability, Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import type { MapDef } from '../src/map/core.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { Kind, TILE, Units } from '../src/data.ts';
+import { Kind, TILE, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, kill, slotOf } from '../src/entity/world.ts';
 

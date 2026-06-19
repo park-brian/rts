@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Ability, Abilities, Kind, Units, unitTraits } from '../data.ts';
+import { Ability, Abilities, Kind, Units, unitTraits } from '../data/index.ts';
 import { isActiveAddon } from '../mechanics/addons.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { hasReadyNuke } from '../mechanics/nuke.ts';

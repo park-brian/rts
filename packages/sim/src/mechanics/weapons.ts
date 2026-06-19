@@ -1,4 +1,4 @@
-import { Kind, sec, tiles } from '../data.ts';
+import { Kind, sec, tiles } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { consumeInternalProduct, hasInternalProductReady } from './internal-products.ts';
 

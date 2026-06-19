@@ -1,4 +1,4 @@
-import { TECH_CAP, TechDefs, type TechDef } from '../data.ts';
+import { TECH_CAP, TechDefs, type TechDef } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 
 export const getTechLevel = (s: State, player: number, tech: number): number =>

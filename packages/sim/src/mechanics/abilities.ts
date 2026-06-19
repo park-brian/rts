@@ -1,5 +1,5 @@
-import { Abilities, Ability } from '../data.ts';
-import type { AbilityDef } from '../data.ts';
+import { Abilities, Ability } from '../data/index.ts';
+import type { AbilityDef } from '../data/index.ts';
 import { canSpawnEffect, canSpawnEntity } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { getTechLevel } from './tech.ts';

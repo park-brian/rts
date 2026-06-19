@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeState } from '../src/entity/world.ts';
-import { Kind, TILE, Units } from '../src/data.ts';
+import { Kind, TILE, Units } from '../src/data/index.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import {
   BASE_EAST_MINERAL_ARC_OFFSETS,

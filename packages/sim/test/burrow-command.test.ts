@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateBurrowCommand } from '../src/commands/burrow.ts';
-import { Kind, Tech } from '../src/data.ts';
+import { Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';

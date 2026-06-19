@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Role, TILE, Units, bwRange } from '../src/data.ts';
+import { Kind, Role, TILE, Units, bwRange } from '../src/data/index.ts';
 import {
   BW_BODY_BOUNDS,
   bodyBounds,

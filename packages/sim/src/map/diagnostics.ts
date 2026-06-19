@@ -1,4 +1,4 @@
-import { Kind, Units } from '../data.ts';
+import { Kind, Units } from '../data/index.ts';
 import { fx, toInt } from '../fixed.ts';
 import {
   baseGasRouteCalibrations,

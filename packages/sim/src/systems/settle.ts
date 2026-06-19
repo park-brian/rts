@@ -7,7 +7,7 @@
 
 import type { State } from '../entity/world.ts';
 import { NONE } from '../entity/world.ts';
-import { Order } from '../data.ts';
+import { Order } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import {
   clearancePxForKind,

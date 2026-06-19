@@ -1,5 +1,5 @@
 import type { CommandRejectReason } from '../commands/types.ts';
-import { Kind, ResourceType, Role, TILE, Units } from '../data.ts';
+import { Kind, ResourceType, Role, TILE, Units } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { nearest, NONE } from '../entity/world.ts';
 import { fx } from '../fixed.ts';

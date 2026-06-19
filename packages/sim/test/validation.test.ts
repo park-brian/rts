@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { type MapDef } from '../src/map/core.ts';
 import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
-import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';
+import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { snapBuildAnchor } from '../src/spatial/footprint.ts';
 import { placementForStructure, validateCommand } from '../src/commands/validate.ts';

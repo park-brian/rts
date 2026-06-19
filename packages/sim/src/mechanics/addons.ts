@@ -1,4 +1,4 @@
-import { Kind, Units, tiles } from '../data.ts';
+import { Kind, Units, tiles } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, eid, isAlive, slotOf } from '../entity/world.ts';
 import { trySpawnUnit } from '../entity/factory.ts';

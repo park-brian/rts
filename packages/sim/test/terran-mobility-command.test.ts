@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateLandCommand, validateLiftCommand } from '../src/commands/terran-mobility.ts';
-import { Kind, Tech } from '../src/data.ts';
+import { Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';

@@ -1,4 +1,4 @@
-import { Kind, Order, Role, Trait, Units, unitTraits } from '../data.ts';
+import { Kind, Order, Role, Trait, Units, unitTraits } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, eid, isAlive, slotOf } from '../entity/world.ts';
 

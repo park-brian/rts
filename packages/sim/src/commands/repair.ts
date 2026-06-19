@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Order, Units } from '../data.ts';
+import { Kind, Order, Units } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import {
   REPAIR_RATE,

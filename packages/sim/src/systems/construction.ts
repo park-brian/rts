@@ -5,7 +5,7 @@
 
 import type { State } from '../entity/world.ts';
 import { spawn, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
-import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, ResourceType, TILE, tiles } from '../data.ts';
+import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, ResourceType, TILE, tiles } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { navPassable } from '../spatial/flow.ts';

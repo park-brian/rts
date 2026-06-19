@@ -1,4 +1,4 @@
-import { Kind } from '../data.ts';
+import { Kind } from '../data/index.ts';
 import { NONE } from '../entity/world.ts';
 
 export type ChildActorPresentation = 'projectile' | 'unit';

@@ -1,6 +1,6 @@
 import type { State } from '../entity/world.ts';
 import { isAlive, NONE, slotOf } from '../entity/world.ts';
-import { Order, ResourceType, Role, Units } from '../data.ts';
+import { Order, ResourceType, Role, Units } from '../data/index.ts';
 import { isGatherTargetSlot } from '../mechanics/resources.ts';
 
 const isWorkerResourceType = (type: number): boolean =>

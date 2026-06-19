@@ -5,7 +5,7 @@ import { validateAddonCommand } from '../src/commands/addon.ts';
 import { validateBuildCommand } from '../src/commands/build.ts';
 import { workerBuildSelectionOptions } from '../src/commands/intent.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
-import { Kind, Order, Tech } from '../src/data.ts';
+import { Kind, Order, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateTrainCommand } from '../src/commands/production.ts';
 import { validateResearchCommand } from '../src/commands/research.ts';

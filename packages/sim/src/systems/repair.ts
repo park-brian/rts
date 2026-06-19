@@ -1,4 +1,4 @@
-import { BUILD_RANGE, Kind, Order, Units } from '../data.ts';
+import { BUILD_RANGE, Kind, Order, Units } from '../data/index.ts';
 import { isAlive, slotOf, NONE } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { navigate } from '../spatial/pathing.ts';

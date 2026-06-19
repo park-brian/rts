@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Ability, EffectKind, Kind, Tech } from '../src/data.ts';
+import { Ability, EffectKind, Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { CAP, canSpawnEntity, eid, spawnEffect, slotOf } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';

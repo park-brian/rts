@@ -8,7 +8,7 @@ import { resourceSpawnCenterPx, sliceMap } from '../src/map/core.ts';
 import {
   Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, Units,
   bwRange,
-} from '../src/data.ts';
+} from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import { calibrateMineralRoute, mineralTimingProfile } from '../src/map/harvest-calibration.ts';

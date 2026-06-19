@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Role } from '../data.ts';
+import { Kind, Role } from '../data/index.ts';
 import { cancelFoundation } from '../mechanics/build-cancel.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';

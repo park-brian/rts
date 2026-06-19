@@ -4,7 +4,7 @@
 // (`px`,`py`) for exact dock-distance and harvest timing.
 // See docs/specs/maps.md.
 
-import { Kind, PATCH_AMOUNT, TILE, Units } from '../data.ts';
+import { Kind, PATCH_AMOUNT, TILE, Units } from '../data/index.ts';
 import { fx, isqrt, ONE } from '../fixed.ts';
 import { topDownDockingPoint } from '../spatial/geometry.ts';
 

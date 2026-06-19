@@ -1,4 +1,4 @@
-import { Role, TILE } from '../data.ts';
+import { Role, TILE } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { inBounds } from '../map/core.ts';
 import type { State } from '../entity/world.ts';

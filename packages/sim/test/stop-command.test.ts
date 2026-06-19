@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateStopCommand } from '../src/commands/stop.ts';
-import { Kind, Order } from '../src/data.ts';
+import { Kind, Order } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { applyCommands } from '../src/commands/ingest.ts';
 import { validateCommand } from '../src/commands/validate.ts';

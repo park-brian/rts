@@ -3,7 +3,7 @@
 
 import type { State } from './world.ts';
 import { NONE, slotOf, spawn, trySpawn } from './world.ts';
-import { Kind, Units } from '../data.ts';
+import { Kind, Units } from '../data/index.ts';
 import { upgradedEnergyMax } from '../mechanics/upgrades.ts';
 import { refillInternalProduct } from '../mechanics/internal-products.ts';
 

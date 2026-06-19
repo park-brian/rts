@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Role } from '../data.ts';
+import { Kind, Role } from '../data/index.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { commandMoveSpeed } from '../mechanics/terran-mobility.ts';
 import { isGatherTargetSlot } from '../mechanics/resources.ts';

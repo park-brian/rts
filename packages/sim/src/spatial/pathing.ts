@@ -4,7 +4,7 @@
 
 import type { State } from '../entity/world.ts';
 import type { MapDef } from '../map/core.ts';
-import { Role, TILE, Units } from '../data.ts';
+import { Role, TILE, Units } from '../data/index.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { acceleratedStep, moveToward } from './motion.ts';
 import { localAvoidancePenalty, localAvoidanceVelocity, usesLocalAvoidance } from './local-avoidance.ts';

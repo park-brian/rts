@@ -6,7 +6,7 @@
 import type { MapDef } from '../map/core.ts';
 import { type Rng, cloneRng } from '../rng.ts';
 import { fold, foldArray, FNV_OFFSET } from '../io/hash.ts';
-import { TECH_CAP } from '../data.ts';
+import { TECH_CAP } from '../data/index.ts';
 import { clearBuildCost, refundBuildCost } from '../mechanics/refund-ledger.ts';
 
 export const CAP = 4096; // max simultaneous entities (grow later if needed)

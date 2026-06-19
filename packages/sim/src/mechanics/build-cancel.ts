@@ -1,6 +1,6 @@
 import type { Entities, State } from '../entity/world.ts';
 import { NONE, eid, isAlive, kill, slotOf } from '../entity/world.ts';
-import { Kind, Order } from '../data.ts';
+import { Kind, Order } from '../data/index.ts';
 import { setEntityKind } from '../entity/kind.ts';
 import { refundBuildCost } from './refund-ledger.ts';
 

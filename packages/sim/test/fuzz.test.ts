@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Command, PlayerCommands } from '../src/commands/types.ts';
-import { Kind, Tech } from '../src/data.ts';
+import { Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map/core.ts';

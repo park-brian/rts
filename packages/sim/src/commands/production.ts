@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, MAX_QUEUE, Order, Role, Units, productionCostCount, productionCount } from '../data.ts';
+import { Kind, MAX_QUEUE, Order, Role, Units, productionCostCount, productionCount } from '../data/index.ts';
 import { canQueueInternalProduct, internalProductCapacity } from '../mechanics/internal-products.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import type { State } from '../entity/world.ts';

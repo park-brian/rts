@@ -6,7 +6,7 @@
 // shared per goal, now keyed by the unit clearance class as well.
 
 import { NONE, type State } from '../entity/world.ts';
-import { Role, Size, TILE, Units } from '../data.ts';
+import { Role, Size, TILE, Units } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { fold, FNV_OFFSET } from '../io/hash.ts';
 import { structureFootprint } from './footprint.ts';

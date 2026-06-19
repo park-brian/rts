@@ -1,5 +1,5 @@
 import type { State } from '../entity/world.ts';
-import { Role, TILE } from '../data.ts';
+import { Role, TILE } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { bodyBounds } from './geometry.ts';
 

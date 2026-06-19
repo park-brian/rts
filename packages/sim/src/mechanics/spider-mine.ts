@@ -1,4 +1,4 @@
-import { Kind, Order } from '../data.ts';
+import { Kind, Order } from '../data/index.ts';
 import { trySpawnUnit } from '../entity/factory.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';

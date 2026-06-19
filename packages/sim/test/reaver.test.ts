@@ -7,7 +7,7 @@ import { eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
   REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, TILE, Units, tiles,
-} from '../src/data.ts';
+} from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { setTechLevel } from '../src/mechanics/tech.ts';
 import { carrierInterceptorCapacity, reaverScarabCapacity } from '../src/mechanics/upgrades.ts';

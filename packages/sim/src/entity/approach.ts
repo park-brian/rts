@@ -1,4 +1,4 @@
-import { Role, TILE, Units } from '../data.ts';
+import { Role, TILE, Units } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import {
   topDownDockingPoint,

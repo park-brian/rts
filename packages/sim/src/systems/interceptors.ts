@@ -1,6 +1,6 @@
 import type { State } from '../entity/world.ts';
 import { isAlive, kill, NONE, slotOf } from '../entity/world.ts';
-import { Kind, Order, Units, tiles } from '../data.ts';
+import { Kind, Order, Units, tiles } from '../data/index.ts';
 import { storeInternalProduct } from '../mechanics/internal-products.ts';
 import { carrierBayPoint } from '../mechanics/interceptor.ts';
 import { navigate } from '../spatial/pathing.ts';

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eid, slotOf } from '../src/entity/world.ts';
-import { Kind, Order, Role, Units } from '../src/data.ts';
+import { Kind, Order, Role, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { snapBuildAnchor } from '../src/spatial/footprint.ts';

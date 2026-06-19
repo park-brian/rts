@@ -1,4 +1,4 @@
-import { ResourceType, Role, Units } from '../data.ts';
+import { ResourceType, Role, Units } from '../data/index.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { isAlive, slotOf, NONE, type State } from '../entity/world.ts';
 

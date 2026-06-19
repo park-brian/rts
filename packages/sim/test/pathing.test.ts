@@ -8,7 +8,7 @@ import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/map/procedural.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/map/harvest-calibration.ts';
 import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map/core.ts';
-import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
+import { Kind, Order, ResourceType, TILE } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map/core.ts';
 import { FIRING_PATHING_LOCKOUT_TICKS, isPathingAnchor } from '../src/spatial/pathing-anchor.ts';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Order } from '../src/data.ts';
+import { Kind, Order } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { sliceMap } from '../src/map/core.ts';

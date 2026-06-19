@@ -1,4 +1,4 @@
-import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from '../data.ts';
+import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE, Units } from '../data/index.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { pathRouteDistance } from '../spatial/pathing.ts';
 import {

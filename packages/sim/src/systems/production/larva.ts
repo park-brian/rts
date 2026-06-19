@@ -1,4 +1,4 @@
-import { Kind, isLarvaSourceKind, sec } from '../../data.ts';
+import { Kind, isLarvaSourceKind, sec } from '../../data/index.ts';
 import type { State } from '../../entity/world.ts';
 import { canSpawnEntity } from '../../entity/world.ts';
 import { trySpawnUnit } from '../../entity/factory.ts';

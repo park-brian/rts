@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Units } from '../data.ts';
+import { Units } from '../data/index.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import { getTechLevel } from '../mechanics/tech.ts';
 import { applyTransform, mergePartnerFor, transformFor } from '../mechanics/transforms.ts';

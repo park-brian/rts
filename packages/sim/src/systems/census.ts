@@ -4,7 +4,7 @@
 // over-queueing past the cap), matching SC1.
 
 import type { State } from '../entity/world.ts';
-import { Units, Kind, SUPPLY_CAP, productionCount } from '../data.ts';
+import { Units, Kind, SUPPLY_CAP, productionCount } from '../data/index.ts';
 
 export const census = (s: State): void => {
   const p = s.players;

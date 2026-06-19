@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateHarvestCommand } from '../src/commands/harvest.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
-import { Kind } from '../src/data.ts';
+import { Kind } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';

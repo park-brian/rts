@@ -7,7 +7,7 @@ import { resourceSpawnCenterPx } from './core.ts';
 import type { State } from '../entity/world.ts';
 import { makeState, slotOf, eid, NEUTRAL, NONE } from '../entity/world.ts';
 import { spawnUnit } from '../entity/factory.ts';
-import { Kind, Order, TILE, START_MINERALS, Terran, Units, isLarvaSourceKind, type Faction } from '../data.ts';
+import { Kind, Order, TILE, START_MINERALS, Terran, Units, isLarvaSourceKind, type Faction } from '../data/index.ts';
 import { census } from '../systems/census.ts';
 import { pickPatch } from '../systems/harvest.ts';
 import { fx } from '../fixed.ts';

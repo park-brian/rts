@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map/core.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
-import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data.ts';
+import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';

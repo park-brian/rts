@@ -473,6 +473,9 @@ Done when:
 - Moved shared cloak, scan, detector, and Arbiter cloak-aura query/update rules under
   `mechanics/detection.ts`, deleting the old root helper path while keeping fog-of-war ticking in
   `systems/vision.ts`.
+- Retired the root `data.ts` compatibility shim: sim internals and sim tests now import the real
+  `data/index.ts` owner directly, and the package barrel exports that owner without preserving the
+  old root helper path.
 
 ## Review Checklist
 

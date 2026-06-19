@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Order, Role } from '../data.ts';
+import { Order, Role } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';

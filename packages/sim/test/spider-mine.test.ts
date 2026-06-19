@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units } from '../src/data.ts';
+import { Kind, Order, SPIDER_MINE_CHARGES, Tech, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import {
   consumeInternalProduct,
