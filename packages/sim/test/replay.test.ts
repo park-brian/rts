@@ -167,6 +167,17 @@ test('procedural replay specs preserve optional generator knobs', () => {
 
   assert.deepEqual(parsed.map, spec);
   assert.equal(mapFromSpec(parsed.map).bases?.filter((base) => base.kind === 'natural').length, 4);
+
+  const isolated: MapSpec = { kind: 'procedural', perTeam: 2, seed: 18, preset: 'isolatedMains' };
+  const parsedIsolated = parseReplay(JSON.stringify({
+    version: 1,
+    map: isolated,
+    players: 4,
+    seed: 18,
+    frames: [],
+  }));
+  assert.deepEqual(parsedIsolated.map, isolated);
+  assert.equal(mapFromSpec(parsedIsolated.map).bases?.every((base) => base.kind === 'main'), true);
 });
 
 test('replay preserves selected player factions', () => {

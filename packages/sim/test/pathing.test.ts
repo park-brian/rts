@@ -275,6 +275,31 @@ test('corner-base preset uses side-facing resource arcs as a real procedural con
   }
 });
 
+test('isolated-main preset gives each player a ground-connected high-ground pocket', () => {
+  const m = generateMap(2, 92, { preset: 'isolatedMains' });
+  const bases = m.bases ?? [];
+
+  assert.equal(m.starts.length, 4);
+  assert.equal(bases.length, 4);
+  assert.equal(bases.every((base) => base.kind === 'main'), true);
+  assert.equal(mapConnected(m), true);
+  assert.equal(mapResourcesValid(m), true);
+  assert.equal(mapBaseReservationsValid(m), true);
+  assert.equal(mainBaseMineralRoutesValid(m), true);
+  assert.equal(baseGasRoutesValid(m), true);
+  assertBaseDepotAnchorsLegal(m);
+  assert.deepEqual(bases.map((base) => base.resourceDir), [-1, 1, -1, 1]);
+
+  for (const base of bases) {
+    assert.equal(m.elev[base.y * m.w + base.x], 1, 'main starts are on isolated high ground');
+    assert.equal(m.walk[base.rampY! * m.w + base.rampX!], 1, 'main pocket ramp is walkable');
+    assert.equal(m.build[base.rampY! * m.w + base.rampX!], 0, 'main pocket ramp is not buildable');
+  }
+
+  assert.equal(m.elev[82 * m.w + 64], 0, 'team pockets do not form one shared south plateau');
+  assert.equal(m.elev[14 * m.w + 64], 0, 'team pockets do not form one shared north plateau');
+});
+
 test('procedural base reservations reject overlapping whole-base clusters', () => {
   const m = generateMap(1, 88);
   assert.equal(mapBaseReservationsValid(m), true);

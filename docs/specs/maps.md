@@ -119,7 +119,9 @@ Procedural baseline: for deterministic stress tests, the first generated preset 
 shared north plateau and one full-width shared south plateau. Allies on the same team share that
 plateau. Each lane has a ramp down to a low-ground natural, and `midfield: empty` leaves the center
 combat band clear; optional modules add blocks, dual chokes, arenas, or raised centers after the
-base/resource validation pass.
+base/resource validation pass. Additional replay-visible presets reuse the same base-cluster
+validation: `cornerBases` exercises side-facing resource arcs, while `isolatedMains` gives each
+player a separate high-ground pocket that still connects to the ground pathing graph through a ramp.
 
 ## 6. Open questions / deferred
 - Exact map serialization format (binary typed arrays vs. JSON vs. an existing tilemap format).
