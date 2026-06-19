@@ -17,14 +17,12 @@ export const isFreeAbilityToggleOff = (e: State['e'], slot: number, ability: Abi
 export const abilityCapacityAvailable = (s: State, abilityId: number): boolean => {
   const ability = Abilities[abilityId];
   if (!ability) return false;
-  if (ability.execution?.mode === 'persistent-effect') return canSpawnEffect(s);
+  if (ability.execution?.mode === 'persistent-effect' || ability.execution?.mode === 'point-channel-effect') return canSpawnEffect(s);
   switch (abilityId) {
     case Ability.SpawnBroodling:
       return canSpawnEntity(s, 1);
     case Ability.Hallucination:
       return canSpawnEntity(s, 2);
-    case Ability.NuclearStrike:
-      return canSpawnEffect(s);
     default:
       return true;
   }

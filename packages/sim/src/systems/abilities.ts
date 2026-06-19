@@ -200,6 +200,15 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
     case 'persistent-effect':
       trySpawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage);
       break;
+    case 'point-channel-effect':
+      if (trySpawnEffect(s, execution.effect, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, ability.period, ability.damage,
+        eid(e, slot), e.x[slot]!, e.y[slot]!) === NONE) break;
+      if (execution.consumes === 'nuke') consumeReadyNuke(s, e.owner[slot]!);
+      e.order[slot] = Order.Cast;
+      e.target[slot] = NONE;
+      e.intentTarget[slot] = NONE;
+      e.combatTarget[slot] = NONE;
+      break;
   }
   return true;
 };
@@ -407,15 +416,6 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
       e.prodQueued[target] = 0;
       break;
     }
-    case Ability.NuclearStrike:
-      if (trySpawnEffect(s, EffectKind.NuclearStrike, e.owner[slot]!, c.x!, c.y!, ability.radius, ability.duration, 0, ability.damage,
-        eid(e, slot), e.x[slot]!, e.y[slot]!) === NONE) break;
-      consumeReadyNuke(s, e.owner[slot]!);
-      e.order[slot] = Order.Cast;
-      e.target[slot] = NONE;
-      e.intentTarget[slot] = NONE;
-      e.combatTarget[slot] = NONE;
-      break;
   }
 };
 

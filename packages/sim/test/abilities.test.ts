@@ -78,6 +78,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.DisruptionWeb]!.execution, { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb });
   assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });
   assert.deepEqual(Abilities[Ability.ScannerSweep]!.execution, { mode: 'persistent-effect', effect: EffectKind.ScannerSweep });
+  assert.deepEqual(Abilities[Ability.NuclearStrike]!.execution, { mode: 'point-channel-effect', effect: EffectKind.NuclearStrike, consumes: 'nuke' });
 });
 
 test('ability validation rejects unaffordable energy casts', () => {

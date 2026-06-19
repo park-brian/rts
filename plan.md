@@ -193,6 +193,7 @@ Remaining work:
   - `instant`;
   - `status`;
   - `persistentArea`;
+  - `pointChannelArea`;
   - `channel`;
   - `windup`;
   - `projectile`.
@@ -235,6 +236,12 @@ Remaining work:
     in deterministic entity columns, and uses the normal movement/combat pipeline to alternate legs
     while engaging enemies encountered en route.
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
+  - Nuclear Strike launch descriptor slice is done: the Ghost now spawns the delayed point effect,
+    consumes a ready nuke, and enters caster-channel state through a data-backed
+    `point-channel-effect` execution path instead of a bespoke cast switch branch.
+  - Remaining: Yamato still needs a generic target-channel or windup execution model so its caster
+    timing, interruption, presentation, and damage application are represented by the same ability
+    descriptor architecture rather than by an instant target-damage shortcut.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
   - Point-target range slice is done: point abilities now measure target reach from the caster's
@@ -596,6 +603,9 @@ Done when:
   the missing visible Move order button.
 - Added a `COMMAND_TYPES`-backed app command-surface audit so future sim commands cannot be added
   without an explicit player-facing UI path or documented smart-command path.
+- Moved Nuclear Strike launch through an ability execution descriptor, including delayed effect
+  spawn, ready-missile consumption, and caster channel state; Yamato target-channel/windup remains
+  the next high-risk ability timing audit.
 
 ## Review Checklist
 

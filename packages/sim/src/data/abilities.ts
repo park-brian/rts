@@ -65,7 +65,8 @@ export type AbilityExecution =
   | { mode: 'target-cleanse' }
   | { mode: 'target-sacrifice-energy' }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
-  | { mode: 'persistent-effect'; effect: EffectKind };
+  | { mode: 'persistent-effect'; effect: EffectKind }
+  | { mode: 'point-channel-effect'; effect: EffectKind; consumes: 'nuke' };
 export type AbilityDef = {
   name: string;
   tech?: number;
@@ -249,6 +250,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Nuclear Strike', target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Ghost],
     energyCost: 0, hpCost: 0, range: tiles(10), radius: fx(SplashPx.NuclearStrike.outer), duration: sec(14.5), period: 0, damage: 500,
+    execution: { mode: 'point-channel-effect', effect: EffectKind.NuclearStrike, consumes: 'nuke' },
   },
   [Ability.ShieldRecharge]: {
     name: 'Recharge Shields', target: 'entity', targetTeam: 'own', targetRolesAny: Role.Mobile, targetRolesNone: 0,
