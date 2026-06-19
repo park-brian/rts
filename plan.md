@@ -211,6 +211,9 @@ Remaining work:
     intent in opaque callbacks.
 - Add effect presentation descriptors for Scanner Sweep, Nuclear Strike, Storm, Swarm, Web,
   Plague/Irradiate overlays, detection affordances, and future persistent spell fields.
+  - First effect-presentation slice is done: Scanner Sweep and Nuclear Strike affordance visibility
+    now comes from sim-owned `EffectPresentationDefs`, preserving the existing scan visible-tile and
+    nuke explored-tile policies while giving later Storm/Swarm/Web overlays a single descriptor home.
 - Table-drive upgrade effects where clearer than switches, especially range, speed, energy, armor,
   shield, and weapon-specific bonus cases.
   - First upgrade-effect table slice is done: range, speed, cooldown, sight, and caster-energy-cap
@@ -639,6 +642,8 @@ Done when:
   sourced-data follow-up instead of an invented constant.
 - Kept resolved caster channels locked through the combat phase and mirrored Nuclear Strike channel
   timers onto caster state, preventing same-tick spell-plus-weapon double actions.
+- Descriptorized current scan/nuke effect visibility affordances under sim render descriptors, so
+  app rendering consumes a small presentation table instead of hard-coded effect-kind branches.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded

@@ -49,8 +49,18 @@ export type EntityLifeBar = {
   fraction: number;
 };
 
+export type EffectAffordanceKind = 'scan' | 'nuke';
+export type EffectVisibilityRule = 'owner-or-visible' | 'owner-or-explored';
+
+export type EffectPresentationDef = {
+  affordance: {
+    kind: EffectAffordanceKind;
+    visibility: EffectVisibilityRule;
+  };
+};
+
 export type EffectVisibilityAffordance = {
-  kind: 'scan' | 'nuke';
+  kind: EffectAffordanceKind;
   x: number;
   y: number;
   radius: number;
@@ -60,6 +70,11 @@ export type EffectVisibilityAffordance = {
 export type EffectVisibilityQuery = {
   viewer: number;
   tileVisible: (tx: number, ty: number) => number;
+};
+
+export const EffectPresentationDefs: Partial<Record<number, EffectPresentationDef>> = {
+  [EffectKind.ScannerSweep]: { affordance: { kind: 'scan', visibility: 'owner-or-visible' } },
+  [EffectKind.NuclearStrike]: { affordance: { kind: 'nuke', visibility: 'owner-or-explored' } },
 };
 
 export type WorkActivity = {
@@ -350,21 +365,16 @@ export const effectVisibilityAffordances = (
   const fx = s.effects;
   for (let i = 0; i < fx.hi; i++) {
     if (fx.alive[i] !== 1) continue;
-    const effectKind = fx.kind[i]!;
-    const kind = effectKind === EffectKind.ScannerSweep
-      ? 'scan'
-      : effectKind === EffectKind.NuclearStrike
-      ? 'nuke'
-      : undefined;
-    if (!kind) continue;
+    const affordance = EffectPresentationDefs[fx.kind[i]!]?.affordance;
+    if (!affordance) continue;
     const tx = Math.trunc(fx.x[i]! / (ONE * TILE));
     const ty = Math.trunc(fx.y[i]! / (ONE * TILE));
     const vis = query.viewer < 0 ? 2 : query.tileVisible(tx, ty);
     const owned = query.viewer >= 0 && fx.owner[i] === query.viewer;
-    if (kind === 'scan' && !owned && vis !== 2) continue;
-    if (kind === 'nuke' && !owned && vis === 0) continue;
+    if (!owned && affordance.visibility === 'owner-or-visible' && vis !== 2) continue;
+    if (!owned && affordance.visibility === 'owner-or-explored' && vis === 0) continue;
     out.push({
-      kind,
+      kind: affordance.kind,
       x: fx.x[i]! / ONE,
       y: fx.y[i]! / ONE,
       radius: fx.radius[i]! / ONE,

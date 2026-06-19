@@ -9,8 +9,9 @@ import { NONE, eid, makeState, slotOf, spawnEffect } from '../src/entity/world.t
 import { enqueueTravelOrder } from '../src/entity/order-queue.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
-  effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
-  entityMinimapVisible, entitySelectionName, illusionPresentation, queuedTravelWaypoints, selectionBase, workActivities,
+  EffectPresentationDefs, effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation,
+  entityRenderHull, entityMinimapVisible, entitySelectionName, illusionPresentation, queuedTravelWaypoints,
+  selectionBase, workActivities,
 } from '../src/render/descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -197,6 +198,13 @@ test('entity life bars expose selected life and lifecycle progress policy', () =
 });
 
 test('effect visibility affordances expose scan and nuke presentation policy', () => {
+  assert.deepEqual(EffectPresentationDefs[EffectKind.ScannerSweep], {
+    affordance: { kind: 'scan', visibility: 'owner-or-visible' },
+  });
+  assert.deepEqual(EffectPresentationDefs[EffectKind.NuclearStrike], {
+    affordance: { kind: 'nuke', visibility: 'owner-or-explored' },
+  });
+
   const s = makeState(sliceMap(), 2, 78);
   const farX = fx(54 * TILE + TILE / 2);
   const farY = fx(54 * TILE + TILE / 2);
