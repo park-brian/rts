@@ -7,7 +7,7 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { Kind, Tech, Units, Zerg, sec } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { placementForStructure, validateCommand } from '../src/commands/validate.ts';
-import { buildKindMask } from '../src/action-mask.ts';
+import { buildKindMask } from '../src/io/action-mask.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
 const zergScenario = (): SimScenario => simScenario({ players: 1, seed: 1, factions: [Zerg] });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addonKindMask, buildKindMask, researchTechMask, trainKindMask } from '../src/action-mask.ts';
+import { addonKindMask, buildKindMask, researchTechMask, trainKindMask } from '../src/io/action-mask.ts';
 import { validateAddonCommand } from '../src/commands/addon.ts';
 import { validateBuildCommand } from '../src/commands/build.ts';
 import { workerBuildSelectionOptions } from '../src/commands/intent.ts';

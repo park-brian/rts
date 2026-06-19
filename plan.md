@@ -397,6 +397,8 @@ Done when:
 - Moved replay parsing, validation, map reconstruction, and deterministic replay playback under
   `io/replay.ts`, deleting the old root `replay.ts` helper while preserving the stable package
   export.
+- Moved validator-backed action mask encoding and batch decode helpers under `io/action-mask.ts`,
+  deleting the old root `action-mask.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

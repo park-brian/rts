@@ -8,22 +8,22 @@
 //   preserving validator-parity tests.
 // - Keep this file off the sim tick hot path; it is a controller boundary layer.
 
-import type { Command, CommandRejectReason } from './commands/types.ts';
-import type { State } from './entity/world.ts';
-import { eid, freeEffectSlots, isAlive, NONE, slotOf } from './entity/world.ts';
-import { validateCommand } from './commands/validate.ts';
+import type { Command, CommandRejectReason } from '../commands/types.ts';
+import type { State } from '../entity/world.ts';
+import { eid, freeEffectSlots, isAlive, NONE, slotOf } from '../entity/world.ts';
+import { validateCommand } from '../commands/validate.ts';
 import {
   Abilities, Ability, Kind, Role, TechDefs, Units, productionCostCount, productionCount,
   workerBuildKindsFor,
-} from './data.ts';
-import { addonParentKind } from './mechanics/addons.ts';
-import { hasPendingBuild } from './mechanics/build-cancel.ts';
-import { internalProductCapacity, internalProductReadyCount } from './mechanics/internal-products.ts';
-import { techGas, techMinerals, nextTechLevel } from './tech.ts';
-import { transformFor, transformTargetsFor } from './mechanics/transforms.ts';
-import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
-import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from './commands/intent.ts';
-import { readyNukeSilo } from './mechanics/nuke.ts';
+} from '../data.ts';
+import { addonParentKind } from '../mechanics/addons.ts';
+import { hasPendingBuild } from '../mechanics/build-cancel.ts';
+import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
+import { techGas, techMinerals, nextTechLevel } from '../tech.ts';
+import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
+import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../ability-execution.ts';
+import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from '../commands/intent.ts';
+import { readyNukeSilo } from '../mechanics/nuke.ts';
 
 export const ACTION_SCHEMA_VERSION = 1;
 

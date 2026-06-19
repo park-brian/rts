@@ -37,7 +37,7 @@ import {
   writeResearchTechMask,
   writeTrainKindMask,
   writeTransformKindMask,
-} from '../src/action-mask.ts';
+} from '../src/io/action-mask.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 import type { Command } from '../src/commands/types.ts';

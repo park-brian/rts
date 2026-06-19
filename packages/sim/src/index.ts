@@ -8,7 +8,7 @@ export * from './map.ts';
 export * from './map-diagnostics.ts';
 export * from './commands/types.ts';
 export * from './commands/validate.ts';
-export * from './action-mask.ts';
+export * from './io/action-mask.ts';
 export * from './footprint.ts';
 export * from './spatial.ts';
 export * from './entity/approach.ts';

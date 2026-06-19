@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entityTargetMask, transformKindCandidates, transformKindMask } from '../src/action-mask.ts';
+import { entityTargetMask, transformKindCandidates, transformKindMask } from '../src/io/action-mask.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { transformSelectionCandidates, transformSelectionOptions } from '../src/commands/intent.ts';
 import { Kind, Tech, Units } from '../src/data.ts';
