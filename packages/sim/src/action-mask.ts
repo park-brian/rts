@@ -23,6 +23,7 @@ import { techGas, techMinerals, nextTechLevel } from './tech.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from './ability-execution.ts';
 import { harvestModeCandidates, rallyModeCandidates, repairModeCandidates } from './commands/intent.ts';
+import { readyNukeSilo } from './nuke.ts';
 
 export const ACTION_SCHEMA_VERSION = 1;
 
@@ -105,6 +106,7 @@ type ActionReservation = {
   ammoSlot?: number;
   ammoKind?: number;
   ammo?: number;
+  ammoReject?: CommandRejectReason;
 };
 
 type ProducerIndex = ReadonlyMap<number, readonly number[]>;
@@ -320,7 +322,12 @@ export const resetBatchDecodeReservation = (
   return ctx;
 };
 
-const commandReservation = (s: State, player: number, command: Command): ActionReservation => {
+const commandReservation = (
+  s: State,
+  player: number,
+  command: Command,
+  ctx: BatchDecodeReservation,
+): ActionReservation => {
   const e = s.e;
   switch (command.t) {
     case 'train': {
@@ -389,7 +396,13 @@ const commandReservation = (s: State, player: number, command: Command): ActionR
         r.hpSlot = slot;
         r.hp = ability.hpCost;
       }
-      if (ability.execution?.mode === 'persistent-effect' || command.ability === Ability.NuclearStrike) r.effectSlots = 1;
+      if (command.ability === Ability.NuclearStrike) {
+        r.effectSlots = 1;
+        r.ammoSlot = readyNukeSilo(s, player, (nukeSilo) => sparseGet(ctx.ammoSlots, ctx.ammo, nukeSilo));
+        r.ammoKind = Kind.NuclearMissile;
+        r.ammo = 1;
+        r.ammoReject = 'missing-requirement';
+      } else if (ability.execution?.mode === 'persistent-effect') r.effectSlots = 1;
       else if (command.ability === Ability.SpawnBroodling) r.entitySlots = 1;
       else if (command.ability === Ability.Hallucination) r.entitySlots = 2;
       return r;
@@ -416,8 +429,9 @@ const rejectReservation = (
     return 'not-enough-hit-points';
   }
   if (r.ammoSlot !== undefined && r.ammoKind !== undefined && r.ammo !== undefined &&
-      internalProductReadyCount(s, r.ammoSlot, r.ammoKind) - sparseGet(ctx.ammoSlots, ctx.ammo, r.ammoSlot) < r.ammo) {
-    return 'target-not-allowed';
+      (r.ammoSlot === NONE ||
+        internalProductReadyCount(s, r.ammoSlot, r.ammoKind) - sparseGet(ctx.ammoSlots, ctx.ammo, r.ammoSlot) < r.ammo)) {
+    return r.ammoReject ?? 'target-not-allowed';
   }
   return null;
 };
@@ -441,7 +455,7 @@ export const decodeBatchAction = (
   const command = decodeAction(action);
   const validation = validateCommand(s, ctx.player, command, { reservedSupply: ctx.supplyUsed });
   if (!validation.ok) return { ok: false, command, reason: validation.reason };
-  const r = commandReservation(s, ctx.player, command);
+  const r = commandReservation(s, ctx.player, command, ctx);
   const reason = rejectReservation(s, ctx, r);
   if (reason) return { ok: false, command, reason };
   reserve(ctx, r);

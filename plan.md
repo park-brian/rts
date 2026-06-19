@@ -235,9 +235,6 @@ Purpose: make the game a clean training substrate, not just a playable browser a
 Remaining work:
 
 - Keep validator/action-mask parity for every command family and ability target mode.
-- Add batch-action reservation for producer-selected internal products, especially Nuclear Strike
-  across one or more ready Nuclear Silos, so multi-action decoding cannot overbook a missile but
-  still accepts separate ready silos deterministically.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
 - Finish race macro paths with validator-backed build, research, upgrade, and spell choices.
@@ -368,6 +365,8 @@ Done when:
 - Moved internal-product descriptors and `specialAmmo` mutation helpers under
   `mechanics/internal-products.ts`, migrated production callers to the real owner path, and removed
   the old root helper instead of leaving a compatibility shim.
+- Added producer-selected batch reservations for Nuclear Strike so multi-action decoding cannot
+  overbook one ready missile while still accepting separate ready Nuclear Silos deterministically.
 
 ## Review Checklist
 

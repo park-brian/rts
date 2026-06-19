@@ -1,14 +1,20 @@
 import { Kind } from './data.ts';
 import type { State } from './entity/world.ts';
 import { activeAddonParentSlot } from './addon.ts';
-import { consumeInternalProduct, hasInternalProductReady } from './mechanics/internal-products.ts';
+import { consumeInternalProduct, internalProductReadyCount } from './mechanics/internal-products.ts';
 import { NONE } from './entity/world.ts';
 
-export const readyNukeSilo = (s: State, player: number): number => {
+export type NukeSiloReservation = (slot: number) => number;
+
+export const readyNukeSilo = (
+  s: State,
+  player: number,
+  reserved: NukeSiloReservation = () => 0,
+): number => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === Kind.NuclearSilo && e.built[i] === 1 &&
-        hasInternalProductReady(s, i, Kind.NuclearMissile) && activeAddonParentSlot(s, i) !== NONE) {
+        internalProductReadyCount(s, i, Kind.NuclearMissile) > reserved(i) && activeAddonParentSlot(s, i) !== NONE) {
       return i;
     }
   }

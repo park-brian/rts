@@ -52,6 +52,20 @@ const ALL_COMMAND_TAGS: readonly Command['t'][] = [
   'repair', 'rally', 'stop',
 ];
 
+const linkAddon = (s: SimScenario['state'], parent: number, addon: number): void => {
+  const e = s.e;
+  e.target[slotOf(parent)] = addon;
+  e.target[slotOf(addon)] = parent;
+};
+
+const loadedSilo = (scenario: SimScenario, player: number, x: number, y: number): number => {
+  const parent = scenario.spawn(Kind.CommandCenter, player, x - fx(80), y);
+  const silo = scenario.spawn(Kind.NuclearSilo, player, x, y);
+  linkAddon(scenario.state, parent, silo);
+  scenario.state.e.specialAmmo[slotOf(silo)] = 1;
+  return silo;
+};
+
 const assertMaskMatchesValidator = (
   scenario: SimScenario,
   player: number,
@@ -185,6 +199,27 @@ test('batch action decode reserves effect capacity and caster energy', () => {
   ctx = createBatchDecodeReservation(s, 0);
   assert.equal(decodeBatchAction(s, ctx, action).ok, true);
   assert.deepEqual(decodeBatchAction(s, ctx, action), { ok: false, command: decodeAction(action), reason: 'not-enough-energy' });
+});
+
+test('batch action decode reserves nuclear missiles across ready silos', () => {
+  const scenario = simScenario({ players: 1, seed: 963 });
+  const { state: s, spawn } = scenario;
+  const ghostA = spawn(Kind.Ghost, 0, fx(300), fx(300));
+  const ghostB = spawn(Kind.Ghost, 0, fx(300), fx(330));
+  loadedSilo(scenario, 0, fx(420), fx(300));
+  const actionA = { head: 'ability' as const, actor: ghostA, ability: Ability.NuclearStrike, x: fx(360), y: fx(300) };
+  const actionB = { head: 'ability' as const, actor: ghostB, ability: Ability.NuclearStrike, x: fx(360), y: fx(330) };
+
+  assert.deepEqual(decodeActionBatch(s, 0, [actionA, actionB]), [
+    { ok: true, command: decodeAction(actionA) },
+    { ok: false, command: decodeAction(actionB), reason: 'missing-requirement' },
+  ]);
+
+  loadedSilo(scenario, 0, fx(520), fx(300));
+  assert.deepEqual(decodeActionBatch(s, 0, [actionA, actionB]), [
+    { ok: true, command: decodeAction(actionA) },
+    { ok: true, command: decodeAction(actionB) },
+  ]);
 });
 
 const assertTrainMaskMatchesValidator = (
