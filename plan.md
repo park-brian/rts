@@ -551,6 +551,9 @@ Remaining work:
       response, so expansions are protected through the same path as the main base. Normal bot
       generation can request BotFacts without materializing the full risk matrix; route/site
       directors should opt into full risk only when they actually score map tiles.
+    - Defense-helper extraction slice is done: incident target resolution and last-resort worker
+      responder selection now live in `packages/ai/src/macro-defense.ts`, leaving the live bot
+      controller to schedule defense rather than own low-level responder mechanics.
     - Capability-classification slice is done: base incidents now distinguish Nydus breaches,
       transport drops, static threat zones, and long-range siege containments from unit data
       (kind, cargo capacity, roles, and weapon range) before later directors choose the response.
@@ -847,6 +850,9 @@ Done when:
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start
   maps, preserving hidden-unit secrecy while forcing faster contact.
+- Extracted bot defense targeting and emergency worker responder selection into
+  `packages/ai/src/macro-defense.ts`, keeping the live bot controller thinner without changing
+  defense behavior.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
 - Moved immutable data definitions under `src/data/` while keeping old root data exports as

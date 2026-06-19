@@ -10,13 +10,14 @@ import {
   UNLOAD_RANGE, productionCostCount, productionCount,
   addonParentKind, hasCompletedKind, sameTeam, validateCommand,
   requiresPower,
-  distanceSq, withinRangeSq,
+  withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
 import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
+import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
@@ -28,9 +29,7 @@ import {
   createBotMemory,
   deriveTacticalIncidents,
   rememberTacticalIncidents,
-  tacticalResponseBudget,
   type BotMemory,
-  type TacticalIncident,
 } from './macro.ts';
 
 export type BotConfig = {
@@ -41,7 +40,6 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
-const EMERGENCY_WORKER_RESPONSE_TILES = 10;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const ZERG_UNIQUE_MORPH_MACRO = [
   { from: Kind.Hatchery, to: Kind.Lair, satisfiedBy: [Kind.Lair, Kind.Hive] },
@@ -54,44 +52,6 @@ const ZERG_REPEATABLE_MORPH_MACRO = [
 const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
-const incidentTarget = (s: State, incident: TacticalIncident): number => {
-  const e = s.e;
-  let best = NONE;
-  let bestD = Infinity;
-  for (const enemy of incident.enemies ?? []) {
-    if (enemy < 0 || enemy >= e.hi || e.alive[enemy] !== 1) continue;
-    const d = distanceSq(incident.x, incident.y, e.x[enemy]!, e.y[enemy]!);
-    if (d >= bestD) continue;
-    best = enemy;
-    bestD = d;
-  }
-  return best;
-};
-
-const canEmergencyPullWorker = (s: State, slot: number, x: number, y: number): boolean => {
-  const e = s.e;
-  if (e.alive[slot] !== 1 || e.container[slot] !== NONE) return false;
-  if (e.buildKind[slot] !== Kind.None || e.order[slot] === Order.Build || e.order[slot] === Order.Repair) return false;
-  return withinRangeSq(e.x[slot]!, e.y[slot]!, x, y, EMERGENCY_WORKER_RESPONSE_TILES * TILE * ONE);
-};
-
-const emergencyWorkerResponders = (
-  s: State,
-  workers: readonly number[],
-  incident: TacticalIncident,
-  alreadyAssigned: number,
-  reservedWorker: number = NONE,
-): number[] => {
-  const budget = tacticalResponseBudget(incident, workers.length + alreadyAssigned);
-  const needed = budget - alreadyAssigned;
-  if (needed <= 0) return [];
-  return workers
-    .filter((slot) => slot !== reservedWorker && canEmergencyPullWorker(s, slot, incident.x, incident.y))
-    .map((slot) => ({ slot, distance: distanceSq(s.e.x[slot]!, s.e.y[slot]!, incident.x, incident.y) }))
-    .sort((a, b) => a.distance - b.distance || a.slot - b.slot)
-    .slice(0, needed)
-    .map(({ slot }) => slot);
-};
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
 const findSpot = (s: State, player: number, worker: number, kind: number, bx: number, by: number): { x: number; y: number } | null => {
