@@ -1294,6 +1294,8 @@ Stats and source work before implementation:
   - BWAPI does not expose the exact animation/transition frame counts in the checked command,
     order, unit-type, or client-temp paths. Do not implement deterministic transition timers from
     guessed values.
+  - Durable note and repeatable audit live in `docs/research/bw-transition-timings.md` and
+    `npm run research:bw-timings`.
   - Next source step before timed transition implementation: extract/inspect Brood War
     `iscript.bin`/order data, or add a measurement harness from replay/game traces, then record the
     exact frame counts here with source paths.
