@@ -1,8 +1,8 @@
 import {
-  Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
-  addonParentKind, canWorkerStartStructure, eid, isAlive,
-  addonSelectionCandidates, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
-  researchSelectionCandidates, selfAbilitySelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  Ability, Kind, NONE, Role, TechDefs, Units,
+  addonParentKind, canWorkerStartStructure, isAlive,
+  abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
+  researchSelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -19,26 +19,6 @@ type CanSeeEntity = (slot: number) => boolean;
 
 const TECH_IDS = Object.keys(TechDefs).map(Number);
 const ADDON_IDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
-const REASON_PRIORITY: Record<CommandRejectReason, number> = {
-  'missing-requirement': 0,
-  'not-affordable': 1,
-  'supply-blocked': 2,
-  'queue-full': 3,
-  'capacity-full': 4,
-  'incomplete-producer': 5,
-  'not-enough-energy': 6,
-  'not-enough-hit-points': 7,
-  'placement-requires-geyser': 8,
-  'placement-off-map': 9,
-  'placement-blocked': 10,
-  'target-not-found': 11,
-  'target-out-of-range': 12,
-  'target-not-allowed': 13,
-  'missing-capability': 14,
-  'invalid-ability': 15,
-  'wrong-owner': 16,
-  'stale-entity': 17,
-};
 
 const addOption = (options: Map<number, OptionRecord>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
   const current = options.get(id);
@@ -50,7 +30,7 @@ const addOption = (options: Map<number, OptionRecord>, id: number, result: Comma
     return;
   }
   if (current?.ok) return;
-  if (!current || REASON_PRIORITY[result.reason] < REASON_PRIORITY[current.reason!]) {
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
     const { commands: _commands, arm: _arm, priority: _priority, ...displayMeta } = meta;
     options.set(id, { id, ok: false, reason: result.reason, ...displayMeta });
   }
@@ -72,16 +52,6 @@ const trainOptionMeta = (s: State, slot: number, train: number): CommandOptionMe
     return { label: display.optionActiveLabel, detail: display.optionActiveDetail };
   }
   return display.trainLabel ? { label: display.trainLabel } : {};
-};
-
-const abilityAvailability = (s: State, player: number, slot: number, abilityId: number): CommandValidation => {
-  const e = s.e;
-  const ability = Abilities[abilityId];
-  if (!ability) return { ok: false, reason: 'invalid-ability' };
-  const result = validateCommand(s, player, { t: 'ability', unit: eid(e, slot), ability: abilityId });
-  if (result.ok) return result;
-  if (ability.target !== 'self' && result.reason === 'target-not-found') return { ok: true };
-  return result;
 };
 
 const addWorkerBuildOptions = (
@@ -159,10 +129,12 @@ export const selectionCapabilities = (
   const abilityOptions = new Map<number, OptionRecord>();
   const researchOptions = new Map<number, OptionRecord>();
   const selected = [...selectedIds].filter((id) => isAlive(e, id));
+  const visibleSelected: number[] = [];
 
   for (const [selectionIndex, id] of selected.entries()) {
     const slot = slotOf(id);
     if (e.owner[slot] !== player && !canSeeEntity(slot)) continue;
+    visibleSelected.push(id);
     count++;
     const k = e.kind[slot]!;
     const lifecycle = entityLifecycle(s, slot);
@@ -205,11 +177,6 @@ export const selectionCapabilities = (
       }
       for (const target of transformTargetsFor(k)) {
         addOption(transformOptions, target, validateCommand(s, player, { t: 'transform', unit: id, kind: target }));
-      }
-      for (const ability of Units[k]!.abilities) {
-        const result = abilityAvailability(s, player, slot, ability);
-        addOption(abilityOptions, ability, result,
-          ability === Ability.NuclearStrike && !result.ok && result.reason === 'missing-requirement' ? { detail: 'No Nuke' } : {});
       }
       for (const tech of TECH_IDS) {
         const def = TechDefs[tech];
@@ -270,12 +237,17 @@ export const selectionCapabilities = (
     if (!option.ok) continue;
     option.commands = researchSelectionCandidates(s, player, selected, option.id);
   }
-  for (const option of abilityOptions.values()) {
-    if (!option.ok) continue;
-    const ability = Abilities[option.id];
-    if (!ability) continue;
-    if (ability.target === 'self') option.commands = selfAbilitySelectionCandidates(s, player, selected, option.id);
-    else option.arm = abilityArm(option.id);
+  for (const option of abilitySelectionOptions(s, player, visibleSelected)) {
+    addOption(
+      abilityOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      {
+        commands: option.commands,
+        arm: option.ok && option.target !== 'self' ? abilityArm(option.id) : undefined,
+        detail: option.id === Ability.NuclearStrike && !option.ok && option.reason === 'missing-requirement' ? 'No Nuke' : undefined,
+      },
+    );
   }
 
   if (count === 0) return EMPTY_SELECTION_VIEW;

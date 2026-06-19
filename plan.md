@@ -1501,6 +1501,9 @@ Rework slices:
    - Self-targeted ability execution candidates now resolve through `selfAbilitySelectionCandidates`,
      so grouped caster fan-out and validation filtering live in the sim command-intent layer while
      targeted abilities remain app-armed target modes.
+   - Ability option availability now resolves through sim-owned `abilitySelectionOptions`, including
+     representative casters, disabled reasons, self-cast commands, and targeted ability arm modes;
+     app code only maps those records to command-card presentation.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

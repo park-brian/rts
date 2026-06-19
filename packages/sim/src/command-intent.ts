@@ -1,5 +1,5 @@
-import type { Command } from './commands.ts';
-import { Abilities, ResourceType, Role, Units } from './data.ts';
+import type { Command, CommandRejectReason } from './commands.ts';
+import { Abilities, ResourceType, Role, Units, type AbilityTarget } from './data.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
 import {
@@ -26,6 +26,40 @@ export type ProducedUnitRallyIntent =
   | { kind: 'gather-target'; target: number }
   | { kind: 'load'; transport: number; endpoint: TravelEndpoint }
   | { kind: 'travel'; endpoint: TravelEndpoint; intent: TravelIntent };
+
+type CandidateValidation =
+  | { ok: true }
+  | { ok: false; reason: CommandRejectReason };
+
+export type AbilitySelectionOption = {
+  id: number;
+  ok: boolean;
+  target: AbilityTarget;
+  representative: number;
+  reason?: CommandRejectReason;
+  commands?: Command[];
+};
+
+export const commandRejectReasonPriority: Record<CommandRejectReason, number> = {
+  'missing-requirement': 0,
+  'not-affordable': 1,
+  'supply-blocked': 2,
+  'queue-full': 3,
+  'capacity-full': 4,
+  'incomplete-producer': 5,
+  'not-enough-energy': 6,
+  'not-enough-hit-points': 7,
+  'placement-requires-geyser': 8,
+  'placement-off-map': 9,
+  'placement-blocked': 10,
+  'target-not-found': 11,
+  'target-out-of-range': 12,
+  'target-not-allowed': 13,
+  'missing-capability': 14,
+  'invalid-ability': 15,
+  'wrong-owner': 16,
+  'stale-entity': 17,
+};
 
 const endpointFromRally = (x: number, y: number, target: number): TravelEndpoint =>
   target === NONE ? { x, y } : { x, y, target };
@@ -320,6 +354,56 @@ export const selfAbilitySelectionCandidates = (
     if (validateCommand(s, player, command).ok) commands.push(command);
   }
   return commands;
+};
+
+const abilityAvailability = (s: State, player: number, unit: number, abilityId: number): CandidateValidation => {
+  const ability = Abilities[abilityId];
+  if (!ability) return { ok: false, reason: 'invalid-ability' };
+  const result = validateCommand(s, player, { t: 'ability', unit, ability: abilityId });
+  if (result.ok) return result;
+  return ability.target !== 'self' && result.reason === 'target-not-found' ? { ok: true } : result;
+};
+
+const addAbilitySelectionOption = (
+  options: Map<number, AbilitySelectionOption>,
+  id: number,
+  target: AbilityTarget,
+  representative: number,
+  result: CandidateValidation,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok) options.set(id, { id, ok: true, target, representative });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, target, representative, reason: result.reason });
+  }
+};
+
+export const abilitySelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): AbilitySelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, AbilitySelectionOption>();
+  for (const id of selected) {
+    if (!isAlive(e, id)) continue;
+    const slot = slotOf(id);
+    for (const abilityId of Units[e.kind[slot]!]!.abilities) {
+      const ability = Abilities[abilityId];
+      if (!ability) continue;
+      addAbilitySelectionOption(options, abilityId, ability.target, id, abilityAvailability(s, player, id, abilityId));
+    }
+  }
+  for (const option of options.values()) {
+    if (option.ok && option.target === 'self') {
+      option.commands = selfAbilitySelectionCandidates(s, player, selected, option.id);
+    }
+  }
+  return [...options.values()].sort((a, b) => a.id - b.id);
 };
 
 export const rallyModeCandidates = (

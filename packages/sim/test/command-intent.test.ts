@@ -4,7 +4,7 @@ import { Ability, Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
-  addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
+  abilitySelectionOptions, addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
   rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, transformSelectionCandidates,
   unloadSelectionCandidates,
@@ -321,6 +321,40 @@ test('self ability command-card candidates include every valid selected caster',
     ],
   );
   assert.deepEqual(selfAbilitySelectionCandidates(s, 0, [validMarine], Ability.PsionicStorm), []);
+});
+
+test('ability command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1235);
+  const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, tc(10), tc(8));
+  s.e.energy[slotOf(templar)] = 75;
+  setTechLevel(s, 0, Tech.StimPack, 1);
+
+  let options = abilitySelectionOptions(s, 0, [marine, templar]);
+  assert.deepEqual(options.find((o) => o.id === Ability.StimPack), {
+    id: Ability.StimPack,
+    ok: true,
+    target: 'self',
+    representative: marine,
+    commands: [{ t: 'ability', unit: marine, ability: Ability.StimPack }],
+  });
+  assert.deepEqual(options.find((o) => o.id === Ability.PsionicStorm), {
+    id: Ability.PsionicStorm,
+    ok: false,
+    target: 'point',
+    representative: templar,
+    reason: 'missing-requirement',
+  });
+
+  setTechLevel(s, 0, Tech.PsionicStorm, 1);
+  options = abilitySelectionOptions(s, 0, [templar]);
+  const storm = options.find((o) => o.id === Ability.PsionicStorm);
+  assert.deepEqual(storm, {
+    id: Ability.PsionicStorm,
+    ok: true,
+    target: 'point',
+    representative: templar,
+  });
 });
 
 test('armed rally mode targets valid friendly units and gather targets', () => {

@@ -1,7 +1,7 @@
 import { PlacementController, type PlacementGhost } from './placement-controller.ts';
 import { clearArmedCommand, shouldToggleArmedCommand, ui, type CommandOption } from './store.ts';
 import {
-  Abilities, isAlive, slotOf, validateCommand,
+  Abilities, isAlive, selfAbilitySelectionCandidates, slotOf, validateCommand,
   type Command, type State,
 } from './sim.ts';
 
@@ -103,15 +103,9 @@ export class CommandController {
     const ability = Abilities[abilityId];
     if (!ability) return false;
     if (ability.target === 'self') {
-      let cast = false;
-      for (const id of this.deps.selection()) {
-        const c: Command = { t: 'ability', unit: id, ability: abilityId };
-        if (isAlive(e, id) && validateCommand(s, human, c).ok) {
-          this.queued.push(c);
-          cast = true;
-        }
-      }
-      return cast;
+      const commands = selfAbilitySelectionCandidates(s, human, [...this.deps.selection()], abilityId);
+      this.queued.push(...commands);
+      return commands.length > 0;
     }
 
     let best: Command | null = null;
