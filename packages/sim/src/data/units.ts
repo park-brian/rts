@@ -13,6 +13,7 @@ import {
   type WorkerRace,
 } from './core.ts';
 import {
+  ProjectilePresentation,
   SplashPx,
   type SplashSpecPx,
   type Weapon,
@@ -92,6 +93,7 @@ const W = (damage: number, dtype: number, cooldown: number, rangePx: number, sho
   damage, dtype, cooldown, range: bwRange(rangePx), shots,
   ...(minRangePx > 0 ? { minRange: bwRange(minRangePx) } : {}),
 });
+const projectile = (weapon: Weapon, presentation: Weapon['presentation']): Weapon => ({ ...weapon, presentation });
 const radialSplash = (px: SplashSpecPx): Pick<Weapon, 'splashInnerRadius' | 'splashMediumRadius' | 'splashRadius'> => ({
   splashInnerRadius: bwRange(px.inner),
   splashMediumRadius: bwRange(px.medium),
@@ -158,13 +160,15 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Goliath]: terran('goliath', {
     name: 'Goliath', ...mobile(16), size: Size.Large,
     hp: 125, armor: 1, sight: 8, speed: fx(2), minerals: 100, gas: 50, supply: supply(2), buildTime: sec(25.2),
-    weapon: W(12, DamageType.Normal, cd(0.92), WR.TwinAutocannons), airWeapon: W(10, DamageType.Explosive, cd(1.85), WR.HellfireMissilePack, 2),
+    weapon: W(12, DamageType.Normal, cd(0.92), WR.TwinAutocannons),
+    airWeapon: projectile(W(10, DamageType.Explosive, cd(1.85), WR.HellfireMissilePack, 2), ProjectilePresentation.Missile),
     requires: [Kind.MachineShop], ...cargo(4),
   }),
   [Kind.Wraith]: terran('wraith', {
     name: 'Wraith', ...air(19), size: Size.Large,
     hp: 120, energyMax: 200, startEnergy: 50, sight: 7, speed: fx(3), minerals: 150, gas: 100, supply: supply(2), buildTime: sec(37.8),
-    weapon: W(8, DamageType.Normal, cd(1.26), WR.BurstLasers), airWeapon: W(20, DamageType.Explosive, cd(1.89), WR.GeminiMissiles),
+    weapon: W(8, DamageType.Normal, cd(1.26), WR.BurstLasers),
+    airWeapon: projectile(W(20, DamageType.Explosive, cd(1.89), WR.GeminiMissiles), ProjectilePresentation.Missile),
     abilities: [Ability.CloakingField],
   }),
   [Kind.Dropship]: terran('dropship', {
@@ -180,7 +184,7 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Valkyrie]: terran('valkyrie', {
     name: 'Valkyrie', ...air(24), size: Size.Large,
     hp: 200, armor: 2, sight: 8, speed: fx(3), minerals: 250, gas: 125, supply: supply(3), buildTime: sec(31.5),
-    airWeapon: { ...W(6, DamageType.Explosive, cd(4), WR.HaloRockets, 8), ...radialSplash(SP.AirSplash) },
+    airWeapon: { ...projectile(W(6, DamageType.Explosive, cd(4), WR.HaloRockets, 8), ProjectilePresentation.ValkyrieVolley), ...radialSplash(SP.AirSplash) },
     requires: [Kind.ControlTower, Kind.Armory],
   }),
   [Kind.Battlecruiser]: terran('battlecruiser', {
@@ -235,7 +239,8 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.MissileTurret]: terran('missileTurret', {
     name: 'Missile Turret', ...structure(20, 2, 2), size: Size.Large,
-    hp: 200, sight: 11, minerals: 75, buildTime: sec(18.9), airWeapon: W(20, DamageType.Explosive, 15, WR.LongboltMissile, 1),
+    hp: 200, sight: 11, minerals: 75, buildTime: sec(18.9),
+    airWeapon: projectile(W(20, DamageType.Explosive, 15, WR.LongboltMissile, 1), ProjectilePresentation.Missile),
     requires: [Kind.EngineeringBay],
   }),
   [Kind.Factory]: terran('factory', {
@@ -349,7 +354,8 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Scout]: protoss('scout', {
     name: 'Scout', ...air(18), size: Size.Large,
     hp: 150, shields: 100, sight: 8, speed: fx(3), minerals: 275, gas: 125, supply: supply(3), buildTime: sec(50.4),
-    weapon: W(8, DamageType.Normal, 30, WR.DualPhotonBlasters), airWeapon: W(14, DamageType.Explosive, 22, WR.AntiMatterMissiles, 2),
+    weapon: W(8, DamageType.Normal, 30, WR.DualPhotonBlasters),
+    airWeapon: projectile(W(14, DamageType.Explosive, 22, WR.AntiMatterMissiles, 2), ProjectilePresentation.Photon),
   }),
   [Kind.Carrier]: protoss('carrier', {
     name: 'Carrier', ...air(32), roles: Role.Mobile | Role.Air | Role.Producer, size: Size.Large,
@@ -370,7 +376,7 @@ export const Units: Record<number, UnitDef> = {
   [Kind.Corsair]: protoss('corsair', {
     name: 'Corsair', ...air(18), size: Size.Medium,
     hp: 100, shields: 80, energyMax: 200, startEnergy: 50, armor: 1, sight: 9, speed: fx(3), minerals: 150, gas: 100, supply: supply(2), buildTime: sec(25.2),
-    airWeapon: { ...W(5, DamageType.Explosive, 8, WR.NeutronFlare), ...radialSplash(SP.AirSplash) },
+    airWeapon: { ...projectile(W(5, DamageType.Explosive, 8, WR.NeutronFlare), ProjectilePresentation.Photon), ...radialSplash(SP.AirSplash) },
     abilities: [Ability.DisruptionWeb],
   }),
 
@@ -561,7 +567,8 @@ export const Units: Record<number, UnitDef> = {
   }),
   [Kind.SporeColony]: zerg('sporeColony', {
     name: 'Spore Colony', ...structure(24, 2, 2), size: Size.Large,
-    hp: 400, sight: 10, minerals: 50, buildTime: sec(20), airWeapon: W(15, DamageType.Normal, 15, WR.SeekerSpores),
+    hp: 400, sight: 10, minerals: 50, buildTime: sec(20),
+    airWeapon: projectile(W(15, DamageType.Normal, 15, WR.SeekerSpores), ProjectilePresentation.Spore),
     requires: [Kind.EvolutionChamber], buildMethod: 'morph',
   }),
   [Kind.SpawningPool]: zerg('spawningPool', {

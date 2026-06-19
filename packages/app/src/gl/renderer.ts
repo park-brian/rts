@@ -15,7 +15,7 @@
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
   resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
-  selectionBase, type MapDef,
+  selectionBase, weaponForTarget, type Entities, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
 import { Gl, type Command, type Buffer, type Texture } from './gl.ts';
@@ -41,6 +41,11 @@ const NEUTRAL_RGB = rgb(NEUTRAL_HEX);
 const teamColor = (owner: number): [number, number, number] => TEAM_RGB[owner] ?? NEUTRAL_RGB;
 
 const spriteOf = (kind: number): string => Units[kind]?.sprite ?? '';
+const liveTargetSlot = (e: Entities, id: number): number => isAlive(e, id) ? slotOf(id) : NONE;
+const fireTargetSlot = (e: Entities, slot: number): number => {
+  const combat = liveTargetSlot(e, e.combatTarget[slot]!);
+  return combat !== NONE ? combat : liveTargetSlot(e, e.target[slot]!);
+};
 
 const mobileZoomMul = (kind: number, zoom: number): number => {
   const def = Units[kind]!;
@@ -492,12 +497,26 @@ export class GlRenderer {
       if (aliveNow && this.drawn[i] === 1 && this.prevAlive[i] === 1 && e.wcd[i]! > this.prevWcd[i]!) {
         const r = this.rr[i]!;
         let dx = 0; let dy = -1;
-        const tgt = e.target[i]!;
-        if (isAlive(e, tgt)) { dx = e.x[slotOf(tgt)]! - e.x[i]!; dy = e.y[slotOf(tgt)]! - e.y[i]!; }
+        const tgt = fireTargetSlot(e, i);
+        const targetDrawn = tgt !== NONE && this.drawn[tgt] === 1;
+        if (targetDrawn) { dx = e.x[tgt]! - e.x[i]!; dy = e.y[tgt]! - e.y[i]!; }
         else { dx = e.tx[i]! - e.x[i]!; dy = e.ty[i]! - e.y[i]!; }
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len; const uy = dy / len;
-        this.particles.emitMuzzle(this.wxA[i]! + ux * r, this.wyA[i]! + uy * r, Math.atan2(uy, ux));
+        const sx = this.wxA[i]! + ux * r;
+        const sy = this.wyA[i]! + uy * r;
+        this.particles.emitMuzzle(sx, sy, Math.atan2(uy, ux));
+        if (targetDrawn) {
+          const weapon = weaponForTarget(Units[e.kind[i]!]!, Units[e.kind[tgt]!]!);
+          const presentation = weapon?.presentation;
+          if (presentation) {
+            const count = presentation.count ?? (presentation.delivery === 'projectile' ? weapon.shots ?? 1 : 1);
+            this.particles.emitProjectileVolley(
+              sx, sy, e.x[tgt]! / ONE, e.y[tgt]! / ONE,
+              count, presentation.spread ?? 0, presentation.speed, presentation.color,
+            );
+          }
+        }
       }
       // Snapshot.
       this.prevDrawn[i] = this.drawn[i]!;

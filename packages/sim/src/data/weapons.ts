@@ -17,7 +17,23 @@ export type Weapon = {
   splashRadius?: number; // fixed-point px, outer splash radius
   splashInnerRadius?: number; // fixed-point px, 100% splash damage inside this radius
   splashMediumRadius?: number; // fixed-point px, 50% splash damage inside this radius
+  presentation?: WeaponProjectilePresentation;
 };
+
+export type WeaponProjectilePresentation = {
+  delivery: 'projectile' | 'volley';
+  color: readonly [number, number, number];
+  speed: number; // world px / s, cosmetic only
+  count?: number;
+  spread?: number;
+};
+
+export const ProjectilePresentation = {
+  Missile: { delivery: 'projectile', color: [1, 0.72, 0.36], speed: 720, spread: 5 },
+  Photon: { delivery: 'projectile', color: [0.52, 0.82, 1], speed: 760, spread: 4 },
+  Spore: { delivery: 'projectile', color: [0.62, 1, 0.5], speed: 620, spread: 5 },
+  ValkyrieVolley: { delivery: 'volley', color: [1, 0.55, 0.28], speed: 660, count: 8, spread: 13 },
+} satisfies Record<string, WeaponProjectilePresentation>;
 
 export const WeaponRangePx = {
   // Terran

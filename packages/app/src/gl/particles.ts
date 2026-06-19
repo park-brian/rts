@@ -16,6 +16,7 @@ type Particle = {
 
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 export class Particles {
   private ps: Particle[] = [];
@@ -37,6 +38,47 @@ export class Particles {
         x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         life: rand(0.1, 0.2), max: 0.2,
         size0: 5, size1: 1.5, r: 1, g: 0.8, b: 0.42, a: 0.9, drag: 5, streak: true,
+      });
+    }
+  }
+
+  /** Cosmetic projectile travel: deterministic lanes so volleys read as deliberate weapon fire. */
+  emitProjectileVolley(
+    x: number,
+    y: number,
+    tx: number,
+    ty: number,
+    count: number,
+    spread: number,
+    speed: number,
+    color: readonly [number, number, number],
+  ): void {
+    const dx = tx - x;
+    const dy = ty - y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= 0 || speed <= 0) return;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    const px = -uy;
+    const py = ux;
+    const life = clamp(dist / speed, 0.12, 0.42);
+    const n = Math.max(1, Math.min(12, count));
+    for (let i = 0; i < n && this.ps.length < this.cap; i++) {
+      const pair = Math.floor(i / 2);
+      const side = i % 2 === 0 ? -1 : 1;
+      const lane = n === 1 ? 0 : side * spread * (0.45 + pair * 0.22);
+      const lag = pair * 5;
+      const sx = x + px * lane - ux * lag;
+      const sy = y + py * lane - uy * lag;
+      const ex = tx + px * lane * 0.35;
+      const ey = ty + py * lane * 0.35;
+      this.ps.push({
+        x: sx, y: sy, vx: (ex - sx) / life, vy: (ey - sy) / life,
+        life, max: life,
+        size0: 4.5, size1: 3,
+        r: color[0], g: color[1], b: color[2], a: 0.95,
+        drag: 0,
+        streak: true,
       });
     }
   }

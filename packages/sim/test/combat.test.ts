@@ -4,7 +4,7 @@ import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map/core.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
-import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data/index.ts';
+import { DamageType, Kind, Order, ProjectilePresentation, Tech, Units, bwRange, computeDamage, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, distanceSq, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
@@ -392,6 +392,18 @@ test('valkyrie multi-missile air splash damages nearby air units', () => {
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'attack', ok: true }]);
   assert.ok(e.hp[slotOf(splashAir)]! < airHp);
+});
+
+test('missile-style weapons declare renderer projectile presentation without changing damage data', () => {
+  assert.equal(Units[Kind.Goliath]!.airWeapon?.presentation, ProjectilePresentation.Missile);
+  assert.equal(Units[Kind.Wraith]!.airWeapon?.presentation, ProjectilePresentation.Missile);
+  assert.equal(Units[Kind.MissileTurret]!.airWeapon?.presentation, ProjectilePresentation.Missile);
+  assert.equal(Units[Kind.Scout]!.airWeapon?.presentation, ProjectilePresentation.Photon);
+  assert.equal(Units[Kind.Corsair]!.airWeapon?.presentation, ProjectilePresentation.Photon);
+  assert.equal(Units[Kind.SporeColony]!.airWeapon?.presentation, ProjectilePresentation.Spore);
+  assert.equal(Units[Kind.Valkyrie]!.airWeapon?.presentation, ProjectilePresentation.ValkyrieVolley);
+  assert.equal(Units[Kind.Valkyrie]!.airWeapon?.shots, 8);
+  assert.equal(Units[Kind.Marine]!.weapon?.presentation, undefined);
 });
 
 test('devourer attacks apply acid spores that amplify later damage', () => {

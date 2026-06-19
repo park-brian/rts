@@ -146,3 +146,14 @@ test('renderers draw persistent spell fields from sim descriptors', () => {
   assert.match(gl, /fieldAffordances/);
   assert.match(gl, /effectFields\(game\)/);
 });
+
+test('GL renderer draws weapon projectile presentation from sim descriptors', () => {
+  const gl = readFileSync(resolve(appRoot, 'src', 'gl', 'renderer.ts'), 'utf8');
+  const particles = readFileSync(resolve(appRoot, 'src', 'gl', 'particles.ts'), 'utf8');
+
+  assert.match(gl, /weaponForTarget/);
+  assert.match(gl, /e\.combatTarget\[slot\]/);
+  assert.match(gl, /weapon\?\.presentation/);
+  assert.match(gl, /emitProjectileVolley/);
+  assert.match(particles, /emitProjectileVolley/);
+});

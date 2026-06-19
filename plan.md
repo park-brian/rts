@@ -335,7 +335,12 @@ Remaining work:
   - Nuke presentation source affordance slice is done: descriptors now expose launch source
     coordinates only to allied/observer views, and both renderers draw the same target warning plus
     non-leaking source vector.
-  - Remaining: missile travel presentation and Valkyrie volley timing/visualization.
+  - Missile/Valkyrie presentation slice is done: missile-style weapons now carry renderer-only
+    projectile descriptors, GL fire events resolve `combatTarget` before command targets, and
+    visible missile/projectile weapons draw deterministic travel streaks including Valkyrie volleys
+    without adding gameplay travel-time state.
+  - Remaining: add true gameplay travel-time missiles only if a sourced BW mechanic needs projectile
+    interception, dodge windows, or delayed damage beyond Scarabs/Interceptors.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.
 - Expand procedural maps beyond the ground-connected presets with later island variants once
