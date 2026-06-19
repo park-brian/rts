@@ -437,6 +437,8 @@ Done when:
   a runtime system.
 - Moved shared resource/gather-target legality under `mechanics/resources.ts`, giving harvest,
   rally, command validation, worker phasing, and production rally one resource-rule owner.
+- Moved shared travel-order issuance under `commands/travel.ts`, so move, attack-move, smart
+  travel, follow endpoints, and production rally orders share command-owned semantics.
 
 ## Review Checklist
 

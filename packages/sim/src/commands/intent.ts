@@ -10,7 +10,7 @@ import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from '../rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
-import type { TravelEndpoint, TravelIntent } from '../travel-intent.ts';
+import type { TravelEndpoint, TravelIntent } from './travel.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
 import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
 import { validateCommand } from './validate.ts';

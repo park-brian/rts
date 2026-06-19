@@ -3,7 +3,7 @@ import { isContained, loadUnitInto, withinLoadRange } from '../../cargo.ts';
 import type { State } from '../../entity/world.ts';
 import { eid, NONE } from '../../entity/world.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../../spatial/movement-slots.ts';
-import { issueTravelOrder } from '../../travel-intent.ts';
+import { issueTravelOrder } from '../../commands/travel.ts';
 import { producedUnitRallyIntent } from '../../commands/intent.ts';
 import { pickPatch } from '../harvest.ts';
 

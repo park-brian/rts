@@ -5,7 +5,7 @@ import { commandMoveSpeed } from '../terran-mobility.ts';
 import { isGatherTargetSlot } from '../mechanics/resources.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, slotOf } from '../entity/world.ts';
-import { issueTravelOrder } from '../travel-intent.ts';
+import { issueTravelOrder } from './travel.ts';
 import {
   canReceiveOrder,
   cancelPendingBeforeOrder,
