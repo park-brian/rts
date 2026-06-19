@@ -435,8 +435,12 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
 };
 
 export const riskAt = (risk: BotRiskMap, x: number, y: number): number => {
-  if (risk.values.length === 0) return 0;
-  return risk.values[tileCoord(y, risk.h) * risk.w + tileCoord(x, risk.w)]!;
+  return riskAtLayer(risk, risk.values, x, y);
+};
+
+export const riskAtLayer = (risk: BotRiskMap, layer: Int16Array, x: number, y: number): number => {
+  if (layer.length === 0) return 0;
+  return layer[tileCoord(y, risk.h) * risk.w + tileCoord(x, risk.w)]!;
 };
 
 const omittedRiskMap = (s: State): BotRiskMap => ({
@@ -555,7 +559,7 @@ export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalInci
     const kind = enemyThreatKind(s, enemies);
     incidents.push({
       kind,
-      severity: 100 + enemies.length * 25 + incidentKindBonus(kind) + riskAt(facts.risk, x, y),
+      severity: 100 + enemies.length * 25 + incidentKindBonus(kind) + riskAtLayer(facts.risk, facts.risk.antiGround, x, y),
       x,
       y,
       base,

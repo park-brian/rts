@@ -289,6 +289,30 @@ test('bot risk map exposes ground, air, and detection layers separately', () => 
   assert.equal(risk.values[detectorIdx]!, 0);
 });
 
+test('bot base incident severity uses ground threat risk instead of aggregate air-only risk', () => {
+  const airScenario = botScenario({ seed: 804, factions: [Zerg, Terran] });
+  const airBase = airScenario.entity(Kind.Hatchery, 0);
+  const airBasePos = airScenario.pos(airBase);
+  airScenario.spawn(Kind.Valkyrie, 1, airBasePos.x + fx(40), airBasePos.y);
+
+  const airIncident = deriveTacticalIncidents(
+    airScenario.state,
+    collectBotFacts(airScenario.state, 0, Zerg),
+  )[0]!;
+  assert.equal(airIncident.severity, 125);
+
+  const groundScenario = botScenario({ seed: 805, factions: [Zerg, Terran] });
+  const groundBase = groundScenario.entity(Kind.Hatchery, 0);
+  const groundBasePos = groundScenario.pos(groundBase);
+  groundScenario.spawn(Kind.Marine, 1, groundBasePos.x + fx(40), groundBasePos.y);
+
+  const groundIncident = deriveTacticalIncidents(
+    groundScenario.state,
+    collectBotFacts(groundScenario.state, 0, Zerg),
+  )[0]!;
+  assert.ok(groundIncident.severity > airIncident.severity);
+});
+
 test('bot facts count completed and pending structures for rebuild planning', () => {
   const { scenario, base } = zergBuildScenario(801);
   const drone = scenario.spawn(Kind.Drone, 0, base.x - fx(32), base.y);

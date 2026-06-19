@@ -432,6 +432,12 @@ Remaining work:
   arbitrates scarce resources and actors, and executors emit validated game commands. Use that
   architecture, but keep it deterministic, typed-array friendly where it touches hot sim data, and
   much smaller than a general behavior-tree framework.
+  The useful lesson from SC2 bot architecture is not "add a framework"; it is "separate facts,
+  proposals, scheduling, and execution." Tournament-style scripted bots usually have map analysis,
+  scouting memory, build-order/economy managers, army/combat managers, and micro helpers, while
+  research agents often keep the same module boundary and learn only the expensive strategic pieces.
+  Our version should stay smaller: one facts pass, several pure directors, one deterministic
+  scheduler/reservation pass, and thin validator-backed executors.
   - `BotFacts`: a cheap per-tick summary derived from `State`, not a second sim. It should include
     own bases, workers, larvae, idle production, supply, resources, tech/producers, available army,
     local threats, visible enemy composition, last-known enemy positions, inferred invisible threats,
@@ -446,6 +452,19 @@ Remaining work:
     worker/build intents should avoid sending builders through known kill zones when alternatives
     exist. Unknown fog is not safe: later memory should layer last-seen and suspected invisible risk
     onto the visible matrix with deterministic decay.
+    - Treat the risk matrix as a small set of map-space fields, all derived from observed or
+      remembered facts: aggregate weapon risk, anti-ground, anti-air, detection, suspected-invisible,
+      protected asset value, friendly response coverage, route congestion, and unknown-fog penalty.
+      Fields should be tile-aligned, integer-valued, deterministic, and optional per caller; normal
+      macro generation can request omitted risk, while expansion, scouting, and tactics opt into
+      the layers they consume. Never make field values authoritative legality; they score choices
+      that still go through pathing and command validation.
+    - Risk is consumed through named questions instead of raw array reads in directors: "is this
+      expansion site safe enough to reserve?", "is there a low-risk route for a worker?", "does this
+      enemy threaten air, ground, or both?", "is this invisible/suspected threat already covered by
+      detection?", "can the local response group arrive before the asset dies?", and "would this
+      attack wave cross a stronger field than it projects?" Those helpers keep the bot explainable
+      and prevent every director from inventing its own risk arithmetic.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
@@ -465,6 +484,19 @@ Remaining work:
       response coverage falling behind enemy threat projection; a trap is route risk rising faster
       than army value can clear it; sieged units are static long-range fields that favor contain,
       flank, or spell responses over walking directly through the field.
+    - Response choice should be a small decision table over the same incident features. If the
+      threat is air-carried, prefer anti-air interception before ground defense. If the threat is
+      invisible or damage arrives without a visible enemy, reserve detector plus guard. If enemy
+      range/control dominates the direct route, contain, flank, or cast instead of walking into it.
+      If time-to-impact is shorter than army arrival, evacuate workers or pull local emergency
+      defenders. If the enemy overcommits far away and home risk stays bounded, counterattack with
+      uncommitted army instead of collapsing every unit home.
+    - Unforeseen conditions should become memory entries with expiry rather than permanent
+      special cases: an expansion blocked by a burrowed/cloaked unit becomes a suspected blocker
+      region that requests detection or clear-site; a failed worker route raises route risk; vanished
+      drops decay into last-seen transport risk; repeated harassment increases protected value and
+      response coverage around that region. The scheduler can then pick a response based on current
+      urgency and reserves, not the one command that happened to fail.
     - The controller should reserve actors by commitment, not merely issue commands. A defender
       committed to a base incident should be unavailable to a harassment or attack-wave director
       until the incident expires, resolves, or is reprioritized. This is the bridge from the current
@@ -514,6 +546,10 @@ Remaining work:
       severity scoring plus separate anti-ground, anti-air, and detector coverage layers, with cheap
       omitted-risk arrays for normal bot generation and tests proving ground-only, air-only, and
       detector-only threats stay distinct.
+    - First risk-consumer slice is done: base incident severity now reads the anti-ground layer, so
+      air-only weapons near a base are still visible facts but no longer inflate ground-asset danger.
+      `riskAtLayer` is the intended helper shape for future named questions instead of raw array
+      reads throughout directors.
       Remaining layers should be added only with consumers: suspected invisible risk from damage
       memory, protected-asset value for defense/evacuation, friendly response coverage for engage
       decisions, route congestion for scouting/retreat, and unknown-fog penalty for expansion and
