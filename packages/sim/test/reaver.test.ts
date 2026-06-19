@@ -15,8 +15,7 @@ import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
 } from '../src/mechanics/internal-products.ts';
 import {
-  ActorDefs, actorDef, childActorDef, isExternallySteeredActor,
-  isExternallySteeredChild, participatesInNormalCombat,
+  ActorDefs, actorDef, isExternallySteeredActor, participatesInNormalCombat,
 } from '../src/mechanics/actors.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
@@ -73,15 +72,14 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(new Set(ActorDefs.map((def) => def.kind)).size, ActorDefs.length);
   assert.equal(actorDef(Kind.Scarab)?.lifecycle, 'seek-impact');
   assert.equal(actorDef(Kind.Scarab)?.steering, 'seek-impact');
-  assert.equal(childActorDef(Kind.Scarab)?.commandable, false);
+  assert.equal(actorDef(Kind.Scarab)?.commandable, false);
   assert.equal(participatesInNormalCombat(Kind.Scarab), false);
-  assert.equal(isExternallySteeredChild(Kind.Scarab, NONE), false);
+  assert.equal(isExternallySteeredActor(Kind.Scarab, NONE), false);
   assert.equal(actorDef(Kind.Interceptor)?.lifecycle, 'sortie-return');
   assert.equal(actorDef(Kind.Interceptor)?.steering, 'orbit-target');
-  assert.equal(childActorDef(Kind.Interceptor)?.commandable, false);
+  assert.equal(actorDef(Kind.Interceptor)?.commandable, false);
   assert.equal(participatesInNormalCombat(Kind.Interceptor), true);
   assert.equal(isExternallySteeredActor(Kind.Interceptor, 123), true);
-  assert.equal(isExternallySteeredChild(Kind.Interceptor, 123), true);
   assert.equal(actorDef(Kind.Marine), undefined);
 
   assert.equal(weaponMechanicDef(Kind.Lurker)?.onHit, WeaponMechanic.LurkerLineSplash);

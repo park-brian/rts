@@ -3,7 +3,7 @@ import { ONE } from '../fixed.ts';
 import {
   actorMinReadableScreenRadius,
   actorPresentation,
-  type ChildActorPresentation,
+  type ActorPresentation,
 } from '../mechanics/actors.ts';
 import { canDetect, isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
@@ -195,8 +195,8 @@ export type IllusionPresentation = {
   tint: readonly [number, number, number];
 };
 
-export type ChildActorRenderPresentation = {
-  role: ChildActorPresentation;
+export type ActorRenderPresentation = {
+  role: ActorPresentation;
   radius: number;
   minimapVisible: boolean;
 };
@@ -277,11 +277,11 @@ export const illusionPresentation = (s: State, viewer: number, slot: number): Il
     : { known: false, labelPrefix: '', alpha: 1, tint: [1, 1, 1] };
 };
 
-export const childActorRenderPresentation = (
+export const actorRenderPresentation = (
   kind: number,
   gameplayRadius: number,
   zoom: number,
-): ChildActorRenderPresentation => {
+): ActorRenderPresentation => {
   const role = actorPresentation(kind);
   const minScreenRadius = actorMinReadableScreenRadius(kind);
   const radius = minScreenRadius === undefined

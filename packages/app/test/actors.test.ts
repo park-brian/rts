@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import {
-  childActorRenderPresentation,
+  actorDef,
+  actorRenderPresentation,
   isUserCommandableKind,
-  Kind, ONE, childActorDef, eid, fx, slotOf, spawnUnit,
+  Kind, ONE, eid, fx, slotOf, spawnUnit,
 } from '../src/sim.ts';
 
 const screenOf = (g: Game, id: number): { x: number; y: number } => {
@@ -16,17 +17,17 @@ const screenOf = (g: Game, id: number): { x: number; y: number } => {
   };
 };
 
-test('projectile child actor presentation stays readable without changing gameplay radius', () => {
-  assert.equal(childActorRenderPresentation(Kind.Scarab, 3, 0.5).role, 'projectile');
-  assert.equal(childActorRenderPresentation(Kind.Interceptor, 3, 0.5).role, 'unit');
-  assert.equal(childActorDef(Kind.Scarab)?.presentation, 'projectile');
-  assert.equal(childActorDef(Kind.Interceptor)?.commandable, false);
-  assert.equal(childActorRenderPresentation(Kind.Scarab, 3, 0.5).radius, 10);
-  assert.equal(childActorRenderPresentation(Kind.Marine, 8, 0.5).radius, 8);
-  assert.equal(childActorRenderPresentation(Kind.Scarab, 3, 0.5).minimapVisible, false);
+test('projectile actor presentation stays readable without changing gameplay radius', () => {
+  assert.equal(actorRenderPresentation(Kind.Scarab, 3, 0.5).role, 'projectile');
+  assert.equal(actorRenderPresentation(Kind.Interceptor, 3, 0.5).role, 'unit');
+  assert.equal(actorDef(Kind.Scarab)?.presentation, 'projectile');
+  assert.equal(actorDef(Kind.Interceptor)?.commandable, false);
+  assert.equal(actorRenderPresentation(Kind.Scarab, 3, 0.5).radius, 10);
+  assert.equal(actorRenderPresentation(Kind.Marine, 8, 0.5).radius, 8);
+  assert.equal(actorRenderPresentation(Kind.Scarab, 3, 0.5).minimapVisible, false);
 });
 
-test('internal child actors do not steal selection hit tests', () => {
+test('internal actors do not steal selection hit tests', () => {
   assert.equal(isUserCommandableKind(Kind.Scarab), false);
   assert.equal(isUserCommandableKind(Kind.Interceptor), false);
   assert.equal(isUserCommandableKind(Kind.Larva), true);

@@ -55,11 +55,3 @@ export const actorPresentation = (kind: number): ActorPresentation =>
 
 export const actorMinReadableScreenRadius = (kind: number): number | undefined =>
   actorDef(kind)?.minReadableScreenRadius;
-
-// Compatibility names for the current command/render surface. These stay here,
-// in the actor owner, until callers migrate to actor terminology.
-export type ChildActorPresentation = ActorPresentation;
-export type ChildActorDef = ActorDef;
-export const ChildActorDefs = ActorDefs;
-export const childActorDef = actorDef;
-export const isExternallySteeredChild = isExternallySteeredActor;

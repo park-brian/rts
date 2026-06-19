@@ -14,7 +14,7 @@
 
 import {
   TILE, ONE, Units, Role, Kind, ResourceType, CAP, NONE, eid, slotOf, isAlive,
-  resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
+  resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull, illusionPresentation,
   selectionBase, weaponForTarget, type Entities, type MapDef,
 } from '../sim.ts';
 import type { Game } from '../game.ts';
@@ -391,9 +391,9 @@ export class GlRenderer {
       } else if (isGeyser || def.resourceType === ResourceType.Gas) {
         this.fx.push(baseX, baseY - r * 0.3, r * 2.4, r * 2.4, 0, glow, 0.3, 0.95, 0.4, 0.12, 0, 0, 0);
       } else {
-        const childPresentation = childActorRenderPresentation(kind, r, game.zoom);
-        if (childPresentation.role === 'projectile') {
-          const glowR = childPresentation.radius;
+        const actorPresentation = actorRenderPresentation(kind, r, game.zoom);
+        if (actorPresentation.role === 'projectile') {
+          const glowR = actorPresentation.radius;
           this.fx.push(wx, wy, glowR * 3, glowR * 3, 0, glow, 1, 0.75, 0.2, 0.32, 0, 0, 0);
         }
       }

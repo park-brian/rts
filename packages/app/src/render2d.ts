@@ -4,7 +4,7 @@
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
+  requiresPower, requiresCreep, providesCreep, actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
   illusionPresentation, queuedTravelWaypoints, selectionBase, type MapDef, type QueuedTravelWaypoint,
 } from './sim.ts';
 import type { Game } from './game.ts';
@@ -181,10 +181,10 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.globalAlpha = 1;
     } else {
       const r = def.radius / ONE;
-      const childPresentation = childActorRenderPresentation(kind, r, game.zoom);
-      const projectile = childPresentation.role === 'projectile';
+      const actorPresentation = actorRenderPresentation(kind, r, game.zoom);
+      const projectile = actorPresentation.role === 'projectile';
       if (projectile) {
-        const glowR = childPresentation.radius;
+        const glowR = actorPresentation.radius;
         ctx.globalAlpha = alpha * 0.42;
         ctx.fillStyle = 'rgba(255,210,78,0.5)';
         ctx.beginPath();
