@@ -209,6 +209,9 @@ const spawnZergTechChain = (scenario: BotScenario, base: { x: number; y: number 
   kinds.forEach((kind, i) => scenario.spawn(kind, 0, base.x + fx(120 + i * 40), base.y));
 };
 
+const riskIndex = (risk: ReturnType<typeof collectBotFacts>['risk'], x: number, y: number): number =>
+  tileY(y) * risk.w + tileX(x);
+
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
   const scenario = botScenario({ seed: 800, factions: [Zerg, Terran] });
   const hatchery = scenario.entity(Kind.Hatchery, 0);
@@ -258,7 +261,32 @@ test('bot risk uses visible-map enemies when fog tracking is active', () => {
   const cheapFacts = collectBotFacts(scenario.state, 0, Zerg, { risk: 'none' });
   assert.equal(cheapFacts.risk.vision, 'omitted');
   assert.equal(cheapFacts.risk.values.length, 0);
+  assert.equal(cheapFacts.risk.antiGround.length, 0);
+  assert.equal(cheapFacts.risk.antiAir.length, 0);
+  assert.equal(cheapFacts.risk.detection.length, 0);
   assert.equal(deriveTacticalIncidents(scenario.state, cheapFacts)[0]!.severity, 125);
+});
+
+test('bot risk map exposes ground, air, and detection layers separately', () => {
+  const scenario = botScenario({ seed: 803, factions: [Zerg, Terran] });
+  const firebat = scenario.spawn(Kind.Firebat, 1, fx(200), fx(200));
+  const valkyrie = scenario.spawn(Kind.Valkyrie, 1, fx(500), fx(200));
+  const vessel = scenario.spawn(Kind.ScienceVessel, 1, fx(800), fx(200));
+
+  const facts = collectBotFacts(scenario.state, 0, Zerg);
+  const risk = facts.risk;
+  const groundIdx = riskIndex(risk, scenario.pos(firebat).x, scenario.pos(firebat).y);
+  const airIdx = riskIndex(risk, scenario.pos(valkyrie).x, scenario.pos(valkyrie).y);
+  const detectorIdx = riskIndex(risk, scenario.pos(vessel).x, scenario.pos(vessel).y);
+
+  assert.ok(risk.values[groundIdx]! > 0);
+  assert.ok(risk.antiGround[groundIdx]! > 0);
+  assert.equal(risk.antiAir[groundIdx]!, 0);
+  assert.ok(risk.values[airIdx]! > 0);
+  assert.ok(risk.antiAir[airIdx]! > 0);
+  assert.equal(risk.antiGround[airIdx]!, 0);
+  assert.ok(risk.detection[detectorIdx]! > 0);
+  assert.equal(risk.values[detectorIdx]!, 0);
 });
 
 test('bot facts count completed and pending structures for rebuild planning', () => {

@@ -510,6 +510,14 @@ Remaining work:
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
     implementation as a compact visible/god weapon-risk map, then add layers only when a director
     consumes them and tests prove the behavior.
+    - First layered-risk slice is done: `BotRiskMap` now keeps aggregate weapon risk for existing
+      severity scoring plus separate anti-ground, anti-air, and detector coverage layers, with cheap
+      omitted-risk arrays for normal bot generation and tests proving ground-only, air-only, and
+      detector-only threats stay distinct.
+      Remaining layers should be added only with consumers: suspected invisible risk from damage
+      memory, protected-asset value for defense/evacuation, friendly response coverage for engage
+      decisions, route congestion for scouting/retreat, and unknown-fog penalty for expansion and
+      harassment planning.
   - Tactical responses should use hysteresis and expiry. A drop or Nydus breach should keep a
     defense intent alive long enough for units to arrive; a vanished threat should decay into
     scout/detection memory rather than instantly pulling every defender home forever. This prevents

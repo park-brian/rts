@@ -21,6 +21,7 @@ import {
   type Controller,
   type Faction,
   type State,
+  type Weapon,
 } from '@rts/sim';
 
 export type BotFailureReason =
@@ -99,6 +100,9 @@ export type BotRiskMap = {
   w: number;
   h: number;
   values: Int16Array;
+  antiGround: Int16Array;
+  antiAir: Int16Array;
+  detection: Int16Array;
   visible: Uint8Array;
   vision: 'visible' | 'omniscient' | 'omitted';
 };
@@ -187,6 +191,9 @@ const weaponRisk = (kind: number): { range: number; score: number } => {
   }
   return { range, score };
 };
+
+const weaponScore = (weapon: Weapon): number =>
+  weapon.damage * (weapon.shots ?? 1);
 
 const incidentKindBonus = (kind: TacticalIncidentKind): number => {
   switch (kind) {
@@ -389,13 +396,12 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
   }
 
   const values = new Int16Array(w * h);
-  const e = s.e;
-  for (const enemy of enemies) {
-    const risk = weaponRisk(e.kind[enemy]!);
-    if (risk.range <= 0 || risk.score <= 0) continue;
-    const cx = e.x[enemy]!;
-    const cy = e.y[enemy]!;
-    const radiusTiles = Math.ceil(risk.range / (TILE * ONE)) + 1;
+  const antiGround = new Int16Array(w * h);
+  const antiAir = new Int16Array(w * h);
+  const detection = new Int16Array(w * h);
+  const addLayer = (layer: Int16Array, cx: number, cy: number, range: number, score: number): void => {
+    if (range <= 0 || score <= 0) return;
+    const radiusTiles = Math.ceil(range / (TILE * ONE)) + 1;
     const tx0 = Math.max(0, tileCoord(cx, w) - radiusTiles);
     const tx1 = Math.min(w - 1, tileCoord(cx, w) + radiusTiles);
     const ty0 = Math.max(0, tileCoord(cy, h) - radiusTiles);
@@ -404,13 +410,28 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
       for (let tx = tx0; tx <= tx1; tx++) {
         const idx = ty * w + tx;
         if (visible[idx] !== 1) continue;
-        if (!withinRangeSq(cx, cy, tileCenter(tx), tileCenter(ty), risk.range)) continue;
-        values[idx] = Math.min(32_767, values[idx]! + risk.score);
+        if (!withinRangeSq(cx, cy, tileCenter(tx), tileCenter(ty), range)) continue;
+        layer[idx] = Math.min(32_767, layer[idx]! + score);
       }
+    }
+  };
+
+  const e = s.e;
+  for (const enemy of enemies) {
+    const def = Units[e.kind[enemy]!]!;
+    const risk = weaponRisk(e.kind[enemy]!);
+    const cx = e.x[enemy]!;
+    const cy = e.y[enemy]!;
+
+    addLayer(values, cx, cy, risk.range, risk.score);
+    if (def.weapon) addLayer(antiGround, cx, cy, def.weapon.range, weaponScore(def.weapon));
+    if (def.airWeapon) addLayer(antiAir, cx, cy, def.airWeapon.range, weaponScore(def.airWeapon));
+    if ((unitTraits(e.kind[enemy]!) & Trait.Detector) !== 0) {
+      addLayer(detection, cx, cy, def.sight * TILE * ONE, 1);
     }
   }
 
-  return { w, h, values, visible, vision: s.trackVision ? 'visible' : 'omniscient' };
+  return { w, h, values, antiGround, antiAir, detection, visible, vision: s.trackVision ? 'visible' : 'omniscient' };
 };
 
 export const riskAt = (risk: BotRiskMap, x: number, y: number): number => {
@@ -422,6 +443,9 @@ const omittedRiskMap = (s: State): BotRiskMap => ({
   w: s.map.w,
   h: s.map.h,
   values: EMPTY_I16,
+  antiGround: EMPTY_I16,
+  antiAir: EMPTY_I16,
+  detection: EMPTY_I16,
   visible: EMPTY_U8,
   vision: 'omitted',
 });
