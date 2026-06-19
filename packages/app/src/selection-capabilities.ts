@@ -2,7 +2,7 @@ import {
   Abilities, Ability, Kind, NONE, Role, TechDefs, Units,
   addonParentKind, canWorkerStartStructure, eid, isAlive,
   addonSelectionCandidates, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf, transformTargetsFor,
-  researchSelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  researchSelectionCandidates, selfAbilitySelectionCandidates, trainSelectionCandidates, transformSelectionCandidates, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -103,21 +103,6 @@ const addWorkerBuildOptions = (
         : { ok: true }, { arm: { t: 'place', kind: build } });
     }
   }
-};
-
-const abilityCommandsForSelection = (
-  s: State,
-  player: number,
-  selected: readonly number[],
-  ability: number,
-): Command[] => {
-  const e = s.e;
-  const commands: Command[] = [];
-  for (const id of selected) {
-    const command: Command = { t: 'ability', unit: id, ability };
-    if (isAlive(e, id) && validateCommand(s, player, command).ok) commands.push(command);
-  }
-  return commands;
 };
 
 const abilityArm = (ability: number): ArmedCommand => ({ t: 'ability', ability });
@@ -289,7 +274,7 @@ export const selectionCapabilities = (
     if (!option.ok) continue;
     const ability = Abilities[option.id];
     if (!ability) continue;
-    if (ability.target === 'self') option.commands = abilityCommandsForSelection(s, player, selected, option.id);
+    if (ability.target === 'self') option.commands = selfAbilitySelectionCandidates(s, player, selected, option.id);
     else option.arm = abilityArm(option.id);
   }
 

@@ -1498,6 +1498,9 @@ Rework slices:
    - Research option execution candidates now resolve through `researchSelectionCandidates`, preserving
      first-valid selected producer choice in the sim command-intent layer while app code keeps research
      visibility and disabled reasons.
+   - Self-targeted ability execution candidates now resolve through `selfAbilitySelectionCandidates`,
+     so grouped caster fan-out and validation filtering live in the sim command-intent layer while
+     targeted abilities remain app-armed target modes.
 4. Split validation by command family without changing the public API.
    - Keep `validateCommand(s, player, cmd)` as the only external entry point.
    - Move internals into movement, attack, gather, build, production, research, ability, cargo, rally,

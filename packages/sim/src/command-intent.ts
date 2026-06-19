@@ -1,5 +1,5 @@
 import type { Command } from './commands.ts';
-import { ResourceType, Role, Units } from './data.ts';
+import { Abilities, ResourceType, Role, Units } from './data.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
 import {
@@ -303,6 +303,23 @@ export const researchSelectionCandidates = (
     if (validateCommand(s, player, command).ok) return [command];
   }
   return [];
+};
+
+export const selfAbilitySelectionCandidates = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+  ability: number,
+): Command[] => {
+  if (Abilities[ability]?.target !== 'self') return [];
+  const e = s.e;
+  const commands: Command[] = [];
+  for (const unit of selected) {
+    if (!isAlive(e, unit)) continue;
+    const command: Command = { t: 'ability', unit, ability };
+    if (validateCommand(s, player, command).ok) commands.push(command);
+  }
+  return commands;
 };
 
 export const rallyModeCandidates = (

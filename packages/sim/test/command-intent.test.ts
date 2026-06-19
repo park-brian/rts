@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Tech, TILE, Units } from '../src/data.ts';
+import { Ability, Kind, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
   addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
-  rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, smartCommandCandidates,
+  rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, transformSelectionCandidates,
   unloadSelectionCandidates,
 } from '../src/command-intent.ts';
@@ -302,6 +302,25 @@ test('research command-card candidates choose the first valid selected producer'
     { t: 'research', building: idle, tech: Tech.StimPack },
   ]);
   assert.deepEqual(researchSelectionCandidates(s, 0, [barracks], Tech.StimPack), []);
+});
+
+test('self ability command-card candidates include every valid selected caster', () => {
+  const s = makeState(open(), 1, 1233);
+  const validMarine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
+  const hurtMarine = spawnUnit(s, Kind.Marine, 0, tc(10), tc(8));
+  const validFirebat = spawnUnit(s, Kind.Firebat, 0, tc(12), tc(8));
+  const medic = spawnUnit(s, Kind.Medic, 0, tc(14), tc(8));
+  s.e.hp[slotOf(hurtMarine)] = 10;
+  setTechLevel(s, 0, Tech.StimPack, 1);
+
+  assert.deepEqual(
+    selfAbilitySelectionCandidates(s, 0, [validMarine, hurtMarine, medic, validFirebat], Ability.StimPack),
+    [
+      { t: 'ability', unit: validMarine, ability: Ability.StimPack },
+      { t: 'ability', unit: validFirebat, ability: Ability.StimPack },
+    ],
+  );
+  assert.deepEqual(selfAbilitySelectionCandidates(s, 0, [validMarine], Ability.PsionicStorm), []);
 });
 
 test('armed rally mode targets valid friendly units and gather targets', () => {

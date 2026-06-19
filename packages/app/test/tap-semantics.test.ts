@@ -595,13 +595,21 @@ test('box select prefers units but falls back to buildings when no units are ins
 
 test('self abilities queue for every valid selected caster', () => {
   const g = freshGame();
-  const marine = spawnUnit(g.sim.fullState(), Kind.Marine, 0, fx(400), fx(400));
-  setTechLevel(g.sim.fullState(), 0, Tech.StimPack, 1);
-  select(g, [marine]);
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const hurtMarine = spawnUnit(s, Kind.Marine, 0, fx(430), fx(400));
+  const firebat = spawnUnit(s, Kind.Firebat, 0, fx(460), fx(400));
+  const medic = spawnUnit(s, Kind.Medic, 0, fx(490), fx(400));
+  s.e.hp[slotOf(hurtMarine)] = 10;
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  select(g, [marine, hurtMarine, firebat, medic]);
 
   g.castSelectedAbility(Ability.StimPack);
 
-  assert.deepEqual(g.queued, [{ t: 'ability', unit: marine, ability: Ability.StimPack }]);
+  assert.deepEqual(g.queued, [
+    { t: 'ability', unit: marine, ability: Ability.StimPack },
+    { t: 'ability', unit: firebat, ability: Ability.StimPack },
+  ]);
 });
 
 test('entity ability target mode consumes owned-entity taps instead of selecting', () => {
