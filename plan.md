@@ -743,6 +743,10 @@ Remaining work:
       for resource starvation, supply blocks, and occupied producer capacity. Remaining work:
       supply/build, research, add-on, morph, and tech-structure directors still need explicit
       outcomes where they are actionable.
+    - Research-outcome slice is done: research intents now carry `targetTech`, and the research macro
+      reports waiting outcomes for missing prerequisite producers, resource starvation, and occupied
+      research capacity when it cannot queue any upgrade/spell research. Remaining work: supply/build,
+      add-on, morph, and tech-structure directors still need explicit outcomes where actionable.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

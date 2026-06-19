@@ -38,6 +38,7 @@ export type BotIntent = {
   urgency: number;
   expiresAt?: number;
   targetKind?: number;
+  targetTech?: number;
   targetSlot?: number;
   x?: number;
   y?: number;

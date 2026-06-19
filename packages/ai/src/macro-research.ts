@@ -1,6 +1,7 @@
 import {
   Tech,
   TechDefs,
+  Kind,
   eid,
   getTechLevel,
   nextTechLevel,
@@ -12,6 +13,7 @@ import {
   type State,
 } from '@rts/sim';
 import { type ResourceBudget } from './macro-build.ts';
+import type { BotFailureReason } from './macro-intents.ts';
 import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
 
 const TERRAN_RESEARCH_MACRO = [
@@ -104,6 +106,11 @@ const researchMacro = (faction: Faction): readonly number[] => {
   return [];
 };
 
+export type ResearchBlock = {
+  tech: number;
+  reason: BotFailureReason;
+};
+
 export const maybeQueueRaceResearch = (
   s: State,
   player: number,
@@ -111,11 +118,16 @@ export const maybeQueueRaceResearch = (
   cmds: Command[],
   budget: ResourceBudget,
   reserved?: ProducerReservations,
-): void => {
+): ResearchBlock | null => {
   const producerReservations = faction.name === 'Terran' ? reserved : undefined;
+  let firstBlock: ResearchBlock | null = null;
   for (const tech of researchMacro(faction)) {
-    if (maybeQueueResearch(s, player, cmds, budget, tech, producerReservations)) return;
+    if (maybeQueueResearch(s, player, cmds, budget, tech, producerReservations)) return null;
+    const block = researchBlockReason(s, player, budget, tech, producerReservations);
+    if (block === null) continue;
+    firstBlock ??= block;
   }
+  return firstBlock;
 };
 
 const maybeQueueResearch = (
@@ -147,4 +159,44 @@ const maybeQueueResearch = (
     return true;
   }
   return false;
+};
+
+const researchBlockReason = (
+  s: State,
+  player: number,
+  budget: ResourceBudget,
+  tech: number,
+  reserved?: ProducerReservations,
+): ResearchBlock | null => {
+  const def = TechDefs[tech];
+  if (!def) return null;
+  if (getTechLevel(s, player, tech) >= def.maxLevel) return null;
+  const level = nextTechLevel(s, player, tech);
+  const minerals = techMinerals(def, level);
+  const gas = techGas(def, level);
+
+  const e = s.e;
+  let sawProducer = false;
+  let sawAvailableProducer = false;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
+    sawProducer = true;
+    if ((reserved && producerReserved(s, reserved, i)) || e.researchKind[i] !== Kind.None) continue;
+    sawAvailableProducer = true;
+    if (budget.minerals < minerals || budget.gas < gas) return { tech, reason: 'resource-starved' };
+    const result = validateCommand(s, player, { t: 'research', building: eid(e, i), tech });
+    if (result.ok) return null;
+    switch (result.reason) {
+      case 'not-affordable': return { tech, reason: 'resource-starved' };
+      case 'missing-requirement': return { tech, reason: 'missing-prerequisite' };
+      case 'queue-full':
+      case 'incomplete-producer':
+      case 'missing-capability':
+        return { tech, reason: 'no-production-capacity' };
+      default:
+        break;
+    }
+  }
+  if (!sawProducer) return { tech, reason: 'missing-prerequisite' };
+  return { tech, reason: sawAvailableProducer ? 'missing-prerequisite' : 'no-production-capacity' };
 };

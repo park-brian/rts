@@ -92,7 +92,7 @@ const commandMacroIntent = (command: Command, faction: Faction): BotIntent | nul
     case 'addon':
       return { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: command.kind };
     case 'research':
-      return { kind: 'research-upgrade', urgency: intentUrgency('research-upgrade') };
+      return { kind: 'research-upgrade', urgency: intentUrgency('research-upgrade'), targetTech: command.tech };
     case 'train': {
       const kind = trainIntentKind(command.kind, faction);
       if (kind === 'train-counter' && command.kind !== faction.armyUnit) return null;
@@ -116,7 +116,7 @@ export const macroIntentsFromCommands = (
   for (const command of commands) {
     const intent = commandMacroIntent(command, faction);
     if (!intent) continue;
-    const key = `${intent.kind}:${intent.targetKind ?? NONE}:${intent.x ?? NONE}:${intent.y ?? NONE}`;
+    const key = `${intent.kind}:${intent.targetKind ?? NONE}:${intent.targetTech ?? NONE}:${intent.x ?? NONE}:${intent.y ?? NONE}`;
     if (seen.has(key)) continue;
     seen.add(key);
     intents.push(intent);
@@ -226,7 +226,17 @@ export const scheduleBotMacro = (
 
   maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
   maybeQueueZergMorphs(s, player, faction, cmds, budget);
-  maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
+  const researchBlock = maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
+  if (researchBlock) {
+    intentResults.push({
+      intent: {
+        kind: 'research-upgrade',
+        urgency: intentUrgency('research-upgrade'),
+        targetTech: researchBlock.tech,
+      },
+      result: { status: 'waiting', reason: researchBlock.reason },
+    });
+  }
 
   const armyCommandStart = cmds.length;
   for (const producer of armyProducer) {

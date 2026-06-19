@@ -257,6 +257,7 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   ]);
   assert.equal(intents[0]?.targetKind, Kind.CommandCenter);
   assert.equal(intents[1]?.targetKind, Kind.Barracks);
+  assert.equal(intents[2]?.targetTech, Tech.StimPack);
   assert.equal(intents[3]?.targetKind, Kind.SCV);
   assert.equal(intents[4]?.targetKind, Kind.Marine);
 });
@@ -1868,6 +1869,53 @@ test('live bot planner reports occupied worker producer outcomes', () => {
   assert.ok(plan.intentResults.some((record) =>
     record.intent.kind === 'train-worker' &&
     record.intent.targetKind === Kind.SCV &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'no-production-capacity'));
+});
+
+test('live bot planner reports missing-prerequisite research outcomes', () => {
+  const scenario = botScenario({ seed: 524, factions: [Terran, Zerg] });
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'research-upgrade' &&
+    record.intent.targetTech === Tech.StimPack &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'missing-prerequisite'));
+});
+
+test('live bot planner reports resource-starved research outcomes', () => {
+  const scenario = botScenario({ seed: 525, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Academy, 0, base.x + fx(120), base.y);
+  scenario.resources(0, 0, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'research-upgrade' &&
+    record.intent.targetTech === Tech.StimPack &&
+    record.result.status === 'waiting' &&
+    record.result.reason === 'resource-starved'));
+});
+
+test('live bot planner reports occupied research producer outcomes', () => {
+  const scenario = botScenario({ seed: 526, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const academy = scenario.spawn(Kind.Academy, 0, base.x + fx(120), base.y);
+  scenario.resources(0, 1_000, 1_000);
+  scenario.state.players.supplyMax[0] = 1_000;
+  scenario.state.e.researchKind[slotOf(academy)] = Tech.U238Shells;
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'research-upgrade' &&
+    record.intent.targetTech === Tech.StimPack &&
     record.result.status === 'waiting' &&
     record.result.reason === 'no-production-capacity'));
 });
