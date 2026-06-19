@@ -1,6 +1,6 @@
-import { Kind, Order, Role, Trait, Units, unitTraits } from './data.ts';
-import type { State } from './entity/world.ts';
-import { NONE, eid, isAlive, slotOf } from './entity/world.ts';
+import { Kind, Order, Role, Trait, Units, unitTraits } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { NONE, eid, isAlive, slotOf } from '../entity/world.ts';
 
 export const REPAIR_RATE = 4;
 

@@ -7,7 +7,7 @@ import {
   isRepairableKind,
   repairCost,
   resumeConstruction,
-} from '../repair.ts';
+} from '../mechanics/repair.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, isEnemy, slotOf } from '../entity/world.ts';
 import {

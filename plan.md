@@ -445,6 +445,8 @@ Done when:
   remaining bespoke spawn/nuke capacity cases visible for the later ability descriptor pass.
 - Moved shared cargo, containment, transport capacity, load/unload, and Nydus endpoint rules under
   `mechanics/cargo.ts`, leaving `systems/cargo.ts` as the small per-tick containment synchronizer.
+- Moved shared repair eligibility, cost, and construction-resume rules under `mechanics/repair.ts`,
+  deleting the old root helper path while preserving the stable package export.
 
 ## Review Checklist
 

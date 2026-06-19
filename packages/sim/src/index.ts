@@ -28,7 +28,7 @@ export * from './larva.ts';
 export * from './mechanics/nuke.ts';
 export * from './detection.ts';
 export * from './mechanics/power.ts';
-export * from './repair.ts';
+export * from './mechanics/repair.ts';
 export * from './tech.ts';
 export * from './mechanics/requirements.ts';
 export * from './mechanics/internal-products.ts';

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eid, slotOf } from '../src/entity/world.ts';
 import { Kind, Order, Units } from '../src/data.ts';
-import { repairCost } from '../src/repair.ts';
+import { repairCost } from '../src/mechanics/repair.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { fx } from '../src/fixed.ts';
 import { validateRepairCommand } from '../src/commands/repair.ts';

@@ -5,7 +5,7 @@ import { isCloaked } from '../detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
-import { isRepairableKind } from '../repair.ts';
+import { isRepairableKind } from '../mechanics/repair.ts';
 import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from '../spatial/geometry.ts';
 import { eid, isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 
