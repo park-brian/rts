@@ -8,6 +8,7 @@ export * from './macro-defense.ts';
 export * from './macro-morph.ts';
 export * from './macro-nydus.ts';
 export * from './macro-placement.ts';
+export * from './macro-production.ts';
 export * from './macro-producers.ts';
 export * from './macro-pressure.ts';
 export * from './macro-research.ts';

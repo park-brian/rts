@@ -7,7 +7,6 @@
 import {
   Role, Order, Kind, Units, eid,
   NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
-  productionCostCount, productionCount,
   withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -21,6 +20,7 @@ import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
+import { maybeQueueTrain, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
@@ -113,20 +113,12 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       budget.gas -= gasAmount;
       minerals = budget.minerals;
     };
-    let reservedSupply = s.players.supplyUsed[p]!;
-    const cap = s.players.supplyMax[p]!;
-    const room = (need: number): boolean => reservedSupply + need <= cap;
+    const supplyBudget: SupplyBudget = { used: s.players.supplyUsed[p]!, max: s.players.supplyMax[p]! };
     const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
     const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtBarracks;
     const usedProducers = new Set<number>();
     const reservedTechProducers: ProducerReservations = new Set();
     let builderUsed = false;
-    const takeLarva = (): number => {
-      for (const l of idleLarvae) {
-        if (!usedProducers.has(l)) { usedProducers.add(l); return l; }
-      }
-      return NONE;
-    };
 
     // Worker target: derived from how many patches this base can mine (income now
     // saturates at ~WORKERS_PER_PATCH each, so over-building workers is wasted supply).
@@ -152,27 +144,19 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     // 1) Workers from idle depots.
     for (const d of workerProducer) {
       if (d === NONE || workers >= workerTarget) continue;
-      if (usedProducers.has(d)) continue;
-      const n = productionCount(faction.worker);
-      const cost = workerDef.minerals * productionCostCount(faction.worker);
-      if (minerals >= cost && room(workerDef.supply * n)) {
-        cmds.push({ t: 'train', building: eid(e, d), kind: faction.worker });
-        usedProducers.add(d);
-        spend(cost);
-        reservedSupply += workerDef.supply * n;
-        workers += n;
-      }
+      workers += maybeQueueTrain(s, p, cmds, budget, supplyBudget, [d], usedProducers, faction.worker);
+      minerals = budget.minerals;
     }
 
     // 2) Supply when nearly capped.
-    if (cap < SUPPLY_CAP && cap - reservedSupply <= supply(2) && pendingSupply === 0 && minerals >= supplyDef.minerals && supplyDef.buildMethod === 'larva') {
-      const larva = takeLarva();
-      if (larva !== NONE) {
-        cmds.push({ t: 'train', building: eid(e, larva), kind: faction.supplyStructure });
-        spend(supplyDef.minerals);
+    if (supplyBudget.max < SUPPLY_CAP && supplyBudget.max - supplyBudget.used <= supply(2) && pendingSupply === 0 &&
+        minerals >= supplyDef.minerals && supplyDef.buildMethod === 'larva') {
+      if (maybeQueueTrain(s, p, cmds, budget, supplyBudget, idleLarvae, usedProducers, faction.supplyStructure) > 0) {
+        minerals = budget.minerals;
         pendingSupply++;
       }
-    } else if (cap < SUPPLY_CAP && cap - reservedSupply <= supply(2) && pendingSupply === 0 && minerals >= supplyDef.minerals && aWorker !== NONE) {
+    } else if (supplyBudget.max < SUPPLY_CAP && supplyBudget.max - supplyBudget.used <= supply(2) && pendingSupply === 0 &&
+               minerals >= supplyDef.minerals && aWorker !== NONE) {
       const spot = findSpot(s, p, aWorker, faction.supplyStructure, e.x[depot]!, e.y[depot]!);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
@@ -211,16 +195,8 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     // 4) Pump army from the faction's real producer.
     for (const b of armyProducer) {
       if (b === NONE || e.prodKind[b] !== Kind.None) continue;
-      if (usedProducers.has(b)) continue;
-      const n = productionCount(faction.armyUnit);
-      const cost = armyDef.minerals * productionCostCount(faction.armyUnit);
-      const gasCost = armyDef.gas * productionCostCount(faction.armyUnit);
-      if (minerals >= cost && budget.gas >= gasCost && room(armyDef.supply * n)) {
-        cmds.push({ t: 'train', building: eid(e, b), kind: faction.armyUnit });
-        usedProducers.add(b);
-        spend(cost, gasCost);
-        reservedSupply += armyDef.supply * n;
-      }
+      maybeQueueTrain(s, p, cmds, budget, supplyBudget, [b], usedProducers, faction.armyUnit);
+      minerals = budget.minerals;
     }
 
     if (!builderUsed) {
