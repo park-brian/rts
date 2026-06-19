@@ -12,7 +12,7 @@ import {
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../resource-targets.ts';
 import type { TravelEndpoint, TravelIntent } from '../travel-intent.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
-import { transformFor, transformTargetsFor } from '../unit-transform.ts';
+import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
 import { validateCommand } from './validate.ts';
 import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from '../entity/world.ts';
 

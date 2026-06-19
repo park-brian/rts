@@ -2,7 +2,7 @@ import type { Command } from './types.ts';
 import { Units } from '../data.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import { getTechLevel } from '../tech.ts';
-import { applyTransform, mergePartnerFor, transformFor } from '../unit-transform.ts';
+import { applyTransform, mergePartnerFor, transformFor } from '../mechanics/transforms.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import {
