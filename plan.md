@@ -217,6 +217,9 @@ Remaining work:
   - Persistent spell-field slice is done: Psionic Storm, Dark Swarm, and Disruption Web now expose
     descriptor-backed field affordances with sim-owned visibility and color policy, and both the
     Canvas2D math renderer and WebGL renderer consume those descriptors.
+  - Entity status presentation slice is done: Burrowed, Cloaked, Detected, Irradiated, and Plagued
+    selection labels now come from sim-owned `EntityStatusPresentationDefs`, keeping timer labels
+    and detection visibility semantics out of the app selection panel.
 - Table-drive upgrade effects where clearer than switches, especially range, speed, energy, armor,
   shield, and weapon-specific bonus cases.
   - First upgrade-effect table slice is done: range, speed, cooldown, sight, and caster-energy-cap
@@ -649,6 +652,8 @@ Done when:
   app rendering consumes a small presentation table instead of hard-coded effect-kind branches.
 - Added descriptor-backed persistent field affordances for Storm, Swarm, and Web and wired both app
   renderers to consume them from the sim presentation table.
+- Moved selected-unit status labels for Burrowed, Cloaked, Detected, Irradiated, and Plagued behind
+  sim render descriptors so the app no longer owns those visibility/status policy strings.
 - Moved Spawn Broodling and Hallucination through a shared `target-spawn` ability descriptor, so
   target kill/clone source, child kind/count/spread/lifetime, illusion marking, normal command
   capacity, and RL batch capacity all read the same data instead of carrying separate hard-coded

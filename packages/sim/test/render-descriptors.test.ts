@@ -11,7 +11,7 @@ import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
   EffectPresentationDefs, effectFieldAffordances, effectVisibilityAffordances, entityCloakOpacity, entityLifeBar,
   entityPresentation, entityRenderHull, entityMinimapVisible, entitySelectionName, illusionPresentation,
-  queuedTravelWaypoints, selectionBase, workActivities,
+  EntityStatusPresentationDefs, entityStatusPresentations, queuedTravelWaypoints, selectionBase, workActivities,
 } from '../src/render/descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -80,6 +80,30 @@ test('entity cloak opacity exposes renderer-neutral cloak presentation policy', 
 
   s.e.cloakActive[wraith] = 1;
   assert.equal(entityCloakOpacity(s, wraith), 0.5);
+});
+
+test('entity status presentations expose selection status labels and timers', () => {
+  assert.equal(EntityStatusPresentationDefs.Irradiated.timerColumn, 'irradiateTimer');
+  assert.equal(EntityStatusPresentationDefs.Plagued.timerColumn, 'plagueTimer');
+
+  const s = makeState(sliceMap(), 2, 82);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, fx(400), fx(400)));
+  s.e.irradiateTimer[marine] = 8;
+  s.e.plagueTimer[marine] = 15;
+  assert.deepEqual(entityStatusPresentations(s, marine, 0), [
+    { kind: 'irradiated', label: 'Irradiated', timer: 8 },
+    { kind: 'plagued', label: 'Plagued', timer: 15 },
+  ]);
+
+  const templar = slotOf(spawnUnit(s, Kind.DarkTemplar, 1, fx(460), fx(400)));
+  assert.deepEqual(entityStatusPresentations(s, templar, 0), [
+    { kind: 'cloaked', label: 'Cloaked', timer: 0 },
+  ]);
+  spawnEffect(s, EffectKind.ScannerSweep, 0, fx(460), fx(400), fx(5 * TILE), 20, 0, 0);
+  assert.deepEqual(entityStatusPresentations(s, templar, 0), [
+    { kind: 'cloaked', label: 'Cloaked', timer: 0 },
+    { kind: 'detected', label: 'Detected', timer: 0 },
+  ]);
 });
 
 test('entity minimap visibility is descriptor-backed and independent of render radius', () => {

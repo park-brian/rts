@@ -1,6 +1,6 @@
 import {
   FPS, ONE, Order, TILE, Units,
-  armorUpgradeBonus, canDetect, isCloaked, isLiftedStructureFlags,
+  armorUpgradeBonus, entityStatusPresentations, isLiftedStructureFlags,
   shieldArmorBonus, upgradedCooldown, upgradedRange,
   upgradedSight, upgradedSpeed, weaponUpgradeBonus,
   entityLifecycle,
@@ -60,19 +60,10 @@ const selectionStats = (s: State, slot: number): string[] => {
   return stats;
 };
 
-const selectionVisibilityStats = (s: State, slot: number, viewer: number): string[] => {
-  const e = s.e;
-  const stats: string[] = [];
-  if (e.burrowed[slot] === 1) stats.push('Burrowed');
-  if (isCloaked(s, slot)) stats.push('Cloaked');
-  const owner = e.owner[slot]!;
-  if (viewer >= 0 && viewer !== owner && isCloaked(s, slot) && canDetect(s, viewer, slot)) stats.push('Detected');
-  return stats;
-};
-
 export const entityLifecycleStatus = (s: State, slot: number, viewer: number): SelectionStatus => {
   const e = s.e;
-  const stats = [...selectionStats(s, slot), ...selectionVisibilityStats(s, slot, viewer)];
+  const stats = selectionStats(s, slot);
+  for (const status of entityStatusPresentations(s, slot, viewer)) stats.push(status.label);
   const lifecycle = entityLifecycle(s, slot);
   if (lifecycle.state !== 'complete') {
     return {

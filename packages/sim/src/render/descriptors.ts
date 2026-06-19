@@ -1,7 +1,7 @@
 import { BUILD_RANGE, EffectKind, Kind, Order, Role, TILE, Units } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { childActorDef, type ChildActorPresentation } from '../mechanics/child-actors.ts';
-import { isCloaked } from '../mechanics/detection.ts';
+import { canDetect, isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
 import { queuedTravelOrderAt } from '../entity/order-queue.ts';
 import { isTransitioning } from '../entity/state.ts';
@@ -48,6 +48,40 @@ export type EntityLifeBar = {
   width: number;
   fraction: number;
 };
+
+type EntityTimerStatusColumn = 'irradiateTimer' | 'plagueTimer';
+
+export type EntityStatusPresentationKind =
+  | 'burrowed'
+  | 'cloaked'
+  | 'detected'
+  | 'irradiated'
+  | 'plagued';
+
+export type EntityStatusPresentationDef = {
+  kind: EntityStatusPresentationKind;
+  label: string;
+  timerColumn?: EntityTimerStatusColumn;
+};
+
+export type EntityStatusPresentation = {
+  kind: EntityStatusPresentationKind;
+  label: string;
+  timer: number;
+};
+
+export const EntityStatusPresentationDefs = {
+  Burrowed: { kind: 'burrowed', label: 'Burrowed' },
+  Cloaked: { kind: 'cloaked', label: 'Cloaked' },
+  Detected: { kind: 'detected', label: 'Detected' },
+  Irradiated: { kind: 'irradiated', label: 'Irradiated', timerColumn: 'irradiateTimer' },
+  Plagued: { kind: 'plagued', label: 'Plagued', timerColumn: 'plagueTimer' },
+} satisfies Record<string, EntityStatusPresentationDef>;
+
+const TimedEntityStatusPresentationDefs = [
+  EntityStatusPresentationDefs.Irradiated,
+  EntityStatusPresentationDefs.Plagued,
+] as const;
 
 export type EffectAffordanceKind = 'scan' | 'nuke';
 export type EffectFieldKind = 'storm' | 'swarm' | 'web';
@@ -401,6 +435,27 @@ export const entityPresentation = (s: State, slot: number): EntityPresentationDe
 
 export const entitySelectionName = (s: State, slot: number): string =>
   `${entityPresentation(s, slot).selectionPrefix}${Units[s.e.kind[slot]!]!.name}`;
+
+export const entityStatusPresentations = (
+  s: State,
+  slot: number,
+  viewer: number,
+  out: EntityStatusPresentation[] = [],
+): EntityStatusPresentation[] => {
+  out.length = 0;
+  const e = s.e;
+  if (e.burrowed[slot] === 1) out.push({ ...EntityStatusPresentationDefs.Burrowed, timer: 0 });
+  if (isCloaked(s, slot)) out.push({ ...EntityStatusPresentationDefs.Cloaked, timer: 0 });
+  const owner = e.owner[slot]!;
+  if (viewer >= 0 && viewer !== owner && isCloaked(s, slot) && canDetect(s, viewer, slot)) {
+    out.push({ ...EntityStatusPresentationDefs.Detected, timer: 0 });
+  }
+  for (const def of TimedEntityStatusPresentationDefs) {
+    const timer = e[def.timerColumn][slot]!;
+    if (timer > 0) out.push({ kind: def.kind, label: def.label, timer });
+  }
+  return out;
+};
 
 const effectVisibleForRule = (
   s: State,

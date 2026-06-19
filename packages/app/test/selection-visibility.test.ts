@@ -77,3 +77,17 @@ test('detected enemy cloak status only publishes after visibility and detection 
   assert.ok(ui.selectionView.value.status.stats.includes('Detected'));
   assert.equal(g.canSeeEntity(slotOf(enemy)), true);
 });
+
+test('selected unit status labels come from sim presentation descriptors', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(430));
+  const slot = slotOf(marine);
+  s.e.irradiateTimer[slot] = 8;
+  s.e.plagueTimer[slot] = 15;
+
+  select(g, marine);
+
+  assert.ok(ui.selectionView.value.status.stats.includes('Irradiated'));
+  assert.ok(ui.selectionView.value.status.stats.includes('Plagued'));
+});
