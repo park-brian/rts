@@ -8,14 +8,13 @@ import {
   rememberTacticalIncidents,
   type TacticalIncident,
 } from './macro-incidents.ts';
-import {
-  type BotFacts,
-} from './macro.ts';
+import type { BotFacts } from './macro.ts';
 import type { BotMemory } from './macro-memory.ts';
+import { combatReserve, type CombatReserve } from './macro-reserve.ts';
 
 export type TacticalSchedule = {
   incident: TacticalIncident | undefined;
-  attackCandidates: number[];
+  reserve: CombatReserve;
 };
 
 export const scheduleTacticalDefense = (
@@ -29,7 +28,7 @@ export const scheduleTacticalDefense = (
   reservedBuilder: number,
 ): TacticalSchedule => {
   const incident = rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0];
-  if (!incident) return { incident, attackCandidates: [...retaskableArmy] };
+  if (!incident) return { incident, reserve: combatReserve([...retaskableArmy]) };
 
   const e = s.e;
   const threat = incidentTarget(s, incident);
@@ -43,9 +42,10 @@ export const scheduleTacticalDefense = (
   for (const unit of defenders) {
     issueDefenseEngagement(s, cmds, unit, { x: focusX, y: focusY, target: threat });
   }
+  const available = retaskableArmy.filter((unit) => !defenderSet.has(unit));
 
   return {
     incident,
-    attackCandidates: retaskableArmy.filter((unit) => !defenderSet.has(unit)),
+    reserve: combatReserve(available, available.length, true),
   };
 };

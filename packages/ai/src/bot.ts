@@ -7,6 +7,7 @@
 import { NONE, type Command, type Controller, type Faction, type State } from '@rts/sim';
 import { schedulePressureOffense } from './macro-offense.ts';
 import { findSpot } from './macro-placement.ts';
+import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { scheduleTacticalDefense } from './macro-tactics.ts';
 import { createBotMemory, type BotMemory } from './macro-memory.ts';
@@ -52,7 +53,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     // 5) Defense: tactical incidents protect every owned base, not only the initial depot.
     const memory = prepareMemory(p, s.tick);
-    const { incident, attackCandidates } = scheduleTacticalDefense(
+    const { incident, reserve } = scheduleTacticalDefense(
       s,
       p,
       cmds,
@@ -61,6 +62,11 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       macro.retaskableArmy,
       macro.casters,
       macro.builderUsed ? macro.builder : NONE,
+    );
+    const pressureReserve = combatReserve(
+      reserve.units,
+      incident ? reserve.commitmentForce : macro.army,
+      reserve.defenseActive,
     );
 
     // 6) Offense: pressure the enemy's most valuable exposed region.
@@ -72,14 +78,13 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       facts,
       memory,
       depot,
-      attackCandidates,
+      pressureReserve,
       macro.casters,
       macro.budget,
       macro.builder,
       findSpot,
       {
         attackThreshold: c.attackThreshold,
-        force: incident ? attackCandidates.length : macro.army,
         strategicOnly: incident !== undefined,
         builderUsed: macro.builderUsed,
       },

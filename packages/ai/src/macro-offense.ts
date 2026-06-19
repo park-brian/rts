@@ -11,11 +11,11 @@ import {
   type PressureFocus,
 } from './macro-pressure.ts';
 import type { BotMemory } from './macro-memory.ts';
+import type { CombatReserve } from './macro-reserve.ts';
 import { collectBotFacts, type BotFacts } from './macro.ts';
 
 export type PressureScheduleOptions = {
   attackThreshold: number;
-  force: number;
   strategicOnly: boolean;
   builderUsed: boolean;
 };
@@ -35,7 +35,7 @@ export const schedulePressureOffense = (
   facts: BotFacts,
   memory: BotMemory,
   depot: number,
-  attackCandidates: readonly number[],
+  reserve: CombatReserve,
   casters: number[],
   budget: ResourceBudget,
   worker: number,
@@ -43,7 +43,7 @@ export const schedulePressureOffense = (
   options: PressureScheduleOptions,
 ): PressureScheduleResult => {
   let builderUsed = options.builderUsed;
-  const decision = pressureCommitmentDecision(memory, s.tick, options.force, options.attackThreshold);
+  const decision = pressureCommitmentDecision(memory, s.tick, reserve.commitmentForce, options.attackThreshold);
   if (decision.status !== 'commit') return { builderUsed, decision, focus: null, issued: false };
 
   const pressureFacts = facts.enemyProtectedRegions.length > 1 && facts.visibleEnemies.length > 0
@@ -57,7 +57,7 @@ export const schedulePressureOffense = (
     builderUsed = maybeQueueNydusEndpoint(s, player, cmds, budget, worker, focus.x, focus.y, findSpot);
   }
   if (!options.strategicOnly) castTacticalAbilities(s, player, cmds, casters, focus.x, focus.y);
-  for (const unit of attackCandidates) {
+  for (const unit of reserve.units) {
     issuePressureEngagement(s, player, cmds, unit, focus);
     issuedOffense = true;
   }

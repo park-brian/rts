@@ -15,6 +15,7 @@ export * from './macro-placement.ts';
 export * from './macro-production.ts';
 export * from './macro-producers.ts';
 export * from './macro-pressure.ts';
+export * from './macro-reserve.ts';
 export * from './macro-risk.ts';
 export * from './macro-research.ts';
 export * from './macro-tech.ts';

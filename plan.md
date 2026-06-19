@@ -600,6 +600,10 @@ Remaining work:
       attack waves while a tactical incident is active, so small base intrusions do not freeze all
       map pressure. Offensive spell casting still stays suppressed during active defense until caster
       reservations are explicit.
+      - Combat-reserve seam slice is done: tactical defense now returns a named `CombatReserve`
+        instead of attack-wave-specific candidates, and pressure scheduling consumes that reserve
+        with an explicit commitment force. Lower-priority harass, scout, and counterattack directors
+        should spend this same reserve shape as they become real intent executors.
       Remaining reservation work: expose leftover force to lower-priority harass, scout, and
       counterattack directors as those directors become first-class intents.
     - Tactical scheduler extraction slice is done: deriving remembered incidents, selecting
