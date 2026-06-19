@@ -659,6 +659,8 @@ Done when:
   combat-aware two-point movement.
 - Extended queued Patrol through AI/RL observation coverage, proving object and caller-owned buffer
   observations expose the same queued-order entries as move/follow and attack-move.
+- Extended queued Patrol through action-mask append legality coverage, proving command-head masks
+  allow Patrol while queue space remains and reject it through the same full-queue gate.
 - Exposed active own order intent in fair-play object and buffer observations while preserving
   hidden enemy destination/target secrecy.
 - Locked in the existing ML benchmark lanes for action masks, object observations, buffer

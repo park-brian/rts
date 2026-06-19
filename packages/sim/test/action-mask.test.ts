@@ -294,7 +294,9 @@ test('queued travel action masks use shared validation and full-queue gates', ()
   const point = { x: fx(500), y: fx(400), queue: true };
 
   assert.deepEqual(commandForHead(s, marine, 'move', point), { t: 'move', unit: marine, x: point.x, y: point.y, queue: true });
+  assert.deepEqual(commandForHead(s, marine, 'patrol', point), { t: 'patrol', unit: marine, x: point.x, y: point.y, queue: true });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(520), y: fx(400) },
@@ -308,6 +310,7 @@ test('queued travel action masks use shared validation and full-queue gates', ()
   const replacementMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400) });
   assert.equal(commandHeadAllowed(queuedMask, 'move'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'amove'), false);
+  assert.equal(commandHeadAllowed(queuedMask, 'patrol'), false);
   assert.equal(commandHeadAllowed(replacementMask, 'move'), true);
   assert.deepEqual(decodeAction({ head: 'amove', actor: marine, x: fx(620), y: fx(400), queue: true }), {
     t: 'amove',
