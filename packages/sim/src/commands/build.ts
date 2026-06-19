@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Order, Role, Units, workerBuildKindsFor } from '../data.ts';
-import { cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
+import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { requirementsMet } from '../requirements.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from '../placement.ts';
 import type { State } from '../entity/world.ts';

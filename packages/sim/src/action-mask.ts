@@ -17,7 +17,7 @@ import {
   workerBuildKindsFor,
 } from './data.ts';
 import { addonParentKind } from './addon.ts';
-import { hasPendingBuild } from './build-cost.ts';
+import { hasPendingBuild } from './mechanics/build-cancel.ts';
 import { internalProductCapacity } from './internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from './tech.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';

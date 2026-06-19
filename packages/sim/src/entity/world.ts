@@ -7,6 +7,7 @@ import type { MapDef } from '../map.ts';
 import { type Rng, cloneRng } from '../rng.ts';
 import { fold, foldArray, FNV_OFFSET } from '../hash.ts';
 import { TECH_CAP } from '../data.ts';
+import { clearBuildCost, refundBuildCost } from '../mechanics/refund-ledger.ts';
 
 export const CAP = 4096; // max simultaneous entities (grow later if needed)
 export const NONE = -1; // null EntityId sentinel
@@ -474,14 +475,10 @@ export const kill = (s: State, slot: number): void => {
     if (e.alive[i] === 1 && e.container[i] === id) kill(s, i);
   }
   if (e.buildKind[slot] !== 0) {
-    const owner = e.owner[slot]!;
-    if (owner < s.players.minerals.length) {
-      s.players.minerals[owner] = s.players.minerals[owner]! + e.buildCostMinerals[slot]!;
-      s.players.gas[owner] = s.players.gas[owner]! + e.buildCostGas[slot]!;
-    }
+    refundBuildCost(s, slot);
+  } else {
+    clearBuildCost(e, slot);
   }
-  e.buildCostMinerals[slot] = 0;
-  e.buildCostGas[slot] = 0;
   e.buildKind[slot] = 0;
   e.morphFromKind[slot] = 0;
   e.container[slot] = NONE;

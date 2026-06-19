@@ -5,7 +5,7 @@ import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../cargo.ts';
 import { ONE } from '../fixed.ts';
-import { hasPendingBuild } from '../build-cost.ts';
+import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from '../rally.ts';

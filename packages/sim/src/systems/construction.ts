@@ -13,7 +13,7 @@ import { pickPatch } from './harvest.ts';
 import { faceToward, within } from './move.ts';
 import { placementForStructure } from '../placement.ts';
 import { structureFootprint } from '../footprint.ts';
-import { clearBuildCost, refundBuildCost, transferBuildCost } from '../build-cost.ts';
+import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isAddonKind } from '../addon.ts';
 import { isContained } from '../cargo.ts';

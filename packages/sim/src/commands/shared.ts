@@ -1,6 +1,6 @@
 import type { CommandRejectReason } from './types.ts';
 import { isActiveAddon } from '../addon.ts';
-import { cancelPendingBuild, hasPendingBuild } from '../build-cost.ts';
+import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { isContained } from '../cargo.ts';
 import { Kind } from '../data.ts';
 import { canDetect } from '../detection.ts';

@@ -3,7 +3,7 @@ import { Kind, ResourceType, Role, TILE, Units } from './data.ts';
 import { fx } from './fixed.ts';
 import { buildable, inBounds, resourceSpawnFootprint } from './map.ts';
 import { footprintsOverlap, snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
-import { hasPendingBuild } from './build-cost.ts';
+import { hasPendingBuild } from './mechanics/build-cancel.ts';
 import { hasCreepAt, requiresCreep } from './creep.ts';
 import { hasPowerAt, requiresPower } from './power.ts';
 import { isContained } from './cargo.ts';

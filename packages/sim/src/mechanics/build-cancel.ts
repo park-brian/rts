@@ -1,32 +1,11 @@
-import type { Entities, State } from './entity/world.ts';
-import { NONE, eid, isAlive, kill, slotOf } from './entity/world.ts';
-import { Kind, Order } from './data.ts';
-import { setEntityKind } from './entity/kind.ts';
+import type { Entities, State } from '../entity/world.ts';
+import { NONE, eid, isAlive, kill, slotOf } from '../entity/world.ts';
+import { Kind, Order } from '../data.ts';
+import { setEntityKind } from '../entity/kind.ts';
+import { refundBuildCost } from './refund-ledger.ts';
 
 export const hasPendingBuild = (e: Entities, slot: number): boolean =>
   e.order[slot] === Order.Build && e.buildKind[slot] !== 0;
-
-export const clearBuildCost = (e: Entities, slot: number): void => {
-  e.buildCostMinerals[slot] = 0;
-  e.buildCostGas[slot] = 0;
-};
-
-export const refundBuildCost = (
-  s: State,
-  slot: number,
-  numerator = 1,
-  denominator = 1,
-): void => {
-  const e = s.e;
-  const owner = e.owner[slot]!;
-  if (owner >= s.players.minerals.length) {
-    clearBuildCost(e, slot);
-    return;
-  }
-  s.players.minerals[owner] = s.players.minerals[owner]! + Math.trunc((e.buildCostMinerals[slot]! * numerator) / denominator);
-  s.players.gas[owner] = s.players.gas[owner]! + Math.trunc((e.buildCostGas[slot]! * numerator) / denominator);
-  clearBuildCost(e, slot);
-};
 
 export const cancelPendingBuild = (s: State, slot: number): void => {
   const e = s.e;
@@ -74,10 +53,4 @@ export const cancelFoundation = (s: State, slot: number): void => {
   }
   refundBuildCost(s, slot, 3, 4);
   kill(s, slot);
-};
-
-export const transferBuildCost = (e: Entities, from: number, to: number): void => {
-  e.buildCostMinerals[to] = e.buildCostMinerals[from]!;
-  e.buildCostGas[to] = e.buildCostGas[from]!;
-  clearBuildCost(e, from);
 };

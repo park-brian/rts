@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Kind, Role } from '../data.ts';
-import { cancelFoundation } from '../build-cost.ts';
+import { cancelFoundation } from '../mechanics/build-cancel.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './shared.ts';
