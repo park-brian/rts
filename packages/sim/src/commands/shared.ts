@@ -1,7 +1,7 @@
 import type { CommandRejectReason } from './types.ts';
 import { isActiveAddon } from '../mechanics/addons.ts';
 import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { Kind } from '../data.ts';
 import { canDetect } from '../detection.ts';
 import { isTransitioning } from '../entity/state.ts';

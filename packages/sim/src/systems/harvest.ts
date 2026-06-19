@@ -20,7 +20,7 @@ import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TIC
 import { clearVelocity, faceToward } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';

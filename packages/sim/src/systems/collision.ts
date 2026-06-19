@@ -20,7 +20,7 @@ import { CAP } from '../entity/world.ts';
 import { Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../spatial/flow.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { isPathingAnchor } from '../spatial/pathing-anchor.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { workersCanShareResourceRouteCollision } from '../spatial/worker-collision.ts';

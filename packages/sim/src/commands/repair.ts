@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Kind, Order, Units } from '../data.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import {
   REPAIR_RATE,
   canContinueConstructionKind,

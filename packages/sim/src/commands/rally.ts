@@ -1,7 +1,7 @@
 import type { Command } from './types.ts';
 import { Role, TILE } from '../data.ts';
 import { fx } from '../fixed.ts';
-import { isContained, sameTeam } from '../cargo.ts';
+import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { canPlayerGatherTargetSlot, isGatherTargetSlot } from '../mechanics/resources.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { producerDirectlyProducesOnlyWorkers, producerSupportsWorkerRally } from '../rally.ts';

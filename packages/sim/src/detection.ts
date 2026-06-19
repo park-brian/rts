@@ -2,7 +2,7 @@ import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTra
 import type { State } from './entity/world.ts';
 import { effectiveSight } from './systems/status.ts';
 import { isPowered } from './mechanics/power.ts';
-import { isContained } from './cargo.ts';
+import { isContained } from './mechanics/cargo.ts';
 import { withinRangeSq } from './spatial/geometry.ts';
 
 export const updateCloakAuras = (s: State): void => {

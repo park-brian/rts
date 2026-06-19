@@ -16,7 +16,7 @@ import { structureFootprint } from '../spatial/footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { isAddonKind } from '../mechanics/addons.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { distanceSqToRect } from '../spatial/geometry.ts';
 
 const becomeFoundation = (s: State, slot: number, kind: number, x: number, y: number): void => {

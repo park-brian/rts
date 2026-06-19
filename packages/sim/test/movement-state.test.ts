@@ -7,7 +7,7 @@ import { sliceMap } from '../src/map/core.ts';
 import { eid, hashState, makeState, slotOf } from '../src/entity/world.ts';
 import { applyCommands } from '../src/commands/ingest.ts';
 import { stepWorld } from '../src/tick.ts';
-import { loadUnitInto, unloadUnit } from '../src/cargo.ts';
+import { loadUnitInto, unloadUnit } from '../src/mechanics/cargo.ts';
 import { setBurrowed } from '../src/burrow.ts';
 import { liftStructure, startStructureLanding } from '../src/terran-mobility.ts';
 import { applyTransform } from '../src/mechanics/transforms.ts';

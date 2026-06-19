@@ -1,5 +1,5 @@
 import { Order, Role, Units, weaponForTarget } from '../data.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { isAlive, slotOf, type State } from '../entity/world.ts';
 import { effectiveCooldown } from '../systems/status.ts';
 

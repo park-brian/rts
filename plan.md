@@ -443,6 +443,8 @@ Done when:
   hulls, life bars, cloak opacity, work sparks, and effect affordances behind one render contract.
 - Merged ability tech/capacity/toggle legality helpers under `mechanics/abilities.ts`, leaving the
   remaining bespoke spawn/nuke capacity cases visible for the later ability descriptor pass.
+- Moved shared cargo, containment, transport capacity, load/unload, and Nydus endpoint rules under
+  `mechanics/cargo.ts`, leaving `systems/cargo.ts` as the small per-tick containment synchronizer.
 
 ## Review Checklist
 

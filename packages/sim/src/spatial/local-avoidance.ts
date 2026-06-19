@@ -9,7 +9,7 @@ import type { State } from '../entity/world.ts';
 import { CAP } from '../entity/world.ts';
 import { Kind, Role, TILE, Units } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
 import { workersCanShareResourceRouteCollision } from './worker-collision.ts';
 

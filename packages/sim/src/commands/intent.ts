@@ -3,7 +3,7 @@ import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, ty
 import { addonParentKind } from '../mechanics/addons.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
-import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../cargo.ts';
+import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../mechanics/cargo.ts';
 import { ONE } from '../fixed.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import {

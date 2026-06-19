@@ -1,5 +1,5 @@
 import { Order } from '../../data.ts';
-import { isContained, loadUnitInto, withinLoadRange } from '../../cargo.ts';
+import { isContained, loadUnitInto, withinLoadRange } from '../../mechanics/cargo.ts';
 import type { State } from '../../entity/world.ts';
 import { eid, NONE } from '../../entity/world.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../../spatial/movement-slots.ts';

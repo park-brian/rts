@@ -1,5 +1,5 @@
 import { ResourceType, Role, Units } from '../data.ts';
-import { isContained, sameTeam } from '../cargo.ts';
+import { isContained, sameTeam } from './cargo.ts';
 import { isAlive, slotOf, NONE, type State } from '../entity/world.ts';
 
 export const isGatherTargetSlot = (s: State, slot: number): boolean => {

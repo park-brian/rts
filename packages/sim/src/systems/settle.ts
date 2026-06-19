@@ -17,7 +17,7 @@ import {
   pathX,
   pathY,
 } from '../spatial/flow.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 
 const SETTLE_EPS = ONE * 4;

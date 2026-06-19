@@ -5,7 +5,7 @@ import { requirementsMet } from '../mechanics/requirements.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from '../mechanics/placement.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, canSpawnEntity, slotOf } from '../entity/world.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import {
   canPay,
   reject,

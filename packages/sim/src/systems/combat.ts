@@ -16,7 +16,7 @@ import { coveredByEffect } from '../effects.ts';
 import { canDetect } from '../detection.ts';
 import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../interceptor.ts';

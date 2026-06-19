@@ -5,7 +5,7 @@ import { navigate } from '../spatial/pathing.ts';
 import { REPAIR_RATE, isRepairableKind, repairCost } from '../repair.ts';
 import { faceToward } from '../spatial/motion.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 

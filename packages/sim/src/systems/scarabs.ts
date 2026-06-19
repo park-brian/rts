@@ -3,7 +3,7 @@ import { eid, isAlive, isEnemy, kill, NONE, slotOf } from '../entity/world.ts';
 import { Kind, Role, Units, weaponForTarget } from '../data.ts';
 import { trySpawnUnit } from '../entity/factory.ts';
 import { canDetect } from '../detection.ts';
-import { isContained } from '../cargo.ts';
+import { isContained } from '../mechanics/cargo.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';

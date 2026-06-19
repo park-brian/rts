@@ -15,7 +15,7 @@ import {
   unloadUnit,
   unloadAnchorSlot,
   withinLoadRange,
-} from '../cargo.ts';
+} from '../mechanics/cargo.ts';
 import { isDisabled } from '../systems/status.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
 import {

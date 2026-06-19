@@ -1,11 +1,11 @@
-import { Kind, Order, Role, Tech, Units, tiles } from './data.ts';
-import { tileX, tileY } from './spatial/pathing.ts';
-import { getTechLevel } from './tech.ts';
-import { eid, isAlive, NONE, type State } from './entity/world.ts';
-import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from './spatial/flow.ts';
-import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from './spatial/geometry.ts';
-import { isDisabled } from './systems/status.ts';
-import { clearVelocity } from './spatial/motion.ts';
+import { Kind, Order, Role, Tech, Units, tiles } from '../data.ts';
+import { tileX, tileY } from '../spatial/pathing.ts';
+import { getTechLevel } from '../tech.ts';
+import { eid, isAlive, NONE, type State } from '../entity/world.ts';
+import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from '../spatial/flow.ts';
+import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from '../spatial/geometry.ts';
+import { isDisabled } from '../systems/status.ts';
+import { clearVelocity } from '../spatial/motion.ts';
 
 export const LOAD_RANGE = tiles(2);
 export const UNLOAD_RANGE = tiles(3);
