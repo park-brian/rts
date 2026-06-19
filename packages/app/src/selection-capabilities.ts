@@ -1,8 +1,8 @@
 import {
-  Ability, Kind, NONE, Role, TechDefs, Units,
+  Ability, Kind, NONE, Role, Units,
   addonParentKind, canWorkerStartStructure, isAlive,
   abilitySelectionOptions, addonSelectionCandidates, commandRejectReasonPriority, internalProductDef, isLiftedStructureFlags, loadSelectionCandidates, slotOf,
-  researchSelectionCandidates, trainSelectionCandidates, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
+  researchSelectionOptions, trainSelectionCandidates, transformSelectionOptions, unloadSelectionCandidates, validateCommand, workerBuildKindsFor,
   entityLifecycle,
   entityWorkQueue,
   illusionPresentation,
@@ -17,7 +17,6 @@ type OptionRecord = CommandOption & { priority?: number };
 type CommandOptionMeta = Pick<CommandOption, 'label' | 'detail' | 'commands' | 'arm'> & { priority?: number };
 type CanSeeEntity = (slot: number) => boolean;
 
-const TECH_IDS = Object.keys(TechDefs).map(Number);
 const ADDON_IDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
 
 const addOption = (options: Map<number, OptionRecord>, id: number, result: CommandValidation, meta: CommandOptionMeta = {}): void => {
@@ -177,15 +176,6 @@ export const selectionCapabilities = (
           priority: load,
         });
       }
-      for (const tech of TECH_IDS) {
-        const def = TechDefs[tech];
-        if (!def?.producers.includes(k)) continue;
-        const command: Command = { t: 'research', building: id, tech };
-        const result = validateCommand(s, player, command);
-        if (result.ok || result.reason !== 'target-not-allowed') {
-          addOption(researchOptions, tech, result, { priority: selectionIndex });
-        }
-      }
     }
     const burrowCommand: Command = { t: 'burrow', unit: id, active: true };
     if (validateCommand(s, player, burrowCommand).ok) {
@@ -236,9 +226,13 @@ export const selectionCapabilities = (
     if (!option.ok) continue;
     option.commands = addonSelectionCandidates(s, player, selected, option.id);
   }
-  for (const option of researchOptions.values()) {
-    if (!option.ok) continue;
-    option.commands = researchSelectionCandidates(s, player, selected, option.id);
+  for (const option of researchSelectionOptions(s, player, readyVisibleSelected)) {
+    addOption(
+      researchOptions,
+      option.id,
+      option.ok ? { ok: true } : { ok: false, reason: option.reason! },
+      { commands: option.commands },
+    );
   }
   for (const option of abilitySelectionOptions(s, player, visibleSelected)) {
     addOption(

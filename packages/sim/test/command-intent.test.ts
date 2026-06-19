@@ -5,7 +5,7 @@ import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
 import {
   abilitySelectionOptions, addonSelectionCandidates, attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, producedUnitRallyIntent,
-  rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, selfAbilitySelectionCandidates, smartCommandCandidates,
+  rallyModeCandidates, repairModeCandidates, researchSelectionCandidates, researchSelectionOptions, selfAbilitySelectionCandidates, smartCommandCandidates,
   trainSelectionCandidates, transformSelectionCandidates, transformSelectionOptions,
   unloadSelectionCandidates,
 } from '../src/command-intent.ts';
@@ -336,6 +336,32 @@ test('research command-card candidates choose the first valid selected producer'
     { t: 'research', building: idle, tech: Tech.StimPack },
   ]);
   assert.deepEqual(researchSelectionCandidates(s, 0, [barracks], Tech.StimPack), []);
+});
+
+test('research command-card options expose sim-owned availability records', () => {
+  const s = makeState(open(), 1, 1232);
+  const busy = spawnUnit(s, Kind.Academy, 0, tc(8), tc(8));
+  const idle = spawnUnit(s, Kind.Academy, 0, tc(12), tc(8));
+  const barracks = spawnUnit(s, Kind.Barracks, 0, tc(16), tc(8));
+  s.e.researchKind[slotOf(busy)] = Tech.U238Shells;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const stim = researchSelectionOptions(s, 0, [busy, barracks, idle]).find((o) => o.id === Tech.StimPack);
+  assert.deepEqual(stim, {
+    id: Tech.StimPack,
+    ok: true,
+    representative: idle,
+    commands: [{ t: 'research', building: idle, tech: Tech.StimPack }],
+  });
+
+  s.players.minerals[0] = 0;
+  assert.deepEqual(researchSelectionOptions(s, 0, [idle]).find((o) => o.id === Tech.StimPack), {
+    id: Tech.StimPack,
+    ok: false,
+    representative: idle,
+    reason: 'not-affordable',
+  });
 });
 
 test('self ability command-card candidates include every valid selected caster', () => {

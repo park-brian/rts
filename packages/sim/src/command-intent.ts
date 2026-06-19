@@ -1,5 +1,5 @@
 import type { Command, CommandRejectReason } from './commands.ts';
-import { Abilities, ResourceType, Role, Units, type AbilityTarget } from './data.ts';
+import { Abilities, ResourceType, Role, TechDefs, Units, type AbilityTarget } from './data.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from './cargo.ts';
 import { ONE } from './fixed.ts';
 import {
@@ -41,6 +41,14 @@ export type AbilitySelectionOption = {
 };
 
 export type TransformSelectionOption = {
+  id: number;
+  ok: boolean;
+  representative: number;
+  reason?: CommandRejectReason;
+  commands?: Command[];
+};
+
+export type ResearchSelectionOption = {
   id: number;
   ok: boolean;
   representative: number;
@@ -381,6 +389,49 @@ export const researchSelectionCandidates = (
     if (validateCommand(s, player, command).ok) return [command];
   }
   return [];
+};
+
+const addResearchSelectionOption = (
+  options: Map<number, ResearchSelectionOption>,
+  id: number,
+  representative: number,
+  result: CandidateValidation,
+): void => {
+  const current = options.get(id);
+  if (result.ok) {
+    if (!current?.ok) options.set(id, { id, ok: true, representative });
+    return;
+  }
+  if (current?.ok) return;
+  if (!current || commandRejectReasonPriority[result.reason] < commandRejectReasonPriority[current.reason!]) {
+    options.set(id, { id, ok: false, representative, reason: result.reason });
+  }
+};
+
+export const researchSelectionOptions = (
+  s: State,
+  player: number,
+  selected: readonly number[],
+): ResearchSelectionOption[] => {
+  const e = s.e;
+  const options = new Map<number, ResearchSelectionOption>();
+  for (const building of selected) {
+    if (!isAlive(e, building)) continue;
+    const kind = e.kind[slotOf(building)]!;
+    for (const key of Object.keys(TechDefs)) {
+      const tech = Number(key);
+      if (!TechDefs[tech]?.producers.includes(kind)) continue;
+      const command: Command = { t: 'research', building, tech };
+      const result = validateCommand(s, player, command);
+      if (result.ok || result.reason !== 'target-not-allowed') {
+        addResearchSelectionOption(options, tech, building, result);
+      }
+    }
+  }
+  for (const option of options.values()) {
+    if (option.ok) option.commands = researchSelectionCandidates(s, player, selected, option.id);
+  }
+  return [...options.values()].sort((a, b) => a.id - b.id);
 };
 
 export const selfAbilitySelectionCandidates = (
