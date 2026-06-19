@@ -1,6 +1,6 @@
-import { Kind, sec, tiles } from './data.ts';
-import { consumeInternalProduct, hasInternalProductReady } from './mechanics/internal-products.ts';
-import type { State } from './entity/world.ts';
+import { Kind, sec, tiles } from '../data.ts';
+import type { State } from '../entity/world.ts';
+import { consumeInternalProduct, hasInternalProductReady } from './internal-products.ts';
 
 export const WeaponMechanic = {
   ScarabLaunch: 1,

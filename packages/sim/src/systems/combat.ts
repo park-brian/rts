@@ -26,7 +26,7 @@ import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 import { isExternallySteeredChild, participatesInNormalCombat } from '../child-actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
-} from '../weapon-mechanics.ts';
+} from '../mechanics/weapons.ts';
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;

@@ -23,7 +23,7 @@ import { interceptors } from '../src/systems/interceptors.ts';
 import {
   WeaponMechanic, WeaponMechanicByUnit, WeaponMechanicDefs, consumeWeaponMechanicAmmo,
   hasWeaponMechanicAmmo, weaponMechanicDef,
-} from '../src/weapon-mechanics.ts';
+} from '../src/mechanics/weapons.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 

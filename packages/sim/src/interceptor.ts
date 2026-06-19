@@ -4,7 +4,7 @@ import { isqrt } from './fixed.ts';
 import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './mechanics/internal-products.ts';
 import { NONE, eid, slotOf, type State } from './entity/world.ts';
 import { faceToward } from './systems/move.ts';
-import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapon-mechanics.ts';
+import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './mechanics/weapons.ts';
 
 const BAY_FORWARD = tiles(0.3);
 const BAY_SIDE = tiles(0.58);

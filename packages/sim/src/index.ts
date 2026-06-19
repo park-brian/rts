@@ -32,7 +32,7 @@ export * from './tech.ts';
 export * from './requirements.ts';
 export * from './mechanics/internal-products.ts';
 export * from './child-actors.ts';
-export * from './weapon-mechanics.ts';
+export * from './mechanics/weapons.ts';
 export * from './render-descriptors.ts';
 export * from './entity/work-queue.ts';
 export * from './entity/lifecycle.ts';

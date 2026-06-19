@@ -3,7 +3,7 @@ import { Kind, Order, Units, hasAnyWeapon, weaponForTarget } from '../data.ts';
 import { isPowered } from '../power.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { carrierCanAttack } from '../interceptor.ts';
-import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../weapon-mechanics.ts';
+import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../mechanics/weapons.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
 import {

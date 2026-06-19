@@ -369,6 +369,8 @@ Done when:
   overbook one ready missile while still accepting separate ready Nuclear Silos deterministically.
 - Moved Nuclear Strike silo lookup and missile consumption helpers under `mechanics/nuke.ts`,
   deleting the old root helper path while preserving the stable package export.
+- Moved weapon mechanic descriptors and ammo helpers under `mechanics/weapons.ts`, deleting the old
+  root `weapon-mechanics.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 
