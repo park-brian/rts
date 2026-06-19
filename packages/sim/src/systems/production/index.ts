@@ -11,11 +11,11 @@ import { fx, isqrt } from '../../fixed.ts';
 import { effectiveSpeed } from '../status.ts';
 import { isPowered } from '../../power.ts';
 import { isLiftedStructureFlags } from '../../terran-mobility.ts';
-import { completeInternalProduct } from '../../internal-products.ts';
 import { activeAddonParentSlot, isAddonKind } from '../../addon.ts';
 import { canPlayerGatherTargetSlot } from '../../resource-targets.ts';
 import { tickLarvae } from './larva.ts';
 import { applySpawnRally, assignRallyMoveSlots, type RallyMove } from './rally.ts';
+import { finishInternalProductQueue } from './internal-products.ts';
 
 const EXIT = fx(40); // how far from a structure produced units appear
 
@@ -53,19 +53,6 @@ const finishEgg = (s: State, slot: number, kind: number, rallyMoves: RallyMove[]
   return true;
 };
 
-const finishInternalAmmo = (s: State, producer: number, kind: number): boolean => {
-  const e = s.e;
-  if (!completeInternalProduct(s, producer, kind)) return false;
-  if (e.prodQueued[producer]! > 0) {
-    e.prodQueued[producer] = e.prodQueued[producer]! - 1;
-    e.prodTimer[producer] = Units[kind]!.buildTime;
-  } else {
-    e.prodKind[producer] = Kind.None;
-    e.prodTimer[producer] = 0;
-  }
-  return true;
-};
-
 export const production = (s: State): void => {
   const e = s.e;
   const rallyMoves: RallyMove[] = [];
@@ -82,7 +69,7 @@ export const production = (s: State): void => {
     const kind = e.prodKind[i]!;
     const def = Units[kind]!;
     const owner = e.owner[i]!;
-    if (finishInternalAmmo(s, i, kind)) continue;
+    if (finishInternalProductQueue(s, i, kind)) continue;
     if (e.kind[i] === Kind.Egg) {
       if (finishEgg(s, i, kind, rallyMoves)) continue;
       continue;

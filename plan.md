@@ -122,14 +122,13 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Thin `commands/specs.ts` by moving family-specific apply handlers next to their validators where
-  it reduces review burden without duplicating shared dispatch, reserved-supply, or group-move logic.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
   cancellation/overwrite behavior, and action-mask exposure. Production queues stay the specialized
   producer version of the same idea, not a separate UI-only concept.
-- Split production into named sub-systems for queueing, internal products, larva spawn, spawn rally,
-  gather rally, load rally, refunds, and completion placement.
+- Continue splitting production into named sub-systems for queueing, refunds, and completion
+  placement. Larva ticking, produced-unit rally policy, and internal-product completion are already
+  split out.
 - Route Spider Mines, Scarabs, Interceptors, and Nuclear Missiles through named internal-product
   helpers so `specialAmmo` does not become a hidden multi-purpose protocol.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
@@ -363,6 +362,7 @@ Done when:
   longer owns hatchery timer constants and spawn offsets.
 - Extracted produced-unit rally handling and deterministic rally move slot assignment into
   `systems/production/rally.ts`, keeping load, gather, travel, and slot grouping policy together.
+- Extracted internal-product production completion into `systems/production/internal-products.ts`.
 
 ## Review Checklist
 
