@@ -701,6 +701,10 @@ Remaining work:
     - Production queue helper slice is done: worker, supply-larva, and army training now use
       `packages/ai/src/macro-production.ts`, preserving budget/reserved-supply accounting while
       routing train legality through the shared sim validator.
+    - Economy-director extraction slice is done: desired worker count, worker production, supply
+      construction, and army-structure rally setup now live in `packages/ai/src/macro-economy.ts`,
+      leaving the live bot controller closer to scheduler orchestration instead of embedding
+      economy mechanics inline.
   - Anti-float policy should be explicit. Sustained minerals/gas above planned reserves should
     become `add-production`, `expand`, `spend-larva`, `train-army`, `research-upgrade`, `harass`, or
     `attack-wave` intents depending on the current bottleneck; the bot should not sit on money while
@@ -894,6 +898,8 @@ Done when:
   shared spot-finding policy used by tech, capacity, expansion, and Nydus macro directors.
 - Added `packages/ai/src/macro-production.ts` so bot worker, supply, and army training share
   validator-backed train emission instead of duplicating train prechecks in the live controller.
+- Extracted bot economy helpers into `packages/ai/src/macro-economy.ts`, covering desired worker
+  count, worker production, supply construction, and army-structure rally setup.
 - Scaled bot pressure commitment by available force, making near-threshold armies commit earlier
   instead of waiting the full under-threshold timeout.
 - Changed fog-pressure public-start fallback to choose the nearest enemy-team start on multi-start

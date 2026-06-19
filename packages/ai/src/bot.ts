@@ -6,16 +6,20 @@
 
 import {
   Role, Order, Kind, Units, eid,
-  NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
-  withinRangeSq,
+  NONE, type Faction, type State, type Command, type Controller,
 } from '@rts/sim';
-import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
 import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
 import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
+import {
+  desiredWorkerCount,
+  maybeQueueSupply,
+  maybeQueueWorkers,
+  maybeSetArmyStructureRallies,
+} from './macro-economy.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
@@ -41,13 +45,11 @@ export type BotConfig = {
 };
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
-const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
   const workerDef = Units[faction.worker]!;
   const armyDef = Units[faction.armyUnit]!;
-  const supplyDef = Units[faction.supplyStructure]!;
   const rax = Units[faction.armyStructure]!;
   const memories = new Map<number, BotMemory>();
   const memoryFor = (player: number): BotMemory => {
@@ -107,11 +109,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     }
 
     const budget: ResourceBudget = { minerals: s.players.minerals[p]!, gas: s.players.gas[p]! };
-    let minerals = budget.minerals;
     const spend = (mineralsAmount: number, gasAmount = 0): void => {
       budget.minerals -= mineralsAmount;
       budget.gas -= gasAmount;
-      minerals = budget.minerals;
     };
     const supplyBudget: SupplyBudget = { used: s.players.supplyUsed[p]!, max: s.players.supplyMax[p]! };
     const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
@@ -120,55 +120,46 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
     const reservedTechProducers: ProducerReservations = new Set();
     let builderUsed = false;
 
-    // Worker target: derived from how many patches this base can mine (income now
-    // saturates at ~WORKERS_PER_PATCH each, so over-building workers is wasted supply).
-    let patches = 0;
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] === 1 && (e.flags[i]! & Role.Resource) !== 0 && withinTiles(s, i, e.x[depot]!, e.y[depot]!, 14)) patches++;
-    }
-    const workerTarget = c.workerTarget ?? Math.max(8, Math.min(24, patches * WORKERS_PER_PATCH + 2));
-
-    // Rally barracks to a staging point toward the centre so produced units form up
-    // in the open instead of jamming the production exit (ground units now collide).
-    if (builtBarracks.length) {
-      const cxFx = Math.trunc((s.map.w * TILE * ONE) / 2);
-      const cyFx = Math.trunc((s.map.h * TILE * ONE) / 2);
-      const dx = cxFx - e.x[depot]!; const dy = cyFx - e.y[depot]!;
-      const d = isqrt(dx * dx + dy * dy) || 1;
-      const stage = 5 * TILE * ONE;
-      const sx = e.x[depot]! + Math.trunc((dx * stage) / d);
-      const sy = e.y[depot]! + Math.trunc((dy * stage) / d);
-      for (const b of builtBarracks) if (e.rallyX[b]! < 0) cmds.push({ t: 'rally', building: eid(e, b), x: sx, y: sy });
-    }
+    const workerTarget = desiredWorkerCount(s, depot, c.workerTarget);
+    maybeSetArmyStructureRallies(s, cmds, depot, builtBarracks);
 
     // 1) Workers from idle depots.
-    for (const d of workerProducer) {
-      if (d === NONE || workers >= workerTarget) continue;
-      workers += maybeQueueTrain(s, p, cmds, budget, supplyBudget, [d], usedProducers, faction.worker);
-      minerals = budget.minerals;
-    }
+    workers += maybeQueueWorkers(
+      s,
+      p,
+      cmds,
+      budget,
+      supplyBudget,
+      workerProducer,
+      usedProducers,
+      faction.worker,
+      workers,
+      workerTarget,
+    );
 
     // 2) Supply when nearly capped.
-    if (supplyBudget.max < SUPPLY_CAP && supplyBudget.max - supplyBudget.used <= supply(2) && pendingSupply === 0 &&
-        minerals >= supplyDef.minerals && supplyDef.buildMethod === 'larva') {
-      if (maybeQueueTrain(s, p, cmds, budget, supplyBudget, idleLarvae, usedProducers, faction.supplyStructure) > 0) {
-        minerals = budget.minerals;
-        pendingSupply++;
-      }
-    } else if (supplyBudget.max < SUPPLY_CAP && supplyBudget.max - supplyBudget.used <= supply(2) && pendingSupply === 0 &&
-               minerals >= supplyDef.minerals && aWorker !== NONE) {
-      const spot = findSpot(s, p, aWorker, faction.supplyStructure, e.x[depot]!, e.y[depot]!);
-      if (spot) {
-        cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.supplyStructure, x: spot.x, y: spot.y });
-        spend(supplyDef.minerals);
-        builderUsed = true;
-        pendingSupply++;
-      }
+    const supplyQueued = maybeQueueSupply(
+      s,
+      p,
+      faction,
+      cmds,
+      budget,
+      supplyBudget,
+      idleLarvae,
+      usedProducers,
+      aWorker,
+      depot,
+      pendingSupply,
+      findSpot,
+    );
+    if (supplyQueued.queued) {
+      builderUsed = supplyQueued.usedBuilder;
+      pendingSupply++;
     }
 
     // 3) Army structures.
     else if (rax.buildMethod !== 'larva' && builtBarracks.length + pendingBarracks < c.barracksTarget &&
-             minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE && !builderUsed) {
+             budget.minerals >= rax.minerals && budget.gas >= rax.gas && aWorker !== NONE && !builderUsed) {
       const spot = findMacroSpot(s, p, aWorker, faction.armyStructure, depot);
       if (spot) {
         cmds.push({ t: 'build', unit: eid(e, aWorker), kind: faction.armyStructure, x: spot.x, y: spot.y });
@@ -180,23 +171,18 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     if (!builderUsed) {
       builderUsed = maybeQueueRaceTechStructure(s, p, faction, facts, cmds, budget, aWorker, depot, findMacroSpot);
-      minerals = budget.minerals;
     }
 
     maybeQueueTerranAddons(s, p, faction, cmds, budget, reservedTechProducers);
-    minerals = budget.minerals;
 
     maybeQueueZergMorphs(s, p, faction, cmds, budget);
-    minerals = budget.minerals;
 
     maybeQueueRaceResearch(s, p, faction, cmds, budget, reservedTechProducers);
-    minerals = budget.minerals;
 
     // 4) Pump army from the faction's real producer.
     for (const b of armyProducer) {
       if (b === NONE || e.prodKind[b] !== Kind.None) continue;
       maybeQueueTrain(s, p, cmds, budget, supplyBudget, [b], usedProducers, faction.armyUnit);
-      minerals = budget.minerals;
     }
 
     if (!builderUsed) {
@@ -211,12 +197,10 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         c.barracksTarget,
         findMacroSpot,
       );
-      minerals = budget.minerals;
     }
 
     if (!builderUsed) {
       builderUsed = maybeQueueExpansion(s, p, faction, facts, cmds, budget, aWorker, findExactSpot);
-      minerals = budget.minerals;
     }
 
     if (!builderUsed) {
@@ -232,7 +216,6 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         usedProducers,
         findMacroSpot,
       );
-      minerals = budget.minerals;
     }
 
     // 5) Defense: incidents protect every owned base, not only the initial depot.
@@ -264,7 +247,6 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
         let issuedOffense = false;
         if (!builderUsed) {
           builderUsed = maybeQueueNydusEndpoint(s, p, cmds, budget, aWorker, focus.x, focus.y, findSpot);
-          minerals = budget.minerals;
         }
         if (!incident) castTacticalAbilities(s, p, cmds, casters, focus.x, focus.y);
         for (const a of attackCandidates) {
@@ -277,8 +259,4 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     return cmds;
   };
-};
-
-const withinTiles = (s: State, slot: number, x: number, y: number, t: number): boolean => {
-  return withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, t * TILE * ONE);
 };
