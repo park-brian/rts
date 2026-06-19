@@ -242,8 +242,11 @@ Remaining work:
     entity-to-entity top-down edge distance.
   - Point-area radius slice is done: shared effect/area membership now measures the target
     entity's top-down interaction hull against the spell/effect radius, covering persistent areas
-    and descriptor-driven area statuses through one helper. Remaining: audit falloff mechanics that
-    intentionally still use center distance, especially Nuclear Strike and weapon splash.
+    and descriptor-driven area statuses through one helper.
+  - Radial falloff slice is done: weapon splash and Nuclear Strike damage bands now measure the
+    target entity's top-down interaction hull against the impact point, sharing one falloff helper
+    instead of center-distance branches. Remaining: audit non-radial mechanics separately,
+    especially Lurker line width, Mutalisk bounce selection, and Spider Mine wake range.
 - Polish projectile/travel behavior for missiles, Valkyrie volleys, and nuke presentation.
 - Revisit Carrier Interceptor attack-pass cadence if tests or play show visible drift from BW feel.
 - Audit remaining weapon-specific or multi-hit upgrade exceptions against the BW references.

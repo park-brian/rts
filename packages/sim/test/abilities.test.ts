@@ -7,6 +7,7 @@ import { canDetect } from '../src/mechanics/detection.ts';
 import { applyIndependentDamage } from '../src/mechanics/damage.ts';
 import { consumeReadyNuke, hasReadyNuke, readyNukeSilo } from '../src/mechanics/nuke.ts';
 import { validateCommand } from '../src/commands/validate.ts';
+import { bodyBounds } from '../src/spatial/geometry.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
 type ScenarioState = SimScenario['state'];
@@ -927,11 +928,18 @@ test('nuclear strike consumes a missile and deals damage after the sourced chann
   const silo = loadedSilo(s, spawn, 0);
   const marine = spawn(Kind.Marine, 1, fx(targetX), fx(targetY));
   const center = spawn(Kind.CommandCenter, 1, fx(targetX), fx(targetY));
-  const shielded = spawn(Kind.Nexus, 1, fx(targetX), fx(targetY + SplashPx.NuclearStrike.inner - 8));
-  const medium = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.inner + 32), fx(targetY));
-  const outer = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.medium + 32), fx(targetY));
-  const far = spawn(Kind.CommandCenter, 1, fx(targetX + SplashPx.NuclearStrike.outer + 1), fx(targetY));
+  const carrierUp = bodyBounds(Kind.Carrier).up;
+  const battlecruiserLeft = bodyBounds(Kind.Battlecruiser).left;
+  const shielded = spawn(Kind.Carrier, 1, fx(targetX), fx(targetY + SplashPx.NuclearStrike.inner - 12) + carrierUp);
+  const medium = spawn(Kind.Battlecruiser, 1, fx(targetX + SplashPx.NuclearStrike.inner + 32) + battlecruiserLeft, fx(targetY));
+  const outer = spawn(Kind.Battlecruiser, 1, fx(targetX + SplashPx.NuclearStrike.medium + 32) + battlecruiserLeft, fx(targetY));
+  const far = spawn(Kind.Battlecruiser, 1, fx(targetX + SplashPx.NuclearStrike.outer + 1) + battlecruiserLeft, fx(targetY));
   const nuke = Abilities[Ability.NuclearStrike]!;
+  const durableHp = 1_500;
+  s.e.hp[slotOf(shielded)] = 1_000;
+  s.e.hp[slotOf(medium)] = durableHp;
+  s.e.hp[slotOf(outer)] = durableHp;
+  s.e.hp[slotOf(far)] = durableHp;
 
   assert.equal(nuke.duration, sec(14.5));
   assert.equal(nuke.radius, fx(SplashPx.NuclearStrike.outer));
@@ -946,18 +954,18 @@ test('nuclear strike consumes a missile and deals damage after the sourced chann
   for (let t = 0; t < sec(8.5); t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 1, 'old 8.4s delay must not resolve the strike early');
   assert.equal(s.e.hp[slotOf(center)], Units[Kind.CommandCenter]!.hp);
-  assert.equal(s.e.shield[slotOf(shielded)], Units[Kind.Nexus]!.shields);
-  assert.equal(s.e.hp[slotOf(medium)], Units[Kind.CommandCenter]!.hp);
-  assert.equal(s.e.hp[slotOf(outer)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.shield[slotOf(shielded)], Units[Kind.Carrier]!.shields);
+  assert.equal(s.e.hp[slotOf(medium)], durableHp);
+  assert.equal(s.e.hp[slotOf(outer)], durableHp);
 
   for (let t = sec(8.5); t < nuke.duration - 1; t++) sim.step([]);
   assert.equal(s.e.alive[slotOf(marine)], 0);
   assert.equal(s.e.hp[slotOf(center)], Units[Kind.CommandCenter]!.hp - 1000);
   assert.equal(s.e.shield[slotOf(shielded)], 0);
-  assert.equal(s.e.hp[slotOf(shielded)], Units[Kind.Nexus]!.hp - 250);
-  assert.equal(s.e.hp[slotOf(medium)], Units[Kind.CommandCenter]!.hp - 500);
-  assert.equal(s.e.hp[slotOf(outer)], Units[Kind.CommandCenter]!.hp - 250);
-  assert.equal(s.e.hp[slotOf(far)], Units[Kind.CommandCenter]!.hp);
+  assert.equal(s.e.hp[slotOf(shielded)], 1_000 - (500 - Units[Kind.Carrier]!.shields));
+  assert.equal(s.e.hp[slotOf(medium)], durableHp - 250);
+  assert.equal(s.e.hp[slotOf(outer)], durableHp - 125);
+  assert.equal(s.e.hp[slotOf(far)], durableHp);
 });
 
 test('nuclear strike requires a ready missile and cancels if the ghost moves', () => {

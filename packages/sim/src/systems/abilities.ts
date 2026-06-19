@@ -7,7 +7,6 @@ import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../mechanics/a
 import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../mechanics/damage.ts';
 import { inRadius } from '../mechanics/effects.ts';
 import { fx } from '../fixed.ts';
-import { distanceSq } from '../spatial/geometry.ts';
 import type { State } from '../entity/world.ts';
 import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../entity/world.ts';
 import { trySpawnUnit } from '../entity/factory.ts';
@@ -17,7 +16,7 @@ import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { consumeReadyNuke } from '../mechanics/nuke.ts';
 import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';
-import { splashDamagePercent } from './weapon-hit.ts';
+import { splashDamagePercentAtEntity } from './weapon-hit.ts';
 
 const NUKE_SPLASH_INNER = fx(SplashPx.NuclearStrike.inner);
 const NUKE_SPLASH_MEDIUM = fx(SplashPx.NuclearStrike.medium);
@@ -270,8 +269,11 @@ const tickEffects = (s: State): void => {
       const outer2 = fx.radius[i]! * fx.radius[i]!;
       for (let j = 0; j < s.e.hi; j++) {
         if (s.e.alive[j] !== 1 || isContained(s, j) || (s.e.flags[j]! & Role.Resource) !== 0) continue;
-        const pct = splashDamagePercent(
-          distanceSq(s.e.x[j]!, s.e.y[j]!, fx.x[i]!, fx.y[i]!),
+        const pct = splashDamagePercentAtEntity(
+          s,
+          j,
+          fx.x[i]!,
+          fx.y[i]!,
           NUKE_SPLASH_INNER2,
           NUKE_SPLASH_MEDIUM2,
           outer2,

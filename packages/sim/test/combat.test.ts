@@ -6,8 +6,9 @@ import { spawnUnit } from '../src/entity/factory.ts';
 import { count, eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import { DamageType, Kind, Order, Tech, Units, bwRange, computeDamage, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
-import { bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
+import { bodyBounds, bwApproxEdgeDistance, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
+import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
 import { setTechLevel } from '../src/mechanics/tech.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 
@@ -283,6 +284,33 @@ test('infested terran suicide attack deals ground splash with friendly fire', ()
   assert.equal(e.alive[slotOf(target)], 0);
   assert.ok(e.hp[slotOf(enemySplash)]! < enemySplashHp);
   assert.ok(e.hp[slotOf(friendlySplash)]! < friendlySplashHp);
+});
+
+test('radial weapon splash uses target body overlap for damage bands', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 141 });
+  const s = sim.fullState();
+  const e = s.e;
+  const attacker = slotOf(spawnUnit(s, Kind.Corsair, 0, fx(400), fx(400)));
+  const target = slotOf(spawnUnit(s, Kind.Mutalisk, 1, fx(500), fx(400)));
+  const battlecruiserLeft = bodyBounds(Kind.Battlecruiser).left;
+  const edgeSplash = slotOf(spawnUnit(s, Kind.Battlecruiser, 1, fx(500 + 53) + battlecruiserLeft, fx(400)));
+  const outsideSplash = slotOf(spawnUnit(s, Kind.Battlecruiser, 1, fx(500 + 61) + battlecruiserLeft, fx(400)));
+  const weapon = {
+    damage: 100,
+    dtype: DamageType.Normal,
+    cooldown: 1,
+    range: tiles(5),
+    splashInnerRadius: fx(10),
+    splashMediumRadius: fx(30),
+    splashRadius: fx(60),
+  };
+  const edgeHp = e.hp[edgeSplash]!;
+  const outsideHp = e.hp[outsideSplash]!;
+
+  assert.equal(applyWeaponHit(s, target, weapon, attacker), true);
+
+  assert.ok(e.hp[edgeSplash]! < edgeHp, 'large body overlaps the outer splash band even when its center is outside');
+  assert.equal(e.hp[outsideSplash], outsideHp);
 });
 
 test('mutalisk attacks bounce to two nearby enemies with reduced damage', () => {

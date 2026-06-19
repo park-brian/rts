@@ -4,7 +4,7 @@ import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { isLowGroundAttackingHigh } from '../spatial/terrain.ts';
 import { range } from '../rng.ts';
-import { distanceSq } from '../spatial/geometry.ts';
+import { topDownPointDistanceSq } from '../spatial/geometry.ts';
 
 const LOW_TO_HIGH_MISS_PERCENT = 53;
 
@@ -16,6 +16,17 @@ export const splashDamagePercent = (d2: number, inner2: number, medium2: number,
   if (d2 <= inner2) return 100;
   return d2 <= medium2 ? 50 : 25;
 };
+
+export const splashDamagePercentAtEntity = (
+  s: State,
+  slot: number,
+  x: number,
+  y: number,
+  inner2: number,
+  medium2: number,
+  outer2: number,
+): number =>
+  splashDamagePercent(topDownPointDistanceSq(s, slot, x, y), inner2, medium2, outer2);
 
 export const applyWeaponHit = (s: State, target: number, weapon: Weapon, attacker: number): boolean => {
   if (missesLowToHigh(s, attacker, target)) return false;
@@ -34,7 +45,7 @@ export const applyWeaponHit = (s: State, target: number, weapon: Weapon, attacke
   for (let i = 0; i < e.hi; i++) {
     if (i === target || e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Resource) !== 0) continue;
     if (((e.flags[i]! & Role.Air) !== 0) !== targetIsAir) continue;
-    const pct = splashDamagePercent(distanceSq(e.x[i]!, e.y[i]!, x, y), inner2, medium2, outer2);
+    const pct = splashDamagePercentAtEntity(s, i, x, y, inner2, medium2, outer2);
     if (pct > 0) applyWeaponDamage(s, i, weapon, attacker, pct);
   }
   return true;

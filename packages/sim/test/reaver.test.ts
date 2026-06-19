@@ -18,6 +18,7 @@ import {
   childActorDef, isExternallySteeredChild, participatesInNormalCombat,
 } from '../src/mechanics/child-actors.ts';
 import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
+import { bodyBounds } from '../src/spatial/geometry.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/mechanics/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
 import {
@@ -215,10 +216,11 @@ test('scarab splash damage falls off by radius after upgrades and armor', () => 
   const e = s.e;
   const reaver = slotOf(spawnUnit(s, Kind.Reaver, 0, fx(400), fx(400)));
   const target = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620), fx(400)));
-  const inner = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(636), fx(400)));
-  const medium = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(652), fx(400)));
-  const outer = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(672), fx(400)));
-  const beyond = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(684), fx(400)));
+  const tankLeft = bodyBounds(Kind.SiegeTank).left;
+  const inner = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620 + 10) + tankLeft, fx(400)));
+  const medium = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620 + 30) + tankLeft, fx(400)));
+  const outer = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620 + 50) + tankLeft, fx(400)));
+  const beyond = slotOf(spawnUnit(s, Kind.SiegeTank, 1, fx(620 + 61) + tankLeft, fx(400)));
   const before = [target, inner, medium, outer, beyond].map((slot) => e.hp[slot]!);
   setTechLevel(s, 0, Tech.ScarabDamage, 1);
 
