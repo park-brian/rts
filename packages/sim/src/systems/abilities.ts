@@ -218,6 +218,21 @@ const applyGenericExecution = (s: State, slot: number, c: Extract<Command, { t: 
       }
       break;
     }
+    case 'target-transform': {
+      const target = slotOf(c.target!);
+      const def = Units[execution.kind]!;
+      e.kind[target] = execution.kind;
+      if (execution.transferOwner === true) e.owner[target] = e.owner[slot]!;
+      e.hp[target] = def.hp;
+      e.shield[target] = def.shields;
+      e.flags[target] = def.roles;
+      if (execution.resetProduction === true) {
+        e.prodKind[target] = Kind.None;
+        e.prodTimer[target] = 0;
+        e.prodQueued[target] = 0;
+      }
+      break;
+    }
     case 'self-toggle': {
       const enabled = e[execution.flag][slot] !== 1;
       e[execution.flag][slot] = enabled ? 1 : 0;
@@ -391,24 +406,7 @@ export const castAbility = (s: State, slot: number, c: Extract<Command, { t: 'ab
 
   if (applyGenericExecution(s, slot, c)) return;
 
-  switch (c.ability) {
-    case Ability.Recall:
-      recallUnits(s, slot, c.x!, c.y!, ability.radius);
-      break;
-    case Ability.InfestCommandCenter: {
-      const target = slotOf(c.target!);
-      const def = Units[Kind.InfestedCommandCenter]!;
-      e.kind[target] = Kind.InfestedCommandCenter;
-      e.owner[target] = e.owner[slot]!;
-      e.hp[target] = def.hp;
-      e.shield[target] = def.shields;
-      e.flags[target] = def.roles;
-      e.prodKind[target] = Kind.None;
-      e.prodTimer[target] = 0;
-      e.prodQueued[target] = 0;
-      break;
-    }
-  }
+  if (c.ability === Ability.Recall) recallUnits(s, slot, c.x!, c.y!, ability.radius);
 };
 
 export const abilities = (s: State): void => {

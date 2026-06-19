@@ -195,6 +195,8 @@ Remaining work:
   - `persistentArea`;
   - `pointChannelArea`;
   - `targetSpawn`;
+  - `targetConvert`;
+  - `targetTransform`;
   - `channel`;
   - `windup`;
   - `projectile`.
@@ -540,8 +542,9 @@ Done when:
   travel, follow endpoints, and production rally orders share command-owned semantics.
 - Moved sim-owned render presentation descriptors under `render/descriptors.ts`, keeping Math-mode
   hulls, life bars, cloak opacity, work sparks, and effect affordances behind one render contract.
-- Merged ability tech/capacity/toggle legality helpers under `mechanics/abilities.ts`, leaving the
-  remaining bespoke spawn/nuke capacity cases visible for the later ability descriptor pass.
+- Merged ability tech/capacity/toggle legality helpers under `mechanics/abilities.ts`; effect and
+  child-spawn capacity now follow ability execution descriptors instead of bespoke spawn/nuke
+  capacity cases.
 - Moved shared cargo, containment, transport capacity, load/unload, and Nydus endpoint rules under
   `mechanics/cargo.ts`, leaving `systems/cargo.ts` as the small per-tick containment synchronizer.
 - Moved shared repair eligibility, cost, and construction-resume rules under `mechanics/repair.ts`,
@@ -613,6 +616,9 @@ Done when:
   child-spawn counts.
 - Moved Mind Control through a `target-convert` ability descriptor, keeping ownership transfer,
   target order clearing, and caster shield drain in the generic ability execution table.
+- Moved Infest Command Center through a `target-transform` ability descriptor, keeping in-place kind
+  replacement, ownership transfer, hp/shield/role reset, and production clearing in the generic
+  ability execution table. Recall is now the only bespoke non-timing ability execution branch left.
 
 ## Review Checklist
 

@@ -66,6 +66,7 @@ export type AbilityExecution =
   | { mode: 'target-convert'; drainCasterShield?: boolean }
   | { mode: 'target-sacrifice-energy' }
   | { mode: 'target-spawn'; kind: number | 'target'; count: number; spread: number; life: number; killTarget?: boolean; illusion?: boolean }
+  | { mode: 'target-transform'; kind: number; transferOwner?: boolean; resetProduction?: boolean }
   | { mode: 'self-toggle'; flag: 'cloakActive' }
   | { mode: 'persistent-effect'; effect: EffectKind }
   | { mode: 'point-channel-effect'; effect: EffectKind; consumes: 'nuke' };
@@ -250,6 +251,7 @@ export const Abilities: Record<number, AbilityDef> = {
     name: 'Infest Command Center', target: 'entity', targetTeam: 'enemy', targetRolesAny: Role.Structure, targetRolesNone: 0,
     targetTraitsAny: 0, targetTraitsNone: 0, targetNeedsEnergy: false, casters: [Kind.Queen],
     energyCost: 0, hpCost: 0, range: tiles(1), radius: 0, duration: 0, period: 0, damage: 0,
+    execution: { mode: 'target-transform', kind: Kind.InfestedCommandCenter, transferOwner: true, resetProduction: true },
   },
   [Ability.NuclearStrike]: {
     name: 'Nuclear Strike', target: 'point', targetTeam: 'enemy', targetRolesAny: 0, targetRolesNone: 0,

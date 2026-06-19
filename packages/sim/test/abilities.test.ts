@@ -77,6 +77,7 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.Restoration]!.execution, { mode: 'target-cleanse' });
   assert.deepEqual(Abilities[Ability.MindControl]!.execution, { mode: 'target-convert', drainCasterShield: true });
   assert.deepEqual(Abilities[Ability.Hallucination]!.execution, { mode: 'target-spawn', kind: 'target', count: 2, spread: fx(12), life: sec(56.7), illusion: true });
+  assert.deepEqual(Abilities[Ability.InfestCommandCenter]!.execution, { mode: 'target-transform', kind: Kind.InfestedCommandCenter, transferOwner: true, resetProduction: true });
   assert.deepEqual(Abilities[Ability.ShieldRecharge]!.execution, { mode: 'target-restore', pool: 'shield' });
   assert.deepEqual(Abilities[Ability.DisruptionWeb]!.execution, { mode: 'persistent-effect', effect: EffectKind.DisruptionWeb });
   assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });
