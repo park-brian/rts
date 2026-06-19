@@ -413,6 +413,12 @@ const screenPoint = (game: Game, x: number, y: number): { x: number; y: number }
   y: (y - game.camY) * game.zoom,
 });
 
+const queuedTravelStrokeStyle = (intent: QueuedTravelWaypoint['intent']): string => {
+  if (intent === 'attack-move') return 'rgba(255,120,80,0.78)';
+  if (intent === 'patrol') return 'rgba(90,210,255,0.78)';
+  return 'rgba(255,225,78,0.78)';
+};
+
 const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): void => {
   const s = game.sim.fullState();
   const e = s.e;
@@ -431,7 +437,7 @@ const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): v
       prevUnit = waypoint.unit;
     }
     const to = screenPoint(game, waypoint.x, waypoint.y);
-    ctx.strokeStyle = waypoint.intent === 'attack-move' ? 'rgba(255,120,80,0.78)' : 'rgba(255,225,78,0.78)';
+    ctx.strokeStyle = queuedTravelStrokeStyle(waypoint.intent);
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);
@@ -445,6 +451,11 @@ const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): v
       ctx.lineTo(to.x, to.y + r);
       ctx.lineTo(to.x - r, to.y);
       ctx.closePath();
+    } else if (waypoint.intent === 'patrol') {
+      const r = 5;
+      ctx.moveTo(to.x - r, to.y);
+      ctx.lineTo(to.x, to.y - r);
+      ctx.lineTo(to.x + r, to.y);
     } else {
       ctx.arc(to.x, to.y, 4, 0, Math.PI * 2);
     }

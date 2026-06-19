@@ -197,6 +197,12 @@ const decodedAttackMove = (actor: number, x: number, y: number, queue?: boolean)
   return command;
 };
 
+const decodedPatrol = (actor: number, x: number, y: number, queue?: boolean): Extract<Command, { t: 'patrol' }> => {
+  const command: Extract<Command, { t: 'patrol' }> = { t: 'patrol', unit: actor, x, y };
+  if (queue === true) command.queue = true;
+  return command;
+};
+
 export const commandHeadIndex = (head: CommandHead): number => COMMAND_HEAD_INDEX[head];
 
 export const commandHeadAllowed = (mask: Uint8Array, head: CommandHead): boolean =>
@@ -241,7 +247,7 @@ export const decodeAction = (action: EncodedAction): Command => {
     case 'hold':
       return { t: 'hold', unit: action.actor };
     case 'patrol':
-      return { t: 'patrol', unit: action.actor, x, y };
+      return decodedPatrol(action.actor, x, y, action.queue);
     case 'attack':
       return { t: 'attack', unit: action.actor, target };
     case 'ability': {
@@ -296,7 +302,10 @@ export const encodeCommand = (command: Command): EncodedAction => {
     case 'repair': return { head: 'repair', actor: command.unit, target: command.target };
     case 'rally': return { head: 'rally', actor: command.building, x: command.x, y: command.y, target: command.target };
     case 'hold': return { head: 'hold', actor: command.unit };
-    case 'patrol': return { head: 'patrol', actor: command.unit, x: command.x, y: command.y };
+    case 'patrol': return {
+      head: 'patrol', actor: command.unit, x: command.x, y: command.y,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'stop': return { head: 'stop', actor: command.unit };
   }
 };

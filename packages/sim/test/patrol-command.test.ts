@@ -66,6 +66,37 @@ test('patrol alternates between destination and origin using serialized route st
   assert.equal(s.e.patrolY[slot], destination.y);
 });
 
+test('queued patrol starts after current travel using the live start point', () => {
+  const scenario = simScenario({ players: 1, seed: 667 });
+  const s = scenario.state;
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const slot = slotOf(marine);
+  const currentOrder = (): number => s.e.order[slot]!;
+  const movePoint = { x: fx(340), y: fx(300) };
+  const patrolPoint = { x: fx(400), y: fx(300) };
+
+  const results = scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, ...movePoint },
+    { t: 'patrol', unit: marine, ...patrolPoint, queue: true },
+  ] }]);
+
+  assert.deepEqual(results, [
+    { player: 0, index: 0, t: 'move', ok: true },
+    { player: 0, index: 1, t: 'patrol', ok: true },
+  ]);
+  assert.equal(currentOrder(), Order.Move);
+  assert.equal(s.e.orderQueueLen[slot], 1);
+
+  for (let i = 0; i < 120 && currentOrder() !== Order.Patrol; i++) scenario.sim.step([]);
+
+  assert.equal(currentOrder(), Order.Patrol);
+  assert.equal(s.e.orderQueueLen[slot], 0);
+  assert.equal(s.e.tx[slot], patrolPoint.x);
+  assert.equal(s.e.ty[slot], patrolPoint.y);
+  assert.equal(s.e.patrolX[slot], s.e.x[slot]);
+  assert.equal(s.e.patrolY[slot], s.e.y[slot]);
+});
+
 test('patrol engages enemies encountered without losing the patrol route', () => {
   const scenario = simScenario({ players: 2, seed: 666 });
   const s = scenario.state;
@@ -89,8 +120,8 @@ test('replay parser accepts patrol commands', () => {
     map: { kind: 'slice' },
     players: 1,
     seed: 1,
-    frames: [[{ player: 0, cmds: [{ t: 'patrol', unit: 1, x: 100, y: 200 }] }]],
+    frames: [[{ player: 0, cmds: [{ t: 'patrol', unit: 1, x: 100, y: 200, queue: true }] }]],
   }));
 
-  assert.deepEqual(replay.frames[0]?.[0]?.cmds[0], { t: 'patrol', unit: 1, x: 100, y: 200 });
+  assert.deepEqual(replay.frames[0]?.[0]?.cmds[0], { t: 'patrol', unit: 1, x: 100, y: 200, queue: true });
 });

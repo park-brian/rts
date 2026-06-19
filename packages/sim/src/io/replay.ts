@@ -269,6 +269,7 @@ const validateCommand = (x: unknown): Command => {
         unit: readNonNegativeInt(unit, 'invalid patrol command'),
         x: readInt(xPos, 'invalid patrol command'),
         y: readInt(yPos, 'invalid patrol command'),
+        ...readOptionalQueue(r, 'invalid patrol command'),
       };
     }
     default:

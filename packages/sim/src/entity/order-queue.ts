@@ -1,13 +1,13 @@
 import { Order } from '../data/index.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 import { entityApproachPoint } from './approach.ts';
-import { clearPatrolRoute } from './patrol.ts';
+import { clearPatrolRoute, setPatrolOrder } from './patrol.ts';
 import { isAlive, NONE, slotOf, type Entities, type State } from './world.ts';
 
 export const ORDER_QUEUE_CAP = 4;
 
 export type QueuedTravelOrder = {
-  order: typeof Order.Move | typeof Order.AttackMove;
+  order: typeof Order.Move | typeof Order.AttackMove | typeof Order.Patrol;
   x: number;
   y: number;
   target?: number;
@@ -86,6 +86,10 @@ export const setCurrentTravelOrder = (
   targetId = NONE,
 ): void => {
   const e = s.e;
+  if (order === Order.Patrol) {
+    setPatrolOrder(s, slot, x, y);
+    return;
+  }
   let tx = x;
   let ty = y;
   if (targetId !== NONE && isAlive(e, targetId)) {

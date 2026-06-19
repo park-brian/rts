@@ -151,6 +151,10 @@ Remaining work:
     point travel, and leaves attack / harvest / repair / load / spells immediate until those command
     families gain first-class queued interruption semantics. Remaining queue work: extend append
     semantics to the other command families with explicit interruption tests.
+  - Patrol queue slice is done: Patrol now shares the travel queue's serialized order slots, replay
+    and action-mask encoding preserve the `queue` flag, desktop Shift and mobile queue mode emit
+    queued Patrol from armed command taps, and queued waypoint descriptors/rendering distinguish
+    Patrol from Move and Attack-Move.
   - Immediate interruption slice is done: direct spell, worker-build, spider-mine, load, and unload
     commands now discard stale future queued travel for their actor through command-owned helpers,
     matching the existing attack / harvest / repair / stop / transform replacement behavior while

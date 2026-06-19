@@ -286,16 +286,19 @@ test('queued travel waypoints expose selected travel plans without renderer stat
 
   enqueueTravelOrder(s, marineSlot, Order.Move, fx(480), fx(400), leader);
   enqueueTravelOrder(s, marineSlot, Order.AttackMove, fx(560), fx(460));
+  enqueueTravelOrder(s, marineSlot, Order.Patrol, fx(620), fx(500));
   enqueueTravelOrder(s, unselectedSlot, Order.Move, fx(600), fx(400));
 
   assert.deepEqual(queuedTravelWaypoints(s, [marine]), [
     { unit: marine, index: 0, intent: 'move', target: leader, x: e.x[slotOf(leader)]! / ONE, y: e.y[slotOf(leader)]! / ONE },
     { unit: marine, index: 1, intent: 'attack-move', target: NONE, x: 560, y: 460 },
+    { unit: marine, index: 2, intent: 'patrol', target: NONE, x: 620, y: 500 },
   ]);
 
   e.alive[slotOf(leader)] = 0;
   assert.deepEqual(queuedTravelWaypoints(s, [marine]), [
     { unit: marine, index: 1, intent: 'attack-move', target: NONE, x: 560, y: 460 },
+    { unit: marine, index: 2, intent: 'patrol', target: NONE, x: 620, y: 500 },
   ]);
 });
 

@@ -1,4 +1,5 @@
-import { Kind, Role } from '../data/index.ts';
+import { Kind, Order, Role } from '../data/index.ts';
+import { canQueueOrder, currentOrderIsIdle, enqueueTravelOrder } from '../entity/order-queue.ts';
 import { setPatrolOrder } from '../entity/patrol.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';
@@ -22,11 +23,16 @@ export const validatePatrolCommand = (s: State, player: number, command: PatrolC
   if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
     return reject('missing-capability');
   }
+  if (command.queue === true && !currentOrderIsIdle(e, slot) && !canQueueOrder(e, slot)) return reject('queue-full');
   return { ok: true };
 };
 
 export const applyPatrolCommand = (s: State, command: PatrolCommand): void => {
   const slot = slotOf(command.unit);
+  if (command.queue === true && !currentOrderIsIdle(s.e, slot)) {
+    enqueueTravelOrder(s, slot, Order.Patrol, command.x, command.y);
+    return;
+  }
   cancelPendingBeforeOrder(s, slot);
   setPatrolOrder(s, slot, command.x, command.y);
 };

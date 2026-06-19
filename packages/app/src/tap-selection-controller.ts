@@ -58,7 +58,8 @@ export class TapSelectionController {
       return;
     }
     if (armed.t === 'patrol') {
-      if (this.queuePatrolMode(tx, ty)) clearArmedCommand();
+      const queueTravel = opts.shift === true || this.mobileQueueMode();
+      if (this.queuePatrolMode(tx, ty, queueTravel)) clearArmedCommand();
       return;
     }
 
@@ -242,13 +243,19 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queuePatrolMode(x: number, y: number): boolean {
+  private queuePatrolMode(x: number, y: number, queueTravel = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
     let queued = false;
     for (const id of this.mobileSelection(e)) {
-      const command = { t: 'patrol' as const, unit: id, x, y };
+      const command = {
+        t: 'patrol' as const,
+        unit: id,
+        x,
+        y,
+        ...(queueTravel ? { queue: true as const } : {}),
+      };
       if (validateCommand(s, g.human, command).ok) {
         g.queued.push(command);
         queued = true;

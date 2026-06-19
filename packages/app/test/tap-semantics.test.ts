@@ -420,6 +420,27 @@ test('desktop shift armed attack-move queues point travel but not target attacks
   assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
 });
 
+test('desktop shift armed patrol appends queued patrol travel', () => {
+  const g = freshGame();
+  ui.controlScheme.value = 'desktop';
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  ui.armedCommand.value = { t: 'patrol' };
+
+  const ground = { x: g.viewW / 2 + 72, y: g.viewH / 2 + 64 };
+  g.tap(ground.x, ground.y, { shift: true });
+
+  assert.deepEqual(g.queued, [{
+    t: 'patrol',
+    unit: marine,
+    ...fixedPointAt(g, ground),
+    queue: true,
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
 test('desktop right click follows ordinary friendly units', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
@@ -641,6 +662,16 @@ test('mobile queue mode appends validated travel without changing non-travel sma
     g.tap(ground.x, ground.y);
     assert.deepEqual(g.queued, [{
       t: 'amove',
+      unit: marine,
+      ...fixedPointAt(g, ground),
+      queue: true,
+    }]);
+
+    g.queued = [];
+    ui.armedCommand.value = { t: 'patrol' };
+    g.tap(ground.x, ground.y);
+    assert.deepEqual(g.queued, [{
+      t: 'patrol',
       unit: marine,
       ...fixedPointAt(g, ground),
       queue: true,

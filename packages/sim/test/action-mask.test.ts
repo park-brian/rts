@@ -109,6 +109,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'rally', building: 35, x: fx(22), y: fx(23), target: 36 },
     { t: 'hold', unit: 36 },
     { t: 'patrol', unit: 36, x: fx(24), y: fx(25) },
+    { t: 'patrol', unit: 36, x: fx(24), y: fx(25), queue: true },
     { t: 'stop', unit: 37 },
   ];
   for (const command of commands) assert.deepEqual(decodeAction(encodeCommand(command)), command);
