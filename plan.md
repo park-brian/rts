@@ -47,7 +47,6 @@ Remaining work:
 
 - Finish splitting `command-specs.ts` validation by command family:
   - move / attack-move;
-  - stop / hold-style immediate commands;
   - transform / morph / merge;
   - lift / land.
 - Extract shared command predicates where they reduce drift:
@@ -244,6 +243,7 @@ Done when:
 - Added a replay-visible `fortress` procedural preset with validated high-ground expansion pockets.
 - Extracted targeted attack command validation.
 - Extracted burrow / unburrow command validation.
+- Extracted stop command validation.
 
 ## Review Checklist
 

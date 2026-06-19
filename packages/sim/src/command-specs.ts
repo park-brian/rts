@@ -38,6 +38,7 @@ import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
 import { validateAttackCommand } from './attack-command.ts';
 import { validateBurrowCommand } from './burrow-command.ts';
+import { validateStopCommand } from './stop-command.ts';
 
 export { snapRallyTarget };
 
@@ -101,15 +102,6 @@ const validateMoveLike = (s: State, player: number, command: MoveLikeCommand): C
     if (target === slot || isContained(s, target) || !sameTeam(s, player, e.owner[target]!)) return reject('target-not-allowed');
     if (isGatherTargetSlot(s, target)) return reject('target-not-allowed');
   }
-  return { ok: true };
-};
-
-const validateStop = (s: State, player: number, command: Extract<Command, { t: 'stop' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot)) return reject('missing-capability');
-  if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
   return { ok: true };
 };
 
@@ -365,7 +357,7 @@ const amoveSpec: CommandSpec<Extract<Command, { t: 'amove' }>> = {
 };
 
 const stopSpec: CommandSpec<Extract<Command, { t: 'stop' }>> = {
-  validate: validateStop,
+  validate: validateStopCommand,
   apply(s, _player, command): void {
     const e = s.e;
     const slot = slotOf(command.unit);
