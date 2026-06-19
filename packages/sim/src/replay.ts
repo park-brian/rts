@@ -71,7 +71,7 @@ const readArray = (x: unknown, msg: string): unknown[] => {
 };
 
 const validateMapPreset = (x: unknown): MapPreset => {
-  if (x === 'teamPlateaus') return x;
+  if (x === 'teamPlateaus' || x === 'cornerBases') return x;
   return fail('unknown procedural map preset');
 };
 

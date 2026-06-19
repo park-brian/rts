@@ -5,7 +5,7 @@
 // midfield. Optional midfield modules can add blockers/chokes later without
 // changing the base/economy contract.
 
-import type { BaseCluster, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
+import type { BaseCluster, BaseResourceDir, BaseSite, MapDef, ResourceFootprint, ResourceSpawn, StartLoc } from './map.ts';
 import {
   baseDepotFootprint,
   resourceFootprintsOverlap,
@@ -16,7 +16,7 @@ import { makeRng, range, type Rng } from './rng.ts';
 import { baseGasRoutesValid, mainBaseMineralRoutesValid } from './harvest-calibration.ts';
 
 export type MidfieldModule = 'empty' | 'blocks' | 'dualChoke' | 'arena' | 'raisedCenter';
-export type MapPreset = 'teamPlateaus';
+export type MapPreset = 'teamPlateaus' | 'cornerBases';
 export type GenerateMapOptions = {
   preset?: MapPreset;
   midfield?: MidfieldModule;
@@ -231,7 +231,7 @@ const clusterFits = (
 export const selectBaseCluster = (
   m: MapDef,
   anchor: StartLoc,
-  dir: -1 | 1,
+  dir: BaseResourceDir,
   blockedReservations: readonly ResourceFootprint[] = [],
   options: BaseClusterSelectionOptions = {},
 ): BaseCluster | null => {
@@ -252,7 +252,7 @@ export const selectBaseCluster = (
 const stampBaseCluster = (
   m: MapDef,
   anchor: StartLoc,
-  dir: -1 | 1,
+  dir: BaseResourceDir,
   kind: BaseSite['kind'],
   blockedReservations: ResourceFootprint[],
 ): BaseCluster => {
@@ -297,6 +297,28 @@ const stampTeamPlateaus = (b: MapBuilder): void => {
     addBaseSite(m, 'main', 1, northCluster, i * 2 + 1, north.x, northRampY);
     addBaseSite(m, 'natural', 0, southNaturalCluster, undefined, south.x, southRampY);
     addBaseSite(m, 'natural', 1, northNaturalCluster, undefined, north.x, northRampY);
+  }
+};
+
+const stampCornerBases = (b: MapBuilder): void => {
+  const m = b.map;
+  const blockedReservations: ResourceFootprint[] = [];
+
+  for (let i = 0; i < b.perTeam; i++) {
+    const westX = i * LANE_W + 14;
+    const eastX = (i + 1) * LANE_W - 15;
+    const southWest: StartLoc = { x: westX, y: m.h - 14 };
+    const northEast: StartLoc = { x: eastX, y: 14 };
+    const southCluster = stampBaseCluster(m, southWest, 'east', 'main', blockedReservations);
+    const northCluster = stampBaseCluster(m, northEast, 'west', 'main', blockedReservations);
+
+    m.starts.push({ x: southCluster.x, y: southCluster.y });
+    m.teams.push(0);
+    m.starts.push({ x: northCluster.x, y: northCluster.y });
+    m.teams.push(1);
+
+    addBaseSite(m, 'main', 0, southCluster, i * 2);
+    addBaseSite(m, 'main', 1, northCluster, i * 2 + 1);
   }
 };
 
@@ -421,13 +443,25 @@ const buildMap = (perTeam: number, seed: number, preset: MapPreset, midfield: Mi
   const builder = new MapBuilder(perTeam, seed);
   switch (preset) {
     case 'teamPlateaus': stampTeamPlateaus(builder); break;
+    case 'cornerBases': stampCornerBases(builder); break;
   }
   applyMidfieldModule(builder, midfield, makeRng(seed));
   return builder.map;
 };
 
-const generatedMapValid = (m: MapDef): boolean =>
-  mapConnected(m) && mapResourcesValid(m) && mapBaseReservationsValid(m) && mainBaseMineralRoutesValid(m) && baseGasRoutesValid(m);
+const mainMineralRoutesValidForPreset = (m: MapDef, preset: MapPreset): boolean => {
+  if (preset === 'teamPlateaus') return mainBaseMineralRoutesValid(m);
+  // Side-facing bases keep per-base BW cadence strict, but 2x1 mineral patches
+  // do not rotate, so east/west local resource orders are not exact mirrors.
+  return mainBaseMineralRoutesValid(m, { maxResourceOrderRouteSpreadFrames: Number.POSITIVE_INFINITY });
+};
+
+const generatedMapValid = (m: MapDef, preset: MapPreset): boolean =>
+  mapConnected(m) &&
+  mapResourcesValid(m) &&
+  mapBaseReservationsValid(m) &&
+  mainMineralRoutesValidForPreset(m, preset) &&
+  baseGasRoutesValid(m);
 
 /**
  * Generate a symmetric NvN map. `perTeam` players share each side's plateau
@@ -438,10 +472,10 @@ export const generateMap = (perTeam: number, seed: number, options: GenerateMapO
   const preset = options.preset ?? 'teamPlateaus';
   const midfield = options.midfield ?? 'empty';
   const m = buildMap(perTeam, seed, preset, midfield);
-  if (generatedMapValid(m)) return m;
+  if (generatedMapValid(m, preset)) return m;
   if (midfield !== 'empty') {
     const fallback = buildMap(perTeam, seed, preset, 'empty');
-    if (generatedMapValid(fallback)) return fallback;
+    if (generatedMapValid(fallback, preset)) return fallback;
   }
   throw new Error(`generateMap: invalid ${perTeam}v${perTeam} map for seed ${seed}`);
 };

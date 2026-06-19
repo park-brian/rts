@@ -221,9 +221,6 @@ Remaining work:
   with its canonical Math hull.
 - Add richer construction, warp-in, repair, and sound cues after the refreshed asset pass.
 - Maintain sprite footprint/art placement checks for every imported asset refresh.
-- Use the orientation-aware base resource arc primitive in actual side/corner procedural layouts, so
-  generated bases can face valleys or enemy lanes while preserving the same 2x1 mineral, 4x2 geyser,
-  and average-cadence timing rules.
 - Split `Game` selection, input, HUD, replay, and renderer coordination once command-card growth
   stabilizes.
 
@@ -244,6 +241,7 @@ Done when:
 - Moved build command validation into the build module.
 - Extracted add-on command validation.
 - Extracted Spider Mine command validation.
+- Added orientation-aware resource arcs and a side-facing `cornerBases` procedural preset.
 
 ## Review Checklist
 

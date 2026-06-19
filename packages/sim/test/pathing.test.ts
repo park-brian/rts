@@ -6,8 +6,8 @@ import { navigate, lineClear, tileX, tileY } from '../src/pathing.ts';
 import { clearancePxForKind, flowField, navPassableForKind, pathPass, pathW, pathX, pathY, sampleFlowDirection } from '../src/flow.ts';
 import { stepWorld } from '../src/tick.ts';
 import { generateMap, mapBaseReservationsValid, mapConnected, mapResourcesValid, selectBaseCluster } from '../src/procedural.ts';
-import { mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
-import { resourceFootprintsOverlap, sliceMap, solveBaseCluster } from '../src/map.ts';
+import { baseGasRoutesValid, mainBaseMineralRoutesValid } from '../src/harvest-calibration.ts';
+import { resourceDirVector, resourceFootprintsOverlap, resourceSpawnCenterPx, sliceMap, solveBaseCluster } from '../src/map.ts';
 import { Kind, Order, ResourceType, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import type { MapDef } from '../src/map.ts';
@@ -244,6 +244,34 @@ test('procedural midfield modules preserve connectivity and resource clearance',
     assert.equal(mapBaseReservationsValid(m), true, `${midfield} keeps whole base reservations clear`);
     assert.equal(mainBaseMineralRoutesValid(m), true, `${midfield} keeps main mineral timing valid`);
     assertBaseDepotAnchorsLegal(m);
+  }
+});
+
+test('corner-base preset uses side-facing resource arcs as a real procedural consumer', () => {
+  const m = generateMap(2, 91, { preset: 'cornerBases' });
+  const bases = m.bases ?? [];
+
+  assert.equal(m.starts.length, 4);
+  assert.equal(bases.length, 4);
+  assert.equal(mapConnected(m), true);
+  assert.equal(mapResourcesValid(m), true);
+  assert.equal(mapBaseReservationsValid(m), true);
+  assert.equal(mainBaseMineralRoutesValid(m, { maxResourceOrderRouteSpreadFrames: Number.POSITIVE_INFINITY }), true);
+  assert.equal(baseGasRoutesValid(m), true);
+  assertBaseDepotAnchorsLegal(m);
+  assert.deepEqual(bases.map((base) => base.resourceDir), ['east', 'west', 'east', 'west']);
+
+  for (const base of bases) {
+    const f = resourceDirVector(base.resourceDir);
+    assert.notEqual(f.x, 0, 'corner preset should exercise east/west resource arcs');
+    const depot = { x: base.x * TILE + (TILE >> 1), y: base.y * TILE + (TILE >> 1) };
+    const resources = m.resources.filter((resource) => {
+      const center = resourceSpawnCenterPx(resource);
+      return (center.x - depot.x) * f.x + (center.y - depot.y) * f.y > 0 &&
+        Math.abs(center.y - depot.y) <= 8 * TILE &&
+        Math.abs(center.x - depot.x) <= 9 * TILE;
+    });
+    assert.equal(resources.length, 9, `${base.resourceDir} base should own one side-facing resource cluster`);
   }
 });
 
