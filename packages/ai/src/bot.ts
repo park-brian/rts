@@ -5,7 +5,7 @@
 // the demonstrator we'll behavior-clone from later.
 
 import {
-  Ability, Role, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid, isEnemy, nearest,
+  Ability, Role, Order, Kind, Tech, TechDefs, Units, canPlaceStructure, tileX, tileY, eid,
   NONE, TILE, SUPPLY_CAP, supply, slotOf, type Faction, type State, type Command, type Controller,
   LOAD_RANGE, UNLOAD_RANGE, canLoadInto, cargoUsed, getTechLevel, nextTechLevel, productionCostCount, productionCount,
   activeAddonParentSlot, addonParentKind, hasCompletedKind, sameTeam, unloadAnchorSlot, unloadPassable, validateCommand, weaponForTarget,
@@ -18,6 +18,7 @@ import {
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery, type ResourceBudget } from './macro-capacity.ts';
+import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import {
   collectBotFacts,
   commitTacticalResponders,
@@ -25,7 +26,6 @@ import {
   deriveTacticalIncidents,
   rememberTacticalIncidents,
   tacticalResponseBudget,
-  type BotFacts,
   type BotMemory,
   type TacticalIncident,
 } from './macro.ts';
@@ -39,8 +39,6 @@ export type BotConfig = {
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
 const EMERGENCY_WORKER_RESPONSE_TILES = 10;
-const OFFENSE_COMMITMENT_TICKS = 45 * 24;
-const OFFENSE_MIN_FORCE = 2;
 const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 const TERRAN_RESEARCH_MACRO = [
   Tech.StimPack,
@@ -153,8 +151,6 @@ const ZERG_REPEATABLE_MORPH_MACRO = [
 const ALL_ZERG_UNIQUE_MORPHS = (1 << ZERG_UNIQUE_MORPH_MACRO.length) - 1;
 
 type ProducerReservations = Set<number>;
-type OffenseFocus = { x: number; y: number; target: number };
-
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const incidentTarget = (s: State, incident: TacticalIncident): number => {
   const e = s.e;
@@ -168,32 +164,6 @@ const incidentTarget = (s: State, incident: TacticalIncident): number => {
     bestD = d;
   }
   return best;
-};
-
-const offensiveFocus = (s: State, player: number, facts: BotFacts, depot: number): OffenseFocus | null => {
-  const e = s.e;
-  let focusX = 0;
-  let focusY = 0;
-  let bestValue = -1;
-  let bestDistance = Infinity;
-  for (const region of facts.enemyProtectedRegions) {
-    const distance = distanceSq(e.x[depot]!, e.y[depot]!, region.x, region.y);
-    if (region.value < bestValue) continue;
-    if (region.value === bestValue && distance >= bestDistance) continue;
-    bestValue = region.value;
-    bestDistance = distance;
-    focusX = region.x;
-    focusY = region.y;
-  }
-
-  if (bestValue < 0) {
-    let target = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, player, e.owner[sl]!) && (e.flags[sl]! & Role.Structure) !== 0);
-    if (target === NONE) target = nearest(s, e.x[depot]!, e.y[depot]!, (sl) => isEnemy(s, player, e.owner[sl]!));
-    return target === NONE ? null : { x: e.x[target]!, y: e.y[target]!, target };
-  }
-
-  const target = nearest(s, focusX, focusY, (sl) => isEnemy(s, player, e.owner[sl]!));
-  return { x: focusX, y: focusY, target };
 };
 
 const canEmergencyPullWorker = (s: State, slot: number, x: number, y: number): boolean => {
@@ -219,24 +189,6 @@ const emergencyWorkerResponders = (
     .sort((a, b) => a.distance - b.distance || a.slot - b.slot)
     .slice(0, needed)
     .map(({ slot }) => slot);
-};
-
-const shouldCommitOffense = (memory: BotMemory, tick: number, force: number, threshold: number): boolean => {
-  if (force <= 0) {
-    memory.offenseWaitSince = -1;
-    return false;
-  }
-  if (force >= threshold) return true;
-  if (force < OFFENSE_MIN_FORCE) {
-    memory.offenseWaitSince = -1;
-    return false;
-  }
-  if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
-  return tick - memory.offenseWaitSince >= OFFENSE_COMMITMENT_TICKS;
-};
-
-const markOffenseCommitted = (memory: BotMemory, tick: number): void => {
-  memory.offenseWaitSince = tick;
 };
 
 /** Find a buildable, reasonably clear tile near (bx,by) for a structure. */
@@ -578,9 +530,9 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       }
     }
 
-    if (shouldCommitOffense(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
+    if (shouldCommitPressure(memory, s.tick, incident ? attackCandidates.length : army, c.attackThreshold)) {
       // 6) Offense: pressure the enemy's most valuable exposed region.
-      const focus = offensiveFocus(s, p, facts, depot);
+      const focus = pressureFocus(s, p, facts, depot);
       if (focus) {
         let issuedOffense = false;
         if (!builderUsed) {
@@ -609,7 +561,7 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
           cmds.push({ t: 'amove', unit: eid(e, a), x: focus.x, y: focus.y });
           issuedOffense = true;
         }
-        if (issuedOffense) markOffenseCommitted(memory, s.tick);
+        if (issuedOffense) markPressureCommitted(memory, s.tick);
       }
     }
 

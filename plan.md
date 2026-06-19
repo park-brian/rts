@@ -660,6 +660,11 @@ Remaining work:
     vocabulary, deterministic bot memory shape, `BotFacts`, fog-aware visible enemy collection,
     completed-or-pending structure summaries for rebuild planning, and a compact weapon-risk tile
     matrix that covers visible map state or the whole map in god-vision mode.
+  - Pressure-policy extraction slice is done: attack-wave commitment and focus selection now live in
+    `packages/ai/src/macro-pressure.ts`, with the explicit rule that freezing is worse than sending a
+    usable force to create pressure after a deterministic wait. Under fair fog, pressure uses known
+    enemy regions or public enemy start locations instead of hidden enemy slots; under god vision it
+    may still use full-state enemy targets for headless scripted play.
 - Add ML benchmark lanes for:
   - action masks;
   - object observations;

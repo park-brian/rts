@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACTIVE_CLOAK_ABILITIES,
+  PRESSURE_COMMITMENT_TICKS,
   TACTICAL_ABILITY_POLICIES,
   collectBotFacts,
   commitTacticalResponders,
@@ -25,7 +26,7 @@ import {
 } from '../test-support/bot-scenario.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
-  Role, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
+  Role, TILE, addonParentKind, addonPosition, cloneState, commandHeadAllowed, commandHeadMask, eid, encodeCommand, entityTargetMask, fx, setTechLevel, NONE, slotOf, tileX,
   tileY, validateCommand, withinRangeSq, type Command, type State,
 } from '@rts/sim';
 
@@ -640,7 +641,7 @@ test('bot commitment pressure eventually sends an under-threshold army', () => {
     cmd.t === 'amove' && cmd.x === enemyRegion.x && cmd.y === enemyRegion.y;
 
   assert.equal(bot(s, 0).some(isOffense), false);
-  s.tick += 45 * 24 + 1;
+  s.tick += PRESSURE_COMMITMENT_TICKS + 1;
   const offense = bot(s, 0).filter(isOffense);
 
   assert.deepEqual(offense.map((c) => c.unit), marines);
@@ -658,7 +659,7 @@ test('bot commitment pressure spends only units not reserved for defense', () =>
   const bot = createBot(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 12 });
 
   bot(s, 0);
-  s.tick += 45 * 24 + 1;
+  s.tick += PRESSURE_COMMITMENT_TICKS + 1;
   const cmds = bot(s, 0);
   const defense = cmds.filter((c): c is Extract<BotCommand, { t: 'attack' }> =>
     c.t === 'attack' && c.target === enemy);
@@ -797,6 +798,26 @@ test('bot attack waves retask rally-following combat units', () => {
 
   assert.deepEqual(command ? [command] : [], expected);
   assert.ok(command);
+  assertPublicSurfaceExposes(s, 0, command);
+});
+
+test('bot fog pressure falls back to public enemy starts without hidden target leakage', () => {
+  const scenario = botScenario({ seed: 4006, factions: [Terran, Zerg], vision: true });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y);
+  const hiddenEnemy = scenario.spawn(Kind.Zergling, 1, base.x + fx(240), base.y);
+  s.vision[0]!.fill(0);
+
+  const command = scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })
+    .find((c): c is Extract<BotCommand, { t: 'amove' }> => c.t === 'amove' && c.unit === marine);
+  const publicStart = s.map.starts[1]!;
+
+  assert.ok(command);
+  assert.equal(command.x, fx(publicStart.x * TILE + (TILE >> 1)));
+  assert.equal(command.y, fx(publicStart.y * TILE + (TILE >> 1)));
+  assert.notEqual(command.x, s.e.x[slotOf(hiddenEnemy)]!);
+  assert.notEqual(command.y, s.e.y[slotOf(hiddenEnemy)]!);
   assertPublicSurfaceExposes(s, 0, command);
 });
 
