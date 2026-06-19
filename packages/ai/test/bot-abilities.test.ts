@@ -37,6 +37,7 @@ import {
   expectNoBotBuild,
   type BotScenario,
 } from '../test-support/bot-scenario.ts';
+import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 import {
   Sim, sliceMap, spawnUnit, Abilities, Ability, Kind, Tech, TechDefs, Terran, Protoss, Zerg, Units, Order, attackModeCandidates,
   generateMap,
@@ -59,6 +60,14 @@ const findTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: num
   cmds.find((c): c is Extract<BotCommand, { t: 'transform' }> => c.t === 'transform' && c.kind === kind);
 const hasTransform = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findTransform(cmds, kind) !== undefined;
+
+const countAlive = (s: State, player: number, kind: number): number => {
+  let count = 0;
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === player && s.e.kind[i] === kind) count++;
+  }
+  return count;
+};
 
 const entityPos = (sim: Sim, id: number): { x: number; y: number } => {
   const e = sim.fullState().e;
@@ -126,6 +135,16 @@ const completeTech = (sim: Sim, player: number, tech: number): void =>
 const blockAddonPlacement = (s: State, parent: number, addonKind: number): void => {
   const pos = addonPosition(s, slotOf(parent), addonKind);
   spawnUnit(s, Kind.SupplyDepot, 0, pos.x, pos.y);
+};
+
+const seedTerranMarineCore = (scenario: BotScenario, player: number): void => {
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, player));
+  const yDir = player === 0 ? 1 : -1;
+  scenario.resources(player, 3_000, 0);
+  scenario.spawn(Kind.Barracks, player, base.x + fx(160), base.y + fx(96 * yDir));
+  for (let i = 0; i < 6; i++) {
+    scenario.spawn(Kind.SupplyDepot, player, base.x + fx(-180 + i * 48), base.y + fx(120 * yDir));
+  }
 };
 
 test('bot tactical ability policy descriptors match sim ability target modes', () => {
@@ -1063,6 +1082,38 @@ test('bot counter-pressures public enemy starts while defenders handle a fogged 
   assert.ok(offense.length > 0);
   assert.equal(defense.every((c) => marines.includes(c.unit)), true);
   assert.equal(offense.every((c) => marines.includes(c.unit) && !defenders.has(c.unit)), true);
+});
+
+test('bot stays active against a simple aggressive marine stream', () => {
+  const scenario = botScenario({ seed: 831, factions: [Terran, Terran] });
+  const sim = scenario.sim;
+  const s = scenario.state;
+  seedTerranMarineCore(scenario, 0);
+  seedTerranMarineCore(scenario, 1);
+  const standard = createBot(Terran, { workerTarget: 10, barracksTarget: 1, attackThreshold: 6 });
+  const pressure = createAggressiveMarineBot();
+  let ownCombatCommandTicks = 0;
+  let pressureCombatCommandTicks = 0;
+  let invalidCommands = 0;
+
+  for (let i = 0; i < 1_200 && !s.result.over; i++) {
+    const own = standard(s, 0);
+    const enemy = pressure(s, 1);
+    if (own.some((cmd) => cmd.t === 'attack' || cmd.t === 'amove')) ownCombatCommandTicks++;
+    if (enemy.some((cmd) => cmd.t === 'attack')) pressureCombatCommandTicks++;
+
+    const results = sim.step([
+      { player: 0, cmds: own },
+      { player: 1, cmds: enemy },
+    ]);
+    invalidCommands += results.filter((result) => !result.ok).length;
+  }
+
+  assert.equal(invalidCommands, 0);
+  assert.ok(pressureCombatCommandTicks > 50, 'pressure bot must keep attacking');
+  assert.ok(countAlive(s, 1, Kind.Marine) > 0, 'pressure bot must sustain marine production');
+  assert.ok(ownCombatCommandTicks > 0, 'standard bot must not freeze under marine pressure');
+  assert.ok(countAlive(s, 0, Kind.CommandCenter) > 0, 'standard bot should keep its starting base alive');
 });
 
 test('bot keeps defending remembered incidents after vision drops', () => {

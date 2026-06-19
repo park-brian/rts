@@ -519,6 +519,11 @@ Remaining work:
       - Memory ownership slice is done: `packages/ai/src/macro-memory.ts` owns controller memory
         state and initialization, so commitment pressure, tactical incidents, and the live bot share
         one deterministic memory contract instead of routing memory through fact collection.
+      - Aggressive-baseline test slice is done: `packages/ai/test-support/aggressive-bot.ts`
+        provides a deliberately simple Terran pressure controller that continuously trains SCVs and
+        Marines, streams Marines at the enemy depot, and shares normal command validation. The live
+        bot now has a deterministic multi-tick regression test proving it keeps producing combat
+        responses against that baseline instead of freezing while pressure arrives.
   - Spatial response must be emergent from shared fields and incident classes, not a catalog of
     one-off emergencies. Drops, Nydus arrivals, bombing runs, worker harassment, kiting, traps,
     sieged positions, mine fields, lurker lines, cloaked attackers, and transport bypasses all reduce
