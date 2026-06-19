@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { eid, slotOf } from '../src/world.ts';
+import { eid, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

@@ -1,5 +1,5 @@
 import { EffectKind } from './data.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 
 export const inRadius = (s: State, slot: number, x: number, y: number, radius: number): boolean => {
   const e = s.e;

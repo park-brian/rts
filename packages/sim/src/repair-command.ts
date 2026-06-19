@@ -2,8 +2,8 @@ import type { Command } from './commands.ts';
 import { Kind, Units } from './data.ts';
 import { isContained } from './cargo.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
-import type { State } from './world.ts';
-import { isAlive, isEnemy, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, isEnemy, slotOf } from './entity/world.ts';
 import { canPay, canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type RepairCommand = Extract<Command, { t: 'repair' }>;

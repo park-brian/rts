@@ -9,8 +9,8 @@
 // - Keep this file off the sim tick hot path; it is a controller boundary layer.
 
 import type { Command, CommandRejectReason } from './commands.ts';
-import type { State } from './world.ts';
-import { eid, freeEffectSlots, isAlive, NONE, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { eid, freeEffectSlots, isAlive, NONE, slotOf } from './entity/world.ts';
 import { validateCommand } from './validation.ts';
 import {
   Abilities, Ability, Kind, Role, TechDefs, Units, productionCostCount, productionCount,

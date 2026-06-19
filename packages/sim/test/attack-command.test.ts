@@ -4,7 +4,7 @@ import { validateAttackCommand } from '../src/attack-command.ts';
 import { Kind } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/validation.ts';
-import { kill, slotOf } from '../src/world.ts';
+import { kill, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands.ts';
 

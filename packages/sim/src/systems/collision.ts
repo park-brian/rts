@@ -15,8 +15,8 @@
 // The grid bins solids only and is built lazily, so the economy path (no army) and
 // idle frames pay nothing. No per-unit closure (it ran for every unit, every tick).
 
-import type { State } from '../world.ts';
-import { CAP } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { CAP } from '../entity/world.ts';
 import { Units, TILE } from '../data.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { clearancePxForKind, pathH, pathPass, pathW, pathX, pathY } from '../flow.ts';

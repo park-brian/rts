@@ -7,7 +7,7 @@ import { Kind, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { validateTransformCommand } from '../src/transform-command.ts';
 import { validateCommand } from '../src/validation.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 type TransformCommand = Extract<Command, { t: 'transform' }>;

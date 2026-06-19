@@ -2,14 +2,14 @@
 // owned by combat.ts, but entity-follow AttackMove endpoints refresh here so
 // escort intent can survive transient combat targets.
 
-import type { State } from '../world.ts';
+import type { State } from '../entity/world.ts';
 import { Order, Units } from '../data.ts';
 import { navigate } from '../pathing.ts';
 import { effectiveSpeed, isDisabled } from './status.ts';
 import { commandMoveSpeed, isLiftedStructureFlags, landedStructureFlags } from '../terran-mobility.ts';
 import { canAcceptCargo, isContained, loadUnitInto, withinLoadRange } from '../cargo.ts';
 import { placementForStructure } from '../placement.ts';
-import { eid, isAlive, NONE, slotOf } from '../world.ts';
+import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
 import { isLocalAvoidanceSolid } from '../local-avoidance.ts';
 import { clearVelocity } from './move.ts';
 import { entityApproachPoint } from '../entity/approach.ts';

@@ -7,8 +7,8 @@ import { isTransitioning } from './entity/state.ts';
 import { isPowered } from './power.ts';
 import { isDisabled } from './systems/status.ts';
 import { isLiftedStructureFlags } from './terran-mobility.ts';
-import type { State } from './world.ts';
-import { isAlive, isEnemy, NONE, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, isEnemy, NONE, slotOf } from './entity/world.ts';
 
 export type CommandRejection = { ok: false; reason: CommandRejectReason };
 

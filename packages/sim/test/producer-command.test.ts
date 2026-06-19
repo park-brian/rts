@@ -9,7 +9,7 @@ import { validateTrainCommand } from '../src/production-command.ts';
 import { validateResearchCommand } from '../src/research-command.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
 import { validateCommand } from '../src/validation.ts';
-import { NONE, slotOf } from '../src/world.ts';
+import { NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 type TrainCommand = Extract<Command, { t: 'train' }>;

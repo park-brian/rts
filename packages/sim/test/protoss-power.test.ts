@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eid, kill, slotOf, type State } from '../src/world.ts';
+import { eid, kill, slotOf, type State } from '../src/entity/world.ts';
 import { canDetect } from '../src/detection.ts';
 import { Kind, Protoss, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';

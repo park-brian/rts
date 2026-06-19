@@ -1,7 +1,7 @@
 import type { Command } from './commands.ts';
 import { Kind, Units } from './data.ts';
-import type { State } from './world.ts';
-import { NONE, isAlive, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { NONE, isAlive, slotOf } from './entity/world.ts';
 import {
   UNLOAD_RANGE,
   canLoadInto,

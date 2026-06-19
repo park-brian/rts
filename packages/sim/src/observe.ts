@@ -3,8 +3,8 @@
 // sim is deterministic and seeded, so observations are reproducible. This is the
 // seam the RL env interface (docs/specs/ai-training.md) builds on.
 
-import type { State } from './world.ts';
-import { eid, isAlive, NEUTRAL, NONE, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { eid, isAlive, NEUTRAL, NONE, slotOf } from './entity/world.ts';
 import { EffectKind, Kind, TECH_CAP, Units, TILE, isLarvaSourceKind } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';

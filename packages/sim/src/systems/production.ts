@@ -3,9 +3,9 @@
 // system does no supply bookkeeping. Race-agnostic: a produced *worker* (by role)
 // auto-mines the nearest *resource* (by role).
 
-import type { State } from '../world.ts';
-import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../world.ts';
-import { trySpawnUnit } from '../factory.ts';
+import type { State } from '../entity/world.ts';
+import { canSpawnEntity, nearest, eid, slotOf, NONE } from '../entity/world.ts';
+import { trySpawnUnit } from '../entity/factory.ts';
 import { Kind, Order, Role, Units, isLarvaSourceKind, productionCount, sec } from '../data.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { pickPatch } from './harvest.ts';

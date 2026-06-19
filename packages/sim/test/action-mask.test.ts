@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Ability, Kind, Protoss, Tech, Units, Zerg } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { EFFECT_CAP, eid, slotOf } from '../src/world.ts';
+import { EFFECT_CAP, eid, slotOf } from '../src/entity/world.ts';
 import {
   ACTION_SCHEMA_VERSION,
   COMMAND_HEADS,

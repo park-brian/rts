@@ -1,5 +1,5 @@
-import type { State } from '../world.ts';
-import { isAlive, kill, NONE, slotOf } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { isAlive, kill, NONE, slotOf } from '../entity/world.ts';
 import { Kind, Order, Units, tiles } from '../data.ts';
 import { storeInternalProduct } from '../internal-products.ts';
 import { carrierBayPoint } from '../interceptor.ts';

@@ -1,5 +1,5 @@
-import type { Entities, State } from './world.ts';
-import { NONE, eid, isAlive, kill, slotOf } from './world.ts';
+import type { Entities, State } from './entity/world.ts';
+import { NONE, eid, isAlive, kill, slotOf } from './entity/world.ts';
 import { Kind, Order } from './data.ts';
 import { setEntityKind } from './entity/kind.ts';
 

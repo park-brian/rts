@@ -2,7 +2,7 @@
 // straight path is blocked. The external map remains build-tile based, but
 // movement routes over the finer path lattice exported by flow.ts.
 
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import type { MapDef } from './map.ts';
 import { Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';

@@ -1,6 +1,6 @@
 // Movement primitives shared by the movement and harvest systems. Integer-only.
 
-import type { Entities } from '../world.ts';
+import type { Entities } from '../entity/world.ts';
 import { isqrt } from '../fixed.ts';
 
 /** Clear persistent movement velocity at hard order/state boundaries. */

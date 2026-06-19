@@ -1,5 +1,5 @@
-import type { State } from '../world.ts';
-import { eid, isEnemy, NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { eid, isEnemy, NONE } from '../entity/world.ts';
 import { Kind, Order, Role, tiles } from '../data.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';

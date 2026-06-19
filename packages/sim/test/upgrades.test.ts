@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/detection.ts';
 import { weaponUpgradeBonus } from '../src/derived.ts';
 import { simScenario } from '../test-support/scenario.ts';

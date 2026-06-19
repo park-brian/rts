@@ -2,10 +2,10 @@
 // public engine API (see docs/specs/architecture.md §4). Pure: no I/O, no DOM.
 
 import type { MapDef } from './map.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from './commands.ts';
 import { Terran, type Faction } from './data.ts';
-import { cloneState, hashState } from './world.ts';
+import { cloneState, hashState } from './entity/world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './serialize.ts';

@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Ability, EffectKind, Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { CAP, canSpawnEntity, eid, spawnEffect, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { CAP, canSpawnEntity, eid, spawnEffect, slotOf } from '../src/entity/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { validateCommand } from '../src/validation.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

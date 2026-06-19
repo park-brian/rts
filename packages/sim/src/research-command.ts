@@ -2,7 +2,7 @@ import type { Command } from './commands.ts';
 import { Role, TECH_CAP, TechDefs } from './data.ts';
 import { requirementsMet } from './requirements.ts';
 import { getTechLevel, isTechInProgress, nextTechLevel, techGas, techMinerals } from './tech.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import {
   canPay,
   canUseProducer,

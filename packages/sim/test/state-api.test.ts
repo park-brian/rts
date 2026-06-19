@@ -8,8 +8,8 @@ import {
   writeObservation,
 } from '../src/observe.ts';
 import { sliceMap } from '../src/map.ts';
-import { eid, kill, slotOf, spawnEffect } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { CREEP_RADIUS } from '../src/creep.ts';

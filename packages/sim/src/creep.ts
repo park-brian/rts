@@ -1,6 +1,6 @@
 import { Kind, Role, Units, isLarvaSourceKind, tiles } from './data.ts';
 import { withinRangeSq } from './spatial.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 
 export const CREEP_RADIUS = tiles(10);
 

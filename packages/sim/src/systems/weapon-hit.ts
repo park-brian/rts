@@ -1,4 +1,4 @@
-import type { State } from '../world.ts';
+import type { State } from '../entity/world.ts';
 import { Role, type Weapon } from '../data.ts';
 import { applyWeaponDamage } from '../damage.ts';
 import { isContained } from '../cargo.ts';

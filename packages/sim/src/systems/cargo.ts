@@ -1,5 +1,5 @@
 import { Order } from '../data.ts';
-import { isAlive, NONE, slotOf, type State } from '../world.ts';
+import { isAlive, NONE, slotOf, type State } from '../entity/world.ts';
 import { clearVelocity } from './move.ts';
 
 export const cargo = (s: State): void => {

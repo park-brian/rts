@@ -8,7 +8,7 @@
 // set of tiles each player saw last tick and downgrade just those. The per-State
 // lists live in a WeakMap (transient); a fork rebuilds them from its vision grid.
 
-import type { State } from '../world.ts';
+import type { State } from '../entity/world.ts';
 import { EffectKind, Role, Units, TILE } from '../data.ts';
 import { ONE } from '../fixed.ts';
 import { effectiveSight } from './status.ts';

@@ -1,5 +1,5 @@
 import { activeAddonParentSlot, isAddonKind } from './addon.ts';
-import { NONE, type State } from './world.ts';
+import { NONE, type State } from './entity/world.ts';
 
 export const hasCompletedKind = (s: State, player: number, kind: number): boolean => {
   const e = s.e;

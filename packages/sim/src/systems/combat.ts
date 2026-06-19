@@ -4,8 +4,8 @@
 //   Idle        -> hold, but defend by engaging enemies within sight
 // Units on Move/Harvest/Build do not fire (they're busy).
 
-import type { State } from '../world.ts';
-import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../entity/world.ts';
 import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type Weapon, weaponForTarget } from '../data.ts';
 import { applyWeaponDamage } from '../damage.ts';
 import { faceToward, within } from './move.ts';

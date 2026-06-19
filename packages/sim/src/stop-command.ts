@@ -1,7 +1,7 @@
 import type { Command } from './commands.ts';
 import { Order, Role } from './data.ts';
 import { isContained } from './cargo.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
 
 type StopCommand = Extract<Command, { t: 'stop' }>;

@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import type { MapDef } from '../src/map.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { eid, kill, slotOf } from '../src/world.ts';
+import { eid, kill, slotOf } from '../src/entity/world.ts';
 
 const testMap = (): MapDef => {
   const w = 20;

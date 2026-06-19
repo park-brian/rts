@@ -9,8 +9,8 @@ import {
   topDownInteractionRect,
 } from '../src/spatial.ts';
 import { fx, ONE } from '../src/fixed.ts';
-import { makeState, slotOf } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { makeState, slotOf } from '../src/entity/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import type { MapDef } from '../src/map.ts';
 
 test('current unit registry has explicit BW body bounds', () => {

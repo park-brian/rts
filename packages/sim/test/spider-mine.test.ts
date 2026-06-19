@@ -11,7 +11,7 @@ import {
   internalProductReadyCount,
   refillInternalProduct,
 } from '../src/internal-products.ts';
-import { eid, isAlive, slotOf } from '../src/world.ts';
+import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/replay.ts';
 import { validateMineCommand } from '../src/mine-command.ts';
 import { validateCommand } from '../src/validation.ts';

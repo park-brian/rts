@@ -1,8 +1,8 @@
 import { Kind, Order } from './data.ts';
-import { trySpawnUnit } from './factory.ts';
+import { trySpawnUnit } from './entity/factory.ts';
 import { consumeInternalProduct } from './internal-products.ts';
-import type { State } from './world.ts';
-import { NONE, canSpawnEntity, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { NONE, canSpawnEntity, slotOf } from './entity/world.ts';
 
 export const laySpiderMine = (s: State, vulture: number): void => {
   const e = s.e;

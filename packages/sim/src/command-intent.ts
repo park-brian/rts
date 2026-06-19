@@ -14,7 +14,7 @@ import type { TravelEndpoint, TravelIntent } from './travel-intent.ts';
 import { entityWorkQueue } from './entity/work-queue.ts';
 import { transformFor, transformTargetsFor } from './unit-transform.ts';
 import { validateCommand } from './validation.ts';
-import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './world.ts';
+import { eid, NONE, isAlive, isEnemy, nearest, slotOf, type State } from './entity/world.ts';
 
 export type SmartCommandScheme = 'mobile' | 'desktop';
 

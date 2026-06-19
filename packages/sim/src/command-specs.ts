@@ -4,8 +4,8 @@ import { cancelFoundation, cancelPendingBuild, hasPendingBuild } from './build-c
 import {
   liftStructure, startStructureLanding,
 } from './terran-mobility.ts';
-import type { State } from './world.ts';
-import { NONE, isAlive, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { NONE, isAlive, slotOf } from './entity/world.ts';
 import { loadUnitInto, unloadUnit } from './cargo.ts';
 import { setBurrowed } from './burrow.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';

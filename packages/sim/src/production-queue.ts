@@ -1,6 +1,6 @@
 import { Kind, Order, Units, productionCostCount, productionCount } from './data.ts';
-import type { State } from './world.ts';
-import { NONE, type Entities } from './world.ts';
+import type { State } from './entity/world.ts';
+import { NONE, type Entities } from './entity/world.ts';
 
 export const queuedProductionCount = (e: Entities, slot: number): number =>
   e.prodKind[slot] === Kind.None ? 0 : 1 + e.prodQueued[slot]!;

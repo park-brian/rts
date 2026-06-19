@@ -7,7 +7,7 @@ import { hasPendingBuild } from './build-cost.ts';
 import { hasCreepAt, requiresCreep } from './creep.ts';
 import { hasPowerAt, requiresPower } from './power.ts';
 import { isContained } from './cargo.ts';
-import { nearest, NONE, type State } from './world.ts';
+import { nearest, NONE, type State } from './entity/world.ts';
 
 export type PlacementResult =
   | { ok: true; x: number; y: number; geyser: number }

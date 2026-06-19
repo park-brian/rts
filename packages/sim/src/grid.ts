@@ -8,8 +8,8 @@
 // synchronous and consumes the grid (combat + separation) within the same step
 // before any other sim steps, so there's no aliasing — and zero per-tick allocation.
 
-import type { State } from './world.ts';
-import { CAP, NONE, isEnemy } from './world.ts';
+import type { State } from './entity/world.ts';
+import { CAP, NONE, isEnemy } from './entity/world.ts';
 import { TILE, Units, weaponForTarget } from './data.ts';
 import { ONE } from './fixed.ts';
 import { canDetect } from './detection.ts';

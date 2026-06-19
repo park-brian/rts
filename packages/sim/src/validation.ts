@@ -2,7 +2,7 @@
 // helpers for UX, but ingestion remains the source of truth.
 
 import type { Command, CommandRejectReason } from './commands.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { snapBuildAnchor, structureFootprint, type Footprint } from './footprint.ts';
 import { validateCommandSpec } from './command-specs.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from './placement.ts';

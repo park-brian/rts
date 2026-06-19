@@ -1,5 +1,5 @@
-import type { Entities } from '../world.ts';
-import type { State } from '../world.ts';
+import type { Entities } from '../entity/world.ts';
+import type { State } from '../entity/world.ts';
 import { upgradedCooldown, upgradedSight, upgradedSpeed } from '../derived.ts';
 import { Units, sec } from '../data.ts';
 import { clearVelocity } from './move.ts';

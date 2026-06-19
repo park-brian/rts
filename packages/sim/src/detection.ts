@@ -1,5 +1,5 @@
 import { CLOAK_AURA_RADIUS, EffectKind, Kind, Role, Trait, Units, tiles, unitTraits } from './data.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { effectiveSight } from './systems/status.ts';
 import { isPowered } from './power.ts';
 import { isContained } from './cargo.ts';

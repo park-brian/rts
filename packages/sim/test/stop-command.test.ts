@@ -5,7 +5,7 @@ import { Kind, Order } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { applyCommands } from '../src/systems/ingest.ts';
 import { validateCommand } from '../src/validation.ts';
-import { NONE, slotOf } from '../src/world.ts';
+import { NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands.ts';
 

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { type MapDef } from '../src/map.ts';
-import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { count, eid, kill, makeState, NEUTRAL, NONE, slotOf, type State } from '../src/entity/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { Ability, Kind, Order, Role, Tech, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { snapBuildAnchor } from '../src/footprint.ts';

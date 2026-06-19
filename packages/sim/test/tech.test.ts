@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { Ability, Kind, Tech, TechDefs } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { getTechLevel } from '../src/tech.ts';
 import { simScenario } from '../test-support/scenario.ts';
 

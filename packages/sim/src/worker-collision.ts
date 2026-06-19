@@ -1,5 +1,5 @@
-import type { State } from './world.ts';
-import { isAlive, NONE, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, NONE, slotOf } from './entity/world.ts';
 import { Order, ResourceType, Role, Units } from './data.ts';
 import { isGatherTargetSlot } from './resource-targets.ts';
 

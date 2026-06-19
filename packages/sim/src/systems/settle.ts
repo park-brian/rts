@@ -5,8 +5,8 @@
 // tolerate tiny nudges, but a large displacement wakes them so they reclaim the
 // slot instead of idling in the wrong place.
 
-import type { State } from '../world.ts';
-import { NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { NONE } from '../entity/world.ts';
 import { Order } from '../data.ts';
 import { ONE } from '../fixed.ts';
 import {

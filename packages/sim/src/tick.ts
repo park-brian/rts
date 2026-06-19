@@ -1,7 +1,7 @@
 // The tick pipeline: ordered systems over world state. Order is fixed (and thus
 // deterministic). See docs/specs/architecture.md §4.
 
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import type { CommandResult, PlayerCommands } from './commands.ts';
 import { census } from './systems/census.ts';
 import { applyCommands } from './systems/ingest.ts';

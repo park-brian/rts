@@ -1,7 +1,7 @@
 import { Kind, Order, Role, Tech, Units } from './data.ts';
 import { getTechLevel } from './tech.ts';
-import type { State } from './world.ts';
-import { NONE } from './world.ts';
+import type { State } from './entity/world.ts';
+import { NONE } from './entity/world.ts';
 import { clearVelocity } from './systems/move.ts';
 
 const BURROWABLE = new Set<number>([

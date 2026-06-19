@@ -14,8 +14,8 @@
 //    base spreads one-per-patch first and only doubles up toward the cap once full.
 //  - If a worker's patch depletes or vanishes, it re-routes to the nearest free one.
 
-import type { State } from '../world.ts';
-import { CAP, slotOf, eid, nearest, kill, NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { CAP, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data.ts';
 import { clearVelocity, faceToward } from './move.ts';
 import { navigate } from '../pathing.ts';

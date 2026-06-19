@@ -3,8 +3,8 @@ import { Kind, MAX_QUEUE, Role, Units, productionCostCount, productionCount } fr
 import { canQueueInternalProduct, internalProductCapacity } from './internal-products.ts';
 import { requirementsMet } from './requirements.ts';
 import { queuedProductionCount } from './production-queue.ts';
-import type { State } from './world.ts';
-import { canSpawnEntity } from './world.ts';
+import type { State } from './entity/world.ts';
+import { canSpawnEntity } from './entity/world.ts';
 import { canPay, canUseProducer, reject, type CommandValidation } from './command-validation.ts';
 
 export type ProductionValidationContext = {

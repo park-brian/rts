@@ -5,7 +5,7 @@
 // wider bodies reject gaps they cannot actually fit through. Flow fields are still
 // shared per goal, now keyed by the unit clearance class as well.
 
-import { NONE, type State } from './world.ts';
+import { NONE, type State } from './entity/world.ts';
 import { Role, Size, TILE, Units } from './data.ts';
 import { ONE } from './fixed.ts';
 import { fold, FNV_OFFSET } from './hash.ts';

@@ -122,8 +122,6 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Migrate callers from root `world.ts` and `factory.ts` to `src/entity/world.ts` and
-  `src/entity/factory.ts`, then delete those remaining root shims.
 - Split command ingestion by command family without changing replay semantics.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
@@ -347,6 +345,8 @@ Done when:
   `data.ts` barrel.
 - Moved the entity store and data-aware entity factory under `src/entity/` while keeping root
   `world.ts` and `factory.ts` as temporary compatibility shims.
+- Migrated callers to `src/entity/world.ts` and `src/entity/factory.ts`, then deleted the temporary
+  root `world.ts` and `factory.ts` shims.
 
 ## Review Checklist
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { entityLifecycle, isTransitioning } from '../src/entity/lifecycle.ts';
 import { Kind, Order, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 test('entityLifecycle reports dead and complete entities without progress', () => {

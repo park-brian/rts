@@ -1,7 +1,7 @@
 import { Kind, Order, Tech, Units, tiles } from './data.ts';
 import { isContained } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
-import { NONE, isAlive, kill, slotOf, type State } from './world.ts';
+import { NONE, isAlive, kill, slotOf, type State } from './entity/world.ts';
 import { setEntityKind, setEntityKindFull } from './entity/kind.ts';
 import { distanceSq, withinRangeSq } from './spatial.ts';
 import { clearVelocity } from './systems/move.ts';

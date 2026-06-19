@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap, type MapDef } from '../src/map.ts';
-import { spawnUnit } from '../src/factory.ts';
-import { eid, kill, NONE, slotOf } from '../src/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
+import { eid, kill, NONE, slotOf } from '../src/entity/world.ts';
 import {
   CARRIER_INTERCEPTOR_CAPACITY, CARRIER_INTERCEPTOR_UPGRADED_CAPACITY, Kind,
   REAVER_SCARAB_CAPACITY, REAVER_SCARAB_UPGRADED_CAPACITY, Tech, TILE, Units, tiles,

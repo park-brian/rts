@@ -2,7 +2,7 @@ import {
   Kind, Role, Tech, Units, WeaponRangeUpgradePx, bwRange,
   unitTraits, Trait, type Weapon,
 } from './data.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { getTechLevel } from './tech.ts';
 import { internalProductCapacity } from './internal-products.ts';
 

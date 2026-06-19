@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Kind, Order, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { eid, isAlive, NONE, slotOf } from '../src/world.ts';
+import { eid, isAlive, NONE, slotOf } from '../src/entity/world.ts';
 import { deserializeState, serializeState } from '../src/serialize.ts';
 import { parseReplay } from '../src/replay.ts';
 import { tileX, tileY } from '../src/pathing.ts';

@@ -1,8 +1,8 @@
 import type { Command } from './commands.ts';
 import { Role } from './data.ts';
 import { canPlayerGatherTargetSlot } from './resource-targets.ts';
-import type { State } from './world.ts';
-import { isAlive, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, slotOf } from './entity/world.ts';
 import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type HarvestCommand = Extract<Command, { t: 'harvest' }>;

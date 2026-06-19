@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { EffectKind, Kind, Order, TILE, Units } from '../src/data.ts';
 import { entityLifecycle } from '../src/entity/lifecycle.ts';
 import { fx, ONE } from '../src/fixed.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { sliceMap } from '../src/map.ts';
-import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
+import { eid, makeState, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,

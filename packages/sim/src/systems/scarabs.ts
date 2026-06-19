@@ -1,7 +1,7 @@
-import type { State } from '../world.ts';
-import { eid, isAlive, isEnemy, kill, NONE, slotOf } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { eid, isAlive, isEnemy, kill, NONE, slotOf } from '../entity/world.ts';
 import { Kind, Role, Units, weaponForTarget } from '../data.ts';
-import { trySpawnUnit } from '../factory.ts';
+import { trySpawnUnit } from '../entity/factory.ts';
 import { canDetect } from '../detection.ts';
 import { isContained } from '../cargo.ts';
 import { navigate } from '../pathing.ts';

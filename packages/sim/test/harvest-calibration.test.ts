@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateMap } from '../src/procedural.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import {
   baseGasRouteCalibrations,
   baseGasRouteQuality,
@@ -16,7 +16,7 @@ import {
 } from '../src/harvest-calibration.ts';
 import { resourceSpawnCenterPx, sliceMap, solveBaseCluster, type BaseResourceDir, type MapDef, type ResourceSpawn } from '../src/map.ts';
 import { Kind, TILE } from '../src/data.ts';
-import { makeState, NEUTRAL, slotOf } from '../src/world.ts';
+import { makeState, NEUTRAL, slotOf } from '../src/entity/world.ts';
 import { topDownEdgeDistance } from '../src/spatial.ts';
 
 const withWalkBarrier = (map: ReturnType<typeof sliceMap>): ReturnType<typeof sliceMap> => ({

@@ -1,8 +1,8 @@
 import type { Command } from './commands.ts';
 import { Kind } from './data.ts';
 import { hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
-import type { State } from './world.ts';
-import { canSpawnEntity } from './world.ts';
+import type { State } from './entity/world.ts';
+import { canSpawnEntity } from './entity/world.ts';
 import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type MineCommand = Extract<Command, { t: 'mine' }>;

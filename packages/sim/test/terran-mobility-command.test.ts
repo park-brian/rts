@@ -5,7 +5,7 @@ import { Kind, Tech } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/terran-mobility.ts';
 import { validateCommand } from '../src/validation.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands.ts';
 

@@ -1,5 +1,5 @@
 import { Kind, isLarvaSourceKind } from './data.ts';
-import { nearest, type State } from './world.ts';
+import { nearest, type State } from './entity/world.ts';
 
 export const LARVA_MAX = 3;
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/world.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/entity/world.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/setup.ts';
 import { resourceSpawnCenterPx, sliceMap } from '../src/map.ts';

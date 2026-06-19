@@ -5,9 +5,9 @@
 // picked up automatically. Vision grids are included so a byte snapshot preserves
 // fair-observation memory as well as gameplay state.
 
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { TECH_CAP } from './data.ts';
-import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from './world.ts';
+import { makeState, ENTITY_COLUMNS, EFFECT_COLUMNS, type ColType } from './entity/world.ts';
 import type { MapDef, StartLoc, ResourceSpawn } from './map.ts';
 
 const MAGIC = 0x52545331; // 'RTS1'

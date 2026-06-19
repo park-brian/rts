@@ -7,7 +7,7 @@ import { isTransitioning } from './entity/state.ts';
 import { structureFootprint } from './footprint.ts';
 import { isRepairableKind } from './repair.ts';
 import { bodyBounds, distanceSqToRect, usesFootprintInteractionHull } from './spatial.ts';
-import { eid, isAlive, NONE, slotOf, type State } from './world.ts';
+import { eid, isAlive, NONE, slotOf, type State } from './entity/world.ts';
 
 export type EntityPresentationState =
   | 'normal'

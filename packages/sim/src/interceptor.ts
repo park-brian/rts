@@ -1,8 +1,8 @@
 import { Kind, Order, Units, sec, tiles, weaponForTarget } from './data.ts';
-import { trySpawnUnit } from './factory.ts';
+import { trySpawnUnit } from './entity/factory.ts';
 import { isqrt } from './fixed.ts';
 import { consumeInternalProduct, hasInternalProductReady, internalProductCapacity } from './internal-products.ts';
-import { NONE, eid, slotOf, type State } from './world.ts';
+import { NONE, eid, slotOf, type State } from './entity/world.ts';
 import { faceToward } from './systems/move.ts';
 import { WeaponMechanic, weaponMechanicDef, type WeaponMechanicDef } from './weapon-mechanics.ts';
 

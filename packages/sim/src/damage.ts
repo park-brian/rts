@@ -1,5 +1,5 @@
-import type { State } from './world.ts';
-import { kill } from './world.ts';
+import type { State } from './entity/world.ts';
+import { kill } from './entity/world.ts';
 import { DAMAGE_MULT, Units, type Weapon } from './data.ts';
 import { armorUpgradeBonus, shieldArmorBonus, weaponUpgradeBonus } from './derived.ts';
 

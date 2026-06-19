@@ -3,8 +3,8 @@ import { Kind, Role } from './data.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { commandMoveSpeed } from './terran-mobility.ts';
 import { isGatherTargetSlot } from './resource-targets.ts';
-import type { State } from './world.ts';
-import { isAlive, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, slotOf } from './entity/world.ts';
 import { canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type MoveCommand = Extract<Command, { t: 'move' | 'amove' }>;

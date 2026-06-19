@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { sliceMap } from '../src/map.ts';
-import { eid, type State } from '../src/world.ts';
+import { eid, type State } from '../src/entity/world.ts';
 import { Kind, Units } from '../src/data.ts';
 import type { Command, PlayerCommands } from '../src/commands.ts';
 

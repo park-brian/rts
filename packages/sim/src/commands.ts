@@ -4,7 +4,7 @@
 //
 // Entity references are EntityIds (see world.ts). Positions are fixed-point px.
 
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 
 export type CommandRejectReason =
   | 'stale-entity'

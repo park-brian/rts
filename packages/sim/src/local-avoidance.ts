@@ -5,8 +5,8 @@
 // compact one-tile spatial index of solid ground units for the current tick and
 // scores candidate positions by predicted crowding.
 
-import type { State } from './world.ts';
-import { CAP } from './world.ts';
+import type { State } from './entity/world.ts';
+import { CAP } from './entity/world.ts';
 import { Kind, Role, TILE, Units } from './data.ts';
 import { ONE, isqrt } from './fixed.ts';
 import { isContained } from './cargo.ts';

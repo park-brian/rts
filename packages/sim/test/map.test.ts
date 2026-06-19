@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeState } from '../src/world.ts';
+import { makeState } from '../src/entity/world.ts';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx, ONE } from '../src/fixed.ts';
 import {

@@ -1,8 +1,8 @@
 import { Kind } from './data.ts';
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { activeAddonParentSlot } from './addon.ts';
 import { consumeInternalProduct, hasInternalProductReady } from './internal-products.ts';
-import { NONE } from './world.ts';
+import { NONE } from './entity/world.ts';
 
 export const readyNukeSilo = (s: State, player: number): number => {
   const e = s.e;

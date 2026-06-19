@@ -1,5 +1,5 @@
-import type { State } from '../world.ts';
-import { NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { NONE } from '../entity/world.ts';
 import { Kind, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../derived.ts';

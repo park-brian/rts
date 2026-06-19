@@ -2,8 +2,8 @@
 // production / construction. Invalid commands (stale ids, wrong owner,
 // unaffordable, illegal target) are ignored.
 
-import type { State } from '../world.ts';
-import { eid, slotOf, NONE } from '../world.ts';
+import type { State } from '../entity/world.ts';
+import { eid, slotOf, NONE } from '../entity/world.ts';
 import type { Command, CommandResult, PlayerCommands } from '../commands.ts';
 import { validateCommand } from '../validation.ts';
 import { applyCommandSpec, validateCommandSpec } from '../command-specs.ts';

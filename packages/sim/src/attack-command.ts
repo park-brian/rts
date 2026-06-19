@@ -4,8 +4,8 @@ import { isPowered } from './power.ts';
 import { canUseWeaponNow } from './burrow.ts';
 import { carrierCanAttack } from './interceptor.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from './weapon-mechanics.ts';
-import type { State } from './world.ts';
-import { isAlive, slotOf } from './world.ts';
+import type { State } from './entity/world.ts';
+import { isAlive, slotOf } from './entity/world.ts';
 import { canReceiveOrder, canTargetEntity, reject, type CommandValidation } from './command-validation.ts';
 
 type AttackCommand = Extract<Command, { t: 'attack' }>;

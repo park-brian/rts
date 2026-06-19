@@ -1,4 +1,4 @@
-import type { State } from './world.ts';
+import type { State } from './entity/world.ts';
 import { Role, TILE } from './data.ts';
 import { ONE } from './fixed.ts';
 import { bodyBounds } from './spatial.ts';

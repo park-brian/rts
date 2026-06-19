@@ -1,7 +1,7 @@
 import { Abilities, Ability } from './data.ts';
 import type { AbilityDef } from './data.ts';
-import { canSpawnEffect, canSpawnEntity } from './world.ts';
-import type { State } from './world.ts';
+import { canSpawnEffect, canSpawnEntity } from './entity/world.ts';
+import type { State } from './entity/world.ts';
 
 export const isFreeAbilityToggleOff = (e: State['e'], slot: number, ability: AbilityDef): boolean =>
   ability.execution?.mode === 'self-toggle' &&

@@ -1,8 +1,8 @@
 import type { Command } from './commands.ts';
 import { Role, Units } from './data.ts';
 import { addonParentKind, addonPosition, isAddonKind } from './addon.ts';
-import { canSpawnEntity, NONE } from './world.ts';
-import type { State } from './world.ts';
+import { canSpawnEntity, NONE } from './entity/world.ts';
+import type { State } from './entity/world.ts';
 import { requirementsMet } from './requirements.ts';
 import { placementForStructure } from './placement.ts';
 import {

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { Kind, TILE, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
-import { spawnUnit } from '../src/factory.ts';
+import { spawnUnit } from '../src/entity/factory.ts';
 import type { MapDef } from '../src/map.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial.ts';
-import { makeState, slotOf } from '../src/world.ts';
+import { makeState, slotOf } from '../src/entity/world.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const open = (w: number, h: number): MapDef => ({

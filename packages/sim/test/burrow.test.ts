@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
 import { Kind, Tech, Units } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
-import { kill, slotOf } from '../src/world.ts';
+import { kill, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/detection.ts';
 import { parseReplay } from '../src/replay.ts';
 import { simScenario } from '../test-support/scenario.ts';

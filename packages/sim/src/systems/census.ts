@@ -3,7 +3,7 @@
 // and `provides` from defs. In-progress production reserves supply (prevents
 // over-queueing past the cap), matching SC1.
 
-import type { State } from '../world.ts';
+import type { State } from '../entity/world.ts';
 import { Units, Kind, SUPPLY_CAP, productionCount } from '../data.ts';
 
 export const census = (s: State): void => {

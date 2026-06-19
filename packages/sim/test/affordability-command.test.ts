@@ -10,7 +10,7 @@ import { fx } from '../src/fixed.ts';
 import { validateTrainCommand } from '../src/production-command.ts';
 import { validateResearchCommand } from '../src/research-command.ts';
 import { validateCommand } from '../src/validation.ts';
-import { slotOf } from '../src/world.ts';
+import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 type TrainCommand = Extract<Command, { t: 'train' }>;

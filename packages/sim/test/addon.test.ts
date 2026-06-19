@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eid, isAlive, kill, slotOf } from '../src/world.ts';
+import { eid, isAlive, kill, slotOf } from '../src/entity/world.ts';
 import { Ability, Kind, Tech, Units } from '../src/data.ts';
 import { addonPosition } from '../src/addon.ts';
 import { parseReplay } from '../src/replay.ts';
