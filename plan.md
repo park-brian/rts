@@ -417,6 +417,8 @@ Done when:
   root helper instead of leaving a shim.
 - Moved worker mineral/gas route collision phasing under `spatial/worker-collision.ts`, deleting
   the old root helper instead of leaving a shim.
+- Moved elevation and low-ground/high-ground visibility/combat helpers under `spatial/terrain.ts`,
+  deleting the old root helper instead of leaving a shim.
 
 ## Review Checklist
 

@@ -1,7 +1,7 @@
-import { Role, TILE } from './data.ts';
-import { ONE } from './fixed.ts';
-import { inBounds } from './map.ts';
-import type { State } from './entity/world.ts';
+import { Role, TILE } from '../data.ts';
+import { ONE } from '../fixed.ts';
+import { inBounds } from '../map.ts';
+import type { State } from '../entity/world.ts';
 
 export const tileCoord = (fixedPx: number): number => Math.trunc(fixedPx / (ONE * TILE));
 

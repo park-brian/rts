@@ -13,7 +13,7 @@ import { EffectKind, Role, Units, TILE } from '../data.ts';
 import { ONE } from '../fixed.ts';
 import { effectiveSight } from './status.ts';
 import { isContained } from '../cargo.ts';
-import { elevationAtTile, slotElevation } from '../terrain.ts';
+import { elevationAtTile, slotElevation } from '../spatial/terrain.ts';
 
 const seenByState = new WeakMap<State, number[][]>();
 
