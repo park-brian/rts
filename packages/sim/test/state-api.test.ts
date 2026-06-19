@@ -6,7 +6,7 @@ import {
   OBSERVATION_SCHEMA_VERSION,
   createObservationBuffers,
   writeObservation,
-} from '../src/observe.ts';
+} from '../src/io/observe.ts';
 import { sliceMap } from '../src/map.ts';
 import { eid, kill, slotOf, spawnEffect } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';

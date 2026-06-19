@@ -9,7 +9,7 @@ import { cloneState, hashState } from './entity/world.ts';
 import { setupMatch } from './setup.ts';
 import { stepWorld } from './tick.ts';
 import { serializeState, deserializeState } from './io/serialize.ts';
-import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './observe.ts';
+import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './io/observe.ts';
 import { vision } from './systems/vision.ts';
 
 export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean; factions?: Faction[] };

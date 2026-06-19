@@ -399,6 +399,8 @@ Done when:
   export.
 - Moved validator-backed action mask encoding and batch decode helpers under `io/action-mask.ts`,
   deleting the old root `action-mask.ts` helper while preserving the stable package export.
+- Moved fair-play object and caller-owned buffer observations under `io/observe.ts`, deleting the old
+  root `observe.ts` helper while preserving the stable package export and `Sim.observe` facade.
 
 ## Review Checklist
 
