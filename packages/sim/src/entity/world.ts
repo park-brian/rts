@@ -5,7 +5,7 @@
 
 import type { MapDef } from '../map.ts';
 import { type Rng, cloneRng } from '../rng.ts';
-import { fold, foldArray, FNV_OFFSET } from '../hash.ts';
+import { fold, foldArray, FNV_OFFSET } from '../io/hash.ts';
 import { TECH_CAP } from '../data.ts';
 import { clearBuildCost, refundBuildCost } from '../mechanics/refund-ledger.ts';
 

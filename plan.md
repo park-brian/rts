@@ -390,6 +390,8 @@ Done when:
 - Moved upgrade-derived weapon, armor, range, speed, cooldown, sight, energy, and internal-ammo
   helpers under `mechanics/upgrades.ts`, deleting the old root `derived.ts` helper while preserving
   the stable package export.
+- Moved deterministic FNV hashing under `io/hash.ts`, deleting the old root `hash.ts` helper while
+  preserving the stable package export.
 
 ## Review Checklist
 

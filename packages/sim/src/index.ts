@@ -2,7 +2,7 @@
 
 export * from './fixed.ts';
 export * from './rng.ts';
-export * from './hash.ts';
+export * from './io/hash.ts';
 export * from './data.ts';
 export * from './map.ts';
 export * from './map-diagnostics.ts';
