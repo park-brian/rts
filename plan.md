@@ -678,6 +678,9 @@ Remaining work:
       intent/focus without emitting commands and an executor step that consumes the proposal to issue
       validator-backed combat commands. The old scheduler remains as a thin wrapper while the live
       bot migrates one director family at a time.
+    - Live pressure-director migration slice is done: the built-in bot now calls the pressure
+      proposal and executor phases directly, making pressure the first live path with the intended
+      director/executor shape while preserving the wrapper for tests and external callers.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and

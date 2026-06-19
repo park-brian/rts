@@ -5,7 +5,7 @@
 // the demonstrator we'll behavior-clone from later.
 
 import { NONE, type Command, type Controller, type Faction, type State } from '@rts/sim';
-import { schedulePressureOffense } from './macro-offense.ts';
+import { executePressureIntent, proposePressureIntent } from './macro-offense.ts';
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
@@ -69,22 +69,31 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
       reserve.defenseActive,
     );
 
-    // 6) Offense: pressure the enemy's most valuable exposed region.
-    schedulePressureOffense(
+    // 6) Offense: propose pressure intent first, then let execution spend the remaining batch budget.
+    const pressureProposal = proposePressureIntent(
       s,
       p,
       faction,
-      cmds,
       facts,
       memory,
       depot,
       pressureReserve,
+      {
+        attackThreshold: c.attackThreshold,
+        strategicOnly: incident !== undefined,
+      },
+    );
+    executePressureIntent(
+      s,
+      p,
+      cmds,
+      memory,
+      pressureProposal,
       macro.casters,
       macro.budget,
       macro.builder,
       findSpot,
       {
-        attackThreshold: c.attackThreshold,
         strategicOnly: incident !== undefined,
         builderUsed: macro.builderUsed,
       },
