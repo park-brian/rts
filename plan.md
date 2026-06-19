@@ -104,6 +104,9 @@ Migration rules:
 - Keep behavior changes and pure import moves in separate commits unless the move is tiny.
 - Treat compatibility shims as temporary migration scaffolding. Once a folder's callers have been
   migrated to the new stable path, delete the old root shim in the same cleanup track.
+- Heavy note: eliminate all compatibility shims eventually. A folder migration is only architecturally
+  complete once the shim is deleted, imports point at the real owner, and the stable public barrels are
+  intentional API rather than old-path preservation.
 - Preserve typed-array hot loops and caller-owned buffers; folder cleanup must not introduce object
   allocation on per-tick paths.
 - Prefer `index.ts` barrels only at stable folder boundaries. Avoid deep barrel chains that hide
