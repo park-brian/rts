@@ -5,7 +5,7 @@ import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
   requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
-  illusionPresentation, selectionBase, type MapDef,
+  illusionPresentation, queuedTravelWaypoints, selectionBase, type MapDef, type QueuedTravelWaypoint,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -29,6 +29,7 @@ let terrainCanvas: HTMLCanvasElement | null = null;
 const workScratch: WorkActivity[] = [];
 const affordanceScratch: VisibilityAffordance[] = [];
 const placementFieldScratch: PlacementFieldOverlay[] = [];
+const queuedTravelScratch: QueuedTravelWaypoint[] = [];
 
 export type PlacementFieldOverlay = {
   kind: 'creep' | 'power';
@@ -373,6 +374,7 @@ const drawVisibilityAffordances = (ctx: CanvasRenderingContext2D, game: Game): v
 
 /** Live selection drag box (screen px). Shared by the GL overlay. */
 export const drawDragBox = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  drawQueuedTravelWaypoints(ctx, game);
   drawPlacementGhost(ctx, game);
   if (!game.box) return;
   const b = game.box;
@@ -380,6 +382,53 @@ export const drawDragBox = (ctx: CanvasRenderingContext2D, game: Game): void => 
   ctx.strokeRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
   ctx.fillStyle = 'rgba(255,225,78,0.12)';
   ctx.fillRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+};
+
+const screenPoint = (game: Game, x: number, y: number): { x: number; y: number } => ({
+  x: (x - game.camX) * game.zoom,
+  y: (y - game.camY) * game.zoom,
+});
+
+const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const s = game.sim.fullState();
+  const e = s.e;
+  const waypoints = queuedTravelWaypoints(s, game.selection, queuedTravelScratch);
+  if (waypoints.length === 0) return;
+
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 5]);
+  let prevUnit = NONE;
+  let from = { x: 0, y: 0 };
+  for (const waypoint of waypoints) {
+    if (waypoint.unit !== prevUnit) {
+      const slot = slotOf(waypoint.unit);
+      from = screenPoint(game, e.x[slot]! / ONE, e.y[slot]! / ONE);
+      prevUnit = waypoint.unit;
+    }
+    const to = screenPoint(game, waypoint.x, waypoint.y);
+    ctx.strokeStyle = waypoint.intent === 'attack-move' ? 'rgba(255,120,80,0.78)' : 'rgba(255,225,78,0.78)';
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (waypoint.intent === 'attack-move') {
+      const r = 5;
+      ctx.moveTo(to.x, to.y - r);
+      ctx.lineTo(to.x + r, to.y);
+      ctx.lineTo(to.x, to.y + r);
+      ctx.lineTo(to.x - r, to.y);
+      ctx.closePath();
+    } else {
+      ctx.arc(to.x, to.y, 4, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([5, 5]);
+    from = to;
+  }
+  ctx.restore();
 };
 
 export const drawPlacementGhost = (ctx: CanvasRenderingContext2D, game: Game): void => {

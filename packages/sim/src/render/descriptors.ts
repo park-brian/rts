@@ -3,6 +3,7 @@ import { ONE } from '../fixed.ts';
 import { childActorDef, type ChildActorPresentation } from '../mechanics/child-actors.ts';
 import { isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
+import { queuedTravelOrderAt } from '../entity/order-queue.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { isRepairableKind } from '../mechanics/repair.ts';
@@ -67,6 +68,15 @@ export type WorkActivity = {
   x: number;
   y: number;
   kind: 'build' | 'repair';
+};
+
+export type QueuedTravelWaypoint = {
+  unit: number;
+  index: number;
+  intent: 'move' | 'attack-move';
+  target: number;
+  x: number;
+  y: number;
 };
 
 export type IllusionPresentation = {
@@ -360,6 +370,36 @@ export const effectVisibilityAffordances = (
       radius: fx.radius[i]! / ONE,
       timer: fx.timer[i]!,
     });
+  }
+  return out;
+};
+
+export const queuedTravelWaypoints = (
+  s: State,
+  selected: Iterable<number>,
+  out: QueuedTravelWaypoint[] = [],
+): QueuedTravelWaypoint[] => {
+  out.length = 0;
+  const e = s.e;
+  for (const unit of selected) {
+    if (!isAlive(e, unit)) continue;
+    const slot = slotOf(unit);
+    for (let i = 0; i < e.orderQueueLen[slot]!; i++) {
+      const waypoint = queuedTravelOrderAt(e, slot, i);
+      if (!waypoint) continue;
+      const targetSlot = waypoint.target !== undefined && isAlive(e, waypoint.target)
+        ? slotOf(waypoint.target)
+        : NONE;
+      if (waypoint.target !== undefined && targetSlot === NONE) continue;
+      out.push({
+        unit,
+        index: i,
+        intent: waypoint.order === Order.AttackMove ? 'attack-move' : 'move',
+        target: waypoint.target ?? NONE,
+        x: (targetSlot === NONE ? waypoint.x : e.x[targetSlot]!) / ONE,
+        y: (targetSlot === NONE ? waypoint.y : e.y[targetSlot]!) / ONE,
+      });
+    }
   }
   return out;
 };

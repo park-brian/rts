@@ -61,3 +61,11 @@ test('math renderer exposes a subtle build-tile grid for placement audits', () =
   assert.match(render2d, /for \(let x = 0; x <= m\.w \* TILE; x \+= TILE\)/);
   assert.match(render2d, /for \(let y = 0; y <= m\.h \* TILE; y \+= TILE\)/);
 });
+
+test('renderer draws queued travel waypoints from sim descriptors', () => {
+  const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+
+  assert.match(render2d, /queuedTravelWaypoints/);
+  assert.match(render2d, /drawQueuedTravelWaypoints\(ctx, game\)/);
+  assert.match(render2d, /attack-move/);
+});
