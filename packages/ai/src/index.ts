@@ -1,5 +1,6 @@
 export * from './ability-policies.ts';
 export * from './macro.ts';
+export * from './macro-addons.ts';
 export * from './macro-build.ts';
 export * from './macro-capacity.ts';
 export * from './macro-combat.ts';

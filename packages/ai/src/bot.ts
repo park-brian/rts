@@ -8,12 +8,12 @@ import {
   Role, Order, Kind, Units, canPlaceStructure, tileX, tileY, eid,
   NONE, TILE, SUPPLY_CAP, supply, type Faction, type State, type Command, type Controller,
   productionCostCount, productionCount,
-  addonParentKind, hasCompletedKind, validateCommand,
   requiresPower,
   withinRangeSq,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
 import { castTacticalAbilities } from './ability-policies.ts';
+import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget } from './macro-build.ts';
 import { maybeQueueCoreProductionCapacity, maybeQueueZergMacroHatchery } from './macro-capacity.ts';
 import { issueDefenseEngagement, issuePressureEngagement } from './macro-combat.ts';
@@ -21,7 +21,7 @@ import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import { maybeQueueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { maybeQueueNydusEndpoint } from './macro-nydus.ts';
-import { producerReserved, reserveProducer, type ProducerReservations } from './macro-producers.ts';
+import { type ProducerReservations } from './macro-producers.ts';
 import { markPressureCommitted, pressureFocus, shouldCommitPressure } from './macro-pressure.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { maybeQueueRaceTechStructure } from './macro-tech.ts';
@@ -42,7 +42,6 @@ export type BotConfig = {
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 const WORKERS_PER_PATCH = 2; // efficient saturation: patches are continuously mined ~2 deep
-const TERRAN_ADDON_MACRO = [Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower] as const;
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 
@@ -90,14 +89,6 @@ const findMacroSpot = (s: State, player: number, worker: number, kind: number, f
 
   return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
 };
-
-const scienceFacilityAddon = (s: State, player: number): number =>
-  hasCompletedKind(s, player, Kind.ControlTower) ? Kind.PhysicsLab : Kind.CovertOps;
-
-const terranAddonMacro = (s: State, player: number): readonly number[] =>
-  hasCompletedKind(s, player, Kind.CovertOps)
-    ? [Kind.NuclearSilo, Kind.ComsatStation, Kind.MachineShop, Kind.ControlTower]
-    : TERRAN_ADDON_MACRO;
 
 export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Controller => {
   const c = { ...DEFAULT, ...cfg };
@@ -354,48 +345,6 @@ export const createBot = (faction: Faction, cfg: Partial<BotConfig> = {}): Contr
 
     return cmds;
   };
-};
-
-const maybeQueueTerranAddons = (
-  s: State,
-  player: number,
-  faction: Faction,
-  cmds: Command[],
-  budget: ResourceBudget,
-  reserved: ProducerReservations,
-): void => {
-  if (faction.name !== 'Terran') return;
-  for (const kind of terranAddonMacro(s, player)) {
-    if (maybeQueueAddon(s, player, cmds, budget, kind, reserved)) return;
-  }
-  maybeQueueAddon(s, player, cmds, budget, scienceFacilityAddon(s, player), reserved);
-};
-
-const maybeQueueAddon = (
-  s: State,
-  player: number,
-  cmds: Command[],
-  budget: ResourceBudget,
-  kind: number,
-  reserved?: ProducerReservations,
-): boolean => {
-  const e = s.e;
-  const def = Units[kind]!;
-  const parentKind = addonParentKind(kind);
-  if (budget.minerals < def.minerals || budget.gas < def.gas) return false;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== NONE || e.built[i] !== 1) continue;
-    if (e.kind[i] !== parentKind) continue;
-    if (reserved && producerReserved(s, reserved, i)) continue;
-    const command: Command = { t: 'addon', building: eid(e, i), kind };
-    if (!validateCommand(s, player, command).ok) continue;
-    cmds.push(command);
-    if (reserved) reserveProducer(s, reserved, i);
-    budget.minerals -= def.minerals;
-    budget.gas -= def.gas;
-    return true;
-  }
-  return false;
 };
 
 const withinTiles = (s: State, slot: number, x: number, y: number, t: number): boolean => {
