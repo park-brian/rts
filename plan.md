@@ -361,6 +361,8 @@ Done when:
   for later larva, completion placement, spawn-rally, and internal-product extraction.
 - Extracted larva ticking into `systems/production/larva.ts` so the production orchestrator no
   longer owns hatchery timer constants and spawn offsets.
+- Extracted produced-unit rally handling and deterministic rally move slot assignment into
+  `systems/production/rally.ts`, keeping load, gather, travel, and slot grouping policy together.
 
 ## Review Checklist
 
