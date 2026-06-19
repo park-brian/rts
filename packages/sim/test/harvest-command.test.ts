@@ -37,12 +37,24 @@ test('harvest validation keeps worker capability separate from target legality',
   const scv = spawn(Kind.SCV, 0, fx(300), fx(300));
   const marine = spawn(Kind.Marine, 0, fx(330), fx(300));
   const contained = spawn(Kind.SCV, 0, fx(360), fx(300));
-  const mineral = spawn(Kind.Mineral, -1, fx(390), fx(300));
-  const geyser = spawn(Kind.Geyser, -1, fx(420), fx(300));
+  const burrowed = spawn(Kind.Drone, 0, fx(390), fx(300));
+  const illusion = spawn(Kind.SCV, 0, fx(420), fx(300));
+  const disabled = spawn(Kind.SCV, 0, fx(450), fx(300));
+  const unfinished = spawn(Kind.SCV, 0, fx(480), fx(300));
+  const mineral = spawn(Kind.Mineral, -1, fx(510), fx(300));
+  const geyser = spawn(Kind.Geyser, -1, fx(540), fx(300));
   e.container[slotOf(contained)] = spawn(Kind.Dropship, 0, fx(360), fx(330));
+  e.burrowed[slotOf(burrowed)] = 1;
+  e.illusion[slotOf(illusion)] = 1;
+  e.lockdownTimer[slotOf(disabled)] = 10;
+  e.built[slotOf(unfinished)] = 0;
 
   assertHarvest(s, { t: 'harvest', unit: marine, patch: mineral }, { ok: false, reason: 'missing-capability' });
   assertHarvest(s, { t: 'harvest', unit: contained, patch: mineral }, { ok: false, reason: 'missing-capability' });
+  assertHarvest(s, { t: 'harvest', unit: burrowed, patch: mineral }, { ok: false, reason: 'missing-capability' });
+  assertHarvest(s, { t: 'harvest', unit: illusion, patch: mineral }, { ok: false, reason: 'missing-capability' });
+  assertHarvest(s, { t: 'harvest', unit: disabled, patch: mineral }, { ok: false, reason: 'missing-capability' });
+  assertHarvest(s, { t: 'harvest', unit: unfinished, patch: mineral }, { ok: false, reason: 'missing-capability' });
   assertHarvest(s, { t: 'harvest', unit: scv, patch: geyser }, { ok: false, reason: 'target-not-allowed' });
   assertHarvest(s, { t: 'harvest', unit: scv, patch: 999_999 }, { ok: false, reason: 'target-not-found' });
 });

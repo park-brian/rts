@@ -74,10 +74,23 @@ test('vultures lay researched spider mines with finite charges', () => {
 
 test('mine validation shares actor ownership gates', () => {
   const { state: s, spawn, grant } = simScenario({ players: 2, seed: 2101 });
+  const e = s.e;
   const friendly = spawn(Kind.Vulture, 0, fx(400), fx(400));
   const enemy = spawn(Kind.Vulture, 1, fx(430), fx(400));
+  const contained = spawn(Kind.Vulture, 0, fx(460), fx(400));
+  const burrowed = spawn(Kind.Vulture, 0, fx(490), fx(400));
+  const illusion = spawn(Kind.Vulture, 0, fx(520), fx(400));
+  const disabled = spawn(Kind.Vulture, 0, fx(550), fx(400));
+  const unfinished = spawn(Kind.Vulture, 0, fx(580), fx(400));
   grant(0, Tech.SpiderMines);
-  s.e.specialAmmo[slotOf(friendly)] = SPIDER_MINE_CHARGES;
+  for (const id of [friendly, contained, burrowed, illusion, disabled, unfinished]) {
+    e.specialAmmo[slotOf(id)] = SPIDER_MINE_CHARGES;
+  }
+  e.container[slotOf(contained)] = spawn(Kind.Dropship, 0, fx(460), fx(430));
+  e.burrowed[slotOf(burrowed)] = 1;
+  e.illusion[slotOf(illusion)] = 1;
+  e.lockdownTimer[slotOf(disabled)] = 10;
+  e.built[slotOf(unfinished)] = 0;
 
   const assertMine = (command: MineCommand, expected: Expected): void => {
     assert.deepEqual(validateMineCommand(s, 0, command), expected);
@@ -87,6 +100,11 @@ test('mine validation shares actor ownership gates', () => {
   assertMine({ t: 'mine', unit: friendly }, { ok: true });
   assertMine({ t: 'mine', unit: enemy }, { ok: false, reason: 'wrong-owner' });
   assertMine({ t: 'mine', unit: 999_999 }, { ok: false, reason: 'stale-entity' });
+  assertMine({ t: 'mine', unit: contained }, { ok: false, reason: 'missing-capability' });
+  assertMine({ t: 'mine', unit: burrowed }, { ok: false, reason: 'missing-capability' });
+  assertMine({ t: 'mine', unit: illusion }, { ok: false, reason: 'missing-capability' });
+  assertMine({ t: 'mine', unit: disabled }, { ok: false, reason: 'missing-capability' });
+  assertMine({ t: 'mine', unit: unfinished }, { ok: false, reason: 'missing-capability' });
 });
 
 test('spider mine tech grants charges to current and future vultures', () => {

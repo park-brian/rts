@@ -2,19 +2,18 @@ import type { Command } from './commands.ts';
 import { Kind, Units } from './data.ts';
 import { isContained } from './cargo.ts';
 import { REPAIR_RATE, canContinueConstructionKind, isRepairableKind, repairCost } from './repair.ts';
-import { isDisabled } from './systems/status.ts';
 import type { State } from './world.ts';
 import { isAlive, isEnemy, slotOf } from './world.ts';
-import { canPay, reject, rejectMissingOwnedSlot, ownedSlot, type CommandValidation } from './command-validation.ts';
+import { canPay, canReceiveOrder, reject, type CommandValidation } from './command-validation.ts';
 
 type RepairCommand = Extract<Command, { t: 'repair' }>;
 
 export const validateRepairCommand = (s: State, player: number, command: RepairCommand): CommandValidation => {
   const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return rejectMissingOwnedSlot(s, command.unit);
-  if (isContained(s, slot) || e.burrowed[slot] === 1 || e.illusion[slot] === 1) return reject('missing-capability');
-  if (isDisabled(e, slot) || e.kind[slot] !== Kind.SCV) return reject('missing-capability');
+  const actor = canReceiveOrder(s, player, command.unit, { rejectBurrowed: true, rejectIllusion: true });
+  if (!actor.ok) return actor;
+  const slot = actor.slot;
+  if (e.kind[slot] !== Kind.SCV) return reject('missing-capability');
   if (!isAlive(e, command.target)) return reject('target-not-found');
   const target = slotOf(command.target);
   if (isContained(s, target)) return reject('target-not-allowed');

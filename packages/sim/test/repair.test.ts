@@ -70,7 +70,17 @@ test('repair validation shares actor ownership gates', () => {
   const e = s.e;
   const scv = spawn(Kind.SCV, 0, fx(400), fx(400));
   const enemyScv = spawn(Kind.SCV, 1, fx(430), fx(400));
-  const tank = spawn(Kind.SiegeTank, 0, fx(460), fx(400));
+  const contained = spawn(Kind.SCV, 0, fx(460), fx(400));
+  const burrowed = spawn(Kind.Drone, 0, fx(490), fx(400));
+  const illusion = spawn(Kind.SCV, 0, fx(520), fx(400));
+  const disabled = spawn(Kind.SCV, 0, fx(550), fx(400));
+  const unfinished = spawn(Kind.SCV, 0, fx(580), fx(400));
+  const tank = spawn(Kind.SiegeTank, 0, fx(610), fx(400));
+  e.container[slotOf(contained)] = spawn(Kind.Dropship, 0, fx(460), fx(430));
+  e.burrowed[slotOf(burrowed)] = 1;
+  e.illusion[slotOf(illusion)] = 1;
+  e.lockdownTimer[slotOf(disabled)] = 10;
+  e.built[slotOf(unfinished)] = 0;
   e.hp[slotOf(tank)] = Units[Kind.SiegeTank]!.hp - 8;
   s.players.minerals[0] = 100;
   s.players.gas[0] = 100;
@@ -83,6 +93,11 @@ test('repair validation shares actor ownership gates', () => {
   assertRepair({ t: 'repair', unit: scv, target: tank }, { ok: true });
   assertRepair({ t: 'repair', unit: enemyScv, target: tank }, { ok: false, reason: 'wrong-owner' });
   assertRepair({ t: 'repair', unit: 999_999, target: tank }, { ok: false, reason: 'stale-entity' });
+  assertRepair({ t: 'repair', unit: contained, target: tank }, { ok: false, reason: 'missing-capability' });
+  assertRepair({ t: 'repair', unit: burrowed, target: tank }, { ok: false, reason: 'missing-capability' });
+  assertRepair({ t: 'repair', unit: illusion, target: tank }, { ok: false, reason: 'missing-capability' });
+  assertRepair({ t: 'repair', unit: disabled, target: tank }, { ok: false, reason: 'missing-capability' });
+  assertRepair({ t: 'repair', unit: unfinished, target: tank }, { ok: false, reason: 'missing-capability' });
 });
 
 test('replay parser accepts repair commands', () => {
