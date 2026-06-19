@@ -1,7 +1,7 @@
-import type { State } from './entity/world.ts';
-import { Role, TILE } from './data.ts';
-import { ONE } from './fixed.ts';
-import { bodyBounds } from './spatial/geometry.ts';
+import type { State } from '../entity/world.ts';
+import { Role, TILE } from '../data.ts';
+import { ONE } from '../fixed.ts';
+import { bodyBounds } from './geometry.ts';
 
 export const GROUP_SLOT_SPACING = TILE * ONE;
 const GROUP_SLOT_SPACING_STEP = GROUP_SLOT_SPACING >> 1;

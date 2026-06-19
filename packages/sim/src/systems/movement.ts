@@ -13,7 +13,7 @@ import { eid, isAlive, NONE, slotOf } from '../entity/world.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { clearVelocity } from './move.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
-import { roundedGroupSpacing, usesGroundMoveSlot } from '../movement-slots.ts';
+import { roundedGroupSpacing, usesGroundMoveSlot } from '../spatial/movement-slots.ts';
 
 type FollowPlan = {
   rank: Map<number, number>;

@@ -411,6 +411,8 @@ Done when:
   `spatial/flow.ts`, deleting the old root `flow.ts` helper.
 - Moved deterministic local-avoidance steering and its per-tick spatial index under
   `spatial/local-avoidance.ts`, deleting the old root helper instead of leaving a shim.
+- Moved deterministic group movement slot spacing and offsets under `spatial/movement-slots.ts`,
+  deleting the old root helper instead of leaving a shim.
 
 ## Review Checklist
 

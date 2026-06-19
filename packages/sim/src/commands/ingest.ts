@@ -13,7 +13,7 @@ import {
   groupOffset,
   roundedGroupSpacing,
   usesGroundMoveSlot,
-} from '../movement-slots.ts';
+} from '../spatial/movement-slots.ts';
 
 type MoveGroupPlan = {
   count: Map<string, number>;
