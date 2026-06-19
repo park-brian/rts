@@ -23,7 +23,7 @@ import { carrierCanTarget, carrierLaunchRange, interceptorLaunchCooldown, launch
 import { applyWeaponHit } from './weapon-hit.ts';
 import { launchScarab } from './scarabs.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
-import { isExternallySteeredChild, participatesInNormalCombat } from '../child-actors.ts';
+import { isExternallySteeredChild, participatesInNormalCombat } from '../mechanics/child-actors.ts';
 import {
   WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, weaponMechanicDef, type WeaponMechanicDef,
 } from '../mechanics/weapons.ts';

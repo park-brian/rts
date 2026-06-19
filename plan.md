@@ -452,6 +452,9 @@ Done when:
 - Moved shared Terran lift/land mobility flags, speeds, and state transitions under
   `mechanics/terran-mobility.ts`, deleting the old root helper path while preserving the stable
   package export.
+- Moved Scarab and Interceptor child-actor presentation/combat descriptors under
+  `mechanics/child-actors.ts`, deleting the old root helper path while preserving the stable package
+  export.
 
 ## Review Checklist
 

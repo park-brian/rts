@@ -1,5 +1,5 @@
-import { Kind } from './data.ts';
-import { NONE } from './entity/world.ts';
+import { Kind } from '../data.ts';
+import { NONE } from '../entity/world.ts';
 
 export type ChildActorPresentation = 'projectile' | 'unit';
 
