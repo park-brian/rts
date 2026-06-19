@@ -468,6 +468,9 @@ Remaining work:
       response, so expansions are protected through the same path as the main base. Normal bot
       generation can request BotFacts without materializing the full risk matrix; route/site
       directors should opt into full risk only when they actually score map tiles.
+    - Capability-classification slice is done: base incidents now distinguish Nydus breaches,
+      transport drops, static threat zones, and long-range siege containments from unit data
+      (kind, cargo capacity, roles, and weapon range) before later directors choose the response.
   - Maintain layered spatial fields rather than one overloaded number: known weapon risk,
     anti-ground risk, anti-air risk, detection coverage, invisible/suspected risk, protected asset
     value, friendly response coverage, route congestion, and unknown-fog penalty. Keep the first
@@ -638,6 +641,9 @@ Done when:
   scheduling.
 - Wired the live bot's defense choice to the TacticalIncident stream, covering threatened
   expansions while keeping full risk-map construction optional for normal command generation.
+- Classified first tactical incident capabilities for Nydus, transport, static-defense, and
+  long-range containment threats using shared unit/weapon data instead of scenario-specific bot
+  branches.
 - Recorded the existing app guard for worker-built expansion town halls so the roadmap no longer
   treats Command Center, Nexus, and Hatchery command-card exposure as an unimplemented gap.
 - Extracted targeted attack command validation.

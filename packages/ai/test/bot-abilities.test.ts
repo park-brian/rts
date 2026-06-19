@@ -266,6 +266,28 @@ test('bot facts count completed and pending structures for rebuild planning', ()
   assert.deepEqual(missingStructureKinds(facts, [Kind.EvolutionChamber]), [Kind.EvolutionChamber]);
 });
 
+test('bot tactical incidents classify bypass, static, and containment threats', () => {
+  const cases: ReadonlyArray<readonly [number, string]> = [
+    [Kind.NydusCanal, 'nydus-breach'],
+    [Kind.Dropship, 'transport-drop'],
+    [Kind.PhotonCannon, 'static-threat-zone'],
+    [Kind.SiegeTankSieged, 'siege-containment'],
+  ];
+
+  cases.forEach(([threatKind, expected], i) => {
+    const scenario = botScenario({ seed: 810 + i });
+    const commandCenter = scenario.entity(Kind.CommandCenter, 0);
+    const base = scenario.pos(commandCenter);
+    scenario.spawn(threatKind, 1, base.x + fx(48), base.y);
+
+    const facts = collectBotFacts(scenario.state, 0, Terran);
+    const incidents = deriveTacticalIncidents(scenario.state, facts);
+
+    assert.equal(incidents[0]!.kind, expected);
+    assert.equal(incidents[0]!.base, slotOf(commandCenter));
+  });
+});
+
 test('bot uses Stim when committing idle bio to defend', () => {
   const scenario = botScenario({ seed: 40 });
   const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));

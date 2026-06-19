@@ -171,6 +171,35 @@ const weaponRisk = (kind: number): { range: number; score: number } => {
   return { range, score };
 };
 
+const incidentKindBonus = (kind: TacticalIncidentKind): number => {
+  switch (kind) {
+    case 'nydus-breach': return 200;
+    case 'transport-drop': return 150;
+    case 'siege-containment': return 125;
+    case 'static-threat-zone': return 100;
+    default: return 0;
+  }
+};
+
+const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncidentKind => {
+  const e = s.e;
+  let hasStaticThreat = false;
+  let hasLongRangeThreat = false;
+  for (const enemy of enemies) {
+    const kind = e.kind[enemy]!;
+    const def = Units[kind]!;
+    if (kind === Kind.NydusCanal) return 'nydus-breach';
+    if ((def.roles & Role.Air) !== 0 && def.cargoCapacity > 0) return 'transport-drop';
+
+    const risk = weaponRisk(kind);
+    if ((def.roles & Role.Structure) !== 0 && risk.score > 0) hasStaticThreat = true;
+    if (risk.range >= 7 * TILE * ONE) hasLongRangeThreat = true;
+  }
+  if (hasStaticThreat) return 'static-threat-zone';
+  if (hasLongRangeThreat) return 'siege-containment';
+  return 'base-intrusion';
+};
+
 export const buildRiskMap = (s: State, player: number, enemies: readonly number[]): BotRiskMap => {
   const w = s.map.w;
   const h = s.map.h;
@@ -325,9 +354,10 @@ export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalInci
   for (const [base, enemies] of byBase) {
     const x = e.x[base]!;
     const y = e.y[base]!;
+    const kind = enemyThreatKind(s, enemies);
     incidents.push({
-      kind: 'base-intrusion',
-      severity: 100 + enemies.length * 25 + riskAt(facts.risk, x, y),
+      kind,
+      severity: 100 + enemies.length * 25 + incidentKindBonus(kind) + riskAt(facts.risk, x, y),
       x,
       y,
       base,
