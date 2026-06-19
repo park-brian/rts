@@ -63,6 +63,17 @@ test('desktop console exposes control group chips without sharing command space'
   assert.match(ui, /<SelectionPanel game=\{g\} compact=\{metrics\.compactSelection\} \/>/);
 });
 
+test('command card consumes every shared selection option group through executeOption', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+
+  for (const group of ['train', 'addon', 'transform', 'build', 'research', 'ability']) {
+    assert.match(ui, new RegExp(`selection\\.options\\.${group}`), `missing ${group} command option group`);
+  }
+  assert.match(ui, /selection\.options\.order\.find\(\(o\) => o\.id === id\)/);
+  assert.match(ui, /const executeOption = \(option: CommandOption\): void =>/);
+  assert.match(ui, /g\.executeOption\(option\)/);
+});
+
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
 

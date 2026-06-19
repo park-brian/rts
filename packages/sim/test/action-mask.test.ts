@@ -40,17 +40,11 @@ import {
 } from '../src/io/action-mask.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
-import type { Command } from '../src/commands/types.ts';
+import { COMMAND_TYPES, type Command } from '../src/commands/types.ts';
 import {
   attackModeCandidates, harvestModeCandidates, loadSelectionCandidates, rallyModeCandidates, repairModeCandidates,
   smartCommandCandidates,
 } from '../src/commands/intent.ts';
-
-const ALL_COMMAND_TAGS: readonly Command['t'][] = [
-  'train', 'research', 'build', 'addon', 'lift', 'land', 'transform', 'burrow', 'mine',
-  'load', 'unload', 'cancelBuild', 'move', 'attack', 'amove', 'ability', 'harvest',
-  'repair', 'rally', 'stop',
-];
 
 const linkAddon = (s: SimScenario['state'], parent: number, addon: number): void => {
   const e = s.e;
@@ -86,7 +80,7 @@ const assertMaskMatchesValidator = (
 
 test('action schema covers every public command tag', () => {
   assert.equal(ACTION_SCHEMA_VERSION, 1);
-  assert.deepEqual(Object.keys(COMMAND_MASK_POLICY).sort(), [...ALL_COMMAND_TAGS].sort());
+  assert.deepEqual(Object.keys(COMMAND_MASK_POLICY).sort(), [...COMMAND_TYPES].sort());
   for (const head of COMMAND_HEADS) assert.ok(head.length > 0);
 });
 

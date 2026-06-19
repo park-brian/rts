@@ -6,6 +6,30 @@
 
 import type { State } from '../entity/world.ts';
 
+export const COMMAND_TYPES = [
+  'train',
+  'research',
+  'build',
+  'addon',
+  'lift',
+  'land',
+  'transform',
+  'burrow',
+  'mine',
+  'load',
+  'unload',
+  'cancelBuild',
+  'move',
+  'attack',
+  'amove',
+  'ability',
+  'harvest',
+  'repair',
+  'rally',
+  'stop',
+] as const;
+export type CommandType = typeof COMMAND_TYPES[number];
+
 export type CommandRejectReason =
   | 'stale-entity'
   | 'wrong-owner'
@@ -47,6 +71,15 @@ export type Command =
   | { t: 'repair'; unit: number; target: number }
   | { t: 'rally'; building: number; x: number; y: number; target?: number } // set a structure's rally point/target
   | { t: 'stop'; unit: number };
+
+type CommandTypeCoverage =
+  [Command['t']] extends [CommandType]
+    ? [CommandType] extends [Command['t']]
+      ? true
+      : never
+    : never;
+const commandTypeCoverage: CommandTypeCoverage = true;
+void commandTypeCoverage;
 
 export type PlayerCommands = { player: number; cmds: Command[] };
 

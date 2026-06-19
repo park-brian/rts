@@ -149,6 +149,11 @@ Remaining work:
     semantics to the other command families with explicit interruption tests.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
+  - Command surface guard slice is done: the runtime `COMMAND_TYPES` registry is typechecked
+    against the `Command` union, tests compare it to the command spec registry and action-mask
+    heads, replay ingestion accepts a fixture covering every command type, action encoding
+    round-trips every command type, and the app command card has a static guard proving every
+    shared selection option group flows through `executeOption`.
 - Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only
   as short-lived strangler scaffolding; each migration slice should either delete the old-path shim or
   leave a named follow-up that explains which callers still depend on it.
@@ -506,6 +511,8 @@ Done when:
 - Removed the acquired-combat-target compatibility mirror: transient combat acquisition now stays in
   `combatTarget`, while pathing anchors read that owner directly and `target` remains for
   command-owned entity targets such as harvest, build, repair, direct attack, add-ons, and cargo.
+- Added command-surface architecture guards tying the `Command` union to command specs, action-mask
+  encode/decode, replay ingestion, and app command-card option consumption.
 
 ## Review Checklist
 
