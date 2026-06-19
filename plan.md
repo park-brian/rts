@@ -1283,6 +1283,20 @@ Implementation:
 
 Stats and source work before implementation:
 
+- Sourcing pass (2026-06-18):
+  - Local specs confirm the research costs/times and current unit stat targets, but do not provide
+    transform animation durations for siege/unsiege or burrow/unburrow.
+  - Ignored `tmp/bwapi` reference material confirms the public command and order/state surfaces:
+    `UnitCommand::burrow/unburrow/siege/unsiege`, tech-toggle mapping for `Burrowing` and
+    `Tank_Siege_Mode`, command dispatch to `BW::Orders::Burrow`, `Unburrow`, `Siege`, and
+    `Unsiege`, and client temporary orders `Orders::Burrowing`, `Orders::Unburrowing`, and
+    `Orders::Sieging`.
+  - BWAPI does not expose the exact animation/transition frame counts in the checked command,
+    order, unit-type, or client-temp paths. Do not implement deterministic transition timers from
+    guessed values.
+  - Next source step before timed transition implementation: extract/inspect Brood War
+    `iscript.bin`/order data, or add a measurement harness from replay/game traces, then record the
+    exact frame counts here with source paths.
 - Reconcile local doc/spec mismatches:
   - Stasis duration: `docs/research/sc1-spells-upgrades.md` says about 43.8s; `data.ts` uses 37.8s.
   - Irradiate duration: research doc says 25.2s for the damage window; `data.ts` uses 37.8s.
@@ -1295,8 +1309,9 @@ Stats and source work before implementation:
   - Spider Mine wake-up/acquire/leap timing if we want more than the current acquire/detonate model.
   - Carrier Interceptor exact attack-pass cadence if current orbit/return behavior proves materially
     different under tests.
-- `tmp/bwapi` is not present in the current workspace, so these missing values must be sourced from
-  committed docs, restored BWAPI references, or a new documented research note before implementation.
+- `tmp/bwapi` is available as ignored reference material. It is useful for command/order semantics,
+  prerequisites, and BWAPI-facing behavior, but the missing timing values still require iscript/dat
+  extraction or measured traces before implementation.
 
 Tests and proof:
 
@@ -2635,10 +2650,13 @@ Completed:
 
 ## Phase 17: Command Intent, Follow, And Rally Architecture
 
-Status: targeted move/follow, player-aware gather legality, typed producer rally, command-intent
-extraction, action-mask follow targets, deterministic same-target follow slots, and the
-intent/combat target split for normal movement and combat are implemented; internal
-attack-move-follow is now unblocked but not yet public UI/API behavior.
+Status: complete for the current command-intent/follow/rally scope. Targeted move/follow,
+player-aware gather legality, typed producer rally, command-intent extraction, action-mask follow
+targets, deterministic same-target follow slots, the intent/combat-target split, public UI/AI/RL
+parity tests, and follow determinism/performance benchmarks are implemented. Internal
+attack-move-follow is intentionally not public UI/API behavior yet; it needs an explicit escort
+contract before exposure. Validation is green after the scoped `npm test` repair and the
+rally-follow AI regression.
 
 Purpose: make mobile/desktop commands, explicit target modes, rally behavior, pathfinding, AI,
 RL masks, and replay semantics share one small set of intent concepts. The goal is to remove
