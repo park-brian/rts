@@ -174,9 +174,12 @@ export const childActorRenderPresentation = (
   return {
     role,
     radius,
-    minimapVisible: role !== 'projectile',
+    minimapVisible: entityMinimapVisible(kind),
   };
 };
+
+export const entityMinimapVisible = (kind: number): boolean =>
+  (childActorDef(kind)?.presentation ?? 'unit') !== 'projectile';
 
 const stampedFootprintCenterOffset = (tiles: number): number => (tiles % 2 === 0 ? -TILE / 2 : 0);
 

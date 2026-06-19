@@ -9,7 +9,7 @@ import { eid, makeState, slotOf, spawnEffect } from '../src/world.ts';
 import { bodyBounds } from '../src/spatial.ts';
 import {
   effectVisibilityAffordances, entityCloakOpacity, entityLifeBar, entityPresentation, entityRenderHull,
-  entitySelectionName, illusionPresentation, selectionBase, workActivities,
+  entityMinimapVisible, entitySelectionName, illusionPresentation, selectionBase, workActivities,
 } from '../src/render-descriptors.ts';
 
 const unfinished = (s: ReturnType<typeof makeState>, kind: number, from: number = Kind.None): number => {
@@ -78,6 +78,12 @@ test('entity cloak opacity exposes renderer-neutral cloak presentation policy', 
 
   s.e.cloakActive[wraith] = 1;
   assert.equal(entityCloakOpacity(s, wraith), 0.5);
+});
+
+test('entity minimap visibility is descriptor-backed and independent of render radius', () => {
+  assert.equal(entityMinimapVisible(Kind.Scarab), false);
+  assert.equal(entityMinimapVisible(Kind.Interceptor), true);
+  assert.equal(entityMinimapVisible(Kind.Marine), true);
 });
 
 test('illusion presentation is known to owner, teammates, and spectators but hidden from enemies', () => {

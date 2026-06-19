@@ -4,7 +4,7 @@
 import {
   TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
-  requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityRenderHull,
+  requiresPower, requiresCreep, providesCreep, childActorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
   illusionPresentation, selectionBase, type MapDef,
 } from './sim.ts';
 import type { Game } from './game.ts';
@@ -421,7 +421,7 @@ export const drawMinimap = (ctx: CanvasRenderingContext2D, game: Game): void => 
   const e = game.sim.fullState().e;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-    if (!childActorRenderPresentation(e.kind[i]!, 0, game.zoom).minimapVisible) continue;
+    if (!entityMinimapVisible(e.kind[i]!)) continue;
     const tx = Math.floor(e.x[i]! / ONE / TILE); const ty = Math.floor(e.y[i]! / ONE / TILE);
     if (!game.canSeeEntity(i)) continue;
     ctx.fillStyle = (Units[e.kind[i]!]!.roles & Role.Resource) !== 0 ? NEUTRAL_COL : color(e.owner[i]!);

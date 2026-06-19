@@ -1471,6 +1471,11 @@ Rework slices:
    - Replace app-side `Kind.Scarab`/`Kind.Interceptor` commandability checks.
    - Make fallback/math render use the same footprint, base radius, cloak, child actor, and
      completion-state helpers as gameplay diagnostics.
+   - Slice 2 started: audited child actor consumers and kept the existing sim-owned
+     `child-actors`/render descriptor helpers as the small closed set. Selection commandability
+     already flows through `isUserCommandableKind`; GL/Math child rendering already flows through
+     `childActorRenderPresentation`; app minimaps now use the named `entityMinimapVisible` policy
+     instead of deriving minimap inclusion from render sizing with a fake radius.
 3. Centralize selection capability and command option discovery.
    - Keep `validateCommand` as the final authority.
    - Move build/train/research/ability/transform/load/unload option enumeration out of `Game`.
