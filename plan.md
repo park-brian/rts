@@ -137,15 +137,15 @@ Remaining work:
     state transitions.
   - AI/RL visibility slice is done for queued travel: object observations and caller-owned
     observation buffers expose own queued travel orders, encoded actions preserve the `queue` flag
-    for move / attack-move, and command masks can ask the shared validator for append-vs-replace
-    legality.
+    for move / attack-move / patrol, and command masks can ask the shared validator for
+    append-vs-replace legality.
   - Desktop Shift slice is done for queued travel: Shift-right-click smart move/follow and
     Shift-armed attack-move point commands set the shared `queue` flag after validator-backed
     command-intent checks, while enemy attacks and other non-travel smart commands keep their
     current immediate semantics.
   - Queued waypoint rendering slice is done for queued travel: selected units expose sim-owned
-    queued travel waypoint descriptors, and the shared overlay draws move/follow and attack-move
-    paths in both WebGL and Math/fallback rendering.
+    queued travel waypoint descriptors, and the shared overlay draws move/follow, attack-move, and
+    patrol paths in both WebGL and Math/fallback rendering.
   - Mobile queue-mode slice is done for queued travel: the compact mobile toggle feeds the same
     validator-backed command-intent option as desktop Shift, appends move / follow and attack-move
     point travel, and leaves attack / harvest / repair / load / spells immediate until those command
@@ -657,6 +657,8 @@ Done when:
   range without chasing.
 - Added Patrol as a first-class command/card/hotkey action with serialized route endpoints and
   combat-aware two-point movement.
+- Extended queued Patrol through AI/RL observation coverage, proving object and caller-owned buffer
+  observations expose the same queued-order entries as move/follow and attack-move.
 - Exposed active own order intent in fair-play object and buffer observations while preserving
   hidden enemy destination/target secrecy.
 - Locked in the existing ML benchmark lanes for action masks, object observations, buffer

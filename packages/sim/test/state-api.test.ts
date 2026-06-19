@@ -183,6 +183,7 @@ test('observe returns active own queued travel orders without leaking enemy queu
     { t: 'move', unit: marine, x: fx(700), y: fx(500) },
     { t: 'amove', unit: marine, x: fx(740), y: fx(520), queue: true },
     { t: 'move', unit: marine, x: fx(780), y: fx(500), target: friendly, queue: true },
+    { t: 'patrol', unit: marine, x: fx(820), y: fx(540), queue: true },
   ] }, { player: 1, cmds: [
     { t: 'move', unit: enemy, x: fx(620), y: fx(500) },
     { t: 'amove', unit: enemy, x: fx(640), y: fx(500), queue: true },
@@ -194,6 +195,7 @@ test('observe returns active own queued travel orders without leaking enemy queu
     entries: [
       { order: Order.AttackMove, target: NONE, x: fx(740), y: fx(520) },
       { order: Order.Move, target: friendly, x: fx(780), y: fx(500) },
+      { order: Order.Patrol, target: NONE, x: fx(820), y: fx(540) },
     ],
   }]);
 
@@ -206,10 +208,11 @@ test('observe returns active own queued travel orders without leaking enemy queu
   const row = 0;
   let p = row * OBS_ORDER_QUEUE_STRIDE;
   assert.equal(buffers.orderQueues[p++], marine);
-  assert.equal(buffers.orderQueues[p++], 2);
-  assert.deepEqual([...buffers.orderQueues.slice(p, p + 8)], [
+  assert.equal(buffers.orderQueues[p++], 3);
+  assert.deepEqual([...buffers.orderQueues.slice(p, p + 12)], [
     Order.AttackMove, NONE, fx(740), fx(520),
     Order.Move, friendly, fx(780), fx(500),
+    Order.Patrol, NONE, fx(820), fx(540),
   ]);
 });
 
