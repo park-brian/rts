@@ -5,7 +5,7 @@ import {
 } from '../data.ts';
 import { abilityCapacityAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { applyIndependentDamage, applyNuclearStrikeDamage, applyPlagueDamage } from '../mechanics/damage.ts';
-import { inRadius } from '../effects.ts';
+import { inRadius } from '../mechanics/effects.ts';
 import { fx } from '../fixed.ts';
 import { distanceSq } from '../spatial/geometry.ts';
 import type { State } from '../entity/world.ts';

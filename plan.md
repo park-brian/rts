@@ -455,6 +455,8 @@ Done when:
 - Moved Scarab and Interceptor child-actor presentation/combat descriptors under
   `mechanics/child-actors.ts`, deleting the old root helper path while preserving the stable package
   export.
+- Moved shared active-effect radius and coverage helpers under `mechanics/effects.ts`, deleting the
+  old root helper path while preserving the stable package export.
 
 ## Review Checklist
 
