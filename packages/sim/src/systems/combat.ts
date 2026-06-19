@@ -15,7 +15,7 @@ import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from '.
 import { coveredByEffect } from '../effects.ts';
 import { canDetect } from '../detection.ts';
 import { upgradedRange } from '../derived.ts';
-import { isPowered } from '../power.ts';
+import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../cargo.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { distanceSq, topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial.ts';

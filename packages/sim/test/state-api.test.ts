@@ -14,7 +14,7 @@ import { Ability, EffectKind, Kind, Tech, TILE } from '../src/data.ts';
 import { fx } from '../src/fixed.ts';
 import { CREEP_RADIUS } from '../src/mechanics/creep.ts';
 import { LARVA_MAX } from '../src/larva.ts';
-import { POWER_RADIUS } from '../src/power.ts';
+import { POWER_RADIUS } from '../src/mechanics/power.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
 const tileCenter = (w: number, idx: number): { x: number; y: number } => {

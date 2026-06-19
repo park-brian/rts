@@ -375,6 +375,8 @@ Done when:
   `requirements.ts` helper while preserving the stable package export.
 - Moved Zerg creep coverage and placement helpers under `mechanics/creep.ts`, deleting the old root
   `creep.ts` helper while preserving the stable package export.
+- Moved Protoss power coverage and producer gating helpers under `mechanics/power.ts`, deleting the
+  old root `power.ts` helper while preserving the stable package export.
 
 ## Review Checklist
 

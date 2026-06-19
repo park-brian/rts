@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Kind, Order, Units, hasAnyWeapon, weaponForTarget } from '../data.ts';
-import { isPowered } from '../power.ts';
+import { isPowered } from '../mechanics/power.ts';
 import { canUseWeaponNow } from '../burrow.ts';
 import { carrierCanAttack } from '../interceptor.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../mechanics/weapons.ts';

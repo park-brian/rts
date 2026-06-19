@@ -11,7 +11,7 @@ import { canDetect } from './detection.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { CREEP_RADIUS, providesCreep } from './mechanics/creep.ts';
 import { LARVA_MAX, nearestLarvaSource } from './larva.ts';
-import { POWER_RADIUS } from './power.ts';
+import { POWER_RADIUS } from './mechanics/power.ts';
 import { entityWorkQueue } from './entity/work-queue.ts';
 
 export type EntityView = {

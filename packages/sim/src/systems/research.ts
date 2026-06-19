@@ -3,7 +3,7 @@ import { NONE } from '../entity/world.ts';
 import { Kind, Tech, TechDefs } from '../data.ts';
 import { nextTechLevel, setTechLevel } from '../tech.ts';
 import { upgradedEnergyMax } from '../derived.ts';
-import { isPowered } from '../power.ts';
+import { isPowered } from '../mechanics/power.ts';
 import { isLiftedStructureFlags } from '../terran-mobility.ts';
 import { activeAddonParentSlot, isAddonKind } from '../addon.ts';
 import { refillInternalProduct } from '../mechanics/internal-products.ts';
