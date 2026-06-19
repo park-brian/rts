@@ -117,9 +117,8 @@ not rediscover slightly different rules.
 
 Remaining work:
 
-- Begin source-layout migration with low-risk folders: move `data-*` into `data/`, then
-  `entity-*` plus `factory/world` into `entity/`, keeping compatibility exports until callers are
-  migrated.
+- Continue source-layout migration with `entity-*` plus `factory/world` into `entity/`, keeping
+  compatibility exports until callers are migrated.
 - Split command ingestion by command family without changing replay semantics.
 - Add first-class queued-order representation for desktop Shift and mobile queue mode: explicit
   append-vs-replace rules, deterministic per-entity order queues, replay serialization, command
@@ -334,6 +333,8 @@ Done when:
   systems, spatial, mechanics, IO, map, and render ownership.
 - Moved Consume and Restoration through ability execution descriptors instead of bespoke cast switch
   branches.
+- Moved immutable data definitions under `src/data/` while keeping old root data exports as
+  compatibility shims.
 
 ## Review Checklist
 
