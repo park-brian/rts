@@ -8,26 +8,50 @@ import {
   rememberTacticalIncidents,
   type TacticalIncident,
 } from './macro-incidents.ts';
+import type { BotIntent } from './macro-intents.ts';
 import type { BotFacts } from './macro.ts';
 import type { BotMemory } from './macro-memory.ts';
 import { combatReserve, type CombatReserve } from './macro-reserve.ts';
 
 export type TacticalSchedule = {
   incident: TacticalIncident | undefined;
+  intent: BotIntent | null;
   reserve: CombatReserve;
 };
 
 export type TacticalDefenseProposal = {
   incident: TacticalIncident | undefined;
+  intent: BotIntent | null;
 };
+
+const tacticalIntentKind = (incident: TacticalIncident): BotIntent['kind'] => {
+  switch (incident.kind) {
+    case 'invisible-damage': return 'get-detection';
+    case 'expansion-blocked':
+    case 'route-trap':
+      return 'clear-site';
+    default:
+      return 'defend-base';
+  }
+};
+
+const tacticalIntent = (incident: TacticalIncident): BotIntent => ({
+  kind: tacticalIntentKind(incident),
+  urgency: Math.min(100, 70 + Math.trunc(incident.severity / 50)),
+  targetSlot: incident.enemies?.[0],
+  x: incident.x,
+  y: incident.y,
+  expiresAt: incident.expiresAt,
+});
 
 export const proposeTacticalDefense = (
   s: State,
   facts: BotFacts,
   memory: BotMemory,
-): TacticalDefenseProposal => ({
-  incident: rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0],
-});
+): TacticalDefenseProposal => {
+  const incident = rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0];
+  return { incident, intent: incident ? tacticalIntent(incident) : null };
+};
 
 export const executeTacticalDefense = (
   s: State,
@@ -40,8 +64,8 @@ export const executeTacticalDefense = (
   casters: number[],
   reservedBuilder: number,
 ): TacticalSchedule => {
-  const { incident } = proposal;
-  if (!incident) return { incident, reserve: combatReserve([...retaskableArmy]) };
+  const { incident, intent } = proposal;
+  if (!incident) return { incident, intent: null, reserve: combatReserve([...retaskableArmy]) };
 
   const e = s.e;
   const threat = incidentTarget(s, incident);
@@ -59,6 +83,7 @@ export const executeTacticalDefense = (
 
   return {
     incident,
+    intent,
     reserve: combatReserve(available, available.length, true),
   };
 };

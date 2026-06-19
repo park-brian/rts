@@ -587,6 +587,7 @@ test('bot tactical defense proposal separates incident choice from command execu
   const proposal = proposeTacticalDefense(scenario.state, facts, memory);
 
   assert.equal(proposal.incident?.kind, 'base-intrusion');
+  assert.equal(proposal.intent?.kind, 'defend-base');
   assert.equal(cmds.length, 0);
   assert.equal(memory.tacticalCommitments.size, 0);
 
@@ -605,6 +606,7 @@ test('bot tactical defense proposal separates incident choice from command execu
     cmd.t === 'attack' && cmd.target === enemy);
 
   assert.equal(result.incident, proposal.incident);
+  assert.equal(result.intent, proposal.intent);
   assert.equal(result.reserve.defenseActive, true);
   assert.deepEqual(attacks.map((cmd) => cmd.unit), marines.slice(0, 2));
   assert.equal(memory.tacticalCommitments.size, 1);

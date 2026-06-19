@@ -684,6 +684,9 @@ Remaining work:
     - Tactical-defense director/executor split slice is done: incident choice now has a proposal
       phase and responder command emission has an executor phase. The live bot consumes that boundary
       directly, so defense and pressure now share the same top-level controller shape.
+    - Tactical-defense intent slice is done: defense proposals now translate incidents into shared
+      `BotIntent` rows (`defend-base`, `get-detection`, or `clear-site`) before execution spends
+      responders, giving the scheduler-visible vocabulary a second live producer after pressure.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
