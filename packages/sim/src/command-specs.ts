@@ -12,7 +12,7 @@ import {
   isContained, loadUnitInto, sameTeam, unloadUnit,
 } from './cargo.ts';
 import { isDisabled } from './systems/status.ts';
-import { canBurrowSlot, hasBurrowAccess, setBurrowed } from './burrow.ts';
+import { setBurrowed } from './burrow.ts';
 import { canContinueConstructionKind, resumeConstruction } from './repair.ts';
 import { getTechLevel, queueResearch } from './tech.ts';
 import { laySpiderMine } from './spider-mine.ts';
@@ -37,6 +37,7 @@ import { snapRallyTarget, validateRallyCommand } from './rally-command.ts';
 import { validateTrainCommand } from './production-command.ts';
 import { validateResearchCommand } from './research-command.ts';
 import { validateAttackCommand } from './attack-command.ts';
+import { validateBurrowCommand } from './burrow-command.ts';
 
 export { snapRallyTarget };
 
@@ -109,17 +110,6 @@ const validateStop = (s: State, player: number, command: Extract<Command, { t: '
   if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
   if (isContained(s, slot)) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 && e.order[slot] !== Order.Build) return reject('missing-capability');
-  return { ok: true };
-};
-
-const validateBurrow = (s: State, player: number, command: Extract<Command, { t: 'burrow' }>): CommandValidation => {
-  const e = s.e;
-  const slot = ownedSlot(s, command.unit, player);
-  if (slot === null) return isAlive(e, command.unit) ? reject('wrong-owner') : reject('stale-entity');
-  if (isContained(s, slot) || isDisabled(e, slot) || e.illusion[slot] === 1) return reject('missing-capability');
-  if (!canBurrowSlot(s, slot)) return reject('missing-capability');
-  if (!hasBurrowAccess(s, player, e.kind[slot]!)) return reject('missing-requirement');
-  if ((e.burrowed[slot] === 1) === command.active) return reject('target-not-allowed');
   return { ok: true };
 };
 
@@ -203,7 +193,7 @@ const cancelBuildSpec: CommandSpec<Extract<Command, { t: 'cancelBuild' }>> = {
 };
 
 const burrowSpec: CommandSpec<Extract<Command, { t: 'burrow' }>> = {
-  validate: validateBurrow,
+  validate: validateBurrowCommand,
   apply(s, _player, command): void {
     setBurrowed(s, slotOf(command.unit), command.active);
   },
