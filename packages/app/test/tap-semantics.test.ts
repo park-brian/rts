@@ -121,6 +121,41 @@ test('attack-move target mode sends selected mobile units to empty ground', () =
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
+test('move target mode sends selected mobile units to points and friendly follow targets', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const leader = spawnUnit(s, Kind.Marine, 0, fx(500), fx(400));
+  select(g, [marine]);
+  centerOnEntity(g, marine);
+  ui.armedCommand.value = { t: 'move' };
+
+  const ground = { x: g.viewW / 2 + 80, y: g.viewH / 2 + 80 };
+  g.tap(ground.x, ground.y);
+
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    ...fixedPointAt(g, ground),
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
+  g.queued = [];
+  ui.armedCommand.value = { t: 'move' };
+  centerOnEntity(g, leader);
+  const target = screenOf(g, leader);
+  g.tap(target.x, target.y, { preferredHit: leader, shift: true });
+
+  assert.deepEqual(g.queued, [{
+    t: 'move',
+    unit: marine,
+    ...fixedPointAt(g, target),
+    target: leader,
+    queue: true,
+  }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
 test('production buildings set rally on a normal ground tap', () => {
   const g = freshGame();
   const cc = findEntity(g, Kind.CommandCenter, 0);
@@ -217,6 +252,7 @@ test('selected buildings do not publish mobile attack-move or stop commands', ()
   g.fastForward(0);
 
   assert.equal(ui.selectionView.value.can.rally, true);
+  assert.equal(ui.selectionView.value.can.move, false);
   assert.equal(ui.selectionView.value.can.attackMove, false);
   assert.equal(ui.selectionView.value.can.stop, false);
 });
@@ -229,7 +265,9 @@ test('selected mobile units publish mobile attack-move commands', () => {
   g.fastForward(0);
 
   assert.equal(ui.selectionView.value.can.rally, false);
+  assert.equal(ui.selectionView.value.can.move, true);
   assert.equal(ui.selectionView.value.can.attackMove, true);
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Move)?.arm, { t: 'move' });
 });
 
 test('normal tap on an owned gas structure selects it instead of harvesting', () => {

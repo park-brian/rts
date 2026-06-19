@@ -4,6 +4,7 @@ import type { CommandOption } from './store.ts';
 import { Ability, Kind, Tech } from './sim.ts';
 
 export type GlobalHotkeyAction =
+  | 'move'
   | 'attackMove'
   | 'hold'
   | 'patrol'
@@ -25,6 +26,7 @@ export type HotkeyAction = GlobalHotkeyAction | string;
 export type HotkeyMap = Record<string, string>;
 
 export const HOTKEY_ACTIONS: ReadonlyArray<{ id: GlobalHotkeyAction; label: string }> = [
+  { id: 'move', label: 'Move' },
   { id: 'attackMove', label: 'Attack Move' },
   { id: 'hold', label: 'Hold Position' },
   { id: 'patrol', label: 'Patrol' },
@@ -44,6 +46,7 @@ export const HOTKEY_ACTIONS: ReadonlyArray<{ id: GlobalHotkeyAction; label: stri
 ];
 
 export const DEFAULT_HOTKEYS: HotkeyMap = {
+  move: 'KeyM',
   attackMove: 'KeyA',
   hold: 'KeyH',
   patrol: 'KeyP',
@@ -353,6 +356,7 @@ const executeOption = (game: Game, options: CommandOption[], id: number): boolea
 
 export const orderHotkeyAction = (id: number): GlobalHotkeyAction | null => {
   switch (id) {
+    case OrderOptionId.Move: return 'move';
     case OrderOptionId.AttackMove: return 'attackMove';
     case OrderOptionId.Hold: return 'hold';
     case OrderOptionId.Patrol: return 'patrol';
@@ -407,6 +411,8 @@ const fireAction = (game: Game, action: HotkeyAction): boolean => {
     return executeOption(game, selection.options.ability, Number(action.slice('ability:'.length)));
   }
   switch (action) {
+    case 'move':
+      return executeOption(game, selection.options.order, OrderOptionId.Move);
     case 'attackMove':
       return executeOption(game, selection.options.order, OrderOptionId.AttackMove);
     case 'hold':
@@ -463,6 +469,7 @@ const commandCardActions = (): HotkeyAction[] => {
       OrderOptionId.Lift,
       OrderOptionId.Land,
       OrderOptionId.Cancel,
+      OrderOptionId.Move,
       OrderOptionId.AttackMove,
       OrderOptionId.Hold,
       OrderOptionId.Patrol,

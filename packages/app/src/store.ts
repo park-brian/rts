@@ -23,6 +23,7 @@ export const OrderOptionId = {
   Unload: 13,
   Hold: 14,
   Patrol: 15,
+  Move: 16,
 } as const;
 export type CommandOption = {
   id: number;
@@ -45,6 +46,7 @@ export type SelectionView = {
     unload: boolean;
     harvest: boolean;
     repair: boolean;
+    move: boolean;
     attackMove: boolean;
     hold: boolean;
     patrol: boolean;
@@ -70,6 +72,7 @@ export type ArmedCommand =
   | { t: 'none' }
   | { t: 'place'; kind: number }
   | { t: 'land'; kind: number }
+  | { t: 'move' }
   | { t: 'attackMove' }
   | { t: 'patrol' }
   | { t: 'rally' }
@@ -88,6 +91,7 @@ export const EMPTY_SELECTION_VIEW: SelectionView = {
     unload: false,
     harvest: false,
     repair: false,
+    move: false,
     attackMove: false,
     hold: false,
     patrol: false,

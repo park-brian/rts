@@ -10,6 +10,7 @@ test('desktop hotkeys arm commands and can be remapped', () => {
   const g = desktopGame(77);
   selectFirst(g, Kind.SCV);
   g.fastForward(0);
+  assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Move)?.arm, { t: 'move' });
   assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.AttackMove)?.arm, { t: 'attackMove' });
   assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Patrol)?.arm, { t: 'patrol' });
   assert.deepEqual(ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Harvest)?.arm, {
@@ -20,6 +21,11 @@ test('desktop hotkeys arm commands and can be remapped', () => {
     t: 'target',
     mode: 'repair',
   });
+
+  assert.equal(dispatchHotkey(g, 'KeyM'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'move' });
+  assert.equal(dispatchHotkey(g, 'KeyM'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 
   assert.equal(dispatchHotkey(g, 'KeyA'), true);
   assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });

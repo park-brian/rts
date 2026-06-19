@@ -83,6 +83,7 @@ export const selectionCapabilities = (
   let canUnload = false;
   let canHarvest = false;
   let canRepair = false;
+  let canMove = false;
   let canAttackMove = false;
   let canHold = false;
   let canPatrol = false;
@@ -123,6 +124,7 @@ export const selectionCapabilities = (
     if (primarySlot < 0) primarySlot = slot;
     kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
+    if (nonStructure && validateCommand(s, player, { t: 'move', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canMove = true;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
     if (nonStructure && validateCommand(s, player, { t: 'patrol', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canPatrol = true;
     if (ready) {
@@ -245,6 +247,7 @@ export const selectionCapabilities = (
     ...commandOrderOption(OrderOptionId.Lift, 'Lift Off', liftCommands),
     ...(landKind !== NONE ? [armedOrderOption(OrderOptionId.Land, 'Land', { t: 'land', kind: landKind })] : []),
     ...commandOrderOption(OrderOptionId.Cancel, 'Cancel', cancelCommands),
+    ...(canMove ? [armedOrderOption(OrderOptionId.Move, 'Move', { t: 'move' })] : []),
     ...(canAttackMove ? [armedOrderOption(OrderOptionId.AttackMove, 'Atk-Move', { t: 'attackMove' })] : []),
     ...(canPatrol ? [armedOrderOption(OrderOptionId.Patrol, 'Patrol', { t: 'patrol' })] : []),
     ...commandOrderOption(OrderOptionId.Hold, 'Hold', holdCommands),
@@ -261,6 +264,7 @@ export const selectionCapabilities = (
       unload: canUnload,
       harvest: canHarvest,
       repair: canRepair,
+      move: canMove,
       attackMove: canAttackMove,
       hold: canHold,
       patrol: canPatrol,

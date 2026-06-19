@@ -52,6 +52,11 @@ export class TapSelectionController {
       if (this.queueAttackMode(hit, tx, ty, queueTravel)) clearArmedCommand();
       return;
     }
+    if (armed.t === 'move') {
+      const queueTravel = opts.shift === true || this.mobileQueueMode();
+      if (this.queueMoveMode(hit, tx, ty, queueTravel)) clearArmedCommand();
+      return;
+    }
     if (armed.t === 'patrol') {
       if (this.queuePatrolMode(tx, ty)) clearArmedCommand();
       return;
@@ -194,6 +199,42 @@ export class TapSelectionController {
     let queued = false;
     for (const id of this.mobileSelection(e)) {
       for (const command of attackModeCandidates(s, g.human, id, { hit, x, y }, { queueTravel })) {
+        g.queued.push(command);
+        queued = true;
+      }
+    }
+    return queued;
+  }
+
+  private queueMoveMode(hit: number, x: number, y: number, queueTravel = false): boolean {
+    const g = this.game;
+    const s = g.sim.fullState();
+    const e = s.e;
+    let queued = false;
+    for (const id of this.mobileSelection(e)) {
+      const targeted = hit >= 0
+        ? {
+            t: 'move' as const,
+            unit: id,
+            x,
+            y,
+            target: hit,
+            ...(queueTravel ? { queue: true as const } : {}),
+          }
+        : null;
+      if (targeted && validateCommand(s, g.human, targeted).ok) {
+        g.queued.push(targeted);
+        queued = true;
+        continue;
+      }
+      const command = {
+        t: 'move' as const,
+        unit: id,
+        x,
+        y,
+        ...(queueTravel ? { queue: true as const } : {}),
+      };
+      if (validateCommand(s, g.human, command).ok) {
         g.queued.push(command);
         queued = true;
       }

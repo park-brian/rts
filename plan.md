@@ -309,6 +309,9 @@ Remaining work:
 - Add a command-surface coverage audit proving every player-available sim action is exposed through
   shared selection options and then rendered by the command card. Worker-built expansion town halls
   are the first fixed example: SCV -> Command Center, Probe -> Nexus, Drone -> Hatchery.
+  - Move command-card slice is done: mobile and desktop command cards expose first-class Move for
+    mobile units, `M` arms Move/follow mode in desktop hotkeys, and armed Move taps use shared
+    move validation for point movement, friendly follow targets, and queued travel.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
@@ -540,6 +543,8 @@ Done when:
   hidden enemy destination/target secrecy.
 - Locked in the existing ML benchmark lanes for action masks, object observations, buffer
   observations, bot generation, and N-env batch stepping as completed roadmap coverage.
+- Exposed first-class Move on the command card and desktop hotkeys, closing the most obvious
+  player-available sim command missing from the UI surface.
 
 ## Review Checklist
 
