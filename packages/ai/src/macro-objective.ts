@@ -332,6 +332,7 @@ export const botObjectiveReasons = (
   const reasons: BotObjectiveReason[] = [];
   const workerGain = after.workerSupply - before.workerSupply;
   const armyGain = after.armyStrength - before.armyStrength;
+  const queuedArmyGain = after.queuedArmyStrength - before.queuedArmyStrength;
   const productionGain = totalProductionCapacity(after) - totalProductionCapacity(before);
   const techGain = after.techUnlocks - before.techUnlocks;
   const supplyGain = after.supplyAvailable - before.supplyAvailable;
@@ -350,6 +351,11 @@ export const botObjectiveReasons = (
     'army-growth',
     armyGain,
     `field army strength increased by ${armyGain}`,
+  ));
+  if (queuedArmyGain > 0) reasons.push(objectiveReason(
+    'army-growth',
+    queuedArmyGain,
+    `queued army strength increased by ${queuedArmyGain}`,
   ));
   if (productionGain > 0) reasons.push(objectiveReason(
     'production-throughput',

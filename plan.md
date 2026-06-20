@@ -1068,6 +1068,9 @@ Remaining work:
   - Combat-training scorer slice is done: `train-counter` and `spend-larva` urgency now use the same
     fielded+queued combat-strength demand as production capacity, so queued high-value units reduce
     army-training pressure more than low-value bodies with the same count.
+  - Queued-strength trend slice is done: objective trend reasons now report queued army-strength
+    growth, so post-match diagnosis can explain combat value entering the production pipeline before
+    it reaches the field.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

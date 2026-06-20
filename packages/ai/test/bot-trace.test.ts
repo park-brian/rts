@@ -250,7 +250,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     armyStrength: 700,
     queuedWorkerProduction: 0,
     queuedArmyProduction: 0,
-    queuedArmyStrength: 0,
+    queuedArmyStrength: 480,
     productionCapacity: 2,
     pendingProductionCapacity: 1,
     techUnlocks: 3,
@@ -268,6 +268,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
 
   assert.equal(reasons.some((reason) => reason.kind === 'economy-growth'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'army-growth'), true);
+  assert.equal(reasons.some((reason) => reason.detail === 'queued army strength increased by 480'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'production-throughput'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'tech-unlock'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'supply-availability'), true);
