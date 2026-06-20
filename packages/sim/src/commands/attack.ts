@@ -1,8 +1,9 @@
 import type { Command } from './types.ts';
-import { Kind, Order, Units, hasAnyWeapon, weaponForTarget } from '../data/index.ts';
+import { Order, Units, weaponForTarget } from '../data/index.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
 import { carrierCanAttack } from '../mechanics/interceptor.ts';
+import { kindHasDirectWeapon } from '../mechanics/capabilities.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../mechanics/weapons.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, isAlive, slotOf } from '../entity/world.ts';
@@ -23,11 +24,11 @@ export const validateAttackCommand = (s: State, player: number, command: AttackC
   if (!actor.ok) return actor;
   const slot = actor.slot;
   if (!isPowered(s, slot)) return reject('missing-capability');
-  if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
-  const attacker = Units[e.kind[slot]!]!;
-  const mechanic = weaponMechanicDef(e.kind[slot]!);
-  const carrierAttack = e.kind[slot] === Kind.Carrier && isAlive(e, command.target) && carrierCanAttack(s, slot, slotOf(command.target));
-  if (!hasAnyWeapon(attacker) && !carrierAttack) return reject('missing-capability');
+  const attackerKind = e.kind[slot]!;
+  const attacker = Units[attackerKind]!;
+  const mechanic = weaponMechanicDef(attackerKind);
+  const carrierAttack = isAlive(e, command.target) && carrierCanAttack(s, slot, slotOf(command.target));
+  if (!kindHasDirectWeapon(attackerKind) && !carrierAttack) return reject('missing-capability');
   if (!canUseWeaponNow(s, slot)) return reject('missing-capability');
   if (!hasWeaponMechanicAmmo(s, slot, mechanic)) return reject('target-not-allowed');
   const targetResult = canTargetEntity(s, player, command.target, { team: 'enemy', requireDetection: true });

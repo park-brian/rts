@@ -419,8 +419,10 @@ Migration plan:
     small-static-defense classification used by macro placement, so harvest-corridor placement
     penalties no longer depend on an AI-local turret/cannon/spore kind set.
   - Direct-weapon capability slice is done: `mechanics/capabilities.ts` now owns direct weapon
-    identity. Bot army fact collection and tactical ability scoring use that owner instead of
-    re-reading `weapon || airWeapon` in AI code.
+    identity. Bot army fact collection, tactical ability scoring, and targeted attack validation
+    use that owner instead of re-reading `weapon || airWeapon` in caller code. Carrier remains the
+    explicit non-direct weapon attacker and is validated through ready Interceptor/internal-product
+    mechanics.
   - Base-depot capability slice is done: `mechanics/capabilities.ts` now owns normal base depot
     identity for bot expansion and visible enemy-base tracking, preserving the distinction that
     Infested Command Centers are not ordinary expansion depots.

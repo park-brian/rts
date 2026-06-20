@@ -109,3 +109,23 @@ test('targeted attack validation lives in the attack command module', () => {
     reason: 'target-not-allowed',
   });
 });
+
+test('carrier targeted attack uses shared weapon capability plus ready interceptors', () => {
+  const scenario = simScenario({ players: 2, seed: 611 });
+  const s = scenario.state;
+  const e = s.e;
+  const carrier = scenario.spawn(Kind.Carrier, 0, fx(300), fx(300));
+  const target = scenario.spawn(Kind.Zealot, 1, fx(360), fx(300));
+  const c = slotOf(carrier);
+  const command: AttackCommand = { t: 'attack', unit: carrier, target };
+
+  assert.deepEqual(validateAttackCommand(s, 0, command), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+
+  e.specialAmmo[c] = 1;
+
+  assert.deepEqual(validateAttackCommand(s, 0, command), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, command), { ok: true });
+});
