@@ -6,6 +6,7 @@ import {
   TILE,
   Units,
   baseDepotFootprint,
+  canPlaceStructure,
   eid,
   footprintsOverlap,
   isBaseDepotKind,
@@ -138,6 +139,45 @@ const expansionRouteBlocked = (
 const locationFailure = (reason: BotFailureReason): boolean =>
   reason === 'unsafe-location' || reason === 'occupied-location' || reason === 'path-blocked';
 
+const buildLocationFailure = (reason: string): BotFailureReason | null => {
+  switch (reason) {
+    case 'placement-blocked':
+    case 'placement-off-map':
+    case 'placement-requires-geyser':
+      return 'occupied-location';
+    default:
+      return null;
+  }
+};
+
+const pendingExpansionOutcome = (
+  s: State,
+  player: number,
+  faction: Faction,
+  facts: BotFacts,
+): BotIntentRecord | undefined => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || (e.flags[i]! & Role.Worker) === 0) continue;
+    if (e.buildKind[i] !== faction.depot) continue;
+
+    const point = { x: e.tx[i]!, y: e.ty[i]! };
+    if (expansionThreatened(s, player, faction, facts, point)) {
+      return expansionOutcome(faction, point, { status: 'blocked', reason: 'unsafe-location' });
+    }
+    if (expansionRouteBlocked(s, i, point)) {
+      return expansionOutcome(faction, point, { status: 'blocked', reason: 'path-blocked' });
+    }
+
+    const placement = canPlaceStructure(s, player, i, faction.depot, point.x, point.y);
+    if (!placement.ok) {
+      const reason = buildLocationFailure(placement.reason);
+      if (reason) return expansionOutcome(faction, point, { status: 'blocked', reason });
+    }
+  }
+  return undefined;
+};
+
 const candidateSites = (
   s: State,
   player: number,
@@ -217,6 +257,8 @@ export const queueExpansion = (
   if (facts.primaryBase === NONE) return { queued: false };
   const lifted = queueLiftedIslandDepot(s, player, faction, facts.primaryBase, faction.depot, cmds, memory);
   if (lifted.queued || lifted.outcome) return lifted;
+  const pendingOutcome = pendingExpansionOutcome(s, player, faction, facts);
+  if (pendingOutcome) return { queued: false, outcome: pendingOutcome };
   if (budget.minerals < EXPANSION_BANK) return { queued: false };
   if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return { queued: false };
 

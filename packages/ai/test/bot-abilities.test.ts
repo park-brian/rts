@@ -348,8 +348,18 @@ const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): 
   }
 };
 
-const blockWalkBarrierBetween = (sim: Sim, ax: number, ay: number, bx: number, by: number): void => {
-  const map = sim.fullState().map;
+const cloneStateWithMutableMap = (s: State): State => ({
+  ...cloneState(s),
+  map: {
+    ...s.map,
+    walk: new Uint8Array(s.map.walk),
+    build: new Uint8Array(s.map.build),
+    elev: new Uint8Array(s.map.elev),
+  },
+});
+
+const blockWalkBarrierBetween = (s: State, ax: number, ay: number, bx: number, by: number): void => {
+  const map = s.map;
   const atx = tileX(ax);
   const aty = tileY(ay);
   const btx = tileX(bx);
@@ -2503,7 +2513,7 @@ test('live bot planner reports path-blocked expansion route outcomes', () => {
     x: fx(natural.x * TILE + TILE / 2),
     y: fx(natural.y * TILE + TILE / 2),
   };
-  blockWalkBarrierBetween(scenario.sim, base.x, base.y, point.x, point.y);
+  blockWalkBarrierBetween(scenario.state, base.x, base.y, point.x, point.y);
 
   const plan = createBotPlanner(Terran, {
     barracksTarget: 0,
@@ -2583,6 +2593,59 @@ test('bot converts remembered blocked expansion sites into clear-site intents', 
   assert.deepEqual(clearSite.result, { status: 'done' });
   assert.ok(second.commands.some((command) =>
     command.t === 'amove' && command.x === point.x && command.y === point.y));
+});
+
+test('live bot planner reports path-blocked pending expansion outcomes', () => {
+  const scenario = bankedExpansionScenario(554);
+  const build = expectBotBuildsLegal(scenario, Terran, Kind.CommandCenter, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  });
+  const worker = slotOf(build.unit);
+  scenario.sim.step([{ player: 0, cmds: [build] }]);
+  const blockedState = cloneStateWithMutableMap(scenario.state);
+  blockWalkBarrierBetween(blockedState, blockedState.e.x[worker]!, blockedState.e.y[worker]!, build.x, build.y);
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(blockedState, 0);
+
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.x === build.x &&
+    record.intent.y === build.y &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'path-blocked'));
+});
+
+test('live bot planner reports unsafe pending expansion outcomes', () => {
+  const scenario = bankedExpansionScenario(555);
+  const build = expectBotBuildsLegal(scenario, Terran, Kind.CommandCenter, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  });
+  scenario.sim.step([{ player: 0, cmds: [build] }]);
+  const side = tileX(build.x) < (scenario.state.map.w >> 1) ? 1 : -1;
+  scenario.spawn(Kind.SiegeTankSieged, 1, build.x + fx(side * TILE * 9), build.y);
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.x === build.x &&
+    record.intent.y === build.y &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'unsafe-location'));
 });
 
 test('live bot planner reports waiting expansion outcomes when no builder exists', () => {

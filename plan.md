@@ -1189,9 +1189,13 @@ Remaining work:
     - Blocked-site follow-up slice is done: location outcome memory now stores coordinates, remembered
       unsafe/occupied expansion sites become `expansion-blocked` tactical incidents, remembered
       path-blocked sites become `route-trap` incidents, and the existing tactical executor turns them
-      into `clear-site` commands through normal responder selection. Remaining expansion lifecycle
-      work: monitor builders already moving toward expansions and emit/clear blocked outcomes from
-      live worker progress instead of only pre-command candidate checks.
+      into `clear-site` commands through normal responder selection.
+    - Pending-expansion monitor slice is done: workers already carrying a depot build order are
+      checked before mineral-bank and depot-count gates, so live pending expansion attempts report
+      `unsafe-location`, `path-blocked`, or occupied-location outcomes when the target becomes
+      threatened, unreachable, or invalid before foundation placement. Remaining expansion lifecycle
+      work: monitor placed but unfinished expansion foundations and clear/retry blocked-site memory
+      after successful clear-site/scout outcomes.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -1775,6 +1779,8 @@ Done when:
 - Fed remembered blocked expansion locations back into tactical response: blocked-site memory stores
   coordinates, derives `expansion-blocked` / `route-trap` incidents, and the live planner now emits a
   `clear-site` intent and validated attack-move response for remembered unsafe sites.
+- Added pending expansion lifecycle monitoring for workers already carrying depot build orders, with
+  live planner tests for path-blocked and unsafe pending attempts.
 
 ## Review Checklist
 
