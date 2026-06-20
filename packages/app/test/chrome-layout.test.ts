@@ -136,6 +136,22 @@ test('post-match stats panel exposes command mix and reject reasons', () => {
   assert.match(ui, /rejects \{rejectLine\(player\.rejectsByReason\)\}/);
 });
 
+test('setup modal exposes procedural map recipe controls', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+  const game = readFileSync(resolve(appRoot, 'src', 'game.ts'), 'utf8');
+  const session = readFileSync(resolve(appRoot, 'src', 'game-session.ts'), 'utf8');
+
+  assert.match(ui, /MAP_PRESETS\.map/);
+  assert.match(ui, /MIDFIELD_MODULES\.map/);
+  assert.match(ui, /setSeedText\(String\(randomSeed\(\)\)\)/);
+  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec\)/);
+  assert.match(ui, /<details open[\s\S]*>Map<\/summary>/);
+  assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);
+  assert.match(game, /replayFromCurrent\(this\.sim,\s*this\.mapSpec\)/);
+  assert.match(session, /createPlaySession = \([\s\S]*mapSpec:\s*MapSpec/);
+  assert.match(session, /mapFromSpec\(mapSpec\)/);
+});
+
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
   const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');

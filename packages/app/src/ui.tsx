@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Fragment, type VNode } from 'preact';
 import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
 import {
-  Abilities, COMMAND_TYPES, FPS, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
+  Abilities, COMMAND_TYPES, FPS, Kind, MAP_PRESETS, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
   shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
-  type PlayerMatchStats,
+  type MapPreset, type MapSpec, type MidfieldModule, type PlayerMatchStats,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -891,13 +891,39 @@ const GameOver = (p: { game: Game }) => {
 };
 
 const RACES: FactionName[] = ['terran', 'protoss', 'zerg'];
+const MIDFIELD_MODULES: MidfieldModule[] = ['empty', 'blocks', 'dualChoke', 'arena', 'raisedCenter'];
 const raceLabel = (race: FactionName): string => race[0]!.toUpperCase() + race.slice(1);
 const teamOf = (slot: number): number => slot % 2;
+const defaultMapSpec = (perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
+  ({ kind: 'procedural', perTeam, seed, preset: 'teamPlateaus', midfield: 'empty' });
+const proceduralMapSpec = (spec: MapSpec, perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
+  spec.kind === 'procedural'
+    ? { ...spec, perTeam, seed, preset: spec.preset ?? 'teamPlateaus', midfield: spec.midfield ?? 'empty' }
+    : defaultMapSpec(perTeam, seed);
 const setupRaces = (races: readonly string[], players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => {
     const race = races[i];
     return race === 'protoss' || race === 'zerg' ? race : 'terran';
   });
+const mapPresetLabel = (preset: MapPreset): string => ({
+  teamPlateaus: 'Team Plateaus',
+  cornerBases: 'Corner Bases',
+  isolatedMains: 'Isolated Mains',
+  fortress: 'Fortress',
+  islandExpansions: 'Island Expansions',
+}[preset]);
+const midfieldLabel = (midfield: MidfieldModule): string => ({
+  empty: 'Empty',
+  blocks: 'Blocks',
+  dualChoke: 'Dual Choke',
+  arena: 'Arena',
+  raisedCenter: 'Raised Center',
+}[midfield]);
+const readSeed = (text: string, fallback: number): number => {
+  const parsed = Number.parseInt(text, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+const randomSeed = (): number => Math.floor(Math.random() * 1_000_000_000);
 
 const keyLabel = (code: string): string => code
   .replace(/^Key/, '')
@@ -953,8 +979,14 @@ const SetupModal = (p: { game: Game }) => {
   const [perTeam, setPerTeamState] = useState(ui.perTeam.value);
   const [human, setHuman] = useState(ui.humanPlayer.value);
   const [races, setRaces] = useState<FactionName[]>(setupRaces(ui.playerRaces.value, ui.perTeam.value * 2));
+  const initialMap = proceduralMapSpec(p.game.mapSpec, ui.perTeam.value, p.game.seed);
+  const [preset, setPreset] = useState<MapPreset>(initialMap.preset ?? 'teamPlateaus');
+  const [midfield, setMidfield] = useState<MidfieldModule>(initialMap.midfield ?? 'empty');
+  const [seedText, setSeedText] = useState(String(initialMap.seed));
   if (!ui.setupOpen.value) return null;
   const players = perTeam * 2;
+  const seed = readSeed(seedText, p.game.seed);
+  const mapSpec: Extract<MapSpec, { kind: 'procedural' }> = { kind: 'procedural', perTeam, seed, preset, midfield };
   const setPerTeam = (n: number): void => {
     setPerTeamState(n);
     setHuman(Math.min(human, n * 2 - 1));
@@ -967,7 +999,7 @@ const SetupModal = (p: { game: Game }) => {
   };
   const start = (): void => {
     ui.setupOpen.value = false;
-    p.game.restart(mode, undefined, perTeam, races, human);
+    p.game.restart(mode, seed, perTeam, races, human, mapSpec);
   };
 
   return (
@@ -980,28 +1012,79 @@ const SetupModal = (p: { game: Game }) => {
           <b>Match Setup</b>
           <Btn compact label="✕" onClick={() => (ui.setupOpen.value = false)} />
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-          <Btn compact label="Play" active={mode === 'play'} onClick={() => setMode('play')} />
-          <Btn compact label="Watch AI" active={mode === 'spectate'} onClick={() => setMode('spectate')} />
-        </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          {[1, 2, 3].map((n) => <Btn compact label={`${n}v${n}`} active={perTeam === n} onClick={() => setPerTeam(n)} />)}
-        </div>
-        <div style={{ display: 'grid', gap: '8px' }}>
-          {Array.from({ length: players }, (_, slot) => (
-            <div style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: '8px', alignItems: 'center' }}>
-              <Btn compact label={`P${slot + 1} T${teamOf(slot) + 1}`} active={mode === 'play' && human === slot}
-                onClick={() => setHuman(slot)} />
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {RACES.map((race) => (
-                  <Btn compact label={raceLabel(race)} active={races[slot] === race} onClick={() => setRace(slot, race)} />
-                ))}
+        <div style={{ display: 'grid', gap: '10px' }}>
+          <details open style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Match</summary>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Btn compact label="Play" active={mode === 'play'} onClick={() => setMode('play')} />
+                <Btn compact label="Watch AI" active={mode === 'spectate'} onClick={() => setMode('spectate')} />
               </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[1, 2, 3].map((n) => <Btn compact label={`${n}v${n}`} active={perTeam === n} onClick={() => setPerTeam(n)} />)}
+              </div>
+              <span style={{ color: '#9fb1c7', fontSize: '12px' }}>
+                {mapPresetLabel(preset)} · {midfieldLabel(midfield)} · seed {seed}
+              </span>
             </div>
-          ))}
+          </details>
+          <details open style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Map</summary>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <label style={{ display: 'grid', gap: '4px', color: '#9fb1c7' }}>
+                Preset
+                <select value={preset} onInput={(e) => setPreset(e.currentTarget.value as MapPreset)}
+                  style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px' }}>
+                  {MAP_PRESETS.map((candidate) => (
+                    <option value={candidate}>{mapPresetLabel(candidate)}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: '4px', color: '#9fb1c7' }}>
+                Midfield
+                <select value={midfield} onInput={(e) => setMidfield(e.currentTarget.value as MidfieldModule)}
+                  style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px' }}>
+                  {MIDFIELD_MODULES.map((candidate) => (
+                    <option value={candidate}>{midfieldLabel(candidate)}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'end' }}>
+                <label style={{ display: 'grid', gap: '4px', color: '#9fb1c7' }}>
+                  Seed
+                  <input value={seedText} inputMode="numeric" onInput={(e) => setSeedText(e.currentTarget.value)}
+                    style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px' }} />
+                </label>
+                <Btn compact label="Randomize" onClick={() => setSeedText(String(randomSeed()))} />
+              </div>
+              <span style={{ color: '#8ea4bd', fontSize: '12px' }}>
+                Procedural {perTeam}v{perTeam} · {mapPresetLabel(preset)} · {midfieldLabel(midfield)}
+              </span>
+            </div>
+          </details>
+          <details open style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Players</summary>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {Array.from({ length: players }, (_, slot) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: '8px', alignItems: 'center' }}>
+                  <Btn compact label={`P${slot + 1} T${teamOf(slot) + 1}`} active={mode === 'play' && human === slot}
+                    onClick={() => setHuman(slot)} />
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {RACES.map((race) => (
+                      <Btn compact label={raceLabel(race)} active={races[slot] === race} onClick={() => setRace(slot, race)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5' }}>Controls</summary>
+            <ControlsPanel />
+          </details>
         </div>
-        <ControlsPanel />
-        <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+        <div style={{ position: 'sticky', bottom: '-14px', display: 'flex', gap: '8px', marginTop: '14px',
+          paddingTop: '10px', background: '#111923' }}>
           <Btn label="Start Match" onClick={start} />
           <Btn label="Cancel" onClick={() => (ui.setupOpen.value = false)} />
         </div>

@@ -4,7 +4,7 @@
 import {
   Sim, FPS, TILE, Kind, createMatchStats, recordMatchStatsStep,
   type MapDef, type Command, type PlayerCommands, type Controller,
-  type Replay, type State, type FactionName, type MatchStats,
+  type Replay, type State, type FactionName, type MatchStats, type MapSpec,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -37,6 +37,7 @@ export class Game {
   mode: Mode = 'play';
   perTeam = 1; // players per side (1 = 1v1, 2 = 2v2, …)
   seed = 1;
+  mapSpec: MapSpec = mapSpecFor(1, 1);
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   humanPlayer = 0;
   matchStats!: MatchStats;
@@ -144,13 +145,15 @@ export class Game {
     perTeam = this.perTeam,
     raceNames: readonly string[] = this.playerRaceNames,
     humanPlayer = this.humanPlayer,
+    mapSpec = mapSpecFor(perTeam, seed, this.mapSpec),
   ): void {
     if (mode === 'replay') { this.startReplay(); return; } // toggle into watching the last game
     this.replay = null;
-    const session = createPlaySession(mode, seed, perTeam, raceNames, humanPlayer);
+    const session = createPlaySession(mode, mapSpec, raceNames, humanPlayer);
     this.mode = session.mode;
     this.seed = session.seed;
     this.perTeam = session.perTeam;
+    this.mapSpec = mapSpec;
     this.playerRaceNames = session.playerRaceNames;
     this.humanPlayer = session.humanPlayer;
     this.map = session.map;
@@ -176,13 +179,14 @@ export class Game {
 
   /** Switch into replay playback. With no argument, watch the game just played. */
   startReplay(replay?: Replay): void {
-    const r = replay ?? replayFromCurrent(this.sim, mapSpecFor(this.perTeam, this.seed));
+    const r = replay ?? replayFromCurrent(this.sim, this.mapSpec);
     if (!r || r.frames.length === 0) return;
     const session = createReplaySession(r, this.perTeam, this.seed);
     this.replay = session.replay;
     this.mode = session.mode;
     this.perTeam = session.perTeam;
     this.seed = session.seed;
+    this.mapSpec = session.replay.map;
     this.playerRaceNames = session.playerRaceNames;
     this.map = session.map;
     this.sim = session.sim;
@@ -235,7 +239,7 @@ export class Game {
 
   /** The replay JSON for the current/just-played game (download payload). */
   exportReplay(): string | null {
-    return exportReplayJson(this.sim, this.replay, mapSpecFor(this.perTeam, this.seed));
+    return exportReplayJson(this.sim, this.replay, this.mapSpec);
   }
 
   botExpertHealthRows(): MatchHealthRow[] {

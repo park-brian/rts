@@ -1,5 +1,5 @@
 import {
-  Factions, Sim, generateMap, mapFromSpec, parseReplay, toReplay,
+  Factions, Sim, mapFromSpec, parseReplay, toReplay,
   type Controller, type Faction, type FactionName, type MapDef, type MapSpec, type Replay,
 } from './sim.ts';
 import {
@@ -47,8 +47,10 @@ export const normalizeRace = (race: string | undefined): FactionName =>
 export const defaultRaceNames = (players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
 
-export const mapSpecFor = (perTeam: number, seed: number): MapSpec =>
-  ({ kind: 'procedural', perTeam, seed });
+export const mapSpecFor = (perTeam: number, seed: number, spec?: MapSpec): MapSpec => {
+  if (spec?.kind === 'procedural') return { ...spec, perTeam, seed };
+  return { kind: 'procedural', perTeam, seed, preset: 'teamPlateaus', midfield: 'empty' };
+};
 
 export const exportReplayJson = (sim: Sim, replay: Replay | null, spec: MapSpec): string | null => {
   const r = replay ?? (sim.frames ? toReplay(sim, spec) : null);
@@ -59,18 +61,19 @@ export const parseReplayJson = (json: string): Replay => parseReplay(json);
 
 export const createPlaySession = (
   mode: Mode,
-  seed: number,
-  perTeam: number,
+  mapSpec: MapSpec,
   raceNames: readonly string[],
   humanPlayer: number,
 ): PlaySession => {
+  const perTeam = mapSpec.kind === 'procedural' ? mapSpec.perTeam : 1;
+  const seed = mapSpec.kind === 'procedural' ? mapSpec.seed : 1;
   const players = perTeam * 2;
   const playerRaceNames = raceNames.length === players
     ? raceNames.map(normalizeRace)
     : defaultRaceNames(players);
   const normalizedHuman = Math.max(0, Math.min(players - 1, humanPlayer));
   const factions: Faction[] = playerRaceNames.map((race) => Factions[race]);
-  const map = generateMap(perTeam, seed);
+  const map = mapFromSpec(mapSpec);
   const sim = new Sim({ map, players, seed, record: true, vision: true, factions });
   const botDiagnostics = createBotDiagnostics(players, factions);
   const human = mode === 'play' ? normalizedHuman : -1;
