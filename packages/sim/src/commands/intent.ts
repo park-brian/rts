@@ -1,6 +1,6 @@
 import type { Command, CommandRejectReason } from './types.ts';
 import { Abilities, ResourceType, Role, Units, workerBuildKindsFor, type AbilityTarget } from '../data/index.ts';
-import { addonParentKind } from '../mechanics/addons.ts';
+import { addonKindsForParent } from '../mechanics/addons.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../mechanics/cargo.ts';
@@ -482,8 +482,6 @@ const addAddonSelectionOption = (
   }
 };
 
-const ADDON_KINDS = Object.keys(Units).map(Number).filter((kind) => Units[kind]?.buildMethod === 'addon');
-
 export const addonSelectionOptions = (
   s: State,
   player: number,
@@ -494,8 +492,7 @@ export const addonSelectionOptions = (
   for (const building of selected) {
     if (!isAlive(e, building)) continue;
     const kind = e.kind[slotOf(building)]!;
-    for (const addon of ADDON_KINDS) {
-      if (addonParentKind(addon) !== kind) continue;
+    for (const addon of addonKindsForParent(kind)) {
       const command: Command = { t: 'addon', building, kind: addon };
       const result = validateCommand(s, player, command);
       if (result.ok || result.reason !== 'target-not-allowed') {

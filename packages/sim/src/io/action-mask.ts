@@ -16,7 +16,7 @@ import {
   Abilities, Ability, Kind, Role, TechDefs, Units, productionCostCount, productionCount,
   workerBuildKindsFor,
 } from '../data/index.ts';
-import { addonParentKind } from '../mechanics/addons.ts';
+import { addonKindsForParent } from '../mechanics/addons.ts';
 import { abilitiesFor, producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
@@ -114,8 +114,6 @@ type ActionReservation = {
   ammoReject?: CommandRejectReason;
 };
 
-type ProducerIndex = ReadonlyMap<number, readonly number[]>;
-
 export const COMMAND_MASK_POLICY: Record<Command['t'], 'policy-facing'> = {
   train: 'policy-facing',
   research: 'policy-facing',
@@ -144,32 +142,6 @@ export const COMMAND_MASK_POLICY: Record<Command['t'], 'policy-facing'> = {
 const COMMAND_HEAD_INDEX = Object.fromEntries(
   COMMAND_HEADS.map((head, index) => [head, index]),
 ) as Record<CommandHead, number>;
-
-const buildProducerIndex = <T>(
-  entries: Iterable<T>,
-  producerOf: (entry: T) => readonly number[],
-  valueOf: (entry: T) => number,
-): ProducerIndex => {
-  const mutable = new Map<number, number[]>();
-  for (const entry of entries) {
-    for (const producer of producerOf(entry)) {
-      let values = mutable.get(producer);
-      if (!values) {
-        values = [];
-        mutable.set(producer, values);
-      }
-      values.push(valueOf(entry));
-    }
-  }
-  for (const values of mutable.values()) values.sort((a, b) => a - b);
-  return mutable;
-};
-
-const ADDONS_BY_PARENT = buildProducerIndex(
-  Object.entries(Units),
-  ([kind, def]) => def?.buildMethod === 'addon' ? [addonParentKind(Number(kind))] : [],
-  ([kind]) => Number(kind),
-);
 
 const actorPoint = (s: State, actor: number, opts: CommandMaskOptions): { x: number; y: number } => {
   if (opts.x !== undefined && opts.y !== undefined) return { x: opts.x, y: opts.y };
@@ -599,8 +571,7 @@ export const researchTechCandidates = (s: State, producer: number): readonly num
 };
 
 export const addonKindCandidates = (s: State, producer: number): readonly number[] => {
-  const kind = actorKind(s, producer);
-  return ADDONS_BY_PARENT.get(kind) ?? [];
+  return addonKindsForParent(actorKind(s, producer));
 };
 
 export const transformKindCandidates = (s: State, actor: number): readonly number[] =>

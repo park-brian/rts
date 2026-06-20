@@ -1,6 +1,6 @@
 import type { Command } from './types.ts';
 import { Role, Units } from '../data/index.ts';
-import { addonParentKind, addonPosition, isAddonKind, startAddon } from '../mechanics/addons.ts';
+import { addonPosition, canBuildAddonKind, startAddon } from '../mechanics/addons.ts';
 import { canSpawnEntity, NONE, slotOf } from '../entity/world.ts';
 import type { State } from '../entity/world.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
@@ -26,7 +26,7 @@ export const validateAddonCommand = (s: State, player: number, command: AddonCom
   if (!producer.ok) return producer;
   const { slot } = producer;
   const def = Units[command.kind];
-  if (!def || !isAddonKind(command.kind) || addonParentKind(command.kind) !== e.kind[slot]) {
+  if (!def || !canBuildAddonKind(e.kind[slot]!, command.kind)) {
     return reject('target-not-allowed');
   }
   if (hasActiveAddonTarget(s, slot)) return reject('queue-full');

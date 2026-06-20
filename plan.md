@@ -318,6 +318,9 @@ Migration plan:
     ability legality, and "has abilities" facts. Ability validation, command-card discovery,
     action-mask candidates, bot caster fact collection, and tactical ability policy checks consume
     that owner instead of reading `Units[kind].abilities` independently.
+  - Add-on candidate slice is done: `mechanics/addons.ts` now owns parent-to-add-on candidate lists
+    and parent/add-on legality. Add-on validation, command-card discovery, and action-mask
+    candidates use that owner instead of maintaining local add-on scans or maps.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

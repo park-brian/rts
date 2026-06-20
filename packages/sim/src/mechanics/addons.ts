@@ -18,6 +18,33 @@ export const addonParentKind = (addonKind: number): number => {
 
 export const isAddonKind = (kind: number): boolean => Units[kind]?.buildMethod === 'addon';
 
+const EMPTY_ADDONS: readonly number[] = [];
+
+const addonKindsByParent = (): ReadonlyMap<number, readonly number[]> => {
+  const byParent = new Map<number, number[]>();
+  for (const [key, def] of Object.entries(Units)) {
+    if (def?.buildMethod !== 'addon') continue;
+    const kind = Number(key);
+    const parent = addonParentKind(kind);
+    let addons = byParent.get(parent);
+    if (!addons) {
+      addons = [];
+      byParent.set(parent, addons);
+    }
+    addons.push(kind);
+  }
+  for (const addons of byParent.values()) addons.sort((a, b) => a - b);
+  return byParent;
+};
+
+const ADDON_KINDS_BY_PARENT = addonKindsByParent();
+
+export const addonKindsForParent = (parentKind: number): readonly number[] =>
+  ADDON_KINDS_BY_PARENT.get(parentKind) ?? EMPTY_ADDONS;
+
+export const canBuildAddonKind = (parentKind: number, addonKind: number): boolean =>
+  addonKindsForParent(parentKind).includes(addonKind);
+
 export const activeAddonParentSlot = (s: State, addon: number): number => {
   const e = s.e;
   if (addon < 0 || addon >= e.hi || e.alive[addon] !== 1 || !isAddonKind(e.kind[addon]!)) return NONE;
