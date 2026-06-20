@@ -13,6 +13,18 @@ export type BotExpertObligation = {
   detail: string;
 };
 
+export type BotExpertObligationAssessment = BotExpertObligation & {
+  count: number;
+  satisfied: boolean;
+};
+
+export type BotPlanEvidenceAssessment = {
+  axes: readonly BotVictoryAxis[];
+  count: number;
+  satisfied: boolean;
+  detail: string;
+};
+
 export const BOT_EXPERT_OBLIGATIONS: readonly BotExpertObligation[] = [
   {
     id: 'economy',
@@ -51,6 +63,32 @@ export const botPlanEvidenceAxes = (plan: BotStrategyPlan): readonly BotVictoryA
 
 export const botPlanEvidenceLabel = (axes: readonly BotVictoryAxis[]): string => axes.join('/');
 
+export const botPlanEvidenceAssessment = (
+  plan: BotStrategyPlan,
+  counts: CountMap<BotVictoryAxis>,
+): BotPlanEvidenceAssessment => {
+  const axes = botPlanEvidenceAxes(plan);
+  const count = axes.reduce((sum, axis) => sum + (counts[axis] ?? 0), 0);
+  return {
+    axes,
+    count,
+    satisfied: count > 0,
+    detail: `${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance} ${count > 0 ? 'showed' : 'lacked'} ${botPlanEvidenceLabel(axes)}`,
+  };
+};
+
+export const botExpertObligationAssessments = (
+  counts: CountMap<BotVictoryAxis>,
+): BotExpertObligationAssessment[] =>
+  BOT_EXPERT_OBLIGATIONS.map((obligation) => {
+    const count = counts[obligation.axis] ?? 0;
+    return {
+      ...obligation,
+      count,
+      satisfied: count > 0,
+    };
+  });
+
 export const botHasExpertObligationEvidence = (
   counts: CountMap<BotVictoryAxis>,
   axes: readonly BotVictoryAxis[] = BOT_EXPERT_REQUIRED_AXES,
@@ -58,7 +96,7 @@ export const botHasExpertObligationEvidence = (
   axes.every((axis) => (counts[axis] ?? 0) > 0);
 
 export const botExpertObligationDetail = (counts: CountMap<BotVictoryAxis>): string => {
-  const parts = BOT_EXPERT_OBLIGATIONS.map((obligation) =>
-    `${obligation.id} ${counts[obligation.axis] ?? 0}`);
+  const parts = botExpertObligationAssessments(counts).map((obligation) =>
+    `${obligation.id} ${obligation.count}`);
   return `axes ${parts.join(', ')}`;
 };

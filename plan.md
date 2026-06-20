@@ -173,6 +173,11 @@ expert alerts, and phase-axis evidence are visible without opening headless trac
 Expert-system rulebook slice is done: core StarCraft obligations and plan-to-evidence mappings now live
 in `packages/ai/src/macro-expert-system.ts`, so future bot fixes should add facts/rules there or in the
 scheduler's live expert context rather than hiding new strategic assumptions inside trace rendering.
+Expert evidence-assessment slice is done: the rulebook now owns obligation and plan-evidence
+assessment helpers, and trace competence gates consume those helpers instead of locally reinterpreting
+victory-axis counts. This keeps the future live scheduler path and post-match diagnostic path pointed
+at the same expert-system question: did this plan produce evidence for the StarCraft objective it
+claimed to pursue?
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

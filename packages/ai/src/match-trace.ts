@@ -37,8 +37,7 @@ import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
 import {
   botExpertObligationDetail,
   botHasExpertObligationEvidence,
-  botPlanEvidenceAxes,
-  botPlanEvidenceLabel,
+  botPlanEvidenceAssessment,
 } from './macro-expert-system.ts';
 
 export type BotTraceFrame = {
@@ -1355,12 +1354,6 @@ const playerAxisCounts = (
   return counts;
 };
 
-const phaseAxisCount = (
-  phase: BotTracePhaseSummary,
-  axes: readonly BotVictoryAxis[],
-): number =>
-  axes.reduce((sum, axis) => sum + (phase.intentAxes[axis] ?? 0), 0);
-
 const planCoherenceGate = (
   phases: readonly BotTracePhaseSummary[],
   player: number,
@@ -1370,12 +1363,9 @@ const planCoherenceGate = (
   let evidence = 0;
 
   for (const phase of playerPhases) {
-    const axes = botPlanEvidenceAxes(phase.plan);
-    const count = phaseAxisCount(phase, axes);
-    evidence += count;
-    if (count === 0) {
-      missing.push(`${phase.phase} ${phase.plan.primaryGoal}/${phase.plan.macroPriority}/${phase.plan.combatStance} lacked ${botPlanEvidenceLabel(axes)}`);
-    }
+    const assessment = botPlanEvidenceAssessment(phase.plan, phase.intentAxes);
+    evidence += assessment.count;
+    if (!assessment.satisfied) missing.push(`${phase.phase} ${assessment.detail}`);
   }
 
   if (playerPhases.length === 0) {

@@ -10,10 +10,12 @@ import {
   botTracePhaseSummaries,
   botTraceFrame,
   BOT_EXPERT_OBLIGATIONS,
+  botExpertObligationAssessments,
   botExpertObligationDetail,
   botHasExpertObligationEvidence,
   botIntentExpectation,
   botIntentVictoryAxis,
+  botPlanEvidenceAssessment,
   botPlanEvidenceAxes,
   createBotPlanner,
   runBotMatchTrace,
@@ -81,8 +83,23 @@ test('bot expert system defines core StarCraft obligation evidence', () => {
     'production-throughput': 1,
     'combat-strength': 0,
   };
+  const planAssessment = botPlanEvidenceAssessment({
+    phase: 'opening',
+    primaryGoal: 'establish-combat',
+    macroPriority: 'production',
+    combatStance: 'rally',
+    techTarget: 'first-combat',
+    reasons: ['first combat production path is not available'],
+  }, counts);
 
   assert.equal(botHasExpertObligationEvidence(counts), false);
+  assert.equal(planAssessment.satisfied, true);
+  assert.equal(planAssessment.count, 1);
+  assert.equal(planAssessment.detail, 'establish-combat/production/rally showed production-throughput/combat-strength');
+  assert.deepEqual(
+    botExpertObligationAssessments(counts).map((assessment) => [assessment.id, assessment.count, assessment.satisfied]),
+    [['economy', 1, true], ['production', 1, true], ['combat', 0, false]],
+  );
   assert.equal(botExpertObligationDetail(counts), 'axes economy 1, production 1, combat 0');
 });
 
