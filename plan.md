@@ -1145,13 +1145,10 @@ Remaining work:
       the tactical executor, so `get-detection` waits report `missing-detection` while ordinary
       `defend-base` / `clear-site` no-command outcomes remain `insufficient-force`.
     - Intent-outcome memory slice is done: planner outcomes now feed deterministic `BotMemory`
-      bookkeeping for suspected invisible threats and blocked map locations. Remaining work:
-      expansion and route executors still need to emit real blocked/unsafe/occupied outcomes and
-      directors need to consume those remembered locations when choosing follow-up intents.
+      bookkeeping for suspected invisible threats and blocked map locations.
     - Expansion blocked-site consumer slice is done: macro expansion and lifted island landing now
       skip sites remembered as blocked in `BotMemory`, while keeping the same shared placement
-      validator for the selected fallback site. Remaining work: expansion executors still need to
-      report blocked/unsafe/occupied outcomes when placement or routes fail live.
+      validator for the selected fallback site.
     - Expansion blocked-outcome slice is done: failed live expansion placement now surfaces a blocked
       `expand` intent result instead of disappearing as "no macro command", and the planner feeds
       that outcome into the same intent-memory path.
