@@ -195,6 +195,11 @@ If a sampled phase claims `scale-economy` or `recover-economy` through expansion
 growth alone is not enough evidence; the trace must show an `expand` intent or base-count growth.
 This keeps expansion posture tied to actual resource-cluster attempts instead of generic economy
 activity.
+Objective-progress gate slice is done: the expert rulebook now owns a plan-to-progress assessment
+that checks sustained sampled phases for actual worker/base/army growth, queued production, or
+validated macro/combat command progress appropriate to the phase's strategic goal. This closes the
+next loophole after intent-axis coherence: a bot phase can no longer look correct only because it
+named plausible intents while making no StarCraft progress.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

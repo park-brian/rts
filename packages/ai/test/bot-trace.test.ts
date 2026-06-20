@@ -875,6 +875,84 @@ test('bot competence gates flag expansion plans without base attempts', () => {
   assert.equal(passing?.status, 'healthy');
 });
 
+test('bot competence gates flag phases without objective progress', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8128, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const phase = {
+    player: 0,
+    phase: 'opening' as const,
+    fromTick: 0,
+    toTick: 120,
+    samples: 3,
+    plan: {
+      phase: 'opening' as const,
+      primaryGoal: 'establish-combat' as const,
+      macroPriority: 'production' as const,
+      combatStance: 'rally' as const,
+      techTarget: 'first-combat' as const,
+      reasons: ['test stalled opening'],
+    },
+    start: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers,
+      army: frame.army,
+      bases: frame.bases,
+    },
+    end: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers,
+      army: frame.army,
+      bases: frame.bases,
+    },
+    peaks: {
+      queuedWorkerProduction: 0,
+      queuedArmyProduction: 0,
+      idleProducers: 1,
+      idleLarvae: 0,
+    },
+    commandsByType: {},
+    intentsByKind: { 'add-production': 3 },
+    outcomesByStatus: { waiting: 3 },
+    intentAxes: { 'production-throughput': 3 },
+    waitsByReason: { 'no-builder': 3 },
+    blocksByReason: {},
+    alertKinds: {},
+  };
+  const trace: BotMatchTrace = {
+    frames: [frame],
+    stats: createMatchStats(sim.fullState()),
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends: [],
+    alerts: [],
+    expertDiagnoses: [{ player: 0, domain: 'summary', status: 'healthy', severity: 0, detail: 'test summary' }],
+    phaseSummaries: [phase],
+    phaseAssessments: [],
+  };
+
+  const failing = botTraceCompetenceGates(trace, 0).find((entry) => entry.domain === 'objective-progress');
+  const passing = botTraceCompetenceGates({
+    ...trace,
+    phaseSummaries: [{
+      ...phase,
+      peaks: { ...phase.peaks, queuedArmyProduction: 1 },
+    }],
+  }, 0).find((entry) => entry.domain === 'objective-progress');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('stalled objective progress'), true);
+  assert.equal(passing?.status, 'healthy');
+});
+
 test('bot competence gates expose macro-spending and placement failures', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8132, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1280,6 +1358,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'expansion-plan'), true, `${name} gates should expose expansion plan evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'objective-progress' && gate.detail.includes('advanced their objective')), true, `${name} gates should expose objective progress evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true, `${name} gates should expose placement evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'plan-coherence' && gate.detail.includes('strategy phases')), true, `${name} gates should expose plan coherence evidence`);

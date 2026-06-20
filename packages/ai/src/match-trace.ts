@@ -39,6 +39,7 @@ import {
   botHasCombatPipeline,
   botHasExpertObligationEvidence,
   botPlanEvidenceAssessment,
+  botPlanObjectiveProgressAssessment,
 } from './macro-expert-system.ts';
 
 export type BotTraceFrame = {
@@ -225,6 +226,7 @@ export type BotTraceCompetenceGateDomain =
   | 'tech'
   | 'placement'
   | 'plan-coherence'
+  | 'objective-progress'
   | 'combat'
   | 'expert'
   | 'phase-evidence';
@@ -1392,6 +1394,51 @@ const planCoherenceGate = (
   );
 };
 
+const phaseObjectiveProgress = (phase: BotTracePhaseSummary) => ({
+  workerGain: Math.max(0, phase.end.workers - phase.start.workers),
+  baseGain: Math.max(0, phase.end.bases - phase.start.bases),
+  armyGain: Math.max(0, phase.end.army - phase.start.army),
+  queuedWorkers: phase.peaks.queuedWorkerProduction,
+  queuedArmy: phase.peaks.queuedArmyProduction,
+  macroCommands: phaseCommandTotal(phase, MACRO_COMMANDS),
+  combatCommands: phaseCommandTotal(phase, COMBAT_COMMANDS),
+});
+
+const objectiveProgressGate = (
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const playerPhases = phases.filter((phase) => phase.player === player && phase.samples > 1);
+  const stalled: string[] = [];
+  let progress = 0;
+
+  for (const phase of playerPhases) {
+    const assessment = botPlanObjectiveProgressAssessment(phase.plan, phaseObjectiveProgress(phase));
+    progress += assessment.count;
+    if (!assessment.satisfied) stalled.push(`${phase.phase} ${assessment.detail}`);
+  }
+
+  if (playerPhases.length === 0) {
+    return competenceGate(player, 'objective-progress', 'healthy', 0, 'no multi-sample strategy phases required objective progress');
+  }
+  if (stalled.length > 0) {
+    return competenceGate(
+      player,
+      'objective-progress',
+      'failing',
+      stalled.length,
+      stalled.slice(0, 2).join('; '),
+    );
+  }
+  return competenceGate(
+    player,
+    'objective-progress',
+    'healthy',
+    progress,
+    `${playerPhases.length} sampled strategy phases advanced their objective`,
+  );
+};
+
 const openingCombatGate = (
   phases: readonly BotTracePhaseSummary[],
   player: number,
@@ -1547,6 +1594,7 @@ export const botTraceCompetenceGates = (
   ));
 
   gates.push(planCoherenceGate(trace.phaseSummaries, player));
+  gates.push(objectiveProgressGate(trace.phaseSummaries, player));
 
   gates.push(competenceGate(
     player,
