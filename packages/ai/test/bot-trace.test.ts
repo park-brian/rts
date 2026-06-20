@@ -795,8 +795,9 @@ test('bot trace phase summaries aggregate contiguous strategy windows', () => {
   assert.equal(summaries[0]!.fromTick, 0);
   assert.equal(summaries[0]!.toTick, 0);
   assert.equal(summaries[1]!.plan.combatStance, 'pressure');
+  assert.equal(summaries[1]!.end.workers, opening.workers + 1);
   assert.equal(summaries[1]!.commandsByType.attack, 1);
-  assert.equal(summaries[2]!.queuedArmyPeak, 1);
+  assert.equal(summaries[2]!.peaks.queuedArmyProduction, 1);
   assert.equal(summaries.every((summary) => summary.player === 0), true);
 });
 

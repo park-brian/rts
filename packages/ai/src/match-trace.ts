@@ -129,6 +129,23 @@ export type BotExpertDiagnosis = {
   detail: string;
 };
 
+export type BotTracePhaseFacts = {
+  minerals: number;
+  gas: number;
+  supplyUsed: number;
+  supplyMax: number;
+  workers: number;
+  army: number;
+  bases: number;
+};
+
+export type BotTracePhasePeaks = {
+  queuedWorkerProduction: number;
+  queuedArmyProduction: number;
+  idleProducers: number;
+  idleLarvae: number;
+};
+
 export type BotTracePhaseSummary = {
   player: number;
   phase: BotStrategyPostureName;
@@ -136,24 +153,9 @@ export type BotTracePhaseSummary = {
   toTick: number;
   samples: number;
   plan: BotStrategyPlan;
-  startMinerals: number;
-  endMinerals: number;
-  startGas: number;
-  endGas: number;
-  startSupplyUsed: number;
-  endSupplyUsed: number;
-  startSupplyMax: number;
-  endSupplyMax: number;
-  startWorkers: number;
-  endWorkers: number;
-  startArmy: number;
-  endArmy: number;
-  startBases: number;
-  endBases: number;
-  queuedWorkerPeak: number;
-  queuedArmyPeak: number;
-  idleProducerPeak: number;
-  idleLarvaPeak: number;
+  start: BotTracePhaseFacts;
+  end: BotTracePhaseFacts;
+  peaks: BotTracePhasePeaks;
   commandsByType: CountMap<CommandType>;
   intentsByKind: CountMap<BotIntentKind>;
   outcomesByStatus: CountMap<BotTraceOutcomeStatus>;
@@ -459,6 +461,16 @@ const alertsForPhase = (
   return counts;
 };
 
+const phaseFacts = (frame: BotTraceFrame): BotTracePhaseFacts => ({
+  minerals: frame.minerals,
+  gas: frame.gas,
+  supplyUsed: frame.supplyUsed,
+  supplyMax: frame.supplyMax,
+  workers: frame.workers,
+  army: frame.army,
+  bases: frame.bases,
+});
+
 const summarizePhaseFrames = (
   phaseFrames: readonly BotTraceFrame[],
   alerts: readonly BotTraceAlert[],
@@ -494,24 +506,14 @@ const summarizePhaseFrames = (
     toTick: last.tick,
     samples: phaseFrames.length,
     plan: last.strategicPlan,
-    startMinerals: first.minerals,
-    endMinerals: last.minerals,
-    startGas: first.gas,
-    endGas: last.gas,
-    startSupplyUsed: first.supplyUsed,
-    endSupplyUsed: last.supplyUsed,
-    startSupplyMax: first.supplyMax,
-    endSupplyMax: last.supplyMax,
-    startWorkers: first.workers,
-    endWorkers: last.workers,
-    startArmy: first.army,
-    endArmy: last.army,
-    startBases: first.bases,
-    endBases: last.bases,
-    queuedWorkerPeak,
-    queuedArmyPeak,
-    idleProducerPeak,
-    idleLarvaPeak,
+    start: phaseFacts(first),
+    end: phaseFacts(last),
+    peaks: {
+      queuedWorkerProduction: queuedWorkerPeak,
+      queuedArmyProduction: queuedArmyPeak,
+      idleProducers: idleProducerPeak,
+      idleLarvae: idleLarvaPeak,
+    },
     commandsByType,
     intentsByKind,
     outcomesByStatus,
