@@ -1021,6 +1021,11 @@ Remaining work:
     deterministic reason generator for economy growth, army growth, enemy degradation, and float.
     Whole-match traces now summarize those deltas per sampled bot player. This is deliberately
     measurement, not policy.
+  - Capability-objective slice is done: objective snapshots now also expose free supply, completed
+    combat production capacity, completed tech/upgrade unlocks, and enemy production/tech losses.
+    Trend reasons can explain future-slope changes such as adding a Barracks/Gateway/Hatchery,
+    opening a tech path, creating supply headroom, or killing enemy production, still without
+    changing planner policy.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

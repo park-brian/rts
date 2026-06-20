@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Terran, Protoss, Zerg, createMatchStats, fx, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
+import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, fx, setTechLevel, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botObjectiveReasons,
@@ -92,7 +92,11 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
     if (e.alive[i] === 1 && e.owner[i] === 1 && e.kind[i] === Kind.CommandCenter) enemyBase = i;
   }
   spawnUnit(s, Kind.Marine, 0, e.x[ownBase]!, e.y[ownBase]!);
+  spawnUnit(s, Kind.Barracks, 0, e.x[ownBase]! + fx(160), e.y[ownBase]!);
   spawnUnit(s, Kind.Marine, 1, e.x[enemyBase]!, e.y[enemyBase]!);
+  spawnUnit(s, Kind.Barracks, 1, e.x[enemyBase]! - fx(160), e.y[enemyBase]!);
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  setTechLevel(s, 1, Tech.StimPack, 1);
 
   const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })(s, 0);
   const frame = botTraceFrame(s, 0, Terran, plan);
@@ -100,9 +104,14 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.armySupply, 1);
   assert.equal(frame.objective.armyStrength > 0, true);
+  assert.equal(frame.objective.productionCapacity, 1);
+  assert.equal(frame.objective.techUnlocks >= 2, true);
+  assert.equal(frame.objective.supplyAvailable > 0, true);
   assert.equal(frame.objective.enemyWorkerSupply, Terran.startWorkers);
   assert.equal(frame.objective.enemyArmySupply, 1);
   assert.equal(frame.objective.enemyArmyStrength > 0, true);
+  assert.equal(frame.objective.enemyProductionCapacity, 1);
+  assert.equal(frame.objective.enemyTechUnlocks >= 2, true);
 });
 
 test('bot objective reasons explain growth, damage, and resource float', () => {
@@ -110,18 +119,28 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     workerSupply: 8,
     armySupply: 2,
     armyStrength: 300,
+    productionCapacity: 1,
+    techUnlocks: 1,
+    supplyAvailable: 4,
     enemyWorkerSupply: 8,
     enemyArmySupply: 3,
     enemyArmyStrength: 450,
+    enemyProductionCapacity: 2,
+    enemyTechUnlocks: 2,
     resourceFloat: 200,
   };
   const after: BotObjectiveSnapshot = {
     workerSupply: 10,
     armySupply: 4,
     armyStrength: 700,
+    productionCapacity: 2,
+    techUnlocks: 3,
+    supplyAvailable: 8,
     enemyWorkerSupply: 6,
     enemyArmySupply: 1,
     enemyArmyStrength: 150,
+    enemyProductionCapacity: 1,
+    enemyTechUnlocks: 1,
     resourceFloat: 900,
   };
 
@@ -129,8 +148,13 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
 
   assert.equal(reasons.some((reason) => reason.kind === 'economy-growth'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'army-growth'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'production-throughput'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'tech-unlock'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'supply-availability'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'enemy-economy-damage'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'enemy-army-damage'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'enemy-production-damage'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'enemy-tech-damage'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'resource-float'), true);
 });
 

@@ -4,6 +4,8 @@ import {
   Kind,
   NEUTRAL,
   Role,
+  TECH_CAP,
+  TechDefs,
   shownSupply,
   type State,
   Units,
@@ -21,17 +23,27 @@ export type BotObjectiveSnapshot = {
   workerSupply: number;
   armySupply: number;
   armyStrength: number;
+  productionCapacity: number;
+  techUnlocks: number;
+  supplyAvailable: number;
   enemyWorkerSupply: number;
   enemyArmySupply: number;
   enemyArmyStrength: number;
+  enemyProductionCapacity: number;
+  enemyTechUnlocks: number;
   resourceFloat: number;
 };
 
 export type BotObjectiveReasonKind =
   | 'economy-growth'
   | 'army-growth'
+  | 'production-throughput'
+  | 'tech-unlock'
+  | 'supply-availability'
   | 'enemy-economy-damage'
   | 'enemy-army-damage'
+  | 'enemy-production-damage'
+  | 'enemy-tech-damage'
   | 'resource-float';
 
 export type BotObjectiveReason = {
@@ -72,9 +84,14 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   workerSupply: 0,
   armySupply: 0,
   armyStrength: 0,
+  productionCapacity: 0,
+  techUnlocks: 0,
+  supplyAvailable: shownSupply(Math.max(0, s.players.supplyMax[player]! - s.players.supplyUsed[player]!)),
   enemyWorkerSupply: 0,
   enemyArmySupply: 0,
   enemyArmyStrength: 0,
+  enemyProductionCapacity: 0,
+  enemyTechUnlocks: 0,
   resourceFloat: s.players.minerals[player]! + s.players.gas[player]!,
 });
 
@@ -104,9 +121,41 @@ const scoredIntent = (
   reasons: BotIntentScoreReason[],
 ): BotIntent => ({ ...intent, score: intentScore(value, reasons) });
 
+const techProducerKinds = new Set(Object.values(TechDefs).flatMap((def) => def.producers));
+
+const isCombatProductKind = (kind: number): boolean => {
+  const def = Units[kind];
+  return !!def &&
+    (def.roles & Role.Mobile) !== 0 &&
+    (def.roles & Role.Worker) === 0 &&
+    kindHasDirectWeapon(kind);
+};
+
+const productionCapacityValue = (kind: number): number => {
+  const def = Units[kind];
+  return def && def.produces.some(isCombatProductKind) ? 1 : 0;
+};
+
+const structureUnlocksCapabilities = (kind: number): boolean => {
+  const def = Units[kind];
+  return !!def &&
+    (def.roles & Role.Structure) !== 0 &&
+    (def.roles & (Role.Resource | Role.ResourceDepot)) === 0 &&
+    def.provides === 0 &&
+    (def.produces.length > 0 || def.abilities.length > 0 || def.requires.length > 0 || techProducerKinds.has(kind));
+};
+
+const completedTechLevels = (s: State, player: number): number => {
+  let levels = 0;
+  for (const tech of Object.keys(TechDefs)) levels += s.players.tech[player * TECH_CAP + Number(tech)] ?? 0;
+  return levels;
+};
+
 export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnapshot => {
   const objective = blankObjective(s, player);
   const e = s.e;
+  const ownTechStructures = new Set<number>();
+  const enemyTechStructures = new Set<number>();
 
   for (let slot = 0; slot < e.hi; slot++) {
     if (e.alive[slot] !== 1) continue;
@@ -123,17 +172,29 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       ? shownSupply(def.supply)
       : 0;
     const armyStrength = armySupply > 0 ? combatValue(kind) : 0;
+    const productionCapacity = e.built[slot] === 1 ? productionCapacityValue(kind) : 0;
 
     if (owner === player) {
       objective.workerSupply += workerSupply;
       objective.armySupply += armySupply;
       objective.armyStrength += armyStrength;
+      objective.productionCapacity += productionCapacity;
+      if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) ownTechStructures.add(kind);
     } else if (isEnemy(s, player, owner)) {
       objective.enemyWorkerSupply += workerSupply;
       objective.enemyArmySupply += armySupply;
       objective.enemyArmyStrength += armyStrength;
+      objective.enemyProductionCapacity += productionCapacity;
+      if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) enemyTechStructures.add(kind);
     }
   }
+
+  objective.techUnlocks = ownTechStructures.size + completedTechLevels(s, player);
+  for (let other = 0; other < s.teams.length; other++) {
+    if (!isEnemy(s, player, other)) continue;
+    objective.enemyTechUnlocks += completedTechLevels(s, other);
+  }
+  objective.enemyTechUnlocks += enemyTechStructures.size;
 
   return objective;
 };
@@ -171,8 +232,13 @@ export const botObjectiveReasons = (
   const reasons: BotObjectiveReason[] = [];
   const workerGain = after.workerSupply - before.workerSupply;
   const armyGain = after.armyStrength - before.armyStrength;
+  const productionGain = after.productionCapacity - before.productionCapacity;
+  const techGain = after.techUnlocks - before.techUnlocks;
+  const supplyGain = after.supplyAvailable - before.supplyAvailable;
   const enemyWorkerLoss = before.enemyWorkerSupply - after.enemyWorkerSupply;
   const enemyArmyLoss = before.enemyArmyStrength - after.enemyArmyStrength;
+  const enemyProductionLoss = before.enemyProductionCapacity - after.enemyProductionCapacity;
+  const enemyTechLoss = before.enemyTechUnlocks - after.enemyTechUnlocks;
   const floatGrowth = after.resourceFloat - before.resourceFloat;
 
   if (workerGain > 0) reasons.push(objectiveReason(
@@ -185,6 +251,21 @@ export const botObjectiveReasons = (
     armyGain,
     `field army strength increased by ${armyGain}`,
   ));
+  if (productionGain > 0) reasons.push(objectiveReason(
+    'production-throughput',
+    productionGain * 50,
+    `combat production capacity increased by ${productionGain}`,
+  ));
+  if (techGain > 0) reasons.push(objectiveReason(
+    'tech-unlock',
+    techGain * 30,
+    `tech unlock count increased by ${techGain}`,
+  ));
+  if (supplyGain > 0) reasons.push(objectiveReason(
+    'supply-availability',
+    supplyGain,
+    `free supply increased by ${supplyGain}`,
+  ));
   if (enemyWorkerLoss > 0) reasons.push(objectiveReason(
     'enemy-economy-damage',
     enemyWorkerLoss,
@@ -194,6 +275,16 @@ export const botObjectiveReasons = (
     'enemy-army-damage',
     enemyArmyLoss,
     `enemy field army strength decreased by ${enemyArmyLoss}`,
+  ));
+  if (enemyProductionLoss > 0) reasons.push(objectiveReason(
+    'enemy-production-damage',
+    enemyProductionLoss * 50,
+    `enemy combat production capacity decreased by ${enemyProductionLoss}`,
+  ));
+  if (enemyTechLoss > 0) reasons.push(objectiveReason(
+    'enemy-tech-damage',
+    enemyTechLoss * 30,
+    `enemy tech unlock count decreased by ${enemyTechLoss}`,
   ));
   if (floatGrowth > 500) reasons.push(objectiveReason(
     'resource-float',
