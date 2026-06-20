@@ -454,6 +454,10 @@ Migration plan:
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
   policies can reason about producers, transporters, static defenses, detectors, and spellcasters
   without hard-coded kind ladders.
+  - Observation capability slice is done: object and caller-owned buffer observations now expose a
+    compact per-entity capability bitmask derived from the shared actor/capability/data/detection
+    owners, giving AI/RL policies producer, caster, transport, detector, worker-builder, depot,
+    static-defense, and projectile-presentation facts without kind-id ladders.
 - Sixth pass, only after facts stabilize, should evaluate whether any explicit systems can merge.
   Candidate merges must be proven with replay/hash tests, focused mechanic tests, and benchmarks;
   otherwise leave the small systems alone.

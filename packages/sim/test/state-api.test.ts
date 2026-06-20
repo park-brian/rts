@@ -6,6 +6,7 @@ import {
   OBS_ORDER_QUEUE_STRIDE,
   OBS_STATUS_STRIDE,
   OBSERVATION_SCHEMA_VERSION,
+  ObservationCapability,
   createObservationBuffers,
   writeObservation,
 } from '../src/io/observe.ts';
@@ -78,6 +79,42 @@ test('buffer observation matches object observation for scalar, tech, vision, an
   for (let i = 0; i < counts.entities; i++) ids.add(buffers.entities[i * OBS_ENTITY_STRIDE]!);
   assert.equal(ids.has(marine), true);
   assert.equal(ids.has(enemy), obs.entities.some((e) => e.id === enemy));
+});
+
+test('observe exposes compact entity capability facts in object and buffer observations', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 2084, vision: true });
+  const cc = spawn(Kind.CommandCenter, 0, fx(500), fx(500));
+  const scv = spawn(Kind.SCV, 0, fx(560), fx(500));
+  const dropship = spawn(Kind.Dropship, 0, fx(620), fx(500));
+  const observer = spawn(Kind.Observer, 0, fx(680), fx(500));
+  sim.step([]);
+
+  const obs = sim.observe(0);
+  const capsFor = (id: number): number => obs.entities.find((v) => v.id === id)!.capabilities;
+  assert.equal((capsFor(cc) & ObservationCapability.Structure) !== 0, true);
+  assert.equal((capsFor(cc) & ObservationCapability.Producer) !== 0, true);
+  assert.equal((capsFor(cc) & ObservationCapability.BaseDepot) !== 0, true);
+  assert.equal((capsFor(cc) & ObservationCapability.WorkerRallyProducer) !== 0, true);
+  assert.equal((capsFor(scv) & ObservationCapability.WorkerBuilder) !== 0, true);
+  assert.equal((capsFor(scv) & ObservationCapability.Worker) !== 0, true);
+  assert.equal((capsFor(scv) & ObservationCapability.DirectWeapon) !== 0, true);
+  assert.equal((capsFor(dropship) & ObservationCapability.Transport) !== 0, true);
+  assert.equal((capsFor(dropship) & ObservationCapability.Air) !== 0, true);
+  assert.equal((capsFor(observer) & ObservationCapability.Detector) !== 0, true);
+
+  const buffers = createObservationBuffers(s.map, { entities: 32 });
+  const counts = writeObservation(s, 0, buffers);
+  for (const view of obs.entities) {
+    let row = -1;
+    for (let i = 0; i < counts.entities; i++) {
+      if (buffers.entities[i * OBS_ENTITY_STRIDE] === view.id) {
+        row = i * OBS_ENTITY_STRIDE;
+        break;
+      }
+    }
+    assert.notEqual(row, -1);
+    assert.equal(buffers.entities[row + 16], view.capabilities);
+  }
 });
 
 test('buffer observation reports truncation and count-delimits stale rows', () => {

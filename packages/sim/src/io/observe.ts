@@ -5,9 +5,20 @@
 
 import type { State } from '../entity/world.ts';
 import { eid, isAlive, NEUTRAL, NONE, slotOf } from '../entity/world.ts';
-import { EffectKind, Kind, TECH_CAP, TILE, isLarvaSourceKind } from '../data/index.ts';
+import { EffectKind, Kind, Role, TECH_CAP, TILE, Units, isLarvaSourceKind } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
-import { canDetect } from '../mechanics/detection.ts';
+import { actorPresentation, isUserCommandableKind } from '../mechanics/actors.ts';
+import {
+  abilitiesFor,
+  isBaseDepotKind,
+  isSmallStaticDefenseKind,
+  kindHasDirectWeapon,
+  producedKindsFor,
+  producerKindSupportsWorkerRally,
+  researchTechsFor,
+  workerBuildKindsForWorkerKind,
+} from '../mechanics/capabilities.ts';
+import { isDetectorKind, canDetect } from '../mechanics/detection.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { CREEP_RADIUS, providesCreep } from '../mechanics/creep.ts';
 import { LARVA_MAX, nearestLarvaSource } from '../mechanics/larva.ts';
@@ -20,7 +31,7 @@ export type EntityView = {
   x: number; y: number; hp: number; built: number; order: number;
   orderTarget: number; intentTarget: number; combatTarget: number;
   tx: number; ty: number; patrolX: number; patrolY: number;
-  queueSpace: number;
+  queueSpace: number; capabilities: number;
 };
 
 type EntityIntentView = Pick<
@@ -135,10 +146,30 @@ export type Observation = {
   entities: EntityView[]; // own units always; others only on currently-visible tiles
 };
 
-export const OBSERVATION_SCHEMA_VERSION = 6;
+export const ObservationCapability = {
+  Commandable: 1 << 0,
+  Mobile: 1 << 1,
+  Structure: 1 << 2,
+  Worker: 1 << 3,
+  Air: 1 << 4,
+  Resource: 1 << 5,
+  DirectWeapon: 1 << 6,
+  Producer: 1 << 7,
+  ResearchProducer: 1 << 8,
+  Caster: 1 << 9,
+  WorkerBuilder: 1 << 10,
+  Transport: 1 << 11,
+  Detector: 1 << 12,
+  BaseDepot: 1 << 13,
+  WorkerRallyProducer: 1 << 14,
+  SmallStaticDefense: 1 << 15,
+  ProjectilePresentation: 1 << 16,
+} as const;
+
+export const OBSERVATION_SCHEMA_VERSION = 7;
 // id, kind, owner, x, y, hp, built, order, orderTarget, intentTarget,
-// combatTarget, tx, ty, patrolX, patrolY, queueSpace
-export const OBS_ENTITY_STRIDE = 16;
+// combatTarget, tx, ty, patrolX, patrolY, queueSpace, capabilities
+export const OBS_ENTITY_STRIDE = 17;
 export const OBS_QUEUE_STRIDE = 6; // id, prodKind, prodTimer, prodQueued, researchKind, researchTimer
 export const OBS_ORDER_QUEUE_STRIDE = 2 + ORDER_QUEUE_CAP * 4; // id, len, then order,target,x,y per queued travel entry
 export const OBS_CARGO_STRIDE = 3; // container, unitStart, unitCount
@@ -371,6 +402,31 @@ const entityIntentView = (
 const entityQueueSpace = (e: State['e'], i: number, own: boolean): number =>
   own ? ORDER_QUEUE_CAP - e.orderQueueLen[i]! : 0;
 
+const entityCapabilities = (s: State, i: number): number => {
+  const e = s.e;
+  const kind = e.kind[i]!;
+  const flags = e.flags[i]!;
+  let capabilities = 0;
+  if (isUserCommandableKind(kind)) capabilities |= ObservationCapability.Commandable;
+  if ((flags & Role.Mobile) !== 0) capabilities |= ObservationCapability.Mobile;
+  if ((flags & Role.Structure) !== 0) capabilities |= ObservationCapability.Structure;
+  if ((flags & Role.Worker) !== 0) capabilities |= ObservationCapability.Worker;
+  if ((flags & Role.Air) !== 0) capabilities |= ObservationCapability.Air;
+  if ((flags & Role.Resource) !== 0) capabilities |= ObservationCapability.Resource;
+  if (kindHasDirectWeapon(kind)) capabilities |= ObservationCapability.DirectWeapon;
+  if (producedKindsFor(kind).length > 0) capabilities |= ObservationCapability.Producer;
+  if (researchTechsFor(kind).length > 0) capabilities |= ObservationCapability.ResearchProducer;
+  if (abilitiesFor(kind).length > 0) capabilities |= ObservationCapability.Caster;
+  if (workerBuildKindsForWorkerKind(kind).length > 0) capabilities |= ObservationCapability.WorkerBuilder;
+  if ((Units[kind]?.cargoCapacity ?? 0) > 0) capabilities |= ObservationCapability.Transport;
+  if (isDetectorKind(kind)) capabilities |= ObservationCapability.Detector;
+  if (isBaseDepotKind(kind)) capabilities |= ObservationCapability.BaseDepot;
+  if (producerKindSupportsWorkerRally(kind)) capabilities |= ObservationCapability.WorkerRallyProducer;
+  if (isSmallStaticDefenseKind(kind)) capabilities |= ObservationCapability.SmallStaticDefense;
+  if (actorPresentation(kind) === 'projectile') capabilities |= ObservationCapability.ProjectilePresentation;
+  return capabilities;
+};
+
 const writeEntity = (out: Int32Array, row: number, s: State, i: number, own: boolean): void => {
   const e = s.e;
   const intent = entityIntentView(e, i, own);
@@ -391,6 +447,7 @@ const writeEntity = (out: Int32Array, row: number, s: State, i: number, own: boo
   out[p++] = intent.patrolX;
   out[p++] = intent.patrolY;
   out[p++] = entityQueueSpace(e, i, own);
+  out[p++] = entityCapabilities(s, i);
 };
 
 const writeQueue = (out: Int32Array, row: number, q: QueueView): void => {
@@ -713,6 +770,7 @@ export const observe = (s: State, player: number): Observation => {
       x: e.x[i]!, y: e.y[i]!, hp: e.hp[i]!, built: e.built[i]!, order: e.order[i]!,
       ...entityIntentView(e, i, own),
       queueSpace: entityQueueSpace(e, i, own),
+      capabilities: entityCapabilities(s, i),
     });
   }
   const larvaCounts = new Map<number, number>();
