@@ -237,12 +237,13 @@ const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
 
-const techStallReason = (frame: BotTraceFrame): BotFailureReason | undefined =>
-  frame.topIntents.find((intent) =>
-    TECH_INTENTS.includes(intent.kind) &&
-    intent.status !== 'done' &&
-    intent.reason !== undefined &&
-    TECH_STALL_REASONS.includes(intent.reason))?.reason;
+const techStallReason = (frame: BotTraceFrame): BotFailureReason | undefined => {
+  const intent = frame.topIntents[0];
+  if (!intent || !TECH_INTENTS.includes(intent.kind) || intent.status === 'done' || intent.reason === undefined) {
+    return undefined;
+  }
+  return TECH_STALL_REASONS.includes(intent.reason) ? intent.reason : undefined;
+};
 
 const hasBlockedTechIntent = (frame: BotTraceFrame): boolean =>
   techIntentCount(frame) > 0 &&

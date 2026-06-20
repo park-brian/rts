@@ -1193,11 +1193,12 @@ Remaining work:
     placement stays fast and local, while proven dead anchors get a deterministic broader search.
     Remaining placement recovery work should add alternate layout roles and clear-site/fallback
     intents when widened search still cannot find a sane tile.
-  - Tech-stall detector slice is done: sampled traces now emit `tech-stall` when tech intents repeat
-    with missing prerequisite, producer, builder, resource, path, safety, or placement blockers and
-    no build/research/add-on/transform command is making tech progress. The bot expert `tech`
+  - Tech-stall detector slice is done: sampled traces now emit `tech-stall` when the leading tech
+    intent repeats with missing prerequisite, producer, builder, path, safety, or placement blockers
+    and no build/research/add-on/transform command is making tech progress. The bot expert `tech`
     diagnosis consumes this alert as a failing capability stall instead of hiding it inside generic
-    macro health.
+    macro health. Background unavailable research options stay as evidence, but they do not fail a
+    trace while higher-priority economy, defense, or production work is ahead of them.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;
