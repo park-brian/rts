@@ -378,8 +378,10 @@ Migration plan:
   visibly simpler.
   - Projectile/sortie policy slice is done: Scarab lifetime/target/impact policy and Interceptor
     orbit radius, leash range, return range, and orbit offsets now live in actor facets. The Scarab
-    and Interceptor systems still own timing-heavy interpretation, target validation, movement, dud,
-    splash, bay return, and ammo restoration semantics.
+    tick system now dispatches target eligibility and impact through the actor projectile facet,
+    while still owning timing-heavy interpretation, pathing, duds, and splash semantics. Interceptors
+    still own orbit movement, bay return, and ammo restoration semantics in their focused sortie
+    interpreter.
   - Projectile actor solidity slice is done: local avoidance now reads projectile-actor identity
     from `mechanics/actors.ts` instead of hard-coding Scarabs as non-solid ground bodies. Collision
     still consumes the same local-avoidance solidity query, so future projectile actors have one
