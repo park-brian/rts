@@ -56,6 +56,7 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.minerals, 500);
   assert.equal(frame.queuedWorkerProduction, 0);
   assert.equal(frame.queuedArmyProduction, 0);
+  assert.equal(frame.queuedArmyStrength, 0);
   assert.equal(frame.commandsIssued, plan.commands.length);
   assert.equal(frame.commandsByType.train! > 0 || frame.commandsByType.build! > 0, true);
   assert.equal(frame.intentsByKind['train-worker']! > 0 || frame.intentsByKind['add-production']! > 0, true);
@@ -108,6 +109,7 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
   assert.equal(frame.objective.armyStrength > 0, true);
   assert.equal(frame.objective.queuedWorkerProduction, 0);
   assert.equal(frame.objective.queuedArmyProduction, 0);
+  assert.equal(frame.objective.queuedArmyStrength, 0);
   assert.equal(frame.objective.productionCapacity, 1);
   assert.equal(frame.objective.pendingProductionCapacity, 0);
   assert.equal(frame.objective.techUnlocks >= 2, true);
@@ -156,8 +158,10 @@ test('bot trace frame exposes active worker and army production queues', () => {
 
   assert.equal(frame.queuedWorkerProduction, 1);
   assert.equal(frame.queuedArmyProduction, 1);
+  assert.equal(frame.queuedArmyStrength > 0, true);
   assert.equal(frame.objective.queuedWorkerProduction, 1);
   assert.equal(frame.objective.queuedArmyProduction, 1);
+  assert.equal(frame.objective.queuedArmyStrength, frame.queuedArmyStrength);
   const diagnoses = botTraceExpertDiagnoses([frame], createMatchStats(s), [], botObjectiveTrends([frame]));
   assert.equal(diagnoses.some((entry) =>
     entry.domain === 'economy' &&
@@ -168,7 +172,7 @@ test('bot trace frame exposes active worker and army production queues', () => {
     entry.domain === 'production' &&
     entry.status === 'healthy' &&
     entry.detail.includes('combat unit') &&
-    entry.detail.includes('queued')), true);
+    entry.detail.includes('future strength')), true);
 
   const zergSim = new Sim({ map: sliceMap(), players: 2, seed: 8119, factions: [Zerg, Terran] });
   s = zergSim.fullState();
@@ -183,6 +187,8 @@ test('bot trace frame exposes active worker and army production queues', () => {
 
   assert.equal(zergFrame.queuedArmyProduction, 2);
   assert.equal(zergFrame.objective.queuedArmyProduction, 2);
+  assert.equal(zergFrame.queuedArmyStrength > frame.queuedArmyStrength, true);
+  assert.equal(zergFrame.objective.queuedArmyStrength, zergFrame.queuedArmyStrength);
 });
 
 test('bot trace objective army strength uses researched combat upgrades', () => {
@@ -199,6 +205,25 @@ test('bot trace objective army strength uses researched combat upgrades', () => 
   assert.equal(after.objective.armyStrength > before.objective.armyStrength, true);
 });
 
+test('bot trace objective queued army strength uses researched combat upgrades', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8121, factions: [Terran, Terran] });
+  let s = sim.fullState();
+  const base = primaryBaseSlot(s, 0, Terran);
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, s.e.x[base]! + fx(160), s.e.y[base]!));
+  s.players.minerals[0] = 500;
+  sim.step([{ player: 0, cmds: [{ t: 'train', building: eid(s.e, barracks), kind: Kind.Marine }] }]);
+  s = sim.fullState();
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+
+  setTechLevel(s, 0, Tech.InfantryWeapons, 2);
+  const after = botTraceFrame(s, 0, Terran, planner(s, 0));
+
+  assert.equal(before.objective.queuedArmyProduction, 1);
+  assert.equal(after.objective.queuedArmyProduction, 1);
+  assert.equal(after.objective.queuedArmyStrength > before.objective.queuedArmyStrength, true);
+});
+
 test('bot objective reasons explain growth, damage, and resource float', () => {
   const before: BotObjectiveSnapshot = {
     workerSupply: 8,
@@ -206,6 +231,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     armyStrength: 300,
     queuedWorkerProduction: 0,
     queuedArmyProduction: 0,
+    queuedArmyStrength: 0,
     productionCapacity: 1,
     pendingProductionCapacity: 0,
     techUnlocks: 1,
@@ -224,6 +250,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     armyStrength: 700,
     queuedWorkerProduction: 0,
     queuedArmyProduction: 0,
+    queuedArmyStrength: 0,
     productionCapacity: 2,
     pendingProductionCapacity: 1,
     techUnlocks: 3,

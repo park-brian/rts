@@ -124,10 +124,12 @@ const weaponMatchesRule = (rule: WeaponUpgradeRule, kind: number, weapon?: Weapo
   return weapon === def.weapon || weapon === def.airWeapon;
 };
 
-export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon): number => {
-  const e = s.e;
-  const owner = e.owner[attacker]!;
-  const kind = e.kind[attacker]!;
+export const weaponUpgradeBonusForKind = (
+  s: State,
+  owner: number,
+  kind: number,
+  weapon?: Weapon,
+): number => {
   for (const rule of WEAPON_UPGRADES) {
     if (!rule.kinds.has(kind) || !weaponMatchesRule(rule, kind, weapon)) continue;
     const techLevel = level(s, owner, rule.tech);
@@ -138,10 +140,10 @@ export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon):
   return 0;
 };
 
-export const armorUpgradeBonus = (s: State, target: number): number => {
-  const e = s.e;
-  const owner = e.owner[target]!;
-  const kind = e.kind[target]!;
+export const weaponUpgradeBonus = (s: State, attacker: number, weapon?: Weapon): number =>
+  weaponUpgradeBonusForKind(s, s.e.owner[attacker]!, s.e.kind[attacker]!, weapon);
+
+export const armorUpgradeBonusForKind = (s: State, owner: number, kind: number): number => {
   let bonus = 0;
   for (const rule of ARMOR_UPGRADES) {
     if (!rule.kinds.has(kind)) continue;
@@ -150,13 +152,13 @@ export const armorUpgradeBonus = (s: State, target: number): number => {
   return bonus;
 };
 
+export const armorUpgradeBonus = (s: State, target: number): number =>
+  armorUpgradeBonusForKind(s, s.e.owner[target]!, s.e.kind[target]!);
+
 export const shieldArmorBonus = (s: State, target: number): number =>
   Units[s.e.kind[target]!]!.race === 'protoss' ? level(s, s.e.owner[target]!, Tech.PlasmaShields) : 0;
 
-export const upgradedRange = (s: State, attacker: number, weapon: Weapon): number => {
-  const e = s.e;
-  const owner = e.owner[attacker]!;
-  const kind = e.kind[attacker]!;
+export const upgradedRangeForKind = (s: State, owner: number, kind: number, weapon: Weapon): number => {
   const upgrade = RANGE_UPGRADES[kind];
   if (!upgrade || level(s, owner, upgrade.tech) <= 0) return weapon.range;
   if (upgrade.weapon === 'air' && weapon !== Units[kind]!.airWeapon) return weapon.range;
@@ -164,32 +166,43 @@ export const upgradedRange = (s: State, attacker: number, weapon: Weapon): numbe
   return weapon.range + upgrade.bonus;
 };
 
-export const upgradedSpeed = (s: State, slot: number, baseSpeed: number): number => {
+export const upgradedRange = (s: State, attacker: number, weapon: Weapon): number =>
+  upgradedRangeForKind(s, s.e.owner[attacker]!, s.e.kind[attacker]!, weapon);
+
+export const upgradedSpeedForKind = (s: State, owner: number, kind: number, baseSpeed: number): number => {
   if (baseSpeed <= 0) return 0;
-  const owner = s.e.owner[slot]!;
-  const upgrade = SPEED_UPGRADES[s.e.kind[slot]!];
+  const upgrade = SPEED_UPGRADES[kind];
   if (!upgrade || level(s, owner, upgrade.tech) <= 0) return baseSpeed;
   return Math.trunc((baseSpeed * upgrade.num) / upgrade.den);
 };
 
-export const upgradedCooldown = (s: State, slot: number, baseCooldown: number): number => {
-  const owner = s.e.owner[slot]!;
-  const upgrade = COOLDOWN_UPGRADES[s.e.kind[slot]!];
+export const upgradedSpeed = (s: State, slot: number, baseSpeed: number): number =>
+  upgradedSpeedForKind(s, s.e.owner[slot]!, s.e.kind[slot]!, baseSpeed);
+
+export const upgradedCooldownForKind = (s: State, owner: number, kind: number, baseCooldown: number): number => {
+  const upgrade = COOLDOWN_UPGRADES[kind];
   return upgrade && level(s, owner, upgrade.tech) > 0 ? upgrade.cooldown : baseCooldown;
 };
 
-export const upgradedSight = (s: State, slot: number, baseSight: number): number => {
-  const owner = s.e.owner[slot]!;
-  const upgrade = SIGHT_UPGRADES[s.e.kind[slot]!];
+export const upgradedCooldown = (s: State, slot: number, baseCooldown: number): number =>
+  upgradedCooldownForKind(s, s.e.owner[slot]!, s.e.kind[slot]!, baseCooldown);
+
+export const upgradedSightForKind = (s: State, owner: number, kind: number, baseSight: number): number => {
+  const upgrade = SIGHT_UPGRADES[kind];
   return upgrade && level(s, owner, upgrade.tech) > 0 ? baseSight + upgrade.bonus : baseSight;
 };
 
-export const upgradedEnergyMax = (s: State, slot: number, baseMax: number): number => {
+export const upgradedSight = (s: State, slot: number, baseSight: number): number =>
+  upgradedSightForKind(s, s.e.owner[slot]!, s.e.kind[slot]!, baseSight);
+
+export const upgradedEnergyMaxForKind = (s: State, owner: number, kind: number, baseMax: number): number => {
   if (baseMax <= 0) return 0;
-  const owner = s.e.owner[slot]!;
-  const upgrade = ENERGY_UPGRADES[s.e.kind[slot]!];
+  const upgrade = ENERGY_UPGRADES[kind];
   return upgrade && level(s, owner, upgrade.tech) > 0 ? upgrade.max : baseMax;
 };
+
+export const upgradedEnergyMax = (s: State, slot: number, baseMax: number): number =>
+  upgradedEnergyMaxForKind(s, s.e.owner[slot]!, s.e.kind[slot]!, baseMax);
 
 export const reaverScarabCapacity = (s: State, slot: number): number =>
   internalProductCapacity(s, slot, Kind.Scarab);

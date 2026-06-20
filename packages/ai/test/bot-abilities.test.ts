@@ -94,6 +94,7 @@ const objectiveSnapshot = (overrides: Partial<BotObjectiveSnapshot> = {}): BotOb
   armyStrength: 0,
   queuedWorkerProduction: 0,
   queuedArmyProduction: 0,
+  queuedArmyStrength: 0,
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,

@@ -6,16 +6,16 @@ import {
   Role,
   TECH_CAP,
   TechDefs,
-  armorUpgradeBonus,
+  armorUpgradeBonusForKind,
   productionCount,
   shownSupply,
   type State,
   Units,
-  upgradedCooldown,
-  upgradedEnergyMax,
-  upgradedRange,
-  upgradedSpeed,
-  weaponUpgradeBonus,
+  upgradedCooldownForKind,
+  upgradedEnergyMaxForKind,
+  upgradedRangeForKind,
+  upgradedSpeedForKind,
+  weaponUpgradeBonusForKind,
   type Weapon,
 } from '@rts/sim';
 import type {
@@ -33,6 +33,7 @@ export type BotObjectiveSnapshot = {
   armyStrength: number;
   queuedWorkerProduction: number;
   queuedArmyProduction: number;
+  queuedArmyStrength: number;
   productionCapacity: number;
   pendingProductionCapacity: number;
   techUnlocks: number;
@@ -98,6 +99,7 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   armyStrength: 0,
   queuedWorkerProduction: 0,
   queuedArmyProduction: 0,
+  queuedArmyStrength: 0,
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,
@@ -117,29 +119,34 @@ const STRENGTH_ARMOR_VALUE = 12;
 const STRENGTH_SPEED_SCALE = 64;
 const STRENGTH_ENERGY_SCALE = 20;
 
-const weaponValue = (s: State, slot: number, weapon: Weapon | null): number => {
+const weaponValueForKind = (
+  s: State,
+  owner: number,
+  kind: number,
+  weapon: Weapon | null,
+): number => {
   if (!weapon) return 0;
-  const damage = weapon.damage + weaponUpgradeBonus(s, slot, weapon);
+  const damage = weapon.damage + weaponUpgradeBonusForKind(s, owner, kind, weapon);
   const shots = weapon.shots ?? 1;
-  const cooldown = Math.max(1, upgradedCooldown(s, slot, weapon.cooldown));
-  const rangeValue = Math.trunc(upgradedRange(s, slot, weapon) / STRENGTH_RANGE_SCALE);
+  const cooldown = Math.max(1, upgradedCooldownForKind(s, owner, kind, weapon.cooldown));
+  const rangeValue = Math.trunc(upgradedRangeForKind(s, owner, kind, weapon) / STRENGTH_RANGE_SCALE);
   return Math.round((damage * shots * STRENGTH_DAMAGE_RATE_SCALE) / cooldown + rangeValue);
 };
 
-const combatValue = (s: State, slot: number): number => {
-  const def = Units[s.e.kind[slot]!];
+const combatValueForKind = (s: State, owner: number, kind: number): number => {
+  const def = Units[kind];
   if (!def) return 0;
   const supplyValue = shownSupply(def.supply) * 100;
   const costValue = def.minerals + def.gas * 1.5;
-  const durabilityValue = (def.hp + def.shields) / 4 + armorUpgradeBonus(s, slot) * STRENGTH_ARMOR_VALUE;
-  const mobilityValue = Math.trunc(upgradedSpeed(s, slot, def.speed) / STRENGTH_SPEED_SCALE);
-  const energyValue = Math.trunc(upgradedEnergyMax(s, slot, def.energyMax) / STRENGTH_ENERGY_SCALE);
+  const durabilityValue = (def.hp + def.shields) / 4 + armorUpgradeBonusForKind(s, owner, kind) * STRENGTH_ARMOR_VALUE;
+  const mobilityValue = Math.trunc(upgradedSpeedForKind(s, owner, kind, def.speed) / STRENGTH_SPEED_SCALE);
+  const energyValue = Math.trunc(upgradedEnergyMaxForKind(s, owner, kind, def.energyMax) / STRENGTH_ENERGY_SCALE);
   return Math.round(
     supplyValue +
     costValue +
     durabilityValue +
-    weaponValue(s, slot, def.weapon) +
-    weaponValue(s, slot, def.airWeapon === def.weapon ? null : def.airWeapon) +
+    weaponValueForKind(s, owner, kind, def.weapon) +
+    weaponValueForKind(s, owner, kind, def.airWeapon === def.weapon ? null : def.airWeapon) +
     mobilityValue +
     energyValue,
   );
@@ -206,6 +213,11 @@ const queuedArmyProductionValue = (s: State, slot: number): number => {
     : 0;
 };
 
+const queuedArmyStrengthValue = (s: State, slot: number, count: number): number => {
+  const kind = s.e.prodKind[slot]!;
+  return count * combatValueForKind(s, s.e.owner[slot]!, kind);
+};
+
 const totalProductionCapacity = (objective: BotObjectiveSnapshot): number =>
   objective.productionCapacity + objective.pendingProductionCapacity;
 
@@ -247,12 +259,13 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       kindHasDirectWeapon(kind)
       ? shownSupply(def.supply)
       : 0;
-    const armyStrength = armySupply > 0 ? combatValue(s, slot) : 0;
+    const armyStrength = armySupply > 0 ? combatValueForKind(s, owner, kind) : 0;
     const capacityValue = productionCapacityValue(kind);
     const productionCapacity = e.built[slot] === 1 ? capacityValue : 0;
     const pendingProductionCapacity = pendingProductionCapacityValue(s, slot, kind);
     const queuedWorkerProduction = queuedWorkerProductionValue(s, slot);
     const queuedArmyProduction = queuedArmyProductionValue(s, slot);
+    const queuedArmyStrength = queuedArmyProduction > 0 ? queuedArmyStrengthValue(s, slot, queuedArmyProduction) : 0;
 
     if (owner === player) {
       objective.workerSupply += workerSupply;
@@ -260,6 +273,7 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       objective.armyStrength += armyStrength;
       objective.queuedWorkerProduction += queuedWorkerProduction;
       objective.queuedArmyProduction += queuedArmyProduction;
+      objective.queuedArmyStrength += queuedArmyStrength;
       objective.productionCapacity += productionCapacity;
       objective.pendingProductionCapacity += pendingProductionCapacity;
       if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) ownTechStructures.add(kind);

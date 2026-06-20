@@ -1057,6 +1057,10 @@ Remaining work:
     objective snapshot, trace frames read those canonical fields, and worker/army intent scoring
     subtracts queued units from its demand gaps. The scorer now treats units in the pipeline as
     future progress instead of repeatedly ranking the same urgency from fielded bodies only.
+  - Queued-strength evidence slice is done: sim upgrade math now exposes owner+kind helpers for
+    future units without fake entity slots, bot objective snapshots compute queued combat strength
+    through the same upgrade-aware valuation as fielded army strength, and traces/diagnoses report
+    future combat strength instead of treating every queued combat product as equal.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

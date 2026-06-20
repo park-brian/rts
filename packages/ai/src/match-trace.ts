@@ -43,6 +43,7 @@ export type BotTraceFrame = {
   retaskableArmy: number;
   queuedWorkerProduction: number;
   queuedArmyProduction: number;
+  queuedArmyStrength: number;
   idleProducers: number;
   idleLarvae: number;
   visibleEnemies: number;
@@ -324,7 +325,9 @@ const plural = (count: number, singular: string, pluralized = `${singular}s`): s
   `${count} ${count === 1 ? singular : pluralized}`;
 
 const queuedArmyDetail = (frame: BotTraceFrame): string =>
-  frame.queuedArmyProduction > 0 ? `, ${plural(frame.queuedArmyProduction, 'combat unit')} queued,` : '';
+  frame.queuedArmyProduction > 0
+    ? `, ${plural(frame.queuedArmyProduction, 'combat unit')} queued worth ${frame.queuedArmyStrength} strength,`
+    : '';
 
 const economyProgressDiagnosis = (
   first: BotTraceFrame,
@@ -364,7 +367,11 @@ const productionProgressDiagnosis = (
   }
   if (last.queuedArmyProduction > 0) {
     const units = plural(last.queuedArmyProduction, 'combat unit');
-    return { status: 'healthy', severity: last.queuedArmyProduction, detail: `${units} queued or morphing` };
+    return {
+      status: 'healthy',
+      severity: Math.max(last.queuedArmyProduction, Math.trunc(last.queuedArmyStrength / 100)),
+      detail: `${units} queued or morphing for ${last.queuedArmyStrength} future strength`,
+    };
   }
   if (pendingGain > 0) {
     const sources = plural(pendingGain, 'combat production source');
@@ -642,6 +649,7 @@ export const botTraceFrame = (
     retaskableArmy: facts.retaskableArmy.length,
     queuedWorkerProduction: objective.queuedWorkerProduction,
     queuedArmyProduction: objective.queuedArmyProduction,
+    queuedArmyStrength: objective.queuedArmyStrength,
     idleProducers: facts.idleProducers.length,
     idleLarvae: facts.idleLarvae.length,
     visibleEnemies: facts.visibleEnemies.length,

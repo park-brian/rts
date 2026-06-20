@@ -5,8 +5,10 @@ import { fx } from '../src/fixed.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
 import {
-  armorUpgradeBonus, shieldArmorBonus, upgradedCooldown, upgradedEnergyMax, upgradedRange,
-  upgradedSight, upgradedSpeed, weaponUpgradeBonus,
+  armorUpgradeBonus, armorUpgradeBonusForKind, shieldArmorBonus, upgradedCooldown,
+  upgradedCooldownForKind, upgradedEnergyMax, upgradedEnergyMaxForKind, upgradedRange,
+  upgradedRangeForKind, upgradedSight, upgradedSightForKind, upgradedSpeed,
+  upgradedSpeedForKind, weaponUpgradeBonus, weaponUpgradeBonusForKind,
 } from '../src/mechanics/upgrades.ts';
 import { simScenario } from '../test-support/scenario.ts';
 
@@ -278,6 +280,56 @@ test('speed, cooldown, sight, and energy upgrades are data-driven by unit kind',
 
     assert.equal(upgradedEnergyMax(s, slotOf(unit), Units[c.kind]!.energyMax), 250, Units[c.kind]!.name);
   }
+});
+
+test('kind upgrade helpers match slot upgrade helpers for future units', () => {
+  const { state: s, spawn, grant } = simScenario({ seed: 812 });
+  const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const zergling = spawn(Kind.Zergling, 0, fx(430), fx(400));
+  const hydralisk = spawn(Kind.Hydralisk, 0, fx(460), fx(400));
+  const medic = spawn(Kind.Medic, 0, fx(490), fx(400));
+  grant(0, Tech.InfantryWeapons, 2);
+  grant(0, Tech.InfantryArmor, 2);
+  grant(0, Tech.U238Shells);
+  grant(0, Tech.AdrenalGlands);
+  grant(0, Tech.MuscularAugments);
+  grant(0, Tech.GroovedSpines);
+  grant(0, Tech.CaduceusReactor);
+
+  const marineSlot = slotOf(marine);
+  const lingSlot = slotOf(zergling);
+  const hydraSlot = slotOf(hydralisk);
+  const medicSlot = slotOf(medic);
+  const marineWeapon = Units[Kind.Marine]!.weapon!;
+  const hydraWeapon = Units[Kind.Hydralisk]!.weapon!;
+  const owner = 0;
+
+  assert.equal(
+    weaponUpgradeBonusForKind(s, owner, Kind.Marine, marineWeapon),
+    weaponUpgradeBonus(s, marineSlot, marineWeapon),
+  );
+  assert.equal(armorUpgradeBonusForKind(s, owner, Kind.Marine), armorUpgradeBonus(s, marineSlot));
+  assert.equal(upgradedRangeForKind(s, owner, Kind.Marine, marineWeapon), upgradedRange(s, marineSlot, marineWeapon));
+  assert.equal(
+    upgradedSpeedForKind(s, owner, Kind.Hydralisk, Units[Kind.Hydralisk]!.speed),
+    upgradedSpeed(s, hydraSlot, Units[Kind.Hydralisk]!.speed),
+  );
+  assert.equal(
+    upgradedRangeForKind(s, owner, Kind.Hydralisk, hydraWeapon),
+    upgradedRange(s, hydraSlot, hydraWeapon),
+  );
+  assert.equal(
+    upgradedCooldownForKind(s, owner, Kind.Zergling, Units[Kind.Zergling]!.weapon!.cooldown),
+    upgradedCooldown(s, lingSlot, Units[Kind.Zergling]!.weapon!.cooldown),
+  );
+  assert.equal(
+    upgradedSightForKind(s, owner, Kind.Medic, Units[Kind.Medic]!.sight),
+    upgradedSight(s, medicSlot, Units[Kind.Medic]!.sight),
+  );
+  assert.equal(
+    upgradedEnergyMaxForKind(s, owner, Kind.Medic, Units[Kind.Medic]!.energyMax),
+    upgradedEnergyMax(s, medicSlot, Units[Kind.Medic]!.energyMax),
+  );
 });
 
 test('adrenal glands applies exact zergling attack cooldown', () => {
