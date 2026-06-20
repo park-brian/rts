@@ -220,6 +220,9 @@ const hasReadyArmyProduction = (frame: BotTraceFrame): boolean =>
   frame.supplyUsed < frame.supplyMax &&
   frame.idleProducers + frame.idleLarvae > 0;
 
+const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
+  frame.queuedArmyProduction > 0 || trainIntentCount(frame) > 0;
+
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
 
@@ -348,6 +351,9 @@ type ProgressDiagnosis = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detai
 
 const plural = (count: number, singular: string, pluralized = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralized}`;
+
+const queuedArmyDetail = (frame: BotTraceFrame): string =>
+  frame.queuedArmyProduction > 0 ? `, ${plural(frame.queuedArmyProduction, 'combat unit')} queued,` : '';
 
 const economyProgressDiagnosis = (
   first: BotTraceFrame,
@@ -534,9 +540,9 @@ export const botTraceAlerts = (
       'production-stall',
       (frame) =>
         hasReadyArmyProduction(frame) &&
-        trainIntentCount(frame) > 0 &&
+        hasArmyPipeline(frame) &&
         (frame.commandsByType.train ?? 0) === 0,
-      (_start, end, count) => `${count} sampled frames had idle production and ${end.objective.resourceFloat} resources without training`,
+      (_start, end, count) => `${count} sampled frames had idle production${queuedArmyDetail(end)} and ${end.objective.resourceFloat} resources without training`,
       (_start, end, count) => count * (end.idleProducers + end.idleLarvae),
     );
     pushFrameStreakAlerts(
@@ -545,6 +551,7 @@ export const botTraceAlerts = (
       'no-army-production',
       (frame) =>
         hasReadyArmyProduction(frame) &&
+        frame.queuedArmyProduction === 0 &&
         trainIntentCount(frame) === 0 &&
         (frame.commandsByType.train ?? 0) === 0,
       (_start, end, count) => `${count} sampled frames had idle production, supply, and ${end.objective.resourceFloat} resources but no train intent`,

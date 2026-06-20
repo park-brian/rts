@@ -359,6 +359,33 @@ test('bot trace alerts classify missing army production intent', () => {
     alert.detail.includes('no train intent')), true);
 });
 
+test('bot trace alerts classify queued army pipeline as production underuse, not no production', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8120, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, train: 0 },
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 0, 'spend-larva': 0, 'train-counter': 0 },
+    idleProducers: 1,
+    idleLarvae: 0,
+    queuedArmyProduction: 1,
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+
+  const alerts = botTraceAlerts(frames);
+
+  assert.equal(alerts.some((alert) =>
+    alert.kind === 'production-stall' &&
+    alert.detail.includes('1 combat unit queued')), true);
+  assert.equal(alerts.some((alert) => alert.kind === 'no-army-production'), false);
+});
+
 test('bot trace alerts classify repeated placement deadlocks', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8111, factions: [Terran, Terran] });
   const s = sim.fullState();

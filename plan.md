@@ -1049,6 +1049,10 @@ Remaining work:
     worker and combat-unit production, including Zerg egg morphs and multi-unit products. Economy
     and production diagnoses consume those counters, so a worker/army unit already in the pipeline
     is reported as concrete progress instead of a silent held-steady/stalled trace.
+  - Production-pipeline alert slice is done: trace alerts now classify "army is already queued but
+    idle production capacity is still unused" as a production-stall/underuse case, while reserving
+    the harsher `no-army-production` alert for traces with no train intent and no combat-unit
+    pipeline at all.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
