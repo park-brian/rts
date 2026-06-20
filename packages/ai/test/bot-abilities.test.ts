@@ -42,12 +42,15 @@ import {
   rankedTacticalResponders,
   schedulePressureOffense,
   scheduleBotMacro,
+  scoreBotIntent,
   selectTacticalResponders,
   shouldCommitPressure,
   TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
   tacticalIntentResult,
   tacticalResponseBudget,
+  type BotExpertContext,
+  type BotObjectiveSnapshot,
   type BotStrategyPosture,
 } from '../src/index.ts';
 import { maybeSetArmyStructureRallies } from '../src/macro-economy.ts';
@@ -82,6 +85,35 @@ const strategyPosture = (overrides: Partial<BotStrategyPosture> = {}): BotStrate
   retreatTolerance: 'normal',
   harassmentAppetite: 'normal',
   reasons: ['test posture'],
+  ...overrides,
+});
+
+const objectiveSnapshot = (overrides: Partial<BotObjectiveSnapshot> = {}): BotObjectiveSnapshot => ({
+  workerSupply: 8,
+  armySupply: 0,
+  armyStrength: 0,
+  productionCapacity: 0,
+  techUnlocks: 0,
+  supplyAvailable: 20,
+  enemyWorkerSupply: 8,
+  enemyArmySupply: 0,
+  enemyArmyStrength: 0,
+  enemyProductionCapacity: 0,
+  enemyTechUnlocks: 0,
+  resourceFloat: 0,
+  ...overrides,
+});
+
+const expertContext = (overrides: Partial<BotExpertContext> = {}): BotExpertContext => ({
+  objective: objectiveSnapshot(),
+  workers: 8,
+  workerTarget: 10,
+  army: 0,
+  retaskableArmy: 0,
+  idleProducers: 0,
+  idleLarvae: 0,
+  bases: 1,
+  attackThreshold: 12,
   ...overrides,
 });
 
@@ -400,6 +432,48 @@ test('bot expert helpers own intent urgency and trace ranking', () => {
   ]);
 
   assert.deepEqual(ranked.map((record) => record.intent.kind), ['expand', 'train-counter']);
+});
+
+test('bot expert scores production from completed capacity and supply headroom', () => {
+  const thinCapacity = expertContext({
+    objective: objectiveSnapshot({ productionCapacity: 0, supplyAvailable: 20, resourceFloat: 800 }),
+  });
+  const enoughCapacity = expertContext({
+    objective: objectiveSnapshot({ productionCapacity: 3, supplyAvailable: 20, resourceFloat: 800 }),
+  });
+  const supplyBlocked = expertContext({
+    objective: objectiveSnapshot({ productionCapacity: 0, supplyAvailable: 1, resourceFloat: 800 }),
+  });
+
+  const thin = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), thinCapacity);
+  const enough = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), enoughCapacity);
+  const blocked = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), supplyBlocked);
+
+  assert.equal((thin.score?.value ?? 0) > (enough.score?.value ?? 0), true);
+  assert.equal((blocked.score?.value ?? 0) < (thin.score?.value ?? 0), true);
+  assert.equal(thin.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail.includes('0/3')), true);
+  assert.equal(blocked.score?.reasons.some((reason) =>
+    reason.kind === 'supply-availability' &&
+    reason.value < 0), true);
+});
+
+test('bot expert scores upgrades from army value and existing tech saturation', () => {
+  const usefulArmy = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
+    objective: objectiveSnapshot({ armyStrength: 1_200, techUnlocks: 0 }),
+  }));
+  const saturatedTech = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
+    objective: objectiveSnapshot({ armyStrength: 1_200, techUnlocks: 8 }),
+  }));
+
+  assert.equal((usefulArmy.score?.value ?? 0) > (saturatedTech.score?.value ?? 0), true);
+  assert.equal(usefulArmy.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.value === 1_200), true);
+  assert.equal(saturatedTech.score?.reasons.some((reason) =>
+    reason.kind === 'tech-unlock' &&
+    reason.value < 0), true);
 });
 
 test('macro command intent mapping keeps scheduler vocabulary explicit', () => {

@@ -42,6 +42,7 @@ export type BotIntentScoreReason = {
     | 'army-growth'
     | 'production-throughput'
     | 'tech-unlock'
+    | 'supply-availability'
     | 'safety'
     | 'enemy-degradation'
     | 'map-control'

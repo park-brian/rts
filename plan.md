@@ -1030,6 +1030,11 @@ Remaining work:
     helpers for weapon damage, cooldown, range, armor, speed, and caster energy, so researched
     upgrades increase the same trace/evaluation surface instead of sitting only in a separate tech
     counter.
+  - Objective-aware judgement slice is done: intent scoring now consumes completed combat production
+    capacity, free supply, current army strength, and existing tech unlock count when ranking
+    production-capacity and research intents. This is still a thin expert judgement layer over
+    ordinary validated commands, but scores now explain scarce macro choices in terms of the same
+    objective metrics shown in traces.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

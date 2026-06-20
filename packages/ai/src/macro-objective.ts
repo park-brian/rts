@@ -384,6 +384,15 @@ const strategyProductionBonus = (strategy: BotStrategyPosture | undefined): numb
   return ratioBonus + techBonus;
 };
 
+const desiredProductionCapacity = (ctx: BotExpertContext): number =>
+  Math.max(1, Math.ceil(ctx.attackThreshold / 4));
+
+const productionCapacityGap = (ctx: BotExpertContext): number =>
+  Math.max(0, desiredProductionCapacity(ctx) - ctx.objective.productionCapacity);
+
+const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
+  ctx.objective.supplyAvailable <= 2 ? -6 : 0;
+
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
   const workerGap = Math.max(0, ctx.workerTarget - ctx.workers);
   const armyGap = Math.max(0, ctx.attackThreshold - ctx.army);
@@ -405,11 +414,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'add-production': {
       const zergMacroHatchery = intent.targetKind === Kind.Hatchery && ctx.idleLarvae === 0;
+      const capacityGap = productionCapacityGap(ctx);
       const strategyBonus = strategyProductionBonus(ctx.strategy);
-      return scoredIntent(intent, (zergMacroHatchery ? 42 : 36) + floatBonus + strategyBonus, [
-        scoreReason('production-throughput', ctx.idleProducers, zergMacroHatchery
+      const supplyPenalty = supplyHeadroomPenalty(ctx);
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty, [
+        scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
-          : `idle production capacity is ${ctx.idleProducers}`),
+          : `completed combat production capacity is ${ctx.objective.productionCapacity}/${desiredProductionCapacity(ctx)}`),
+        scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -438,10 +450,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       return scoredIntent(intent, 44, [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
       ]);
-    case 'research-upgrade':
-      return scoredIntent(intent, 28 + Math.min(8, Math.trunc(ctx.objective.armyStrength / 250)), [
-        scoreReason('army-growth', ctx.objective.armyStrength, 'upgrade increases future combat value'),
+    case 'research-upgrade': {
+      const armyValueBonus = Math.min(10, Math.trunc(ctx.objective.armyStrength / 220));
+      const unlockPenalty = Math.min(6, ctx.objective.techUnlocks);
+      return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty, [
+        scoreReason('army-growth', ctx.objective.armyStrength, 'upgrade increases current and future combat value'),
+        scoreReason('tech-unlock', -unlockPenalty, `completed tech unlock count is ${ctx.objective.techUnlocks}`),
       ]);
+    }
     case 'add-static-defense': {
       const strategyBonus = toleranceBonus(ctx.strategy?.staticDefenseTolerance);
       return scoredIntent(intent, 42 + strategyBonus, [
