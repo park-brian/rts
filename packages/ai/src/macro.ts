@@ -7,10 +7,10 @@ import {
   TILE,
   Units,
   eid,
-  hasAnyWeapon,
   isEnemy,
   isLarvaSourceKind,
   canProduceKind,
+  kindHasDirectWeapon,
   kindHasAbilities,
   withinRangeSq,
   type Command,
@@ -228,7 +228,7 @@ export const collectBotFacts = (
       facts.idleProducers.push(i);
     }
     if (kind === faction.armyUnit) facts.army.push(i);
-    if (kind !== faction.worker && (flags & Role.Mobile) !== 0 && hasAnyWeapon(Units[kind]!) && canRetaskArmy(s, i)) {
+    if (kind !== faction.worker && (flags & Role.Mobile) !== 0 && kindHasDirectWeapon(kind) && canRetaskArmy(s, i)) {
       facts.retaskableArmy.push(i);
     }
   }

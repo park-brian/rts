@@ -1,6 +1,6 @@
 import {
   Abilities, Ability, Kind, Role, Trait, Units, abilityTechAvailable, canDetect, canUseAbilityKind, distanceSq, eid,
-  hasReadyNuke, isCloaked, isDetectorKind, isEnemy, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
+  hasReadyNuke, isCloaked, isDetectorKind, isEnemy, kindHasDirectWeapon, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
   type Command, type State,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -196,8 +196,7 @@ const scoreScannerTarget = (s: State, player: number, x: number, y: number): num
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || !isEnemy(s, player, e.owner[i]!)) continue;
     if (!isCloaked(s, i) || canDetect(s, player, i) || e.x[i] !== x || e.y[i] !== y) continue;
-    const def = Units[e.kind[i]!]!;
-    const score = e.hp[i]! + e.shield[i]! + (def.weapon || def.airWeapon ? 60 : 0);
+    const score = e.hp[i]! + e.shield[i]! + (kindHasDirectWeapon(e.kind[i]!) ? 60 : 0);
     if (score > best) best = score;
   }
   return best;
@@ -291,7 +290,7 @@ const scoreOpticalFlareTarget = (s: State, _player: number, slot: number): numbe
   if (s.e.opticalFlare[slot] === 1) return 0;
   const detector = isDetectorKind(s.e.kind[slot]!) ? 150 : 0;
   const caster = s.e.energy[slot]! > 0 ? 60 : 0;
-  const armed = Units[s.e.kind[slot]!]!.weapon || Units[s.e.kind[slot]!]!.airWeapon ? 40 : 0;
+  const armed = kindHasDirectWeapon(s.e.kind[slot]!) ? 40 : 0;
   return detector + caster + armed + Units[s.e.kind[slot]!]!.sight * 4;
 };
 
@@ -314,7 +313,7 @@ const scoreMatrixTarget = (s: State, player: number, target: number, focusX: num
   const def = Units[e.kind[target]!]!;
   const missing = Math.max(0, def.hp - e.hp[target]!) + Math.max(0, def.shields - e.shield[target]!);
   const nearFight = withinRangeSq(e.x[target]!, e.y[target]!, focusX, focusY, TILE_FX * 7) ? 80 : 0;
-  return missing + nearFight + (def.weapon || def.airWeapon ? 40 : 0);
+  return missing + nearFight + (kindHasDirectWeapon(e.kind[target]!) ? 40 : 0);
 };
 
 const maybeCastCloak = (s: State, cmds: Command[], caster: number, abilityId: number, focusX: number, focusY: number): boolean => {
@@ -331,7 +330,7 @@ const scoreHallucinationTarget = (s: State, player: number, target: number, focu
   const e = s.e;
   const def = Units[e.kind[target]!]!;
   if (e.owner[target] !== player || e.illusion[target] === 1 || (e.flags[target]! & Role.Mobile) === 0) return 0;
-  if (!(def.weapon || def.airWeapon)) return 0;
+  if (!kindHasDirectWeapon(e.kind[target]!)) return 0;
   const nearFight = withinRangeSq(e.x[target]!, e.y[target]!, focusX, focusY, TILE_FX * 10) ? 80 : 0;
   return nearFight + e.hp[target]! + e.shield[target]! + def.supply * 8;
 };
@@ -353,7 +352,7 @@ const scoreFriendlyRecallCluster = (s: State, player: number, x: number, y: numb
   let score = 0;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.container[i] !== NONE || e.owner[i] !== player || !withinRangeSq(e.x[i]!, e.y[i]!, x, y, radius)) continue;
-    if ((e.flags[i]! & Role.Mobile) === 0 || !(Units[e.kind[i]!]!.weapon || Units[e.kind[i]!]!.airWeapon)) continue;
+    if ((e.flags[i]! & Role.Mobile) === 0 || !kindHasDirectWeapon(e.kind[i]!)) continue;
     score += 70 + Math.min(80, e.hp[i]! + e.shield[i]!);
   }
   return score;

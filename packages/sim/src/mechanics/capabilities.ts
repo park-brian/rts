@@ -1,4 +1,4 @@
-import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind, workerBuildKindsFor, type BuildMethod } from '../data/index.ts';
+import { Abilities, Kind, Role, TechDefs, Units, hasAnyWeapon, isLarvaSourceKind, workerBuildKindsFor, type BuildMethod } from '../data/index.ts';
 
 const ProducerFlags = {
   SupportsWorkerRally: 1 << 0,
@@ -27,6 +27,7 @@ const abilitiesByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND
 const workerBuildsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const buildMethodByKind: Array<BuildMethod | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
+const directWeaponByKind = new Uint8Array(MAX_KIND + 1);
 const smallStaticDefenseByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
@@ -39,6 +40,7 @@ for (const [key, def] of Object.entries(Units)) {
   productsByKind[kind] = products;
   buildMethodByKind[kind] = def.buildMethod;
   abilitiesByKind[kind] = def.abilities.length > 0 ? def.abilities : EMPTY_ABILITIES;
+  if (hasAnyWeapon(def)) directWeaponByKind[kind] = 1;
   if (isWorkerKind(kind)) workerBuildsByKind[kind] = workerBuildKindsFor(def.race);
 
   let flags = 0;
@@ -80,6 +82,9 @@ export const isLarvaProductKind = (kind: number): boolean =>
 
 export const isSmallStaticDefenseKind = (kind: number): boolean =>
   smallStaticDefenseByKind[kind] === 1;
+
+export const kindHasDirectWeapon = (kind: number): boolean =>
+  directWeaponByKind[kind] === 1;
 
 export const researchTechsFor = (producerKind: number): readonly number[] =>
   researchTechsByKind[producerKind] ?? EMPTY_TECHS;

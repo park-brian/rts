@@ -337,6 +337,9 @@ Migration plan:
   - Small-static-defense capability slice is done: `mechanics/capabilities.ts` now owns the
     small-static-defense classification used by macro placement, so harvest-corridor placement
     penalties no longer depend on an AI-local turret/cannon/spore kind set.
+  - Direct-weapon capability slice is done: `mechanics/capabilities.ts` now owns direct weapon
+    identity. Bot army fact collection and tactical ability scoring use that owner instead of
+    re-reading `weapon || airWeapon` in AI code.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
