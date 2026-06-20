@@ -15,16 +15,38 @@ export * from './spatial/geometry.ts';
 export * from './entity/approach.ts';
 export * from './commands/travel.ts';
 export * from './commands/intent.ts';
-export * from './mechanics/addons.ts';
-export * from './mechanics/terran-mobility.ts';
-export * from './mechanics/cargo.ts';
+export {
+  activeAddonParentSlot,
+  addonParentKind,
+  addonPosition,
+} from './mechanics/addons.ts';
+export {
+  isLiftedStructureFlags,
+  liftedStructureFlags,
+  liftStructure,
+} from './mechanics/terran-mobility.ts';
+export {
+  LOAD_RANGE,
+  UNLOAD_RANGE,
+  canAcceptCargo,
+  canUnloadAt,
+  sameTeam,
+  transportCapacity,
+  unloadAnchorSlot,
+} from './mechanics/cargo.ts';
 export * from './mechanics/creep.ts';
-export * from './mechanics/nuke.ts';
+export { hasReadyNuke } from './mechanics/nuke.ts';
 export * from './mechanics/detection.ts';
 export * from './mechanics/power.ts';
-export * from './mechanics/tech.ts';
+export {
+  getTechLevel,
+  nextTechLevel,
+  setTechLevel,
+  techGas,
+  techMinerals,
+} from './mechanics/tech.ts';
 export * from './mechanics/requirements.ts';
-export * from './mechanics/internal-products.ts';
+export { internalProductDef } from './mechanics/internal-products.ts';
 export * from './mechanics/actors.ts';
 export * from './mechanics/capabilities.ts';
 export * from './render/descriptors.ts';

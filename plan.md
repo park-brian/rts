@@ -141,8 +141,9 @@ Feasibility review against the current code:
   headless clients do not import them through `@rts/sim`. Burrow, transform, effect, larva, and
   status query helpers are likewise private to sim phases and direct sim tests; app, AI, and headless
   clients use command validators, observations, render descriptors, tech helpers, or higher-level
-  capability queries instead. Upgrade-derived stat helpers remain public because the app uses them
-  for selected-unit stat presentation.
+  capability queries instead. A public API guard test now denies known private mechanic helpers while
+  proving intentional app, AI, and headless affordances remain exported. Upgrade-derived stat helpers
+  remain public because the app uses them for selected-unit stat presentation.
 
 Near-term architecture slices from this review:
 
