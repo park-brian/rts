@@ -1228,8 +1228,12 @@ Remaining work:
       tile. The scorer penalizes base resource reservations and depot-to-resource harvest corridors,
       with smaller penalties for compact static defenses, while all build legality still flows
       through the shared sim placement validator. Remaining placement work: score passable building
-      rings, add-on clearance, wall/choke intent, defensive coverage, route risk, and cadence-aware
-      exceptions for mineral-line static defenses.
+      rings, wall/choke intent, defensive coverage, route risk, and cadence-aware exceptions for
+      mineral-line static defenses.
+    - Add-on clearance scoring slice is done: generic macro placement now penalizes blocking the
+      future add-on footprint beside existing Terran add-on-capable parents, and also penalizes
+      placing a new add-on-capable building where its own future add-on footprint is off-map,
+      unbuildable, or occupied.
   - Expansion must be a lifecycle, not a one-shot build command: choose site, scout/verify when
     uncertain, reserve builder/resources/site, execute, monitor blocked/path/unsafe outcomes, clear
     or detect if needed, choose another site when better, and retry without command spam.

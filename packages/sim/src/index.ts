@@ -17,6 +17,7 @@ export * from './commands/travel.ts';
 export * from './commands/intent.ts';
 export {
   activeAddonParentSlot,
+  addonKindsForParent,
   addonParentKind,
   addonPosition,
 } from './mechanics/addons.ts';

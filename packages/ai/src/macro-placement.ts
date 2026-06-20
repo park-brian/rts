@@ -1,11 +1,18 @@
 import {
   Kind,
+  NONE,
   ONE,
+  Role,
   TILE,
+  Units,
+  addonKindsForParent,
+  addonPosition,
   baseDepotFootprint,
+  buildable,
   canPlaceStructure,
   expandResourceFootprint,
   footprintsOverlap,
+  inBounds,
   isSmallStaticDefenseKind,
   requiresPower,
   resourceDirVector,
@@ -15,6 +22,7 @@ import {
   structureFootprint,
   tileX,
   tileY,
+  tiles,
   type BaseResourceDir,
   type Footprint,
   type ResourceFootprint,
@@ -29,6 +37,7 @@ const BASE_RESOURCE_EDGE_LIMIT_TILES = 12;
 const RESOURCE_RESERVATION_PENALTY = 80_000;
 const HARVEST_CORRIDOR_PENALTY = 120_000;
 const SMALL_DEFENSE_CORRIDOR_PENALTY = 7_500;
+const ADDON_CLEARANCE_PENALTY = 95_000;
 
 type BuildAnchor = { x: number; y: number };
 type BuildCandidate = { x: number; y: number; score: number; order: number };
@@ -41,6 +50,10 @@ type HarvestBase = {
 type HarvestPlacementContext = {
   corridors: ResourceFootprint[];
   reservation: ResourceFootprint | null;
+};
+type PlacementContext = {
+  harvest: HarvestPlacementContext[];
+  addonSlots: Footprint[];
 };
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
@@ -110,11 +123,56 @@ const harvestPlacementContext = (s: State): HarvestPlacementContext[] =>
     };
   });
 
-const placementPreferenceScore = (context: HarvestPlacementContext[], kind: number, fp: Footprint): number => {
+const addonFootprintAt = (parentKind: number, x: number, y: number, addonKind: number): Footprint => {
+  const parentDef = Units[parentKind]!;
+  const addonDef = Units[addonKind]!;
+  return structureFootprint(
+    addonKind,
+    x + tiles((parentDef.footprintW + addonDef.footprintW) / 2),
+    y + tiles((parentDef.footprintH - addonDef.footprintH) / 2),
+  );
+};
+
+const addonSlotBlocked = (s: State, fp: Footprint): boolean => {
+  for (let ty = fp.y0; ty <= fp.y1; ty++) {
+    for (let tx = fp.x0; tx <= fp.x1; tx++) {
+      if (!inBounds(s.map, tx, ty) || !buildable(s.map, tx, ty)) return true;
+    }
+  }
+
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1) continue;
+    if ((e.flags[i]! & (Role.Structure | Role.Resource)) === 0 && e.kind[i] !== Kind.Geyser) continue;
+    if (footprintsOverlap(fp, structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!))) return true;
+  }
+  return false;
+};
+
+const existingAddonSlots = (s: State, player: number): Footprint[] => {
+  const e = s.e;
+  const slots: Footprint[] = [];
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (e.target[i] !== NONE) continue;
+    const addons = addonKindsForParent(e.kind[i]!);
+    if (addons.length === 0) continue;
+    const pos = addonPosition(s, i, addons[0]!);
+    slots.push(structureFootprint(addons[0]!, pos.x, pos.y));
+  }
+  return slots;
+};
+
+const placementContext = (s: State, player: number): PlacementContext => ({
+  harvest: harvestPlacementContext(s),
+  addonSlots: existingAddonSlots(s, player),
+});
+
+const placementPreferenceScore = (s: State, context: PlacementContext, kind: number, x: number, y: number, fp: Footprint): number => {
   const smallDefense = isSmallStaticDefenseKind(kind);
   let score = 0;
 
-  for (const { corridors, reservation } of context) {
+  for (const { corridors, reservation } of context.harvest) {
     if (reservation && footprintsOverlap(fp, reservation)) {
       score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : RESOURCE_RESERVATION_PENALTY;
     }
@@ -123,6 +181,15 @@ const placementPreferenceScore = (context: HarvestPlacementContext[], kind: numb
         score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : HARVEST_CORRIDOR_PENALTY;
       }
     }
+  }
+
+  for (const addonSlot of context.addonSlots) {
+    if (footprintsOverlap(fp, addonSlot)) score += ADDON_CLEARANCE_PENALTY;
+  }
+
+  const ownAddons = addonKindsForParent(kind);
+  if (ownAddons.length > 0 && addonSlotBlocked(s, addonFootprintAt(kind, x, y, ownAddons[0]!))) {
+    score += ADDON_CLEARANCE_PENALTY;
   }
 
   return score;
@@ -138,7 +205,7 @@ const findBestSpot = (
   kind: number,
   anchors: BuildAnchor[],
 ): { x: number; y: number } | null => {
-  const context = harvestPlacementContext(s);
+  const context = placementContext(s, player);
   let best: BuildCandidate | null = null;
   let order = 0;
 
@@ -159,7 +226,7 @@ const findBestSpot = (
           const candidate = {
             x: placement.x,
             y: placement.y,
-            score: placementPreferenceScore(context, kind, fp) + dx * dx + dy * dy,
+            score: placementPreferenceScore(s, context, kind, placement.x, placement.y, fp) + dx * dx + dy * dy,
             order,
           };
           if (betterCandidate(candidate, best)) best = candidate;

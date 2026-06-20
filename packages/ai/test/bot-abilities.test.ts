@@ -89,6 +89,8 @@ const entityPos = (sim: Sim, id: number): { x: number; y: number } => {
   return { x: e.x[slot]!, y: e.y[slot]! };
 };
 
+const tileCenterFx = (tile: number): number => fx(tile * TILE + TILE / 2);
+
 const findEntity = (sim: Sim, kind: number, owner: number): number => {
   const e = sim.fullState().e;
   for (let i = 0; i < e.hi; i++) {
@@ -374,6 +376,14 @@ const blockWalkBarrierBetween = (s: State, ax: number, ay: number, bx: number, b
 
   const ty = Math.max(0, Math.min(map.h - 1, Math.trunc((aty + bty) / 2)));
   for (let tx = 0; tx < map.w; tx++) map.walk[ty * map.w + tx] = 0;
+};
+
+const openBuildFootprint = (s: State, fp: { x0: number; y0: number; x1: number; y1: number }): void => {
+  for (let y = fp.y0; y <= fp.y1; y++) {
+    for (let x = fp.x0; x <= fp.x1; x++) {
+      s.map.build[y * s.map.w + x] = 1;
+    }
+  }
 };
 
 const zergBuildOptions = { barracksTarget: 1, workerTarget: 0 };
@@ -3367,6 +3377,28 @@ test('macro placement avoids main harvest reservations for large structures', ()
 
   assert.ok(spot);
   assert.equal(footprintsOverlap(structureFootprint(Kind.Barracks, spot.x, spot.y), reservation), false);
+});
+
+test('macro placement preserves future Terran add-on clearance', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1120, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const factory = slotOf(spawnUnit(s, Kind.Factory, 0, fx(1_280), fx(1_280)));
+  const addonPos = addonPosition(s, factory, Kind.MachineShop);
+  const addonFootprint = structureFootprint(Kind.MachineShop, addonPos.x, addonPos.y);
+  const blockingSpot = { x: tileCenterFx(44), y: tileCenterFx(40) };
+  const clearSpot = { x: tileCenterFx(34), y: tileCenterFx(40) };
+
+  s.map.build.fill(0);
+  openBuildFootprint(s, structureFootprint(Kind.Barracks, blockingSpot.x, blockingSpot.y));
+  openBuildFootprint(s, structureFootprint(Kind.Barracks, clearSpot.x, clearSpot.y));
+
+  const spot = findSpot(s, 0, worker, Kind.Barracks, s.e.x[factory]!, s.e.y[factory]!);
+
+  assert.ok(spot);
+  assert.equal(spot.x, clearSpot.x);
+  assert.equal(spot.y, clearSpot.y);
+  assert.equal(footprintsOverlap(structureFootprint(Kind.Barracks, spot.x, spot.y), addonFootprint), false);
 });
 
 test('protoss bot places gateways from completed pylon power anchors', () => {
