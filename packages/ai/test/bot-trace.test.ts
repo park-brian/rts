@@ -282,6 +282,7 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   const p1 = trace.stats.players[1]!;
 
   assert.equal(trace.invalidCommands, 0);
+  assert.equal(trace.invalidCommandsByPlayer[0], 0);
   assert.equal(trace.frames.length >= 4, true);
   assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
   assert.equal(trace.frames.some((frame) =>
@@ -311,9 +312,30 @@ test('whole-match bot trace records progression facts over time', () => {
   const p0 = trace.stats.players[0]!;
 
   assert.equal(trace.invalidCommands, 0);
+  assert.equal(trace.invalidCommandsByPlayer[0], 0);
   assert.equal(workerPeak >= Terran.startWorkers, true);
   assert.equal(issuedPeak > 0, true);
   assert.equal(p0.commandsIssued > 0, true);
   assert.equal(p0.commandsAccepted > 0, true);
   assert.equal(p0.peakSupplyUsed >= p0.supplyUsed, true);
+});
+
+test('whole-match zerg competence gate grows, makes lings, and commits', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8122, factions: [Zerg, Terran] });
+  const trace = runBotMatchTrace(sim, [
+    { faction: Zerg, planner: createBotPlanner(Zerg, { workerTarget: 10, barracksTarget: 1, attackThreshold: 6 }) },
+    { faction: Terran, controller: createAggressiveMarineBot() },
+  ], { maxTicks: 4_800, sampleEvery: 1_200 });
+  const p0 = trace.stats.players[0]!;
+  const lings = countAlive(sim.fullState(), 0, Kind.Zergling);
+  const playerAlerts = trace.alerts.filter((alert) => alert.player === 0);
+
+  assert.equal(trace.invalidCommandsByPlayer[0], 0, 'Zerg planner should not emit invalid commands');
+  assert.equal(playerAlerts.length, 0, 'Zerg planner should not trigger competence alerts');
+  assert.equal(p0.peakWorkers > Zerg.startWorkers, true, 'Zerg should grow workers over the match');
+  assert.equal(p0.peakCombatUnits > 0, true, 'Zerg should complete combat units over the match');
+  assert.equal(lings > 0, true, 'Zerg should complete Zerglings over the match');
+  assert.equal((p0.commandsByType.train ?? 0) > 0, true, 'Zerg should issue training commands');
+  assert.equal((p0.commandsByType.build ?? 0) > 0, true, 'Zerg should issue build commands');
+  assert.equal((p0.commandsByType.attack ?? 0) + (p0.commandsByType.amove ?? 0) > 0, true, 'Zerg should commit combat commands');
 });

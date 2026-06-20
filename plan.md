@@ -966,6 +966,12 @@ Remaining work:
   Evolution Chamber first, duplicating Spawning Pools, failing to convert larvae/resources into
   Zerglings, or staying passive after lings are available should be treated as whole-match scheduler
   failures, not as isolated Evo/Pool special cases.
+  - First Zerg whole-match competence gate is done: a deterministic Zerg-vs-four-rax-baseline trace
+    now proves the planner grows workers, emits no player-0 invalid commands, builds, trains,
+    completes combat units, avoids trace competence alerts, and commits combat commands within a
+    4,800-tick window. The same slice also added per-player invalid-command counts to
+    `runBotMatchTrace`, so gates and UI diagnostics can distinguish the bot under test from a
+    deliberately crude baseline opponent.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

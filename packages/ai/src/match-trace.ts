@@ -114,6 +114,7 @@ export type BotMatchTrace = {
   frames: BotTraceFrame[];
   stats: MatchStats;
   invalidCommands: number;
+  invalidCommandsByPlayer: number[];
   commandResults: CommandResult[];
   objectiveTrends: BotObjectiveTrend[];
   alerts: BotTraceAlert[];
@@ -442,6 +443,7 @@ export const runBotMatchTrace = (
   const stats = createMatchStats(sim.fullState());
   const frames: BotTraceFrame[] = [];
   const commandResults: CommandResult[] = [];
+  const invalidCommandsByPlayer = participants.map(() => 0);
   const sampleEvery = Math.max(1, options.sampleEvery ?? 240);
   let invalidCommands = 0;
 
@@ -454,6 +456,9 @@ export const runBotMatchTrace = (
     commandResults.push(...results);
     for (const result of results) {
       if (!result.ok) invalidCommands++;
+      if (!result.ok && result.player >= 0 && result.player < invalidCommandsByPlayer.length) {
+        invalidCommandsByPlayer[result.player]!++;
+      }
     }
     recordMatchStatsStep(stats, sim.fullState(), batch, results);
   }
@@ -465,6 +470,7 @@ export const runBotMatchTrace = (
     frames,
     stats,
     invalidCommands,
+    invalidCommandsByPlayer,
     commandResults,
     objectiveTrends,
     alerts,
