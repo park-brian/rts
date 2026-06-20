@@ -35,6 +35,7 @@ import {
   tacticalIntentResult,
   tacticalResponseBudget,
 } from '../src/index.ts';
+import { maybeSetArmyStructureRallies } from '../src/macro-economy.ts';
 import {
   botScenario,
   expectBotBuildsLegal,
@@ -284,6 +285,28 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   assert.equal(intents[2]?.targetTech, Tech.StimPack);
   assert.equal(intents[3]?.targetKind, Kind.SCV);
   assert.equal(intents[4]?.targetKind, Kind.Marine);
+});
+
+test('macro army-structure rally setup obeys shared rally validation', () => {
+  const scenario = botScenario({ seed: 835, factions: [Terran, Terran] });
+  const s = scenario.state;
+  const depot = slotOf(scenario.entity(Kind.CommandCenter, 0));
+  const base = scenario.pos(eid(s.e, depot));
+  const ownBarracks = slotOf(scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y));
+  const enemyBarracks = slotOf(scenario.spawn(Kind.Barracks, 1, base.x + fx(220), base.y));
+  const cmds: Command[] = [];
+
+  maybeSetArmyStructureRallies(s, cmds, depot, [ownBarracks, enemyBarracks]);
+
+  assert.equal(cmds.length, 1);
+  assert.equal(cmds[0]?.t, 'rally');
+  const rally = cmds[0] as Extract<Command, { t: 'rally' }>;
+  assert.equal(rally.building, eid(s.e, ownBarracks));
+  assert.deepEqual(validateCommand(s, 0, rally), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, { ...rally, building: eid(s.e, enemyBarracks) }), {
+    ok: false,
+    reason: 'wrong-owner',
+  });
 });
 
 test('macro scheduler returns intents for live macro commands', () => {

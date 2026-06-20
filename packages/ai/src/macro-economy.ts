@@ -10,6 +10,7 @@ import {
   eid,
   isLarvaProductKind,
   supply,
+  validateCommand,
   withinRangeSq,
   type Command,
   type Faction,
@@ -225,7 +226,9 @@ export const maybeSetArmyStructureRallies = (
   const stage = 5 * TILE * ONE;
   const x = s.e.x[depot]! + Math.trunc((dx * stage) / d);
   const y = s.e.y[depot]! + Math.trunc((dy * stage) / d);
+  const player = s.e.owner[depot]!;
   for (const structure of structures) {
-    if (s.e.rallyX[structure]! < 0) cmds.push({ t: 'rally', building: eid(s.e, structure), x, y });
+    const command: Command = { t: 'rally', building: eid(s.e, structure), x, y };
+    if (s.e.rallyX[structure]! < 0 && validateCommand(s, player, command).ok) cmds.push(command);
   }
 };
