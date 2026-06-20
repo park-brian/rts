@@ -29,7 +29,7 @@ import {
   type BotObjectiveSnapshot,
   type BotObjectiveTrend,
 } from './macro-objective.ts';
-import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture } from './macro-strategy.ts';
+import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture, type BotStrategyPostureName } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
 import { botIntentExpectation } from './macro-expert.ts';
@@ -129,6 +129,39 @@ export type BotExpertDiagnosis = {
   detail: string;
 };
 
+export type BotTracePhaseSummary = {
+  player: number;
+  phase: BotStrategyPostureName;
+  fromTick: number;
+  toTick: number;
+  samples: number;
+  plan: BotStrategyPlan;
+  startMinerals: number;
+  endMinerals: number;
+  startGas: number;
+  endGas: number;
+  startSupplyUsed: number;
+  endSupplyUsed: number;
+  startSupplyMax: number;
+  endSupplyMax: number;
+  startWorkers: number;
+  endWorkers: number;
+  startArmy: number;
+  endArmy: number;
+  startBases: number;
+  endBases: number;
+  queuedWorkerPeak: number;
+  queuedArmyPeak: number;
+  idleProducerPeak: number;
+  idleLarvaPeak: number;
+  commandsByType: CountMap<CommandType>;
+  intentsByKind: CountMap<BotIntentKind>;
+  outcomesByStatus: CountMap<BotTraceOutcomeStatus>;
+  waitsByReason: CountMap<BotFailureReason>;
+  blocksByReason: CountMap<BotFailureReason>;
+  alertKinds: CountMap<BotTraceAlertKind>;
+};
+
 export type BotTraceParticipant = {
   faction: Faction;
   planner?: BotPlanner;
@@ -149,6 +182,7 @@ export type BotMatchTrace = {
   objectiveTrends: BotObjectiveTrend[];
   alerts: BotTraceAlert[];
   expertDiagnoses: BotExpertDiagnosis[];
+  phaseSummaries: BotTracePhaseSummary[];
 };
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
@@ -161,6 +195,12 @@ const inc = <K extends string>(counts: CountMap<K>, key: K): void => {
   counts[key] = (counts[key] ?? 0) + 1;
 };
 
+const addCounts = <K extends string>(target: CountMap<K>, source: CountMap<K>): void => {
+  for (const [key, value] of Object.entries(source) as Array<[K, number]>) {
+    target[key] = (target[key] ?? 0) + value;
+  }
+};
+
 const TOP_TRACE_INTENTS = 5;
 const TOP_TRACE_PLACEMENTS = 5;
 const ALERT_STREAK_FRAMES = 3;
@@ -168,6 +208,17 @@ const RESOURCE_FLOAT_ALERT = 800;
 const PRODUCTION_FLOAT_ALERT = 300;
 const MACRO_COMMANDS: readonly CommandType[] = ['build', 'train', 'research', 'addon', 'transform'];
 const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', 'mine'];
+const BOT_TRACE_ALERT_KINDS: readonly BotTraceAlertKind[] = [
+  'invalid-commands',
+  'resource-float-stall',
+  'production-stall',
+  'no-army-production',
+  'tech-stall',
+  'combat-intent-stall',
+  'pressure-idle-stall',
+  'expected-progress-stall',
+  'placement-stall',
+];
 const TRAIN_INTENTS: readonly BotIntentKind[] = ['train-worker', 'spend-larva', 'train-counter'];
 const TECH_INTENTS: readonly BotIntentKind[] = ['take-gas', 'rebuild-tech', 'research-upgrade'];
 const TECH_PROGRESS_COMMANDS: readonly CommandType[] = ['build', 'research', 'addon', 'transform'];
@@ -393,6 +444,103 @@ const framesByPlayer = (frames: readonly BotTraceFrame[]): Map<number, BotTraceF
   }
   for (const bucket of byPlayer.values()) bucket.sort((a, b) => a.tick - b.tick);
   return byPlayer;
+};
+
+const alertsForPhase = (
+  alerts: readonly BotTraceAlert[],
+  player: number,
+  fromTick: number,
+  toTick: number,
+): CountMap<BotTraceAlertKind> => {
+  const counts = blankCounts(BOT_TRACE_ALERT_KINDS);
+  for (const alert of alerts) {
+    if (alert.player === player && alert.toTick >= fromTick && alert.fromTick <= toTick) inc(counts, alert.kind);
+  }
+  return counts;
+};
+
+const summarizePhaseFrames = (
+  phaseFrames: readonly BotTraceFrame[],
+  alerts: readonly BotTraceAlert[],
+): BotTracePhaseSummary => {
+  const first = phaseFrames[0]!;
+  const last = phaseFrames[phaseFrames.length - 1]!;
+  const commandsByType = blankCounts(COMMAND_TYPES);
+  const intentsByKind = blankCounts(BOT_INTENT_KINDS);
+  const outcomesByStatus = blankCounts<BotTraceOutcomeStatus>(['done', 'waiting', 'blocked', 'failed']);
+  const waitsByReason = Object.create(null) as CountMap<BotFailureReason>;
+  const blocksByReason = Object.create(null) as CountMap<BotFailureReason>;
+  let queuedWorkerPeak = 0;
+  let queuedArmyPeak = 0;
+  let idleProducerPeak = 0;
+  let idleLarvaPeak = 0;
+
+  for (const frame of phaseFrames) {
+    addCounts(commandsByType, frame.commandsByType);
+    addCounts(intentsByKind, frame.intentsByKind);
+    addCounts(outcomesByStatus, frame.outcomesByStatus);
+    addCounts(waitsByReason, frame.waitsByReason);
+    addCounts(blocksByReason, frame.blocksByReason);
+    queuedWorkerPeak = Math.max(queuedWorkerPeak, frame.queuedWorkerProduction);
+    queuedArmyPeak = Math.max(queuedArmyPeak, frame.queuedArmyProduction);
+    idleProducerPeak = Math.max(idleProducerPeak, frame.idleProducers);
+    idleLarvaPeak = Math.max(idleLarvaPeak, frame.idleLarvae);
+  }
+
+  return {
+    player: first.player,
+    phase: first.strategy.name,
+    fromTick: first.tick,
+    toTick: last.tick,
+    samples: phaseFrames.length,
+    plan: last.strategicPlan,
+    startMinerals: first.minerals,
+    endMinerals: last.minerals,
+    startGas: first.gas,
+    endGas: last.gas,
+    startSupplyUsed: first.supplyUsed,
+    endSupplyUsed: last.supplyUsed,
+    startSupplyMax: first.supplyMax,
+    endSupplyMax: last.supplyMax,
+    startWorkers: first.workers,
+    endWorkers: last.workers,
+    startArmy: first.army,
+    endArmy: last.army,
+    startBases: first.bases,
+    endBases: last.bases,
+    queuedWorkerPeak,
+    queuedArmyPeak,
+    idleProducerPeak,
+    idleLarvaPeak,
+    commandsByType,
+    intentsByKind,
+    outcomesByStatus,
+    waitsByReason,
+    blocksByReason,
+    alertKinds: alertsForPhase(alerts, first.player, first.tick, last.tick),
+  };
+};
+
+export const botTracePhaseSummaries = (
+  frames: readonly BotTraceFrame[],
+  alerts: readonly BotTraceAlert[] = botTraceAlerts(frames),
+): BotTracePhaseSummary[] => {
+  const summaries: BotTracePhaseSummary[] = [];
+
+  for (const playerFrames of framesByPlayer(frames).values()) {
+    let start = 0;
+    for (let i = 1; i <= playerFrames.length; i++) {
+      const frame = playerFrames[i];
+      if (frame && frame.strategy.name === playerFrames[start]!.strategy.name) continue;
+      summaries.push(summarizePhaseFrames(playerFrames.slice(start, i), alerts));
+      start = i;
+    }
+  }
+
+  return summaries.sort((a, b) =>
+    a.player - b.player ||
+    a.fromTick - b.fromTick ||
+    a.phase.localeCompare(b.phase));
 };
 
 const posturePath = (frames: readonly BotTraceFrame[]): string[] => {
@@ -980,6 +1128,7 @@ export const runBotMatchTrace = (
 
   const objectiveTrends = botObjectiveTrends(frames);
   const alerts = botTraceAlerts(frames, commandResults);
+  const phaseSummaries = botTracePhaseSummaries(frames, alerts);
 
   return {
     frames,
@@ -990,5 +1139,6 @@ export const runBotMatchTrace = (
     objectiveTrends,
     alerts,
     expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+    phaseSummaries,
   };
 };

@@ -6,6 +6,7 @@ import {
   botObjectiveReasons,
   botObjectiveTrends,
   botTraceExpertDiagnoses,
+  botTracePhaseSummaries,
   botTraceFrame,
   botIntentExpectation,
   createBotPlanner,
@@ -756,6 +757,49 @@ test('bot expert diagnoses flag missing army production intent as production fai
     entry.detail.includes('no train intent')), true);
 });
 
+test('bot trace phase summaries aggregate contiguous strategy windows', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8131, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const opening = botTraceFrame(s, 0, Terran, plan);
+  const pressure = {
+    ...opening,
+    tick: 60,
+    minerals: 500,
+    workers: opening.workers + 1,
+    commandsByType: { ...opening.commandsByType, attack: 1 },
+    outcomesByStatus: { ...opening.outcomesByStatus, done: opening.outcomesByStatus.done! + 1 },
+    strategy: {
+      ...opening.strategy,
+      name: 'pressure' as const,
+    },
+    strategicPlan: {
+      ...opening.strategicPlan,
+      phase: 'pressure' as const,
+      primaryGoal: 'degrade-enemy' as const,
+      macroPriority: 'tech' as const,
+      combatStance: 'pressure' as const,
+    },
+  };
+  const openingAgain = {
+    ...opening,
+    tick: 120,
+    minerals: 450,
+    queuedArmyProduction: 1,
+  };
+  const alerts = botTraceAlerts([opening, pressure, openingAgain]);
+  const summaries = botTracePhaseSummaries([opening, pressure, openingAgain], alerts);
+
+  assert.deepEqual(summaries.map((summary) => summary.phase), ['opening', 'pressure', 'opening']);
+  assert.equal(summaries[0]!.fromTick, 0);
+  assert.equal(summaries[0]!.toTick, 0);
+  assert.equal(summaries[1]!.plan.combatStance, 'pressure');
+  assert.equal(summaries[1]!.commandsByType.attack, 1);
+  assert.equal(summaries[2]!.queuedArmyPeak, 1);
+  assert.equal(summaries.every((summary) => summary.player === 0), true);
+});
+
 test('race macro planners convert ready production paths into combat units', () => {
   const cases: Array<{
     faction: Faction;
@@ -820,6 +864,12 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.expertDiagnoses.length >= 4, true);
   assert.equal(trace.objectiveTrends.length, 1);
   assert.equal(trace.objectiveTrends[0]!.player, 0);
+  assert.equal(trace.phaseSummaries.length > 0, true);
+  assert.equal(trace.phaseSummaries.every((summary) => summary.player === 0), true);
+  assert.equal(trace.phaseSummaries[0]!.fromTick, trace.frames[0]!.tick);
+  assert.equal(trace.phaseSummaries[trace.phaseSummaries.length - 1]!.toTick, trace.frames[trace.frames.length - 1]!.tick);
+  assert.equal(trace.phaseSummaries.some((summary) =>
+    (summary.commandsByType.train ?? 0) + (summary.commandsByType.build ?? 0) > 0), true);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);
   assert.equal(trace.stats.tick, sim.fullState().tick);
   assert.equal(p0.commandsIssued > 0, true);

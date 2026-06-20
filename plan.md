@@ -160,6 +160,10 @@ Expert-verdict slice is done: bot traces now emit one aggregate `summary` diagno
 ranking the existing strategic-domain diagnoses, naming the top blockers, and preserving the current
 strategic plan in the detail string. The post-match health panel renders that verdict above the
 per-domain chips, so whole-match failures are visible before tuning more bot heuristics.
+Phase-summary slice is done: bot traces now aggregate contiguous strategy windows into deterministic
+phase summaries with resource, supply, worker, army, queue, command, intent, outcome, wait/block, and
+alert counts. This gives the expert system a compact timeline of what each strategy phase actually
+did before we add more scheduler heuristics.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
