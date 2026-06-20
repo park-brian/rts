@@ -35,6 +35,7 @@ import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
 import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
 import {
+  botBuildsFirstCombatStructure,
   botExpertObligationDetail,
   botHasCombatPipeline,
   botHasExpertObligationEvidence,
@@ -222,6 +223,7 @@ export type BotTraceCompetenceGateDomain =
   | 'macro-spending'
   | 'production'
   | 'opening-combat'
+  | 'opening-discipline'
   | 'expansion-plan'
   | 'tech'
   | 'placement'
@@ -1468,6 +1470,51 @@ const openingCombatGate = (
   );
 };
 
+const optionalOpeningIntentDetail = (frame: BotTraceFrame): string | undefined => {
+  if (frame.strategicPlan.primaryGoal !== 'establish-combat') return undefined;
+  if (botHasCombatPipeline(frame.objective)) return undefined;
+  const intent = frame.topIntents[0];
+  if (!intent || intent.status !== 'done') return undefined;
+  if (intent.kind === 'rebuild-tech') {
+    if (intent.targetKind === undefined || botBuildsFirstCombatStructure(intent.targetKind)) return undefined;
+  } else if (intent.kind !== 'take-gas' && intent.kind !== 'research-upgrade' && intent.kind !== 'add-static-defense') {
+    return undefined;
+  }
+  return `tick ${frame.tick} led with ${intent.kind} before first combat access`;
+};
+
+const openingDisciplineGate = (
+  frames: readonly BotTraceFrame[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const openingFrames = frames.filter((frame) =>
+    frame.player === player && frame.strategicPlan.primaryGoal === 'establish-combat');
+  const violations = openingFrames.flatMap((frame) => {
+    const detail = optionalOpeningIntentDetail(frame);
+    return detail ? [detail] : [];
+  });
+
+  if (openingFrames.length === 0) {
+    return competenceGate(player, 'opening-discipline', 'healthy', 0, 'no sampled opening phase required first-combat discipline');
+  }
+  if (violations.length > 0) {
+    return competenceGate(
+      player,
+      'opening-discipline',
+      'failing',
+      violations.length,
+      `${violations.length} opening samples prioritized optional tech before combat access: ${violations.slice(0, 2).join('; ')}`,
+    );
+  }
+  return competenceGate(
+    player,
+    'opening-discipline',
+    'healthy',
+    openingFrames.length,
+    `${openingFrames.length} opening samples kept first-combat discipline before optional tech`,
+  );
+};
+
 const phaseHasExpansionEvidence = (phase: BotTracePhaseSummary): boolean =>
   (phase.intentsByKind.expand ?? 0) > 0 || phase.end.bases > phase.start.bases;
 
@@ -1561,6 +1608,7 @@ export const botTraceCompetenceGates = (
   ));
 
   gates.push(openingCombatGate(trace.phaseSummaries, player, last));
+  gates.push(openingDisciplineGate(frames, player));
   gates.push(expansionPlanGate(trace.phaseSummaries, player));
 
   gates.push(competenceGate(

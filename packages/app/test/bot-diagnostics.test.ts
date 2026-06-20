@@ -63,6 +63,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
     'macro-spending',
     'objective-progress',
     'opening-combat',
+    'opening-discipline',
     'phase-evidence',
     'placement',
     'plan-coherence',
@@ -80,6 +81,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   }
   assert.equal(gates.some((gate) => gate.domain === 'commands' && gate.detail.includes('planner commands')), true);
   assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.length > 0), true);
+  assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'expansion-plan' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'objective-progress' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true);

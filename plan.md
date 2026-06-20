@@ -1203,6 +1203,11 @@ Remaining work:
     the plan through enemy-degradation. This is the first hard tripwire for "legal but random"
     bot behavior: a bot can no longer pass the expert surface merely by issuing commands if its
     intents do not support the phase it claims to be playing.
+  - Opening-discipline gate slice is done: competence gates now flag sampled opening frames where
+    the bot claims it is establishing first combat access but the leading accepted intent drifts into
+    optional tech/static-defense work before any combat pipeline exists. This pins the "Zerg builds Evo/gas
+    before lings" class of failure as an expert-system contradiction rather than a race-specific
+    special case.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

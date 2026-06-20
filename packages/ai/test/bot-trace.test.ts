@@ -797,6 +797,49 @@ test('bot competence gates flag opening plans without a combat pipeline', () => 
   assert.equal(gate?.detail.includes('lacked queued/fielded combat strength'), true);
 });
 
+test('bot competence gates flag optional tech before opening combat access', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8134, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Zerg, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const baseFrame = botTraceFrame(s, 0, Zerg, plan);
+  const frame = {
+    ...baseFrame,
+    objective: {
+      ...baseFrame.objective,
+      armyStrength: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    },
+    topIntents: [{
+      kind: 'take-gas' as const,
+      axis: botIntentVictoryAxis('take-gas'),
+      status: 'done' as const,
+      urgency: 38,
+      scoreReasons: [{ kind: 'tech-unlock' as const, value: 12, detail: 'optional gas before lings' }],
+      expectation: botIntentExpectation('take-gas'),
+    }],
+  };
+  const trace: BotMatchTrace = {
+    frames: [frame],
+    stats: createMatchStats(sim.fullState()),
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends: [],
+    alerts: [],
+    expertDiagnoses: [{ player: 0, domain: 'summary', status: 'healthy', severity: 0, detail: 'test summary' }],
+    phaseSummaries: [],
+    phaseAssessments: [],
+  };
+
+  const gate = botTraceCompetenceGates(trace, 0).find((entry) => entry.domain === 'opening-discipline');
+
+  assert.equal(gate?.status, 'failing');
+  assert.equal(gate?.detail.includes('optional tech before combat access'), true);
+  assert.equal(gate?.detail.includes('take-gas'), true);
+});
+
 test('bot competence gates flag expansion plans without base attempts', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8127, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1357,6 +1400,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.includes('first-combat discipline')), true, `${name} gates should expose opening discipline evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'expansion-plan'), true, `${name} gates should expose expansion plan evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'objective-progress' && gate.detail.includes('advanced their objective')), true, `${name} gates should expose objective progress evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);
