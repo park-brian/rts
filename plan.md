@@ -1197,9 +1197,11 @@ Remaining work:
     - Expansion-foundation monitor slice is done: unfinished depot foundations now stay inside the
       expansion lifecycle. Unsafe foundations report `blocked: unsafe-location`, while paused Terran
       expansion foundations with no assigned builder resume through the shared `repair` command
-      validator instead of leaving the bot permanently tied up by an incomplete base. Remaining
-      expansion lifecycle work: clear/retry blocked-site memory after successful clear-site/scout
-      outcomes.
+      validator instead of leaving the bot permanently tied up by an incomplete base.
+    - Expansion memory-clear slice is done: successful location-resolution intents now clear stale
+      blocked-site and suspected-threat memory for that tile. `clear-site` resolves unsafe/occupied/
+      path-blocked expansion memory and `scout` resolves suspected invisible-threat memory, allowing
+      macro expansion to retry the original site once the tactical action has succeeded.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -1788,6 +1790,8 @@ Done when:
 - Added unfinished expansion foundation monitoring: paused Terran depot foundations resume via
   validated repair commands, and unsafe unfinished depot foundations report blocked expansion
   outcomes.
+- Added blocked-location memory clearing for successful `clear-site` and `scout` intents, including
+  a live planner retry test for an expansion site after the blocking threat is gone.
 
 ## Review Checklist
 

@@ -538,7 +538,30 @@ test('bot memory records actionable intent outcome locations', () => {
   assert.deepEqual([...memory.suspectedInvisibleThreats.values()], [{ x, y, tick: 100 }]);
   assert.deepEqual([...memory.blockedSites.values()], [{ x: x + TILE * ONE, y, reason: 'occupied-location', tick: 100 }]);
 
-  rememberIntentOutcomes(memory, [], 100 + INTENT_OUTCOME_MEMORY_TICKS + 1);
+  rememberIntentOutcomes(memory, [
+    {
+      intent: { kind: 'clear-site', urgency: 80, x: x + TILE * ONE, y },
+      result: { status: 'done' },
+    },
+    {
+      intent: { kind: 'scout', urgency: 20, x, y },
+      result: { status: 'done' },
+    },
+  ], 101);
+  assert.equal(memory.suspectedInvisibleThreats.size, 0);
+  assert.equal(memory.blockedSites.size, 0);
+
+  rememberIntentOutcomes(memory, [
+    {
+      intent: { kind: 'get-detection', urgency: 90, x, y },
+      result: { status: 'waiting', reason: 'missing-detection' },
+    },
+    {
+      intent: { kind: 'expand', urgency: 35, x: x + TILE * ONE, y },
+      result: { status: 'blocked', reason: 'occupied-location' },
+    },
+  ], 102);
+  rememberIntentOutcomes(memory, [], 102 + INTENT_OUTCOME_MEMORY_TICKS + 1);
   assert.equal(memory.suspectedInvisibleThreats.size, 0);
   assert.equal(memory.blockedSites.size, 0);
 });
@@ -2571,7 +2594,7 @@ test('bot converts remembered blocked expansion sites into clear-site intents', 
   };
   const side = natural.x < (scenario.state.map.w >> 1) ? 1 : -1;
   scenario.spawn(Kind.Marine, 0, base.x + fx(32), base.y);
-  scenario.spawn(Kind.SiegeTankSieged, 1, point.x + fx(side * TILE * 9), point.y);
+  const blocker = scenario.spawn(Kind.SiegeTankSieged, 1, point.x + fx(side * TILE * 9), point.y);
 
   const planner = createBotPlanner(Terran, {
     barracksTarget: 0,
@@ -2595,6 +2618,14 @@ test('bot converts remembered blocked expansion sites into clear-site intents', 
   assert.deepEqual(clearSite.result, { status: 'done' });
   assert.ok(second.commands.some((command) =>
     command.t === 'amove' && command.x === point.x && command.y === point.y));
+
+  scenario.state.e.alive[slotOf(blocker)] = 0;
+  scenario.state.tick++;
+  const third = planner(scenario.state, 0);
+  const retry = findBuild(third.commands, Kind.CommandCenter);
+  assert.ok(retry);
+  assert.equal(tileX(retry.x), natural.x);
+  assert.equal(tileY(retry.y), natural.y);
 });
 
 test('live bot planner reports path-blocked pending expansion outcomes', () => {

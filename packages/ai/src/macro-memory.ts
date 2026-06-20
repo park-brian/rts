@@ -47,9 +47,16 @@ export const rememberIntentOutcomes = (
   pruneOlderThan(memory.suspectedInvisibleThreats, tick);
 
   for (const { intent, result } of records) {
-    if (result.status === 'done') continue;
     if (intent.x === undefined || intent.y === undefined) continue;
     const key = tileKey(intent.x, intent.y);
+
+    if (result.status === 'done') {
+      if (intent.kind === 'clear-site' || intent.kind === 'scout') {
+        memory.blockedSites.delete(key);
+        memory.suspectedInvisibleThreats.delete(key);
+      }
+      continue;
+    }
 
     if (result.reason === 'missing-detection') {
       memory.suspectedInvisibleThreats.set(key, { x: intent.x, y: intent.y, tick });
