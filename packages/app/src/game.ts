@@ -18,6 +18,12 @@ import {
   createPlaySession, createReplaySeekSim, createReplaySession, defaultRaceNames,
   exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
 } from './game-session.ts';
+import {
+  botExpertHealthRows,
+  recordBotDiagnosticResults,
+  type AppBotDiagnostics,
+} from './bot-diagnostics.ts';
+import type { MatchHealthRow } from './match-health.ts';
 
 const TICK_MS = 1000 / FPS;
 
@@ -32,6 +38,7 @@ export class Game {
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   humanPlayer = 0;
   matchStats!: MatchStats;
+  botDiagnostics: AppBotDiagnostics[] = [];
 
   private cameraController?: CameraController;
   private visibilityController?: VisibilityController;
@@ -147,6 +154,7 @@ export class Game {
     this.map = session.map;
     this.sim = session.sim;
     this.matchStats = createMatchStats(this.sim.fullState());
+    this.botDiagnostics = session.botDiagnostics;
     this.human = session.human;
     this.controllers = session.controllers;
     this.selectionState().reset();
@@ -177,6 +185,7 @@ export class Game {
     this.map = session.map;
     this.sim = session.sim;
     this.matchStats = createMatchStats(this.sim.fullState());
+    this.botDiagnostics = session.botDiagnostics;
     this.human = session.human; // god view for analysis
     this.controllers = session.controllers;
     this.selectionState().clear();
@@ -225,6 +234,10 @@ export class Game {
   /** The replay JSON for the current/just-played game (download payload). */
   exportReplay(): string | null {
     return exportReplayJson(this.sim, this.replay, mapSpecFor(this.perTeam, this.seed));
+  }
+
+  botExpertHealthRows(): MatchHealthRow[] {
+    return botExpertHealthRows(this.botDiagnostics, this.matchStats);
   }
 
   loadReplay(json: string): void {
@@ -322,6 +335,7 @@ export class Game {
     }
     const results = this.sim.step(batch);
     recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
+    recordBotDiagnosticResults(this.botDiagnostics, results);
     this.pruneSelection();
   }
 

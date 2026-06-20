@@ -137,6 +137,15 @@ const HEALTH_COLOR: Record<MatchHealthStatus, string> = {
 const healthLabel = (row: MatchHealthRow): string =>
   `${row.domain} ${HEALTH_LABEL[row.status]}: ${row.detail}`;
 
+const playerHealthRows = (
+  player: number,
+  statsHealth: readonly MatchHealthRow[],
+  botHealth: readonly MatchHealthRow[],
+): MatchHealthRow[] => {
+  const expert = botHealth.filter((row) => row.player === player);
+  return expert.length > 0 ? expert : statsHealth.filter((row) => row.player === player);
+};
+
 const Btn = (p: {
   label: string;
   onClick: () => void;
@@ -702,6 +711,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const stats = p.game.matchStats;
   const duration = Math.max(0, Math.floor((stats.tick - stats.startTick) / FPS));
   const health = matchHealthRows(stats);
+  const botHealth = p.game.botExpertHealthRows();
   return (
     <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
       border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
@@ -762,7 +772,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
             alignItems: 'center', color: '#cdd9e5' }}>
             <span>P{player.player + 1}</span>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '4px' }}>
-              {health.filter((row) => row.player === player.player).map((row) => (
+              {playerHealthRows(player.player, health, botHealth).map((row) => (
                 <span key={row.domain} title={healthLabel(row)}
                   style={{ minWidth: 0, border: `1px solid ${HEALTH_COLOR[row.status]}`,
                     background: '#0f151e', color: HEALTH_COLOR[row.status], padding: '3px 4px',

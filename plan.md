@@ -109,8 +109,12 @@ value made/lost, command counts, rejected-command counts, and later exact collec
 breakdowns once those event hooks exist.
 First strategic-health slice is done: sim match stats now distinguish created workers from created
 combat units, and the game-over results panel shows compact macro/economy/production/combat health
-chips for each player. Remaining work: feed full bot intent diagnoses into this panel for planner
-participants instead of relying only on stats-derived health.
+chips for each player. Second strategic-health slice is done: live app bot controllers now wrap the
+planner directly, sample the actual issued turn plans, record command outcomes by bot participant,
+and feed intent-aware expert diagnoses into the results panel for scripted players while retaining
+stats-derived fallback rows for humans and replays. Remaining work: let the scheduler consume these
+same diagnosis concepts during the match so production stalls, passive combat posture, and macro
+deadlocks trigger corrective intents instead of only post-game explanation.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

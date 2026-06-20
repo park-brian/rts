@@ -1,7 +1,12 @@
 import {
-  Factions, Sim, createBotControllers, generateMap, mapFromSpec, parseReplay, toReplay,
+  Factions, Sim, generateMap, mapFromSpec, parseReplay, toReplay,
   type Controller, type Faction, type FactionName, type MapDef, type MapSpec, type Replay,
 } from './sim.ts';
+import {
+  botDiagnosticController,
+  createBotDiagnostics,
+  type AppBotDiagnostics,
+} from './bot-diagnostics.ts';
 import type { Mode } from './store.ts';
 
 const RACE_NAMES: FactionName[] = ['terran', 'protoss', 'zerg'];
@@ -17,6 +22,7 @@ export type PlaySession = {
   humanPlayer: number;
   playerRaceNames: FactionName[];
   controllers: (Controller | null)[];
+  botDiagnostics: AppBotDiagnostics[];
 };
 
 export type ReplaySession = {
@@ -28,6 +34,7 @@ export type ReplaySession = {
   sim: Sim;
   human: -1;
   controllers: [];
+  botDiagnostics: [];
   playerRaceNames: FactionName[];
   replayTick: number;
   replaySpeed: number;
@@ -65,11 +72,23 @@ export const createPlaySession = (
   const factions: Faction[] = playerRaceNames.map((race) => Factions[race]);
   const map = generateMap(perTeam, seed);
   const sim = new Sim({ map, players, seed, record: true, vision: true, factions });
-  const bots = createBotControllers(players, factions);
+  const botDiagnostics = createBotDiagnostics(players, factions);
   const human = mode === 'play' ? normalizedHuman : -1;
   const controllers = Array.from({ length: players }, (_, p) =>
-    mode === 'play' && p === normalizedHuman ? null : bots[p]!);
-  return { mode, seed, perTeam, players, map, sim, human, humanPlayer: normalizedHuman, playerRaceNames, controllers };
+    mode === 'play' && p === normalizedHuman ? null : botDiagnosticController(botDiagnostics[p]!));
+  return {
+    mode,
+    seed,
+    perTeam,
+    players,
+    map,
+    sim,
+    human,
+    humanPlayer: normalizedHuman,
+    playerRaceNames,
+    controllers,
+    botDiagnostics,
+  };
 };
 
 export const replayFromCurrent = (sim: Sim, spec: MapSpec): Replay | null =>
@@ -95,6 +114,7 @@ export const createReplaySession = (
     sim,
     human: -1,
     controllers: [],
+    botDiagnostics: [],
     playerRaceNames,
     replayTick: 0,
     replaySpeed: 1,
