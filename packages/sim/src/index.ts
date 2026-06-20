@@ -66,3 +66,4 @@ export * from './sim.ts';
 export * from './io/serialize.ts';
 export * from './io/replay.ts';
 export * from './io/observe.ts';
+export * from './io/match-stats.ts';

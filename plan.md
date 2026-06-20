@@ -61,6 +61,8 @@ does:
    isolated director features. The bot should stop producing legal-but-random buildings and instead
    pursue an explainable opening, spend resources, produce workers/army, attack, defend, rebuild
    broken prerequisites, and expand from one coherent strategy state.
+   Instrumentation comes before new heuristics: every whole-match AI fix should be driven by match
+   stats plus bot intent traces that show what the bot knew, intended, emitted, and failed to do.
 2. **Player setup, map setup, and command reachability.** Add race/team/map setup for local human,
    scripted AI, and future multiplayer configurations, then prove every player-available sim
    capability is reachable through shared selection/command-card/hotkey/smart-command paths.
@@ -99,6 +101,12 @@ Near-term fidelity notes from the current economy/repair slice:
 
 Execution contract: every implementation slice should end with targeted validation, a focused commit,
 and a push before starting the next slice. Do not batch unrelated work behind one later push.
+
+Post-match stats are a product surface, not only test logging. Every completed match should expose a
+compact results panel in the UI, backed by the same headless telemetry used by bot tests: duration,
+winner, resources, supply, workers, combat units, bases, units/structures made and lost, resource
+value made/lost, command counts, rejected-command counts, and later exact collection/combat
+breakdowns once those event hooks exist.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
@@ -1684,6 +1692,10 @@ Done when:
 
 ## Recently Completed Consolidation Slices
 
+- Added the first reusable instrumentation layer: sim-owned match stats track command receipts,
+  entity lifecycle value, current/peak economy and army counts, the app records them at every
+  play/replay step, the game-over UI displays a compact post-match table, and AI bot trace frames
+  summarize facts, commands, intents, and wait/block reasons for future whole-match diagnostics.
 - Extracted cargo command validation.
 - Extracted rally command validation.
 - Extracted train command validation.

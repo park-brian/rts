@@ -2,10 +2,10 @@
 // drawn imperatively on canvas. Touch-first: big targets in the bottom thumb arc.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { VNode } from 'preact';
+import { Fragment, type VNode } from 'preact';
 import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
 import {
-  Abilities, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
+  Abilities, FPS, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
   shownSupply, type FactionName,
 } from './sim.ts';
 import type { Game } from './game.ts';
@@ -657,6 +657,48 @@ const Hotbar = (p: { game: Game }) => {
   );
 };
 
+const MatchStatsPanel = (p: { game: Game }) => {
+  const stats = p.game.matchStats;
+  const duration = Math.max(0, Math.floor((stats.tick - stats.startTick) / FPS));
+  return (
+    <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
+      border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
+      fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '8px',
+        color: '#cdd9e5' }}>
+        <b>Match Stats</b>
+        <span>{fmt(duration)} elapsed</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(58px, 1fr))', gap: '4px',
+        alignItems: 'center' }}>
+        {['P', 'Res', 'Supply', 'Workers', 'Army', 'Bases', 'Made', 'Lost', 'Cmds'].map((h) => (
+          <b key={h} style={{ color: '#8ea4bd', borderBottom: '1px solid #253142', paddingBottom: '4px' }}>{h}</b>
+        ))}
+        {stats.players.map((player) => (
+          <Fragment key={player.player}>
+            <span>P{player.player + 1}</span>
+            <span>{player.minerals}/{player.gas}</span>
+            <span>{fmtSupply(player.supplyUsed)}/{fmtSupply(player.supplyMax)}<br />
+              <span style={{ opacity: 0.65 }}>pk {fmtSupply(player.peakSupplyUsed)}</span></span>
+            <span>{player.workers}<br /><span style={{ opacity: 0.65 }}>pk {player.peakWorkers}</span></span>
+            <span>{player.combatUnits}<br /><span style={{ opacity: 0.65 }}>pk {player.peakCombatUnits}</span></span>
+            <span>{player.bases}</span>
+            <span>{player.unitsCreated + player.structuresCreated}<br />
+              <span style={{ opacity: 0.65 }}>{player.mineralValueCreated}/{player.gasValueCreated}</span></span>
+            <span>{player.unitsLost + player.structuresLost}<br />
+              <span style={{ opacity: 0.65 }}>{player.mineralValueLost}/{player.gasValueLost}</span></span>
+            <span>{player.commandsAccepted}/{player.commandsIssued}<br />
+              <span style={{ opacity: player.commandsRejected ? 0.9 : 0.55,
+                color: player.commandsRejected ? '#ff9b9b' : '#8ea4bd' }}>
+                rej {player.commandsRejected}
+              </span></span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const GameOver = (p: { game: Game }) => {
   if (!ui.over.value || ui.mode.value === 'replay') return null; // replay has its own transport
   const won = ui.mode.value === 'play' && ui.winner.value === 0;
@@ -665,6 +707,7 @@ const GameOver = (p: { game: Game }) => {
     <div style={{ position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'rgba(4,6,10,0.6)' }}>
       <div style={{ fontSize: '34px', fontWeight: '800', color: won ? '#5aff7a' : '#ff7a7a' }}>{txt}</div>
+      <MatchStatsPanel game={p.game} />
       <div style={{ display: 'flex', gap: '10px' }}>
         {ui.hasReplay.value && <Btn label="▭ Watch replay" onClick={() => p.game.startReplay()} />}
         <Btn label="New game" onClick={() => p.game.restart(ui.mode.value === 'replay' ? 'spectate' : ui.mode.value)} />

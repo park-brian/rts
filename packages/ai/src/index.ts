@@ -22,4 +22,5 @@ export * from './macro-scheduler.ts';
 export * from './macro-static-defense.ts';
 export * from './macro-tactics.ts';
 export * from './macro-tech.ts';
+export * from './match-trace.ts';
 export * from './bot.ts';

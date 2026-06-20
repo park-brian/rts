@@ -2,9 +2,9 @@
 // controllers for camera, visibility, selection, input commands, and HUD publishing.
 
 import {
-  Sim, FPS, TILE, Kind,
+  Sim, FPS, TILE, Kind, createMatchStats, recordMatchStatsStep,
   type MapDef, type Command, type PlayerCommands, type Controller,
-  type Replay, type State, type FactionName,
+  type Replay, type State, type FactionName, type MatchStats,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -31,6 +31,7 @@ export class Game {
   seed = 1;
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   humanPlayer = 0;
+  matchStats!: MatchStats;
 
   private cameraController?: CameraController;
   private visibilityController?: VisibilityController;
@@ -145,6 +146,7 @@ export class Game {
     this.humanPlayer = session.humanPlayer;
     this.map = session.map;
     this.sim = session.sim;
+    this.matchStats = createMatchStats(this.sim.fullState());
     this.human = session.human;
     this.controllers = session.controllers;
     this.selectionState().reset();
@@ -174,6 +176,7 @@ export class Game {
     this.playerRaceNames = session.playerRaceNames;
     this.map = session.map;
     this.sim = session.sim;
+    this.matchStats = createMatchStats(this.sim.fullState());
     this.human = session.human; // god view for analysis
     this.controllers = session.controllers;
     this.selectionState().clear();
@@ -198,7 +201,12 @@ export class Game {
     const r = this.replay;
     const target = Math.max(0, Math.min(tick, r.frames.length));
     this.sim = createReplaySeekSim(r, this.map);
-    for (let t = 0; t < target; t++) this.sim.step(r.frames[t] ?? []);
+    this.matchStats = createMatchStats(this.sim.fullState());
+    for (let t = 0; t < target; t++) {
+      const batch = r.frames[t] ?? [];
+      const results = this.sim.step(batch);
+      recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
+    }
     this.replayTick = target;
     this.paused = target >= r.frames.length;
     this.selectionState().clear();
@@ -288,7 +296,9 @@ export class Game {
   private replayStep(): void {
     const r = this.replay;
     if (!r || this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; return; }
-    this.sim.step(r.frames[this.replayTick] ?? []);
+    const batch = r.frames[this.replayTick] ?? [];
+    const results = this.sim.step(batch);
+    recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
     this.replayTick++;
     ui.replayTick.value = this.replayTick;
     this.pruneSelection();
@@ -310,7 +320,8 @@ export class Game {
       if (ctrl) batch.push({ player: p, cmds: ctrl(this.sim.fullState(), p) });
       else batch.push({ player: p, cmds: this.drainHuman() });
     }
-    this.sim.step(batch);
+    const results = this.sim.step(batch);
+    recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
     this.pruneSelection();
   }
 
