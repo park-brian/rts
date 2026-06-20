@@ -4,6 +4,7 @@ import {
   ONE,
   Role,
   TILE,
+  TechDefs,
   Units,
   addonKindsForParent,
   addonPosition,
@@ -23,6 +24,7 @@ import {
   tileX,
   tileY,
   tiles,
+  walkable,
   type BaseResourceDir,
   type Footprint,
   type ResourceFootprint,
@@ -38,6 +40,8 @@ const RESOURCE_RESERVATION_PENALTY = 80_000;
 const HARVEST_CORRIDOR_PENALTY = 120_000;
 const SMALL_DEFENSE_CORRIDOR_PENALTY = 7_500;
 const ADDON_CLEARANCE_PENALTY = 95_000;
+const BUILDING_RING_PENALTY = 24_000;
+const BUILDING_RING_BLOCKED_TILE_PENALTY = 3_000;
 
 type BuildAnchor = { x: number; y: number };
 type BuildCandidate = { x: number; y: number; score: number; order: number };
@@ -54,6 +58,8 @@ type HarvestPlacementContext = {
 type PlacementContext = {
   harvest: HarvestPlacementContext[];
   addonSlots: Footprint[];
+  buildingRings: Footprint[];
+  blockers: Footprint[];
 };
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
@@ -123,6 +129,27 @@ const harvestPlacementContext = (s: State): HarvestPlacementContext[] =>
     };
   });
 
+const TECH_PRODUCER_KINDS = new Set(
+  Object.values(TechDefs).flatMap((def) => def.producers),
+);
+
+const expandedFootprint = (fp: Footprint, margin: number): Footprint => ({
+  x0: fp.x0 - margin,
+  y0: fp.y0 - margin,
+  x1: fp.x1 + margin,
+  y1: fp.y1 + margin,
+});
+
+const footprintContainsTile = (fp: Footprint, tx: number, ty: number): boolean =>
+  tx >= fp.x0 && tx <= fp.x1 && ty >= fp.y0 && ty <= fp.y1;
+
+const protectsBuildingRing = (kind: number): boolean => {
+  const def = Units[kind];
+  if (!def || (def.roles & Role.Structure) === 0) return false;
+  if (def.requiresGeyser || def.buildMethod === 'addon' || isSmallStaticDefenseKind(kind)) return false;
+  return (def.produces?.length ?? 0) > 0 || TECH_PRODUCER_KINDS.has(kind);
+};
+
 const addonFootprintAt = (parentKind: number, x: number, y: number, addonKind: number): Footprint => {
   const parentDef = Units[parentKind]!;
   const addonDef = Units[addonKind]!;
@@ -149,6 +176,35 @@ const addonSlotBlocked = (s: State, fp: Footprint): boolean => {
   return false;
 };
 
+const blocksPlacementRing = (s: State, slot: number): boolean => {
+  const e = s.e;
+  if (e.alive[slot] !== 1) return false;
+  if ((e.flags[slot]! & Role.Air) !== 0) return false;
+  if ((e.flags[slot]! & (Role.Structure | Role.Resource)) !== 0) return true;
+  return e.kind[slot] === Kind.Geyser;
+};
+
+const placementBlockers = (s: State): Footprint[] => {
+  const e = s.e;
+  const blockers: Footprint[] = [];
+  for (let i = 0; i < e.hi; i++) {
+    if (!blocksPlacementRing(s, i)) continue;
+    blockers.push(structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!));
+  }
+  return blockers;
+};
+
+const existingBuildingRings = (s: State, player: number): Footprint[] => {
+  const e = s.e;
+  const rings: Footprint[] = [];
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (!protectsBuildingRing(e.kind[i]!)) continue;
+    rings.push(expandedFootprint(structureFootprint(e.kind[i]!, e.x[i]!, e.y[i]!), 1));
+  }
+  return rings;
+};
+
 const existingAddonSlots = (s: State, player: number): Footprint[] => {
   const e = s.e;
   const slots: Footprint[] = [];
@@ -166,7 +222,27 @@ const existingAddonSlots = (s: State, player: number): Footprint[] => {
 const placementContext = (s: State, player: number): PlacementContext => ({
   harvest: harvestPlacementContext(s),
   addonSlots: existingAddonSlots(s, player),
+  buildingRings: existingBuildingRings(s, player),
+  blockers: placementBlockers(s),
 });
+
+const blockedRingTiles = (s: State, context: PlacementContext, fp: Footprint): number => {
+  let blocked = 0;
+  const ring = expandedFootprint(fp, 1);
+  for (let ty = ring.y0; ty <= ring.y1; ty++) {
+    for (let tx = ring.x0; tx <= ring.x1; tx++) {
+      if (footprintContainsTile(fp, tx, ty)) continue;
+      if (!inBounds(s.map, tx, ty) || !walkable(s.map, tx, ty)) {
+        blocked++;
+        continue;
+      }
+      if (context.blockers.some((blocker) => footprintContainsTile(blocker, tx, ty))) {
+        blocked++;
+      }
+    }
+  }
+  return blocked;
+};
 
 const placementPreferenceScore = (s: State, context: PlacementContext, kind: number, x: number, y: number, fp: Footprint): number => {
   const smallDefense = isSmallStaticDefenseKind(kind);
@@ -185,6 +261,14 @@ const placementPreferenceScore = (s: State, context: PlacementContext, kind: num
 
   for (const addonSlot of context.addonSlots) {
     if (footprintsOverlap(fp, addonSlot)) score += ADDON_CLEARANCE_PENALTY;
+  }
+
+  for (const ring of context.buildingRings) {
+    if (footprintsOverlap(fp, ring)) score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : BUILDING_RING_PENALTY;
+  }
+
+  if (protectsBuildingRing(kind)) {
+    score += blockedRingTiles(s, context, fp) * BUILDING_RING_BLOCKED_TILE_PENALTY;
   }
 
   const ownAddons = addonKindsForParent(kind);

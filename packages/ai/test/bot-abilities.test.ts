@@ -3401,6 +3401,25 @@ test('macro placement preserves future Terran add-on clearance', () => {
   assert.equal(footprintsOverlap(structureFootprint(Kind.Barracks, spot.x, spot.y), addonFootprint), false);
 });
 
+test('macro placement preserves passable rings around production buildings', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1121, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, fx(1_280), fx(1_280)));
+  const crowdedSpot = { x: tileCenterFx(43), y: tileCenterFx(40) };
+  const clearSpot = { x: tileCenterFx(47), y: tileCenterFx(40) };
+
+  s.map.build.fill(0);
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, crowdedSpot.x, crowdedSpot.y));
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, clearSpot.x, clearSpot.y));
+
+  const spot = findSpot(s, 0, worker, Kind.SupplyDepot, s.e.x[barracks]!, s.e.y[barracks]!);
+
+  assert.ok(spot);
+  assert.equal(spot.x, clearSpot.x);
+  assert.equal(spot.y, clearSpot.y);
+});
+
 test('protoss bot places gateways from completed pylon power anchors', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
   const s = sim.fullState();
