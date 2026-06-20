@@ -950,7 +950,10 @@ const GameOver = (p: { game: Game }) => {
 const RACES: FactionName[] = ['terran', 'protoss', 'zerg'];
 const MIDFIELD_MODULES: MidfieldModule[] = ['empty', 'blocks', 'dualChoke', 'arena', 'raisedCenter'];
 const raceLabel = (race: FactionName): string => race[0]!.toUpperCase() + race.slice(1);
-const teamOf = (slot: number): number => slot % 2;
+const setupTeams = (teams: readonly number[], players: number): number[] =>
+  teams.length === players
+    ? teams.map((team) => Math.max(0, Math.trunc(team)))
+    : Array.from({ length: players }, (_, i) => i < players / 2 ? 0 : 1);
 const defaultMapSpec = (perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
   ({ kind: 'procedural', perTeam, seed, preset: 'teamPlateaus', midfield: 'empty' });
 const proceduralMapSpec = (spec: MapSpec, perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
@@ -1036,6 +1039,7 @@ const SetupModal = (p: { game: Game }) => {
   const [perTeam, setPerTeamState] = useState(ui.perTeam.value);
   const [human, setHuman] = useState(ui.humanPlayer.value);
   const [races, setRaces] = useState<FactionName[]>(setupRaces(ui.playerRaces.value, ui.perTeam.value * 2));
+  const [teams, setTeams] = useState<number[]>(setupTeams(ui.playerTeams.value, ui.perTeam.value * 2));
   const initialMap = proceduralMapSpec(p.game.mapSpec, ui.perTeam.value, p.game.seed);
   const [preset, setPreset] = useState<MapPreset>(initialMap.preset ?? 'teamPlateaus');
   const [midfield, setMidfield] = useState<MidfieldModule>(initialMap.midfield ?? 'empty');
@@ -1048,15 +1052,21 @@ const SetupModal = (p: { game: Game }) => {
     setPerTeamState(n);
     setHuman(Math.min(human, n * 2 - 1));
     setRaces((old) => setupRaces(old, n * 2));
+    setTeams((old) => setupTeams(old, n * 2));
   };
   const setRace = (slot: number, race: FactionName): void => {
     const next = setupRaces(races, players);
     next[slot] = race;
     setRaces(next);
   };
+  const setTeam = (slot: number, team: number): void => {
+    const next = setupTeams(teams, players);
+    next[slot] = Math.max(0, Math.trunc(team));
+    setTeams(next);
+  };
   const start = (): void => {
     ui.setupOpen.value = false;
-    p.game.restart(mode, seed, perTeam, races, human, mapSpec);
+    p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams);
   };
 
   return (
@@ -1123,9 +1133,15 @@ const SetupModal = (p: { game: Game }) => {
             <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Players</summary>
             <div style={{ display: 'grid', gap: '8px' }}>
               {Array.from({ length: players }, (_, slot) => (
-                <div style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: '8px', alignItems: 'center' }}>
-                  <Btn compact label={`P${slot + 1} T${teamOf(slot) + 1}`} active={mode === 'play' && human === slot}
+                <div style={{ display: 'grid', gridTemplateColumns: '64px 88px 1fr', gap: '8px', alignItems: 'center' }}>
+                  <Btn compact label={`P${slot + 1}`} active={mode === 'play' && human === slot}
                     onClick={() => setHuman(slot)} />
+                  <select value={teams[slot] ?? 0} onInput={(e) => setTeam(slot, Number.parseInt(e.currentTarget.value, 10))}
+                    style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
+                    {Array.from({ length: players }, (_, team) => (
+                      <option value={team}>Team {team + 1}</option>
+                    ))}
+                  </select>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {RACES.map((race) => (
                       <Btn compact label={raceLabel(race)} active={races[slot] === race} onClick={() => setRace(slot, race)} />

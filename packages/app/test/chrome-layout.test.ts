@@ -148,7 +148,9 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /MAP_PRESETS\.map/);
   assert.match(ui, /MIDFIELD_MODULES\.map/);
   assert.match(ui, /setSeedText\(String\(randomSeed\(\)\)\)/);
-  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec\)/);
+  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams\)/);
+  assert.match(ui, /setupTeams\(ui\.playerTeams\.value,\s*ui\.perTeam\.value \* 2\)/);
+  assert.match(ui, /<option value=\{team\}>Team \{team \+ 1\}<\/option>/);
   assert.match(ui, /<details open[\s\S]*>Map<\/summary>/);
   assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);
   assert.match(game, /replayFromCurrent\(this\.sim,\s*this\.mapSpec\)/);

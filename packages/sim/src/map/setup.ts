@@ -19,6 +19,7 @@ export const setupMatch = (
   playerCount: number,
   seed: number,
   factions?: Faction[],
+  teams?: readonly number[],
 ): State => {
   const s = makeState(map, playerCount, seed);
   const e = s.e;
@@ -30,8 +31,8 @@ export const setupMatch = (
     if (!r.gas) e.cargo[slotOf(id)] = r.amount;
   }
 
-  // Teams from the map (if provided), else each player on their own team.
-  for (let p = 0; p < playerCount; p++) s.teams[p] = map.teams[p] ?? p;
+  // Teams from explicit setup, then the map, else each player on their own team.
+  for (let p = 0; p < playerCount; p++) s.teams[p] = teams?.[p] ?? map.teams[p] ?? p;
 
   // Players: depot + workers, per faction.
   for (let p = 0; p < playerCount; p++) {

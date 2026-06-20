@@ -11,7 +11,7 @@ test('game restart preserves procedural map recipe for replay export', () => {
     seed: 4242,
     preset: 'fortress',
     midfield: 'dualChoke',
-  });
+  }, [0, 0, 1, 1]);
 
   const json = g.exportReplay();
   assert.ok(json);
@@ -26,4 +26,6 @@ test('game restart preserves procedural map recipe for replay export', () => {
   });
   assert.equal(replay.seed, 4242);
   assert.deepEqual(replay.factions, ['terran', 'protoss', 'zerg', 'terran']);
+  assert.deepEqual(replay.teams, [0, 0, 1, 1]);
+  assert.deepEqual(Array.from(g.sim.fullState().teams), [0, 0, 1, 1]);
 });

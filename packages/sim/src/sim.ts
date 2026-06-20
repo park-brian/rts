@@ -12,7 +12,7 @@ import { serializeState, deserializeState } from './io/serialize.ts';
 import { observe, writeObservation, type Observation, type ObservationBuffers, type ObservationWriteCounts } from './io/observe.ts';
 import { vision } from './systems/vision.ts';
 
-export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean; factions?: Faction[] };
+export type SimOptions = { map: MapDef; players: number; seed: number; record?: boolean; vision?: boolean; factions?: Faction[]; teams?: readonly number[] };
 export type Snapshot = State; // an in-memory deep-cloned state (see serialize() for bytes)
 
 /** Deep-copy one tick's command batch so a recorded replay is immune to caller reuse. */
@@ -37,7 +37,7 @@ export class Sim {
 
   constructor(opts: SimOptions) {
     this.factions = Array.from({ length: opts.players }, (_, i) => opts.factions?.[i] ?? Terran);
-    this.state = setupMatch(opts.map, opts.players, opts.seed, this.factions);
+    this.state = setupMatch(opts.map, opts.players, opts.seed, this.factions, opts.teams);
     this.state.trackVision = !!opts.vision;
     if (this.state.trackVision) vision(this.state);
     this.seed = opts.seed;

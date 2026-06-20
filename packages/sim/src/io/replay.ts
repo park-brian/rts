@@ -26,6 +26,7 @@ export type Replay = {
   players: number;
   seed: number;
   factions?: FactionName[];
+  teams?: number[];
   frames: PlayerCommands[][]; // frames[t] = the command batch applied at tick t
 };
 
@@ -292,6 +293,8 @@ export const validateReplay = (x: unknown): Replay => {
   const seed = readInt(r.seed, 'seed must be an integer');
   const factions = r.factions === undefined ? undefined : readArray(r.factions, 'factions must be an array').map(validateFactionName);
   if (factions !== undefined && factions.length !== players) fail('factions length must match players');
+  const teams = r.teams === undefined ? undefined : readArray(r.teams, 'teams must be an array').map((team) => readNonNegativeInt(team, 'team id must be a non-negative integer'));
+  if (teams !== undefined && teams.length !== players) fail('teams length must match players');
   const frames = readArray(r.frames, 'frames must be an array');
   return {
     version: REPLAY_VERSION,
@@ -299,6 +302,7 @@ export const validateReplay = (x: unknown): Replay => {
     players,
     seed,
     ...(factions ? { factions } : {}),
+    ...(teams ? { teams } : {}),
     frames: frames.map((frame: unknown) => {
       const frameBatch = readArray(frame, 'each frame must be an array');
       return frameBatch.map(validatePlayerCommands);
@@ -323,13 +327,14 @@ export const toReplay = (sim: Sim, map: MapSpec): Replay => ({
   players: sim.fullState().teams.length,
   seed: sim.seed,
   factions: sim.factions.length ? sim.factions.map(factionNameOf) : undefined,
+  teams: Array.from(sim.fullState().teams),
   frames: sim.frames ?? [],
 });
 
 const simForReplay = (r: Replay): Sim => {
   const replay = validateReplay(r);
   const factions = replay.factions?.map((name) => Factions[name]);
-  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed, factions });
+  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed, factions, teams: replay.teams });
 };
 
 /** Re-simulate a replay to completion; returns the final Sim. */

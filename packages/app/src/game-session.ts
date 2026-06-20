@@ -21,6 +21,7 @@ export type PlaySession = {
   human: number;
   humanPlayer: number;
   playerRaceNames: FactionName[];
+  playerTeamIds: number[];
   controllers: (Controller | null)[];
   botDiagnostics: AppBotDiagnostics[];
 };
@@ -36,6 +37,7 @@ export type ReplaySession = {
   controllers: [];
   botDiagnostics: [];
   playerRaceNames: FactionName[];
+  playerTeamIds: number[];
   replayTick: number;
   replaySpeed: number;
   paused: boolean;
@@ -46,6 +48,14 @@ export const normalizeRace = (race: string | undefined): FactionName =>
 
 export const defaultRaceNames = (players: number): FactionName[] =>
   Array.from({ length: players }, (_, i) => RACE_NAMES[i % RACE_NAMES.length]!);
+
+export const defaultTeamIds = (players: number): number[] =>
+  Array.from({ length: players }, (_, i) => i < players / 2 ? 0 : 1);
+
+export const normalizeTeamIds = (teams: readonly number[] | undefined, players: number): number[] =>
+  teams && teams.length === players
+    ? teams.map((team) => Math.max(0, Math.trunc(team)))
+    : defaultTeamIds(players);
 
 export const mapSpecFor = (perTeam: number, seed: number, spec?: MapSpec): MapSpec => {
   if (spec?.kind === 'procedural') return { ...spec, perTeam, seed };
@@ -64,6 +74,7 @@ export const createPlaySession = (
   mapSpec: MapSpec,
   raceNames: readonly string[],
   humanPlayer: number,
+  teamIds?: readonly number[],
 ): PlaySession => {
   const perTeam = mapSpec.kind === 'procedural' ? mapSpec.perTeam : 1;
   const seed = mapSpec.kind === 'procedural' ? mapSpec.seed : 1;
@@ -71,10 +82,11 @@ export const createPlaySession = (
   const playerRaceNames = raceNames.length === players
     ? raceNames.map(normalizeRace)
     : defaultRaceNames(players);
+  const playerTeamIds = normalizeTeamIds(teamIds, players);
   const normalizedHuman = Math.max(0, Math.min(players - 1, humanPlayer));
   const factions: Faction[] = playerRaceNames.map((race) => Factions[race]);
   const map = mapFromSpec(mapSpec);
-  const sim = new Sim({ map, players, seed, record: true, vision: true, factions });
+  const sim = new Sim({ map, players, seed, record: true, vision: true, factions, teams: playerTeamIds });
   const botDiagnostics = createBotDiagnostics(players, factions);
   const human = mode === 'play' ? normalizedHuman : -1;
   const controllers = Array.from({ length: players }, (_, p) =>
@@ -89,6 +101,7 @@ export const createPlaySession = (
     human,
     humanPlayer: normalizedHuman,
     playerRaceNames,
+    playerTeamIds,
     controllers,
     botDiagnostics,
   };
@@ -105,9 +118,10 @@ export const createReplaySession = (
   const perTeam = replay.map.kind === 'procedural' ? replay.map.perTeam : fallbackPerTeam;
   const seed = replay.map.kind === 'procedural' ? replay.map.seed : fallbackSeed;
   const playerRaceNames = replay.factions ? replay.factions.map(normalizeRace) : defaultRaceNames(replay.players);
+  const playerTeamIds = normalizeTeamIds(replay.teams, replay.players);
   const map = mapFromSpec(replay.map);
   const factions = playerRaceNames.map((race) => Factions[race]);
-  const sim = new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions });
+  const sim = new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions, teams: playerTeamIds });
   return {
     replay,
     mode: 'replay',
@@ -119,6 +133,7 @@ export const createReplaySession = (
     controllers: [],
     botDiagnostics: [],
     playerRaceNames,
+    playerTeamIds,
     replayTick: 0,
     replaySpeed: 1,
     paused: false,
@@ -128,5 +143,5 @@ export const createReplaySession = (
 export const createReplaySeekSim = (replay: Replay, map: MapDef): Sim => {
   const races = replay.factions ? replay.factions.map(normalizeRace) : defaultRaceNames(replay.players);
   const factions = races.map((race) => Factions[race]);
-  return new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions });
+  return new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions, teams: normalizeTeamIds(replay.teams, replay.players) });
 };

@@ -256,6 +256,17 @@ test('replay preserves selected player factions', () => {
   assert.equal(hatchery, 1);
 });
 
+test('replay preserves explicit player teams', () => {
+  const teams = [0, 0, 7, 7];
+  const sim = new Sim({ map: generateMap(2, SEED), players: 4, seed: SEED, record: true, teams });
+  const replay = parseReplay(JSON.stringify(toReplay(sim, { kind: 'procedural', perTeam: 2, seed: SEED })));
+  const restored = play(replay).fullState();
+
+  assert.deepEqual(replay.teams, teams);
+  assert.deepEqual(Array.from(restored.teams), teams);
+  assert.equal(restored.startTeams, 2);
+});
+
 test('recording stores idle ticks as compact empty frames', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 4321, record: true });
   sim.step([{ player: 0, cmds: [] }, { player: 1, cmds: [] }]);
@@ -268,5 +279,6 @@ test('replay parser rejects wrong versions and malformed commands', () => {
   const good = toReplay(new Sim({ map: generateMap(1, SEED), players: 2, seed: SEED, record: true }), SPEC);
   assert.throws(() => parseReplay(JSON.stringify({ ...good, version: 999 })), /unsupported version/);
   assert.throws(() => parseReplay(JSON.stringify({ ...good, frames: [[{ player: 0, cmds: [{ t: 'warp', unit: 1 }] }]] })), /unknown command type/);
+  assert.throws(() => parseReplay(JSON.stringify({ ...good, teams: [0] })), /teams length must match players/);
   assert.throws(() => parseReplay('{nope'), /invalid JSON/);
 });

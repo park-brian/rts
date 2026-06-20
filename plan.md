@@ -1978,6 +1978,10 @@ Remaining work:
   - Controls: mobile/desktop scheme plus a nested collapsed Keybindings section for hotkey
     remapping/reset, since keybindings are dense and should not dominate normal match setup.
   - Debug: Math renderer, full-vision/watch toggles, bot trace/labels, and future scenario knobs.
+  - Explicit team setup slice is done: setup UI now carries per-slot team IDs,
+    Game.restart/createPlaySession pass them into the sim, replay export/import preserves them,
+    and session restore normalizes missing legacy replays. Remaining setup work is controller type,
+    enabled/disabled slots, generated-map name/preview, and debug/watch toggles.
 - Add explicit subgroup handling for large mixed selections.
 - Add a command-surface coverage audit proving every player-available sim action and every
   data-defined player capability is exposed through shared selection options and then rendered by
