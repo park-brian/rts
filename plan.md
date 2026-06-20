@@ -1125,6 +1125,10 @@ Remaining work:
   - Strategy-training scorer slice is done: combat-unit training now consumes the same strategy
     posture pressure as production capacity, so `opening`/`ramp`/`pressure` plans can explain why
     army production is urgent instead of relying only on a static attack threshold.
+  - Strategic-plan trace slice is done: each sampled bot frame now exposes a compact
+    `strategicPlan` derived from the current posture: primary goal, macro priority, combat stance,
+    tech target, phase, and reasons. Strategy diagnoses include this plan summary, giving the bot a
+    stable expert-system surface for "what am I trying to do?" before policy gets more ambitious.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

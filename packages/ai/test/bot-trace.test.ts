@@ -82,6 +82,11 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.strategy.attackThreshold, 99);
   assert.equal(frame.strategy.techTarget, 'first-combat');
   assert.equal(frame.strategy.reasons.length > 0, true);
+  assert.equal(frame.strategicPlan.phase, 'opening');
+  assert.equal(frame.strategicPlan.primaryGoal, 'establish-combat');
+  assert.equal(frame.strategicPlan.macroPriority, 'production');
+  assert.equal(frame.strategicPlan.combatStance, 'rally');
+  assert.equal(frame.strategicPlan.techTarget, 'first-combat');
 });
 
 test('bot trace objective snapshot scores own and enemy economy and army', () => {
@@ -334,6 +339,8 @@ test('bot trace frame reports combat commitment commands', () => {
   assert.equal(frame.army >= 4, true);
   assert.equal(frame.strategy.name, 'pressure');
   assert.equal(frame.strategy.harassmentAppetite, 'high');
+  assert.equal(frame.strategicPlan.primaryGoal, 'degrade-enemy');
+  assert.equal(frame.strategicPlan.combatStance, 'pressure');
   assert.equal((frame.commandsByType.attack ?? 0) + (frame.commandsByType.amove ?? 0) > 0, true);
   assert.equal(frame.intentsByKind['attack-wave']! + frame.intentsByKind.harass! + frame.intentsByKind.counterattack! > 0, true);
 });
@@ -540,7 +547,10 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   const alerts = botTraceAlerts(frames);
   const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
 
-  assert.equal(diagnoses.some((entry) => entry.domain === 'strategy' && entry.detail.includes('posture')), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'strategy' &&
+    entry.detail.includes('posture') &&
+    entry.detail.includes('plan establish-combat/production/rally')), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'objective' && entry.status === 'watch'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'tech' && entry.status === 'watch'), true);
@@ -687,6 +697,8 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.frames[trace.frames.length - 1]!.tick, trace.stats.tick);
   assert.equal(trace.frames.every((frame) => frame.strategy.workerTarget === 8), true);
   assert.equal(trace.frames.some((frame) => frame.strategy.name === 'opening' || frame.strategy.name === 'ramp'), true);
+  assert.equal(trace.frames.every((frame) => frame.strategicPlan.phase === frame.strategy.name), true);
+  assert.equal(trace.frames.every((frame) => frame.strategicPlan.reasons.length > 0), true);
   assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
   assert.equal(trace.frames.some((frame) =>
     frame.topIntents.some((intent) => intent.score !== undefined && intent.scoreReasons.length > 0)), true);

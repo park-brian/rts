@@ -20,6 +20,26 @@ export type BotTechTarget =
   | 'counter-tech'
   | 'none';
 
+export type BotStrategicGoal =
+  | 'recover-economy'
+  | 'establish-combat'
+  | 'build-timing'
+  | 'scale-economy'
+  | 'secure-base'
+  | 'degrade-enemy';
+
+export type BotMacroPriority = 'defense' | 'production' | 'expansion' | 'tech';
+export type BotCombatStance = 'avoid' | 'defend' | 'rally' | 'pressure';
+
+export type BotStrategyPlan = {
+  phase: BotStrategyPostureName;
+  primaryGoal: BotStrategicGoal;
+  macroPriority: BotMacroPriority;
+  combatStance: BotCombatStance;
+  techTarget: BotTechTarget;
+  reasons: string[];
+};
+
 export type BotStrategyPosture = {
   name: BotStrategyPostureName;
   workerTarget: number;
@@ -146,4 +166,34 @@ export const botStrategyPosture = (
     harassmentAppetite: 'normal',
     reasons: [`army size ${facts.army.length} is below attack threshold ${options.attackThreshold}`],
   });
+};
+
+const strategyPlan = (
+  strategy: BotStrategyPosture,
+  primaryGoal: BotStrategicGoal,
+  macroPriority: BotMacroPriority,
+  combatStance: BotCombatStance,
+): BotStrategyPlan => ({
+  phase: strategy.name,
+  primaryGoal,
+  macroPriority,
+  combatStance,
+  techTarget: strategy.techTarget,
+  reasons: strategy.reasons,
+});
+
+export const botStrategyPlan = (strategy: BotStrategyPosture): BotStrategyPlan => {
+  switch (strategy.name) {
+    case 'recover': return strategyPlan(strategy, 'recover-economy', 'expansion', 'avoid');
+    case 'defend': return strategyPlan(strategy, 'secure-base', 'defense', 'defend');
+    case 'pressure': return strategyPlan(
+      strategy,
+      'degrade-enemy',
+      strategy.expansionPriority === 'normal' ? 'expansion' : 'tech',
+      'pressure',
+    );
+    case 'expand': return strategyPlan(strategy, 'scale-economy', 'expansion', 'rally');
+    case 'ramp': return strategyPlan(strategy, 'build-timing', 'production', 'rally');
+    case 'opening': return strategyPlan(strategy, 'establish-combat', 'production', 'rally');
+  }
 };

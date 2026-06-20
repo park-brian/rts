@@ -26,7 +26,7 @@ import {
   type BotObjectiveSnapshot,
   type BotObjectiveTrend,
 } from './macro-objective.ts';
-import type { BotStrategyPosture } from './macro-strategy.ts';
+import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
 
@@ -57,6 +57,7 @@ export type BotTraceFrame = {
   placementDiagnostics: BotTracePlacementDiagnostic[];
   objective: BotObjectiveSnapshot;
   strategy: BotStrategyPosture;
+  strategicPlan: BotStrategyPlan;
 };
 
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
@@ -321,13 +322,14 @@ const strategyDiagnosis = (frames: readonly BotTraceFrame[]): BotExpertDiagnosis
   const first = frames[0]!;
   const last = frames[frames.length - 1]!;
   const path = posturePath(frames);
-  const reason = last.strategy.reasons[0] ?? 'no strategy reason recorded';
+  const plan = last.strategicPlan;
+  const reason = plan.reasons[0] ?? 'no strategy reason recorded';
   return diagnosis(
     'strategy',
     first.player,
     last.strategy.name === 'opening' && frames.length >= ALERT_STREAK_FRAMES ? 'watch' : 'healthy',
     path.length,
-    `posture ${path.join(' -> ')}; current ${last.strategy.name}, tech ${last.strategy.techTarget}, expansion ${last.strategy.expansionPriority}, harassment ${last.strategy.harassmentAppetite}; ${reason}`,
+    `posture ${path.join(' -> ')}; plan ${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance}; current ${last.strategy.name}, tech ${plan.techTarget}, expansion ${last.strategy.expansionPriority}, harassment ${last.strategy.harassmentAppetite}; ${reason}`,
   );
 };
 
@@ -731,6 +733,7 @@ export const botTraceFrame = (
     placementDiagnostics: plan.placementDiagnostics.slice(0, TOP_TRACE_PLACEMENTS).map(placementSummary),
     objective,
     strategy: plan.strategy,
+    strategicPlan: botStrategyPlan(plan.strategy),
   };
 };
 
