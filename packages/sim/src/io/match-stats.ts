@@ -17,6 +17,8 @@ export type PlayerMatchStats = {
   bases: number;
   unitsCreated: number;
   unitsLost: number;
+  workersCreated: number;
+  combatUnitsCreated: number;
   structuresCreated: number;
   structuresLost: number;
   mineralValueCreated: number;
@@ -67,6 +69,8 @@ const playerStats = (player: number, team: number): PlayerMatchStats => ({
   bases: 0,
   unitsCreated: 0,
   unitsLost: 0,
+  workersCreated: 0,
+  combatUnitsCreated: 0,
   structuresCreated: 0,
   structuresLost: 0,
   mineralValueCreated: 0,
@@ -96,15 +100,26 @@ const resetCurrentCounts = (p: PlayerMatchStats): void => {
   p.bases = 0;
 };
 
+const isWorkerKind = (kind: number): boolean => {
+  const def = Units[kind];
+  return !!def && (def.roles & Role.Worker) !== 0;
+};
+
+const isCombatKind = (kind: number): boolean => {
+  const def = Units[kind];
+  return !!def &&
+    (def.roles & Role.Mobile) !== 0 &&
+    (def.roles & Role.Worker) === 0 &&
+    !!(def.weapon || def.airWeapon);
+};
+
 const recordCurrentEntity = (p: PlayerMatchStats, kind: number): void => {
   const def = Units[kind];
   if (!def) return;
-  if ((def.roles & Role.Worker) !== 0) p.workers++;
+  if (isWorkerKind(kind)) p.workers++;
   if ((def.roles & Role.Structure) !== 0) p.structures++;
   if ((def.roles & Role.ResourceDepot) !== 0) p.bases++;
-  if ((def.roles & Role.Mobile) !== 0 && (def.weapon || def.airWeapon) && (def.roles & Role.Worker) === 0) {
-    p.combatUnits++;
-  }
+  if (isCombatKind(kind)) p.combatUnits++;
 };
 
 const recordCreated = (p: PlayerMatchStats, kind: number): void => {
@@ -112,6 +127,8 @@ const recordCreated = (p: PlayerMatchStats, kind: number): void => {
   if (!def) return;
   if ((def.roles & Role.Structure) !== 0) p.structuresCreated++;
   else p.unitsCreated++;
+  if (isWorkerKind(kind)) p.workersCreated++;
+  if (isCombatKind(kind)) p.combatUnitsCreated++;
   p.mineralValueCreated += def.minerals;
   p.gasValueCreated += def.gas;
 };

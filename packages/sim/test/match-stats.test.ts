@@ -25,6 +25,8 @@ test('match stats seed from initial state without counting starting units as cre
   assert.equal(p0.workers, Terran.startWorkers);
   assert.equal(p0.bases, 1);
   assert.equal(p0.unitsCreated, 0);
+  assert.equal(p0.workersCreated, 0);
+  assert.equal(p0.combatUnitsCreated, 0);
   assert.equal(p0.structuresCreated, 0);
   assert.equal(p0.peakWorkers, Terran.startWorkers);
 });
@@ -66,6 +68,8 @@ test('match stats record created and lost value from entity lifecycle transition
   recordMatchStatsStep(stats, s, [], []);
   const p0 = stats.players[0]!;
   assert.equal(p0.unitsCreated, 1);
+  assert.equal(p0.combatUnitsCreated, 1);
+  assert.equal(p0.workersCreated, 0);
   assert.equal(p0.mineralValueCreated, Units[Kind.Marine]!.minerals);
   assert.equal(p0.gasValueCreated, Units[Kind.Marine]!.gas);
   assert.equal(p0.combatUnits >= 1, true);
@@ -89,5 +93,20 @@ test('match stats count created and lost structures separately from units', () =
 
   const p0 = stats.players[0]!;
   assert.equal(p0.structuresCreated, 1);
+  assert.equal(p0.combatUnitsCreated, 0);
   assert.equal(p0.structuresLost, 1);
+});
+
+test('match stats classify created workers separately from combat units', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 7005, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const stats = createMatchStats(s);
+
+  spawnUnit(s, Kind.SCV, 0, fx(1400), fx(1400));
+  recordMatchStatsStep(stats, s, [], []);
+
+  const p0 = stats.players[0]!;
+  assert.equal(p0.unitsCreated, 1);
+  assert.equal(p0.workersCreated, 1);
+  assert.equal(p0.combatUnitsCreated, 0);
 });

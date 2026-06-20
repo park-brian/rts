@@ -107,6 +107,10 @@ compact results panel in the UI, backed by the same headless telemetry used by b
 winner, resources, supply, workers, combat units, bases, units/structures made and lost, resource
 value made/lost, command counts, rejected-command counts, and later exact collection/combat
 breakdowns once those event hooks exist.
+First strategic-health slice is done: sim match stats now distinguish created workers from created
+combat units, and the game-over results panel shows compact macro/economy/production/combat health
+chips for each player. Remaining work: feed full bot intent diagnoses into this panel for planner
+participants instead of relying only on stats-derived health.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
@@ -1783,6 +1787,9 @@ Done when:
 - Added the first expert-diagnosis report layer to bot match traces: macro, economy, production, and
   combat health now produce deterministic report rows, and the failing macro/production case is
   covered by focused trace tests.
+- Added post-match strategic health chips backed by sim-owned stats: match stats now count created
+  workers and combat units separately, and the game-over panel summarizes macro, economy,
+  production, and combat health for each player.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.

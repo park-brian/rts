@@ -10,6 +10,7 @@ import {
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
+import { matchHealthRows, type MatchHealthRow, type MatchHealthStatus } from './match-health.ts';
 import {
   HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, orderHotkeyAction, resetHotkeys, setHotkey,
   type HotkeyAction,
@@ -120,6 +121,21 @@ const countLine = <K extends string,>(
 
 const rejectLine = (counts: CountMap<CommandRejectReason>): string =>
   countLine(counts, Object.keys(counts) as CommandRejectReason[], reasonLabel);
+
+const HEALTH_LABEL: Record<MatchHealthStatus, string> = {
+  healthy: 'OK',
+  watch: 'Watch',
+  failing: 'Fail',
+};
+
+const HEALTH_COLOR: Record<MatchHealthStatus, string> = {
+  healthy: '#49d0c0',
+  watch: '#ffd24e',
+  failing: '#ff7a7a',
+};
+
+const healthLabel = (row: MatchHealthRow): string =>
+  `${row.domain} ${HEALTH_LABEL[row.status]}: ${row.detail}`;
 
 const Btn = (p: {
   label: string;
@@ -685,6 +701,7 @@ const Hotbar = (p: { game: Game }) => {
 const MatchStatsPanel = (p: { game: Game }) => {
   const stats = p.game.matchStats;
   const duration = Math.max(0, Math.floor((stats.tick - stats.startTick) / FPS));
+  const health = matchHealthRows(stats);
   return (
     <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
       border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
@@ -735,6 +752,26 @@ const MatchStatsPanel = (p: { game: Game }) => {
               </span>
             </div>
           </details>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+        paddingTop: '8px' }}>
+        <b style={{ color: '#8ea4bd' }}>Strategic Health</b>
+        {stats.players.map((player) => (
+          <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
+            alignItems: 'center', color: '#cdd9e5' }}>
+            <span>P{player.player + 1}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '4px' }}>
+              {health.filter((row) => row.player === player.player).map((row) => (
+                <span key={row.domain} title={healthLabel(row)}
+                  style={{ minWidth: 0, border: `1px solid ${HEALTH_COLOR[row.status]}`,
+                    background: '#0f151e', color: HEALTH_COLOR[row.status], padding: '3px 4px',
+                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  {row.domain} {HEALTH_LABEL[row.status]}
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
