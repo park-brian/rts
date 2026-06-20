@@ -243,6 +243,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     productionCapacity: 1,
     pendingProductionCapacity: 0,
     techUnlocks: 1,
+  pendingTechUnlocks: 0,
     supplyAvailable: 4,
     enemyWorkerSupply: 8,
     enemyArmySupply: 3,
@@ -262,6 +263,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     productionCapacity: 2,
     pendingProductionCapacity: 1,
     techUnlocks: 3,
+  pendingTechUnlocks: 0,
     supplyAvailable: 8,
     enemyWorkerSupply: 6,
     enemyArmySupply: 1,
@@ -464,6 +466,77 @@ test('bot trace alerts classify pressure posture with idle army', () => {
     entry.detail.includes('pressure posture')), true);
 });
 
+test('bot trace alerts classify repeated expected progress stalls', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8131, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 12, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 96, 192].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, train: 0 },
+    objective: { ...frame.objective, queuedWorkerProduction: 0 },
+    topIntents: [{
+      kind: 'train-worker' as const,
+      status: 'waiting' as const,
+      urgency: 35,
+      reason: 'resource-starved' as const,
+      scoreReasons: [],
+      expectation: botIntentExpectation('train-worker'),
+    }],
+  }));
+
+  const alerts = botTraceAlerts(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts, botObjectiveTrends(frames));
+  const alert = alerts.find((candidate) => candidate.kind === 'expected-progress-stall');
+
+  assert.ok(alert);
+  assert.equal(alert.fromTick, 0);
+  assert.equal(alert.toTick, 192);
+  assert.equal(alert.detail.includes('train-worker'), true);
+  assert.equal(alert.detail.includes('worker-pipeline'), true);
+  assert.equal(alert.detail.includes('worker production should enter the queue'), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'macro' &&
+    entry.status === 'failing' &&
+    entry.detail.includes('expected worker-pipeline')), true);
+});
+
+test('bot trace expected progress ignores advanced metrics and issued commands', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8132, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 12, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const workerFrames = [0, 96, 192].map((tick, index) => ({
+    ...frame,
+    tick,
+    objective: { ...frame.objective, queuedWorkerProduction: index === 2 ? 1 : 0 },
+    topIntents: [{
+      kind: 'train-worker' as const,
+      status: 'waiting' as const,
+      urgency: 35,
+      reason: 'resource-starved' as const,
+      scoreReasons: [],
+      expectation: botIntentExpectation('train-worker'),
+    }],
+  }));
+  const combatFrames = [0, 144, 288].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, attack: 1, amove: 0, ability: 0, mine: 0 },
+    topIntents: [{
+      kind: 'attack-wave' as const,
+      status: 'waiting' as const,
+      urgency: 40,
+      reason: 'insufficient-force' as const,
+      scoreReasons: [],
+      expectation: botIntentExpectation('attack-wave'),
+    }],
+  }));
+
+  assert.equal(botTraceAlerts(workerFrames).some((alert) => alert.kind === 'expected-progress-stall'), false);
+  assert.equal(botTraceAlerts(combatFrames).some((alert) => alert.kind === 'expected-progress-stall'), false);
+});
 test('bot trace alerts classify repeated blocked tech intent', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8129, factions: [Terran, Terran] });
   const s = sim.fullState();

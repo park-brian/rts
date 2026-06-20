@@ -1160,6 +1160,13 @@ Remaining work:
     expectation for every bot intent kind, including the metric to watch, progress window, and
     player-readable detail. Top-intent trace summaries expose that descriptor beside score and
     outcome, giving future deadlock logic a shared contract instead of another parallel heuristic.
+  - Live expected-progress memory slice is done: bot memory now tracks stalled expectation metrics
+    by comparing each waiting intent against objective progress baselines, and the shared expert
+    scorer consumes the active metric set when ranking worker, army, production, expansion, tech,
+    safety, combat, and scout intents. The first scheduler consumption uses stalled
+    `production-capacity` and `base-count` metrics to apply the same recovery pressure as older
+    bespoke production/expansion stall flags, while preserving those shims until the generic path
+    has enough coverage to replace them.
 - Model bot play like an actual StarCraft player's decision loop:
   - Economy: keep workers producing, avoid supply blocks, saturate bases, take gas when the plan
     needs gas, and add production before money floats.

@@ -20,6 +20,7 @@ import {
 } from '@rts/sim';
 import type {
   BotIntent,
+  BotIntentProgressMetric,
   BotIntentRecord,
   BotIntentScore,
   BotIntentScoreReason,
@@ -44,6 +45,7 @@ export type BotObjectiveSnapshot = {
   productionCapacity: number;
   pendingProductionCapacity: number;
   techUnlocks: number;
+  pendingTechUnlocks: number;
   supplyAvailable: number;
   enemyWorkerSupply: number;
   enemyArmySupply: number;
@@ -98,12 +100,20 @@ export type BotExpertContext = {
   macroFloatStalled?: boolean;
   blockedExpansion?: boolean;
   techStalled?: boolean;
+  expectedProgressStalls?: ReadonlySet<BotIntentProgressMetric>;
 };
 
 export type BotExpertSignals = Pick<
   BotExpertContext,
-  'productionStalled' | 'missingProductionIntent' | 'macroFloatStalled' | 'blockedExpansion' | 'techStalled'
+  | 'productionStalled'
+  | 'missingProductionIntent'
+  | 'macroFloatStalled'
+  | 'blockedExpansion'
+  | 'techStalled'
+  | 'expectedProgressStalls'
 >;
+
+export type BotExpectationProgress = Partial<Record<BotIntentProgressMetric, number>>;
 
 export type ObjectiveFrame = {
   tick: number;
@@ -121,6 +131,7 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,
+  pendingTechUnlocks: 0,
   supplyAvailable: shownSupply(Math.max(0, s.players.supplyMax[player]! - s.players.supplyUsed[player]!)),
   enemyWorkerSupply: 0,
   enemyArmySupply: 0,
@@ -244,13 +255,22 @@ const totalProductionCapacity = (objective: BotObjectiveSnapshot): number =>
 const totalEnemyProductionCapacity = (objective: BotObjectiveSnapshot): number =>
   objective.enemyProductionCapacity + objective.enemyPendingProductionCapacity;
 
+const GAS_STRUCTURE_KINDS: ReadonlySet<number> = new Set([Kind.Refinery, Kind.Assimilator, Kind.Extractor]);
+
 const structureUnlocksCapabilities = (kind: number): boolean => {
   const def = Units[kind];
   return !!def &&
-    (def.roles & Role.Structure) !== 0 &&
-    (def.roles & (Role.Resource | Role.ResourceDepot)) === 0 &&
-    def.provides === 0 &&
-    (def.produces.length > 0 || def.abilities.length > 0 || def.requires.length > 0 || techProducerKinds.has(kind));
+    (GAS_STRUCTURE_KINDS.has(kind) ||
+      ((def.roles & Role.Structure) !== 0 &&
+        (def.roles & (Role.Resource | Role.ResourceDepot)) === 0 &&
+        def.provides === 0 &&
+        (def.produces.length > 0 || def.abilities.length > 0 || def.requires.length > 0 || techProducerKinds.has(kind))));
+};
+
+const pendingTechUnlockValue = (s: State, slot: number, kind: number): number => {
+  const pendingKind = s.e.buildKind[slot]!;
+  if (pendingKind !== Kind.None) return structureUnlocksCapabilities(pendingKind) ? 1 : 0;
+  return s.e.built[slot] !== 1 && structureUnlocksCapabilities(kind) ? 1 : 0;
 };
 
 const completedTechLevels = (s: State, player: number): number => {
@@ -286,6 +306,7 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
     const queuedWorkerProduction = queuedWorkerProductionValue(s, slot);
     const queuedArmyProduction = queuedArmyProductionValue(s, slot);
     const queuedArmyStrength = queuedArmyProduction > 0 ? queuedArmyStrengthValue(s, slot, queuedArmyProduction) : 0;
+    const pendingTechUnlocks = pendingTechUnlockValue(s, slot, kind);
 
     if (owner === player) {
       objective.workerSupply += workerSupply;
@@ -296,6 +317,7 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       objective.queuedArmyStrength += queuedArmyStrength;
       objective.productionCapacity += productionCapacity;
       objective.pendingProductionCapacity += pendingProductionCapacity;
+      objective.pendingTechUnlocks += pendingTechUnlocks;
       if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) ownTechStructures.add(kind);
     } else if (isEnemy(s, player, owner)) {
       objective.enemyWorkerSupply += workerSupply;
@@ -342,6 +364,15 @@ export const botExpertContext = (
   ...(signals.macroFloatStalled ? { macroFloatStalled: true } : {}),
   ...(signals.blockedExpansion ? { blockedExpansion: true } : {}),
   ...(signals.techStalled ? { techStalled: true } : {}),
+  ...(signals.expectedProgressStalls?.size ? { expectedProgressStalls: signals.expectedProgressStalls } : {}),
+});
+
+export const botExpectationProgress = (ctx: Pick<BotExpertContext, 'objective' | 'bases'>): BotExpectationProgress => ({
+  'worker-pipeline': ctx.objective.workerSupply + ctx.objective.queuedWorkerProduction,
+  'combat-pipeline': ctx.objective.armyStrength + ctx.objective.queuedArmyStrength,
+  'production-capacity': ctx.objective.productionCapacity + ctx.objective.pendingProductionCapacity,
+  'tech-unlock': ctx.objective.techUnlocks + ctx.objective.pendingTechUnlocks,
+  'base-count': ctx.bases,
 });
 
 const objectiveReason = (
@@ -361,6 +392,7 @@ export const botObjectiveReasons = (
   const queuedArmyGain = after.queuedArmyStrength - before.queuedArmyStrength;
   const productionGain = totalProductionCapacity(after) - totalProductionCapacity(before);
   const techGain = after.techUnlocks - before.techUnlocks;
+  const pendingTechGain = after.pendingTechUnlocks - before.pendingTechUnlocks;
   const supplyGain = after.supplyAvailable - before.supplyAvailable;
   const enemyWorkerLoss = before.enemyWorkerSupply - after.enemyWorkerSupply;
   const enemyArmyLoss = before.enemyArmyStrength - after.enemyArmyStrength;
@@ -397,6 +429,11 @@ export const botObjectiveReasons = (
     'tech-unlock',
     techGain * 30,
     `tech unlock count increased by ${techGain}`,
+  ));
+  if (pendingTechGain > 0) reasons.push(objectiveReason(
+    'tech-unlock',
+    pendingTechGain * 20,
+    `pending tech unlock count increased by ${pendingTechGain}`,
   ));
   if (supplyGain > 0) reasons.push(objectiveReason(
     'supply-availability',
@@ -523,6 +560,38 @@ const productionCapacityGap = (ctx: BotExpertContext): number =>
 const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
   ctx.objective.supplyAvailable <= 2 ? -6 : 0;
 
+const expectedProgressStalled = (ctx: BotExpertContext, metric: BotIntentProgressMetric): boolean =>
+  ctx.expectedProgressStalls?.has(metric) ?? false;
+
+const expectedProgressReasonKind = (
+  metric: BotIntentProgressMetric,
+): BotIntentScoreReason['kind'] => {
+  switch (metric) {
+    case 'worker-pipeline':
+    case 'base-count':
+      return 'economy-growth';
+    case 'combat-pipeline':
+      return 'army-growth';
+    case 'production-capacity':
+      return 'production-throughput';
+    case 'tech-unlock':
+      return 'tech-unlock';
+    case 'defense-command':
+    case 'safety-command':
+      return 'safety';
+    case 'combat-command':
+      return 'enemy-degradation';
+    case 'map-control':
+      return 'map-control';
+  }
+};
+
+const expectedProgressReason = (
+  metric: BotIntentProgressMetric,
+  detail: string,
+  value = 10,
+): BotIntentScoreReason => scoreReason(expectedProgressReasonKind(metric), value, detail);
+
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
   const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
   const workerGap = Math.max(0, ctx.workerTarget - workerPipeline);
@@ -531,10 +600,15 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     : 0;
 
   switch (intent.kind) {
-    case 'train-worker':
-      return scoredIntent(intent, 35 + Math.min(20, workerGap * 2), [
+    case 'train-worker': {
+      const progressBonus = expectedProgressStalled(ctx, 'worker-pipeline') ? 10 : 0;
+      return scoredIntent(intent, 35 + Math.min(20, workerGap * 2) + progressBonus, [
         scoreReason('economy-growth', workerGap, `worker pipeline gap is ${workerGap}`),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('worker-pipeline', 'worker pipeline has not progressed within its expected window')]
+          : []),
       ]);
+    }
     case 'spend-larva':
     case 'train-counter': {
       const armyDemand = armyTrainingDemand(ctx);
@@ -542,10 +616,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strengthTarget = desiredArmyStrength(ctx);
       const firstArmy = strengthPipeline === 0;
       const strategyBonus = strategyProductionBonus(ctx.strategy);
-      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2) + strategyBonus, [
+      const progressBonus = expectedProgressStalled(ctx, 'combat-pipeline') ? 10 : 0;
+      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2) + strategyBonus + progressBonus, [
         scoreReason('army-growth', armyDemand, firstArmy
           ? 'first combat unit unlocks pressure'
           : `army strength gap is ${armyDemand}; pipeline is ${strengthPipeline}/${strengthTarget}`),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('combat-pipeline', 'combat pipeline has not progressed within its expected window')]
+          : []),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -560,7 +638,8 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strengthTarget = desiredArmyStrength(ctx);
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const supplyPenalty = supplyHeadroomPenalty(ctx);
-      const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0);
+      const progressBonus = expectedProgressStalled(ctx, 'production-capacity') ? 10 : 0;
+      const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0) + progressBonus;
       const planBonus = strategicPlanBonus(ctx, 'production');
       return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus + planBonus, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
@@ -569,6 +648,9 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
         ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no train intent')] : []),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('production-capacity', 'production capacity has not progressed within its expected window')]
+          : []),
         ...strategicPlanReason(ctx, 'production', planBonus),
         ...strategyReasons(
           ctx.strategy,
@@ -579,12 +661,16 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'expand': {
       const strategyBonus = priorityBonus(ctx.strategy?.expansionPriority);
-      const liveStallBonus = (ctx.macroFloatStalled ? 12 : 0) + (ctx.blockedExpansion ? 8 : 0);
+      const progressBonus = expectedProgressStalled(ctx, 'base-count') ? 10 : 0;
+      const liveStallBonus = (ctx.macroFloatStalled ? 12 : 0) + (ctx.blockedExpansion ? 8 : 0) + progressBonus;
       const planBonus = strategicPlanBonus(ctx, 'expansion');
       return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus + planBonus, [
         scoreReason('economy-growth', ctx.bases, `owned base count is ${ctx.bases}`),
         ...(ctx.macroFloatStalled ? [scoreReason('economy-growth', 12, 'resources are floating while macro spending is stalled')] : []),
         ...(ctx.blockedExpansion ? [scoreReason('map-control', 8, 'previous expansion route or site was blocked')] : []),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('base-count', 'base count has not progressed within its expected window')]
+          : []),
         ...strategicPlanReason(ctx, 'expansion', planBonus),
         ...strategyReasons(
           ctx.strategy,
@@ -595,17 +681,25 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'take-gas': {
       const gasBonus = ctx.strategy?.gasTiming === 'now' ? 12 : ctx.strategy?.gasTiming === 'soon' ? 6 : 0;
+      const progressBonus = expectedProgressStalled(ctx, 'tech-unlock') ? 10 : 0;
       const planBonus = strategicPlanBonus(ctx, 'tech');
-      return scoredIntent(intent, 38 + gasBonus + planBonus, [
+      return scoredIntent(intent, 38 + gasBonus + progressBonus + planBonus, [
         scoreReason('tech-unlock', gasBonus, `strategy gas timing is ${ctx.strategy?.gasTiming ?? 'unknown'}`),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('tech-unlock', 'tech progress has not advanced within its expected window')]
+          : []),
         ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
     }
     case 'rebuild-tech': {
+      const progressBonus = expectedProgressStalled(ctx, 'tech-unlock') ? 10 : 0;
       const planBonus = strategicPlanBonus(ctx, 'tech');
-      return scoredIntent(intent, 44 + (ctx.techStalled ? 14 : 0) + planBonus, [
+      return scoredIntent(intent, 44 + (ctx.techStalled ? 14 : 0) + progressBonus + planBonus, [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
         ...(ctx.techStalled ? [scoreReason('tech-unlock', 14, 'leading tech intent is repeatedly blocked')] : []),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('tech-unlock', 'tech progress has not advanced within its expected window')]
+          : []),
         ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
     }
@@ -613,18 +707,26 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const armyValue = armyStrengthPipeline(ctx.objective);
       const armyValueBonus = Math.min(10, Math.trunc(armyValue / 220));
       const unlockPenalty = Math.min(6, ctx.objective.techUnlocks);
+      const progressBonus = expectedProgressStalled(ctx, 'tech-unlock') ? 10 : 0;
       const planBonus = strategicPlanBonus(ctx, 'tech');
-      return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty + planBonus, [
+      return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty + progressBonus + planBonus, [
         scoreReason('army-growth', armyValue, 'upgrade increases fielded and queued combat value'),
         scoreReason('tech-unlock', -unlockPenalty, `completed tech unlock count is ${ctx.objective.techUnlocks}`),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('tech-unlock', 'tech progress has not advanced within its expected window')]
+          : []),
         ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
     }
     case 'add-static-defense': {
       const strategyBonus = toleranceBonus(ctx.strategy?.staticDefenseTolerance);
+      const progressBonus = expectedProgressStalled(ctx, 'defense-command') ? 8 : 0;
       const planBonus = strategicPlanBonus(ctx, 'defense');
-      return scoredIntent(intent, 42 + strategyBonus + planBonus, [
+      return scoredIntent(intent, 42 + strategyBonus + progressBonus + planBonus, [
         scoreReason('safety', 1, 'static defense protects base economy and production'),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('defense-command', 'defense command has not resolved within its expected window', 8)]
+          : []),
         ...strategicPlanReason(ctx, 'defense', planBonus),
         ...strategyReasons(
           ctx.strategy,
@@ -636,17 +738,26 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'defend-base':
     case 'get-detection':
     case 'clear-site':
-    case 'evacuate-workers':
-      return scoredIntent(intent, Math.max(50, intent.urgency), [
+    case 'evacuate-workers': {
+      const progressBonus = expectedProgressStalled(ctx, 'safety-command') ? 8 : 0;
+      return scoredIntent(intent, Math.max(50, intent.urgency) + progressBonus, [
         scoreReason('safety', intent.urgency, 'protects workers, bases, or blocked strategic space'),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('safety-command', 'safety command has not resolved within its expected window', 8)]
+          : []),
       ]);
+    }
     case 'attack-wave':
     case 'harass':
     case 'contain':
     case 'counterattack': {
       const strategyBonus = priorityBonus(ctx.strategy?.harassmentAppetite);
-      return scoredIntent(intent, intent.urgency + Math.min(10, Math.trunc(ctx.objective.armyStrength / 300)) + strategyBonus, [
+      const progressBonus = expectedProgressStalled(ctx, 'combat-command') ? 8 : 0;
+      return scoredIntent(intent, intent.urgency + Math.min(10, Math.trunc(ctx.objective.armyStrength / 300)) + strategyBonus + progressBonus, [
         scoreReason('enemy-degradation', ctx.retaskableArmy, 'uses available army to lower enemy economy or army slope'),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('combat-command', 'combat command has not resolved within its expected window', 8)]
+          : []),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -656,8 +767,12 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'retreat': {
       const strategyBonus = toleranceBonus(ctx.strategy?.retreatTolerance);
-      return scoredIntent(intent, Math.max(55, intent.urgency) + strategyBonus, [
+      const progressBonus = expectedProgressStalled(ctx, 'safety-command') ? 8 : 0;
+      return scoredIntent(intent, Math.max(55, intent.urgency) + strategyBonus + progressBonus, [
         scoreReason('safety', intent.urgency, 'preserves force for a better future fight'),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('safety-command', 'safety command has not resolved within its expected window', 8)]
+          : []),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -665,10 +780,15 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
         ),
       ]);
     }
-    case 'scout':
-      return scoredIntent(intent, 24, [
+    case 'scout': {
+      const progressBonus = expectedProgressStalled(ctx, 'map-control') ? 8 : 0;
+      return scoredIntent(intent, 24 + progressBonus, [
         scoreReason('map-control', 1, 'improves future expansion, defense, and attack decisions'),
+        ...(progressBonus > 0
+          ? [expectedProgressReason('map-control', 'map control has not progressed within its expected window', 8)]
+          : []),
       ]);
+    }
   }
 };
 

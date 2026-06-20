@@ -30,12 +30,8 @@ import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import {
-  blockedExpansionActive,
-  macroFloatStallActive,
-  missingProductionIntentActive,
+  botMemoryExpertSignals,
   placementStallAnchorKeys,
-  productionStallActive,
-  techStallActive,
   type BotMemory,
 } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
@@ -222,23 +218,24 @@ export const scheduleBotMacro = (
     findMacroSpot(state, owner, worker, kind, fallback, { ...placementOptions, ...request });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
-  const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
-  const missingProductionIntent = memory ? missingProductionIntentActive(memory, s.tick) : false;
-  const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
-  const blockedExpansion = memory ? blockedExpansionActive(memory, s.tick) : false;
-  const techStalled = memory ? techStallActive(memory, s.tick) : false;
-  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, {
-    productionStalled,
-    missingProductionIntent,
-    macroFloatStalled,
-    blockedExpansion,
-    techStalled,
-  });
+  const signals = memory ? botMemoryExpertSignals(memory, s.tick) : {};
+  const progressStalls = signals.expectedProgressStalls;
+  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, signals);
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
-  const capacityPressure = { productionStalled: productionStalled || missingProductionIntent || postureWantsProduction };
-  const expansionPressure = { macroFloatStalled: macroFloatStalled || blockedExpansion || postureWantsExpansion };
+  const capacityPressure = {
+    productionStalled: signals.productionStalled ||
+      signals.missingProductionIntent ||
+      postureWantsProduction ||
+      (progressStalls?.has('production-capacity') ?? false),
+  };
+  const expansionPressure = {
+    macroFloatStalled: signals.macroFloatStalled ||
+      signals.blockedExpansion ||
+      postureWantsExpansion ||
+      (progressStalls?.has('base-count') ?? false),
+  };
   let stalledCapacityAttempted = false;
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
@@ -392,7 +389,7 @@ export const scheduleBotMacro = (
       });
     }
 
-    if (productionStalled || missingProductionIntent) {
+    if (signals.productionStalled || signals.missingProductionIntent || (progressStalls?.has('production-capacity') ?? false)) {
       builderChoices.push({
         order: -1,
         intent: botIntent('add-production', { targetKind: faction.name === 'Zerg' ? Kind.Hatchery : faction.armyStructure }),

@@ -18,10 +18,12 @@ import {
   type BotFailureReason,
   type BotIntentExpectation,
   type BotIntentKind,
+  type BotIntentProgressMetric,
   type BotIntentRecord,
   type BotIntentScoreReason,
 } from './macro-intents.ts';
 import {
+  botExpectationProgress,
   botObjectiveSnapshot,
   botObjectiveTrends,
   type BotObjectiveSnapshot,
@@ -95,6 +97,7 @@ export type BotTraceAlertKind =
   | 'tech-stall'
   | 'combat-intent-stall'
   | 'pressure-idle-stall'
+  | 'expected-progress-stall'
   | 'placement-stall';
 
 export type BotTraceAlert = {
@@ -247,6 +250,29 @@ const pressurePlanIsIdle = (frame: BotTraceFrame): boolean =>
   frame.strategicPlan.combatStance === 'pressure' &&
   frame.retaskableArmy > 0 &&
   combatCommandCount(frame) === 0;
+
+const commandProgressMetric = (metric: BotIntentProgressMetric): boolean =>
+  metric === 'defense-command' || metric === 'combat-command' || metric === 'safety-command';
+
+const expectedProgressValue = (frame: BotTraceFrame, metric: BotIntentProgressMetric): number => {
+  const progress = botExpectationProgress(frame);
+  switch (metric) {
+    case 'worker-pipeline':
+    case 'combat-pipeline':
+    case 'production-capacity':
+    case 'tech-unlock':
+    case 'base-count':
+      return progress[metric] ?? 0;
+    case 'defense-command':
+      return countCommands(frame, ['build', 'transform']);
+    case 'combat-command':
+      return combatCommandCount(frame);
+    case 'safety-command':
+      return countCommands(frame, ['attack', 'amove', 'move', 'harvest', 'repair', 'ability', 'load', 'unload']);
+    case 'map-control':
+      return frame.visibleEnemies;
+  }
+};
 
 const techStallReason = (frame: BotTraceFrame): BotFailureReason | undefined => {
   const intent = frame.topIntents[0];
@@ -482,6 +508,90 @@ const pushFrameStreakAlerts = (
   flush(frames.length - 1);
 };
 
+type ExpectedProgressStreak = {
+  start: number;
+  end: number;
+  count: number;
+  kind: BotIntentKind;
+  metric: BotIntentProgressMetric;
+  baseline: number;
+  latest: number;
+  maxValue: number;
+  windowTicks: number;
+  detail: string;
+};
+
+const expectedProgressAdvanced = (streak: ExpectedProgressStreak): boolean =>
+  commandProgressMetric(streak.metric)
+    ? streak.maxValue > 0
+    : streak.latest > streak.baseline;
+
+const expectedProgressDetail = (streak: ExpectedProgressStreak): string => {
+  const movement = commandProgressMetric(streak.metric)
+    ? `max command count ${streak.maxValue}`
+    : `${streak.baseline}->${streak.latest}`;
+  return `${streak.count} sampled frames led with ${streak.kind}, expected ${streak.metric} within ${streak.windowTicks} ticks, but progress stayed ${movement}; ${streak.detail}`;
+};
+
+const pushExpectedProgressAlerts = (
+  alerts: BotTraceAlert[],
+  frames: readonly BotTraceFrame[],
+): void => {
+  let active: ExpectedProgressStreak | undefined;
+
+  const flush = (): void => {
+    if (!active) return;
+    const first = frames[active.start]!;
+    const last = frames[active.end]!;
+    const elapsed = last.tick - first.tick;
+    const streak = active;
+    active = undefined;
+    if (streak.count < ALERT_STREAK_FRAMES || elapsed < streak.windowTicks || expectedProgressAdvanced(streak)) return;
+    alerts.push({
+      kind: 'expected-progress-stall',
+      player: first.player,
+      fromTick: first.tick,
+      toTick: last.tick,
+      severity: streak.count * Math.max(1, Math.trunc(elapsed / Math.max(1, streak.windowTicks))),
+      detail: expectedProgressDetail(streak),
+    });
+  };
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i]!;
+    const intent = frame.topIntents[0];
+    if (!intent || intent.status === 'done') {
+      flush();
+      continue;
+    }
+
+    const { metric, windowTicks, detail } = intent.expectation;
+    const value = expectedProgressValue(frame, metric);
+    if (active && active.kind === intent.kind && active.metric === metric) {
+      active.end = i;
+      active.count++;
+      active.latest = value;
+      active.maxValue = Math.max(active.maxValue, value);
+      continue;
+    }
+
+    flush();
+    active = {
+      start: i,
+      end: i,
+      count: 1,
+      kind: intent.kind,
+      metric,
+      baseline: value,
+      latest: value,
+      maxValue: value,
+      windowTicks,
+      detail,
+    };
+  }
+  flush();
+};
+
 const pushPlacementStallAlerts = (
   alerts: BotTraceAlert[],
   frames: readonly BotTraceFrame[],
@@ -625,6 +735,7 @@ export const botTraceAlerts = (
       (_start, end, count) => `${count} sampled frames had pressure posture and ${end.retaskableArmy} retaskable army but no combat commands`,
       (_start, end, count) => count * end.retaskableArmy,
     );
+    pushExpectedProgressAlerts(alerts, playerFrames);
     pushPlacementStallAlerts(alerts, playerFrames);
   }
 
@@ -649,7 +760,7 @@ export const botTraceExpertDiagnoses = (
     const player = first.player;
     const playerStats = stats.players[player];
     const trend = trends.find((candidate) => candidate.player === player);
-    const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'placement-stall']);
+    const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'expected-progress-stall', 'placement-stall']);
     const productionAlerts = playerAlerts(alerts, player, ['production-stall', 'no-army-production']);
     const techAlerts = playerAlerts(alerts, player, ['tech-stall']);
     const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall', 'pressure-idle-stall']);

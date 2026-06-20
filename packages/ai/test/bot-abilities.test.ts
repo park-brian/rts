@@ -21,6 +21,7 @@ import {
   deriveTacticalIncidents,
   executePressureIntent,
   executeTacticalDefense,
+  expectedProgressStallActive,
   issueDefenseEngagement,
   issuePressureEngagement,
   macroFloatStallActive,
@@ -112,6 +113,7 @@ const objectiveSnapshot = (overrides: Partial<BotObjectiveSnapshot> = {}): BotOb
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,
+  pendingTechUnlocks: 0,
   supplyAvailable: 20,
   enemyWorkerSupply: 8,
   enemyArmySupply: 0,
@@ -530,6 +532,34 @@ test('bot expert scores add-production higher when live production stall signals
   assert.equal(stalled.score?.reasons.some((reason) =>
     reason.kind === 'production-throughput' &&
     reason.detail === 'ready production has no train intent'), true);
+});
+
+test('bot expert scores expected progress stalls through the shared intent contract', () => {
+  const normalWorker = scoreBotIntent(botIntent('train-worker'), expertContext({
+    workers: 8,
+    workerTarget: 10,
+  }));
+  const stalledWorker = scoreBotIntent(botIntent('train-worker'), expertContext({
+    workers: 8,
+    workerTarget: 10,
+    expectedProgressStalls: new Set(['worker-pipeline']),
+  }));
+  const normalArmy = scoreBotIntent(botIntent('train-counter'), expertContext({
+    attackThreshold: 4,
+  }));
+  const stalledArmy = scoreBotIntent(botIntent('train-counter'), expertContext({
+    attackThreshold: 4,
+    expectedProgressStalls: new Set(['combat-pipeline']),
+  }));
+
+  assert.equal((stalledWorker.score?.value ?? 0) > (normalWorker.score?.value ?? 0), true);
+  assert.equal(stalledWorker.score?.reasons.some((reason) =>
+    reason.kind === 'economy-growth' &&
+    reason.detail === 'worker pipeline has not progressed within its expected window'), true);
+  assert.equal((stalledArmy.score?.value ?? 0) > (normalArmy.score?.value ?? 0), true);
+  assert.equal(stalledArmy.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.detail === 'combat pipeline has not progressed within its expected window'), true);
 });
 
 test('bot expert scores add-production from strategic plan production priority', () => {
@@ -3182,6 +3212,32 @@ test('bot memory promotes repeated leading blocked tech intents into a live stal
   assert.equal(techStallActive(memory, 72), false);
 });
 
+test('bot memory tracks expected progress windows by intent metric', () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 96, 191]) {
+    rememberIntentOutcomes(memory, [{
+      intent: botIntent('train-worker', { targetKind: Kind.SCV }),
+      result: { status: 'waiting', reason: 'resource-starved' },
+    }], tick, { progress: { 'worker-pipeline': 8 } });
+  }
+
+  assert.equal(expectedProgressStallActive(memory, 191, 'worker-pipeline'), false);
+
+  rememberIntentOutcomes(memory, [{
+    intent: botIntent('train-worker', { targetKind: Kind.SCV }),
+    result: { status: 'waiting', reason: 'resource-starved' },
+  }], 192, { progress: { 'worker-pipeline': 8 } });
+
+  assert.equal(expectedProgressStallActive(memory, 192, 'worker-pipeline'), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: botIntent('train-worker', { targetKind: Kind.SCV }),
+    result: { status: 'waiting', reason: 'resource-starved' },
+  }], 216, { progress: { 'worker-pipeline': 9 } });
+
+  assert.equal(expectedProgressStallActive(memory, 216, 'worker-pipeline'), false);
+});
+
 test('pressure commitment forces least-bad action after sustained combat stall', () => {
   const memory = rememberCombatIntentStall();
   const patient = pressureCommitmentDecision(createBotMemory(), 360, 1, 12);
@@ -3210,6 +3266,39 @@ test('terran scheduler adds production capacity earlier when live expert memory 
     collectBotFacts(s, 0, Terran),
     { barracksTarget: 1, workerTarget: 0 },
     rememberProductionCapacityStall(),
+  );
+
+  const build = findCommandBuild(cmds, Kind.Barracks);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
+});
+
+test('terran scheduler adds production capacity when expected capacity progress is stalled', () => {
+  const scenario = botScenario({ seed: 520, factions: [Terran, Zerg] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const barracks = scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  s.e.prodKind[slotOf(barracks)] = Kind.Marine;
+  s.tick = 1080;
+  scenario.resources(0, 400, 0);
+  s.players.supplyMax[0] = 1_000;
+  const memory = createBotMemory();
+  for (const tick of [0, 540, 1080]) {
+    rememberIntentOutcomes(memory, [{
+      intent: botIntent('add-production', { targetKind: Kind.Barracks }),
+      result: { status: 'waiting', reason: 'resource-starved' },
+    }], tick, { progress: { 'production-capacity': 1 } });
+  }
+  const cmds: Command[] = [];
+
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 1, workerTarget: 0 },
+    memory,
   );
 
   const build = findCommandBuild(cmds, Kind.Barracks);

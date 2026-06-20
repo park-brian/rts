@@ -8,7 +8,7 @@ import { NONE, type Command, type Controller, type Faction, type State } from '@
 import { desiredWorkerCount } from './macro-economy.ts';
 import { rankBotIntentRecords, scoreBotIntentRecords } from './macro-expert.ts';
 import { executePressureIntent, proposePressureIntent, type PressureScheduleResult } from './macro-offense.ts';
-import { botExpertContext } from './macro-objective.ts';
+import { botExpectationProgress, botExpertContext } from './macro-objective.ts';
 import { findSpot, type PlacementDiagnostic } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
@@ -16,6 +16,7 @@ import { botStrategyPosture, type BotStrategyPosture } from './macro-strategy.ts
 import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
 import {
   MISSING_PRODUCTION_INTENT_RESOURCES,
+  botMemoryExpertSignals,
   createBotMemory,
   rememberIntentOutcomes,
   rememberPlacementDiagnostics,
@@ -92,7 +93,8 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     if (depot === NONE) return { commands: cmds, intents: [], intentResults, strategy, placementDiagnostics }; // no base: nothing to do
 
     const memory = prepareMemory(p, s.tick);
-    const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold, strategy);
+    const signals = botMemoryExpertSignals(memory, s.tick);
+    const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold, strategy, signals);
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, {
       ...c,
       workerTarget: strategy.workerTarget,
@@ -174,6 +176,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
       resourceFloat: expert.objective.resourceFloat,
       missingProductionIntent: readyProductionWithoutIntent,
+      progress: botExpectationProgress(expert),
     });
     rememberPlacementDiagnostics(memory, placementDiagnostics, s.tick);
     return {

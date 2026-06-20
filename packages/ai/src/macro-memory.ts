@@ -1,6 +1,8 @@
 import { ONE, TILE } from '@rts/sim';
 import type { TacticalIncident } from './macro-incidents.ts';
-import type { BotFailureReason, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
+import type { BotExpertSignals } from './macro-objective.ts';
+import { botIntentExpectation } from './macro-expert.ts';
+import type { BotFailureReason, BotIntentKind, BotIntentProgressMetric, BotIntentRecord } from './macro-intents.ts';
 import { placementAnchorKey, type PlacementDiagnostic, type PlacementLayoutRole } from './macro-placement.ts';
 
 export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
@@ -70,10 +72,18 @@ export type TechStallMemory = {
   reason?: BotFailureReason;
 };
 
+export type ExpectedProgressMemory = {
+  intentKind: BotIntentKind;
+  baseline: number;
+  sinceTick: number;
+  lastTick: number;
+};
+
 export type BotMemory = {
   lastTick: number;
   blockedSites: Map<string, { x: number; y: number; reason: BotFailureReason; tick: number }>;
   placementStalls: Map<string, PlacementStallMemory>;
+  expectedProgress: Map<BotIntentProgressMetric, ExpectedProgressMemory>;
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
@@ -89,12 +99,14 @@ export type BotMemory = {
 export type IntentOutcomeMemoryContext = {
   resourceFloat?: number;
   missingProductionIntent?: boolean;
+  progress?: Partial<Record<BotIntentProgressMetric, number>>;
 };
 
 export const createBotMemory = (): BotMemory => ({
   lastTick: -1,
   blockedSites: new Map(),
   placementStalls: new Map(),
+  expectedProgress: new Map(),
   suspectedInvisibleThreats: new Map(),
   tacticalIncidents: new Map(),
   tacticalCommitments: new Map(),
@@ -190,6 +202,35 @@ export const techStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.techStall.count >= TECH_STALL_REACTION_COUNT &&
   tick - memory.techStall.lastTick <= TECH_STALL_FRESH_TICKS;
 
+export const expectedProgressStalls = (memory: BotMemory, tick: number): ReadonlySet<BotIntentProgressMetric> => {
+  const stalled = new Set<BotIntentProgressMetric>();
+  for (const [metric, progress] of memory.expectedProgress) {
+    const expectation = botIntentExpectation(progress.intentKind);
+    if (
+      tick - progress.sinceTick >= expectation.windowTicks &&
+      tick - progress.lastTick <= expectation.windowTicks
+    ) {
+      stalled.add(metric);
+    }
+  }
+  return stalled;
+};
+
+export const expectedProgressStallActive = (
+  memory: BotMemory,
+  tick: number,
+  metric: BotIntentProgressMetric,
+): boolean => expectedProgressStalls(memory, tick).has(metric);
+
+export const botMemoryExpertSignals = (memory: BotMemory, tick: number): BotExpertSignals => ({
+  productionStalled: productionStallActive(memory, tick),
+  missingProductionIntent: missingProductionIntentActive(memory, tick),
+  macroFloatStalled: macroFloatStallActive(memory, tick),
+  blockedExpansion: blockedExpansionActive(memory, tick),
+  techStalled: techStallActive(memory, tick),
+  expectedProgressStalls: expectedProgressStalls(memory, tick),
+});
+
 export const placementStallAnchorKeys = (memory: BotMemory, tick: number): Set<string> => {
   const keys = new Set<string>();
   for (const [key, stall] of memory.placementStalls) {
@@ -240,6 +281,45 @@ const clearTechStall = (memory: BotMemory): void => {
   memory.techStall.sinceTick = -1;
   memory.techStall.lastTick = -1;
   memory.techStall.reason = undefined;
+};
+
+const rememberExpectedProgress = (
+  memory: BotMemory,
+  records: readonly BotIntentRecord[],
+  tick: number,
+  progress: Partial<Record<BotIntentProgressMetric, number>> | undefined,
+): void => {
+  const seen = new Set<BotIntentProgressMetric>();
+
+  for (const { intent, result } of records) {
+    const expectation = botIntentExpectation(intent.kind);
+    const metric = expectation.metric;
+    seen.add(metric);
+
+    if (result.status === 'done') {
+      memory.expectedProgress.delete(metric);
+      continue;
+    }
+
+    const current = progress?.[metric];
+    const existing = memory.expectedProgress.get(metric);
+    if (current !== undefined && existing && current > existing.baseline) {
+      memory.expectedProgress.delete(metric);
+      continue;
+    }
+
+    const continuing = existing !== undefined && existing.intentKind === intent.kind;
+    memory.expectedProgress.set(metric, {
+      intentKind: intent.kind,
+      baseline: continuing ? existing.baseline : current ?? 0,
+      sinceTick: continuing ? existing.sinceTick : tick,
+      lastTick: tick,
+    });
+  }
+
+  for (const metric of memory.expectedProgress.keys()) {
+    if (!seen.has(metric)) memory.expectedProgress.delete(metric);
+  }
 };
 
 const rememberProductionStall = (
@@ -404,6 +484,7 @@ export const rememberIntentOutcomes = (
   rememberBlockedExpansion(memory, records, tick);
   rememberCombatStall(memory, records, tick);
   rememberTechStall(memory, records, tick);
+  rememberExpectedProgress(memory, records, tick, context.progress);
 
   for (const { intent, result } of records) {
     if (intent.x === undefined || intent.y === undefined) continue;
