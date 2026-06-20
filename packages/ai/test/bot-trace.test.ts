@@ -3,6 +3,7 @@ import test from 'node:test';
 import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, eid, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
+  botTraceCompetenceGates,
   botObjectiveReasons,
   botObjectiveTrends,
   botTraceExpertDiagnoses,
@@ -936,6 +937,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     const playerAlerts = trace.alerts.filter((alert) => alert.player === 0);
     const productionDiagnosis = trace.expertDiagnoses.find((entry) => entry.player === 0 && entry.domain === 'production');
     const summaryDiagnosis = trace.expertDiagnoses.find((entry) => entry.player === 0 && entry.domain === 'summary');
+    const gates = botTraceCompetenceGates(trace, 0);
 
     assert.equal(trace.invalidCommandsByPlayer[0], 0, `${name} planner should not emit invalid commands`);
     assert.equal(playerAlerts.length, 0, `${name} planner should not trigger competence alerts`);
@@ -948,5 +950,8 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(productionDiagnosis?.status, 'healthy', `${name} trace should diagnose combat production as healthy`);
     assert.notEqual(summaryDiagnosis?.status, 'failing', `${name} trace should not have a failing expert verdict`);
     assert.equal(summaryDiagnosis?.detail.includes('plan '), true, `${name} expert verdict should name its plan`);
+    assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
+    assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('economy')), true, `${name} gates should summarize victory-axis evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'expert' && gate.detail.includes('expert verdict')), true, `${name} gates should include the expert verdict`);
   }
 });

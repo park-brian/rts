@@ -209,6 +209,22 @@ export type BotMatchTrace = {
   phaseAssessments: BotTracePhaseAssessment[];
 };
 
+export type BotTraceCompetenceGateDomain =
+  | 'commands'
+  | 'economy'
+  | 'production'
+  | 'combat'
+  | 'expert'
+  | 'phase-evidence';
+
+export type BotTraceCompetenceGate = {
+  player: number;
+  domain: BotTraceCompetenceGateDomain;
+  status: BotExpertDiagnosisStatus;
+  severity: number;
+  detail: string;
+};
+
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
   const counts = Object.create(null) as CountMap<K>;
   for (const key of keys) counts[key] = 0;
@@ -1301,4 +1317,119 @@ export const runBotMatchTrace = (
     phaseSummaries,
     phaseAssessments,
   };
+};
+
+const competenceGate = (
+  player: number,
+  domain: BotTraceCompetenceGateDomain,
+  status: BotExpertDiagnosisStatus,
+  severity: number,
+  detail: string,
+): BotTraceCompetenceGate => ({
+  player,
+  domain,
+  status,
+  severity,
+  detail,
+});
+
+const playerAxisCounts = (
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+): CountMap<BotVictoryAxis> => {
+  const counts = Object.create(null) as CountMap<BotVictoryAxis>;
+  for (const phase of phases) {
+    if (phase.player !== player) continue;
+    addCounts(counts, phase.intentAxes);
+  }
+  return counts;
+};
+
+const hasVictoryAxes = (
+  counts: CountMap<BotVictoryAxis>,
+  axes: readonly BotVictoryAxis[],
+): boolean =>
+  axes.every((axis) => (counts[axis] ?? 0) > 0);
+
+export const botTraceCompetenceGates = (
+  trace: BotMatchTrace,
+  player: number,
+): BotTraceCompetenceGate[] => {
+  const frames = trace.frames.filter((frame) => frame.player === player);
+  const first = frames[0];
+  const stats = trace.stats.players[player];
+  const invalidCommands = trace.invalidCommandsByPlayer[player] ?? 0;
+  const alerts = trace.alerts.filter((alert) => alert.player === player);
+  const summary = trace.expertDiagnoses.find((entry) => entry.player === player && entry.domain === 'summary');
+  const axes = playerAxisCounts(trace.phaseSummaries, player);
+  const macroCommands = stats
+    ? commandTotal(stats.commandsByType, MACRO_COMMANDS)
+    : 0;
+  const combatCommands = stats
+    ? commandTotal(stats.commandsByType, COMBAT_COMMANDS)
+    : 0;
+  const expertStatus: BotExpertDiagnosisStatus = alerts.length > 0
+    ? 'failing'
+    : summary?.status ?? 'watch';
+  const gates: BotTraceCompetenceGate[] = [];
+
+  gates.push(competenceGate(
+    player,
+    'commands',
+    invalidCommands === 0 ? 'healthy' : 'failing',
+    invalidCommands,
+    invalidCommands === 0 ? 'all planner commands were accepted' : `${invalidCommands} planner commands were rejected`,
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'economy',
+    stats && first && stats.peakWorkers > first.workers ? 'healthy' : 'failing',
+    stats && first ? Math.max(0, stats.peakWorkers - first.workers) : 0,
+    stats && first
+      ? `worker peak ${first.workers}->${stats.peakWorkers}`
+      : 'missing economy trace evidence',
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'production',
+    stats && stats.peakCombatUnits > 0 && macroCommands > 0 ? 'healthy' : 'failing',
+    stats ? stats.peakCombatUnits + macroCommands : 0,
+    stats
+      ? `${stats.peakCombatUnits} peak combat units with ${macroCommands} macro command attempts`
+      : 'missing production trace evidence',
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'combat',
+    combatCommands > 0 ? 'healthy' : 'failing',
+    combatCommands,
+    combatCommands > 0
+      ? `${combatCommands} combat command attempts`
+      : 'no combat command attempts were observed',
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'expert',
+    expertStatus,
+    alerts.reduce((sum, alert) => sum + alert.severity, 0),
+    alerts.length === 0
+      ? `expert verdict ${summary?.status ?? 'missing'}`
+      : alerts.map((alert) => alert.detail).join('; '),
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'phase-evidence',
+    hasVictoryAxes(axes, ['economy-growth', 'production-throughput', 'combat-strength'])
+      ? 'healthy'
+      : 'failing',
+    Object.values(axes).reduce((sum, count) => sum + (count ?? 0), 0),
+    `axes economy ${axes['economy-growth'] ?? 0}, production ${axes['production-throughput'] ?? 0}, combat ${axes['combat-strength'] ?? 0}`,
+  ));
+
+  return gates;
 };
