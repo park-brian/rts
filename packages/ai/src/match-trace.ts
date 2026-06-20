@@ -21,6 +21,7 @@ import {
   type BotIntentProgressMetric,
   type BotIntentRecord,
   type BotIntentScoreReason,
+  type BotVictoryAxis,
 } from './macro-intents.ts';
 import {
   botExpectationProgress,
@@ -32,7 +33,7 @@ import {
 import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture, type BotStrategyPostureName } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
-import { botIntentExpectation } from './macro-expert.ts';
+import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
 
 export type BotTraceFrame = {
   tick: number;
@@ -77,6 +78,7 @@ export type BotTracePlacementDiagnostic = Pick<
 
 export type BotTraceIntentSummary = {
   kind: BotIntentKind;
+  axis: BotVictoryAxis;
   status: BotTraceOutcomeStatus;
   urgency: number;
   reason?: BotFailureReason;
@@ -159,9 +161,28 @@ export type BotTracePhaseSummary = {
   commandsByType: CountMap<CommandType>;
   intentsByKind: CountMap<BotIntentKind>;
   outcomesByStatus: CountMap<BotTraceOutcomeStatus>;
+  intentAxes: CountMap<BotVictoryAxis>;
   waitsByReason: CountMap<BotFailureReason>;
   blocksByReason: CountMap<BotFailureReason>;
   alertKinds: CountMap<BotTraceAlertKind>;
+};
+
+export type BotTracePhaseAssessmentDomain =
+  | 'summary'
+  | 'economy'
+  | 'army'
+  | 'macro'
+  | 'combat';
+
+export type BotTracePhaseAssessment = {
+  player: number;
+  phase: BotStrategyPostureName;
+  fromTick: number;
+  toTick: number;
+  domain: BotTracePhaseAssessmentDomain;
+  status: BotExpertDiagnosisStatus;
+  severity: number;
+  detail: string;
 };
 
 export type BotTraceParticipant = {
@@ -185,6 +206,7 @@ export type BotMatchTrace = {
   alerts: BotTraceAlert[];
   expertDiagnoses: BotExpertDiagnosis[];
   phaseSummaries: BotTracePhaseSummary[];
+  phaseAssessments: BotTracePhaseAssessment[];
 };
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
@@ -236,6 +258,7 @@ const COMBAT_INTENTS: readonly BotIntentKind[] = ['attack-wave', 'harass', 'cont
 
 const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSummary => ({
   kind: intent.kind,
+  axis: botIntentVictoryAxis(intent.kind),
   status: result.status,
   urgency: intent.urgency,
   ...(result.status === 'done' ? {} : { reason: result.reason }),
@@ -395,18 +418,20 @@ const DIAGNOSIS_STATUS_RANK: Record<BotExpertDiagnosisStatus, number> = {
   failing: 2,
 };
 
-const diagnosisIssueOrder = (a: BotExpertDiagnosis, b: BotExpertDiagnosis): number =>
+type DiagnosableIssue = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detail'> & { domain: string };
+
+const diagnosisIssueOrder = (a: DiagnosableIssue, b: DiagnosableIssue): number =>
   DIAGNOSIS_STATUS_RANK[b.status] - DIAGNOSIS_STATUS_RANK[a.status] ||
   b.severity - a.severity ||
   a.domain.localeCompare(b.domain);
 
-const statusFromIssues = (diagnoses: readonly BotExpertDiagnosis[]): BotExpertDiagnosisStatus => {
+const statusFromIssues = (diagnoses: readonly DiagnosableIssue[]): BotExpertDiagnosisStatus => {
   if (diagnoses.some((entry) => entry.status === 'failing')) return 'failing';
   if (diagnoses.some((entry) => entry.status === 'watch')) return 'watch';
   return 'healthy';
 };
 
-const issueSummary = (diagnoses: readonly BotExpertDiagnosis[], status: BotExpertDiagnosisStatus): string => {
+const issueSummary = (diagnoses: readonly DiagnosableIssue[], status: BotExpertDiagnosisStatus): string => {
   if (status === 'healthy') return 'all expert checks are healthy';
   const issues = diagnoses
     .filter((entry) => entry.status === status)
@@ -471,6 +496,22 @@ const phaseFacts = (frame: BotTraceFrame): BotTracePhaseFacts => ({
   bases: frame.bases,
 });
 
+const plural = (count: number, singular: string, pluralized = `${singular}s`): string =>
+  `${count} ${count === 1 ? singular : pluralized}`;
+
+const addIntentAxisCounts = (
+  axes: CountMap<BotVictoryAxis>,
+  intents: CountMap<BotIntentKind>,
+): void => {
+  for (const kind of BOT_INTENT_KINDS) {
+    const count = intents[kind] ?? 0;
+    if (count > 0) {
+      const axis = botIntentVictoryAxis(kind);
+      axes[axis] = (axes[axis] ?? 0) + count;
+    }
+  }
+};
+
 const summarizePhaseFrames = (
   phaseFrames: readonly BotTraceFrame[],
   alerts: readonly BotTraceAlert[],
@@ -480,6 +521,7 @@ const summarizePhaseFrames = (
   const commandsByType = blankCounts(COMMAND_TYPES);
   const intentsByKind = blankCounts(BOT_INTENT_KINDS);
   const outcomesByStatus = blankCounts<BotTraceOutcomeStatus>(['done', 'waiting', 'blocked', 'failed']);
+  const intentAxes = Object.create(null) as CountMap<BotVictoryAxis>;
   const waitsByReason = Object.create(null) as CountMap<BotFailureReason>;
   const blocksByReason = Object.create(null) as CountMap<BotFailureReason>;
   let queuedWorkerPeak = 0;
@@ -491,6 +533,7 @@ const summarizePhaseFrames = (
     addCounts(commandsByType, frame.commandsByType);
     addCounts(intentsByKind, frame.intentsByKind);
     addCounts(outcomesByStatus, frame.outcomesByStatus);
+    addIntentAxisCounts(intentAxes, frame.intentsByKind);
     addCounts(waitsByReason, frame.waitsByReason);
     addCounts(blocksByReason, frame.blocksByReason);
     queuedWorkerPeak = Math.max(queuedWorkerPeak, frame.queuedWorkerProduction);
@@ -517,6 +560,7 @@ const summarizePhaseFrames = (
     commandsByType,
     intentsByKind,
     outcomesByStatus,
+    intentAxes,
     waitsByReason,
     blocksByReason,
     alertKinds: alertsForPhase(alerts, first.player, first.tick, last.tick),
@@ -544,6 +588,121 @@ export const botTracePhaseSummaries = (
     a.fromTick - b.fromTick ||
     a.phase.localeCompare(b.phase));
 };
+
+const phaseCommandTotal = (phase: BotTracePhaseSummary, types: readonly CommandType[]): number =>
+  commandTotal(phase.commandsByType, types);
+
+const phaseAlertTotal = (phase: BotTracePhaseSummary): number =>
+  Object.values(phase.alertKinds).reduce((sum, count) => sum + (count ?? 0), 0);
+
+const phaseAssessment = (
+  phase: BotTracePhaseSummary,
+  domain: BotTracePhaseAssessmentDomain,
+  status: BotExpertDiagnosisStatus,
+  severity: number,
+  detail: string,
+): BotTracePhaseAssessment => ({
+  player: phase.player,
+  phase: phase.phase,
+  fromTick: phase.fromTick,
+  toTick: phase.toTick,
+  domain,
+  status,
+  severity,
+  detail,
+});
+
+const economyPhaseAssessment = (phase: BotTracePhaseSummary): BotTracePhaseAssessment => {
+  const workerGain = phase.end.workers - phase.start.workers;
+  if (workerGain > 0) {
+    return phaseAssessment(phase, 'economy', 'healthy', workerGain, `worker count increased by ${workerGain}`);
+  }
+  if (phase.peaks.queuedWorkerProduction > 0) {
+    return phaseAssessment(phase, 'economy', 'healthy', phase.peaks.queuedWorkerProduction, `${plural(phase.peaks.queuedWorkerProduction, 'worker')} queued`);
+  }
+  const economyPhase = phase.plan.primaryGoal === 'recover-economy' || phase.plan.primaryGoal === 'scale-economy';
+  return phaseAssessment(
+    phase,
+    'economy',
+    economyPhase ? 'failing' : 'watch',
+    Math.max(1, phase.end.workers),
+    economyPhase ? 'economy phase made no worker progress' : 'no worker progress in this phase',
+  );
+};
+
+const armyPhaseAssessment = (phase: BotTracePhaseSummary): BotTracePhaseAssessment => {
+  const armyGain = phase.end.army - phase.start.army;
+  if (armyGain > 0) return phaseAssessment(phase, 'army', 'healthy', armyGain, `army count increased by ${armyGain}`);
+  if (phase.peaks.queuedArmyProduction > 0) {
+    return phaseAssessment(phase, 'army', 'healthy', phase.peaks.queuedArmyProduction, `${plural(phase.peaks.queuedArmyProduction, 'combat unit')} queued`);
+  }
+  const combatPhase = phase.plan.primaryGoal === 'establish-combat' || phase.plan.primaryGoal === 'build-timing';
+  return phaseAssessment(
+    phase,
+    'army',
+    combatPhase ? 'failing' : 'watch',
+    Math.max(1, phase.end.army),
+    combatPhase ? 'combat-building phase made no army progress' : 'no army progress in this phase',
+  );
+};
+
+const macroPhaseAssessment = (phase: BotTracePhaseSummary): BotTracePhaseAssessment => {
+  const macroCommands = phaseCommandTotal(phase, MACRO_COMMANDS);
+  if (macroCommands > 0) return phaseAssessment(phase, 'macro', 'healthy', macroCommands, `${macroCommands} macro command attempts`);
+  const resourceBank = phase.end.minerals + phase.end.gas;
+  if (resourceBank >= RESOURCE_FLOAT_ALERT) {
+    return phaseAssessment(phase, 'macro', 'failing', Math.trunc(resourceBank / 100), `${resourceBank} resources banked without macro commands`);
+  }
+  return phaseAssessment(phase, 'macro', 'watch', 0, 'no macro command attempts in this phase');
+};
+
+const combatPhaseAssessment = (phase: BotTracePhaseSummary): BotTracePhaseAssessment => {
+  const combatCommands = phaseCommandTotal(phase, COMBAT_COMMANDS);
+  if (combatCommands > 0) return phaseAssessment(phase, 'combat', 'healthy', combatCommands, `${combatCommands} combat command attempts`);
+  const shouldPressure = phase.plan.combatStance === 'pressure' && phase.end.army > 0;
+  return phaseAssessment(
+    phase,
+    'combat',
+    shouldPressure ? 'failing' : 'watch',
+    shouldPressure ? phase.end.army : 0,
+    shouldPressure ? 'pressure phase had army but no combat commands' : 'no combat command attempts in this phase',
+  );
+};
+
+const summaryPhaseAssessment = (
+  phase: BotTracePhaseSummary,
+  assessments: readonly BotTracePhaseAssessment[],
+): BotTracePhaseAssessment => {
+  const status = statusFromIssues(assessments);
+  const severity = assessments
+    .filter((entry) => entry.status === status)
+    .reduce((sum, entry) => sum + entry.severity, 0) + phaseAlertTotal(phase);
+  return phaseAssessment(
+    phase,
+    'summary',
+    status,
+    severity,
+    `${issueSummary(assessments, status)}; plan ${phase.plan.primaryGoal}/${phase.plan.macroPriority}/${phase.plan.combatStance}`,
+  );
+};
+
+const assessPhase = (phase: BotTracePhaseSummary): BotTracePhaseAssessment[] => {
+  const assessments = [
+    economyPhaseAssessment(phase),
+    armyPhaseAssessment(phase),
+    macroPhaseAssessment(phase),
+    combatPhaseAssessment(phase),
+  ];
+  return [summaryPhaseAssessment(phase, assessments), ...assessments];
+};
+
+export const botTracePhaseAssessments = (
+  summaries: readonly BotTracePhaseSummary[],
+): BotTracePhaseAssessment[] =>
+  summaries.flatMap(assessPhase).sort((a, b) =>
+    a.player - b.player ||
+    a.fromTick - b.fromTick ||
+    a.domain.localeCompare(b.domain));
 
 const posturePath = (frames: readonly BotTraceFrame[]): string[] => {
   const names: string[] = [];
@@ -585,9 +744,6 @@ const objectiveDiagnosis = (
 };
 
 type ProgressDiagnosis = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detail'>;
-
-const plural = (count: number, singular: string, pluralized = `${singular}s`): string =>
-  `${count} ${count === 1 ? singular : pluralized}`;
 
 const queuedArmyDetail = (frame: BotTraceFrame): string =>
   frame.queuedArmyProduction > 0
@@ -1131,6 +1287,7 @@ export const runBotMatchTrace = (
   const objectiveTrends = botObjectiveTrends(frames);
   const alerts = botTraceAlerts(frames, commandResults);
   const phaseSummaries = botTracePhaseSummaries(frames, alerts);
+  const phaseAssessments = botTracePhaseAssessments(phaseSummaries);
 
   return {
     frames,
@@ -1142,5 +1299,6 @@ export const runBotMatchTrace = (
     alerts,
     expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
     phaseSummaries,
+    phaseAssessments,
   };
 };

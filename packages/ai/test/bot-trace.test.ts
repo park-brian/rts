@@ -9,6 +9,7 @@ import {
   botTracePhaseSummaries,
   botTraceFrame,
   botIntentExpectation,
+  botIntentVictoryAxis,
   createBotPlanner,
   runBotMatchTrace,
   type BotObjectiveSnapshot,
@@ -67,6 +68,7 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents.length > 0, true);
   assert.equal(frame.topIntents.length <= 5, true);
   assert.equal(frame.topIntents[0]!.kind, plan.intentResults[0]!.intent.kind);
+  assert.equal(frame.topIntents[0]!.axis.length > 0, true);
   assert.equal(frame.topIntents[0]!.status, plan.intentResults[0]!.result.status);
   assert.equal(frame.topIntents.every((intent) => intent.expectation.windowTicks > 0), true);
   assert.equal(frame.topIntents.every((intent) => intent.expectation.detail.length > 0), true);
@@ -481,6 +483,7 @@ test('bot trace alerts classify repeated expected progress stalls', () => {
       kind: 'train-worker' as const,
       status: 'waiting' as const,
       urgency: 35,
+      axis: botIntentVictoryAxis('train-worker'),
       reason: 'resource-starved' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('train-worker'),
@@ -516,6 +519,7 @@ test('bot trace expected progress ignores advanced metrics and issued commands',
       kind: 'train-worker' as const,
       status: 'waiting' as const,
       urgency: 35,
+      axis: botIntentVictoryAxis('train-worker'),
       reason: 'resource-starved' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('train-worker'),
@@ -529,6 +533,7 @@ test('bot trace expected progress ignores advanced metrics and issued commands',
       kind: 'attack-wave' as const,
       status: 'waiting' as const,
       urgency: 40,
+      axis: botIntentVictoryAxis('attack-wave'),
       reason: 'insufficient-force' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('attack-wave'),
@@ -554,6 +559,7 @@ test('bot trace alerts classify repeated blocked tech intent', () => {
       kind: 'research-upgrade' as const,
       status: 'waiting' as const,
       urgency: 25,
+      axis: botIntentVictoryAxis('research-upgrade'),
       reason: 'missing-prerequisite' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('research-upgrade'),
@@ -590,6 +596,7 @@ test('bot trace alerts ignore background blocked tech while another intent leads
       kind: 'train-worker' as const,
       status: 'waiting' as const,
       urgency: 35,
+      axis: botIntentVictoryAxis('train-worker'),
       reason: 'resource-starved' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('train-worker'),
@@ -597,6 +604,7 @@ test('bot trace alerts ignore background blocked tech while another intent leads
       kind: 'research-upgrade' as const,
       status: 'waiting' as const,
       urgency: 25,
+      axis: botIntentVictoryAxis('research-upgrade'),
       reason: 'missing-prerequisite' as const,
       scoreReasons: [],
       expectation: botIntentExpectation('research-upgrade'),
@@ -871,6 +879,10 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.phaseSummaries[trace.phaseSummaries.length - 1]!.toTick, trace.frames[trace.frames.length - 1]!.tick);
   assert.equal(trace.phaseSummaries.some((summary) =>
     (summary.commandsByType.train ?? 0) + (summary.commandsByType.build ?? 0) > 0), true);
+  assert.equal(trace.phaseSummaries.some((summary) =>
+    Object.values(summary.intentAxes).some((count) => count > 0)), true);
+  assert.equal(trace.phaseAssessments.length >= trace.phaseSummaries.length, true);
+  assert.equal(trace.phaseAssessments.some((entry) => entry.domain === 'summary' && entry.detail.includes('plan ')), true);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);
   assert.equal(trace.stats.tick, sim.fullState().tick);
   assert.equal(p0.commandsIssued > 0, true);

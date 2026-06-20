@@ -8,6 +8,7 @@ import {
   botIntent,
   botIntentExpectation,
   botIntentUrgency,
+  botIntentVictoryAxis,
   TACTICAL_ABILITY_POLICIES,
   blockedExpansionActive,
   collectBotFacts,
@@ -438,6 +439,13 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
 test('bot expert helpers own intent urgency and trace ranking', () => {
   assert.equal(botIntentUrgency('rebuild-tech'), 45);
   assert.equal(botIntentUrgency('take-gas'), 46);
+  assert.equal(botIntentVictoryAxis('train-worker'), 'economy-growth');
+  assert.equal(botIntentVictoryAxis('train-counter'), 'combat-strength');
+  assert.equal(botIntentVictoryAxis('add-production'), 'production-throughput');
+  assert.equal(botIntentVictoryAxis('rebuild-tech'), 'tech-unlock');
+  assert.equal(botIntentVictoryAxis('defend-base'), 'safety');
+  assert.equal(botIntentVictoryAxis('harass'), 'enemy-degradation');
+  assert.equal(botIntentVictoryAxis('scout'), 'map-control');
   assert.deepEqual(botIntentExpectation('train-worker'), {
     metric: 'worker-pipeline',
     windowTicks: 8 * 24,

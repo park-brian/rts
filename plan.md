@@ -1144,6 +1144,12 @@ Remaining work:
     `add-static-defense` receive a small explicit score nudge when their macro role matches the
     plan's macro priority. This makes the plan affect arbitration without creating a second
     scheduler or bypassing command validation.
+  - Expert-axis trace slice is done: every bot intent now maps to one explicit StarCraft victory
+    axis (`economy-growth`, `combat-strength`, `production-throughput`, `tech-unlock`, `safety`,
+    `enemy-degradation`, or `map-control`). Bot trace frames carry the axis on top intents, phase
+    summaries aggregate axis counts from all intent kinds, and whole-match traces emit per-phase
+    expert assessments for economy, army, macro, combat, and summary health. This gives the bot a
+    compact expert-system audit trail before adding more scheduler policy.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

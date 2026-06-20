@@ -3,11 +3,13 @@ import {
   botTraceAlerts,
   botTraceExpertDiagnoses,
   botTraceFrame,
+  botTracePhaseAssessments,
   botTracePhaseSummaries,
   createBotPlanner,
   type BotExpertDiagnosis,
   type BotPlanner,
   type BotTraceFrame,
+  type BotTracePhaseAssessment,
   type BotTracePhaseSummary,
   type BotTurnPlan,
 } from '@rts/ai';
@@ -100,3 +102,8 @@ export const botPhaseSummaries = (
   if (frames.length === 0) return [];
   return botTracePhaseSummaries(frames, botTraceAlerts(frames, allBotCommandResults(diagnostics)));
 };
+
+export const botPhaseAssessments = (
+  diagnostics: readonly AppBotDiagnostics[],
+): BotTracePhaseAssessment[] =>
+  botTracePhaseAssessments(botPhaseSummaries(diagnostics));

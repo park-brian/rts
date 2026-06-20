@@ -165,6 +165,7 @@ const splitHealthRows = (rows: readonly MatchHealthRow[]): { summary?: MatchHeal
 });
 
 type BotPhaseSummary = ReturnType<Game['botPhaseSummaries']>[number];
+type BotPhaseAssessment = ReturnType<Game['botPhaseAssessments']>[number];
 
 const keyedCountLine = <K extends string,>(
   counts: CountMap<K>,
@@ -181,6 +182,27 @@ const phaseFactsLine = (phase: BotPhaseSummary): string =>
   `workers ${phase.start.workers}>${phase.end.workers} · army ${phase.start.army}>${phase.end.army} · ` +
   `supply ${fmtSupply(phase.start.supplyUsed)}/${fmtSupply(phase.start.supplyMax)}>` +
   `${fmtSupply(phase.end.supplyUsed)}/${fmtSupply(phase.end.supplyMax)}`;
+
+const phaseAssessmentsFor = (
+  phase: BotPhaseSummary,
+  assessments: readonly BotPhaseAssessment[],
+): BotPhaseAssessment[] =>
+  assessments.filter((entry) =>
+    entry.player === phase.player &&
+    entry.phase === phase.phase &&
+    entry.fromTick === phase.fromTick &&
+    entry.toTick === phase.toTick);
+
+const phaseAssessmentLine = (assessments: readonly BotPhaseAssessment[]): string => {
+  const summary = assessments.find((entry) => entry.domain === 'summary');
+  const details = assessments
+    .filter((entry) => entry.domain !== 'summary')
+    .map((entry) => `${entry.domain} ${HEALTH_LABEL[entry.status]}`)
+    .join(' · ');
+  return [summary ? `verdict ${HEALTH_LABEL[summary.status]}: ${summary.detail}` : '', details]
+    .filter(Boolean)
+    .join(' · ');
+};
 
 const Btn = (p: {
   label: string;
@@ -749,6 +771,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const health = matchHealthRows(stats);
   const botHealth = p.game.botExpertHealthRows();
   const botPhases = p.game.botPhaseSummaries();
+  const botPhaseAssessments = p.game.botPhaseAssessments();
   return (
     <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
       border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
@@ -847,22 +870,28 @@ const MatchStatsPanel = (p: { game: Game }) => {
                   P{player.player + 1} {phases.length} phase{phases.length === 1 ? '' : 's'}
                 </summary>
                 <div style={{ display: 'grid', gap: '5px', marginTop: '5px', color: '#9fb1c7' }}>
-                  {phases.map((phase, i) => (
-                    <div key={`${phase.fromTick}:${phase.phase}:${i}`} title={phase.plan.reasons.join('; ')}
-                      style={{ display: 'grid', gap: '2px', borderTop: i ? '1px solid #1b2533' : '0',
-                        paddingTop: i ? '5px' : '0' }}>
-                      <span style={{ color: '#cdd9e5' }}>
-                        {phaseRangeLabel(phase)} · {phase.plan.primaryGoal}/{phase.plan.macroPriority}/{phase.plan.combatStance}
-                      </span>
-                      <span>{phaseFactsLine(phase)}</span>
-                      <span>peaks workers queued {phase.peaks.queuedWorkerProduction} · army queued {phase.peaks.queuedArmyProduction} · idle prod {phase.peaks.idleProducers}</span>
-                      <span>cmds {countLine(phase.commandsByType, COMMAND_TYPES, commandTypeLabel, 4)}</span>
-                      <span>intents {keyedCountLine(phase.intentsByKind, undefined, 4)}</span>
-                      <span>outcomes {keyedCountLine(phase.outcomesByStatus, undefined, 4)}</span>
-                      <span>wait {keyedCountLine(phase.waitsByReason, reasonLabel, 3)} · block {keyedCountLine(phase.blocksByReason, reasonLabel, 3)}</span>
-                      <span>alerts {keyedCountLine(phase.alertKinds, undefined, 3)}</span>
-                    </div>
-                  ))}
+                  {phases.map((phase, i) => {
+                    const assessments = phaseAssessmentsFor(phase, botPhaseAssessments);
+                    const assessmentLine = phaseAssessmentLine(assessments);
+                    return (
+                      <div key={`${phase.fromTick}:${phase.phase}:${i}`} title={phase.plan.reasons.join('; ')}
+                        style={{ display: 'grid', gap: '2px', borderTop: i ? '1px solid #1b2533' : '0',
+                          paddingTop: i ? '5px' : '0' }}>
+                        <span style={{ color: '#cdd9e5' }}>
+                          {phaseRangeLabel(phase)} · {phase.plan.primaryGoal}/{phase.plan.macroPriority}/{phase.plan.combatStance}
+                        </span>
+                        {assessmentLine && <span title={assessmentLine} style={{ color: '#cdd9e5' }}>judge {assessmentLine}</span>}
+                        <span>{phaseFactsLine(phase)}</span>
+                        <span>peaks workers queued {phase.peaks.queuedWorkerProduction} · army queued {phase.peaks.queuedArmyProduction} · idle prod {phase.peaks.idleProducers}</span>
+                        <span>cmds {countLine(phase.commandsByType, COMMAND_TYPES, commandTypeLabel, 4)}</span>
+                        <span>axes {keyedCountLine(phase.intentAxes, undefined, 4)}</span>
+                        <span>intents {keyedCountLine(phase.intentsByKind, undefined, 4)}</span>
+                        <span>outcomes {keyedCountLine(phase.outcomesByStatus, undefined, 4)}</span>
+                        <span>wait {keyedCountLine(phase.waitsByReason, reasonLabel, 3)} · block {keyedCountLine(phase.blocksByReason, reasonLabel, 3)}</span>
+                        <span>alerts {keyedCountLine(phase.alertKinds, undefined, 3)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </details>
             );

@@ -11,6 +11,7 @@ import {
 import {
   botDiagnosticController,
   botExpertHealthRows,
+  botPhaseAssessments,
   botPhaseSummaries,
   createBotDiagnostics,
   recordBotDiagnosticResults,
@@ -50,7 +51,17 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(phases.length > 0, true);
   assert.equal(phases.every((phase) => phase.samples > 0), true);
   assert.equal(phases.some((phase) => (phase.commandsByType.train ?? 0) + (phase.commandsByType.build ?? 0) > 0), true);
+  assert.equal(phases.some((phase) => Object.values(phase.intentAxes).some((count) => count > 0)), true);
   assert.equal(phases.some((phase) => phase.plan.reasons.length > 0), true);
+
+  const assessments = botPhaseAssessments(diagnostics);
+  assert.equal(assessments.length >= phases.length, true);
+  assert.equal(assessments.some((entry) => entry.domain === 'summary' && entry.detail.includes('plan ')), true);
+  assert.equal(assessments.every((entry) => phases.some((phase) =>
+    phase.player === entry.player &&
+    phase.phase === entry.phase &&
+    phase.fromTick === entry.fromTick &&
+    phase.toTick === entry.toTick)), true);
 });
 
 test('bot command results are stored only for their owning diagnostic participant', () => {

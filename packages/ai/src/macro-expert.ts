@@ -1,4 +1,4 @@
-import type { BotIntent, BotIntentExpectation, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
+import type { BotIntent, BotIntentExpectation, BotIntentKind, BotIntentRecord, BotVictoryAxis } from './macro-intents.ts';
 import { scoreBotIntent, scoreBotIntentRecord, type BotExpertContext } from './macro-objective.ts';
 
 export type BotIntentFields = Omit<BotIntent, 'kind' | 'urgency'> & {
@@ -22,6 +22,37 @@ export const botIntentUrgency = (kind: BotIntentKind): number => {
     case 'train-counter': return 30;
     case 'research-upgrade': return 25;
     default: return 20;
+  }
+};
+
+export const botIntentVictoryAxis = (kind: BotIntentKind): BotVictoryAxis => {
+  switch (kind) {
+    case 'train-worker':
+    case 'expand':
+      return 'economy-growth';
+    case 'spend-larva':
+    case 'train-counter':
+      return 'combat-strength';
+    case 'add-production':
+      return 'production-throughput';
+    case 'take-gas':
+    case 'rebuild-tech':
+    case 'research-upgrade':
+      return 'tech-unlock';
+    case 'defend-base':
+    case 'get-detection':
+    case 'clear-site':
+    case 'evacuate-workers':
+    case 'add-static-defense':
+    case 'retreat':
+      return 'safety';
+    case 'attack-wave':
+    case 'harass':
+    case 'contain':
+    case 'counterattack':
+      return 'enemy-degradation';
+    case 'scout':
+      return 'map-control';
   }
 };
 

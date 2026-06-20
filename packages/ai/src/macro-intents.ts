@@ -51,6 +51,15 @@ export type BotIntentScoreReason = {
   detail: string;
 };
 
+export type BotVictoryAxis =
+  | 'economy-growth'
+  | 'combat-strength'
+  | 'production-throughput'
+  | 'tech-unlock'
+  | 'safety'
+  | 'enemy-degradation'
+  | 'map-control';
+
 export type BotIntentScore = {
   value: number;
   reasons: BotIntentScoreReason[];
