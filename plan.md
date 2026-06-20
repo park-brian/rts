@@ -115,6 +115,9 @@ and feed intent-aware expert diagnoses into the results panel for scripted playe
 stats-derived fallback rows for humans and replays. Remaining work: let the scheduler consume these
 same diagnosis concepts during the match so production stalls, passive combat posture, and macro
 deadlocks trigger corrective intents instead of only post-game explanation.
+Instrumentation correction slice is done: match stats now count same-slot Zerg Egg completion as
+the produced unit, so Drone/Ling/Hydra/etc. production contributes to created worker/combat/value
+metrics instead of disappearing from post-match health and bot traces.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

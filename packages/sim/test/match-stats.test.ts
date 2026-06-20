@@ -6,6 +6,7 @@ import {
   Sim,
   Terran,
   Units,
+  Zerg,
   createMatchStats,
   eid,
   fx,
@@ -109,4 +110,33 @@ test('match stats classify created workers separately from combat units', () => 
   assert.equal(p0.unitsCreated, 1);
   assert.equal(p0.workersCreated, 1);
   assert.equal(p0.combatUnitsCreated, 0);
+});
+
+test('match stats count zerg egg completion as the produced unit', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 7006, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  const stats = createMatchStats(s);
+  let larva = -1;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.Larva) {
+      larva = i;
+      break;
+    }
+  }
+  assert.notEqual(larva, -1);
+
+  e.kind[larva] = Kind.Egg;
+  recordMatchStatsStep(stats, s, [], []);
+  assert.equal(stats.players[0]!.workersCreated, 0);
+  assert.equal(stats.players[0]!.unitsCreated, 0);
+
+  e.kind[larva] = Kind.Drone;
+  recordMatchStatsStep(stats, s, [], []);
+
+  const p0 = stats.players[0]!;
+  assert.equal(p0.unitsCreated, 1);
+  assert.equal(p0.workersCreated, 1);
+  assert.equal(p0.combatUnitsCreated, 0);
+  assert.equal(p0.mineralValueCreated, Units[Kind.Drone]!.minerals);
 });

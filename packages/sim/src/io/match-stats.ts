@@ -1,5 +1,5 @@
 import { COMMAND_TYPES, type CommandRejectReason, type CommandResult, type CommandType, type PlayerCommands } from '../commands/types.ts';
-import { Role, Units } from '../data/index.ts';
+import { Kind, Role, Units } from '../data/index.ts';
 import { CAP, NEUTRAL, type State } from '../entity/world.ts';
 
 export type CountMap<K extends string> = Partial<Record<K, number>>;
@@ -191,6 +191,10 @@ const recordLifecycleDeltas = (stats: MatchStats, s: State): void => {
       if (owner < stats.players.length && owner !== NEUTRAL) recordLost(stats.players[owner]!, stats.prevKind[i]!);
     }
     if (isAlive && (!wasAlive || !sameGeneration)) {
+      const owner = e.owner[i]!;
+      if (owner < stats.players.length && owner !== NEUTRAL) recordCreated(stats.players[owner]!, e.kind[i]!);
+    }
+    if (wasAlive && isAlive && sameGeneration && stats.prevKind[i] === Kind.Egg && e.kind[i] !== Kind.Egg) {
       const owner = e.owner[i]!;
       if (owner < stats.players.length && owner !== NEUTRAL) recordCreated(stats.players[owner]!, e.kind[i]!);
     }
