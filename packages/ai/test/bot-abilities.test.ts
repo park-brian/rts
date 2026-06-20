@@ -52,6 +52,7 @@ import {
   tacticalResponseBudget,
   type BotExpertContext,
   type BotObjectiveSnapshot,
+  type BotStrategyPlan,
   type BotStrategyPosture,
   type PlacementDiagnostic,
 } from '../src/index.ts';
@@ -87,6 +88,16 @@ const strategyPosture = (overrides: Partial<BotStrategyPosture> = {}): BotStrate
   retreatTolerance: 'normal',
   harassmentAppetite: 'normal',
   reasons: ['test posture'],
+  ...overrides,
+});
+
+const strategicPlan = (overrides: Partial<BotStrategyPlan> = {}): BotStrategyPlan => ({
+  phase: 'opening',
+  primaryGoal: 'establish-combat',
+  macroPriority: 'production',
+  combatStance: 'rally',
+  techTarget: 'first-combat',
+  reasons: ['test strategic plan'],
   ...overrides,
 });
 
@@ -505,6 +516,21 @@ test('bot expert scores add-production higher when live production stall signals
     reason.detail === 'ready production has no train intent'), true);
 });
 
+test('bot expert scores add-production from strategic plan production priority', () => {
+  const normal = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    objective: objectiveSnapshot({ productionCapacity: 1, resourceFloat: 300 }),
+  }));
+  const planned = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    strategicPlan: strategicPlan({ primaryGoal: 'build-timing', macroPriority: 'production' }),
+    objective: objectiveSnapshot({ productionCapacity: 1, resourceFloat: 300 }),
+  }));
+
+  assert.equal((planned.score?.value ?? 0) > (normal.score?.value ?? 0), true);
+  assert.equal(planned.score?.reasons.some((reason) =>
+    reason.kind === 'strategy' &&
+    reason.detail === 'strategic plan prioritizes production for build-timing'), true);
+});
+
 test('bot expert scores worker and army demand from queued production pipeline', () => {
   const missingWorkers = scoreBotIntent(botIntent('train-worker'), expertContext({
     workers: 8,
@@ -587,6 +613,18 @@ test('bot expert scores expansion higher when live macro or expansion stalls are
   assert.equal(stalled.score?.reasons.some((reason) =>
     reason.kind === 'map-control' &&
     reason.detail === 'previous expansion route or site was blocked'), true);
+});
+
+test('bot expert scores tech intents from strategic plan tech priority', () => {
+  const normal = scoreBotIntent(botIntent('rebuild-tech', { targetKind: Kind.Academy }), expertContext());
+  const planned = scoreBotIntent(botIntent('rebuild-tech', { targetKind: Kind.Academy }), expertContext({
+    strategicPlan: strategicPlan({ primaryGoal: 'degrade-enemy', macroPriority: 'tech' }),
+  }));
+
+  assert.equal((planned.score?.value ?? 0) > (normal.score?.value ?? 0), true);
+  assert.equal(planned.score?.reasons.some((reason) =>
+    reason.kind === 'strategy' &&
+    reason.detail === 'strategic plan prioritizes tech for degrade-enemy'), true);
 });
 
 test('bot expert scores upgrades from army value and existing tech saturation', () => {

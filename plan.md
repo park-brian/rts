@@ -1129,6 +1129,11 @@ Remaining work:
     `strategicPlan` derived from the current posture: primary goal, macro priority, combat stance,
     tech target, phase, and reasons. Strategy diagnoses include this plan summary, giving the bot a
     stable expert-system surface for "what am I trying to do?" before policy gets more ambitious.
+  - Strategic-plan scorer slice is done: the same compact plan now feeds `BotExpertContext`, and
+    `add-production`, `expand`, `rebuild-tech`, `take-gas`, `research-upgrade`, and
+    `add-static-defense` receive a small explicit score nudge when their macro role matches the
+    plan's macro priority. This makes the plan affect arbitration without creating a second
+    scheduler or bypassing command validation.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

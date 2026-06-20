@@ -25,7 +25,14 @@ import type {
   BotIntentScoreReason,
 } from './macro-intents.ts';
 import type { BotFacts } from './macro.ts';
-import type { BotStrategyPosture, BotStrategyPriority, BotStrategyTolerance } from './macro-strategy.ts';
+import {
+  botStrategyPlan,
+  type BotMacroPriority,
+  type BotStrategyPlan,
+  type BotStrategyPosture,
+  type BotStrategyPriority,
+  type BotStrategyTolerance,
+} from './macro-strategy.ts';
 
 export type BotObjectiveSnapshot = {
   workerSupply: number;
@@ -85,6 +92,7 @@ export type BotExpertContext = {
   bases: number;
   attackThreshold: number;
   strategy?: BotStrategyPosture;
+  strategicPlan?: BotStrategyPlan;
   productionStalled?: boolean;
   missingProductionIntent?: boolean;
   macroFloatStalled?: boolean;
@@ -328,6 +336,7 @@ export const botExpertContext = (
   bases: facts.bases.length,
   attackThreshold,
   ...(strategy ? { strategy } : {}),
+  ...(strategy ? { strategicPlan: botStrategyPlan(strategy) } : {}),
   ...(signals.productionStalled ? { productionStalled: true } : {}),
   ...(signals.missingProductionIntent ? { missingProductionIntent: true } : {}),
   ...(signals.macroFloatStalled ? { macroFloatStalled: true } : {}),
@@ -471,6 +480,19 @@ const strategyReasons = (
   detail: (strategy: BotStrategyPosture) => string,
 ): BotIntentScoreReason[] => strategy ? [strategyReason(value, detail(strategy))] : [];
 
+const strategicPlanBonus = (
+  ctx: BotExpertContext,
+  priority: BotMacroPriority,
+): number => ctx.strategicPlan?.macroPriority === priority ? 8 : 0;
+
+const strategicPlanReason = (
+  ctx: BotExpertContext,
+  priority: BotMacroPriority,
+  value: number,
+): BotIntentScoreReason[] => ctx.strategicPlan && value !== 0
+  ? [strategyReason(value, `strategic plan prioritizes ${priority} for ${ctx.strategicPlan.primaryGoal}`)]
+  : [];
+
 const strategyProductionBonus = (strategy: BotStrategyPosture | undefined): number => {
   if (!strategy) return 0;
   const ratioBonus = Math.round((strategy.productionRatio - 0.5) * 16);
@@ -539,13 +561,15 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const supplyPenalty = supplyHeadroomPenalty(ctx);
       const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0);
-      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus, [
+      const planBonus = strategicPlanBonus(ctx, 'production');
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus + planBonus, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}; army strength pipeline is ${strengthPipeline}/${strengthTarget}`),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
         ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no train intent')] : []),
+        ...strategicPlanReason(ctx, 'production', planBonus),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -556,10 +580,12 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'expand': {
       const strategyBonus = priorityBonus(ctx.strategy?.expansionPriority);
       const liveStallBonus = (ctx.macroFloatStalled ? 12 : 0) + (ctx.blockedExpansion ? 8 : 0);
-      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus, [
+      const planBonus = strategicPlanBonus(ctx, 'expansion');
+      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus + planBonus, [
         scoreReason('economy-growth', ctx.bases, `owned base count is ${ctx.bases}`),
         ...(ctx.macroFloatStalled ? [scoreReason('economy-growth', 12, 'resources are floating while macro spending is stalled')] : []),
         ...(ctx.blockedExpansion ? [scoreReason('map-control', 8, 'previous expansion route or site was blocked')] : []),
+        ...strategicPlanReason(ctx, 'expansion', planBonus),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -569,28 +595,37 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'take-gas': {
       const gasBonus = ctx.strategy?.gasTiming === 'now' ? 12 : ctx.strategy?.gasTiming === 'soon' ? 6 : 0;
-      return scoredIntent(intent, 38 + gasBonus, [
+      const planBonus = strategicPlanBonus(ctx, 'tech');
+      return scoredIntent(intent, 38 + gasBonus + planBonus, [
         scoreReason('tech-unlock', gasBonus, `strategy gas timing is ${ctx.strategy?.gasTiming ?? 'unknown'}`),
+        ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
     }
-    case 'rebuild-tech':
-      return scoredIntent(intent, 44 + (ctx.techStalled ? 14 : 0), [
+    case 'rebuild-tech': {
+      const planBonus = strategicPlanBonus(ctx, 'tech');
+      return scoredIntent(intent, 44 + (ctx.techStalled ? 14 : 0) + planBonus, [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
         ...(ctx.techStalled ? [scoreReason('tech-unlock', 14, 'leading tech intent is repeatedly blocked')] : []),
+        ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
+    }
     case 'research-upgrade': {
       const armyValue = armyStrengthPipeline(ctx.objective);
       const armyValueBonus = Math.min(10, Math.trunc(armyValue / 220));
       const unlockPenalty = Math.min(6, ctx.objective.techUnlocks);
-      return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty, [
+      const planBonus = strategicPlanBonus(ctx, 'tech');
+      return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty + planBonus, [
         scoreReason('army-growth', armyValue, 'upgrade increases fielded and queued combat value'),
         scoreReason('tech-unlock', -unlockPenalty, `completed tech unlock count is ${ctx.objective.techUnlocks}`),
+        ...strategicPlanReason(ctx, 'tech', planBonus),
       ]);
     }
     case 'add-static-defense': {
       const strategyBonus = toleranceBonus(ctx.strategy?.staticDefenseTolerance);
-      return scoredIntent(intent, 42 + strategyBonus, [
+      const planBonus = strategicPlanBonus(ctx, 'defense');
+      return scoredIntent(intent, 42 + strategyBonus + planBonus, [
         scoreReason('safety', 1, 'static defense protects base economy and production'),
+        ...strategicPlanReason(ctx, 'defense', planBonus),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
