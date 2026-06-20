@@ -64,6 +64,13 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents[0]!.kind, plan.intentResults[0]!.intent.kind);
   assert.equal(frame.topIntents[0]!.status, plan.intentResults[0]!.result.status);
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
+  assert.equal(plan.placementDiagnostics.length > 0, true);
+  assert.equal(frame.placementDiagnostics.length > 0, true);
+  assert.equal(frame.placementDiagnostics.length <= 5, true);
+  assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.result === 'chosen'), true);
+  assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.candidates > 0), true);
+  assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.rejected > 0), true);
+  assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.scoreReasons.length > 0), true);
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.resourceFloat, 500);
   assert.equal(frame.strategy.name, 'opening');

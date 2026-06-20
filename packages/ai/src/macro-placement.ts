@@ -47,7 +47,13 @@ const ROUTE_RISK_PENALTY = 220;
 const ROUTE_RISK_MAX_STEPS = 12;
 
 type BuildAnchor = { x: number; y: number };
-type BuildCandidate = { x: number; y: number; score: number; order: number };
+type BuildCandidate = {
+  x: number;
+  y: number;
+  score: number;
+  order: number;
+  scoreReasons?: PlacementScoreReason[];
+};
 type HarvestBase = {
   start: StartLoc;
   dir: BaseResourceDir;
@@ -67,8 +73,41 @@ type PlacementContext = {
   workerX: number;
   workerY: number;
 };
+
+export type PlacementScoreReasonKind =
+  | 'anchor-distance'
+  | 'harvest-reservation'
+  | 'harvest-corridor'
+  | 'addon-clearance'
+  | 'building-ring'
+  | 'blocked-ring'
+  | 'route-risk'
+  | 'own-addon-clearance';
+
+export type PlacementScoreReason = {
+  kind: PlacementScoreReasonKind;
+  value: number;
+  detail?: string;
+};
+
+export type PlacementDiagnostic = {
+  kind: number;
+  result: 'chosen' | 'unavailable';
+  anchorX: number;
+  anchorY: number;
+  x?: number;
+  y?: number;
+  score?: number;
+  candidates: number;
+  rejected: number;
+  rejectedByReason: Record<string, number>;
+  scoreReasons: PlacementScoreReason[];
+};
+
 export type PlacementOptions = {
   risk?: BotRiskMap;
+  diagnostics?: PlacementDiagnostic[];
+  diagnosticLimit?: number;
 };
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
@@ -274,37 +313,72 @@ const routeRiskScore = (context: PlacementContext, x: number, y: number): number
   return score * ROUTE_RISK_PENALTY;
 };
 
-const placementPreferenceScore = (s: State, context: PlacementContext, kind: number, x: number, y: number, fp: Footprint): number => {
+const addScoreReason = (
+  reasons: PlacementScoreReason[] | undefined,
+  kind: PlacementScoreReasonKind,
+  value: number,
+  detail?: string,
+): void => {
+  if (!reasons || value === 0) return;
+  reasons.push(detail ? { kind, value, detail } : { kind, value });
+};
+
+const placementPreferenceScore = (
+  s: State,
+  context: PlacementContext,
+  kind: number,
+  x: number,
+  y: number,
+  fp: Footprint,
+  reasons?: PlacementScoreReason[],
+): number => {
   const smallDefense = isSmallStaticDefenseKind(kind);
   let score = 0;
 
   for (const { corridors, reservation } of context.harvest) {
     if (reservation && footprintsOverlap(fp, reservation)) {
-      score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : RESOURCE_RESERVATION_PENALTY;
+      const value = smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : RESOURCE_RESERVATION_PENALTY;
+      score += value;
+      addScoreReason(reasons, 'harvest-reservation', value);
     }
     for (const corridor of corridors) {
       if (footprintsOverlap(fp, corridor)) {
-        score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : HARVEST_CORRIDOR_PENALTY;
+        const value = smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : HARVEST_CORRIDOR_PENALTY;
+        score += value;
+        addScoreReason(reasons, 'harvest-corridor', value);
       }
     }
   }
 
   for (const addonSlot of context.addonSlots) {
-    if (footprintsOverlap(fp, addonSlot)) score += ADDON_CLEARANCE_PENALTY;
+    if (footprintsOverlap(fp, addonSlot)) {
+      score += ADDON_CLEARANCE_PENALTY;
+      addScoreReason(reasons, 'addon-clearance', ADDON_CLEARANCE_PENALTY);
+    }
   }
 
   for (const ring of context.buildingRings) {
-    if (footprintsOverlap(fp, ring)) score += smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : BUILDING_RING_PENALTY;
+    if (footprintsOverlap(fp, ring)) {
+      const value = smallDefense ? SMALL_DEFENSE_CORRIDOR_PENALTY : BUILDING_RING_PENALTY;
+      score += value;
+      addScoreReason(reasons, 'building-ring', value);
+    }
   }
 
   if (protectsBuildingRing(kind)) {
-    score += blockedRingTiles(s, context, fp) * BUILDING_RING_BLOCKED_TILE_PENALTY;
+    const blocked = blockedRingTiles(s, context, fp);
+    const value = blocked * BUILDING_RING_BLOCKED_TILE_PENALTY;
+    score += value;
+    addScoreReason(reasons, 'blocked-ring', value, `${blocked} blocked ring tiles`);
   }
-  score += routeRiskScore(context, x, y);
+  const risk = routeRiskScore(context, x, y);
+  score += risk;
+  addScoreReason(reasons, 'route-risk', risk);
 
   const ownAddons = addonKindsForParent(kind);
   if (ownAddons.length > 0 && addonSlotBlocked(s, addonFootprintAt(kind, x, y, ownAddons[0]!))) {
     score += ADDON_CLEARANCE_PENALTY;
+    addScoreReason(reasons, 'own-addon-clearance', ADDON_CLEARANCE_PENALTY);
   }
 
   return score;
@@ -312,6 +386,38 @@ const placementPreferenceScore = (s: State, context: PlacementContext, kind: num
 
 const betterCandidate = (next: BuildCandidate, best: BuildCandidate | null): boolean =>
   best === null || next.score < best.score || (next.score === best.score && next.order < best.order);
+
+const incRejection = (counts: Record<string, number> | null, reason: string): void => {
+  if (!counts) return;
+  counts[reason] = (counts[reason] ?? 0) + 1;
+};
+
+const maybePushPlacementDiagnostic = (
+  options: PlacementOptions,
+  kind: number,
+  anchors: readonly BuildAnchor[],
+  best: BuildCandidate | null,
+  candidates: number,
+  rejected: number,
+  rejectedByReason: Record<string, number> | null,
+): void => {
+  const diagnostics = options.diagnostics;
+  if (!diagnostics) return;
+  const limit = options.diagnosticLimit ?? 32;
+  if (diagnostics.length >= limit) return;
+  const anchor = anchors[0] ?? { x: 0, y: 0 };
+  diagnostics.push({
+    kind,
+    result: best ? 'chosen' : 'unavailable',
+    anchorX: anchor.x,
+    anchorY: anchor.y,
+    ...(best ? { x: best.x, y: best.y, score: best.score } : {}),
+    candidates,
+    rejected,
+    rejectedByReason: rejectedByReason ?? {},
+    scoreReasons: best?.scoreReasons ?? [],
+  });
+};
 
 const findBestSpot = (
   s: State,
@@ -324,6 +430,9 @@ const findBestSpot = (
   const context = placementContext(s, player, worker, options);
   let best: BuildCandidate | null = null;
   let order = 0;
+  let candidates = 0;
+  let rejected = 0;
+  const rejectedByReason = options.diagnostics ? Object.create(null) as Record<string, number> : null;
 
   for (const anchor of anchors) {
     const btx = tileX(anchor.x);
@@ -334,16 +443,24 @@ const findBestSpot = (
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
           const placement = canPlaceStructure(s, player, worker, kind, px(btx + dx), px(bty + dy));
           if (!placement.ok) {
+            rejected++;
+            incRejection(rejectedByReason, placement.reason);
             order++;
             continue;
           }
 
+          candidates++;
           const fp = structureFootprint(kind, placement.x, placement.y);
+          const scoreReasons = options.diagnostics ? [] as PlacementScoreReason[] : undefined;
+          const preference = placementPreferenceScore(s, context, kind, placement.x, placement.y, fp, scoreReasons);
+          const distance = dx * dx + dy * dy;
+          addScoreReason(scoreReasons, 'anchor-distance', distance);
           const candidate = {
             x: placement.x,
             y: placement.y,
-            score: placementPreferenceScore(s, context, kind, placement.x, placement.y, fp) + dx * dx + dy * dy,
+            score: preference + distance,
             order,
+            ...(scoreReasons ? { scoreReasons } : {}),
           };
           if (betterCandidate(candidate, best)) best = candidate;
           order++;
@@ -352,6 +469,7 @@ const findBestSpot = (
     }
   }
 
+  maybePushPlacementDiagnostic(options, kind, anchors, best, candidates, rejected, rejectedByReason);
   return best === null ? null : { x: best.x, y: best.y };
 };
 

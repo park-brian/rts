@@ -22,7 +22,7 @@ import { botIntent, rankBotIntentCandidates, type BotIntentCandidate } from './m
 import { gasStructureKind, queueGasStructure } from './macro-gas.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { botExpertContext } from './macro-objective.ts';
-import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
+import { findExactSpot, findMacroSpot, findSpot, type PlacementDiagnostic } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
@@ -38,6 +38,7 @@ export type MacroScheduleConfig = {
   barracksTarget: number;
   attackThreshold?: number;
   strategy?: BotStrategyPosture;
+  placementDiagnostics?: PlacementDiagnostic[];
 };
 
 export type MacroSchedule = {
@@ -188,10 +189,14 @@ export const scheduleBotMacro = (
   const reservedTechProducers: ProducerReservations = new Set();
   const intentResults: BotIntentRecord[] = [];
   let builderUsed = false;
+  const placementOptions = {
+    risk: facts.risk,
+    diagnostics: config.placementDiagnostics,
+  };
   const riskAwareFindSpot: typeof findSpot = (state, owner, worker, kind, x, y) =>
-    findSpot(state, owner, worker, kind, x, y, { risk: facts.risk });
+    findSpot(state, owner, worker, kind, x, y, placementOptions);
   const riskAwareFindMacroSpot: typeof findMacroSpot = (state, owner, worker, kind, fallback) =>
-    findMacroSpot(state, owner, worker, kind, fallback, { risk: facts.risk });
+    findMacroSpot(state, owner, worker, kind, fallback, placementOptions);
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy);

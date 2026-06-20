@@ -9,7 +9,7 @@ import { desiredWorkerCount } from './macro-economy.ts';
 import { rankBotIntentRecords, scoreBotIntentRecords } from './macro-expert.ts';
 import { executePressureIntent, proposePressureIntent, type PressureScheduleResult } from './macro-offense.ts';
 import { botExpertContext } from './macro-objective.ts';
-import { findSpot } from './macro-placement.ts';
+import { findSpot, type PlacementDiagnostic } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { botStrategyPosture, type BotStrategyPosture } from './macro-strategy.ts';
@@ -29,6 +29,7 @@ export type BotTurnPlan = {
   intents: BotIntent[];
   intentResults: BotIntentRecord[];
   strategy: BotStrategyPosture;
+  placementDiagnostics: PlacementDiagnostic[];
 };
 
 export type BotPlanner = (s: State, p: number) => BotTurnPlan;
@@ -70,6 +71,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
   return (s: State, p: number): BotTurnPlan => {
     const cmds: Command[] = [];
     const intentResults: BotIntentRecord[] = [];
+    const placementDiagnostics: PlacementDiagnostic[] = [];
 
     const facts = collectBotFacts(s, p, faction, { risk: 'none' });
     const depot = facts.primaryBase;
@@ -80,7 +82,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       workerTarget,
       attackThreshold: c.attackThreshold,
     });
-    if (depot === NONE) return { commands: cmds, intents: [], intentResults, strategy }; // no base: nothing to do
+    if (depot === NONE) return { commands: cmds, intents: [], intentResults, strategy, placementDiagnostics }; // no base: nothing to do
 
     const memory = prepareMemory(p, s.tick);
     const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold, strategy);
@@ -89,6 +91,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       workerTarget: strategy.workerTarget,
       attackThreshold: strategy.attackThreshold,
       strategy,
+      placementDiagnostics,
     }, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
     intentResults.push(...macro.intentResults);
@@ -164,6 +167,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       intents: rankedIntentResults.map((record) => record.intent),
       intentResults: rankedIntentResults,
       strategy,
+      placementDiagnostics,
     };
   };
 };

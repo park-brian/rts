@@ -1041,6 +1041,15 @@ Remaining work:
   - First capability-timing slice is done: gas access now uses the same expert vocabulary via
     `take-gas`, so strategy posture can request a race-specific Refinery/Assimilator/Extractor
     through normal build validation and expose the choice in traces/results.
+- Treat the bot expert system as four explicit layers:
+  - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
+    base clusters, placement constraints, and visible/suspected enemy threats.
+  - Judgement: scored intents with player-readable reasons, opportunity costs, prerequisites,
+    expected progress metrics, and failure/deadlock thresholds.
+  - Execution: ordinary validated commands only; the expert layer may choose targets and actors,
+    but it must not bypass sim validation, command masks, replay determinism, or RL observations.
+  - Evidence: traces, post-match stats, and math-mode overlays must expose enough reasoning to tell
+    whether the bot was pursuing a coherent StarCraft plan or just emitting legal actions.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1155,6 +1164,11 @@ Remaining work:
   reasons, final score components, and whether the resulting footprint blocked mineral paths,
   add-ons, choke movement, future expansion space, pylon/creep coverage, or rally routes. If the bot
   places a legal but strategically nonsense building, the trace should make the bad score obvious.
+  - First placement-diagnostic slice is done: macro placement can now record bounded diagnostics
+    only when the planner requests them, and bot trace frames include chosen/unavailable placement
+    summaries with candidate counts, rejection reasons, final score, and score components. Remaining
+    placement work should add explicit layout roles, resource-cluster anchors, pylon/creep coverage,
+    and rally-route diagnostics instead of widening the current legal-tile search blindly.
 - Add "not making units" regressions. Each race needs a long-running macro test proving that once a
   Barracks/Gateway/Hatchery/Larva path exists, the bot actually converts production capacity into
   Marines/Zealots/Zerglings or the current strategy's requested unit mix under realistic resource

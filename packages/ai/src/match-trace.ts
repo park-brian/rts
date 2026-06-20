@@ -28,6 +28,7 @@ import {
 } from './macro-objective.ts';
 import type { BotStrategyPosture } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
+import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
 
 export type BotTraceFrame = {
   tick: number;
@@ -50,12 +51,21 @@ export type BotTraceFrame = {
   waitsByReason: CountMap<BotFailureReason>;
   blocksByReason: CountMap<BotFailureReason>;
   topIntents: BotTraceIntentSummary[];
+  placementDiagnostics: BotTracePlacementDiagnostic[];
   objective: BotObjectiveSnapshot;
   strategy: BotStrategyPosture;
 };
 
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
 type BotTraceIntentReason = Pick<BotIntentScoreReason, 'kind' | 'value' | 'detail'>;
+type BotTracePlacementReason = Pick<PlacementScoreReason, 'kind' | 'value' | 'detail'>;
+
+export type BotTracePlacementDiagnostic = Pick<
+  PlacementDiagnostic,
+  'kind' | 'result' | 'anchorX' | 'anchorY' | 'x' | 'y' | 'score' | 'candidates' | 'rejected' | 'rejectedByReason'
+> & {
+  scoreReasons: BotTracePlacementReason[];
+};
 
 export type BotTraceIntentSummary = {
   kind: BotIntentKind;
@@ -135,6 +145,7 @@ const inc = <K extends string>(counts: CountMap<K>, key: K): void => {
 };
 
 const TOP_TRACE_INTENTS = 5;
+const TOP_TRACE_PLACEMENTS = 5;
 const ALERT_STREAK_FRAMES = 3;
 const RESOURCE_FLOAT_ALERT = 800;
 const PRODUCTION_FLOAT_ALERT = 300;
@@ -158,6 +169,24 @@ const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSumma
   ...(intent.targetTech !== undefined ? { targetTech: intent.targetTech } : {}),
   ...(intent.x !== undefined ? { x: intent.x } : {}),
   ...(intent.y !== undefined ? { y: intent.y } : {}),
+});
+
+const placementSummary = (diagnostic: PlacementDiagnostic): BotTracePlacementDiagnostic => ({
+  kind: diagnostic.kind,
+  result: diagnostic.result,
+  anchorX: diagnostic.anchorX,
+  anchorY: diagnostic.anchorY,
+  ...(diagnostic.x !== undefined ? { x: diagnostic.x } : {}),
+  ...(diagnostic.y !== undefined ? { y: diagnostic.y } : {}),
+  ...(diagnostic.score !== undefined ? { score: diagnostic.score } : {}),
+  candidates: diagnostic.candidates,
+  rejected: diagnostic.rejected,
+  rejectedByReason: diagnostic.rejectedByReason,
+  scoreReasons: diagnostic.scoreReasons.map((reason) => ({
+    kind: reason.kind,
+    value: reason.value,
+    ...(reason.detail ? { detail: reason.detail } : {}),
+  })),
 });
 
 const countCommands = (frame: BotTraceFrame, types: readonly CommandType[]): number =>
@@ -443,6 +472,7 @@ export const botTraceFrame = (
     waitsByReason,
     blocksByReason,
     topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
+    placementDiagnostics: plan.placementDiagnostics.slice(0, TOP_TRACE_PLACEMENTS).map(placementSummary),
     objective: botObjectiveSnapshot(s, player),
     strategy: plan.strategy,
   };
