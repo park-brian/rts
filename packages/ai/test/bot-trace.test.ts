@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
+import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, eid, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botObjectiveReasons,
@@ -54,6 +54,8 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.workers, Terran.startWorkers);
   assert.equal(frame.bases, 1);
   assert.equal(frame.minerals, 500);
+  assert.equal(frame.queuedWorkerProduction, 0);
+  assert.equal(frame.queuedArmyProduction, 0);
   assert.equal(frame.commandsIssued, plan.commands.length);
   assert.equal(frame.commandsByType.train! > 0 || frame.commandsByType.build! > 0, true);
   assert.equal(frame.intentsByKind['train-worker']! > 0 || frame.intentsByKind['add-production']! > 0, true);
@@ -134,6 +136,48 @@ test('bot trace objective snapshot separates completed and pending production ca
   assert.equal(frame.objective.pendingProductionCapacity, 1);
   assert.equal(frame.objective.enemyProductionCapacity, 0);
   assert.equal(frame.objective.enemyPendingProductionCapacity, 1);
+});
+
+test('bot trace frame exposes active worker and army production queues', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8118, factions: [Terran, Terran] });
+  let s = sim.fullState();
+  const base = primaryBaseSlot(s, 0, Terran);
+  const barracks = slotOf(spawnUnit(s, Kind.Barracks, 0, s.e.x[base]! + fx(160), s.e.y[base]!));
+  s.players.minerals[0] = 500;
+  sim.step([{ player: 0, cmds: [
+    { t: 'train', building: eid(s.e, base), kind: Kind.SCV },
+    { t: 'train', building: eid(s.e, barracks), kind: Kind.Marine },
+  ] }]);
+  s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+
+  assert.equal(frame.queuedWorkerProduction, 1);
+  assert.equal(frame.queuedArmyProduction, 1);
+  const diagnoses = botTraceExpertDiagnoses([frame], createMatchStats(s), [], botObjectiveTrends([frame]));
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'economy' &&
+    entry.status === 'healthy' &&
+    entry.detail.includes('worker') &&
+    entry.detail.includes('queued')), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'production' &&
+    entry.status === 'healthy' &&
+    entry.detail.includes('combat unit') &&
+    entry.detail.includes('queued')), true);
+
+  const zergSim = new Sim({ map: sliceMap(), players: 2, seed: 8119, factions: [Zerg, Terran] });
+  s = zergSim.fullState();
+  seedCombatProductionPath(s, Zerg, Kind.SpawningPool);
+  s.players.minerals[0] = 500;
+  const hatchery = primaryBaseSlot(s, 0, Zerg);
+  const larva = slotOf(spawnUnit(s, Kind.Larva, 0, s.e.x[hatchery]!, s.e.y[hatchery]!));
+  zergSim.step([{ player: 0, cmds: [{ t: 'train', building: eid(s.e, larva), kind: Kind.Zergling }] }]);
+  s = zergSim.fullState();
+  const zergPlan = createBotPlanner(Zerg, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })(s, 0);
+  const zergFrame = botTraceFrame(s, 0, Zerg, zergPlan);
+
+  assert.equal(zergFrame.queuedArmyProduction, 2);
 });
 
 test('bot trace objective army strength uses researched combat upgrades', () => {

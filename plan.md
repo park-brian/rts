@@ -1045,6 +1045,10 @@ Remaining work:
     army growth, newly completed production capacity, and pending production capacity from the true
     "no completed combat production" stall case, so post-match evidence matches the objective
     scorer's view of macro progress.
+  - Production-queue evidence slice is done: sampled bot trace frames now expose active queued
+    worker and combat-unit production, including Zerg egg morphs and multi-unit products. Economy
+    and production diagnoses consume those counters, so a worker/army unit already in the pipeline
+    is reported as concrete progress instead of a silent held-steady/stalled trace.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

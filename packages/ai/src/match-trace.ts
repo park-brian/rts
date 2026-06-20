@@ -1,6 +1,11 @@
 import {
   COMMAND_TYPES,
+  Kind,
+  Role,
+  Units,
   createMatchStats,
+  kindHasDirectWeapon,
+  productionCount,
   recordMatchStatsStep,
   type CommandResult,
   type CommandType,
@@ -41,6 +46,8 @@ export type BotTraceFrame = {
   workers: number;
   army: number;
   retaskableArmy: number;
+  queuedWorkerProduction: number;
+  queuedArmyProduction: number;
   idleProducers: number;
   idleLarvae: number;
   visibleEnemies: number;
@@ -250,6 +257,30 @@ const alertSeverity = (alerts: readonly BotTraceAlert[]): number =>
 const commandTotal = (counts: CountMap<CommandType>, types: readonly CommandType[]): number =>
   types.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
 
+const queuedProductionCounts = (
+  s: State,
+  player: number,
+): Pick<BotTraceFrame, 'queuedWorkerProduction' | 'queuedArmyProduction'> => {
+  let queuedWorkerProduction = 0;
+  let queuedArmyProduction = 0;
+  const e = s.e;
+
+  for (let slot = 0; slot < e.hi; slot++) {
+    if (e.alive[slot] !== 1 || e.owner[slot] !== player || e.prodKind[slot] === Kind.None) continue;
+    const kind = e.prodKind[slot]!;
+    const def = Units[kind];
+    if (!def) continue;
+
+    const count = productionCount(kind) * (1 + e.prodQueued[slot]!);
+    const isWorker = (def.roles & Role.Worker) !== 0;
+    const isArmy = (def.roles & Role.Mobile) !== 0 && !isWorker && kindHasDirectWeapon(kind);
+    if (isWorker) queuedWorkerProduction += count;
+    if (isArmy) queuedArmyProduction += count;
+  }
+
+  return { queuedWorkerProduction, queuedArmyProduction };
+};
+
 const diagnosis = (
   domain: BotExpertDiagnosisDomain,
   player: number,
@@ -313,17 +344,35 @@ const objectiveDiagnosis = (
   return diagnosis('objective', first.player, status, Math.abs(score), detail);
 };
 
-type ProductionProgressDiagnosis = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detail'>;
+type ProgressDiagnosis = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detail'>;
 
 const plural = (count: number, singular: string, pluralized = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralized}`;
+
+const economyProgressDiagnosis = (
+  first: BotTraceFrame,
+  last: BotTraceFrame,
+  workerGain: number,
+): ProgressDiagnosis => {
+  if (workerGain > 0) {
+    return { status: 'healthy', severity: workerGain, detail: `worker supply increased by ${workerGain}` };
+  }
+  if (last.queuedWorkerProduction > 0) {
+    const workers = plural(last.queuedWorkerProduction, 'worker');
+    return { status: 'healthy', severity: last.queuedWorkerProduction, detail: `${workers} queued or morphing` };
+  }
+  if (last.workers >= first.workers) {
+    return { status: 'watch', severity: 0, detail: 'worker count held steady during the trace' };
+  }
+  return { status: 'failing', severity: Math.abs(workerGain), detail: 'worker count declined during the trace' };
+};
 
 const productionProgressDiagnosis = (
   first: BotTraceFrame,
   last: BotTraceFrame,
   armyGain: number,
   trend: BotObjectiveTrend | undefined,
-): ProductionProgressDiagnosis => {
+): ProgressDiagnosis => {
   const before = trend?.before ?? first.objective;
   const after = trend?.after ?? last.objective;
   const capacityGain = after.productionCapacity - before.productionCapacity;
@@ -335,6 +384,10 @@ const productionProgressDiagnosis = (
   if (capacityGain > 0) {
     const sources = plural(capacityGain, 'combat production source');
     return { status: 'healthy', severity: capacityGain, detail: `${sources} completed` };
+  }
+  if (last.queuedArmyProduction > 0) {
+    const units = plural(last.queuedArmyProduction, 'combat unit');
+    return { status: 'healthy', severity: last.queuedArmyProduction, detail: `${units} queued or morphing` };
   }
   if (pendingGain > 0) {
     const sources = plural(pendingGain, 'combat production source');
@@ -549,17 +602,13 @@ export const botTraceExpertDiagnoses = (
         ? `${macroCommands} macro command attempts in the trace`
         : 'no macro command attempts were observed'));
 
-    const economyStatus: BotExpertDiagnosisStatus = workerGain > 0
-      ? 'healthy'
-      : last.workers >= first.workers ? 'watch' : 'failing';
+    const economyProgress = economyProgressDiagnosis(first, last, workerGain);
     diagnoses.push(diagnosis(
       'economy',
       player,
-      economyStatus,
-      Math.abs(workerGain),
-      workerGain > 0
-        ? `worker supply increased by ${workerGain}`
-        : last.workers >= first.workers ? 'worker count held steady during the trace' : 'worker count declined during the trace',
+      economyProgress.status,
+      economyProgress.severity,
+      economyProgress.detail,
     ));
 
     const productionProgress = productionProgressDiagnosis(first, last, armyGain, trend);
@@ -600,6 +649,7 @@ export const botTraceFrame = (
     if (record.result.status === 'waiting') inc(waitsByReason, record.result.reason);
     if (record.result.status === 'blocked') inc(blocksByReason, record.result.reason);
   }
+  const queuedProduction = queuedProductionCounts(s, player);
 
   return {
     tick: s.tick,
@@ -612,6 +662,7 @@ export const botTraceFrame = (
     workers: facts.workers.length,
     army: facts.army.length,
     retaskableArmy: facts.retaskableArmy.length,
+    ...queuedProduction,
     idleProducers: facts.idleProducers.length,
     idleLarvae: facts.idleLarvae.length,
     visibleEnemies: facts.visibleEnemies.length,
