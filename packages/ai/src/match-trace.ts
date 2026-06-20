@@ -84,7 +84,8 @@ export type BotTraceAlertKind =
   | 'invalid-commands'
   | 'resource-float-stall'
   | 'production-stall'
-  | 'combat-intent-stall';
+  | 'combat-intent-stall'
+  | 'placement-stall';
 
 export type BotTraceAlert = {
   kind: BotTraceAlertKind;
@@ -207,6 +208,26 @@ const trainIntentCount = (frame: BotTraceFrame): number =>
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
 
+type PlacementStreak = {
+  start: number;
+  end: number;
+  count: number;
+  kind: number;
+  anchorX: number;
+  anchorY: number;
+  rejected: number;
+  rejectedByReason: CountMap<string>;
+};
+
+const placementFailureKey = (diagnostic: BotTracePlacementDiagnostic): string =>
+  `${diagnostic.kind}:${diagnostic.anchorX}:${diagnostic.anchorY}`;
+
+const placementReasonDetail = (counts: CountMap<string>): string => {
+  const topReason = Object.entries(counts)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0) || a[0].localeCompare(b[0]))[0];
+  return topReason ? `; main rejection ${topReason[0]} (${topReason[1] ?? 0})` : '';
+};
+
 const playerAlerts = (
   alerts: readonly BotTraceAlert[],
   player: number,
@@ -302,6 +323,65 @@ const pushFrameStreakAlerts = (
   flush(frames.length - 1);
 };
 
+const pushPlacementStallAlerts = (
+  alerts: BotTraceAlert[],
+  frames: readonly BotTraceFrame[],
+): void => {
+  const active = new Map<string, PlacementStreak>();
+  const flush = (key: string): void => {
+    const streak = active.get(key);
+    if (!streak) return;
+    active.delete(key);
+    if (streak.count < ALERT_STREAK_FRAMES) return;
+    const first = frames[streak.start]!;
+    const last = frames[streak.end]!;
+    alerts.push({
+      kind: 'placement-stall',
+      player: first.player,
+      fromTick: first.tick,
+      toTick: last.tick,
+      severity: streak.count + Math.trunc(streak.rejected / 100),
+      detail: `${streak.count} sampled frames could not place kind ${streak.kind} near ${streak.anchorX},${streak.anchorY}; rejected ${streak.rejected} candidates${placementReasonDetail(streak.rejectedByReason)}`,
+    });
+  };
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i]!;
+    const seen = new Set<string>();
+    for (const diagnostic of frame.placementDiagnostics) {
+      if (diagnostic.result !== 'unavailable') continue;
+      const key = placementFailureKey(diagnostic);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const streak = active.get(key);
+      if (streak) {
+        streak.end = i;
+        streak.count++;
+        streak.rejected += diagnostic.rejected;
+        for (const [reason, count] of Object.entries(diagnostic.rejectedByReason)) {
+          streak.rejectedByReason[reason] = (streak.rejectedByReason[reason] ?? 0) + count;
+        }
+        continue;
+      }
+      active.set(key, {
+        start: i,
+        end: i,
+        count: 1,
+        kind: diagnostic.kind,
+        anchorX: diagnostic.anchorX,
+        anchorY: diagnostic.anchorY,
+        rejected: diagnostic.rejected,
+        rejectedByReason: { ...diagnostic.rejectedByReason },
+      });
+    }
+    for (const key of [...active.keys()]) {
+      if (!seen.has(key)) flush(key);
+    }
+  }
+
+  for (const key of [...active.keys()]) flush(key);
+};
+
 export const botTraceAlerts = (
   frames: readonly BotTraceFrame[],
   commandResults: readonly CommandResult[] = [],
@@ -356,6 +436,7 @@ export const botTraceAlerts = (
       (_start, _end, count) => `${count} sampled frames had combat intent but no combat commands`,
       (_start, end, count) => count * end.retaskableArmy,
     );
+    pushPlacementStallAlerts(alerts, playerFrames);
   }
 
   return alerts.sort((a, b) =>
@@ -379,7 +460,7 @@ export const botTraceExpertDiagnoses = (
     const player = first.player;
     const playerStats = stats.players[player];
     const trend = trends.find((candidate) => candidate.player === player);
-    const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall']);
+    const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'placement-stall']);
     const productionAlerts = playerAlerts(alerts, player, ['production-stall']);
     const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall']);
     const macroCommands = playerStats ? commandTotal(playerStats.commandsByType, MACRO_COMMANDS) : 0;

@@ -1102,6 +1102,11 @@ Remaining work:
     or clearing the route;
   - tech path asks for units/upgrades whose prerequisite structure was destroyed and not rebuilt;
   - resource float grows while all macro directors report waiting for unrelated reasons.
+  - Placement-stall detector slice is done: sampled bot traces now emit a `placement-stall` alert
+    when the same structure repeatedly has no valid placement near the same anchor, including
+    rejected candidate counts and the dominant placement rejection reason. Remaining deadlock work:
+    make the scheduler react to this evidence with alternate anchors, clear-site/transport intents,
+    or strategy fallback instead of only reporting the failure.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;

@@ -223,6 +223,37 @@ test('bot trace alerts classify macro deadlocks and invalid commands', () => {
   assert.equal(alerts.some((alert) => alert.kind === 'production-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
 });
 
+test('bot trace alerts classify repeated placement deadlocks', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8111, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 500;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    placementDiagnostics: [{
+      kind: Kind.Barracks,
+      result: 'unavailable' as const,
+      anchorX: fx(10),
+      anchorY: fx(12),
+      candidates: 0,
+      rejected: 120,
+      rejectedByReason: { 'blocked-by-entity': 120 },
+      scoreReasons: [],
+    }],
+  }));
+
+  const alerts = botTraceAlerts(frames);
+
+  assert.equal(alerts.some((alert) =>
+    alert.kind === 'placement-stall' &&
+    alert.fromTick === 0 &&
+    alert.toTick === 120 &&
+    alert.detail.includes('kind') &&
+    alert.detail.includes('blocked-by-entity')), true);
+});
+
 test('bot expert diagnoses summarize trace health by strategic domain', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8109, factions: [Terran, Terran] });
   const s = sim.fullState();
