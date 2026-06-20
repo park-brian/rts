@@ -380,6 +380,10 @@ Migration plan:
     orbit radius, leash range, return range, and orbit offsets now live in actor facets. The Scarab
     and Interceptor systems still own timing-heavy interpretation, target validation, movement, dud,
     splash, bay return, and ammo restoration semantics.
+  - Projectile actor solidity slice is done: local avoidance now reads projectile-actor identity
+    from `mechanics/actors.ts` instead of hard-coding Scarabs as non-solid ground bodies. Collision
+    still consumes the same local-avoidance solidity query, so future projectile actors have one
+    actor-metadata owner for this pathing/collision exclusion.
   - Scarab launch ownership slice is done: combat now calls `mechanics/scarab.ts` for Scarab actor
     creation and launch initialization instead of importing from the Scarab tick system. The tick
     system remains the interpreter for travel, dud, impact, and splash behavior.

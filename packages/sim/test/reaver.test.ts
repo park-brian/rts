@@ -15,7 +15,8 @@ import {
   canQueueInternalProduct, completeInternalProduct, hasInternalProductReady, storeInternalProduct,
 } from '../src/mechanics/internal-products.ts';
 import {
-  ActorDefs, actorDef, actorProjectile, actorSortie, isExternallySteeredActor, participatesInNormalCombat,
+  ActorDefs, actorDef, actorProjectile, actorSortie, isExternallySteeredActor, isProjectileActorKind,
+  participatesInNormalCombat,
 } from '../src/mechanics/actors.ts';
 import { applyWeaponHit } from '../src/mechanics/weapon-hit.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
@@ -75,6 +76,7 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(actorDef(Kind.Scarab)?.commandable, false);
   assert.equal(participatesInNormalCombat(Kind.Scarab), false);
   assert.equal(isExternallySteeredActor(Kind.Scarab, NONE), false);
+  assert.equal(isProjectileActorKind(Kind.Scarab), true);
   assert.deepEqual(actorProjectile(Kind.Scarab), {
     lifetime: 180,
     target: 'scarab-ground-detectable',
@@ -90,6 +92,7 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(actorSortie(Kind.Interceptor)?.returnRange, tiles(1));
   assert.equal(actorSortie(Kind.Interceptor)?.orbitOffsets.length, 8);
   assert.equal(actorDef(Kind.Marine), undefined);
+  assert.equal(isProjectileActorKind(Kind.Marine), false);
 
   assert.equal(weaponMechanicDef(Kind.Lurker)?.onHit, WeaponMechanic.LurkerLineSplash);
   assert.equal(weaponMechanicDef(Kind.Mutalisk)?.onHit, WeaponMechanic.MutaliskBounce);

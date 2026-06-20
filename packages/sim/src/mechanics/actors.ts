@@ -174,6 +174,9 @@ export const isExternallySteeredActor = (kind: number, home: number): boolean =>
 export const actorPresentation = (kind: number): ActorPresentation =>
   (actorFlags(kind) & ActorFlags.ProjectilePresentation) !== 0 ? 'projectile' : 'unit';
 
+export const isProjectileActorKind = (kind: number): boolean =>
+  (actorFlags(kind) & ActorFlags.ProjectilePresentation) !== 0;
+
 export const actorMinReadableScreenRadius = (kind: number): number | undefined => {
   const radius = ActorIndex.minReadableScreenRadius[kind] ?? -1;
   return radius >= 0 ? radius : undefined;

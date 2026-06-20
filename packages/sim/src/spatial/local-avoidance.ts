@@ -7,9 +7,10 @@
 
 import type { State } from '../entity/world.ts';
 import { CAP } from '../entity/world.ts';
-import { Kind, Role, TILE, Units } from '../data/index.ts';
+import { Role, TILE, Units } from '../data/index.ts';
 import { ONE, isqrt } from '../fixed.ts';
 import { isContained } from '../mechanics/cargo.ts';
+import { isProjectileActorKind } from '../mechanics/actors.ts';
 import { isPathingAnchor } from './pathing-anchor.ts';
 import { workersCanShareResourceRouteCollision } from './worker-collision.ts';
 
@@ -29,7 +30,7 @@ const cell = (coord: number, n: number): number =>
   Math.min(n - 1, Math.max(0, Math.trunc(coord / TILE_FX)));
 
 export const isLocalAvoidanceSolidKind = (kind: number, fl: number): boolean =>
-  kind !== Kind.Scarab &&
+  !isProjectileActorKind(kind) &&
   (fl & Role.Mobile) !== 0 && (fl & Role.Structure) === 0 &&
   (fl & Role.Air) === 0;
 
