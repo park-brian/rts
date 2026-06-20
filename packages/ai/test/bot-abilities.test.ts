@@ -3487,6 +3487,71 @@ test('terran bot expands to the nearest open base site when mineral-banked', () 
   assert.equal(tileY(build.y), natural.y);
 });
 
+test('terran bot skips enemy-occupied expansion clusters', () => {
+  const scenario = botScenario({
+    seed: 518,
+    players: 4,
+    map: generateMap(2, 518, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg, Protoss, Zerg],
+  });
+  scenario.resources(0, 1_200, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const natural = playerNatural(scenario);
+  scenario.spawn(
+    Kind.CommandCenter,
+    1,
+    fx(natural.x * TILE + TILE / 2),
+    fx(natural.y * TILE + TILE / 2),
+  );
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+  const build = findBuild(plan.commands, Kind.CommandCenter);
+
+  assert.ok(build);
+  assertPublicSurfaceExposes(scenario.state, 0, build);
+  assert.ok(tileX(build.x) !== natural.x || tileY(build.y) !== natural.y);
+  assert.equal(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.x !== undefined &&
+    record.intent.y !== undefined &&
+    tileX(record.intent.x) === natural.x &&
+    tileY(record.intent.y) === natural.y), false);
+});
+
+test('terran bot skips pending enemy depot builds on expansion clusters', () => {
+  const scenario = botScenario({
+    seed: 519,
+    players: 4,
+    map: generateMap(2, 519, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg, Protoss, Zerg],
+  });
+  scenario.resources(0, 1_200, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const natural = playerNatural(scenario);
+  const x = fx(natural.x * TILE + TILE / 2);
+  const y = fx(natural.y * TILE + TILE / 2);
+  const drone = slotOf(scenario.spawn(Kind.Drone, 1, x, y));
+  scenario.state.e.order[drone] = Order.Build;
+  scenario.state.e.buildKind[drone] = Kind.Hatchery;
+  scenario.state.e.tx[drone] = x;
+  scenario.state.e.ty[drone] = y;
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+  const build = findBuild(plan.commands, Kind.CommandCenter);
+
+  assert.ok(build);
+  assertPublicSurfaceExposes(scenario.state, 0, build);
+  assert.ok(tileX(build.x) !== natural.x || tileY(build.y) !== natural.y);
+});
+
 test('terran bot skips remembered blocked expansion sites', () => {
   const scenario = botScenario({
     seed: 514,

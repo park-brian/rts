@@ -13,7 +13,6 @@ import {
   isEnemy,
   isLiftedStructureFlags,
   pathRouteDistance,
-  sameTeam,
   slotOf,
   structureFootprint,
   topDownEdgeDistanceSqBetween,
@@ -64,14 +63,21 @@ const siteDepotFootprint = (site: BaseSite): { x0: number; y0: number; x1: numbe
 const footprintTouchesSite = (kind: number, x: number, y: number, site: BaseSite): boolean =>
   footprintsOverlap(structureFootprint(kind, x, y), siteDepotFootprint(site));
 
-const siteReservedByTeam = (s: State, player: number, site: BaseSite, plannedKind: number): boolean => {
+const siteOccupied = (s: State, site: BaseSite): boolean => {
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || !sameTeam(s, e.owner[i]!, player)) continue;
+    if (e.alive[i] !== 1) continue;
     const kind = e.kind[i]!;
-    if (isBaseDepotKind(kind) && footprintTouchesSite(kind, e.x[i]!, e.y[i]!, site)) return true;
-    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === plannedKind) {
-      if (footprintTouchesSite(plannedKind, e.tx[i]!, e.ty[i]!, site)) return true;
+    if (
+      isBaseDepotKind(kind) &&
+      !isLiftedStructureFlags(e.flags[i]!) &&
+      footprintTouchesSite(kind, e.x[i]!, e.y[i]!, site)
+    ) {
+      return true;
+    }
+    const pendingKind = e.buildKind[i]!;
+    if ((e.flags[i]! & Role.Worker) !== 0 && isBaseDepotKind(pendingKind)) {
+      if (footprintTouchesSite(pendingKind, e.tx[i]!, e.ty[i]!, site)) return true;
     }
   }
   return false;
@@ -228,7 +234,6 @@ const candidateSites = (
   s: State,
   player: number,
   home: number,
-  plannedKind: number,
   options: { islands?: boolean; memory?: BotMemory } = {},
 ): BaseSite[] => {
   const e = s.e;
@@ -244,7 +249,7 @@ const candidateSites = (
       const point = siteCenter(site);
       return !locationBlockedByIntentMemory(options.memory, point.x, point.y);
     })
-    .filter((site) => !siteReservedByTeam(s, player, site, plannedKind))
+    .filter((site) => !siteOccupied(s, site))
     .sort((a, b) => {
       const ar = siteRank[a.kind] - siteRank[b.kind];
       if (ar !== 0) return ar;
@@ -270,7 +275,7 @@ const queueLiftedIslandDepot = (
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== plannedKind) continue;
     if (e.order[i] !== Order.Idle || !isLiftedStructureFlags(e.flags[i]!)) continue;
-    for (const site of candidateSites(s, player, home, plannedKind, { islands: true, memory })) {
+    for (const site of candidateSites(s, player, home, { islands: true, memory })) {
       const point = siteCenter(site);
       const command: Command = { t: 'land', building: eid(e, i), x: point.x, y: point.y };
       if (!validateCommand(s, player, command).ok) continue;
@@ -278,7 +283,7 @@ const queueLiftedIslandDepot = (
       return { queued: true };
     }
     if (!outcome) {
-      for (const site of candidateSites(s, player, home, plannedKind, { islands: true })) {
+      for (const site of candidateSites(s, player, home, { islands: true })) {
         const point = siteCenter(site);
         if (memory && locationBlockedByIntentMemory(memory, point.x, point.y)) continue;
         outcome = expansionOutcome(faction, point, { status: 'blocked', reason: 'occupied-location' });
@@ -313,7 +318,7 @@ export const queueExpansion = (
   if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals, bank)) return { queued: false };
 
   let outcome: BotIntentRecord | undefined;
-  const sites = candidateSites(s, player, facts.primaryBase, faction.depot, { memory });
+  const sites = candidateSites(s, player, facts.primaryBase, { memory });
   if (worker === NONE) {
     const site = sites[0];
     return site

@@ -1279,6 +1279,10 @@ Remaining work:
     when the strategic plan says to pressure, retaskable army exists, and no combat commands are
     emitted for a sustained sampled streak. The combat diagnosis consumes this as a failing row,
     catching the lights-off case where attack posture exists but no attack intent is visible.
+  - Expansion-occupancy slice is done: expansion candidate selection now treats any landed depot or
+    pending depot build footprint as occupying the resource cluster, regardless of owner. Bots skip
+    enemy-occupied naturals/thirds instead of repeatedly trying to place a depot on a taken cluster,
+    while lifted depots still do not reserve ground clusters.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;
