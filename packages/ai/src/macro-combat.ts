@@ -8,8 +8,6 @@ import {
   TILE,
   UNLOAD_RANGE,
   Units,
-  abilityTechAvailable,
-  canUseAbilityKind,
   canAcceptCargo,
   distanceSq,
   eid,
@@ -26,18 +24,16 @@ import {
 
 export type CombatFocus = { x: number; y: number; target: number };
 
-const maybeStim = (s: State, cmds: Command[], slot: number): void => {
-  const e = s.e;
-  if (!canUseAbilityKind(e.kind[slot]!, Ability.StimPack)) return;
-  if (!abilityTechAvailable(s, e.owner[slot]!, Ability.StimPack)) return;
-  if (e.stimTimer[slot]! > 0 || e.hp[slot]! <= 20) return;
-  cmds.push({ t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });
-};
-
 const pushValidCommand = (s: State, cmds: Command[], player: number, command: Command): boolean => {
   if (!validateCommand(s, player, command).ok) return false;
   cmds.push(command);
   return true;
+};
+
+const maybeStim = (s: State, cmds: Command[], slot: number): void => {
+  const e = s.e;
+  if (e.stimTimer[slot]! > 0 || e.hp[slot]! <= 20) return;
+  pushValidCommand(s, cmds, e.owner[slot]!, { t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });
 };
 
 const maybeTransformForFight = (s: State, cmds: Command[], slot: number, focusX: number, focusY: number): boolean => {

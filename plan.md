@@ -1288,6 +1288,9 @@ Remaining work:
     Spider Mine emission keep cheap fight-specific prefilters, then pass through shared
     `validateCommand`. The bot no longer owns duplicate tech/ammo/state legality for those combat
     micro commands.
+  - Bot self-ability validation slice is done: tactical Stim and cloak toggles keep local usefulness
+    filters, but the final self-ability command now passes through shared `validateCommand` before
+    emission, matching the target/point spell policy path.
   - Pressure scheduler extraction slice is done: commitment timing, focus fact refresh, strategic
     counter-pressure selection, offensive Nydus endpoint planning, offensive spell casting, pressure
     engagement emission, and pressure-memory refresh now live in `packages/ai/src/macro-offense.ts`.

@@ -4321,6 +4321,24 @@ test('bot does not Stim badly wounded units', () => {
   assert.ok(!cmds.some((c) => c.t === 'ability' && c.unit === marine && c.ability === Ability.StimPack));
 });
 
+test('bot combat Stim obeys shared ability validation gates', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 410 });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  const marine = spawnUnit(s, Kind.Marine, 0, base.x + fx(20), base.y);
+  s.e.lockdownTimer[slotOf(marine)] = 30;
+  spawnUnit(s, Kind.Marine, 1, base.x + fx(50), base.y);
+  grant(sim, 0, Tech.StimPack);
+
+  const cmds = createBot(Terran)(s, 0);
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'ability', unit: marine, ability: Ability.StimPack }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.equal(cmds.some((c) => c.t === 'ability' && c.unit === marine && c.ability === Ability.StimPack), false);
+});
+
 test('bot casts EMP on valuable shield and energy clusters', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 42 });
   const s = sim.fullState();
@@ -4706,6 +4724,25 @@ test('bot cloaks wraiths when entering a fight', () => {
   const cmds = createBot(Terran)(s, 0);
 
   assert.ok(hasAbility(cmds, wraith, Ability.CloakingField));
+});
+
+test('bot cloak toggles obey shared ability validation gates', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 541 });
+  const s = sim.fullState();
+  const base = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  const wraith = spawnUnit(s, Kind.Wraith, 0, base.x + fx(20), base.y);
+  s.e.energy[slotOf(wraith)] = 50;
+  s.e.lockdownTimer[slotOf(wraith)] = 30;
+  grant(sim, 0, Tech.CloakingField);
+  spawnUnit(s, Kind.Marine, 1, base.x + fx(60), base.y);
+
+  const cmds = createBot(Terran)(s, 0);
+
+  assert.deepEqual(validateCommand(s, 0, { t: 'ability', unit: wraith, ability: Ability.CloakingField }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+  assert.equal(hasAbility(cmds, wraith, Ability.CloakingField), false);
 });
 
 test('bot uses a same-team nydus network to shortcut attack waves', () => {

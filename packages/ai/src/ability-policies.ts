@@ -1,5 +1,5 @@
 import {
-  Abilities, Ability, Kind, Role, Trait, Units, abilityTechAvailable, canDetect, canUseAbilityKind, distanceSq, eid,
+  Abilities, Ability, Kind, Role, Trait, Units, canDetect, canUseAbilityKind, distanceSq, eid,
   hasReadyNuke, isCloaked, isDetectorKind, isEnemy, kindHasDirectWeapon, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
   type Command, type State,
 } from '@rts/sim';
@@ -319,10 +319,11 @@ const scoreMatrixTarget = (s: State, player: number, target: number, focusX: num
 const maybeCastCloak = (s: State, cmds: Command[], caster: number, abilityId: number, focusX: number, focusY: number): boolean => {
   const e = s.e;
   const ability = Abilities[abilityId]!;
-  if (!abilityTechAvailable(s, e.owner[caster]!, abilityId)) return false;
   if (e.cloakActive[caster] === 1 || e.energy[caster]! < ability.energyCost + 1) return false;
   if (!withinRangeSq(e.x[caster]!, e.y[caster]!, focusX, focusY, TILE_FX * 10)) return false;
-  cmds.push({ t: 'ability', unit: eid(e, caster), ability: abilityId });
+  const command: Command = { t: 'ability', unit: eid(e, caster), ability: abilityId };
+  if (!validateCommand(s, e.owner[caster]!, command).ok) return false;
+  cmds.push(command);
   return true;
 };
 
