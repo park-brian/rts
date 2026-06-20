@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Terran, sliceMap, spawnUnit } from '@rts/sim';
+import { Kind, Sim, Terran, Protoss, Zerg, fx, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botObjectiveReasons,
@@ -11,6 +11,35 @@ import {
   type BotObjectiveSnapshot,
 } from '../src/index.ts';
 import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
+
+const countAlive = (s: State, player: number, kind: number): number => {
+  let count = 0;
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === player && s.e.kind[i] === kind) count++;
+  }
+  return count;
+};
+
+const primaryBaseSlot = (s: State, player: number, faction: Faction): number => {
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === player && s.e.kind[i] === faction.depot) return i;
+  }
+  throw new Error(`missing depot for player ${player}`);
+};
+
+const seedCombatProductionPath = (
+  s: State,
+  faction: Faction,
+  producerKind: number,
+): void => {
+  const base = primaryBaseSlot(s, 0, faction);
+  if (faction.name === 'Protoss') {
+    spawnUnit(s, Kind.Pylon, 0, s.e.x[base]! + fx(96), s.e.y[base]!);
+  }
+  spawnUnit(s, producerKind, 0, s.e.x[base]! + fx(160), s.e.y[base]!);
+  s.players.minerals[0] = 300;
+  s.players.gas[0] = 0;
+};
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8101, factions: [Terran, Terran] });
@@ -177,6 +206,45 @@ test('bot trace alerts classify macro deadlocks and invalid commands', () => {
   assert.equal(alerts.some((alert) => alert.kind === 'invalid-commands' && alert.player === 0), true);
   assert.equal(alerts.some((alert) => alert.kind === 'resource-float-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
   assert.equal(alerts.some((alert) => alert.kind === 'production-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
+});
+
+test('race macro planners convert ready production paths into combat units', () => {
+  const cases: Array<{
+    faction: Faction;
+    name: string;
+    producerKind: number;
+    unitKind: number;
+    minimumProduced: number;
+  }> = [
+    { faction: Terran, name: 'Terran', producerKind: Kind.Barracks, unitKind: Kind.Marine, minimumProduced: 1 },
+    { faction: Protoss, name: 'Protoss', producerKind: Kind.Gateway, unitKind: Kind.Zealot, minimumProduced: 1 },
+    { faction: Zerg, name: 'Zerg', producerKind: Kind.SpawningPool, unitKind: Kind.Zergling, minimumProduced: 2 },
+  ];
+
+  for (const { faction, name, producerKind, unitKind, minimumProduced } of cases) {
+    const sim = new Sim({ map: sliceMap(), players: 2, seed: 8110, factions: [faction, Terran] });
+    const s = sim.fullState();
+    seedCombatProductionPath(s, faction, producerKind);
+    const before = countAlive(s, 0, unitKind);
+    const planner = createBotPlanner(faction, {
+      workerTarget: faction.startWorkers,
+      barracksTarget: 1,
+      attackThreshold: 99,
+    });
+    const plan = planner(s, 0);
+    const frame = botTraceFrame(s, 0, faction, plan);
+    const results = sim.step([{ player: 0, cmds: plan.commands }, { player: 1, cmds: [] }]);
+    for (let tick = 0; tick < 1_200; tick++) sim.step([]);
+    const produced = countAlive(sim.fullState(), 0, unitKind) - before;
+
+    assert.deepEqual(results.filter((result) => !result.ok), [], `${name} should not emit invalid macro commands`);
+    assert.equal(plan.commands.some((command) => command.t === 'train' && command.kind === unitKind), true, `${name} should issue target train commands`);
+    assert.equal(frame.topIntents.some((intent) =>
+      (intent.kind === 'train-counter' || intent.kind === 'spend-larva') &&
+      intent.status === 'done' &&
+      intent.targetKind === unitKind), true, `${name} trace should explain the train intent`);
+    assert.equal(produced >= minimumProduced, true, `${name} should produce combat units`);
+  }
 });
 
 test('whole-match bot trace samples planner decisions and match stats', () => {

@@ -1086,6 +1086,10 @@ Remaining work:
   Barracks/Gateway/Hatchery/Larva path exists, the bot actually converts production capacity into
   Marines/Zealots/Zerglings or the current strategy's requested unit mix under realistic resource
   and supply pressure.
+  - Ready-production regression slice is done: a shared planner-to-sim test now seeds a completed
+    Barracks, powered Gateway, or Spawning Pool, proves the live Terran/Protoss/Zerg planners issue
+    validated train commands with trace intent explanations, then advances the sim until Marines,
+    Zealots, and Zerglings complete.
 - Keep validator/action-mask parity for every command family and ability target mode.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
@@ -1768,6 +1772,9 @@ Done when:
 - Added first whole-match bot competence alerts over trace frames: invalid commands, resource
   float without macro spending, idle production without training, and combat intent without combat
   commands now surface as named diagnostics for future policy repair.
+- Added ready-production planner-to-sim regressions for all three races: when a completed Barracks,
+  powered Gateway, or Spawning Pool is available, the live planner now has test coverage proving it
+  issues explained, valid train commands and completes Marines, Zealots, or Zerglings.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.
