@@ -35,6 +35,7 @@ export * from './mechanics/internal-products.ts';
 export * from './mechanics/actors.ts';
 export * from './mechanics/capabilities.ts';
 export * from './mechanics/interceptor.ts';
+export * from './mechanics/scarab.ts';
 export * from './mechanics/weapons.ts';
 export * from './render/descriptors.ts';
 export * from './entity/work-queue.ts';

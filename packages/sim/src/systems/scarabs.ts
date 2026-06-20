@@ -1,18 +1,13 @@
 import type { State } from '../entity/world.ts';
-import { eid, isAlive, isEnemy, kill, NONE, slotOf } from '../entity/world.ts';
+import { isAlive, isEnemy, kill, NONE, slotOf } from '../entity/world.ts';
 import { Kind, Role, Units, weaponForTarget } from '../data/index.ts';
-import { trySpawnUnit } from '../entity/factory.ts';
 import { canDetect } from '../mechanics/detection.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';
-import { actorProjectile } from '../mechanics/actors.ts';
 import { effectiveSpeed } from './status.ts';
 import { applyWeaponHit } from './weapon-hit.ts';
-
-const SCARAB_PROJECTILE = actorProjectile(Kind.Scarab);
-if (!SCARAB_PROJECTILE) throw new Error('missing Scarab actor projectile descriptor');
 
 const validScarabTarget = (s: State, scarab: number, reaver: number, target: number): boolean => {
   const e = s.e;
@@ -21,18 +16,6 @@ const validScarabTarget = (s: State, scarab: number, reaver: number, target: num
   if (!canDetect(s, e.owner[scarab]!, target)) return false;
   if ((e.flags[target]! & Role.Air) !== 0) return false;
   return weaponForTarget(Units[e.kind[reaver]!]!, Units[e.kind[target]!]!) !== null;
-};
-
-export const launchScarab = (s: State, reaver: number, target: number): boolean => {
-  const e = s.e;
-  const id = trySpawnUnit(s, Kind.Scarab, e.owner[reaver]!, e.x[reaver]!, e.y[reaver]!);
-  if (id === NONE) return false;
-  const scarab = slotOf(id);
-  e.home[scarab] = eid(e, reaver);
-  e.target[scarab] = eid(e, target);
-  e.timer[scarab] = SCARAB_PROJECTILE.lifetime;
-  faceToward(e, scarab, e.x[target]!, e.y[target]!);
-  return true;
 };
 
 const impactIfReady = (s: State, scarab: number, reaver: number, target: number): boolean => {

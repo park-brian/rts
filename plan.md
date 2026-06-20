@@ -302,6 +302,9 @@ Migration plan:
     orbit radius, leash range, return range, and orbit offsets now live in actor facets. The Scarab
     and Interceptor systems still own timing-heavy interpretation, target validation, movement, dud,
     splash, bay return, and ammo restoration semantics.
+  - Scarab launch ownership slice is done: combat now calls `mechanics/scarab.ts` for Scarab actor
+    creation and launch initialization instead of importing from the Scarab tick system. The tick
+    system remains the interpreter for travel, dud, impact, and splash behavior.
 - Third pass should add `StructureCapabilityFacet` and migrate building facts by category:
   production/rally, cargo/Nydus, power/creep, add-ons/lift, resource depots, static weapons, and
   detectors. Each category should delete at least one duplicated UI/AI/validator/system rule.
