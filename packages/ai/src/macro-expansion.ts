@@ -14,6 +14,7 @@ import {
   isLiftedStructureFlags,
   pathRouteDistance,
   sameTeam,
+  slotOf,
   structureFootprint,
   topDownEdgeDistanceSqBetween,
   validateCommand,
@@ -150,6 +151,43 @@ const buildLocationFailure = (reason: string): BotFailureReason | null => {
   }
 };
 
+const foundationHasAssignedBuilder = (s: State, foundation: number): boolean => {
+  const e = s.e;
+  const workerId = e.target[foundation]!;
+  if (workerId === NONE) return false;
+  const worker = slotOf(workerId);
+  return e.alive[worker] === 1 && e.order[worker] === Order.Build && e.target[worker] === eid(e, foundation);
+};
+
+const queueFoundationExpansion = (
+  s: State,
+  player: number,
+  faction: Faction,
+  facts: BotFacts,
+  cmds: Command[],
+  worker: number,
+): ExpansionAttempt | undefined => {
+  const e = s.e;
+  const depotDef = Units[faction.depot];
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player || e.kind[i] !== faction.depot || e.built[i] === 1) continue;
+    const point = { x: e.x[i]!, y: e.y[i]! };
+    if (expansionThreatened(s, player, faction, facts, point)) {
+      return { queued: false, outcome: expansionOutcome(faction, point, { status: 'blocked', reason: 'unsafe-location' }) };
+    }
+    if (depotDef?.buildMethod !== 'worker' || foundationHasAssignedBuilder(s, i)) continue;
+    if (worker === NONE) {
+      return { queued: false, outcome: expansionOutcome(faction, point, { status: 'waiting', reason: 'no-builder' }) };
+    }
+
+    const command: Command = { t: 'repair', unit: eid(e, worker), target: eid(e, i) };
+    if (!validateCommand(s, player, command).ok) continue;
+    cmds.push(command);
+    return { queued: true, outcome: expansionOutcome(faction, point, { status: 'done' }) };
+  }
+  return undefined;
+};
+
 const pendingExpansionOutcome = (
   s: State,
   player: number,
@@ -257,6 +295,8 @@ export const queueExpansion = (
   if (facts.primaryBase === NONE) return { queued: false };
   const lifted = queueLiftedIslandDepot(s, player, faction, facts.primaryBase, faction.depot, cmds, memory);
   if (lifted.queued || lifted.outcome) return lifted;
+  const foundation = queueFoundationExpansion(s, player, faction, facts, cmds, worker);
+  if (foundation) return foundation;
   const pendingOutcome = pendingExpansionOutcome(s, player, faction, facts);
   if (pendingOutcome) return { queued: false, outcome: pendingOutcome };
   if (budget.minerals < EXPANSION_BANK) return { queued: false };

@@ -1193,9 +1193,13 @@ Remaining work:
     - Pending-expansion monitor slice is done: workers already carrying a depot build order are
       checked before mineral-bank and depot-count gates, so live pending expansion attempts report
       `unsafe-location`, `path-blocked`, or occupied-location outcomes when the target becomes
-      threatened, unreachable, or invalid before foundation placement. Remaining expansion lifecycle
-      work: monitor placed but unfinished expansion foundations and clear/retry blocked-site memory
-      after successful clear-site/scout outcomes.
+      threatened, unreachable, or invalid before foundation placement.
+    - Expansion-foundation monitor slice is done: unfinished depot foundations now stay inside the
+      expansion lifecycle. Unsafe foundations report `blocked: unsafe-location`, while paused Terran
+      expansion foundations with no assigned builder resume through the shared `repair` command
+      validator instead of leaving the bot permanently tied up by an incomplete base. Remaining
+      expansion lifecycle work: clear/retry blocked-site memory after successful clear-site/scout
+      outcomes.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -1781,6 +1785,9 @@ Done when:
   `clear-site` intent and validated attack-move response for remembered unsafe sites.
 - Added pending expansion lifecycle monitoring for workers already carrying depot build orders, with
   live planner tests for path-blocked and unsafe pending attempts.
+- Added unfinished expansion foundation monitoring: paused Terran depot foundations resume via
+  validated repair commands, and unsafe unfinished depot foundations report blocked expansion
+  outcomes.
 
 ## Review Checklist
 

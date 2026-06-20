@@ -64,6 +64,8 @@ const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number):
   findBuild(cmds, kind) !== undefined;
 const findCommandBuild = (cmds: Command[], kind: number): Extract<Command, { t: 'build' }> | undefined =>
   cmds.find((c): c is Extract<Command, { t: 'build' }> => c.t === 'build' && c.kind === kind);
+const findRepair = (cmds: ReturnType<ReturnType<typeof createBot>>, target: number): Extract<BotCommand, { t: 'repair' }> | undefined =>
+  cmds.find((c): c is Extract<BotCommand, { t: 'repair' }> => c.t === 'repair' && c.target === target);
 const findResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): Extract<BotCommand, { t: 'research' }> | undefined =>
   cmds.find((c): c is Extract<BotCommand, { t: 'research' }> => c.t === 'research' && c.tech === tech);
 const hasResearch = (cmds: ReturnType<ReturnType<typeof createBot>>, tech: number): boolean =>
@@ -2644,6 +2646,65 @@ test('live bot planner reports unsafe pending expansion outcomes', () => {
     record.intent.kind === 'expand' &&
     record.intent.x === build.x &&
     record.intent.y === build.y &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'unsafe-location'));
+});
+
+test('live bot planner resumes paused expansion foundations through repair', () => {
+  const scenario = bankedExpansionScenario(556);
+  const natural = playerNatural(scenario);
+  const point = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  const foundationId = scenario.spawn(Kind.CommandCenter, 0, point.x, point.y);
+  const foundation = slotOf(foundationId);
+  scenario.state.e.built[foundation] = 0;
+  scenario.state.e.ctimer[foundation] = Units[Kind.CommandCenter]!.buildTime;
+  scenario.state.e.target[foundation] = NONE;
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+  const repair = findRepair(plan.commands, foundationId);
+
+  assert.ok(repair);
+  assertPublicSurfaceExposes(scenario.state, 0, repair);
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.x === point.x &&
+    record.intent.y === point.y &&
+    record.result.status === 'done'));
+});
+
+test('live bot planner reports unsafe expansion foundation outcomes', () => {
+  const scenario = bankedExpansionScenario(557);
+  const natural = playerNatural(scenario);
+  const point = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  const foundationId = scenario.spawn(Kind.CommandCenter, 0, point.x, point.y);
+  const foundation = slotOf(foundationId);
+  scenario.state.e.built[foundation] = 0;
+  scenario.state.e.ctimer[foundation] = Units[Kind.CommandCenter]!.buildTime;
+  const side = natural.x < (scenario.state.map.w >> 1) ? 1 : -1;
+  scenario.spawn(Kind.SiegeTankSieged, 1, point.x + fx(side * TILE * 9), point.y);
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+
+  assert.equal(findRepair(plan.commands, foundationId), undefined);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.x === point.x &&
+    record.intent.y === point.y &&
     record.result.status === 'blocked' &&
     record.result.reason === 'unsafe-location'));
 });
