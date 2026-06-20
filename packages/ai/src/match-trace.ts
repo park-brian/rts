@@ -1,13 +1,20 @@
 import {
   COMMAND_TYPES,
+  createMatchStats,
+  recordMatchStatsStep,
+  type CommandResult,
   type CommandType,
+  type Controller,
   type CountMap,
   type Faction,
+  type MatchStats,
+  type PlayerCommands,
+  type Sim,
   type State,
 } from '@rts/sim';
 import { collectBotFacts } from './macro.ts';
 import { BOT_INTENT_KINDS, type BotFailureReason, type BotIntentKind } from './macro-intents.ts';
-import type { BotTurnPlan } from './bot.ts';
+import type { BotPlanner, BotTurnPlan } from './bot.ts';
 
 export type BotTraceFrame = {
   tick: number;
@@ -32,6 +39,24 @@ export type BotTraceFrame = {
 };
 
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
+
+export type BotTraceParticipant = {
+  faction: Faction;
+  planner?: BotPlanner;
+  controller?: Controller;
+};
+
+export type BotMatchTraceOptions = {
+  maxTicks: number;
+  sampleEvery?: number;
+};
+
+export type BotMatchTrace = {
+  frames: BotTraceFrame[];
+  stats: MatchStats;
+  invalidCommands: number;
+  commandResults: CommandResult[];
+};
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
   const counts = Object.create(null) as CountMap<K>;
@@ -87,3 +112,44 @@ export const botTraceFrame = (
   };
 };
 
+const participantCommands = (
+  s: State,
+  player: number,
+  participant: BotTraceParticipant,
+  sampled: boolean,
+  frames: BotTraceFrame[],
+): PlayerCommands => {
+  if (participant.planner) {
+    const plan = participant.planner(s, player);
+    if (sampled) frames.push(botTraceFrame(s, player, participant.faction, plan));
+    return { player, cmds: plan.commands };
+  }
+  return { player, cmds: participant.controller?.(s, player) ?? [] };
+};
+
+export const runBotMatchTrace = (
+  sim: Sim,
+  participants: readonly BotTraceParticipant[],
+  options: BotMatchTraceOptions,
+): BotMatchTrace => {
+  const stats = createMatchStats(sim.fullState());
+  const frames: BotTraceFrame[] = [];
+  const commandResults: CommandResult[] = [];
+  const sampleEvery = Math.max(1, options.sampleEvery ?? 240);
+  let invalidCommands = 0;
+
+  for (let tick = 0; tick < options.maxTicks && !sim.fullState().result.over; tick++) {
+    const s = sim.fullState();
+    const sampled = tick % sampleEvery === 0;
+    const batch = participants.map((participant, player) =>
+      participantCommands(s, player, participant, sampled, frames));
+    const results = sim.step(batch);
+    commandResults.push(...results);
+    for (const result of results) {
+      if (!result.ok) invalidCommands++;
+    }
+    recordMatchStatsStep(stats, sim.fullState(), batch, results);
+  }
+
+  return { frames, stats, invalidCommands, commandResults };
+};

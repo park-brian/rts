@@ -916,6 +916,10 @@ Remaining work:
   bank, supply, worker count, producer count, active production queues, tech target, army count,
   attack/defense commitments, expansion attempts, placement failures, and idle-producer/idle-larva
   counters.
+  First slice done: `runBotMatchTrace` now steps planner/controller participants through a
+  deterministic headless match, samples planner trace frames, records sim-owned match stats, and
+  counts rejected command receipts. The remaining work is to turn those traces into competence gates
+  and UI/debug views for diagnosing why a bot stalled.
 - Add whole-match acceptance gates for basic competence:
   - the bot continuously trains workers until its current economy target is met;
   - it trains army from available producers instead of spending only on tech structures;
@@ -1692,6 +1696,9 @@ Done when:
 
 ## Recently Completed Consolidation Slices
 
+- Added a reusable whole-match bot trace runner that drives planner/controller participants,
+  samples intent trace frames, records match stats, and reports invalid command receipts for
+  headless bot diagnostics before further macro heuristics are added.
 - Added the first reusable instrumentation layer: sim-owned match stats track command receipts,
   entity lifecycle value, current/peak economy and army counts, the app records them at every
   play/replay step, the game-over UI displays a compact post-match table, and AI bot trace frames

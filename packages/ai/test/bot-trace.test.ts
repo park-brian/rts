@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Kind, Sim, Terran, sliceMap, spawnUnit } from '@rts/sim';
-import { botTraceFrame, createBotPlanner } from '../src/index.ts';
+import { botTraceFrame, createBotPlanner, runBotMatchTrace } from '../src/index.ts';
+import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8101, factions: [Terran, Terran] });
@@ -52,4 +53,44 @@ test('bot trace frame reports combat commitment commands', () => {
   assert.equal(frame.army >= 4, true);
   assert.equal((frame.commandsByType.attack ?? 0) + (frame.commandsByType.amove ?? 0) > 0, true);
   assert.equal(frame.intentsByKind['attack-wave']! + frame.intentsByKind.harass! + frame.intentsByKind.counterattack! > 0, true);
+});
+
+test('whole-match bot trace samples planner decisions and match stats', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8104, factions: [Terran, Terran] });
+  const planner = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 6 });
+  const trace = runBotMatchTrace(sim, [
+    { faction: Terran, planner },
+    { faction: Terran, controller: createAggressiveMarineBot() },
+  ], { maxTicks: 240, sampleEvery: 60 });
+  const p0 = trace.stats.players[0]!;
+  const p1 = trace.stats.players[1]!;
+
+  assert.equal(trace.invalidCommands, 0);
+  assert.equal(trace.frames.length >= 4, true);
+  assert.equal(trace.frames.every((frame) => frame.player === 0), true);
+  assert.equal(trace.stats.tick, sim.fullState().tick);
+  assert.equal(p0.commandsIssued > 0, true);
+  assert.equal(p0.commandsAccepted > 0, true);
+  assert.equal(p0.peakWorkers >= Terran.startWorkers, true);
+  assert.equal((p0.commandsByType.train ?? 0) + (p0.commandsByType.build ?? 0) > 0, true);
+  assert.equal(p1.commandsAccepted > 0, true);
+});
+
+test('whole-match bot trace records progression facts over time', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8105, factions: [Terran, Terran] });
+  const planner = createBotPlanner(Terran, { workerTarget: 10, barracksTarget: 1, attackThreshold: 99 });
+  const trace = runBotMatchTrace(sim, [
+    { faction: Terran, planner },
+    { faction: Terran, controller: createAggressiveMarineBot() },
+  ], { maxTicks: 360, sampleEvery: 90 });
+  const workerPeak = Math.max(...trace.frames.map((frame) => frame.workers));
+  const issuedPeak = Math.max(...trace.frames.map((frame) => frame.commandsIssued));
+  const p0 = trace.stats.players[0]!;
+
+  assert.equal(trace.invalidCommands, 0);
+  assert.equal(workerPeak >= Terran.startWorkers, true);
+  assert.equal(issuedPeak > 0, true);
+  assert.equal(p0.commandsIssued > 0, true);
+  assert.equal(p0.commandsAccepted > 0, true);
+  assert.equal(p0.peakSupplyUsed >= p0.supplyUsed, true);
 });
