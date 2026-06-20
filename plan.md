@@ -1284,6 +1284,10 @@ Remaining work:
     `packages/ai/src/macro-combat.ts` for Stim, Siege/Lurker/Vulture prep, attack-vs-attack-move
     fallback, and same-team Nydus shortcut loading. The live bot controller keeps choosing incidents
     and pressure focus, but no longer carries duplicate tactical command ladders inline.
+  - Bot combat validation slice is done: tactical Siege Tank transforms, Lurker burrow, and Vulture
+    Spider Mine emission keep cheap fight-specific prefilters, then pass through shared
+    `validateCommand`. The bot no longer owns duplicate tech/ammo/state legality for those combat
+    micro commands.
   - Pressure scheduler extraction slice is done: commitment timing, focus fact refresh, strategic
     counter-pressure selection, offensive Nydus endpoint planning, offensive spell casting, pressure
     engagement emission, and pressure-memory refresh now live in `packages/ai/src/macro-offense.ts`.

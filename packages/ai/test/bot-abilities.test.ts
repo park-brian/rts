@@ -1470,6 +1470,35 @@ test('bot lays spider mines from charged vultures near ground threats', () => {
   assert.ok(cmds.some((c) => c.t === 'mine' && c.unit === vulture));
 });
 
+test('bot combat mode helpers obey shared command validation gates', () => {
+  const tankSim = new Sim({ map: sliceMap(), players: 2, seed: 406 });
+  const tankState = tankSim.fullState();
+  const tankBase = entityPos(tankSim, findEntity(tankSim, Kind.CommandCenter, 0));
+  const tank = spawnUnit(tankState, Kind.SiegeTank, 0, tankBase.x, tankBase.y);
+  spawnUnit(tankState, Kind.Marine, 1, tankBase.x + fx(190), tankBase.y);
+
+  const tankCmds = createBot(Terran)(tankState, 0);
+  assert.deepEqual(validateCommand(tankState, 0, { t: 'transform', unit: tank, kind: Kind.SiegeTankSieged }), {
+    ok: false,
+    reason: 'missing-requirement',
+  });
+  assert.equal(tankCmds.some((c) => c.t === 'transform' && c.unit === tank && c.kind === Kind.SiegeTankSieged), false);
+
+  const mineSim = new Sim({ map: sliceMap(), players: 2, seed: 407 });
+  const mineState = mineSim.fullState();
+  const mineBase = entityPos(mineSim, findEntity(mineSim, Kind.CommandCenter, 0));
+  const vulture = spawnUnit(mineState, Kind.Vulture, 0, mineBase.x, mineBase.y);
+  mineState.e.specialAmmo[slotOf(vulture)] = 3;
+  spawnUnit(mineState, Kind.Zealot, 1, mineBase.x + fx(40), mineBase.y);
+
+  const mineCmds = createBot(Terran)(mineState, 0);
+  assert.deepEqual(validateCommand(mineState, 0, { t: 'mine', unit: vulture }), {
+    ok: false,
+    reason: 'missing-requirement',
+  });
+  assert.equal(mineCmds.some((c) => c.t === 'mine' && c.unit === vulture), false);
+});
+
 test('bot burrows lurkers before using their attack', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 403 });
   const s = sim.fullState();

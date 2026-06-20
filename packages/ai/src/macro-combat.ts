@@ -6,7 +6,6 @@ import {
   ONE,
   Role,
   TILE,
-  Tech,
   UNLOAD_RANGE,
   Units,
   abilityTechAvailable,
@@ -14,12 +13,11 @@ import {
   canAcceptCargo,
   distanceSq,
   eid,
-  getTechLevel,
-  hasInternalProductReady,
   isqrt,
   sameTeam,
   unloadAnchorSlot,
   unloadPassable,
+  validateCommand,
   weaponForTarget,
   withinRangeSq,
   type Command,
@@ -36,23 +34,26 @@ const maybeStim = (s: State, cmds: Command[], slot: number): void => {
   cmds.push({ t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });
 };
 
+const pushValidCommand = (s: State, cmds: Command[], player: number, command: Command): boolean => {
+  if (!validateCommand(s, player, command).ok) return false;
+  cmds.push(command);
+  return true;
+};
+
 const maybeTransformForFight = (s: State, cmds: Command[], slot: number, focusX: number, focusY: number): boolean => {
   const e = s.e;
   const kind = e.kind[slot]!;
   if (kind !== Kind.SiegeTank && kind !== Kind.SiegeTankSieged) return false;
   const owner = e.owner[slot]!;
-  if (kind === Kind.SiegeTank && getTechLevel(s, owner, Tech.SiegeTech) <= 0) return false;
   const weapon = Units[Kind.SiegeTankSieged]!.weapon!;
   const d2 = distanceSq(focusX, focusY, e.x[slot]!, e.y[slot]!);
   const min = weapon.minRange ?? 0;
   const usefulSiege = d2 >= min * min && d2 <= weapon.range * weapon.range;
   if (kind === Kind.SiegeTank && usefulSiege) {
-    cmds.push({ t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTankSieged });
-    return true;
+    return pushValidCommand(s, cmds, owner, { t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTankSieged });
   }
   if (kind === Kind.SiegeTankSieged && !usefulSiege) {
-    cmds.push({ t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTank });
-    return true;
+    return pushValidCommand(s, cmds, owner, { t: 'transform', unit: eid(e, slot), kind: Kind.SiegeTank });
   }
   return false;
 };
@@ -63,17 +64,15 @@ const maybeBurrowForFight = (s: State, cmds: Command[], slot: number, target: nu
   const weapon = Units[Kind.Lurker]!.weapon!;
   if (!weaponForTarget(Units[Kind.Lurker]!, Units[e.kind[target]!]!)) return false;
   if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, weapon.range)) return false;
-  cmds.push({ t: 'burrow', unit: eid(e, slot), active: true });
-  return true;
+  return pushValidCommand(s, cmds, e.owner[slot]!, { t: 'burrow', unit: eid(e, slot), active: true });
 };
 
 const maybeLaySpiderMine = (s: State, cmds: Command[], slot: number, target: number): boolean => {
   const e = s.e;
-  if (e.kind[slot] !== Kind.Vulture || !hasInternalProductReady(s, slot, Kind.SpiderMine)) return false;
+  if (e.kind[slot] !== Kind.Vulture) return false;
   if ((e.flags[target]! & (Role.Mobile | Role.Air | Role.Structure | Role.Resource)) !== Role.Mobile) return false;
   if (!withinRangeSq(e.x[slot]!, e.y[slot]!, e.x[target]!, e.y[target]!, TILE * ONE * 4)) return false;
-  cmds.push({ t: 'mine', unit: eid(e, slot) });
-  return true;
+  return pushValidCommand(s, cmds, e.owner[slot]!, { t: 'mine', unit: eid(e, slot) });
 };
 
 export const issueDefenseEngagement = (
