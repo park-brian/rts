@@ -5,6 +5,7 @@ export * from './macro-build.ts';
 export * from './macro-capacity.ts';
 export * from './macro-combat.ts';
 export * from './macro-defense.ts';
+export * from './macro-expert.ts';
 export * from './macro-incidents.ts';
 export * from './macro-intents.ts';
 export * from './macro-memory.ts';

@@ -5,6 +5,8 @@ import {
   BOT_INTENT_KINDS,
   INTENT_OUTCOME_MEMORY_TICKS,
   PRESSURE_COMMITMENT_TICKS,
+  botIntent,
+  botIntentUrgency,
   TACTICAL_ABILITY_POLICIES,
   collectBotFacts,
   combatReserve,
@@ -30,6 +32,7 @@ import {
   findSpot,
   proposePressureIntent,
   proposeTacticalDefense,
+  rankBotIntentRecords,
   rankedTacticalResponders,
   schedulePressureOffense,
   scheduleBotMacro,
@@ -355,6 +358,25 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
   ] as const) {
     assert.equal(kinds.has(kind), true, `missing bot intent kind ${kind}`);
   }
+});
+
+test('bot expert helpers own intent urgency and trace ranking', () => {
+  assert.equal(botIntentUrgency('rebuild-tech'), 45);
+  assert.equal(botIntent('expand', { targetKind: Kind.CommandCenter }).urgency, 35);
+  assert.equal(botIntent('attack-wave', { urgency: 99 }).urgency, 99);
+
+  const ranked = rankBotIntentRecords([
+    {
+      intent: { ...botIntent('train-counter'), score: { value: 99, reasons: [] } },
+      result: { status: 'done' },
+    },
+    {
+      intent: { ...botIntent('expand'), score: { value: 1, reasons: [] } },
+      result: { status: 'done' },
+    },
+  ]);
+
+  assert.deepEqual(ranked.map((record) => record.intent.kind), ['expand', 'train-counter']);
 });
 
 test('macro command intent mapping keeps scheduler vocabulary explicit', () => {

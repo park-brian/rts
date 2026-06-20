@@ -18,8 +18,9 @@ import {
   summarizeEconomyRoster,
 } from './macro-economy.ts';
 import { queueExpansion } from './macro-expansion.ts';
+import { botIntent, rankBotIntentCandidates, type BotIntentCandidate } from './macro-expert.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
-import { botExpertContext, scoreBotIntent, type BotExpertContext } from './macro-objective.ts';
+import { botExpertContext } from './macro-objective.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
@@ -47,20 +48,6 @@ export type MacroSchedule = {
   casters: number[];
 };
 
-const intentUrgency = (kind: BotIntent['kind']): number => {
-  switch (kind) {
-    case 'rebuild-tech': return 45;
-    case 'add-static-defense': return 42;
-    case 'expand': return 35;
-    case 'train-worker': return 35;
-    case 'spend-larva': return 35;
-    case 'add-production': return 30;
-    case 'train-counter': return 30;
-    case 'research-upgrade': return 25;
-    default: return 20;
-  }
-};
-
 const techTransformKind = (kind: number): boolean =>
   kind === Kind.Lair || kind === Kind.Hive || kind === Kind.GreaterSpire;
 
@@ -76,7 +63,7 @@ const trainOutcome = (
 ): BotIntentRecord => {
   const intentKind = trainIntentKind(kind, faction);
   return {
-    intent: { kind: intentKind, urgency: intentUrgency(intentKind), targetKind: kind },
+    intent: botIntent(intentKind, { targetKind: kind }),
     result: { status: 'waiting', reason },
   };
 };
@@ -98,12 +85,10 @@ const blockedStructureReason = (block: StructureBlock): boolean =>
 const structureOutcome = (faction: Faction, block: StructureBlock): BotIntentRecord => {
   const kind = structureIntentKind(faction, block.kind);
   return {
-    intent: {
-      kind,
-      urgency: intentUrgency(kind),
+    intent: botIntent(kind, {
       targetKind: block.kind,
       ...(block.x !== undefined && block.y !== undefined ? { x: block.x, y: block.y } : {}),
-    },
+    }),
     result: blockedStructureReason(block)
       ? { status: 'blocked', reason: block.reason }
       : { status: 'waiting', reason: block.reason },
@@ -114,25 +99,25 @@ const commandMacroIntent = (command: Command, faction: Faction): BotIntent | nul
   switch (command.t) {
     case 'build': {
       const kind = structureIntentKind(faction, command.kind);
-      return { kind, urgency: intentUrgency(kind), targetKind: command.kind, x: command.x, y: command.y };
+      return botIntent(kind, { targetKind: command.kind, x: command.x, y: command.y });
     }
     case 'land':
-      return { kind: 'expand', urgency: intentUrgency('expand'), targetKind: faction.depot, x: command.x, y: command.y };
+      return botIntent('expand', { targetKind: faction.depot, x: command.x, y: command.y });
     case 'addon':
-      return { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: command.kind };
+      return botIntent('add-production', { targetKind: command.kind });
     case 'research':
-      return { kind: 'research-upgrade', urgency: intentUrgency('research-upgrade'), targetTech: command.tech };
+      return botIntent('research-upgrade', { targetTech: command.tech });
     case 'train': {
       const kind = trainIntentKind(command.kind, faction);
       if (kind === 'train-counter' && command.kind !== faction.armyUnit) return null;
-      return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
+      return botIntent(kind, { targetKind: command.kind });
     }
     case 'transform': {
       if (isStaticDefenseMacroKind(faction, command.kind)) {
-        return { kind: 'add-static-defense', urgency: intentUrgency('add-static-defense'), targetKind: command.kind };
+        return botIntent('add-static-defense', { targetKind: command.kind });
       }
       const kind = techTransformKind(command.kind) ? 'rebuild-tech' : 'train-counter';
-      return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
+      return botIntent(kind, { targetKind: command.kind });
     }
     default:
       return null;
@@ -145,22 +130,10 @@ type MacroGrowthAttempt = {
   outcome?: BotIntentRecord;
 };
 
-type MacroGrowthCandidate = {
-  order: number;
+type MacroGrowthCandidate = BotIntentCandidate<{
   intent: BotIntent;
   run: () => MacroGrowthAttempt;
-};
-
-const rankedMacroGrowthCandidates = (
-  candidates: MacroGrowthCandidate[],
-  expert: BotExpertContext,
-): MacroGrowthCandidate[] =>
-  candidates
-    .map((candidate) => ({ ...candidate, intent: scoreBotIntent(candidate.intent, expert) }))
-    .sort((a, b) =>
-      (b.intent.score?.value ?? 0) - (a.intent.score?.value ?? 0) ||
-      b.intent.urgency - a.intent.urgency ||
-      a.order - b.order);
+}>;
 
 export const macroIntentsFromCommands = (
   commands: readonly Command[],
@@ -366,11 +339,7 @@ export const scheduleBotMacro = (
   const addonBlock = maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
   if (addonBlock) {
     intentResults.push({
-      intent: {
-        kind: 'add-production',
-        urgency: intentUrgency('add-production'),
-        targetKind: addonBlock.kind,
-      },
+      intent: botIntent('add-production', { targetKind: addonBlock.kind }),
       result: addonBlock.reason === 'occupied-location'
         ? { status: 'blocked', reason: addonBlock.reason }
         : { status: 'waiting', reason: addonBlock.reason },
@@ -380,18 +349,14 @@ export const scheduleBotMacro = (
   if (morphBlock) {
     const intentKind = techTransformKind(morphBlock.kind) ? 'rebuild-tech' : trainIntentKind(morphBlock.kind, faction);
     intentResults.push({
-      intent: { kind: intentKind, urgency: intentUrgency(intentKind), targetKind: morphBlock.kind },
+      intent: botIntent(intentKind, { targetKind: morphBlock.kind }),
       result: { status: 'waiting', reason: morphBlock.reason },
     });
   }
   const researchBlock = maybeQueueRaceResearch(s, player, faction, cmds, budget, reservedTechProducers);
   if (researchBlock) {
     intentResults.push({
-      intent: {
-        kind: 'research-upgrade',
-        urgency: intentUrgency('research-upgrade'),
-        targetTech: researchBlock.tech,
-      },
+      intent: botIntent('research-upgrade', { targetTech: researchBlock.tech }),
       result: { status: 'waiting', reason: researchBlock.reason },
     });
   }
@@ -411,13 +376,13 @@ export const scheduleBotMacro = (
     if (faction.name !== 'Zerg' && config.barracksTarget > 0) {
       growthCandidates.push({
         order: 0,
-        intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: faction.armyStructure },
+        intent: botIntent('add-production', { targetKind: faction.armyStructure }),
         run: queueProductionCapacity,
       });
     }
     growthCandidates.push({
       order: 1,
-      intent: { kind: 'expand', urgency: intentUrgency('expand'), targetKind: faction.depot },
+      intent: botIntent('expand', { targetKind: faction.depot }),
       run: () => queueExpansion(
         s,
         player,
@@ -434,7 +399,7 @@ export const scheduleBotMacro = (
     if (faction.name === 'Zerg') {
       growthCandidates.push({
         order: 2,
-        intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: Kind.Hatchery },
+        intent: botIntent('add-production', { targetKind: Kind.Hatchery }),
         run: queueProductionCapacity,
       });
     }
@@ -442,7 +407,7 @@ export const scheduleBotMacro = (
     const candidates = stalledCapacityAttempted
       ? growthCandidates.filter((candidate) => candidate.intent.kind !== 'add-production')
       : growthCandidates;
-    for (const candidate of rankedMacroGrowthCandidates(candidates, expert)) {
+    for (const candidate of rankBotIntentCandidates(candidates, expert)) {
       const attempt = candidate.run();
       if (attempt.block) intentResults.push(structureOutcome(faction, attempt.block));
       if (attempt.outcome) intentResults.push(attempt.outcome);

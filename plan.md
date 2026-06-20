@@ -1023,6 +1023,10 @@ Remaining work:
     player-readable details. This is the first stable "expert system" report surface; future
     scheduler reactions should consume these diagnoses only after the relevant failing scenarios
     are covered by tests.
+  - First expert-kernel slice is done: intent construction, default urgency, score annotation, and
+    deterministic ranking now live in `packages/ai/src/macro-expert.ts`, so macro schedulers,
+    tactical directors, traces, and future strategy policies can share one StarCraft expert
+    vocabulary instead of duplicating urgency/ranking rules in each director.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random

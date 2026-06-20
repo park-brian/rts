@@ -6,8 +6,9 @@
 
 import { NONE, type Command, type Controller, type Faction, type State } from '@rts/sim';
 import { desiredWorkerCount } from './macro-economy.ts';
+import { rankBotIntentRecords, scoreBotIntentRecords } from './macro-expert.ts';
 import { executePressureIntent, proposePressureIntent, type PressureScheduleResult } from './macro-offense.ts';
-import { botExpertContext, scoreBotIntentRecord } from './macro-objective.ts';
+import { botExpertContext } from './macro-objective.ts';
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
@@ -31,11 +32,6 @@ export type BotTurnPlan = {
 export type BotPlanner = (s: State, p: number) => BotTurnPlan;
 
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
-
-const rankIntentRecords = (records: BotIntentRecord[]): BotIntentRecord[] =>
-  records.sort((a, b) =>
-    b.intent.urgency - a.intent.urgency ||
-    (b.intent.score?.value ?? 0) - (a.intent.score?.value ?? 0));
 
 const done: BotIntentResult = { status: 'done' };
 const waitingForForce: BotIntentResult = { status: 'waiting', reason: 'insufficient-force' };
@@ -145,8 +141,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       });
     }
 
-    const scoredIntentResults = intentResults.map((record) => scoreBotIntentRecord(record, expert));
-    const rankedIntentResults = rankIntentRecords(scoredIntentResults);
+    const rankedIntentResults = rankBotIntentRecords(scoreBotIntentRecords(intentResults, expert));
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
       resourceFloat: expert.objective.resourceFloat,
     });
