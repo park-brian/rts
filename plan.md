@@ -974,6 +974,9 @@ Remaining work:
     spending the builder, while blocked/waiting outcomes still flow through the existing intent
     trace. Next scheduler slices should use this pattern only where two legal macro choices compete
     for the same scarce producer, worker, or resource window.
+  - Trace reason-surface slice is done: sampled bot trace frames now carry a bounded top-intent
+    summary with result status, target, score, and score reasons, so whole-match diagnostics can
+    explain the highest-priority bot choices instead of only counting intent kinds.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1755,6 +1758,9 @@ Done when:
   core production, expansion, and Zerg macro Hatchery candidates before spending a builder, with
   focused coverage proving production throughput wins the first Terran float window and expansion
   still works when production targets are disabled.
+- Added compact top-intent summaries to bot trace frames: each sample now preserves the highest
+  priority scored intents with target, result status/reason, score, and score-reason details so
+  whole-match diagnostics can explain bot choices without dumping every command.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.

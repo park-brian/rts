@@ -28,6 +28,11 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.intentsByKind['train-worker']! > 0 || frame.intentsByKind['add-production']! > 0, true);
   assert.equal(frame.outcomesByStatus.done! + frame.outcomesByStatus.waiting! + frame.outcomesByStatus.blocked! + frame.outcomesByStatus.failed!,
     plan.intentResults.length);
+  assert.equal(frame.topIntents.length > 0, true);
+  assert.equal(frame.topIntents.length <= 5, true);
+  assert.equal(frame.topIntents[0]!.kind, plan.intentResults[0]!.intent.kind);
+  assert.equal(frame.topIntents[0]!.status, plan.intentResults[0]!.result.status);
+  assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.resourceFloat, 500);
 });
@@ -153,6 +158,9 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
 
   assert.equal(trace.invalidCommands, 0);
   assert.equal(trace.frames.length >= 4, true);
+  assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
+  assert.equal(trace.frames.some((frame) =>
+    frame.topIntents.some((intent) => intent.score !== undefined && intent.scoreReasons.length > 0)), true);
   assert.equal(trace.objectiveTrends.length, 1);
   assert.equal(trace.objectiveTrends[0]!.player, 0);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);

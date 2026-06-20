@@ -13,7 +13,13 @@ import {
   type State,
 } from '@rts/sim';
 import { collectBotFacts } from './macro.ts';
-import { BOT_INTENT_KINDS, type BotFailureReason, type BotIntentKind } from './macro-intents.ts';
+import {
+  BOT_INTENT_KINDS,
+  type BotFailureReason,
+  type BotIntentKind,
+  type BotIntentRecord,
+  type BotIntentScoreReason,
+} from './macro-intents.ts';
 import {
   botObjectiveSnapshot,
   botObjectiveTrends,
@@ -42,10 +48,25 @@ export type BotTraceFrame = {
   outcomesByStatus: CountMap<BotTraceOutcomeStatus>;
   waitsByReason: CountMap<BotFailureReason>;
   blocksByReason: CountMap<BotFailureReason>;
+  topIntents: BotTraceIntentSummary[];
   objective: BotObjectiveSnapshot;
 };
 
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
+type BotTraceIntentReason = Pick<BotIntentScoreReason, 'kind' | 'value' | 'detail'>;
+
+export type BotTraceIntentSummary = {
+  kind: BotIntentKind;
+  status: BotTraceOutcomeStatus;
+  urgency: number;
+  reason?: BotFailureReason;
+  score?: number;
+  scoreReasons: BotTraceIntentReason[];
+  targetKind?: number;
+  targetTech?: number;
+  x?: number;
+  y?: number;
+};
 
 export type BotTraceParticipant = {
   faction: Faction;
@@ -75,6 +96,25 @@ const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
 const inc = <K extends string>(counts: CountMap<K>, key: K): void => {
   counts[key] = (counts[key] ?? 0) + 1;
 };
+
+const TOP_TRACE_INTENTS = 5;
+
+const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSummary => ({
+  kind: intent.kind,
+  status: result.status,
+  urgency: intent.urgency,
+  ...(result.status === 'done' ? {} : { reason: result.reason }),
+  ...(intent.score ? { score: intent.score.value } : {}),
+  scoreReasons: intent.score?.reasons.map((reason) => ({
+    kind: reason.kind,
+    value: reason.value,
+    detail: reason.detail,
+  })) ?? [],
+  ...(intent.targetKind !== undefined ? { targetKind: intent.targetKind } : {}),
+  ...(intent.targetTech !== undefined ? { targetTech: intent.targetTech } : {}),
+  ...(intent.x !== undefined ? { x: intent.x } : {}),
+  ...(intent.y !== undefined ? { y: intent.y } : {}),
+});
 
 export const botTraceFrame = (
   s: State,
@@ -117,6 +157,7 @@ export const botTraceFrame = (
     outcomesByStatus,
     waitsByReason,
     blocksByReason,
+    topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
     objective: botObjectiveSnapshot(s, player),
   };
 };
