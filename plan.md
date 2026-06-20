@@ -132,7 +132,10 @@ Feasibility review against the current code:
   waste, but do not collapse UI, input, and rendering into a monolith.
 - **Known cross-layer leaks to clean up before broad rewrites:** public barrel exports for system
   helpers should be audited so stable API does not normalize private tick-system ownership. The
-  former setup/resource-patch and command-time ability-execution leaks are now closed.
+  former setup/resource-patch and command-time ability-execution leaks are now closed. Public barrel
+  census export is also closed after verifying no monorepo caller imported it through `@rts/sim`;
+  `stepWorld` and collision pressure counters remain exported intentionally for headless benchmarks
+  and low-level deterministic tests.
 
 Near-term architecture slices from this review:
 

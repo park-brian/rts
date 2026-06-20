@@ -51,7 +51,6 @@ export * from './entity/world.ts';
 export * from './spatial/pathing.ts';
 export * from './map/procedural.ts';
 export * from './entity/factory.ts';
-export * from './systems/census.ts';
 export { readCollisionPressureStats, resetCollisionPressureStats, type CollisionPressureStats } from './systems/collision.ts';
 export * from './tick.ts';
 export * from './map/setup.ts';
