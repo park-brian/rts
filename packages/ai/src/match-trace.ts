@@ -68,6 +68,21 @@ export type BotTraceIntentSummary = {
   y?: number;
 };
 
+export type BotTraceAlertKind =
+  | 'invalid-commands'
+  | 'resource-float-stall'
+  | 'production-stall'
+  | 'combat-intent-stall';
+
+export type BotTraceAlert = {
+  kind: BotTraceAlertKind;
+  player: number;
+  fromTick: number;
+  toTick: number;
+  severity: number;
+  detail: string;
+};
+
 export type BotTraceParticipant = {
   faction: Faction;
   planner?: BotPlanner;
@@ -85,6 +100,7 @@ export type BotMatchTrace = {
   invalidCommands: number;
   commandResults: CommandResult[];
   objectiveTrends: BotObjectiveTrend[];
+  alerts: BotTraceAlert[];
 };
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
@@ -98,6 +114,13 @@ const inc = <K extends string>(counts: CountMap<K>, key: K): void => {
 };
 
 const TOP_TRACE_INTENTS = 5;
+const ALERT_STREAK_FRAMES = 3;
+const RESOURCE_FLOAT_ALERT = 800;
+const PRODUCTION_FLOAT_ALERT = 300;
+const MACRO_COMMANDS: readonly CommandType[] = ['build', 'train', 'research', 'addon', 'transform'];
+const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', 'mine'];
+const TRAIN_INTENTS: readonly BotIntentKind[] = ['train-worker', 'spend-larva', 'train-counter'];
+const COMBAT_INTENTS: readonly BotIntentKind[] = ['attack-wave', 'harass', 'contain', 'counterattack', 'defend-base'];
 
 const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSummary => ({
   kind: intent.kind,
@@ -115,6 +138,133 @@ const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSumma
   ...(intent.x !== undefined ? { x: intent.x } : {}),
   ...(intent.y !== undefined ? { y: intent.y } : {}),
 });
+
+const countCommands = (frame: BotTraceFrame, types: readonly CommandType[]): number =>
+  types.reduce((sum, type) => sum + (frame.commandsByType[type] ?? 0), 0);
+
+const countIntents = (frame: BotTraceFrame, kinds: readonly BotIntentKind[]): number =>
+  kinds.reduce((sum, kind) => sum + (frame.intentsByKind[kind] ?? 0), 0);
+
+const macroCommandCount = (frame: BotTraceFrame): number =>
+  countCommands(frame, MACRO_COMMANDS);
+
+const combatCommandCount = (frame: BotTraceFrame): number =>
+  countCommands(frame, COMBAT_COMMANDS);
+
+const trainIntentCount = (frame: BotTraceFrame): number =>
+  countIntents(frame, TRAIN_INTENTS);
+
+const combatIntentCount = (frame: BotTraceFrame): number =>
+  countIntents(frame, COMBAT_INTENTS);
+
+const framesByPlayer = (frames: readonly BotTraceFrame[]): Map<number, BotTraceFrame[]> => {
+  const byPlayer = new Map<number, BotTraceFrame[]>();
+  for (const frame of frames) {
+    const bucket = byPlayer.get(frame.player);
+    if (bucket) bucket.push(frame);
+    else byPlayer.set(frame.player, [frame]);
+  }
+  for (const bucket of byPlayer.values()) bucket.sort((a, b) => a.tick - b.tick);
+  return byPlayer;
+};
+
+const pushFrameStreakAlerts = (
+  alerts: BotTraceAlert[],
+  frames: readonly BotTraceFrame[],
+  kind: BotTraceAlertKind,
+  predicate: (frame: BotTraceFrame) => boolean,
+  detail: (start: BotTraceFrame, end: BotTraceFrame, count: number) => string,
+  severity: (start: BotTraceFrame, end: BotTraceFrame, count: number) => number,
+): void => {
+  let start = -1;
+  const flush = (end: number): void => {
+    if (start < 0 || end - start + 1 < ALERT_STREAK_FRAMES) return;
+    const first = frames[start]!;
+    const last = frames[end]!;
+    const count = end - start + 1;
+    alerts.push({
+      kind,
+      player: first.player,
+      fromTick: first.tick,
+      toTick: last.tick,
+      severity: severity(first, last, count),
+      detail: detail(first, last, count),
+    });
+  };
+
+  for (let i = 0; i < frames.length; i++) {
+    if (predicate(frames[i]!)) {
+      if (start < 0) start = i;
+      continue;
+    }
+    flush(i - 1);
+    start = -1;
+  }
+  flush(frames.length - 1);
+};
+
+export const botTraceAlerts = (
+  frames: readonly BotTraceFrame[],
+  commandResults: readonly CommandResult[] = [],
+): BotTraceAlert[] => {
+  const alerts: BotTraceAlert[] = [];
+  const invalidByPlayer = new Map<number, number>();
+  let lastTick = 0;
+
+  for (const frame of frames) lastTick = Math.max(lastTick, frame.tick);
+  for (const result of commandResults) {
+    if (result.ok) continue;
+    invalidByPlayer.set(result.player, (invalidByPlayer.get(result.player) ?? 0) + 1);
+  }
+  for (const [player, count] of invalidByPlayer) {
+    alerts.push({
+      kind: 'invalid-commands',
+      player,
+      fromTick: 0,
+      toTick: lastTick,
+      severity: count,
+      detail: `${count} rejected commands`,
+    });
+  }
+
+  for (const playerFrames of framesByPlayer(frames).values()) {
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
+      'resource-float-stall',
+      (frame) => frame.objective.resourceFloat >= RESOURCE_FLOAT_ALERT && macroCommandCount(frame) === 0,
+      (_start, end, count) => `${count} sampled frames floated ${end.objective.resourceFloat} resources without macro spending`,
+      (_start, end, count) => count * Math.trunc(end.objective.resourceFloat / 100),
+    );
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
+      'production-stall',
+      (frame) =>
+        frame.objective.resourceFloat >= PRODUCTION_FLOAT_ALERT &&
+        frame.supplyUsed < frame.supplyMax &&
+        frame.idleProducers + frame.idleLarvae > 0 &&
+        trainIntentCount(frame) > 0 &&
+        (frame.commandsByType.train ?? 0) === 0,
+      (_start, end, count) => `${count} sampled frames had idle production and ${end.objective.resourceFloat} resources without training`,
+      (_start, end, count) => count * (end.idleProducers + end.idleLarvae),
+    );
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
+      'combat-intent-stall',
+      (frame) => frame.retaskableArmy > 0 && combatIntentCount(frame) > 0 && combatCommandCount(frame) === 0,
+      (_start, _end, count) => `${count} sampled frames had combat intent but no combat commands`,
+      (_start, end, count) => count * end.retaskableArmy,
+    );
+  }
+
+  return alerts.sort((a, b) =>
+    b.severity - a.severity ||
+    a.player - b.player ||
+    a.fromTick - b.fromTick ||
+    a.kind.localeCompare(b.kind));
+};
 
 export const botTraceFrame = (
   s: State,
@@ -207,5 +357,6 @@ export const runBotMatchTrace = (
     invalidCommands,
     commandResults,
     objectiveTrends: botObjectiveTrends(frames),
+    alerts: botTraceAlerts(frames, commandResults),
   };
 };

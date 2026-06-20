@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Kind, Sim, Terran, sliceMap, spawnUnit } from '@rts/sim';
 import {
+  botTraceAlerts,
   botObjectiveReasons,
   botObjectiveTrends,
   botTraceFrame,
@@ -146,6 +147,38 @@ test('bot trace frame reports combat commitment commands', () => {
   assert.equal(frame.intentsByKind['attack-wave']! + frame.intentsByKind.harass! + frame.intentsByKind.counterattack! > 0, true);
 });
 
+test('bot trace alerts classify macro deadlocks and invalid commands', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8108, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const stalledCommands = {
+    ...frame.commandsByType,
+    addon: 0,
+    build: 0,
+    research: 0,
+    train: 0,
+    transform: 0,
+  };
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: stalledCommands,
+    idleProducers: 1,
+    idleLarvae: 0,
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+
+  const alerts = botTraceAlerts(frames, [{ player: 0, index: 0, t: 'train', ok: false, reason: 'not-affordable' }]);
+
+  assert.equal(alerts.some((alert) => alert.kind === 'invalid-commands' && alert.player === 0), true);
+  assert.equal(alerts.some((alert) => alert.kind === 'resource-float-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
+  assert.equal(alerts.some((alert) => alert.kind === 'production-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
+});
+
 test('whole-match bot trace samples planner decisions and match stats', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8104, factions: [Terran, Terran] });
   const planner = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 6 });
@@ -161,6 +194,7 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
   assert.equal(trace.frames.some((frame) =>
     frame.topIntents.some((intent) => intent.score !== undefined && intent.scoreReasons.length > 0)), true);
+  assert.equal(Array.isArray(trace.alerts), true);
   assert.equal(trace.objectiveTrends.length, 1);
   assert.equal(trace.objectiveTrends[0]!.player, 0);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);

@@ -977,6 +977,10 @@ Remaining work:
   - Trace reason-surface slice is done: sampled bot trace frames now carry a bounded top-intent
     summary with result status, target, score, and score reasons, so whole-match diagnostics can
     explain the highest-priority bot choices instead of only counting intent kinds.
+  - First trace-alert slice is done: whole-match traces now derive named competence alerts for
+    rejected commands, resource float with no macro spending, idle production with no training, and
+    combat intent with no combat commands. These alerts are deliberately diagnostics first; policy
+    should start reacting to them only after the scenarios are pinned.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1761,6 +1765,9 @@ Done when:
 - Added compact top-intent summaries to bot trace frames: each sample now preserves the highest
   priority scored intents with target, result status/reason, score, and score-reason details so
   whole-match diagnostics can explain bot choices without dumping every command.
+- Added first whole-match bot competence alerts over trace frames: invalid commands, resource
+  float without macro spending, idle production without training, and combat intent without combat
+  commands now surface as named diagnostics for future policy repair.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.
