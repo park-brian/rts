@@ -114,6 +114,20 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
   assert.equal(frame.objective.enemyTechUnlocks >= 2, true);
 });
 
+test('bot trace objective army strength uses researched combat upgrades', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8115, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const base = primaryBaseSlot(s, 0, Terran);
+  spawnUnit(s, Kind.Marine, 0, s.e.x[base]!, s.e.y[base]!);
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+
+  setTechLevel(s, 0, Tech.InfantryWeapons, 1);
+  const after = botTraceFrame(s, 0, Terran, planner(s, 0));
+
+  assert.equal(after.objective.armyStrength > before.objective.armyStrength, true);
+});
+
 test('bot objective reasons explain growth, damage, and resource float', () => {
   const before: BotObjectiveSnapshot = {
     workerSupply: 8,

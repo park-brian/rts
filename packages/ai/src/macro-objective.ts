@@ -6,9 +6,16 @@ import {
   Role,
   TECH_CAP,
   TechDefs,
+  armorUpgradeBonus,
   shownSupply,
   type State,
   Units,
+  upgradedCooldown,
+  upgradedEnergyMax,
+  upgradedRange,
+  upgradedSpeed,
+  weaponUpgradeBonus,
+  type Weapon,
 } from '@rts/sim';
 import type {
   BotIntent,
@@ -95,13 +102,38 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   resourceFloat: s.players.minerals[player]! + s.players.gas[player]!,
 });
 
-const combatValue = (kind: number): number => {
-  const def = Units[kind];
+const STRENGTH_DAMAGE_RATE_SCALE = 240;
+const STRENGTH_RANGE_SCALE = 1024;
+const STRENGTH_ARMOR_VALUE = 12;
+const STRENGTH_SPEED_SCALE = 64;
+const STRENGTH_ENERGY_SCALE = 20;
+
+const weaponValue = (s: State, slot: number, weapon: Weapon | null): number => {
+  if (!weapon) return 0;
+  const damage = weapon.damage + weaponUpgradeBonus(s, slot, weapon);
+  const shots = weapon.shots ?? 1;
+  const cooldown = Math.max(1, upgradedCooldown(s, slot, weapon.cooldown));
+  const rangeValue = Math.trunc(upgradedRange(s, slot, weapon) / STRENGTH_RANGE_SCALE);
+  return Math.round((damage * shots * STRENGTH_DAMAGE_RATE_SCALE) / cooldown + rangeValue);
+};
+
+const combatValue = (s: State, slot: number): number => {
+  const def = Units[s.e.kind[slot]!];
   if (!def) return 0;
   const supplyValue = shownSupply(def.supply) * 100;
   const costValue = def.minerals + def.gas * 1.5;
-  const durabilityValue = (def.hp + def.shields) / 4;
-  return Math.round(supplyValue + costValue + durabilityValue);
+  const durabilityValue = (def.hp + def.shields) / 4 + armorUpgradeBonus(s, slot) * STRENGTH_ARMOR_VALUE;
+  const mobilityValue = Math.trunc(upgradedSpeed(s, slot, def.speed) / STRENGTH_SPEED_SCALE);
+  const energyValue = Math.trunc(upgradedEnergyMax(s, slot, def.energyMax) / STRENGTH_ENERGY_SCALE);
+  return Math.round(
+    supplyValue +
+    costValue +
+    durabilityValue +
+    weaponValue(s, slot, def.weapon) +
+    weaponValue(s, slot, def.airWeapon === def.weapon ? null : def.airWeapon) +
+    mobilityValue +
+    energyValue,
+  );
 };
 
 const scoreReason = (
@@ -171,7 +203,7 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       kindHasDirectWeapon(kind)
       ? shownSupply(def.supply)
       : 0;
-    const armyStrength = armySupply > 0 ? combatValue(kind) : 0;
+    const armyStrength = armySupply > 0 ? combatValue(s, slot) : 0;
     const productionCapacity = e.built[slot] === 1 ? productionCapacityValue(kind) : 0;
 
     if (owner === player) {

@@ -1026,6 +1026,10 @@ Remaining work:
     Trend reasons can explain future-slope changes such as adding a Barracks/Gateway/Hatchery,
     opening a tech path, creating supply headroom, or killing enemy production, still without
     changing planner policy.
+  - Upgrade-aware strength slice is done: objective army strength now reuses sim-owned upgrade
+    helpers for weapon damage, cooldown, range, armor, speed, and caster energy, so researched
+    upgrades increase the same trace/evaluation surface instead of sitting only in a separate tech
+    counter.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
