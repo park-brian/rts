@@ -1996,6 +1996,10 @@ Remaining work:
     exposes Human/AI explicitly, choosing Human switches the match to Play for that slot, and choosing
     AI for the active human slot switches back to Watch AI. Remaining setup work is enabled/disabled
     slots, generated-map name/preview, and debug/watch toggles.
+  - Map identity/preview setup slice is done: the setup modal now derives a deterministic generated
+    map name from the selected preset, midfield, player count, and seed, and renders a compact
+    preview from the actual generated `MapDef` rather than a separate mock. Remaining setup work is
+    enabled/disabled slots and debug/watch toggles.
 - Add explicit subgroup handling for large mixed selections.
 - Add a command-surface coverage audit proving every player-available sim action and every
   data-defined player capability is exposed through shared selection options and then rendered by

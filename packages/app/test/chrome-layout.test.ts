@@ -153,6 +153,10 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /setController = \(slot: number, controller: 'human' \| 'ai'\)/);
   assert.match(ui, /value=\{mode === 'play' && human === slot \? 'human' : 'ai'\}/);
   assert.match(ui, /<option value="human">Human<\/option>/);
+  assert.match(ui, /generatedMapName\(mapSpec\)/);
+  assert.match(ui, /const MapPreview = \(p: \{ map: MapDef \}\)/);
+  assert.match(ui, /mapFromSpec\(mapSpec\)/);
+  assert.match(ui, /<MapPreview map=\{previewMap\} \/>/);
   assert.match(ui, /<option value=\{team\}>Team \{team \+ 1\}<\/option>/);
   assert.match(ui, /<details open[\s\S]*>Map<\/summary>/);
   assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);

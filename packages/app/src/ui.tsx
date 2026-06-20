@@ -1,13 +1,13 @@
 // HUD chrome (Preact + signals). The only framework-managed UI; the game world is
 // drawn imperatively on canvas. Touch-first: big targets in the bottom thumb arc.
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Fragment, type VNode } from 'preact';
 import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
 import {
   Abilities, COMMAND_TYPES, FPS, Kind, MAP_PRESETS, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
-  shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
-  type MapPreset, type MapSpec, type MidfieldModule, type PlayerMatchStats,
+  mapFromSpec, shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
+  type MapDef, type MapPreset, type MapSpec, type MidfieldModule, type PlayerMatchStats,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -979,11 +979,47 @@ const midfieldLabel = (midfield: MidfieldModule): string => ({
   arena: 'Arena',
   raisedCenter: 'Raised Center',
 }[midfield]);
+const generatedMapName = (spec: Extract<MapSpec, { kind: 'procedural' }>): string =>
+  `${mapPresetLabel(spec.preset ?? 'teamPlateaus')} ${spec.perTeam}v${spec.perTeam} · ${midfieldLabel(spec.midfield ?? 'empty')} · #${spec.seed}`;
+const mapPreviewBlockPath = (map: MapDef): string => {
+  const stride = 4;
+  const parts: string[] = [];
+  for (let y = 0; y < map.h; y += stride) {
+    for (let x = 0; x < map.w; x += stride) {
+      if (map.walk[y * map.w + x] === 0) parts.push(`M${x} ${y}h${stride}v${stride}h-${stride}z`);
+    }
+  }
+  return parts.join('');
+};
 const readSeed = (text: string, fallback: number): number => {
   const parsed = Number.parseInt(text, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 const randomSeed = (): number => Math.floor(Math.random() * 1_000_000_000);
+
+const MapPreview = (p: { map: MapDef }) => {
+  const blocked = useMemo(() => mapPreviewBlockPath(p.map), [p.map]);
+  return (
+    <svg viewBox={`0 0 ${p.map.w} ${p.map.h}`} role="img" aria-label={`${p.map.name} preview`}
+      style={{ width: '100%', aspectRatio: `${p.map.w} / ${p.map.h}`, display: 'block',
+        background: '#081018', border: '1px solid #2a3340' }}>
+      <rect x="0" y="0" width={p.map.w} height={p.map.h} fill="#0c1620" />
+      {blocked.length > 0 && <path d={blocked} fill="#253244" opacity="0.82" />}
+      {p.map.bases?.map((base) => (
+        <rect x={base.x - 2} y={base.y - 2} width="4" height="4"
+          fill={base.kind === 'main' ? '#60a5fa' : '#facc15'} opacity="0.86" />
+      ))}
+      {p.map.resources.map((resource) => (
+        <circle cx={resource.x + 0.5} cy={resource.y + 0.5} r={resource.gas ? 1.4 : 0.9}
+          fill={resource.gas ? '#5eead4' : '#38bdf8'} opacity="0.92" />
+      ))}
+      {p.map.starts.map((start, index) => (
+        <circle cx={start.x + 0.5} cy={start.y + 0.5} r="2.3"
+          fill={index < p.map.starts.length / 2 ? '#4ea1ff' : '#ff5a5a'} stroke="#f8fafc" strokeWidth="0.45" />
+      ))}
+    </svg>
+  );
+};
 
 const keyLabel = (code: string): string => code
   .replace(/^Key/, '')
@@ -1044,10 +1080,12 @@ const SetupModal = (p: { game: Game }) => {
   const [preset, setPreset] = useState<MapPreset>(initialMap.preset ?? 'teamPlateaus');
   const [midfield, setMidfield] = useState<MidfieldModule>(initialMap.midfield ?? 'empty');
   const [seedText, setSeedText] = useState(String(initialMap.seed));
-  if (!ui.setupOpen.value) return null;
   const players = perTeam * 2;
   const seed = readSeed(seedText, p.game.seed);
   const mapSpec: Extract<MapSpec, { kind: 'procedural' }> = { kind: 'procedural', perTeam, seed, preset, midfield };
+  const previewMap = useMemo(() => mapFromSpec(mapSpec), [perTeam, seed, preset, midfield]);
+  const previewName = generatedMapName(mapSpec);
+  if (!ui.setupOpen.value) return null;
   const setPerTeam = (n: number): void => {
     setPerTeamState(n);
     setHuman(Math.min(human, n * 2 - 1));
@@ -1099,7 +1137,7 @@ const SetupModal = (p: { game: Game }) => {
                 {[1, 2, 3].map((n) => <Btn compact label={`${n}v${n}`} active={perTeam === n} onClick={() => setPerTeam(n)} />)}
               </div>
               <span style={{ color: '#9fb1c7', fontSize: '12px' }}>
-                {mapPresetLabel(preset)} · {midfieldLabel(midfield)} · seed {seed}
+                {previewName}
               </span>
             </div>
           </details>
@@ -1133,8 +1171,9 @@ const SetupModal = (p: { game: Game }) => {
                 <Btn compact label="Randomize" onClick={() => setSeedText(String(randomSeed()))} />
               </div>
               <span style={{ color: '#8ea4bd', fontSize: '12px' }}>
-                Procedural {perTeam}v{perTeam} · {mapPresetLabel(preset)} · {midfieldLabel(midfield)}
+                {previewName}
               </span>
+              <MapPreview map={previewMap} />
             </div>
           </details>
           <details open style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
