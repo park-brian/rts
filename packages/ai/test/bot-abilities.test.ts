@@ -8,6 +8,7 @@ import {
   botIntent,
   botIntentUrgency,
   TACTICAL_ABILITY_POLICIES,
+  blockedExpansionActive,
   collectBotFacts,
   combatReserve,
   commitTacticalResponders,
@@ -804,6 +805,28 @@ test('bot memory records actionable intent outcome locations', () => {
   rememberIntentOutcomes(memory, [], 102 + INTENT_OUTCOME_MEMORY_TICKS + 1);
   assert.equal(memory.suspectedInvisibleThreats.size, 0);
   assert.equal(memory.blockedSites.size, 0);
+});
+
+test('bot memory promotes repeated blocked expansion outcomes into retry pressure', () => {
+  const memory = createBotMemory();
+  const x = 12 * TILE * ONE;
+  const y = 8 * TILE * ONE;
+  const record = {
+    intent: { kind: 'expand' as const, urgency: 35, targetKind: Kind.CommandCenter, x, y },
+    result: { status: 'blocked' as const, reason: 'occupied-location' as const },
+  };
+
+  rememberIntentOutcomes(memory, [record], 100);
+  assert.equal(blockedExpansionActive(memory, 100), false);
+
+  rememberIntentOutcomes(memory, [record], 101);
+  assert.equal(blockedExpansionActive(memory, 101), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'expand', urgency: 35, targetKind: Kind.CommandCenter, x, y },
+    result: { status: 'done' },
+  }], 102);
+  assert.equal(blockedExpansionActive(memory, 102), false);
 });
 
 test('bot facts summarize bases, larvae, visible enemies, and local base threats', () => {
@@ -3079,6 +3102,56 @@ test('terran bot skips remembered blocked expansion sites', () => {
   assert.ok(build);
   assertPublicSurfaceExposes(scenario.state, 0, build);
   assert.notEqual(tileX(build.x), natural.x);
+});
+
+test('terran scheduler retries expansion sooner after repeated blocked expansion outcomes', () => {
+  const scenario = botScenario({
+    seed: 516,
+    players: 4,
+    map: generateMap(2, 516, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg, Protoss, Zerg],
+  });
+  scenario.resources(0, 900, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const natural = playerNatural(scenario);
+  const naturalPoint = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  const memory = createBotMemory();
+  const blockedRecord = {
+    intent: { kind: 'expand' as const, urgency: 35, targetKind: Kind.CommandCenter, ...naturalPoint },
+    result: { status: 'blocked' as const, reason: 'occupied-location' as const },
+  };
+  rememberIntentOutcomes(memory, [blockedRecord], scenario.state.tick);
+  rememberIntentOutcomes(memory, [blockedRecord], scenario.state.tick + 1);
+  scenario.state.tick += 1;
+
+  const normalCmds: Command[] = [];
+  scheduleBotMacro(
+    scenario.state,
+    0,
+    Terran,
+    normalCmds,
+    collectBotFacts(scenario.state, 0, Terran),
+    { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 },
+  );
+  assert.equal(findCommandBuild(normalCmds, Kind.CommandCenter), undefined);
+
+  const retryCmds: Command[] = [];
+  scheduleBotMacro(
+    scenario.state,
+    0,
+    Terran,
+    retryCmds,
+    collectBotFacts(scenario.state, 0, Terran),
+    { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 },
+    memory,
+  );
+
+  const retry = findCommandBuild(retryCmds, Kind.CommandCenter);
+  assert.ok(retry);
+  assert.notEqual(tileX(retry.x), natural.x);
 });
 
 test('live bot planner reports blocked expansion placement outcomes', () => {

@@ -142,6 +142,11 @@ spell casting, or shared attack-move validation; it only prevents the expert lay
 indefinite caution for a strategy. Remaining live feedback should focus on blocked expansion retry
 quality and whole-match competence gates, not more isolated scheduler flags unless traces prove a
 new repeated failure mode.
+Fourth live expert-feedback slice is done: bot memory now promotes repeated blocked expansion
+outcomes into a fresh `blockedExpansion` signal, while still keeping the exact blocked-site tile in
+memory for clear-site tactics and alternate-site selection. The macro scheduler consumes that signal
+through the existing expansion-pressure path, so a bot that has already failed an expansion attempt
+retries sooner at another legal base instead of waiting for the normal bank threshold.
 First capability-timing slice is done: gas access is now a first-class `take-gas` macro intent with
 expert scoring, race-specific geyser structures, shared build validation, and strategy posture rules
 that defer gas until the bot has a first combat unit unless the current army unit itself requires gas.

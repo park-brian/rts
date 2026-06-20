@@ -30,6 +30,7 @@ import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import {
+  blockedExpansionActive,
   macroFloatStallActive,
   missingProductionIntentActive,
   placementStallAnchorKeys,
@@ -210,11 +211,12 @@ export const scheduleBotMacro = (
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
   const missingProductionIntent = memory ? missingProductionIntentActive(memory, s.tick) : false;
   const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
+  const blockedExpansion = memory ? blockedExpansionActive(memory, s.tick) : false;
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
   const capacityPressure = { productionStalled: productionStalled || missingProductionIntent || postureWantsProduction };
-  const expansionPressure = { macroFloatStalled: macroFloatStalled || postureWantsExpansion };
+  const expansionPressure = { macroFloatStalled: macroFloatStalled || blockedExpansion || postureWantsExpansion };
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
       s,

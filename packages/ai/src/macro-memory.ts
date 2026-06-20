@@ -12,6 +12,8 @@ export const MISSING_PRODUCTION_INTENT_RESOURCES = 300;
 export const MACRO_FLOAT_STALL_REACTION_COUNT = 3;
 export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_RESOURCES = 800;
+export const BLOCKED_EXPANSION_REACTION_COUNT = 2;
+export const BLOCKED_EXPANSION_FRESH_TICKS = 6 * 24;
 export const COMBAT_STALL_REACTION_TICKS = 15 * 24;
 export const COMBAT_STALL_FRESH_TICKS = 6 * 24;
 export const PLACEMENT_STALL_REACTION_COUNT = 3;
@@ -34,6 +36,13 @@ export type MacroFloatStallMemory = {
   count: number;
   sinceTick: number;
   lastTick: number;
+};
+
+export type BlockedExpansionMemory = {
+  count: number;
+  sinceTick: number;
+  lastTick: number;
+  reason?: BotFailureReason;
 };
 
 export type CombatStallMemory = {
@@ -62,6 +71,7 @@ export type BotMemory = {
   productionStall: ProductionStallMemory;
   missingProductionIntent: MissingProductionIntentMemory;
   macroFloatStall: MacroFloatStallMemory;
+  blockedExpansion: BlockedExpansionMemory;
   combatStall: CombatStallMemory;
   offenseWaitSince: number;
 };
@@ -81,6 +91,7 @@ export const createBotMemory = (): BotMemory => ({
   productionStall: { count: 0, sinceTick: -1, lastTick: -1 },
   missingProductionIntent: { count: 0, sinceTick: -1, lastTick: -1 },
   macroFloatStall: { count: 0, sinceTick: -1, lastTick: -1 },
+  blockedExpansion: { count: 0, sinceTick: -1, lastTick: -1 },
   combatStall: { sinceTick: -1, lastTick: -1 },
   offenseWaitSince: -1,
 });
@@ -144,6 +155,10 @@ export const macroFloatStallActive = (memory: BotMemory, tick: number): boolean 
   memory.macroFloatStall.count >= MACRO_FLOAT_STALL_REACTION_COUNT &&
   tick - memory.macroFloatStall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
 
+export const blockedExpansionActive = (memory: BotMemory, tick: number): boolean =>
+  memory.blockedExpansion.count >= BLOCKED_EXPANSION_REACTION_COUNT &&
+  tick - memory.blockedExpansion.lastTick <= BLOCKED_EXPANSION_FRESH_TICKS;
+
 export const combatStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.combatStall.sinceTick >= 0 &&
   tick - memory.combatStall.sinceTick >= COMBAT_STALL_REACTION_TICKS &&
@@ -179,6 +194,13 @@ const clearMacroFloatStall = (memory: BotMemory): void => {
   memory.macroFloatStall.count = 0;
   memory.macroFloatStall.sinceTick = -1;
   memory.macroFloatStall.lastTick = -1;
+};
+
+const clearBlockedExpansion = (memory: BotMemory): void => {
+  memory.blockedExpansion.count = 0;
+  memory.blockedExpansion.sinceTick = -1;
+  memory.blockedExpansion.lastTick = -1;
+  memory.blockedExpansion.reason = undefined;
 };
 
 const clearCombatStall = (memory: BotMemory): void => {
@@ -260,6 +282,34 @@ const rememberMacroFloatStall = (
   stall.lastTick = tick;
 };
 
+const rememberBlockedExpansion = (
+  memory: BotMemory,
+  records: readonly BotIntentRecord[],
+  tick: number,
+): void => {
+  const record = records.find((candidate) => candidate.intent.kind === 'expand');
+  if (!record) return;
+  if (record.result.status === 'done') {
+    clearBlockedExpansion(memory);
+    return;
+  }
+  if (
+    (record.result.status !== 'blocked' && record.result.status !== 'failed') ||
+    !locationFailure(record.result.reason)
+  ) {
+    clearBlockedExpansion(memory);
+    return;
+  }
+
+  const stall = memory.blockedExpansion;
+  const continuing = stall.reason === record.result.reason &&
+    tick - stall.lastTick <= BLOCKED_EXPANSION_FRESH_TICKS;
+  stall.count = continuing ? stall.count + 1 : 1;
+  stall.sinceTick = continuing ? stall.sinceTick : tick;
+  stall.lastTick = tick;
+  stall.reason = record.result.reason;
+};
+
 const rememberCombatStall = (
   memory: BotMemory,
   records: readonly BotIntentRecord[],
@@ -294,6 +344,7 @@ export const rememberIntentOutcomes = (
   rememberProductionStall(memory, records, tick);
   rememberMissingProductionIntent(memory, tick, context);
   rememberMacroFloatStall(memory, records, tick, context);
+  rememberBlockedExpansion(memory, records, tick);
   rememberCombatStall(memory, records, tick);
 
   for (const { intent, result } of records) {
