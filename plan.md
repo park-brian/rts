@@ -971,12 +971,13 @@ Remaining work:
   Evolution Chamber first, duplicating Spawning Pools, failing to convert larvae/resources into
   Zerglings, or staying passive after lings are available should be treated as whole-match scheduler
   failures, not as isolated Evo/Pool special cases.
-  - First Zerg whole-match competence gate is done: a deterministic Zerg-vs-four-rax-baseline trace
-    now proves the planner grows workers, emits no player-0 invalid commands, builds, trains,
-    completes combat units, avoids trace competence alerts, and commits combat commands within a
-    4,800-tick window. The same slice also added per-player invalid-command counts to
-    `runBotMatchTrace`, so gates and UI diagnostics can distinguish the bot under test from a
-    deliberately crude baseline opponent.
+  - First whole-match race competence gate is done: deterministic Terran/Protoss/Zerg-vs-four-rax
+    traces now prove each planner grows workers, emits no player-0 invalid commands, builds, trains,
+    completes its core combat unit, avoids trace competence alerts, commits combat commands, and
+    receives a healthy production diagnosis within race-specific deterministic windows up to 4,800
+    ticks. The earlier Zerg-only gate is superseded by this all-race gate. The trace runner also
+    appends a final planner snapshot when the match end tick is not on a sample boundary, so
+    objective trends and expert diagnoses include the final production state.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,
@@ -1847,6 +1848,10 @@ Done when:
 - Added ready-production planner-to-sim regressions for all three races: when a completed Barracks,
   powered Gateway, or Spawning Pool is available, the live planner now has test coverage proving it
   issues explained, valid train commands and completes Marines, Zealots, or Zerglings.
+- Added an all-race whole-match competence gate plus final trace snapshots: Terran, Protoss, and
+  Zerg planners now have deterministic coverage against the four-rax baseline proving worker growth,
+  build/train commands, core combat-unit completion, combat commitment, no player-0 invalid
+  commands, no competence alerts, and healthy production diagnoses.
 - Added the first expert-diagnosis report layer to bot match traces: macro, economy, production, and
   combat health now produce deterministic report rows, and the failing macro/production case is
   covered by focused trace tests.

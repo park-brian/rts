@@ -292,6 +292,7 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.invalidCommands, 0);
   assert.equal(trace.invalidCommandsByPlayer[0], 0);
   assert.equal(trace.frames.length >= 4, true);
+  assert.equal(trace.frames[trace.frames.length - 1]!.tick, trace.stats.tick);
   assert.equal(trace.frames.every((frame) => frame.strategy.workerTarget === 8), true);
   assert.equal(trace.frames.some((frame) => frame.strategy.name === 'opening' || frame.strategy.name === 'ramp'), true);
   assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
@@ -323,6 +324,7 @@ test('whole-match bot trace records progression facts over time', () => {
 
   assert.equal(trace.invalidCommands, 0);
   assert.equal(trace.invalidCommandsByPlayer[0], 0);
+  assert.equal(trace.frames[trace.frames.length - 1]!.tick, trace.stats.tick);
   assert.equal(workerPeak >= Terran.startWorkers, true);
   assert.equal(issuedPeak > 0, true);
   assert.equal(p0.commandsIssued > 0, true);
@@ -330,22 +332,37 @@ test('whole-match bot trace records progression facts over time', () => {
   assert.equal(p0.peakSupplyUsed >= p0.supplyUsed, true);
 });
 
-test('whole-match zerg competence gate grows, makes lings, and commits', () => {
-  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8122, factions: [Zerg, Terran] });
-  const trace = runBotMatchTrace(sim, [
-    { faction: Zerg, planner: createBotPlanner(Zerg, { workerTarget: 10, barracksTarget: 1, attackThreshold: 6 }) },
-    { faction: Terran, controller: createAggressiveMarineBot() },
-  ], { maxTicks: 4_800, sampleEvery: 1_200 });
-  const p0 = trace.stats.players[0]!;
-  const lings = countAlive(sim.fullState(), 0, Kind.Zergling);
-  const playerAlerts = trace.alerts.filter((alert) => alert.player === 0);
+test('whole-match race competence gates grow, make combat units, and commit', () => {
+  const cases: Array<{
+    faction: Faction;
+    name: string;
+    unitKind: number;
+    maxTicks: number;
+  }> = [
+    { faction: Terran, name: 'Terran', unitKind: Kind.Marine, maxTicks: 3_600 },
+    { faction: Protoss, name: 'Protoss', unitKind: Kind.Zealot, maxTicks: 4_200 },
+    { faction: Zerg, name: 'Zerg', unitKind: Kind.Zergling, maxTicks: 4_800 },
+  ];
 
-  assert.equal(trace.invalidCommandsByPlayer[0], 0, 'Zerg planner should not emit invalid commands');
-  assert.equal(playerAlerts.length, 0, 'Zerg planner should not trigger competence alerts');
-  assert.equal(p0.peakWorkers > Zerg.startWorkers, true, 'Zerg should grow workers over the match');
-  assert.equal(p0.peakCombatUnits > 0, true, 'Zerg should complete combat units over the match');
-  assert.equal(lings > 0, true, 'Zerg should complete Zerglings over the match');
-  assert.equal((p0.commandsByType.train ?? 0) > 0, true, 'Zerg should issue training commands');
-  assert.equal((p0.commandsByType.build ?? 0) > 0, true, 'Zerg should issue build commands');
-  assert.equal((p0.commandsByType.attack ?? 0) + (p0.commandsByType.amove ?? 0) > 0, true, 'Zerg should commit combat commands');
+  for (const [index, { faction, name, unitKind, maxTicks }] of cases.entries()) {
+    const sim = new Sim({ map: sliceMap(), players: 2, seed: 8122 + index, factions: [faction, Terran] });
+    const trace = runBotMatchTrace(sim, [
+      { faction, planner: createBotPlanner(faction, { workerTarget: 10, barracksTarget: 2, attackThreshold: 6 }) },
+      { faction: Terran, controller: createAggressiveMarineBot() },
+    ], { maxTicks, sampleEvery: 1_200 });
+    const p0 = trace.stats.players[0]!;
+    const combatUnits = countAlive(sim.fullState(), 0, unitKind);
+    const playerAlerts = trace.alerts.filter((alert) => alert.player === 0);
+    const productionDiagnosis = trace.expertDiagnoses.find((entry) => entry.player === 0 && entry.domain === 'production');
+
+    assert.equal(trace.invalidCommandsByPlayer[0], 0, `${name} planner should not emit invalid commands`);
+    assert.equal(playerAlerts.length, 0, `${name} planner should not trigger competence alerts`);
+    assert.equal(p0.peakWorkers > faction.startWorkers, true, `${name} should grow workers over the match`);
+    assert.equal(p0.peakCombatUnits > 0, true, `${name} should complete combat units over the match`);
+    assert.equal(combatUnits > 0, true, `${name} should complete its core combat unit over the match`);
+    assert.equal((p0.commandsByType.train ?? 0) > 0, true, `${name} should issue training commands`);
+    assert.equal((p0.commandsByType.build ?? 0) > 0, true, `${name} should issue build commands`);
+    assert.equal((p0.commandsByType.attack ?? 0) + (p0.commandsByType.amove ?? 0) > 0, true, `${name} should commit combat commands`);
+    assert.equal(productionDiagnosis?.status, 'healthy', `${name} trace should diagnose combat production as healthy`);
+  }
 });

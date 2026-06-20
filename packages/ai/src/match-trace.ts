@@ -463,6 +463,18 @@ const participantCommands = (
   return { player, cmds: participant.controller?.(s, player) ?? [] };
 };
 
+const samplePlannerFrames = (
+  s: State,
+  participants: readonly BotTraceParticipant[],
+  frames: BotTraceFrame[],
+): void => {
+  for (let player = 0; player < participants.length; player++) {
+    const participant = participants[player]!;
+    if (!participant.planner) continue;
+    frames.push(botTraceFrame(s, player, participant.faction, participant.planner(s, player)));
+  }
+};
+
 export const runBotMatchTrace = (
   sim: Sim,
   participants: readonly BotTraceParticipant[],
@@ -489,6 +501,11 @@ export const runBotMatchTrace = (
       }
     }
     recordMatchStatsStep(stats, sim.fullState(), batch, results);
+  }
+
+  const finalState = sim.fullState();
+  if (!frames.some((frame) => frame.tick === finalState.tick)) {
+    samplePlannerFrames(finalState, participants, frames);
   }
 
   const objectiveTrends = botObjectiveTrends(frames);
