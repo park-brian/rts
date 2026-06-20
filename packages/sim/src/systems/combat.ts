@@ -7,10 +7,9 @@
 // Units on Move/Harvest/Build do not fire (they're busy).
 
 import type { State } from '../entity/world.ts';
-import { slotOf, eid, isAlive, isEnemy, kill, NONE } from '../entity/world.ts';
+import { slotOf, eid, isAlive, isEnemy, NONE } from '../entity/world.ts';
 import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
-import { EffectKind, Kind, Order, Role, Units, hasAnyWeapon, sec, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
-import { applyWeaponDamage } from '../mechanics/damage.ts';
+import { EffectKind, Order, Role, Units, hasAnyWeapon, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../spatial/grid.ts';
@@ -21,18 +20,23 @@ import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
-import {
-  distanceSq, distanceSqToRect, topDownEdgeDistanceSq, topDownInteractionRect, withinTopDownEdgeRange,
-  type InteractionRect,
-} from '../spatial/geometry.ts';
+import { topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
 import { launchScarab } from '../mechanics/scarab.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredActor, participatesInNormalCombat } from '../mechanics/actors.ts';
 import {
-  WeaponMechanic, consumeWeaponMechanicAmmo, hasWeaponMechanicAmmo, isInterceptorLaunchMechanic, weaponMechanicDef, type WeaponMechanicDef,
-  type WeaponMechanicId,
+  WeaponMechanic,
+  applyWeaponMechanicOnHit,
+  applyWeaponMechanicPostFire,
+  canContainerProviderAttack,
+  consumeWeaponMechanicAmmo,
+  fireContainerProvider,
+  hasWeaponMechanicAmmo,
+  isInterceptorLaunchMechanic,
+  nearestContainerProviderTarget,
+  weaponMechanicDef,
 } from '../mechanics/weapons.ts';
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
@@ -52,180 +56,6 @@ const clearCombatTarget = (s: State, slot: number): void => {
   const old = e.combatTarget[slot]!;
   e.combatTarget[slot] = NONE;
   if (old === NONE || e.target[slot] === old) e.target[slot] = NONE;
-};
-
-const ACID_SPORE_DURATION = sec(30);
-const ACID_SPORE_MAX = 9;
-
-const applyAcidSpore = (s: State, target: number): void => {
-  const e = s.e;
-  if (e.alive[target] !== 1) return;
-  e.acidSporeCount[target] = Math.min(ACID_SPORE_MAX, e.acidSporeCount[target]! + 1);
-  e.acidSporeTimer[target] = ACID_SPORE_DURATION;
-};
-
-const bounceWeapon = (weapon: Weapon, damage: number): Weapon => ({
-  damage,
-  dtype: weapon.dtype,
-  cooldown: weapon.cooldown,
-  range: weapon.range,
-  shots: 1,
-});
-
-const nearestBounceTarget = (s: State, owner: number, from: number, excludeA: number, excludeB: number, range: number): number => {
-  const e = s.e;
-  let best = NONE;
-  let bestD = range * range + 1;
-  for (let i = 0; i < e.hi; i++) {
-    if (i === excludeA || i === excludeB || e.alive[i] !== 1 || isContained(s, i)) continue;
-    if (!isEnemy(s, owner, e.owner[i]!) || !canDetect(s, owner, i)) continue;
-    const d = topDownEdgeDistanceSq(s, from, i);
-    if (d < bestD) { best = i; bestD = d; }
-  }
-  return best;
-};
-
-const applyMutaliskBounce = (s: State, attacker: number, first: number, weapon: Weapon): void => {
-  const owner = s.e.owner[attacker]!;
-  const range = tiles(3);
-  const second = nearestBounceTarget(s, owner, first, first, NONE, range);
-  if (second === NONE) return;
-  applyWeaponDamage(s, second, bounceWeapon(weapon, Math.max(1, Math.trunc(weapon.damage / 3))), attacker);
-  const third = nearestBounceTarget(s, owner, second, first, second, range);
-  if (third !== NONE) applyWeaponDamage(s, third, bounceWeapon(weapon, Math.max(1, Math.trunc(weapon.damage / 9))), attacker);
-};
-
-const distSqToSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
-  const vx = bx - ax;
-  const vy = by - ay;
-  const wx = px - ax;
-  const wy = py - ay;
-  const len2 = vx * vx + vy * vy;
-  if (len2 === 0) return distanceSq(px, py, ax, ay);
-  const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
-  const cx = ax + vx * t;
-  const cy = ay + vy * t;
-  return distanceSq(px, py, cx, cy);
-};
-
-const segmentIntersectsRect = (ax: number, ay: number, bx: number, by: number, rect: InteractionRect): boolean => {
-  let t0 = 0;
-  let t1 = 1;
-  const dx = bx - ax;
-  const dy = by - ay;
-  const clip = (p: number, q: number): boolean => {
-    if (p === 0) return q >= 0;
-    const t = q / p;
-    if (p < 0) {
-      if (t > t1) return false;
-      if (t > t0) t0 = t;
-    } else {
-      if (t < t0) return false;
-      if (t < t1) t1 = t;
-    }
-    return true;
-  };
-  return clip(-dx, ax - rect.x0) && clip(dx, rect.x1 - ax) &&
-    clip(-dy, ay - rect.y0) && clip(dy, rect.y1 - ay);
-};
-
-const distSqRectToSegment = (rect: InteractionRect, ax: number, ay: number, bx: number, by: number): number => {
-  if (segmentIntersectsRect(ax, ay, bx, by, rect)) return 0;
-  return Math.min(
-    distanceSqToRect(ax, ay, rect.x0, rect.y0, rect.x1, rect.y1),
-    distanceSqToRect(bx, by, rect.x0, rect.y0, rect.x1, rect.y1),
-    distSqToSegment(rect.x0, rect.y0, ax, ay, bx, by),
-    distSqToSegment(rect.x1, rect.y0, ax, ay, bx, by),
-    distSqToSegment(rect.x0, rect.y1, ax, ay, bx, by),
-    distSqToSegment(rect.x1, rect.y1, ax, ay, bx, by),
-  );
-};
-
-const applyLurkerLineSplash = (s: State, attacker: number, target: number, weapon: Weapon): void => {
-  const e = s.e;
-  const ax = e.x[attacker]!;
-  const ay = e.y[attacker]!;
-  const tx = e.x[target]!;
-  const ty = e.y[target]!;
-  const width = tiles(1);
-  const width2 = width * width;
-  for (let i = 0; i < e.hi; i++) {
-    if (i === attacker || i === target || e.alive[i] !== 1 || isContained(s, i)) continue;
-    if ((e.flags[i]! & (Role.Air | Role.Resource)) !== 0) continue;
-    const body = topDownInteractionRect(e.kind[i]!, e.x[i]!, e.y[i]!, e.flags[i]!);
-    if (distSqRectToSegment(body, ax, ay, tx, ty) <= width2) applyWeaponDamage(s, i, weapon, attacker);
-  }
-};
-
-type WeaponMechanicOnHitApplicator = (s: State, attacker: number, target: number, weapon: Weapon) => void;
-type WeaponMechanicPostFireApplicator = (s: State, attacker: number) => void;
-
-const WeaponMechanicOnHitApplicators: Partial<Record<WeaponMechanicId, WeaponMechanicOnHitApplicator>> = {
-  [WeaponMechanic.LurkerLineSplash]: applyLurkerLineSplash,
-  [WeaponMechanic.MutaliskBounce]: applyMutaliskBounce,
-  [WeaponMechanic.AcidSpores]: (s, _attacker, target) => applyAcidSpore(s, target),
-};
-
-const WeaponMechanicPostFireApplicators: Partial<Record<WeaponMechanicId, WeaponMechanicPostFireApplicator>> = {
-  [WeaponMechanic.SuicideOnFire]: (s, attacker) => {
-    if (s.e.alive[attacker] === 1) kill(s, attacker);
-  },
-};
-
-const applyMechanicOnHit = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number, target: number, weapon: Weapon): void => {
-  const onHit = mechanic?.onHit;
-  if (onHit !== undefined) WeaponMechanicOnHitApplicators[onHit]?.(s, attacker, target, weapon);
-};
-
-const applyMechanicPostFire = (s: State, mechanic: WeaponMechanicDef | undefined, attacker: number): void => {
-  const postFire = mechanic?.postFire;
-  if (postFire !== undefined) WeaponMechanicPostFireApplicators[postFire]?.(s, attacker);
-};
-
-const bunkerCanAttack = (s: State, bunker: number, target: number): boolean => {
-  const e = s.e;
-  const targetDef = Units[e.kind[target]!];
-  if (!targetDef) return false;
-  const bunkerId = eid(e, bunker);
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== bunkerId || isDisabled(e, i)) continue;
-    const weapon = weaponForTarget(Units[e.kind[i]!]!, targetDef);
-    if (!weapon) continue;
-    const range = upgradedRange(s, i, weapon);
-    if (withinTopDownEdgeRange(s, bunker, target, range)) return true;
-  }
-  return false;
-};
-
-const nearestBunkerTarget = (s: State, bunker: number, sight: number): number => {
-  const e = s.e;
-  const owner = e.owner[bunker]!;
-  const r2 = sight * sight;
-  let best = NONE;
-  let bestD = r2 + 1;
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || isContained(s, i) || !isEnemy(s, owner, e.owner[i]!) || !canDetect(s, owner, i)) continue;
-    const d = topDownEdgeDistanceSq(s, bunker, i);
-    if (d <= r2 && d < bestD && bunkerCanAttack(s, bunker, i)) { best = i; bestD = d; }
-  }
-  return best;
-};
-
-const bunkerFire = (s: State, bunker: number, target: number): void => {
-  const e = s.e;
-  const targetDef = Units[e.kind[target]!];
-  if (!targetDef) return;
-  const bunkerId = eid(e, bunker);
-  for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.container[i] !== bunkerId || isDisabled(e, i)) continue;
-    const weapon = weaponForTarget(Units[e.kind[i]!]!, targetDef);
-    if (!weapon || e.wcd[i]! > 0) continue;
-    const range = upgradedRange(s, i, weapon);
-    if (!withinTopDownEdgeRange(s, bunker, target, range)) continue;
-    if ((e.flags[target]! & Role.Air) === 0 && coveredByEffect(s, target, EffectKind.DarkSwarm) && range > tiles(2)) continue;
-    if (e.illusion[i] !== 1) applyWeaponHit(s, target, weapon, i);
-    e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
-  }
 };
 
 export const combat = (s: State, grid: Grid): void => {
@@ -268,13 +98,13 @@ export const combat = (s: State, grid: Grid): void => {
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
-          (containerProvider ? bunkerCanAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
+          (containerProvider ? canContainerProviderAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     } else if (e.combatTarget[i] !== NONE) {
       clearCombatTarget(s, i);
     }
     if (tgt === NONE && order !== Order.Attack) {
-      tgt = containerProvider ? nearestBunkerTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
+      tgt = containerProvider ? nearestContainerProviderTarget(s, i, sight) : interceptorLaunch ? nearestEnemy(s, grid, i, sight) : nearestAttackableEnemy(s, grid, i, sight);
     }
     if (tgt !== NONE && !holdPosition) rememberCombatTarget(s, i, tgt); // remember for next tick
 
@@ -293,7 +123,7 @@ export const combat = (s: State, grid: Grid): void => {
     }
 
     if (containerProvider) {
-      bunkerFire(s, i, tgt);
+      fireContainerProvider(s, i, tgt);
       continue;
     }
     if (interceptorLaunch) {
@@ -333,10 +163,10 @@ export const combat = (s: State, grid: Grid): void => {
             if (!fired) continue;
             consumeWeaponMechanicAmmo(s, i, mechanic);
             if (hit) {
-              applyMechanicOnHit(s, mechanic, i, tgt, weapon);
+              applyWeaponMechanicOnHit(s, mechanic, i, tgt, weapon);
             }
           }
-          applyMechanicPostFire(s, mechanic, i);
+          applyWeaponMechanicPostFire(s, mechanic, i);
         }
         e.wcd[i] = effectiveCooldown(s, e, i, weapon.cooldown);
       }

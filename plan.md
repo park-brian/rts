@@ -142,7 +142,7 @@ Near-term architecture slices from this review:
    execution applicators; `systems/abilities.ts` owns only energy, cloak drain, effects, channels,
    life timers, status timers, and regeneration ticks. Done.
 3. Move weapon on-hit/post-fire applicators and Bunker contained-fire policy behind mechanics
-   helpers while keeping combat as the phase interpreter.
+   helpers while keeping combat as the phase interpreter. Done.
 4. Continue capability ownership slices only when they delete a duplicated UI/AI/action-mask/
    command rule. Do not add descriptor tables that merely mirror existing data without removing a
    caller-side branch.
@@ -581,10 +581,15 @@ Remaining work:
   - suicide attackers;
   - future splash/projectile variants.
   - On-hit/post-fire routing-map slice is done: Lurker line splash, Mutalisk bounce, Devourer
-    acid spores, and suicide attackers now dispatch through mechanic-id applicator maps in combat
-    instead of a local switch ladder. Remaining work: consider whether delivery modes
-    (scarab launch, interceptor launch, contained fire) can share an equally small dispatch shape
-    without hiding their timing and target-acquisition differences.
+    acid spores, and suicide attackers now dispatch through mechanic-id applicator maps owned by
+    `mechanics/weapons.ts` instead of combat-local helpers.
+  - Contained-fire policy slice is done: Bunker/provider target eligibility, nearest contained-fire
+    target selection, dark-swarm checks, contained-unit cooldowns, and contained weapon hits now
+    live behind mechanics-owned helpers. Combat still owns the deterministic engagement phase and
+    only delegates provider-specific firing policy.
+    Remaining work: consider whether delivery modes (scarab launch and interceptor launch) can
+    share an equally small dispatch shape without hiding their timing and target-acquisition
+    differences.
   - Carrier interceptor descriptor-narrowing slice is done: the complete interceptor launch shape
     is validated by `mechanics/weapons.ts`, and combat reads launch range/cooldown from the
     narrowed descriptor it already owns instead of reaching through carrier-specific wrapper
