@@ -3,6 +3,7 @@ import test from 'node:test';
 import { Kind, Sim, Terran, sliceMap, spawnUnit } from '@rts/sim';
 import {
   botObjectiveReasons,
+  botObjectiveTrends,
   botTraceFrame,
   createBotPlanner,
   runBotMatchTrace,
@@ -84,6 +85,30 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
   assert.equal(reasons.some((reason) => reason.kind === 'resource-float'), true);
 });
 
+test('bot objective trends summarize per-player sampled frame deltas', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8107, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  let base = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.CommandCenter) base = i;
+  }
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+
+  spawnUnit(s, Kind.Marine, 0, e.x[base]!, e.y[base]!);
+  spawnUnit(s, Kind.SCV, 0, e.x[base]!, e.y[base]!);
+  const after = botTraceFrame(s, 0, Terran, planner(s, 0));
+  const trends = botObjectiveTrends([before, after]);
+
+  assert.equal(trends.length, 1);
+  assert.equal(trends[0]!.player, 0);
+  assert.equal(trends[0]!.fromTick, before.tick);
+  assert.equal(trends[0]!.toTick, after.tick);
+  assert.equal(trends[0]!.reasons.some((reason) => reason.kind === 'economy-growth'), true);
+  assert.equal(trends[0]!.reasons.some((reason) => reason.kind === 'army-growth'), true);
+});
+
 test('bot trace frame records waiting reasons when production is blocked', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8102, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -128,6 +153,8 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
 
   assert.equal(trace.invalidCommands, 0);
   assert.equal(trace.frames.length >= 4, true);
+  assert.equal(trace.objectiveTrends.length, 1);
+  assert.equal(trace.objectiveTrends[0]!.player, 0);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);
   assert.equal(trace.stats.tick, sim.fullState().tick);
   assert.equal(p0.commandsIssued > 0, true);

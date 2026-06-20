@@ -70,6 +70,15 @@ export type BotObjectiveReason = {
   detail: string;
 };
 
+export type BotObjectiveTrend = {
+  player: number;
+  fromTick: number;
+  toTick: number;
+  before: BotObjectiveSnapshot;
+  after: BotObjectiveSnapshot;
+  reasons: BotObjectiveReason[];
+};
+
 export type BotTraceParticipant = {
   faction: Faction;
   planner?: BotPlanner;
@@ -86,6 +95,7 @@ export type BotMatchTrace = {
   stats: MatchStats;
   invalidCommands: number;
   commandResults: CommandResult[];
+  objectiveTrends: BotObjectiveTrend[];
 };
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
@@ -197,6 +207,27 @@ export const botObjectiveReasons = (
   return reasons.sort((a, b) => b.score - a.score || a.kind.localeCompare(b.kind));
 };
 
+export const botObjectiveTrends = (frames: readonly BotTraceFrame[]): BotObjectiveTrend[] => {
+  const byPlayer = new Map<number, { first: BotTraceFrame; last: BotTraceFrame }>();
+
+  for (const frame of frames) {
+    const bucket = byPlayer.get(frame.player);
+    if (bucket) bucket.last = frame;
+    else byPlayer.set(frame.player, { first: frame, last: frame });
+  }
+
+  return [...byPlayer.values()]
+    .sort((a, b) => a.first.player - b.first.player)
+    .map(({ first, last }) => ({
+      player: first.player,
+      fromTick: first.tick,
+      toTick: last.tick,
+      before: first.objective,
+      after: last.objective,
+      reasons: botObjectiveReasons(first.objective, last.objective),
+    }));
+};
+
 export const botTraceFrame = (
   s: State,
   player: number,
@@ -281,5 +312,11 @@ export const runBotMatchTrace = (
     recordMatchStatsStep(stats, sim.fullState(), batch, results);
   }
 
-  return { frames, stats, invalidCommands, commandResults };
+  return {
+    frames,
+    stats,
+    invalidCommands,
+    commandResults,
+    objectiveTrends: botObjectiveTrends(frames),
+  };
 };

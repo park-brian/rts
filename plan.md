@@ -962,8 +962,9 @@ Remaining work:
   - First instrumentation slice is done: bot trace frames now carry objective snapshots for worker
     supply, field army supply/strength, enemy worker/army state, and resource float, with a small
     deterministic reason generator for economy growth, army growth, enemy degradation, and float.
-    This is deliberately measurement, not policy; next slices should use these signals to score
-    candidate macro intents and whole-match competence instead of adding more independent heuristics.
+    Whole-match traces now summarize those deltas per sampled bot player. This is deliberately
+    measurement, not policy; next slices should use these signals to score candidate macro intents
+    and whole-match competence instead of adding more independent heuristics.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1736,7 +1737,8 @@ Done when:
   first completed-Pool larva on Zerglings before continuing worker/tech growth.
 - Added first expert-objective trace metrics: each sampled bot frame now records own/enemy worker
   supply, field army supply/strength, resource float, and deterministic human-readable reasons for
-  objective deltas so later bot policy can optimize win-slope instead of isolated local legality.
+  objective deltas, and whole-match bot traces summarize those trends per player so later bot
+  policy can optimize win-slope instead of isolated local legality.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.
