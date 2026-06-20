@@ -3,10 +3,12 @@ import {
   botTraceAlerts,
   botTraceExpertDiagnoses,
   botTraceFrame,
+  botTracePhaseSummaries,
   createBotPlanner,
   type BotExpertDiagnosis,
   type BotPlanner,
   type BotTraceFrame,
+  type BotTracePhaseSummary,
   type BotTurnPlan,
 } from '@rts/ai';
 import { Terran, type CommandResult, type Controller, type Faction, type MatchStats, type State } from './sim.ts';
@@ -90,3 +92,11 @@ export const botExpertHealthRows = (
   severity: diagnosis.severity,
   detail: diagnosis.detail,
 }));
+
+export const botPhaseSummaries = (
+  diagnostics: readonly AppBotDiagnostics[],
+): BotTracePhaseSummary[] => {
+  const frames = allBotFrames(diagnostics);
+  if (frames.length === 0) return [];
+  return botTracePhaseSummaries(frames, botTraceAlerts(frames, allBotCommandResults(diagnostics)));
+};

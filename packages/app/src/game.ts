@@ -19,10 +19,12 @@ import {
   exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
 } from './game-session.ts';
 import {
+  botPhaseSummaries,
   botExpertHealthRows,
   recordBotDiagnosticResults,
   type AppBotDiagnostics,
 } from './bot-diagnostics.ts';
+import type { BotTracePhaseSummary } from '@rts/ai';
 import type { MatchHealthRow } from './match-health.ts';
 
 const TICK_MS = 1000 / FPS;
@@ -238,6 +240,10 @@ export class Game {
 
   botExpertHealthRows(): MatchHealthRow[] {
     return botExpertHealthRows(this.botDiagnostics, this.matchStats);
+  }
+
+  botPhaseSummaries(): BotTracePhaseSummary[] {
+    return botPhaseSummaries(this.botDiagnostics);
   }
 
   loadReplay(json: string): void {

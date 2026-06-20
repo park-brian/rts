@@ -163,7 +163,9 @@ per-domain chips, so whole-match failures are visible before tuning more bot heu
 Phase-summary slice is done: bot traces now aggregate contiguous strategy windows into deterministic
 phase summaries with resource, supply, worker, army, queue, command, intent, outcome, wait/block, and
 alert counts. This gives the expert system a compact timeline of what each strategy phase actually
-did before we add more scheduler heuristics.
+did before we add more scheduler heuristics. App phase-summary slice is done: the post-match results
+panel now renders those bot phase windows under Strategic Health so whole-match opening/ramp/pressure
+behavior is visible without digging into test logs.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

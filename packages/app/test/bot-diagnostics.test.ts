@@ -11,6 +11,7 @@ import {
 import {
   botDiagnosticController,
   botExpertHealthRows,
+  botPhaseSummaries,
   createBotDiagnostics,
   recordBotDiagnosticResults,
 } from '../src/bot-diagnostics.ts';
@@ -44,6 +45,12 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   }
   assert.equal(rows.some((row) => row.domain === 'strategy' && row.detail.includes('posture')), true);
   assert.equal(rows.some((row) => row.domain === 'summary' && row.detail.includes('plan')), true);
+
+  const phases = botPhaseSummaries(diagnostics);
+  assert.equal(phases.length > 0, true);
+  assert.equal(phases.every((phase) => phase.samples > 0), true);
+  assert.equal(phases.some((phase) => (phase.commandsByType.train ?? 0) + (phase.commandsByType.build ?? 0) > 0), true);
+  assert.equal(phases.some((phase) => phase.plan.reasons.length > 0), true);
 });
 
 test('bot command results are stored only for their owning diagnostic participant', () => {

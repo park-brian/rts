@@ -164,6 +164,24 @@ const splitHealthRows = (rows: readonly MatchHealthRow[]): { summary?: MatchHeal
   details: rows.filter((row) => row.domain !== 'summary'),
 });
 
+type BotPhaseSummary = ReturnType<Game['botPhaseSummaries']>[number];
+
+const keyedCountLine = <K extends string,>(
+  counts: CountMap<K>,
+  label: (key: K) => string = (key) => key,
+  limit = 4,
+): string =>
+  countLine(counts, Object.keys(counts) as K[], label, limit);
+
+const phaseRangeLabel = (phase: BotPhaseSummary): string =>
+  `${phase.phase} ${fmtTick(phase.fromTick)}-${fmtTick(phase.toTick)}`;
+
+const phaseFactsLine = (phase: BotPhaseSummary): string =>
+  `res ${resourcePair(phase.start.minerals, phase.start.gas)}>${resourcePair(phase.end.minerals, phase.end.gas)} · ` +
+  `workers ${phase.start.workers}>${phase.end.workers} · army ${phase.start.army}>${phase.end.army} · ` +
+  `supply ${fmtSupply(phase.start.supplyUsed)}/${fmtSupply(phase.start.supplyMax)}>` +
+  `${fmtSupply(phase.end.supplyUsed)}/${fmtSupply(phase.end.supplyMax)}`;
+
 const Btn = (p: {
   label: string;
   onClick: () => void;
@@ -730,6 +748,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const duration = Math.max(0, Math.floor((stats.tick - stats.startTick) / FPS));
   const health = matchHealthRows(stats);
   const botHealth = p.game.botExpertHealthRows();
+  const botPhases = p.game.botPhaseSummaries();
   return (
     <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
       border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
@@ -814,6 +833,42 @@ const MatchStatsPanel = (p: { game: Game }) => {
           );
         })}
       </div>
+      {botPhases.length > 0 && (
+        <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+          paddingTop: '8px' }}>
+          <b style={{ color: '#8ea4bd' }}>Bot Phases</b>
+          {stats.players.map((player) => {
+            const phases = botPhases.filter((phase) => phase.player === player.player);
+            if (phases.length === 0) return null;
+            return (
+              <details key={player.player} style={{ border: '1px solid #1b2533',
+                background: '#0f151e', padding: '5px 7px' }}>
+                <summary style={{ cursor: 'pointer', color: '#cdd9e5' }}>
+                  P{player.player + 1} {phases.length} phase{phases.length === 1 ? '' : 's'}
+                </summary>
+                <div style={{ display: 'grid', gap: '5px', marginTop: '5px', color: '#9fb1c7' }}>
+                  {phases.map((phase, i) => (
+                    <div key={`${phase.fromTick}:${phase.phase}:${i}`} title={phase.plan.reasons.join('; ')}
+                      style={{ display: 'grid', gap: '2px', borderTop: i ? '1px solid #1b2533' : '0',
+                        paddingTop: i ? '5px' : '0' }}>
+                      <span style={{ color: '#cdd9e5' }}>
+                        {phaseRangeLabel(phase)} · {phase.plan.primaryGoal}/{phase.plan.macroPriority}/{phase.plan.combatStance}
+                      </span>
+                      <span>{phaseFactsLine(phase)}</span>
+                      <span>peaks workers queued {phase.peaks.queuedWorkerProduction} · army queued {phase.peaks.queuedArmyProduction} · idle prod {phase.peaks.idleProducers}</span>
+                      <span>cmds {countLine(phase.commandsByType, COMMAND_TYPES, commandTypeLabel, 4)}</span>
+                      <span>intents {keyedCountLine(phase.intentsByKind, undefined, 4)}</span>
+                      <span>outcomes {keyedCountLine(phase.outcomesByStatus, undefined, 4)}</span>
+                      <span>wait {keyedCountLine(phase.waitsByReason, reasonLabel, 3)} · block {keyedCountLine(phase.blocksByReason, reasonLabel, 3)}</span>
+                      <span>alerts {keyedCountLine(phase.alertKinds, undefined, 3)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
