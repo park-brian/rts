@@ -22,6 +22,7 @@ export * from './macro-risk.ts';
 export * from './macro-research.ts';
 export * from './macro-scheduler.ts';
 export * from './macro-static-defense.ts';
+export * from './macro-strategy.ts';
 export * from './macro-tactics.ts';
 export * from './macro-tech.ts';
 export * from './match-trace.ts';

@@ -66,6 +66,11 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.resourceFloat, 500);
+  assert.equal(frame.strategy.name, 'opening');
+  assert.equal(frame.strategy.workerTarget, 8);
+  assert.equal(frame.strategy.attackThreshold, 99);
+  assert.equal(frame.strategy.techTarget, 'first-combat');
+  assert.equal(frame.strategy.reasons.length > 0, true);
 });
 
 test('bot trace objective snapshot scores own and enemy economy and army', () => {
@@ -173,6 +178,8 @@ test('bot trace frame reports combat commitment commands', () => {
   const frame = botTraceFrame(s, 0, Terran, plan);
 
   assert.equal(frame.army >= 4, true);
+  assert.equal(frame.strategy.name, 'pressure');
+  assert.equal(frame.strategy.harassmentAppetite, 'high');
   assert.equal((frame.commandsByType.attack ?? 0) + (frame.commandsByType.amove ?? 0) > 0, true);
   assert.equal(frame.intentsByKind['attack-wave']! + frame.intentsByKind.harass! + frame.intentsByKind.counterattack! > 0, true);
 });
@@ -284,6 +291,8 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.invalidCommands, 0);
   assert.equal(trace.invalidCommandsByPlayer[0], 0);
   assert.equal(trace.frames.length >= 4, true);
+  assert.equal(trace.frames.every((frame) => frame.strategy.workerTarget === 8), true);
+  assert.equal(trace.frames.some((frame) => frame.strategy.name === 'opening' || frame.strategy.name === 'ramp'), true);
   assert.equal(trace.frames.every((frame) => frame.topIntents.length > 0), true);
   assert.equal(trace.frames.some((frame) =>
     frame.topIntents.some((intent) => intent.score !== undefined && intent.scoreReasons.length > 0)), true);

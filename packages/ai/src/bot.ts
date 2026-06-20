@@ -12,6 +12,7 @@ import { botExpertContext } from './macro-objective.ts';
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
+import { botStrategyPosture, type BotStrategyPosture } from './macro-strategy.ts';
 import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
 import { createBotMemory, rememberIntentOutcomes, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
@@ -27,6 +28,7 @@ export type BotTurnPlan = {
   commands: Command[];
   intents: BotIntent[];
   intentResults: BotIntentRecord[];
+  strategy: BotStrategyPosture;
 };
 
 export type BotPlanner = (s: State, p: number) => BotTurnPlan;
@@ -71,11 +73,22 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
 
     const facts = collectBotFacts(s, p, faction, { risk: 'none' });
     const depot = facts.primaryBase;
-    if (depot === NONE) return { commands: cmds, intents: [], intentResults }; // no base: nothing to do
+    const workerTarget = depot === NONE
+      ? c.workerTarget ?? faction.startWorkers
+      : desiredWorkerCount(s, depot, c.workerTarget);
+    const strategy = botStrategyPosture(faction, facts, {
+      workerTarget,
+      attackThreshold: c.attackThreshold,
+    });
+    if (depot === NONE) return { commands: cmds, intents: [], intentResults, strategy }; // no base: nothing to do
 
     const memory = prepareMemory(p, s.tick);
-    const expert = botExpertContext(s, p, facts, desiredWorkerCount(s, depot, c.workerTarget), c.attackThreshold);
-    const macro = scheduleBotMacro(s, p, faction, cmds, facts, c, memory);
+    const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold);
+    const macro = scheduleBotMacro(s, p, faction, cmds, facts, {
+      ...c,
+      workerTarget: strategy.workerTarget,
+      attackThreshold: strategy.attackThreshold,
+    }, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
     intentResults.push(...macro.intentResults);
 
@@ -115,7 +128,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       depot,
       pressureReserve,
       {
-        attackThreshold: c.attackThreshold,
+        attackThreshold: strategy.attackThreshold,
         strategicOnly: incident !== undefined,
       },
     );
@@ -149,6 +162,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       commands: cmds,
       intents: rankedIntentResults.map((record) => record.intent),
       intentResults: rankedIntentResults,
+      strategy,
     };
   };
 };

@@ -1084,6 +1084,11 @@ Remaining work:
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;
   the scheduler arbitrates scarce resources and actors; executors validate commands; the failure
   monitor decides whether to retry, escalate, switch posture, or force a least-bad action.
+  - First strategy-posture slice is done: planner turns now carry a deterministic
+    `BotStrategyPosture` (`opening`, `ramp`, `expand`, `defend`, `pressure`, or `recover`) with
+    worker/attack targets, gas timing, production ratio, tech focus, defense/retreat tolerances,
+    harassment appetite, and reasons. The trace frame records this posture, and macro/offense target
+    thresholds now read through it instead of separate ad hoc config values.
 - Generalize production-capacity intents around combat demand. The bot should estimate desired army
   spend per minute, current producer throughput, larva throughput, queued production, and resource
   float, then add the right capacity for the race and posture. For Zerg, Hatcheries are both depots

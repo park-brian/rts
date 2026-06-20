@@ -26,6 +26,7 @@ import {
   type BotObjectiveSnapshot,
   type BotObjectiveTrend,
 } from './macro-objective.ts';
+import type { BotStrategyPosture } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 
 export type BotTraceFrame = {
@@ -50,6 +51,7 @@ export type BotTraceFrame = {
   blocksByReason: CountMap<BotFailureReason>;
   topIntents: BotTraceIntentSummary[];
   objective: BotObjectiveSnapshot;
+  strategy: BotStrategyPosture;
 };
 
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
@@ -417,6 +419,7 @@ export const botTraceFrame = (
     blocksByReason,
     topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
     objective: botObjectiveSnapshot(s, player),
+    strategy: plan.strategy,
   };
 };
 
