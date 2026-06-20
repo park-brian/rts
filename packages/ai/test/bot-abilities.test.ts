@@ -348,6 +348,22 @@ const blockBuildTilesAround = (sim: Sim, x: number, y: number, radius: number): 
   }
 };
 
+const blockWalkBarrierBetween = (sim: Sim, ax: number, ay: number, bx: number, by: number): void => {
+  const map = sim.fullState().map;
+  const atx = tileX(ax);
+  const aty = tileY(ay);
+  const btx = tileX(bx);
+  const bty = tileY(by);
+  if (Math.abs(atx - btx) > Math.abs(aty - bty)) {
+    const tx = Math.max(0, Math.min(map.w - 1, Math.trunc((atx + btx) / 2)));
+    for (let ty = 0; ty < map.h; ty++) map.walk[ty * map.w + tx] = 0;
+    return;
+  }
+
+  const ty = Math.max(0, Math.min(map.h - 1, Math.trunc((aty + bty) / 2)));
+  for (let tx = 0; tx < map.w; tx++) map.walk[ty * map.w + tx] = 0;
+};
+
 const zergBuildOptions = { barracksTarget: 1, workerTarget: 0 };
 
 const zergBuildScenario = (
@@ -2477,6 +2493,60 @@ test('live bot planner reports blocked expansion placement outcomes', () => {
     record.intent.targetKind === Kind.CommandCenter &&
     record.result.status === 'blocked' &&
     record.result.reason === 'occupied-location'));
+});
+
+test('live bot planner reports path-blocked expansion route outcomes', () => {
+  const scenario = bankedExpansionScenario(551);
+  const natural = playerNatural(scenario);
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const point = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  blockWalkBarrierBetween(scenario.sim, base.x, base.y, point.x, point.y);
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+  const build = findBuild(plan.commands, Kind.CommandCenter);
+
+  if (build) {
+    assert.ok(tileX(build.x) !== natural.x || tileY(build.y) !== natural.y);
+  }
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.targetKind === Kind.CommandCenter &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'path-blocked'));
+});
+
+test('live bot planner reports unsafe expansion site outcomes', () => {
+  const scenario = bankedExpansionScenario(552);
+  const natural = playerNatural(scenario);
+  const point = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  const side = natural.x < (scenario.state.map.w >> 1) ? 1 : -1;
+  scenario.spawn(Kind.SiegeTankSieged, 1, point.x + fx(side * TILE * 9), point.y);
+
+  const plan = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  })(scenario.state, 0);
+  const build = findBuild(plan.commands, Kind.CommandCenter);
+
+  if (build) {
+    assert.ok(tileX(build.x) !== natural.x || tileY(build.y) !== natural.y);
+  }
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.intent.targetKind === Kind.CommandCenter &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'unsafe-location'));
 });
 
 test('live bot planner reports waiting expansion outcomes when no builder exists', () => {

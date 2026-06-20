@@ -1154,8 +1154,12 @@ Remaining work:
       report blocked/unsafe/occupied outcomes when placement or routes fail live.
     - Expansion blocked-outcome slice is done: failed live expansion placement now surfaces a blocked
       `expand` intent result instead of disappearing as "no macro command", and the planner feeds
-      that outcome into the same intent-memory path. Remaining work: route/path failures and truly
-      unsafe expansion sites still need their own outcome sources.
+      that outcome into the same intent-memory path.
+    - Expansion route/safety outcome slice is done: live expansion attempts now classify visible
+      enemy weapon coverage at a candidate site as `blocked: unsafe-location`, classify missing
+      terrain routes from the selected builder as `blocked: path-blocked`, keep shared build
+      validation as the placement authority, and still remember a skipped bad site when a later
+      candidate can be queued.
     - Expansion no-builder outcome slice is done: expansion attempts now use a generic optional
       outcome record and report `waiting: no-builder` when the bot wants a base, has a viable site
       and bank, but no available worker builder.
@@ -1181,8 +1185,9 @@ Remaining work:
       quiet so earlier macro/tech directors can own the prerequisite work.
     - Macro outcome coverage is now guarded across worker training, army training, supply/build,
       research, add-ons, morphs, tech structures, production-capacity builds, macro Hatcheries, and
-      expansion attempts. Remaining macro-outcome work should target route/path failures, unsafe
-      expansion sites, and follow-up intent selection from remembered blocked/unsafe locations.
+      expansion attempts. Remaining macro-outcome work should target follow-up intent selection from
+      remembered blocked/unsafe locations and live expansion lifecycle monitoring after a builder has
+      already started moving.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -1760,6 +1765,9 @@ Done when:
 - Replaced role-inferred weapon and armor upgrade categories with explicit BW unit-group
   descriptors, fixed upgrade leakage onto workers and static defenses/structures, and added
   Chitinous Plating armor stacking coverage.
+- Added expansion route/safety outcomes to the bot macro scheduler: candidate expansion sites under
+  visible enemy weapon coverage now produce `unsafe-location`, terrain-disconnected builder routes
+  produce `path-blocked`, and focused tests pin both outcomes through the live planner.
 
 ## Review Checklist
 

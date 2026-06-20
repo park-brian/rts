@@ -4,21 +4,26 @@ import {
   ONE,
   Role,
   TILE,
+  Units,
   baseDepotFootprint,
   eid,
   footprintsOverlap,
   isBaseDepotKind,
+  isEnemy,
   isLiftedStructureFlags,
+  pathRouteDistance,
   sameTeam,
   structureFootprint,
+  topDownEdgeDistanceSqBetween,
   validateCommand,
+  weaponForTarget,
   type BaseSite,
   type Command,
   type Faction,
   type State,
 } from '@rts/sim';
-import { maybeQueueStructureAtPoint, type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
-import type { BotIntentRecord } from './macro-intents.ts';
+import { queueStructureAtPoint, type PointSpotFinder, type ResourceBudget } from './macro-build.ts';
+import type { BotFailureReason, BotIntentRecord } from './macro-intents.ts';
 import { locationBlockedByIntentMemory, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
@@ -90,6 +95,48 @@ const expansionOutcome = (
   intent: { kind: 'expand', urgency: 35, targetKind: faction.depot, x: point.x, y: point.y },
   result,
 });
+
+const expansionThreatened = (
+  s: State,
+  player: number,
+  faction: Faction,
+  facts: BotFacts,
+  point: { x: number; y: number },
+): boolean => {
+  const depotDef = Units[faction.depot];
+  if (!depotDef) return false;
+  const e = s.e;
+  for (const enemy of facts.visibleEnemies) {
+    if (e.alive[enemy] !== 1 || !isEnemy(s, player, e.owner[enemy]!)) continue;
+    const weapon = weaponForTarget(Units[e.kind[enemy]!]!, depotDef);
+    if (!weapon) continue;
+    const distanceSq = topDownEdgeDistanceSqBetween(
+      e.kind[enemy]!,
+      e.x[enemy]!,
+      e.y[enemy]!,
+      e.flags[enemy]!,
+      faction.depot,
+      point.x,
+      point.y,
+      depotDef.roles,
+    );
+    if (distanceSq <= weapon.range * weapon.range) return true;
+  }
+  return false;
+};
+
+const expansionRouteBlocked = (
+  s: State,
+  worker: number,
+  point: { x: number; y: number },
+): boolean => {
+  const e = s.e;
+  if (worker < 0 || worker >= e.hi || e.alive[worker] !== 1) return false;
+  return pathRouteDistance(s, e.kind[worker]!, e.x[worker]!, e.y[worker]!, point.x, point.y) === null;
+};
+
+const locationFailure = (reason: BotFailureReason): boolean =>
+  reason === 'unsafe-location' || reason === 'occupied-location' || reason === 'path-blocked';
 
 const candidateSites = (
   s: State,
@@ -187,10 +234,25 @@ export const queueExpansion = (
 
   for (const site of sites) {
     const point = siteCenter(site);
-    if (maybeQueueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot)) {
-      return { queued: true };
+    if (expansionThreatened(s, player, faction, facts, point)) {
+      outcome ??= expansionOutcome(faction, point, { status: 'blocked', reason: 'unsafe-location' });
+      continue;
     }
-    outcome ??= expansionOutcome(faction, point, { status: 'blocked', reason: 'occupied-location' });
+    if (expansionRouteBlocked(s, worker, point)) {
+      outcome ??= expansionOutcome(faction, point, { status: 'blocked', reason: 'path-blocked' });
+      continue;
+    }
+
+    const build = queueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot);
+    if (build.queued) {
+      return { queued: true, ...(outcome ? { outcome } : {}) };
+    }
+    if (build.block) {
+      const reason = build.block.reason === 'placement-unavailable' ? 'occupied-location' : build.block.reason;
+      outcome ??= expansionOutcome(faction, point, locationFailure(reason)
+        ? { status: 'blocked', reason }
+        : { status: 'waiting', reason });
+    }
   }
   return { queued: false, ...(outcome ? { outcome } : {}) };
 };
