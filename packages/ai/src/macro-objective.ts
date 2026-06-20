@@ -85,8 +85,17 @@ export type BotExpertContext = {
   bases: number;
   attackThreshold: number;
   strategy?: BotStrategyPosture;
+  productionStalled?: boolean;
+  missingProductionIntent?: boolean;
+  macroFloatStalled?: boolean;
+  blockedExpansion?: boolean;
   techStalled?: boolean;
 };
+
+export type BotExpertSignals = Pick<
+  BotExpertContext,
+  'productionStalled' | 'missingProductionIntent' | 'macroFloatStalled' | 'blockedExpansion' | 'techStalled'
+>;
 
 export type ObjectiveFrame = {
   tick: number;
@@ -307,7 +316,7 @@ export const botExpertContext = (
   workerTarget: number,
   attackThreshold: number,
   strategy?: BotStrategyPosture,
-  techStalled = false,
+  signals: BotExpertSignals = {},
 ): BotExpertContext => ({
   objective: botObjectiveSnapshot(s, player),
   workers: facts.workers.length,
@@ -319,7 +328,11 @@ export const botExpertContext = (
   bases: facts.bases.length,
   attackThreshold,
   ...(strategy ? { strategy } : {}),
-  ...(techStalled ? { techStalled } : {}),
+  ...(signals.productionStalled ? { productionStalled: true } : {}),
+  ...(signals.missingProductionIntent ? { missingProductionIntent: true } : {}),
+  ...(signals.macroFloatStalled ? { macroFloatStalled: true } : {}),
+  ...(signals.blockedExpansion ? { blockedExpansion: true } : {}),
+  ...(signals.techStalled ? { techStalled: true } : {}),
 });
 
 const objectiveReason = (
@@ -525,11 +538,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strengthTarget = desiredArmyStrength(ctx);
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const supplyPenalty = supplyHeadroomPenalty(ctx);
-      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty, [
+      const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0);
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}; army strength pipeline is ${strengthPipeline}/${strengthTarget}`),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
+        ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
+        ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no train intent')] : []),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,
@@ -539,8 +555,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'expand': {
       const strategyBonus = priorityBonus(ctx.strategy?.expansionPriority);
-      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus, [
+      const liveStallBonus = (ctx.macroFloatStalled ? 12 : 0) + (ctx.blockedExpansion ? 8 : 0);
+      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus, [
         scoreReason('economy-growth', ctx.bases, `owned base count is ${ctx.bases}`),
+        ...(ctx.macroFloatStalled ? [scoreReason('economy-growth', 12, 'resources are floating while macro spending is stalled')] : []),
+        ...(ctx.blockedExpansion ? [scoreReason('map-control', 8, 'previous expansion route or site was blocked')] : []),
         ...strategyReasons(
           ctx.strategy,
           strategyBonus,

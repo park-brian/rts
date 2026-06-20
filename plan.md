@@ -147,6 +147,10 @@ outcomes into a fresh `blockedExpansion` signal, while still keeping the exact b
 memory for clear-site tactics and alternate-site selection. The macro scheduler consumes that signal
 through the existing expansion-pressure path, so a bot that has already failed an expansion attempt
 retries sooner at another legal base instead of waiting for the normal bank threshold.
+Fifth live expert-feedback slice is done: production-stall, missing-production-intent, macro-float,
+blocked-expansion, and tech-stall memory now enter the shared `BotExpertContext`. `add-production`,
+`expand`, and `rebuild-tech` scoring attach explicit live-stall reasons, so recovery choices show up
+as ordinary StarCraft expert judgement instead of hidden scheduler threshold changes.
 First capability-timing slice is done: gas access is now a first-class `take-gas` macro intent with
 expert scoring, race-specific geyser structures, shared build validation, and strategy posture rules
 that defer gas until the bot has a first combat unit unless the current army unit itself requires gas.
@@ -1222,6 +1226,11 @@ Remaining work:
     intent scoring emits explicit `strategy` reasons, and high expansion/production postures feed
     the same expansion/capacity pressure gates as live stall memory. This keeps posture as one
     expert contract consumed by directors and schedulers instead of a separate bot implementation.
+  - Live-stall scorer-surface slice is done: production-stall, missing-production-intent,
+    macro-float, blocked-expansion, and tech-stall memory now feed the same expert context. The
+    scorer gives `add-production`, `expand`, and `rebuild-tech` explicit live-stall reasons and
+    pressure, so traces can explain recovery as ordinary expert judgement rather than hidden
+    scheduler state.
 - Generalize production-capacity intents around combat demand. The bot should estimate desired army
   spend per minute, current producer throughput, larva throughput, queued production, and resource
   float, then add the right capacity for the race and posture. For Zerg, Hatcheries are both depots

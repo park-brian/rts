@@ -486,6 +486,25 @@ test('bot expert scores production capacity from combat strength pipeline', () =
     reason.detail.includes('1500/2160')), true);
 });
 
+test('bot expert scores add-production higher when live production stall signals are active', () => {
+  const normal = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    objective: objectiveSnapshot({ productionCapacity: 1, resourceFloat: 300 }),
+  }));
+  const stalled = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    productionStalled: true,
+    missingProductionIntent: true,
+    objective: objectiveSnapshot({ productionCapacity: 1, resourceFloat: 300 }),
+  }));
+
+  assert.equal((stalled.score?.value ?? 0) > (normal.score?.value ?? 0), true);
+  assert.equal(stalled.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail === 'combat production is repeatedly blocked'), true);
+  assert.equal(stalled.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail === 'ready production has no train intent'), true);
+});
+
 test('bot expert scores worker and army demand from queued production pipeline', () => {
   const missingWorkers = scoreBotIntent(botIntent('train-worker'), expertContext({
     workers: 8,
@@ -547,6 +566,27 @@ test('bot expert scores army training from strategy combat posture', () => {
   assert.equal(combatPosture.score?.reasons.some((reason) =>
     reason.kind === 'strategy' &&
     reason.detail.includes('ramp posture trains toward combat-production')), true);
+});
+
+test('bot expert scores expansion higher when live macro or expansion stalls are active', () => {
+  const normal = scoreBotIntent(botIntent('expand', { targetKind: Kind.CommandCenter }), expertContext({
+    workers: 12,
+    objective: objectiveSnapshot({ resourceFloat: 300 }),
+  }));
+  const stalled = scoreBotIntent(botIntent('expand', { targetKind: Kind.CommandCenter }), expertContext({
+    workers: 12,
+    macroFloatStalled: true,
+    blockedExpansion: true,
+    objective: objectiveSnapshot({ resourceFloat: 300 }),
+  }));
+
+  assert.equal((stalled.score?.value ?? 0) > (normal.score?.value ?? 0), true);
+  assert.equal(stalled.score?.reasons.some((reason) =>
+    reason.kind === 'economy-growth' &&
+    reason.detail === 'resources are floating while macro spending is stalled'), true);
+  assert.equal(stalled.score?.reasons.some((reason) =>
+    reason.kind === 'map-control' &&
+    reason.detail === 'previous expansion route or site was blocked'), true);
 });
 
 test('bot expert scores upgrades from army value and existing tech saturation', () => {

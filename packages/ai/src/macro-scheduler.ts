@@ -222,12 +222,18 @@ export const scheduleBotMacro = (
     findMacroSpot(state, owner, worker, kind, fallback, { ...placementOptions, ...request });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
-  const techStalled = memory ? techStallActive(memory, s.tick) : false;
-  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, techStalled);
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
   const missingProductionIntent = memory ? missingProductionIntentActive(memory, s.tick) : false;
   const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
   const blockedExpansion = memory ? blockedExpansionActive(memory, s.tick) : false;
+  const techStalled = memory ? techStallActive(memory, s.tick) : false;
+  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, {
+    productionStalled,
+    missingProductionIntent,
+    macroFloatStalled,
+    blockedExpansion,
+    techStalled,
+  });
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
