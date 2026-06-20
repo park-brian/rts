@@ -7,6 +7,7 @@ import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, u
 import {
   Abilities, COMMAND_TYPES, FPS, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
   shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
+  type PlayerMatchStats,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -121,6 +122,18 @@ const countLine = <K extends string,>(
 
 const rejectLine = (counts: CountMap<CommandRejectReason>): string =>
   countLine(counts, Object.keys(counts) as CommandRejectReason[], reasonLabel);
+
+const resourcePair = (minerals: number, gas: number): string => `${minerals}/${gas}`;
+
+const resourceBreakdownLine = (player: PlayerMatchStats): string => {
+  const lost = player.carriedMineralsLost + player.carriedGasLost;
+  const parts = [
+    `mined ${resourcePair(player.mineralsMined, player.gasMined)}`,
+    `returned ${resourcePair(player.mineralsReturned, player.gasReturned)}`,
+  ];
+  if (lost > 0) parts.push(`lost carried ${resourcePair(player.carriedMineralsLost, player.carriedGasLost)}`);
+  return parts.join(' · ');
+};
 
 const HEALTH_LABEL: Record<MatchHealthStatus, string> = {
   healthy: 'OK',
@@ -756,6 +769,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
               P{player.player + 1} command mix
             </summary>
             <div style={{ display: 'grid', gap: '3px', marginTop: '5px', color: '#9fb1c7' }}>
+              <span>resources {resourceBreakdownLine(player)}</span>
               <span>{countLine(player.commandsByType, COMMAND_TYPES, commandTypeLabel)}</span>
               <span style={{ color: player.commandsRejected ? '#ffb1b1' : '#7f91a8' }}>
                 rejects {rejectLine(player.rejectsByReason)}

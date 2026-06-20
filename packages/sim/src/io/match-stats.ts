@@ -1,5 +1,5 @@
 import { COMMAND_TYPES, type CommandRejectReason, type CommandResult, type CommandType, type PlayerCommands } from '../commands/types.ts';
-import { Kind, Role, Units } from '../data/index.ts';
+import { Kind, ResourceType, Role, Units } from '../data/index.ts';
 import { CAP, NEUTRAL, type State } from '../entity/world.ts';
 
 export type CountMap<K extends string> = Partial<Record<K, number>>;
@@ -25,6 +25,12 @@ export type PlayerMatchStats = {
   gasValueCreated: number;
   mineralValueLost: number;
   gasValueLost: number;
+  mineralsMined: number;
+  gasMined: number;
+  mineralsReturned: number;
+  gasReturned: number;
+  carriedMineralsLost: number;
+  carriedGasLost: number;
   commandsIssued: number;
   commandsAccepted: number;
   commandsRejected: number;
@@ -48,6 +54,8 @@ export type MatchStats = {
   prevGen: Uint32Array;
   prevOwner: Uint8Array;
   prevKind: Uint16Array;
+  prevCargo: Int32Array;
+  prevCargoType: Uint8Array;
 };
 
 const blankCounts = <K extends string>(): CountMap<K> => Object.create(null) as CountMap<K>;
@@ -77,6 +85,12 @@ const playerStats = (player: number, team: number): PlayerMatchStats => ({
   gasValueCreated: 0,
   mineralValueLost: 0,
   gasValueLost: 0,
+  mineralsMined: 0,
+  gasMined: 0,
+  mineralsReturned: 0,
+  gasReturned: 0,
+  carriedMineralsLost: 0,
+  carriedGasLost: 0,
   commandsIssued: 0,
   commandsAccepted: 0,
   commandsRejected: 0,
@@ -150,6 +164,8 @@ const refreshSnapshot = (stats: MatchStats, s: State): void => {
     stats.prevGen[i] = e.gen[i]!;
     stats.prevOwner[i] = e.owner[i]!;
     stats.prevKind[i] = e.kind[i]!;
+    stats.prevCargo[i] = e.cargo[i]!;
+    stats.prevCargoType[i] = e.cargoType[i]!;
   }
 };
 
@@ -201,6 +217,44 @@ const recordLifecycleDeltas = (stats: MatchStats, s: State): void => {
   }
 };
 
+const addResource = (p: PlayerMatchStats, type: number, field: 'mined' | 'returned' | 'lost', amount: number): void => {
+  if (type === ResourceType.Gas) {
+    if (field === 'mined') p.gasMined += amount;
+    else if (field === 'returned') p.gasReturned += amount;
+    else p.carriedGasLost += amount;
+    return;
+  }
+  if (field === 'mined') p.mineralsMined += amount;
+  else if (field === 'returned') p.mineralsReturned += amount;
+  else p.carriedMineralsLost += amount;
+};
+
+const recordWorkerCargoDeltas = (stats: MatchStats, s: State): void => {
+  const e = s.e;
+  const hi = Math.max(stats.prevHi, e.hi);
+  for (let i = 0; i < hi; i++) {
+    const wasAlive = stats.prevAlive[i] === 1;
+    const isAlive = i < e.hi && e.alive[i] === 1;
+    const sameGeneration = isAlive && stats.prevGen[i] === e.gen[i];
+    const prevCargo = stats.prevCargo[i]!;
+    const currentCargo = sameGeneration ? e.cargo[i]! : 0;
+    const owner = sameGeneration ? e.owner[i]! : stats.prevOwner[i]!;
+    const wasWorker = wasAlive && isWorkerKind(stats.prevKind[i]!);
+    const isWorker = sameGeneration && isWorkerKind(e.kind[i]!);
+    if (owner >= stats.players.length || owner === NEUTRAL) continue;
+
+    if (isWorker && currentCargo > prevCargo) {
+      addResource(stats.players[owner]!, e.cargoType[i]!, 'mined', currentCargo - prevCargo);
+    }
+    if (isWorker && prevCargo > currentCargo) {
+      addResource(stats.players[owner]!, stats.prevCargoType[i]!, 'returned', prevCargo - currentCargo);
+    }
+    if (wasWorker && !isWorker && prevCargo > 0) {
+      addResource(stats.players[owner]!, stats.prevCargoType[i]!, 'lost', prevCargo);
+    }
+  }
+};
+
 const recordCommandStats = (
   stats: MatchStats,
   batch: readonly PlayerCommands[],
@@ -239,6 +293,8 @@ export const createMatchStats = (s: State): MatchStats => {
     prevGen: new Uint32Array(CAP),
     prevOwner: new Uint8Array(CAP),
     prevKind: new Uint16Array(CAP),
+    prevCargo: new Int32Array(CAP),
+    prevCargoType: new Uint8Array(CAP),
   };
   for (const type of COMMAND_TYPES) {
     for (const p of stats.players) p.commandsByType[type] = 0;
@@ -255,6 +311,7 @@ export const recordMatchStatsStep = (
   results: readonly CommandResult[],
 ): MatchStats => {
   recordCommandStats(stats, batch, results);
+  recordWorkerCargoDeltas(stats, s);
   recordLifecycleDeltas(stats, s);
   refreshCurrentStats(stats, s);
   refreshSnapshot(stats, s);

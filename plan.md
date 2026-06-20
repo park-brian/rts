@@ -118,6 +118,10 @@ deadlocks trigger corrective intents instead of only post-game explanation.
 Instrumentation correction slice is done: match stats now count same-slot Zerg Egg completion as
 the produced unit, so Drone/Ling/Hydra/etc. production contributes to created worker/combat/value
 metrics instead of disappearing from post-match health and bot traces.
+Resource-breakdown slice is done: match stats now record worker cargo transitions as exact mined,
+returned, and carried-lost mineral/gas totals, and the game-over results details show that compact
+resource ledger alongside command mix/rejects. This gives bot debugging a real economy evidence
+surface without guessing from same-tick bank deltas.
 First live expert-feedback slice is done: bot memory now promotes repeated combat-production
 capacity waits into a fresh `productionStall` signal, and the macro scheduler consumes that signal
 to add Terran/Protoss production capacity or Zerg macro Hatcheries earlier than the normal

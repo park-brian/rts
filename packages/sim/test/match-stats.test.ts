@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   Kind,
+  ResourceType,
   Role,
   Sim,
   Terran,
@@ -139,4 +140,54 @@ test('match stats count zerg egg completion as the produced unit', () => {
   assert.equal(p0.workersCreated, 1);
   assert.equal(p0.combatUnitsCreated, 0);
   assert.equal(p0.mineralValueCreated, Units[Kind.Drone]!.minerals);
+});
+
+test('match stats record worker resource mining and returns from cargo transitions', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 7007, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, fx(1400), fx(1400)));
+  const stats = createMatchStats(s);
+
+  s.e.cargo[worker] = 8;
+  s.e.cargoType[worker] = ResourceType.Minerals;
+  recordMatchStatsStep(stats, s, [], []);
+  assert.equal(stats.players[0]!.mineralsMined, 8);
+  assert.equal(stats.players[0]!.mineralsReturned, 0);
+
+  s.e.cargo[worker] = 0;
+  s.players.minerals[0] = s.players.minerals[0]! + 8;
+  recordMatchStatsStep(stats, s, [], []);
+  assert.equal(stats.players[0]!.mineralsMined, 8);
+  assert.equal(stats.players[0]!.mineralsReturned, 8);
+});
+
+test('match stats record carried resources lost before return', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 7008, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, fx(1400), fx(1400)));
+  s.e.cargo[worker] = 4;
+  s.e.cargoType[worker] = ResourceType.Gas;
+  const stats = createMatchStats(s);
+
+  kill(s, worker);
+  recordMatchStatsStep(stats, s, [], []);
+
+  assert.equal(stats.players[0]!.gasMined, 0);
+  assert.equal(stats.players[0]!.gasReturned, 0);
+  assert.equal(stats.players[0]!.carriedGasLost, 4);
+});
+
+test('match stats treat carried cargo as lost when a worker stops being a worker', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 7009, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const worker = slotOf(spawnUnit(s, Kind.Drone, 0, fx(1400), fx(1400)));
+  s.e.cargo[worker] = 8;
+  s.e.cargoType[worker] = ResourceType.Minerals;
+  const stats = createMatchStats(s);
+
+  s.e.kind[worker] = Kind.Hatchery;
+  recordMatchStatsStep(stats, s, [], []);
+
+  assert.equal(stats.players[0]!.mineralsReturned, 0);
+  assert.equal(stats.players[0]!.carriedMineralsLost, 8);
 });
