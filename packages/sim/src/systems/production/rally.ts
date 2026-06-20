@@ -5,7 +5,7 @@ import { eid, NONE } from '../../entity/world.ts';
 import { groupOffset, roundedGroupSpacing, usesGroundMoveSlot } from '../../spatial/movement-slots.ts';
 import { issueTravelOrder } from '../../commands/travel.ts';
 import { producedUnitRallyIntent } from '../../commands/intent.ts';
-import { pickPatch } from '../harvest.ts';
+import { pickPatch } from '../../mechanics/resources.ts';
 
 export type RallyMove = { slot: number; owner: number; order: number; x: number; y: number };
 

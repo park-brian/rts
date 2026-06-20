@@ -9,7 +9,7 @@ import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, ResourceType, TILE, 
 import { ONE } from '../fixed.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { navPassable } from '../spatial/flow.ts';
-import { pickPatch } from './harvest.ts';
+import { pickPatch } from '../mechanics/resources.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { structureFootprint } from '../spatial/footprint.ts';

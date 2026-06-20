@@ -72,6 +72,86 @@ Keep these constraints:
 - Use the code-simplifier pass on touched files before validation so each slice reduces cognitive
   load rather than adding another clever layer.
 
+Feasibility review against the current code:
+
+- **Keep the in-place strangler direction.** The repo is already organized around `data/`,
+  `entity/`, `mechanics/`, `systems/`, `spatial/`, `io/`, `map/`, and app/AI clients. A parallel
+  `world2` rewrite would duplicate determinism, serialization, replay, action masks, and UI
+  contracts before proving any behavior. The feasible route is to move one rule owner at a time,
+  update callers, delete the old branch/import, and keep replay/hash tests green.
+- **Do not chase the external LOC target.** The source already contains deliberately explicit BW
+  behavior and performance comments. A smaller file count is only a win when it also removes a
+  duplicated rule or makes a hot path easier to audit. Avoid terse DSLs for unit data, ability
+  effects, or bot strategy unless they are clearer than the tables they replace.
+- **The proposed single behavior loop is not currently feasible.** Movement, attack-move combat,
+  harvesting, construction, repair, cargo loading, and production share geometry/validation, but
+  they intentionally run in separate deterministic phases. Collapsing them into "go to target, then
+  do action" would risk tick-order bugs, replay churn, and worse hot-loop locality. The better
+  short-term move is to share approach/range/resource helpers while keeping phase systems explicit.
+- **Weapon descriptorization is feasible, but not as one giant `fireWeapon` yet.** The repo already
+  has `WeaponMechanicDefs`, shared weapon-hit resolution, Scarab launch ownership, and Interceptor
+  capability facts. The next clean slice is to move on-hit/post-fire applicators and container-fire
+  policy into mechanics-owned helpers while leaving `systems/combat.ts` as the phase interpreter.
+  Carrier, Reaver, Bunker, Lurker, Mutalisk, Devourer, Scourge, and Spider Mine behavior must keep
+  focused tests before any merge.
+- **Ability descriptorization is partially done and worth continuing carefully.** `AbilityExecution`
+  already covers the implemented spell modes, and `systems/abilities.ts` has a generic executor.
+  The main architectural leak is that `commands/ability.ts` imports `castAbility` from a tick system.
+  Split command-time execution into a mechanics owner before attempting broader status or effect
+  consolidation. Persistent field ticking, channel ticking, cloak drain, energy regen, life timers,
+  and status timers should remain explicit phase logic until a smaller shared interpreter is proven.
+- **Status compression is not an immediate win.** Query ownership now lives in `mechanics/status.ts`,
+  but dynamic status state is still many typed-array columns because clone/serialize/hash coverage
+  is explicit and benchmarked around stable object shapes. A fixed-width generic status set may be
+  worthwhile later, but only after proving it improves readability and does not hide special rules
+  such as Matrix HP, Irradiate area damage, cloak drain, Parasite ownership, hallucination lifetime,
+  or acid spore stacking.
+- **Upgrade tables are already descriptor-like.** `mechanics/upgrades.ts` uses readable rule tables,
+  not a large `Kind` switch. Further compression should target repeated lookup shapes only if it
+  keeps weapon, armor, range, speed, cooldown, sight, energy, and internal-ammo effects easy to audit.
+  Do not replace these tables with a generic stat-modifier DSL unless it remains more readable.
+- **Production should remain a small set of explicit modes.** Normal queues, larva/egg production,
+  internal ammo, add-ons, structure morphs, Terran construction, Protoss warp-in, Zerg drone morph,
+  lift/land, and rally assignment share capability queries, but their timing and side effects differ.
+  Migrate capability discovery and placement predicates first; keep completion/timer systems explicit.
+- **Command validation is already the public legality gate.** The action mask and smart-command
+  surfaces should stay thin validator-backed clients, not be deleted. A one-function `applyCommand`
+  is only useful if it removes real duplication without making command family validators harder to
+  read. Preserve caller-owned buffers and mask parity tests for RL/app throughput.
+- **Pathfinding is already more sophisticated than the outside simplification.** Flow fields,
+  16px path cells, unit clearance, line-of-sight shortcuts, local avoidance, movement slots, follow
+  plans, worker collision rules, and settle/collision cleanup are current UX/performance features.
+  Do not remove them for theoretical simplicity. Any replacement must beat the existing movement
+  stress tests, resource-path tests, and benchmarks while preserving the visible movement contract.
+- **Entity store registry is intentionally hybrid.** `ENTITY_COLUMNS` correctly drives clone,
+  serialize, and hash coverage, but `makeEntities` stays an explicit object literal because dynamic
+  construction has measured V8 hidden-class regressions. Do not "simplify" it into a loop unless a
+  benchmark proves that old performance finding no longer applies.
+- **App simplification must respect the split render/UI architecture.** A single canvas renderer and
+  one input handler would conflict with the existing architecture: canvas/WebGL owns the world render
+  loop, while Preact/signals owns compact UI chrome. Reduce duplicated command discovery and layout
+  waste, but do not collapse UI, input, and rendering into a monolith.
+- **Known cross-layer leaks to clean up before broad rewrites:** `map/setup.ts` still imports
+  `pickPatch` from `systems/harvest.ts`; `commands/ability.ts` still imports `castAbility` from
+  `systems/abilities.ts`; public barrel exports for system helpers should be audited so stable API
+  does not normalize private tick-system ownership.
+
+Near-term architecture slices from this review:
+
+1. Move shared resource-patch selection out of `systems/harvest.ts` into a mechanics/resource
+   helper so setup, construction, and harvest share the rule without depending on a tick system.
+2. Split command-time ability execution from ability ticking: mechanics owns `castAbility` and
+   execution applicators; `systems/abilities.ts` owns only energy, cloak drain, effects, channels,
+   life timers, status timers, and regeneration ticks.
+3. Move weapon on-hit/post-fire applicators and Bunker contained-fire policy behind mechanics
+   helpers while keeping combat as the phase interpreter.
+4. Continue capability ownership slices only when they delete a duplicated UI/AI/action-mask/
+   command rule. Do not add descriptor tables that merely mirror existing data without removing a
+   caller-side branch.
+5. Delay any shared child-actor interpreter until Scarab, Interceptor, and Spider Mine policy facts
+   are complete and focused tests prove the common loop is smaller, faster or neutral, and easier to
+   audit than the explicit systems.
+
 ### Source Layout Direction
 
 The sim source should move from a flat file collection toward concept folders, but only in small
@@ -346,6 +426,10 @@ Migration plan:
   - Base-depot capability slice is done: `mechanics/capabilities.ts` now owns normal base depot
     identity for bot expansion and visible enemy-base tracking, preserving the distinction that
     Infested Command Centers are not ordinary expansion depots.
+  - Resource patch selection slice is done: `mechanics/resources.ts` now owns resource docking,
+    mineral saturation, explicit-target spreading, and auto-mining patch selection. Setup,
+    construction worker release, harvest retargeting, and production gather-rally now share the
+    same resource mechanic instead of importing the harvest tick system.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
