@@ -138,6 +138,11 @@ spell casting, or shared attack-move validation; it only prevents the expert lay
 indefinite caution for a strategy. Remaining live feedback should focus on blocked expansion retry
 quality and whole-match competence gates, not more isolated scheduler flags unless traces prove a
 new repeated failure mode.
+First capability-timing slice is done: gas access is now a first-class `take-gas` macro intent with
+expert scoring, race-specific geyser structures, shared build validation, and strategy posture rules
+that defer gas until the bot has a first combat unit unless the current army unit itself requires gas.
+This prevents the generic opener from taking gas before making units while still letting the strategy
+unlock tech instead of stalling on zero gas.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
@@ -1032,6 +1037,9 @@ Remaining work:
     deterministic ranking now live in `packages/ai/src/macro-expert.ts`, so macro schedulers,
     tactical directors, traces, and future strategy policies can share one StarCraft expert
     vocabulary instead of duplicating urgency/ranking rules in each director.
+  - First capability-timing slice is done: gas access now uses the same expert vocabulary via
+    `take-gas`, so strategy posture can request a race-specific Refinery/Assimilator/Extractor
+    through normal build validation and expose the choice in traces/results.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random

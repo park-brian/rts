@@ -305,6 +305,12 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
         ),
       ]);
     }
+    case 'take-gas': {
+      const gasBonus = ctx.strategy?.gasTiming === 'now' ? 12 : ctx.strategy?.gasTiming === 'soon' ? 6 : 0;
+      return scoredIntent(intent, 38 + gasBonus, [
+        scoreReason('tech-unlock', gasBonus, `strategy gas timing is ${ctx.strategy?.gasTiming ?? 'unknown'}`),
+      ]);
+    }
     case 'rebuild-tech':
       return scoredIntent(intent, 44, [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),

@@ -1,4 +1,5 @@
 import { Units, type Faction } from '@rts/sim';
+import { gasStructureKind } from './macro-gas.ts';
 import type { BotFacts } from './macro.ts';
 
 export type BotStrategyPostureName =
@@ -50,9 +51,13 @@ const posture = (
 });
 
 const gasTimingFor = (facts: BotFacts, faction: Faction): BotGasTiming => {
+  if (facts.gas >= 100) return 'now';
+  const gasStructure = gasStructureKind(faction);
+  const hasGasAccess = facts.ownedOrPendingStructureKinds.has(gasStructure);
   const armyUnit = Units[faction.armyUnit];
   if (armyUnit && armyUnit.gas > 0 && facts.gas < armyUnit.gas) return 'soon';
-  if (facts.gas >= 100) return 'now';
+  if (hasGasAccess) return 'soon';
+  if (facts.army.length > 0 && facts.ownedOrPendingStructureKinds.has(faction.armyStructure)) return 'soon';
   return 'defer';
 };
 

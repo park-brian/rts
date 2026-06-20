@@ -379,6 +379,7 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
 
 test('bot expert helpers own intent urgency and trace ranking', () => {
   assert.equal(botIntentUrgency('rebuild-tech'), 45);
+  assert.equal(botIntentUrgency('take-gas'), 46);
   assert.equal(botIntent('expand', { targetKind: Kind.CommandCenter }).urgency, 35);
   assert.equal(botIntent('attack-wave', { urgency: 99 }).urgency, 99);
 
@@ -399,6 +400,7 @@ test('bot expert helpers own intent urgency and trace ranking', () => {
 test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   const intents = macroIntentsFromCommands([
     { t: 'build', unit: 1, kind: Kind.CommandCenter, x: fx(100), y: fx(100) },
+    { t: 'build', unit: 1, kind: Kind.Refinery, x: fx(110), y: fx(100) },
     { t: 'build', unit: 1, kind: Kind.Barracks, x: fx(120), y: fx(100) },
     { t: 'build', unit: 1, kind: Kind.MissileTurret, x: fx(130), y: fx(100) },
     { t: 'research', building: 2, tech: Tech.StimPack },
@@ -409,6 +411,7 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
 
   assert.deepEqual(intents.map((intent) => intent.kind), [
     'expand',
+    'take-gas',
     'add-production',
     'add-static-defense',
     'research-upgrade',
@@ -416,11 +419,12 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
     'train-counter',
   ]);
   assert.equal(intents[0]?.targetKind, Kind.CommandCenter);
-  assert.equal(intents[1]?.targetKind, Kind.Barracks);
-  assert.equal(intents[2]?.targetKind, Kind.MissileTurret);
-  assert.equal(intents[3]?.targetTech, Tech.StimPack);
-  assert.equal(intents[4]?.targetKind, Kind.SCV);
-  assert.equal(intents[5]?.targetKind, Kind.Marine);
+  assert.equal(intents[1]?.targetKind, Kind.Refinery);
+  assert.equal(intents[2]?.targetKind, Kind.Barracks);
+  assert.equal(intents[3]?.targetKind, Kind.MissileTurret);
+  assert.equal(intents[4]?.targetTech, Tech.StimPack);
+  assert.equal(intents[5]?.targetKind, Kind.SCV);
+  assert.equal(intents[6]?.targetKind, Kind.Marine);
 
   const zergIntents = macroIntentsFromCommands([
     { t: 'build', unit: 1, kind: Kind.CreepColony, x: fx(100), y: fx(100) },
@@ -471,6 +475,58 @@ test('macro scheduler returns intents for live macro commands', () => {
   assert.ok(build);
   assert.ok(result.intents.some((intent) =>
     intent.kind === 'add-production' && intent.targetKind === Kind.Barracks && intent.x === build.x && intent.y === build.y));
+});
+
+test('macro scheduler takes gas when strategy needs tech capability', () => {
+  const scenario = botScenario({ seed: 4008, factions: [Terran, Terran] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const cmds: Command[] = [];
+
+  const result = scheduleBotMacro(
+    scenario.state,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(scenario.state, 0, Terran),
+    {
+      workerTarget: 0,
+      barracksTarget: 1,
+      strategy: strategyPosture({ gasTiming: 'soon', techTarget: 'combat-production' }),
+    },
+  );
+
+  const build = findCommandBuild(cmds, Kind.Refinery);
+  assert.ok(build);
+  assert.deepEqual(validateCommand(scenario.state, 0, build), { ok: true });
+  assert.ok(result.intents.some((intent) => intent.kind === 'take-gas' && intent.targetKind === Kind.Refinery));
+});
+
+test('macro scheduler does not duplicate an existing gas structure', () => {
+  const scenario = botScenario({ seed: 4009, factions: [Zerg, Terran] });
+  const base = scenario.pos(scenario.entity(Kind.Hatchery, 0));
+  scenario.spawn(Kind.SpawningPool, 0, base.x + fx(160), base.y);
+  scenario.spawn(Kind.Extractor, 0, base.x + fx(64), base.y - fx(160));
+  scenario.resources(0, 1_000, 0);
+  scenario.state.players.supplyMax[0] = 1_000;
+  const cmds: Command[] = [];
+
+  scheduleBotMacro(
+    scenario.state,
+    0,
+    Zerg,
+    cmds,
+    collectBotFacts(scenario.state, 0, Zerg),
+    {
+      workerTarget: 0,
+      barracksTarget: 1,
+      strategy: strategyPosture({ gasTiming: 'soon', techTarget: 'combat-production' }),
+    },
+  );
+
+  assert.equal(findCommandBuild(cmds, Kind.Extractor), undefined);
 });
 
 const linkAddon = (s: State, parent: number, addon: number): void => {

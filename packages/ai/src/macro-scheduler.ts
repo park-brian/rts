@@ -19,6 +19,7 @@ import {
 } from './macro-economy.ts';
 import { queueExpansion } from './macro-expansion.ts';
 import { botIntent, rankBotIntentCandidates, type BotIntentCandidate } from './macro-expert.ts';
+import { gasStructureKind, queueGasStructure } from './macro-gas.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { botExpertContext } from './macro-objective.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
@@ -71,6 +72,7 @@ const trainOutcome = (
 };
 
 const structureIntentKind = (faction: Faction, kind: number): BotIntent['kind'] => {
+  if (kind === gasStructureKind(faction)) return 'take-gas';
   if (isStaticDefenseMacroKind(faction, kind)) return 'add-static-defense';
   if (kind === faction.depot) return 'expand';
   if (kind === faction.supplyStructure || kind === faction.armyStructure || kind === Kind.Hatchery) {
@@ -308,6 +310,26 @@ export const scheduleBotMacro = (
       builderUsed = true;
     } else if (armyStructure.block) {
       intentResults.push(structureOutcome(faction, armyStructure.block));
+    }
+  }
+
+  if (!supplyQueued.queued && !builderUsed && config.strategy?.gasTiming === 'soon') {
+    const gasKind = gasStructureKind(faction);
+    if (!facts.ownedOrPendingStructureKinds.has(gasKind)) {
+      const gas = queueGasStructure(
+        s,
+        player,
+        faction,
+        cmds,
+        budget,
+        economy.builder,
+        depot,
+      );
+      if (gas.queued) {
+        builderUsed = true;
+      } else if (gas.block) {
+        intentResults.push(structureOutcome(faction, gas.block));
+      }
     }
   }
 

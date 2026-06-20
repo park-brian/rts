@@ -12,6 +12,7 @@ export type BotIntentCandidate<T = unknown> = T & {
 
 export const botIntentUrgency = (kind: BotIntentKind): number => {
   switch (kind) {
+    case 'take-gas': return 46;
     case 'rebuild-tech': return 45;
     case 'add-static-defense': return 42;
     case 'expand': return 35;
