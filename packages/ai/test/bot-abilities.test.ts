@@ -16,6 +16,8 @@ import {
   deriveTacticalIncidents,
   executePressureIntent,
   executeTacticalDefense,
+  issueDefenseEngagement,
+  issuePressureEngagement,
   macroIntentsFromCommands,
   missingStructureKinds,
   rememberIntentOutcomes,
@@ -1542,6 +1544,31 @@ test('bot combat mode helpers obey shared command validation gates', () => {
     reason: 'missing-requirement',
   });
   assert.equal(mineCmds.some((c) => c.t === 'mine' && c.unit === vulture), false);
+});
+
+test('bot combat engagement helpers suppress invalid direct travel and attack orders', () => {
+  const scenario = botScenario({ seed: 408, factions: [Terran, Terran] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const marine = slotOf(scenario.spawn(Kind.Marine, 0, base.x + fx(20), base.y));
+  const enemy = slotOf(scenario.spawn(Kind.Zealot, 1, base.x + fx(64), base.y));
+  s.e.lockdownTimer[marine] = 10;
+
+  const defense: Command[] = [];
+  issueDefenseEngagement(s, defense, marine, { x: s.e.x[enemy]!, y: s.e.y[enemy]!, target: enemy });
+  assert.equal(defense.length, 0);
+  assert.deepEqual(validateCommand(s, 0, { t: 'attack', unit: eid(s.e, marine), target: eid(s.e, enemy) }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
+
+  const pressure: Command[] = [];
+  issuePressureEngagement(s, 0, pressure, marine, { x: s.e.x[enemy]!, y: s.e.y[enemy]!, target: NONE });
+  assert.equal(pressure.length, 0);
+  assert.deepEqual(validateCommand(s, 0, { t: 'amove', unit: eid(s.e, marine), x: s.e.x[enemy]!, y: s.e.y[enemy]! }), {
+    ok: false,
+    reason: 'missing-capability',
+  });
 });
 
 test('bot burrows lurkers before using their attack', () => {

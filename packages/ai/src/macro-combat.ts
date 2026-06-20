@@ -84,10 +84,9 @@ export const issueDefenseEngagement = (
   if (maybeTransformForFight(s, cmds, unit, focus.x, focus.y)) return;
   maybeStim(s, cmds, unit);
   if (target !== NONE && weaponForTarget(Units[e.kind[unit]!]!, Units[e.kind[target]!]!)) {
-    cmds.push({ t: 'attack', unit: eid(e, unit), target: eid(e, target) });
-  } else {
-    cmds.push({ t: 'amove', unit: eid(e, unit), x: focus.x, y: focus.y });
+    if (pushValidCommand(s, cmds, e.owner[unit]!, { t: 'attack', unit: eid(e, unit), target: eid(e, target) })) return;
   }
+  pushValidCommand(s, cmds, e.owner[unit]!, { t: 'amove', unit: eid(e, unit), x: focus.x, y: focus.y });
 };
 
 export const issuePressureEngagement = (
@@ -102,7 +101,7 @@ export const issuePressureEngagement = (
   if (focus.target !== NONE && maybeBurrowForFight(s, cmds, unit, focus.target)) return;
   if (maybeTransformForFight(s, cmds, unit, focus.x, focus.y)) return;
   maybeStim(s, cmds, unit);
-  cmds.push({ t: 'amove', unit: eid(s.e, unit), x: focus.x, y: focus.y });
+  pushValidCommand(s, cmds, player, { t: 'amove', unit: eid(s.e, unit), x: focus.x, y: focus.y });
 };
 
 const maybeUseNydusNetwork = (

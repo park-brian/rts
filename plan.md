@@ -446,6 +446,9 @@ Migration plan:
   - Macro rally-validation slice is done: army-structure rally setup now validates rally commands as
     the depot owner before emission, so the scheduler cannot leak invalid rally orders from an
     accidentally mixed structure list.
+  - Tactical combat command-validation slice is done: defense and pressure engagement helpers now
+    route direct attack and attack-move emissions through shared `validateCommand`, preserving the
+    attack-then-fallback behavior without leaking disabled/stale/invalid orders.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
