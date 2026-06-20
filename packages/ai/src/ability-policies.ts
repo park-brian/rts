@@ -1,6 +1,6 @@
 import {
   Abilities, Ability, Kind, Role, Trait, Units, abilityTechAvailable, canDetect, canUseAbilityKind, distanceSq, eid,
-  hasReadyNuke, isCloaked, isEnemy, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
+  hasReadyNuke, isCloaked, isDetectorKind, isEnemy, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
   type Command, type State,
 } from '@rts/sim';
 import { ONE, isqrt } from '@rts/sim';
@@ -283,13 +283,13 @@ const scoreRestorationTarget = (s: State, slot: number): number =>
 
 const scoreParasiteTarget = (s: State, _player: number, slot: number): number => {
   if (s.e.parasiteOwner[slot]! !== 255) return 0;
-  const detector = (unitTraits(s.e.kind[slot]!) & Trait.Detector) !== 0 ? 120 : 0;
+  const detector = isDetectorKind(s.e.kind[slot]!) ? 120 : 0;
   return detector + Math.min(160, s.e.hp[slot]! + s.e.shield[slot]!) + (Units[s.e.kind[slot]!]!.sight * 8);
 };
 
 const scoreOpticalFlareTarget = (s: State, _player: number, slot: number): number => {
   if (s.e.opticalFlare[slot] === 1) return 0;
-  const detector = (unitTraits(s.e.kind[slot]!) & Trait.Detector) !== 0 ? 150 : 0;
+  const detector = isDetectorKind(s.e.kind[slot]!) ? 150 : 0;
   const caster = s.e.energy[slot]! > 0 ? 60 : 0;
   const armed = Units[s.e.kind[slot]!]!.weapon || Units[s.e.kind[slot]!]!.airWeapon ? 40 : 0;
   return detector + caster + armed + Units[s.e.kind[slot]!]!.sight * 4;

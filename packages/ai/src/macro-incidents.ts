@@ -4,13 +4,12 @@ import {
   ONE,
   Role,
   TILE,
-  Trait,
   Units,
   distanceSq,
   eid,
+  isDetectorKind,
   isAlive,
   slotOf,
-  unitTraits,
   weaponForTarget,
   type State,
 } from '@rts/sim';
@@ -86,7 +85,7 @@ const incidentSort = (a: TacticalIncident, b: TacticalIncident): number =>
 
 const detectorFit = (kind: TacticalIncidentKind, unitKind: number): number => {
   if (kind !== 'invisible-damage' && kind !== 'route-trap') return 0;
-  return (unitTraits(unitKind) & Trait.Detector) !== 0 ? 250 : 0;
+  return isDetectorKind(unitKind) ? 250 : 0;
 };
 
 const roleFit = (kind: TacticalIncidentKind, unitKind: number): number => {

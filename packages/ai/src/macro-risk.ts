@@ -1,9 +1,8 @@
 import {
   ONE,
   TILE,
-  Trait,
   Units,
-  unitTraits,
+  isDetectorKind,
   withinRangeSq,
   type State,
   type Weapon,
@@ -92,7 +91,7 @@ export const buildRiskMap = (s: State, player: number, enemies: readonly number[
     addLayer(values, cx, cy, risk.range, risk.score);
     if (def.weapon) addLayer(antiGround, cx, cy, def.weapon.range, weaponScore(def.weapon));
     if (def.airWeapon) addLayer(antiAir, cx, cy, def.airWeapon.range, weaponScore(def.airWeapon));
-    if ((unitTraits(e.kind[enemy]!) & Trait.Detector) !== 0) {
+    if (isDetectorKind(e.kind[enemy]!)) {
       addLayer(detection, cx, cy, def.sight * TILE * ONE, 1);
     }
   }

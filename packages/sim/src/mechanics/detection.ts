@@ -5,6 +5,9 @@ import { effectiveSight } from '../systems/status.ts';
 import { isContained } from './cargo.ts';
 import { isPowered } from './power.ts';
 
+export const isDetectorKind = (kind: number): boolean =>
+  (unitTraits(kind) & Trait.Detector) !== 0;
+
 export const updateCloakAuras = (s: State): void => {
   const e = s.e;
   e.cloakAura.fill(0, 0, e.hi);
@@ -52,7 +55,7 @@ export const canDetect = (s: State, viewer: number, target: number): boolean => 
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i) || (e.owner[i] !== viewer && e.parasiteOwner[i] !== viewer)) continue;
     const def = Units[e.kind[i]!];
-    if (!def || e.opticalFlare[i] === 1 || (unitTraits(e.kind[i]!) & Trait.Detector) === 0) continue;
+    if (!def || e.opticalFlare[i] === 1 || !isDetectorKind(e.kind[i]!)) continue;
     if (!isPowered(s, i)) continue;
     if ((def.roles & (Role.Mobile | Role.Structure)) === 0) continue;
     const sight = tiles(effectiveSight(s, e, i, def.sight));

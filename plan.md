@@ -325,6 +325,9 @@ Migration plan:
     candidate lists and worker/structure build legality. Build validation, command-card discovery,
     and action-mask candidates consume that owner instead of reaching into race build lists
     independently.
+  - Detector identity slice is done: `mechanics/detection.ts` now owns detector-kind identity.
+    Detection rules, tactical AI risk maps, tactical responder scoring, and spell target scoring use
+    that owner instead of reading raw detector traits independently.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
