@@ -1166,6 +1166,13 @@ Remaining work:
   - Tech competence gate slice is done: repeated tech-stall alerts now fail a first-class tech gate,
     while clean low-tech openings report that no repeated tech deadlock was observed. This keeps
     prerequisite/research deadlocks visible without punishing plans that correctly make combat units first.
+  - Plan-coherence gate slice is done: competence gates now require each sampled strategy phase to
+    show intent-axis evidence that matches its declared expert plan. Production plans must produce
+    production-throughput or combat-strength evidence, expansion plans must show economy/map-control
+    evidence, defense plans must show safety/combat evidence, and pressure-tech plans may satisfy
+    the plan through enemy-degradation. This is the first hard tripwire for "legal but random"
+    bot behavior: a bot can no longer pass the expert surface merely by issuing commands if its
+    intents do not support the phase it claims to be playing.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

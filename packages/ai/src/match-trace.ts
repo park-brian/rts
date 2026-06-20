@@ -216,6 +216,7 @@ export type BotTraceCompetenceGateDomain =
   | 'production'
   | 'tech'
   | 'placement'
+  | 'plan-coherence'
   | 'combat'
   | 'expert'
   | 'phase-evidence';
@@ -1354,6 +1355,67 @@ const hasVictoryAxes = (
 ): boolean =>
   axes.every((axis) => (counts[axis] ?? 0) > 0);
 
+const phaseAxisCount = (
+  phase: BotTracePhaseSummary,
+  axes: readonly BotVictoryAxis[],
+): number =>
+  axes.reduce((sum, axis) => sum + (phase.intentAxes[axis] ?? 0), 0);
+
+const planEvidenceAxes = (plan: BotStrategyPlan): readonly BotVictoryAxis[] => {
+  switch (plan.macroPriority) {
+    case 'defense':
+      return ['safety', 'combat-strength'];
+    case 'production':
+      return ['production-throughput', 'combat-strength'];
+    case 'expansion':
+      return ['economy-growth', 'map-control'];
+    case 'tech':
+      return plan.combatStance === 'pressure'
+        ? ['tech-unlock', 'enemy-degradation']
+        : ['tech-unlock'];
+  }
+};
+
+const planEvidenceLabel = (axes: readonly BotVictoryAxis[]): string => axes.join('/');
+
+const planCoherenceGate = (
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const playerPhases = phases.filter((phase) => phase.player === player);
+  const missing: string[] = [];
+  let evidence = 0;
+
+  for (const phase of playerPhases) {
+    const axes = planEvidenceAxes(phase.plan);
+    const count = phaseAxisCount(phase, axes);
+    evidence += count;
+    if (count === 0) {
+      missing.push(`${phase.phase} ${phase.plan.primaryGoal}/${phase.plan.macroPriority}/${phase.plan.combatStance} lacked ${planEvidenceLabel(axes)}`);
+    }
+  }
+
+  if (playerPhases.length === 0) {
+    return competenceGate(player, 'plan-coherence', 'failing', 0, 'missing sampled strategy phase evidence');
+  }
+  if (missing.length > 0) {
+    return competenceGate(
+      player,
+      'plan-coherence',
+      'failing',
+      missing.length,
+      missing.slice(0, 2).join('; '),
+    );
+  }
+  return competenceGate(
+    player,
+    'plan-coherence',
+    'healthy',
+    evidence,
+    `${playerPhases.length} sampled strategy phases had intent evidence matching their plan`,
+  );
+};
+
 export const botTraceCompetenceGates = (
   trace: BotMatchTrace,
   player: number,
@@ -1440,6 +1502,8 @@ export const botTraceCompetenceGates = (
       ? 'no repeated tech deadlock was observed'
       : techAlerts.map((alert) => alert.detail).join('; '),
   ));
+
+  gates.push(planCoherenceGate(trace.phaseSummaries, player));
 
   gates.push(competenceGate(
     player,
