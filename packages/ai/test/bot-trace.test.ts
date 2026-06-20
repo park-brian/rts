@@ -303,9 +303,33 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
 
   assert.equal(diagnoses.some((entry) => entry.domain === 'strategy' && entry.detail.includes('posture')), true);
+  assert.equal(diagnoses.some((entry) => entry.domain === 'objective' && entry.status === 'watch'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
+});
+
+test('bot expert diagnoses expose objective progress from trace trends', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8114, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  let base = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.CommandCenter) base = i;
+  }
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+  spawnUnit(s, Kind.Marine, 0, e.x[base]!, e.y[base]!);
+  spawnUnit(s, Kind.SCV, 0, e.x[base]!, e.y[base]!);
+  const after = botTraceFrame(s, 0, Terran, planner(s, 0));
+  const trends = botObjectiveTrends([before, after]);
+  const diagnoses = botTraceExpertDiagnoses([before, after], createMatchStats(s), [], trends);
+  const objective = diagnoses.find((entry) => entry.domain === 'objective');
+
+  assert.ok(objective);
+  assert.equal(objective.status, 'healthy');
+  assert.equal(objective.detail.includes('worker supply increased'), true);
+  assert.equal(objective.detail.includes('field army strength increased'), true);
 });
 
 test('bot expert diagnoses flag missing army production intent as production failure', () => {

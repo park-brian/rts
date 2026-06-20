@@ -5,7 +5,7 @@ import {
   type PlayerMatchStats,
 } from './sim.ts';
 
-export type MatchHealthDomain = 'strategy' | 'macro' | 'economy' | 'production' | 'combat';
+export type MatchHealthDomain = 'strategy' | 'objective' | 'macro' | 'economy' | 'production' | 'combat';
 export type MatchHealthStatus = 'healthy' | 'watch' | 'failing';
 
 export type MatchHealthRow = {
@@ -35,6 +35,15 @@ const row = (
   severity,
   detail,
 });
+
+const objectiveHealth = (p: PlayerMatchStats): MatchHealthRow => {
+  const created = p.mineralValueCreated + p.gasValueCreated;
+  const lost = p.mineralValueLost + p.gasValueLost;
+  const progress = created - lost;
+  if (progress > 0) return row(p.player, 'objective', 'healthy', progress, `created ${created} value, lost ${lost}`);
+  if (progress < 0) return row(p.player, 'objective', 'failing', -progress, `lost ${lost} value, created ${created}`);
+  return row(p.player, 'objective', 'watch', 0, 'no value swing recorded');
+};
 
 const macroHealth = (p: PlayerMatchStats): MatchHealthRow => {
   const rejectedRatio = p.commandsIssued > 0 ? p.commandsRejected / p.commandsIssued : 0;
@@ -76,6 +85,7 @@ const combatHealth = (p: PlayerMatchStats): MatchHealthRow => {
 
 export const matchHealthRows = (stats: MatchStats): MatchHealthRow[] =>
   stats.players.flatMap((player) => [
+    objectiveHealth(player),
     macroHealth(player),
     economyHealth(player),
     productionHealth(player),

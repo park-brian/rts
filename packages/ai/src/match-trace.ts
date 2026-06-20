@@ -99,6 +99,7 @@ export type BotTraceAlert = {
 
 export type BotExpertDiagnosisDomain =
   | 'strategy'
+  | 'objective'
   | 'macro'
   | 'economy'
   | 'production'
@@ -296,6 +297,22 @@ const strategyDiagnosis = (frames: readonly BotTraceFrame[]): BotExpertDiagnosis
   );
 };
 
+const objectiveDiagnosis = (
+  frames: readonly BotTraceFrame[],
+  trend: BotObjectiveTrend | undefined,
+): BotExpertDiagnosis => {
+  const first = frames[0]!;
+  const last = frames[frames.length - 1]!;
+  const reasons = trend?.reasons ?? [];
+  const score = reasons.reduce((sum, reason) => sum + reason.score, 0);
+  const detail = reasons.length > 0
+    ? reasons.map((reason) => reason.detail).join('; ')
+    : `no objective progress observed from tick ${first.tick} to ${last.tick}`;
+  const status: BotExpertDiagnosisStatus = score > 0 ? 'healthy' : score < 0 ? 'failing' : 'watch';
+
+  return diagnosis('objective', first.player, status, Math.abs(score), detail);
+};
+
 const pushFrameStreakAlerts = (
   alerts: BotTraceAlert[],
   frames: readonly BotTraceFrame[],
@@ -490,6 +507,7 @@ export const botTraceExpertDiagnoses = (
       : false;
 
     diagnoses.push(strategyDiagnosis(playerFrames));
+    diagnoses.push(objectiveDiagnosis(playerFrames, trend));
 
     diagnoses.push(macroAlerts.length > 0
       ? diagnosis('macro', player, 'failing', alertSeverity(macroAlerts), macroAlerts.map((alert) => alert.detail).join('; '))

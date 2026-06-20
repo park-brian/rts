@@ -1043,6 +1043,10 @@ Remaining work:
     player-readable details. This is the first stable "expert system" report surface; future
     scheduler reactions should consume these diagnoses only after the relevant failing scenarios
     are covered by tests.
+  - Objective-diagnosis slice is done: bot expert reports now include a first-class `objective`
+    domain derived from the same worker, army, enemy-damage, and resource-float trend reasons used
+    for scoring. The post-match health UI can now distinguish "the bot issued legal commands" from
+    "the bot actually improved its victory position" without a separate debug surface.
   - First expert-kernel slice is done: intent construction, default urgency, score annotation, and
     deterministic ranking now live in `packages/ai/src/macro-expert.ts`, so macro schedulers,
     tactical directors, traces, and future strategy policies can share one StarCraft expert
