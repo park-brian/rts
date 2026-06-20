@@ -221,6 +221,7 @@ export type BotTraceCompetenceGateDomain =
   | 'macro-spending'
   | 'production'
   | 'opening-combat'
+  | 'expansion-plan'
   | 'tech'
   | 'placement'
   | 'plan-coherence'
@@ -1420,6 +1421,41 @@ const openingCombatGate = (
   );
 };
 
+const phaseHasExpansionEvidence = (phase: BotTracePhaseSummary): boolean =>
+  (phase.intentsByKind.expand ?? 0) > 0 || phase.end.bases > phase.start.bases;
+
+const expansionPlanGate = (
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const expansionPhases = phases.filter((phase) => {
+    const expansionGoal =
+      phase.plan.primaryGoal === 'scale-economy' ||
+      phase.plan.primaryGoal === 'recover-economy';
+    return phase.player === player && phase.plan.macroPriority === 'expansion' && expansionGoal;
+  });
+  const missing = expansionPhases.filter((phase) => !phaseHasExpansionEvidence(phase));
+  if (expansionPhases.length === 0) {
+    return competenceGate(player, 'expansion-plan', 'healthy', 0, 'no sampled expansion phase required a base attempt');
+  }
+  if (missing.length > 0) {
+    return competenceGate(
+      player,
+      'expansion-plan',
+      'failing',
+      missing.length,
+      `${missing.length} sampled expansion phases lacked expand intent or base-count growth`,
+    );
+  }
+  return competenceGate(
+    player,
+    'expansion-plan',
+    'healthy',
+    expansionPhases.length,
+    `${expansionPhases.length} sampled expansion phases showed expand intent or base-count growth`,
+  );
+};
+
 export const botTraceCompetenceGates = (
   trace: BotMatchTrace,
   player: number,
@@ -1478,6 +1514,7 @@ export const botTraceCompetenceGates = (
   ));
 
   gates.push(openingCombatGate(trace.phaseSummaries, player, last));
+  gates.push(expansionPlanGate(trace.phaseSummaries, player));
 
   gates.push(competenceGate(
     player,

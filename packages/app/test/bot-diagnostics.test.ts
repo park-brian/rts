@@ -54,8 +54,32 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(rows.some((row) => row.domain === 'summary' && row.detail.includes('plan')), true);
 
   const gates = botCompetenceGates(diagnostics, stats);
-  assert.equal(gates.length, 20);
+  const expectedGateDomains = [
+    'combat',
+    'commands',
+    'economy',
+    'expansion-plan',
+    'expert',
+    'macro-spending',
+    'opening-combat',
+    'phase-evidence',
+    'placement',
+    'plan-coherence',
+    'production',
+    'tech',
+  ];
+  for (const player of [0, 1]) {
+    assert.deepEqual(
+      gates
+        .filter((gate) => gate.player === player)
+        .map((gate) => gate.domain)
+        .sort(),
+      expectedGateDomains,
+    );
+  }
   assert.equal(gates.some((gate) => gate.domain === 'commands' && gate.detail.includes('planner commands')), true);
+  assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.length > 0), true);
+  assert.equal(gates.some((gate) => gate.domain === 'expansion-plan' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true);
   assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true);
   assert.equal(gates.some((gate) => gate.domain === 'tech' && gate.detail.includes('tech deadlock')), true);

@@ -797,6 +797,84 @@ test('bot competence gates flag opening plans without a combat pipeline', () => 
   assert.equal(gate?.detail.includes('lacked queued/fielded combat strength'), true);
 });
 
+test('bot competence gates flag expansion plans without base attempts', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8127, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const phase = {
+    player: 0,
+    phase: 'expand' as const,
+    fromTick: 0,
+    toTick: 1,
+    samples: 1,
+    plan: {
+      phase: 'expand' as const,
+      primaryGoal: 'scale-economy' as const,
+      macroPriority: 'expansion' as const,
+      combatStance: 'rally' as const,
+      techTarget: 'economy-scale' as const,
+      reasons: ['test expansion phase'],
+    },
+    start: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers,
+      army: frame.army,
+      bases: 1,
+    },
+    end: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers + 1,
+      army: frame.army,
+      bases: 1,
+    },
+    peaks: {
+      queuedWorkerProduction: 1,
+      queuedArmyProduction: 0,
+      idleProducers: 0,
+      idleLarvae: 0,
+    },
+    commandsByType: {},
+    intentsByKind: { 'train-worker': 1 },
+    outcomesByStatus: {},
+    intentAxes: { 'economy-growth': 1 },
+    waitsByReason: {},
+    blocksByReason: {},
+    alertKinds: {},
+  };
+  const trace: BotMatchTrace = {
+    frames: [frame],
+    stats: createMatchStats(sim.fullState()),
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends: [],
+    alerts: [],
+    expertDiagnoses: [{ player: 0, domain: 'summary', status: 'healthy', severity: 0, detail: 'test summary' }],
+    phaseSummaries: [phase],
+    phaseAssessments: [],
+  };
+
+  const failing = botTraceCompetenceGates(trace, 0).find((entry) => entry.domain === 'expansion-plan');
+  const passing = botTraceCompetenceGates({
+    ...trace,
+    phaseSummaries: [{
+      ...phase,
+      intentsByKind: { ...phase.intentsByKind, expand: 1 },
+    }],
+  }, 0).find((entry) => entry.domain === 'expansion-plan');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('lacked expand intent or base-count growth'), true);
+  assert.equal(passing?.status, 'healthy');
+});
+
 test('bot competence gates expose macro-spending and placement failures', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8132, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1201,6 +1279,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'expansion-plan'), true, `${name} gates should expose expansion plan evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true, `${name} gates should expose placement evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'plan-coherence' && gate.detail.includes('strategy phases')), true, `${name} gates should expose plan coherence evidence`);

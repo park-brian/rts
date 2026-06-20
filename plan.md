@@ -190,6 +190,11 @@ If a sampled strategy phase claims `establish-combat`, the trace must show queue
 strength or completed/pending combat production capacity. This closes the diagnostic loophole where
 an opening could show generic production intent evidence while still never creating a real combat
 pipeline.
+Expansion-plan gate slice is done: competence gates now include an explicit `expansion-plan` domain.
+If a sampled phase claims `scale-economy` or `recover-economy` through expansion priority, worker
+growth alone is not enough evidence; the trace must show an `expand` intent or base-count growth.
+This keeps expansion posture tied to actual resource-cluster attempts instead of generic economy
+activity.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
