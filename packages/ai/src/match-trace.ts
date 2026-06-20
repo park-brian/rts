@@ -110,6 +110,7 @@ export type BotTraceAlert = {
 };
 
 export type BotExpertDiagnosisDomain =
+  | 'summary'
   | 'strategy'
   | 'objective'
   | 'macro'
@@ -334,6 +335,55 @@ const diagnosis = (
   severity,
   detail,
 });
+
+const DIAGNOSIS_STATUS_RANK: Record<BotExpertDiagnosisStatus, number> = {
+  healthy: 0,
+  watch: 1,
+  failing: 2,
+};
+
+const diagnosisIssueOrder = (a: BotExpertDiagnosis, b: BotExpertDiagnosis): number =>
+  DIAGNOSIS_STATUS_RANK[b.status] - DIAGNOSIS_STATUS_RANK[a.status] ||
+  b.severity - a.severity ||
+  a.domain.localeCompare(b.domain);
+
+const statusFromIssues = (diagnoses: readonly BotExpertDiagnosis[]): BotExpertDiagnosisStatus => {
+  if (diagnoses.some((entry) => entry.status === 'failing')) return 'failing';
+  if (diagnoses.some((entry) => entry.status === 'watch')) return 'watch';
+  return 'healthy';
+};
+
+const issueSummary = (diagnoses: readonly BotExpertDiagnosis[], status: BotExpertDiagnosisStatus): string => {
+  if (status === 'healthy') return 'all expert checks are healthy';
+  const issues = diagnoses
+    .filter((entry) => entry.status === status)
+    .slice()
+    .sort(diagnosisIssueOrder)
+    .slice(0, 2);
+  if (issues.length === 0) return 'all expert checks are healthy';
+  return issues.map((entry) => `${entry.domain}: ${entry.detail}`).join('; ');
+};
+
+const summaryDiagnosis = (
+  frames: readonly BotTraceFrame[],
+  diagnoses: readonly BotExpertDiagnosis[],
+): BotExpertDiagnosis => {
+  const first = frames[0]!;
+  const last = frames[frames.length - 1]!;
+  const status = statusFromIssues(diagnoses);
+  const severity = diagnoses
+    .filter((entry) => entry.status === status)
+    .reduce((sum, entry) => sum + entry.severity, 0);
+  const plan = last.strategicPlan;
+  const label = status === 'healthy' ? 'healthy' : status === 'watch' ? 'watching' : 'failing';
+  return diagnosis(
+    'summary',
+    first.player,
+    status,
+    severity,
+    `${label}: ${issueSummary(diagnoses, status)}; plan ${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance}`,
+  );
+};
 
 const framesByPlayer = (frames: readonly BotTraceFrame[]): Map<number, BotTraceFrame[]> => {
   const byPlayer = new Map<number, BotTraceFrame[]>();
@@ -755,6 +805,7 @@ export const botTraceExpertDiagnoses = (
   const diagnoses: BotExpertDiagnosis[] = [];
 
   for (const playerFrames of framesByPlayer(frames).values()) {
+    const playerDiagnoses: BotExpertDiagnosis[] = [];
     const first = playerFrames[0]!;
     const last = playerFrames[playerFrames.length - 1]!;
     const player = first.player;
@@ -772,17 +823,17 @@ export const botTraceExpertDiagnoses = (
       ? trend.reasons.some((reason) => reason.kind === 'enemy-economy-damage' || reason.kind === 'enemy-army-damage')
       : false;
 
-    diagnoses.push(strategyDiagnosis(playerFrames));
-    diagnoses.push(objectiveDiagnosis(playerFrames, trend));
+    playerDiagnoses.push(strategyDiagnosis(playerFrames));
+    playerDiagnoses.push(objectiveDiagnosis(playerFrames, trend));
 
-    diagnoses.push(macroAlerts.length > 0
+    playerDiagnoses.push(macroAlerts.length > 0
       ? diagnosis('macro', player, 'failing', alertSeverity(macroAlerts), macroAlerts.map((alert) => alert.detail).join('; '))
       : diagnosis('macro', player, macroCommands > 0 ? 'healthy' : 'watch', macroCommands, macroCommands > 0
         ? `${macroCommands} macro command attempts in the trace`
         : 'no macro command attempts were observed'));
 
     const economyProgress = economyProgressDiagnosis(first, last, workerGain);
-    diagnoses.push(diagnosis(
+    playerDiagnoses.push(diagnosis(
       'economy',
       player,
       economyProgress.status,
@@ -791,21 +842,23 @@ export const botTraceExpertDiagnoses = (
     ));
 
     const techProgress = techProgressDiagnosis(playerFrames, trend);
-    diagnoses.push(techAlerts.length > 0
+    playerDiagnoses.push(techAlerts.length > 0
       ? diagnosis('tech', player, 'failing', alertSeverity(techAlerts), techAlerts.map((alert) => alert.detail).join('; '))
       : diagnosis('tech', player, techProgress.status, techProgress.severity, techProgress.detail));
 
     const productionProgress = productionProgressDiagnosis(first, last, armyGain, trend);
-    diagnoses.push(productionAlerts.length > 0
+    playerDiagnoses.push(productionAlerts.length > 0
       ? diagnosis('production', player, 'failing', alertSeverity(productionAlerts), productionAlerts.map((alert) => alert.detail).join('; '))
       : diagnosis('production', player, productionProgress.status, productionProgress.severity, productionProgress.detail));
 
     const combatDetail = combatCommands > 0
       ? `${combatCommands} combat command attempts in the trace`
       : enemyLoss ? 'enemy economy or army degraded during the trace' : 'no combat commitment was observed';
-    diagnoses.push(combatAlerts.length > 0
+    playerDiagnoses.push(combatAlerts.length > 0
       ? diagnosis('combat', player, 'failing', alertSeverity(combatAlerts), combatAlerts.map((alert) => alert.detail).join('; '))
       : diagnosis('combat', player, combatCommands > 0 || enemyLoss ? 'healthy' : 'watch', combatCommands, combatDetail));
+
+    diagnoses.push(summaryDiagnosis(playerFrames, playerDiagnoses), ...playerDiagnoses);
   }
 
   return diagnoses.sort((a, b) =>

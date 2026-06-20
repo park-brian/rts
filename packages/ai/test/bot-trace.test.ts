@@ -665,6 +665,11 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   assert.equal(diagnoses.some((entry) => entry.domain === 'tech' && entry.status === 'watch'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'summary' &&
+    entry.status === 'failing' &&
+    entry.detail.includes('production') &&
+    entry.detail.includes('plan establish-combat/production/rally')), true);
 });
 
 test('bot expert diagnoses expose objective progress from trace trends', () => {
@@ -867,6 +872,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     const combatUnits = countAlive(sim.fullState(), 0, unitKind);
     const playerAlerts = trace.alerts.filter((alert) => alert.player === 0);
     const productionDiagnosis = trace.expertDiagnoses.find((entry) => entry.player === 0 && entry.domain === 'production');
+    const summaryDiagnosis = trace.expertDiagnoses.find((entry) => entry.player === 0 && entry.domain === 'summary');
 
     assert.equal(trace.invalidCommandsByPlayer[0], 0, `${name} planner should not emit invalid commands`);
     assert.equal(playerAlerts.length, 0, `${name} planner should not trigger competence alerts`);
@@ -877,5 +883,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal((p0.commandsByType.build ?? 0) > 0, true, `${name} should issue build commands`);
     assert.equal((p0.commandsByType.attack ?? 0) + (p0.commandsByType.amove ?? 0) > 0, true, `${name} should commit combat commands`);
     assert.equal(productionDiagnosis?.status, 'healthy', `${name} trace should diagnose combat production as healthy`);
+    assert.notEqual(summaryDiagnosis?.status, 'failing', `${name} trace should not have a failing expert verdict`);
+    assert.equal(summaryDiagnosis?.detail.includes('plan '), true, `${name} expert verdict should name its plan`);
   }
 });

@@ -156,6 +156,10 @@ expert scoring, race-specific geyser structures, shared build validation, and st
 that defer gas until the bot has a first combat unit unless the current army unit itself requires gas.
 This prevents the generic opener from taking gas before making units while still letting the strategy
 unlock tech instead of stalling on zero gas.
+Expert-verdict slice is done: bot traces now emit one aggregate `summary` diagnosis per player by
+ranking the existing strategic-domain diagnoses, naming the top blockers, and preserving the current
+strategic plan in the detail string. The post-match health panel renders that verdict above the
+per-domain chips, so whole-match failures are visible before tuning more bot heuristics.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

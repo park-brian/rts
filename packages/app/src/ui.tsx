@@ -159,6 +159,11 @@ const playerHealthRows = (
   return expert.length > 0 ? expert : statsHealth.filter((row) => row.player === player);
 };
 
+const splitHealthRows = (rows: readonly MatchHealthRow[]): { summary?: MatchHealthRow; details: MatchHealthRow[] } => ({
+  summary: rows.find((row) => row.domain === 'summary'),
+  details: rows.filter((row) => row.domain !== 'summary'),
+});
+
 const Btn = (p: {
   label: string;
   onClick: () => void;
@@ -781,22 +786,33 @@ const MatchStatsPanel = (p: { game: Game }) => {
       <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
         paddingTop: '8px' }}>
         <b style={{ color: '#8ea4bd' }}>Strategic Health</b>
-        {stats.players.map((player) => (
-          <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
-            alignItems: 'center', color: '#cdd9e5' }}>
-            <span>P{player.player + 1}</span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '4px' }}>
-              {playerHealthRows(player.player, health, botHealth).map((row) => (
-                <span key={row.domain} title={healthLabel(row)}
-                  style={{ minWidth: 0, border: `1px solid ${HEALTH_COLOR[row.status]}`,
-                    background: '#0f151e', color: HEALTH_COLOR[row.status], padding: '3px 4px',
-                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                  {row.domain} {HEALTH_LABEL[row.status]}
-                </span>
-              ))}
+        {stats.players.map((player) => {
+          const rows = splitHealthRows(playerHealthRows(player.player, health, botHealth));
+          return (
+            <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
+              alignItems: 'center', color: '#cdd9e5' }}>
+              <span>P{player.player + 1}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '4px' }}>
+                {rows.summary && (
+                  <span title={healthLabel(rows.summary)}
+                    style={{ gridColumn: '1 / -1', minWidth: 0, border: `1px solid ${HEALTH_COLOR[rows.summary.status]}`,
+                      background: '#0f151e', color: HEALTH_COLOR[rows.summary.status], padding: '3px 4px',
+                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    verdict {HEALTH_LABEL[rows.summary.status]}: {rows.summary.detail}
+                  </span>
+                )}
+                {rows.details.map((row) => (
+                  <span key={row.domain} title={healthLabel(row)}
+                    style={{ minWidth: 0, border: `1px solid ${HEALTH_COLOR[row.status]}`,
+                      background: '#0f151e', color: HEALTH_COLOR[row.status], padding: '3px 4px',
+                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    {row.domain} {HEALTH_LABEL[row.status]}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
