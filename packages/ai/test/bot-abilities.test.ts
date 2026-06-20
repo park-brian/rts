@@ -11,6 +11,7 @@ import {
   commitTacticalResponders,
   createBot,
   createBotPlanner,
+  createMacroBot,
   createBotMemory,
   deriveTacticalIncidents,
   executePressureIntent,
@@ -171,6 +172,27 @@ test('aggressive marine bot builds depots and up to four barracks', () => {
   const firstBuild = depotCmds.find((c): c is Extract<Command, { t: 'build' }> => c.t === 'build');
   assert.equal(firstBuild?.kind, Kind.SupplyDepot);
   assert.deepEqual(validateCommand(depotScenario.state, 1, firstBuild!), { ok: true });
+});
+
+test('macro bot worker training shares train validation and reserved supply', () => {
+  const scenario = botScenario({ seed: 834, factions: [Terran, Terran] });
+  const s = scenario.state;
+  const base = scenario.entity(Kind.CommandCenter, 0);
+  const basePos = scenario.pos(base);
+  scenario.spawn(Kind.CommandCenter, 0, basePos.x + fx(256), basePos.y);
+  scenario.resources(0, 1_000, 0);
+  s.players.supplyMax[0] = 10;
+  s.players.supplyUsed[0] = s.players.supplyMax[0]! - Units[Terran.worker]!.supply;
+
+  const cmds = createMacroBot(Terran)(s, 0);
+
+  assert.equal(cmds.length, 1);
+  assert.deepEqual(cmds[0], { t: 'train', building: base, kind: Terran.worker });
+  assert.deepEqual(validateCommand(s, 0, cmds[0]!, { reservedSupply: s.players.supplyUsed[0]! }), { ok: true });
+  assert.deepEqual(validateCommand(s, 0, cmds[0]!, { reservedSupply: s.players.supplyMax[0]! }), {
+    ok: false,
+    reason: 'supply-blocked',
+  });
 });
 
 test('bot tactical ability policy descriptors match sim ability target modes', () => {

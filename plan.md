@@ -440,6 +440,9 @@ Migration plan:
     consumption, and cast cost/facing. `systems/abilities.ts` now owns only ticking behavior:
     persistent effects, target channels, DOTs, hallucination/life timers, cloak drain, energy
     regeneration, status timers, regeneration, and aura refresh.
+  - Legacy macro bot train-validation slice is done: exported `createMacroBot` now emits worker
+    train commands only after shared `validateCommand` approval with same-tick reserved supply,
+    removing its local product/mineral/supply legality path.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
