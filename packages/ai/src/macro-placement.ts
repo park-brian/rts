@@ -31,6 +31,7 @@ import {
   type StartLoc,
   type State,
 } from '@rts/sim';
+import { riskAtLayer, type BotRiskMap } from './macro-risk.ts';
 
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const SEARCH_MIN_RADIUS_TILES = 3;
@@ -42,6 +43,8 @@ const SMALL_DEFENSE_CORRIDOR_PENALTY = 7_500;
 const ADDON_CLEARANCE_PENALTY = 95_000;
 const BUILDING_RING_PENALTY = 24_000;
 const BUILDING_RING_BLOCKED_TILE_PENALTY = 3_000;
+const ROUTE_RISK_PENALTY = 220;
+const ROUTE_RISK_MAX_STEPS = 12;
 
 type BuildAnchor = { x: number; y: number };
 type BuildCandidate = { x: number; y: number; score: number; order: number };
@@ -60,6 +63,12 @@ type PlacementContext = {
   addonSlots: Footprint[];
   buildingRings: Footprint[];
   blockers: Footprint[];
+  risk?: BotRiskMap;
+  workerX: number;
+  workerY: number;
+};
+export type PlacementOptions = {
+  risk?: BotRiskMap;
 };
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
@@ -219,11 +228,14 @@ const existingAddonSlots = (s: State, player: number): Footprint[] => {
   return slots;
 };
 
-const placementContext = (s: State, player: number): PlacementContext => ({
+const placementContext = (s: State, player: number, worker: number, options: PlacementOptions = {}): PlacementContext => ({
   harvest: harvestPlacementContext(s),
   addonSlots: existingAddonSlots(s, player),
   buildingRings: existingBuildingRings(s, player),
   blockers: placementBlockers(s),
+  risk: options.risk,
+  workerX: s.e.x[worker]!,
+  workerY: s.e.y[worker]!,
 });
 
 const blockedRingTiles = (s: State, context: PlacementContext, fp: Footprint): number => {
@@ -242,6 +254,24 @@ const blockedRingTiles = (s: State, context: PlacementContext, fp: Footprint): n
     }
   }
   return blocked;
+};
+
+const routeRiskScore = (context: PlacementContext, x: number, y: number): number => {
+  const risk = context.risk;
+  if (!risk || risk.antiGround.length === 0) return 0;
+
+  const dx = x - context.workerX;
+  const dy = y - context.workerY;
+  const tileDx = Math.abs(tileX(x) - tileX(context.workerX));
+  const tileDy = Math.abs(tileY(y) - tileY(context.workerY));
+  const steps = Math.max(1, Math.min(ROUTE_RISK_MAX_STEPS, Math.max(tileDx, tileDy)));
+  let score = 0;
+  for (let step = 0; step <= steps; step++) {
+    const px = context.workerX + Math.trunc((dx * step) / steps);
+    const py = context.workerY + Math.trunc((dy * step) / steps);
+    score += riskAtLayer(risk, risk.antiGround, px, py);
+  }
+  return score * ROUTE_RISK_PENALTY;
 };
 
 const placementPreferenceScore = (s: State, context: PlacementContext, kind: number, x: number, y: number, fp: Footprint): number => {
@@ -270,6 +300,7 @@ const placementPreferenceScore = (s: State, context: PlacementContext, kind: num
   if (protectsBuildingRing(kind)) {
     score += blockedRingTiles(s, context, fp) * BUILDING_RING_BLOCKED_TILE_PENALTY;
   }
+  score += routeRiskScore(context, x, y);
 
   const ownAddons = addonKindsForParent(kind);
   if (ownAddons.length > 0 && addonSlotBlocked(s, addonFootprintAt(kind, x, y, ownAddons[0]!))) {
@@ -288,8 +319,9 @@ const findBestSpot = (
   worker: number,
   kind: number,
   anchors: BuildAnchor[],
+  options: PlacementOptions = {},
 ): { x: number; y: number } | null => {
-  const context = placementContext(s, player);
+  const context = placementContext(s, player, worker, options);
   let best: BuildCandidate | null = null;
   let order = 0;
 
@@ -331,8 +363,9 @@ export const findSpot = (
   kind: number,
   bx: number,
   by: number,
+  options: PlacementOptions = {},
 ): { x: number; y: number } | null => {
-  return findBestSpot(s, player, worker, kind, [{ x: bx, y: by }]);
+  return findBestSpot(s, player, worker, kind, [{ x: bx, y: by }], options);
 };
 
 export const findExactSpot = (
@@ -353,9 +386,10 @@ export const findMacroSpot = (
   worker: number,
   kind: number,
   fallback: number,
+  options: PlacementOptions = {},
 ): { x: number; y: number } | null => {
   const e = s.e;
-  if (!requiresPower(kind)) return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!);
+  if (!requiresPower(kind)) return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!, options);
 
   const anchors: BuildAnchor[] = [];
   for (let i = 0; i < e.hi; i++) {
@@ -364,5 +398,5 @@ export const findMacroSpot = (
   }
   anchors.push({ x: e.x[fallback]!, y: e.y[fallback]! });
 
-  return findBestSpot(s, player, worker, kind, anchors);
+  return findBestSpot(s, player, worker, kind, anchors, options);
 };

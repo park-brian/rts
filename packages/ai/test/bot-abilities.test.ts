@@ -3420,6 +3420,29 @@ test('macro placement preserves passable rings around production buildings', () 
   assert.equal(spot.y, clearSpot.y);
 });
 
+test('macro placement uses risk to prefer safer builder routes', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1122, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const anchor = { x: tileCenterFx(40), y: tileCenterFx(40) };
+  const riskySpot = { x: tileCenterFx(43), y: tileCenterFx(40) };
+  const safeSpot = { x: tileCenterFx(34), y: tileCenterFx(40) };
+  s.e.x[worker] = anchor.x;
+  s.e.y[worker] = anchor.y;
+  spawnUnit(s, Kind.Marine, 1, riskySpot.x, riskySpot.y);
+
+  s.map.build.fill(0);
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, riskySpot.x, riskySpot.y));
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, safeSpot.x, safeSpot.y));
+
+  const risk = collectBotFacts(s, 0, Terran).risk;
+  const spot = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y, { risk });
+
+  assert.ok(spot);
+  assert.equal(spot.x, safeSpot.x);
+  assert.equal(spot.y, safeSpot.y);
+});
+
 test('protoss bot places gateways from completed pylon power anchors', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 420, factions: [Protoss, Zerg] });
   const s = sim.fullState();

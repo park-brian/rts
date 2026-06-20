@@ -180,6 +180,10 @@ export const scheduleBotMacro = (
   const reservedTechProducers: ProducerReservations = new Set();
   const intentResults: BotIntentRecord[] = [];
   let builderUsed = false;
+  const riskAwareFindSpot: typeof findSpot = (state, owner, worker, kind, x, y) =>
+    findSpot(state, owner, worker, kind, x, y, { risk: facts.risk });
+  const riskAwareFindMacroSpot: typeof findMacroSpot = (state, owner, worker, kind, fallback) =>
+    findMacroSpot(state, owner, worker, kind, fallback, { risk: facts.risk });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
@@ -214,7 +218,7 @@ export const scheduleBotMacro = (
     economy.builder,
     depot,
     pendingSupply,
-    findSpot,
+    riskAwareFindSpot,
   );
   if (supplyQueued.queued) {
     builderUsed = supplyQueued.usedBuilder;
@@ -234,7 +238,7 @@ export const scheduleBotMacro = (
       builtArmyStructures.length,
       pendingArmyStructures,
       config.barracksTarget,
-      findMacroSpot,
+      riskAwareFindMacroSpot,
     );
     if (armyStructure.queued) {
       builderUsed = true;
@@ -253,7 +257,7 @@ export const scheduleBotMacro = (
       budget,
       economy.builder,
       depot,
-      findMacroSpot,
+      riskAwareFindMacroSpot,
     );
     if (techStructure.queued) {
       builderUsed = true;
@@ -315,7 +319,7 @@ export const scheduleBotMacro = (
       economy.builder,
       depot,
       config.barracksTarget,
-      findMacroSpot,
+      riskAwareFindMacroSpot,
     );
     builderUsed = capacity.queued;
     if (capacity.block) intentResults.push(structureOutcome(faction, capacity.block));
@@ -338,7 +342,7 @@ export const scheduleBotMacro = (
       depot,
       idleLarvae,
       usedProducers,
-      findMacroSpot,
+      riskAwareFindMacroSpot,
     );
     builderUsed = macroHatchery.queued;
     if (macroHatchery.block) intentResults.push(structureOutcome(faction, macroHatchery.block));
