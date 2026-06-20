@@ -207,7 +207,8 @@ export const queueArmyStructure = (
   findMacroSpot: MacroSpotFinder,
 ): { queued: boolean; block?: StructureBlock } => {
   if (isLarvaProductKind(faction.armyStructure)) return { queued: false };
-  if (built + pending >= target) return { queued: false };
+  const desired = isLarvaProductKind(faction.armyUnit) ? Math.min(target, 1) : target;
+  if (built + pending >= desired) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
 };
 

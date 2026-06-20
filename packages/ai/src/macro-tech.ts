@@ -45,6 +45,14 @@ export type TechStructureQueueResult = {
   block?: StructureBlock;
 };
 
+const hasCompletedStructure = (s: State, player: number, kind: number): boolean => {
+  const e = s.e;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === player && e.kind[i] === kind && e.built[i] === 1) return true;
+  }
+  return false;
+};
+
 export const queueRaceTechStructure = (
   s: State,
   player: number,
@@ -58,6 +66,7 @@ export const queueRaceTechStructure = (
 ): TechStructureQueueResult => {
   const techStructures = raceTechStructureKinds(faction);
   if (techStructures.length === 0) return { queued: false };
+  if (faction.name === 'Zerg' && !hasCompletedStructure(s, player, Kind.SpawningPool)) return { queued: false };
   let firstBlock: StructureBlock | undefined;
   for (const kind of missingStructureKinds(facts, techStructures)) {
     const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot);

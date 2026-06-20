@@ -194,6 +194,10 @@ export const scheduleBotMacro = (
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
 
+  if (armyIsLarvaProduct && builtArmyStructures.length > 0 && facts.army.length === 0) {
+    maybeQueueTrain(s, player, cmds, budget, supplyBudget, armyProducer, usedProducers, faction.armyUnit);
+  }
+
   const workerCommandStart = cmds.length;
   const queuedWorkers = maybeQueueWorkers(
     s,

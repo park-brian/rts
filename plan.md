@@ -943,6 +943,22 @@ Remaining work:
   Workers and supply are the economic clock; tech-tree steps are justified when they unlock combat,
   preserve worker growth, unlock needed counters, or add production/economy scale. A tech structure
   that does not advance one of those capabilities is not an opening plan.
+- The macro objective should eventually be explicit and mathematical: maximize the rate of useful
+  worker supply growth plus effective army-strength growth over time. Effective army strength should
+  include unit count, weapon/armor/ability upgrades, tech unlocks, production throughput, supply
+  availability, and matchup/counter value. Tech is not intrinsically good; it is good when it
+  increases the expected future slope of army/economy strength or answers a concrete threat.
+  The same objective should score enemy degradation: harassment that kills workers, denies mining,
+  forces repairs/static defense, snipes production/tech, contains expansions, or trades efficiently
+  is valuable because it lowers the enemy's future economy and army-strength slope.
+  In short: every bot action should estimate how it increases our chance of victory or decreases the
+  enemy's chance of victory, and the trace should explain that reasoning in player terms: economy
+  growth, combat strength, tech/counter unlock, map control, safety, timing, or enemy degradation.
+- Treat the bot as a StarCraft expert system, not a bag of independent directors. The expert layer
+  should evaluate strategic intents with explicit reasons, scores, prerequisites, opportunity costs,
+  and failure modes, then emit ordinary shared sim commands through the same validators used by UI,
+  replay, and RL. This gives us readable behavior now and a clean feature/label surface for future
+  learned policies.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1710,6 +1726,9 @@ Done when:
 
 ## Recently Completed Consolidation Slices
 
+- Fixed the first Zerg capability gate: the bot no longer opens Evolution Chamber before a completed
+  Spawning Pool, no longer treats duplicate Spawning Pools as production capacity, and spends the
+  first completed-Pool larva on Zerglings before continuing worker/tech growth.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.

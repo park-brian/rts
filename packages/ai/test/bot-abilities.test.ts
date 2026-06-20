@@ -62,6 +62,8 @@ const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number)
   cmds.find((c): c is Extract<BotCommand, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const hasBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): boolean =>
   findBuild(cmds, kind) !== undefined;
+const findTrain = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'train' }> | undefined =>
+  cmds.find((c): c is Extract<BotCommand, { t: 'train' }> => c.t === 'train' && c.kind === kind);
 const findCommandBuild = (cmds: Command[], kind: number): Extract<Command, { t: 'build' }> | undefined =>
   cmds.find((c): c is Extract<Command, { t: 'build' }> => c.t === 'build' && c.kind === kind);
 const findRepair = (cmds: ReturnType<ReturnType<typeof createBot>>, target: number): Extract<BotCommand, { t: 'repair' }> | undefined =>
@@ -1776,6 +1778,39 @@ test('bot keeps using a completed lair as the zerg base anchor', () => {
   const cmds = createBot(Zerg)(s, 0);
 
   assert.ok(cmds.some((c) => c.t === 'train' && c.kind === Kind.Drone));
+});
+
+test('zerg bot does not skip blocked combat tech into evolution chamber', () => {
+  const scenario = botScenario({ seed: 450, factions: [Zerg, Terran] });
+  scenario.resources(0, Units[Kind.EvolutionChamber]!.minerals, 0);
+
+  const cmds = scenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 1, attackThreshold: 99 });
+
+  assert.equal(hasBuild(cmds, Kind.EvolutionChamber), false);
+  assert.equal(hasBuild(cmds, Kind.SpawningPool), false);
+});
+
+test('zerg bot prioritizes first zerglings once spawning pool is complete', () => {
+  const { scenario } = zergBuildScenario(449, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
+
+  const cmds = scenario.run(Zerg, 0, { workerTarget: 99, barracksTarget: 1, attackThreshold: 99 });
+  const zerglingIndex = cmds.findIndex((c) => c.t === 'train' && c.kind === Kind.Zergling);
+  const droneIndex = cmds.findIndex((c) => c.t === 'train' && c.kind === Kind.Drone);
+
+  assert.ok(findTrain(cmds, Kind.Zergling));
+  assert.equal(droneIndex === -1 || zerglingIndex < droneIndex, true);
+});
+
+test('zerg bot does not duplicate spawning pool as production capacity', () => {
+  const { scenario } = zergBuildScenario(448, (scenario, base) => {
+    scenario.spawn(Kind.SpawningPool, 0, base.x + fx(120), base.y);
+  });
+
+  const cmds = scenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 3, attackThreshold: 99 });
+
+  assert.equal(hasBuild(cmds, Kind.SpawningPool), false);
 });
 
 test('zerg bot places a legal hydralisk den after a completed spawning pool', () => {
