@@ -929,6 +929,20 @@ Remaining work:
     or scattered locations unrelated to the chosen base/choke/power/creep plan;
   - it attacks or harasses once its posture says it should, and it responds to local base pressure
     with an appropriate committed squad.
+  Current observed Zerg failure modes to pin with those gates: Zerg should plan from the invariant
+  "get the first useful combat unit out as soon as possible," which means early Spawning Pool
+  should feed legal Zergling production as soon as larvae/resources/supply allow it. Opening
+  Evolution Chamber first, duplicating Spawning Pools, failing to convert larvae/resources into
+  Zerglings, or staying passive after lings are available should be treated as whole-match scheduler
+  failures, not as isolated Evo/Pool special cases.
+- Generalize opening logic around capability expansion, not building names. At each phase the bot
+  should know the next capability it lacks or wants soon: first combat unit, higher production
+  throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,
+  or new resource base. Structures are means to unlock that capability; duplicate tech buildings
+  should be disfavored unless they increase throughput or replace a lost dependency.
+  Workers and supply are the economic clock; tech-tree steps are justified when they unlock combat,
+  preserve worker growth, unlock needed counters, or add production/economy scale. A tech structure
+  that does not advance one of those capabilities is not an opening plan.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1696,6 +1710,9 @@ Done when:
 
 ## Recently Completed Consolidation Slices
 
+- Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
+  breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
+  for the next bot competence slice.
 - Added a reusable whole-match bot trace runner that drives planner/controller participants,
   samples intent trace frames, records match stats, and reports invalid command receipts for
   headless bot diagnostics before further macro heuristics are added.

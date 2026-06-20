@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Fragment, type VNode } from 'preact';
 import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, ui } from './store.ts';
 import {
-  Abilities, FPS, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
-  shownSupply, type FactionName,
+  Abilities, COMMAND_TYPES, FPS, Kind, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
+  shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
@@ -95,6 +95,31 @@ const reasonLabel = (reason: string): string => ({
   'wrong-owner': 'Owner',
   'stale-entity': 'Gone',
 }[reason] ?? 'Unavailable');
+
+const COMMAND_TYPE_LABEL: Partial<Record<CommandType, string>> = {
+  cancelBuild: 'cancel',
+  amove: 'a-move',
+};
+
+const commandTypeLabel = (type: CommandType): string => COMMAND_TYPE_LABEL[type] ?? type;
+
+const countLine = <K extends string,>(
+  counts: CountMap<K>,
+  keys: readonly K[],
+  label: (key: K) => string,
+  limit = 5,
+): string => {
+  const parts = keys
+    .map((key) => ({ key, count: counts[key] ?? 0 }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count || label(a.key).localeCompare(label(b.key)))
+    .slice(0, limit)
+    .map((entry) => `${label(entry.key)} ${entry.count}`);
+  return parts.length > 0 ? parts.join(' · ') : 'none';
+};
+
+const rejectLine = (counts: CountMap<CommandRejectReason>): string =>
+  countLine(counts, Object.keys(counts) as CommandRejectReason[], reasonLabel);
 
 const Btn = (p: {
   label: string;
@@ -693,6 +718,23 @@ const MatchStatsPanel = (p: { game: Game }) => {
                 rej {player.commandsRejected}
               </span></span>
           </Fragment>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+        paddingTop: '8px' }}>
+        {stats.players.map((player) => (
+          <details key={player.player} open={player.commandsRejected > 0}
+            style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '5px 7px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5' }}>
+              P{player.player + 1} command mix
+            </summary>
+            <div style={{ display: 'grid', gap: '3px', marginTop: '5px', color: '#9fb1c7' }}>
+              <span>{countLine(player.commandsByType, COMMAND_TYPES, commandTypeLabel)}</span>
+              <span style={{ color: player.commandsRejected ? '#ffb1b1' : '#7f91a8' }}>
+                rejects {rejectLine(player.rejectsByReason)}
+              </span>
+            </div>
+          </details>
         ))}
       </div>
     </div>

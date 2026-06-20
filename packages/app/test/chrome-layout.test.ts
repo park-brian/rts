@@ -120,6 +120,17 @@ test('player command surface accounts for every sim command type', () => {
   }
 });
 
+test('post-match stats panel exposes command mix and reject reasons', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+
+  assert.match(ui, /const countLine = <K extends string,>/);
+  assert.match(ui, /COMMAND_TYPES/);
+  assert.match(ui, /player\.commandsByType/);
+  assert.match(ui, /player\.rejectsByReason/);
+  assert.match(ui, /P\{player\.player \+ 1\} command mix/);
+  assert.match(ui, /rejects \{rejectLine\(player\.rejectsByReason\)\}/);
+});
+
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
   const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');
