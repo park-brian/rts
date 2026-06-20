@@ -2,11 +2,11 @@ import {
   Kind,
   ONE,
   TILE,
-  Units,
   baseDepotFootprint,
   canPlaceStructure,
   expandResourceFootprint,
   footprintsOverlap,
+  isSmallStaticDefenseKind,
   requiresPower,
   resourceDirVector,
   resourceFootprintBounds,
@@ -29,7 +29,6 @@ const BASE_RESOURCE_EDGE_LIMIT_TILES = 12;
 const RESOURCE_RESERVATION_PENALTY = 80_000;
 const HARVEST_CORRIDOR_PENALTY = 120_000;
 const SMALL_DEFENSE_CORRIDOR_PENALTY = 7_500;
-const SMALL_STATIC_DEFENSES = new Set<number>([Kind.MissileTurret, Kind.PhotonCannon, Kind.SporeColony]);
 
 type BuildAnchor = { x: number; y: number };
 type BuildCandidate = { x: number; y: number; score: number; order: number };
@@ -111,13 +110,8 @@ const harvestPlacementContext = (s: State): HarvestPlacementContext[] =>
     };
   });
 
-const isSmallStaticDefense = (kind: number): boolean => {
-  const def = Units[kind];
-  return def !== undefined && SMALL_STATIC_DEFENSES.has(kind) && def.footprintW <= 2 && def.footprintH <= 2;
-};
-
 const placementPreferenceScore = (context: HarvestPlacementContext[], kind: number, fp: Footprint): number => {
-  const smallDefense = isSmallStaticDefense(kind);
+  const smallDefense = isSmallStaticDefenseKind(kind);
   let score = 0;
 
   for (const { corridors, reservation } of context) {

@@ -334,6 +334,9 @@ Migration plan:
   - Product-mode capability slice is done: `mechanics/capabilities.ts` now owns build-method lookup
     and larva-product classification. Macro scheduling, train failure reporting, and supply/army
     production decisions use that owner instead of reading raw product build methods in AI code.
+  - Small-static-defense capability slice is done: `mechanics/capabilities.ts` now owns the
+    small-static-defense classification used by macro placement, so harvest-corridor placement
+    penalties no longer depend on an AI-local turret/cannon/spore kind set.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

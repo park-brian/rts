@@ -20,6 +20,7 @@ import {
   canResearchTech,
   buildMethodForKind,
   isLarvaProductKind,
+  isSmallStaticDefenseKind,
   producedKindsFor,
   producerKindDirectlyProducesOnlyWorkers,
   producerKindSupportsWorkerRally,
@@ -83,6 +84,10 @@ test('producer capability facts own products and worker-rally classification', (
   assert.equal(buildMethodForKind(Kind.Zergling), 'larva');
   assert.equal(isLarvaProductKind(Kind.Zergling), true);
   assert.equal(isLarvaProductKind(Kind.Marine), false);
+  assert.equal(isSmallStaticDefenseKind(Kind.MissileTurret), true);
+  assert.equal(isSmallStaticDefenseKind(Kind.PhotonCannon), true);
+  assert.equal(isSmallStaticDefenseKind(Kind.SporeColony), true);
+  assert.equal(isSmallStaticDefenseKind(Kind.SunkenColony), false);
 
   assert.deepEqual([...trainKindCandidates(s, gateway)], [...producedKindsFor(Kind.Gateway)]);
   assert.deepEqual([...researchTechsFor(Kind.Forge)], [Tech.GroundWeapons, Tech.GroundArmor, Tech.PlasmaShields]);
