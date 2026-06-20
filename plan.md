@@ -138,8 +138,11 @@ Feasibility review against the current code:
   exported intentionally for headless benchmarks and low-level deterministic tests. Weapon delivery
   and hit-resolution internals are private too. Build-cancel, refund-ledger, repair, and resource
   targeting helpers are private to sim internals and direct sim tests after verifying app, AI, and
-  headless clients do not import them through `@rts/sim`. Upgrade-derived stat helpers remain public
-  because the app uses them for selected-unit stat presentation.
+  headless clients do not import them through `@rts/sim`. Burrow, transform, effect, larva, and
+  status query helpers are likewise private to sim phases and direct sim tests; app, AI, and headless
+  clients use command validators, observations, render descriptors, tech helpers, or higher-level
+  capability queries instead. Upgrade-derived stat helpers remain public because the app uses them
+  for selected-unit stat presentation.
 
 Near-term architecture slices from this review:
 
