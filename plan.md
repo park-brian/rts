@@ -185,6 +185,11 @@ actual combat access or queued/fielded combat strength. This is the reusable gua
 such as Zerg teching into Evolution Chamber-style infrastructure before getting a real fighting unit
 path online; future race-specific bot fixes should use this expert predicate instead of re-encoding
 opening-combat urgency in each scheduler branch.
+Opening-combat gate slice is done: competence gates now include an explicit `opening-combat` domain.
+If a sampled strategy phase claims `establish-combat`, the trace must show queued/fielded combat
+strength or completed/pending combat production capacity. This closes the diagnostic loophole where
+an opening could show generic production intent evidence while still never creating a real combat
+pipeline.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

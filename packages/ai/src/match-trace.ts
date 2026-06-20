@@ -36,6 +36,7 @@ import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placemen
 import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
 import {
   botExpertObligationDetail,
+  botHasCombatPipeline,
   botHasExpertObligationEvidence,
   botPlanEvidenceAssessment,
 } from './macro-expert-system.ts';
@@ -219,6 +220,7 @@ export type BotTraceCompetenceGateDomain =
   | 'economy'
   | 'macro-spending'
   | 'production'
+  | 'opening-combat'
   | 'tech'
   | 'placement'
   | 'plan-coherence'
@@ -1389,6 +1391,35 @@ const planCoherenceGate = (
   );
 };
 
+const openingCombatGate = (
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+  last: BotTraceFrame | undefined,
+): BotTraceCompetenceGate => {
+  const openingPhases = phases.filter((phase) =>
+    phase.player === player && phase.plan.primaryGoal === 'establish-combat');
+  if (openingPhases.length === 0) {
+    return competenceGate(player, 'opening-combat', 'healthy', 0, 'no sampled opening-combat phase required first combat access');
+  }
+  if (last && botHasCombatPipeline(last.objective)) {
+    return competenceGate(
+      player,
+      'opening-combat',
+      'healthy',
+      last.objective.armyStrength + last.objective.queuedArmyStrength +
+        (last.objective.productionCapacity + last.objective.pendingProductionCapacity) * 50,
+      `opening built combat pipeline: army strength ${last.objective.armyStrength}+${last.objective.queuedArmyStrength}, production ${last.objective.productionCapacity}+${last.objective.pendingProductionCapacity}`,
+    );
+  }
+  return competenceGate(
+    player,
+    'opening-combat',
+    'failing',
+    openingPhases.length,
+    `${openingPhases.length} sampled opening-combat phases lacked queued/fielded combat strength or combat production capacity`,
+  );
+};
+
 export const botTraceCompetenceGates = (
   trace: BotMatchTrace,
   player: number,
@@ -1445,6 +1476,8 @@ export const botTraceCompetenceGates = (
       ? `${stats.peakCombatUnits} peak combat units with ${macroCommands} macro command attempts`
       : 'missing production trace evidence',
   ));
+
+  gates.push(openingCombatGate(trace.phaseSummaries, player, last));
 
   gates.push(competenceGate(
     player,

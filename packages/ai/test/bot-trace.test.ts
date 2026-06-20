@@ -725,6 +725,78 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
     alert.detail.includes('blocked-by-entity')), true);
 });
 
+test('bot competence gates flag opening plans without a combat pipeline', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8126, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const baseFrame = botTraceFrame(s, 0, Terran, plan);
+  const frame = {
+    ...baseFrame,
+    objective: {
+      ...baseFrame.objective,
+      armyStrength: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    },
+  };
+  const trace: BotMatchTrace = {
+    frames: [frame],
+    stats: createMatchStats(sim.fullState()),
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends: [],
+    alerts: [],
+    expertDiagnoses: [{ player: 0, domain: 'summary', status: 'healthy', severity: 0, detail: 'test summary' }],
+    phaseSummaries: [{
+      player: 0,
+      phase: 'opening',
+      fromTick: 0,
+      toTick: 1,
+      samples: 1,
+      plan: frame.strategicPlan,
+      start: {
+        minerals: frame.minerals,
+        gas: frame.gas,
+        supplyUsed: frame.supplyUsed,
+        supplyMax: frame.supplyMax,
+        workers: frame.workers,
+        army: frame.army,
+        bases: frame.bases,
+      },
+      end: {
+        minerals: frame.minerals,
+        gas: frame.gas,
+        supplyUsed: frame.supplyUsed,
+        supplyMax: frame.supplyMax,
+        workers: frame.workers,
+        army: frame.army,
+        bases: frame.bases,
+      },
+      peaks: {
+        queuedWorkerProduction: 0,
+        queuedArmyProduction: 0,
+        idleProducers: 0,
+        idleLarvae: 0,
+      },
+      commandsByType: {},
+      intentsByKind: {},
+      outcomesByStatus: {},
+      intentAxes: { 'production-throughput': 1 },
+      waitsByReason: {},
+      blocksByReason: {},
+      alertKinds: {},
+    }],
+    phaseAssessments: [],
+  };
+
+  const gate = botTraceCompetenceGates(trace, 0).find((entry) => entry.domain === 'opening-combat');
+
+  assert.equal(gate?.status, 'failing');
+  assert.equal(gate?.detail.includes('lacked queued/fielded combat strength'), true);
+});
+
 test('bot competence gates expose macro-spending and placement failures', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8132, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1128,6 +1200,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(summaryDiagnosis?.detail.includes('plan '), true, `${name} expert verdict should name its plan`);
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
+    assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true, `${name} gates should expose placement evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'plan-coherence' && gate.detail.includes('strategy phases')), true, `${name} gates should expose plan coherence evidence`);
