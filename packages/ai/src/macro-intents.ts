@@ -35,9 +35,28 @@ export const BOT_INTENT_KINDS = [
 
 export type BotIntentKind = typeof BOT_INTENT_KINDS[number];
 
+export type BotIntentScoreReason = {
+  kind:
+    | 'economy-growth'
+    | 'army-growth'
+    | 'production-throughput'
+    | 'tech-unlock'
+    | 'safety'
+    | 'enemy-degradation'
+    | 'map-control';
+  value: number;
+  detail: string;
+};
+
+export type BotIntentScore = {
+  value: number;
+  reasons: BotIntentScoreReason[];
+};
+
 export type BotIntent = {
   kind: BotIntentKind;
   urgency: number;
+  score?: BotIntentScore;
   expiresAt?: number;
   targetKind?: number;
   targetTech?: number;

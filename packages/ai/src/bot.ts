@@ -5,7 +5,9 @@
 // the demonstrator we'll behavior-clone from later.
 
 import { NONE, type Command, type Controller, type Faction, type State } from '@rts/sim';
+import { desiredWorkerCount } from './macro-economy.ts';
 import { executePressureIntent, proposePressureIntent, type PressureScheduleResult } from './macro-offense.ts';
+import { botExpertContext, scoreBotIntentRecord } from './macro-objective.ts';
 import { findSpot } from './macro-placement.ts';
 import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
@@ -31,7 +33,9 @@ export type BotPlanner = (s: State, p: number) => BotTurnPlan;
 const DEFAULT: Omit<BotConfig, 'workerTarget'> = { barracksTarget: 3, attackThreshold: 12 };
 
 const rankIntentRecords = (records: BotIntentRecord[]): BotIntentRecord[] =>
-  records.sort((a, b) => b.intent.urgency - a.intent.urgency);
+  records.sort((a, b) =>
+    b.intent.urgency - a.intent.urgency ||
+    (b.intent.score?.value ?? 0) - (a.intent.score?.value ?? 0));
 
 const done: BotIntentResult = { status: 'done' };
 const waitingForForce: BotIntentResult = { status: 'waiting', reason: 'insufficient-force' };
@@ -74,6 +78,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     if (depot === NONE) return { commands: cmds, intents: [], intentResults }; // no base: nothing to do
 
     const memory = prepareMemory(p, s.tick);
+    const expert = botExpertContext(s, p, facts, desiredWorkerCount(s, depot, c.workerTarget), c.attackThreshold);
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, c, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
     intentResults.push(...macro.intentResults);
@@ -140,7 +145,8 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       });
     }
 
-    const rankedIntentResults = rankIntentRecords(intentResults);
+    const scoredIntentResults = intentResults.map((record) => scoreBotIntentRecord(record, expert));
+    const rankedIntentResults = rankIntentRecords(scoredIntentResults);
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick);
     return {
       commands: cmds,

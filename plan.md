@@ -963,8 +963,12 @@ Remaining work:
     supply, field army supply/strength, enemy worker/army state, and resource float, with a small
     deterministic reason generator for economy growth, army growth, enemy degradation, and float.
     Whole-match traces now summarize those deltas per sampled bot player. This is deliberately
-    measurement, not policy; next slices should use these signals to score candidate macro intents
-    and whole-match competence instead of adding more independent heuristics.
+    measurement, not policy.
+  - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
+    live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
+    uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
+    choices with score-ranked candidates and add whole-match competence gates instead of adding more
+    independent heuristics.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1739,6 +1743,9 @@ Done when:
   supply, field army supply/strength, resource float, and deterministic human-readable reasons for
   objective deltas, and whole-match bot traces summarize those trends per player so later bot
   policy can optimize win-slope instead of isolated local legality.
+- Added first planner-level expert scoring: bot intents now carry optional score/reason metadata,
+  objective math moved out of trace collection into `macro-objective.ts`, and live bot plans annotate
+  worker, army, production, tech, defense, and pressure intents without changing command validation.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.

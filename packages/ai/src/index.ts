@@ -10,6 +10,7 @@ export * from './macro-intents.ts';
 export * from './macro-memory.ts';
 export * from './macro-morph.ts';
 export * from './macro-nydus.ts';
+export * from './macro-objective.ts';
 export * from './macro-offense.ts';
 export * from './macro-placement.ts';
 export * from './macro-production.ts';

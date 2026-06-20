@@ -590,6 +590,37 @@ test('live bot planner exposes sorted macro, defense, and pressure intents', () 
   assert.deepEqual(statuses.slice(0, 3), ['done', 'done', 'done']);
   assert.equal(plan.intents[0]!.urgency >= plan.intents[1]!.urgency, true);
   assert.equal(plan.intents[1]!.urgency >= plan.intents[2]!.urgency, true);
+  assert.equal(plan.intents[0]!.score?.reasons.some((reason) => reason.kind === 'safety'), true);
+  assert.equal(plan.intents[1]!.score?.reasons.some((reason) => reason.kind === 'enemy-degradation'), true);
+  assert.equal(plan.intents[2]!.score?.reasons.some((reason) => reason.kind === 'production-throughput'), true);
+});
+
+test('live bot planner annotates macro intents with expert scores and reasons', () => {
+  const economyScenario = botScenario({ seed: 833, factions: [Terran, Terran] });
+  economyScenario.resources(0, 500, 0);
+  const economyPlan = createBotPlanner(Terran, { workerTarget: 10, barracksTarget: 0, attackThreshold: 99 })(
+    economyScenario.state,
+    0,
+  );
+  const workerIntent = economyPlan.intentResults.find((record) => record.intent.kind === 'train-worker');
+
+  assert.ok(workerIntent?.intent.score);
+  assert.equal(workerIntent.intent.score.value > 0, true);
+  assert.equal(workerIntent.intent.score.reasons.some((reason) => reason.kind === 'economy-growth'), true);
+
+  const armyScenario = botScenario({ seed: 835, factions: [Terran, Terran] });
+  const base = armyScenario.pos(armyScenario.entity(Kind.CommandCenter, 0));
+  armyScenario.resources(0, 500, 0);
+  armyScenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  const armyPlan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 6 })(
+    armyScenario.state,
+    0,
+  );
+  const armyIntent = armyPlan.intentResults.find((record) => record.intent.kind === 'train-counter');
+
+  assert.ok(armyIntent?.intent.score);
+  assert.equal(armyIntent.intent.score.value > 0, true);
+  assert.equal(armyIntent.intent.score.reasons.some((reason) => reason.kind === 'army-growth'), true);
 });
 
 test('live bot planner reports waiting pressure intent before commitment', () => {
