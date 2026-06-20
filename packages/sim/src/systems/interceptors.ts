@@ -6,7 +6,7 @@ import { storeInternalProduct } from '../mechanics/internal-products.ts';
 import { carrierBayPoint } from '../mechanics/interceptor.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { faceToward, within } from '../spatial/motion.ts';
-import { effectiveSpeed } from './status.ts';
+import { effectiveSpeed } from '../mechanics/status.ts';
 
 const INTERCEPTOR_SORTIE = actorSortie(Kind.Interceptor);
 if (!INTERCEPTOR_SORTIE) throw new Error('missing Interceptor actor sortie descriptor');

@@ -6,7 +6,7 @@ import { Kind } from '../data/index.ts';
 import { canDetect } from '../mechanics/detection.ts';
 import { isModeTransitioning, isTransitioning } from '../entity/state.ts';
 import { isPowered } from '../mechanics/power.ts';
-import { isDisabled } from '../systems/status.ts';
+import { isDisabled } from '../mechanics/status.ts';
 import { isLiftedStructureFlags } from '../mechanics/terran-mobility.ts';
 import type { State } from '../entity/world.ts';
 import { isAlive, isEnemy, NONE, slotOf } from '../entity/world.ts';

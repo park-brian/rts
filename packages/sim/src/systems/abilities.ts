@@ -12,7 +12,8 @@ import { NEUTRAL, NONE, eid, isAlive, kill, slotOf, trySpawnEffect } from '../en
 import { trySpawnUnit } from '../entity/factory.ts';
 import { updateCloakAuras } from '../mechanics/detection.ts';
 import { faceToward } from '../spatial/motion.ts';
-import { isDisabled, tickRegeneration, tickStatusTimers } from './status.ts';
+import { isDisabled } from '../mechanics/status.ts';
+import { tickRegeneration, tickStatusTimers } from './status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { consumeReadyNuke } from '../mechanics/nuke.ts';
 import { activeAddonParentSlot, isAddonKind } from '../mechanics/addons.ts';

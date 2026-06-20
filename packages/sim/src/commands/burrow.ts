@@ -1,7 +1,7 @@
 import type { Command } from './types.ts';
 import { canBurrowSlot, hasBurrowAccess } from '../mechanics/burrow.ts';
 import { isContained } from '../mechanics/cargo.ts';
-import { isDisabled } from '../systems/status.ts';
+import { isDisabled } from '../mechanics/status.ts';
 import { isModeTransitioning } from '../entity/state.ts';
 import type { State } from '../entity/world.ts';
 import { slotOf } from '../entity/world.ts';

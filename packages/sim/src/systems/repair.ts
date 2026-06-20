@@ -4,7 +4,7 @@ import type { State } from '../entity/world.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { REPAIR_RATE, isRepairableKind, repairCost } from '../mechanics/repair.ts';
 import { faceToward } from '../spatial/motion.ts';
-import { effectiveSpeed, isDisabled } from './status.ts';
+import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';

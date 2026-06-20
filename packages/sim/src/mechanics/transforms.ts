@@ -5,7 +5,7 @@ import { setEntityKind, setEntityKindFull } from '../entity/kind.ts';
 import { isContained } from './cargo.ts';
 import { distanceSq, withinRangeSq } from '../spatial/geometry.ts';
 import { clearVelocity } from '../spatial/motion.ts';
-import { isDisabled } from '../systems/status.ts';
+import { isDisabled } from './status.ts';
 import { startModeTransform } from './mode-transition.ts';
 
 export type UnitTransform = {

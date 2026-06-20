@@ -14,7 +14,7 @@ import { faceToward, within } from '../spatial/motion.ts';
 import { placementForStructure } from '../mechanics/placement.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { clearBuildCost, refundBuildCost, transferBuildCost } from '../mechanics/refund-ledger.ts';
-import { effectiveSpeed, isDisabled } from './status.ts';
+import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { isAddonKind } from '../mechanics/addons.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { distanceSqToRect } from '../spatial/geometry.ts';

@@ -5,7 +5,7 @@ import { eid, isAlive, NONE, type State } from '../entity/world.ts';
 import { clearOrderQueue } from '../entity/order-queue.ts';
 import { clearancePxForKind, navPassable, pathPassable, pathX, pathY } from '../spatial/flow.ts';
 import { topDownInteractionRect, withinTopDownEdgeRange, type InteractionRect } from '../spatial/geometry.ts';
-import { isDisabled } from '../systems/status.ts';
+import { isDisabled } from './status.ts';
 import { clearVelocity } from '../spatial/motion.ts';
 
 export const LOAD_RANGE = tiles(2);

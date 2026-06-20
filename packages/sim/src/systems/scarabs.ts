@@ -6,7 +6,7 @@ import { isContained } from '../mechanics/cargo.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';
-import { effectiveSpeed } from './status.ts';
+import { effectiveSpeed } from '../mechanics/status.ts';
 import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
 
 const validScarabTarget = (s: State, scarab: number, reaver: number, target: number): boolean => {

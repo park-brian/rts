@@ -11,7 +11,7 @@
 import type { State } from '../entity/world.ts';
 import { EffectKind, Role, Units, TILE } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
-import { effectiveSight } from './status.ts';
+import { effectiveSight } from '../mechanics/status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { elevationAtTile, slotElevation } from '../spatial/terrain.ts';
 

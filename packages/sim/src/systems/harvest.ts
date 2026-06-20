@@ -19,7 +19,7 @@ import { CAP, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
 import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINE_TICKS, GAS_MINE_TICKS, MAX_PER_PATCH } from '../data/index.ts';
 import { clearVelocity, faceToward } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
-import { effectiveSpeed, isDisabled } from './status.ts';
+import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { fx, isqrt } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';

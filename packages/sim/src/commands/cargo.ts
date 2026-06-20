@@ -16,7 +16,7 @@ import {
   unloadAnchorSlot,
   withinLoadRange,
 } from '../mechanics/cargo.ts';
-import { isDisabled } from '../systems/status.ts';
+import { isDisabled } from '../mechanics/status.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
 import {
   reject,

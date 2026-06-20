@@ -1,7 +1,7 @@
 import { Order, Role, Units, weaponForTarget } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { isAlive, NONE, slotOf, type State } from '../entity/world.ts';
-import { effectiveCooldown } from '../systems/status.ts';
+import { effectiveCooldown } from '../mechanics/status.ts';
 
 const firingTarget = (s: State, slot: number): number => {
   const e = s.e;

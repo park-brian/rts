@@ -14,7 +14,7 @@ import { applyWeaponDamage } from '../mechanics/damage.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../spatial/grid.ts';
-import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from './status.ts';
+import { effectiveCooldown, effectiveSight, effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { coveredByEffect } from '../mechanics/effects.ts';
 import { canDetect } from '../mechanics/detection.ts';
 import { upgradedRange } from '../mechanics/upgrades.ts';
