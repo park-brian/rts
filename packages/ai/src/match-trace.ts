@@ -34,6 +34,12 @@ import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture, type Bo
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
 import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
+import {
+  botExpertObligationDetail,
+  botHasExpertObligationEvidence,
+  botPlanEvidenceAxes,
+  botPlanEvidenceLabel,
+} from './macro-expert-system.ts';
 
 export type BotTraceFrame = {
   tick: number;
@@ -1349,34 +1355,11 @@ const playerAxisCounts = (
   return counts;
 };
 
-const hasVictoryAxes = (
-  counts: CountMap<BotVictoryAxis>,
-  axes: readonly BotVictoryAxis[],
-): boolean =>
-  axes.every((axis) => (counts[axis] ?? 0) > 0);
-
 const phaseAxisCount = (
   phase: BotTracePhaseSummary,
   axes: readonly BotVictoryAxis[],
 ): number =>
   axes.reduce((sum, axis) => sum + (phase.intentAxes[axis] ?? 0), 0);
-
-const planEvidenceAxes = (plan: BotStrategyPlan): readonly BotVictoryAxis[] => {
-  switch (plan.macroPriority) {
-    case 'defense':
-      return ['safety', 'combat-strength'];
-    case 'production':
-      return ['production-throughput', 'combat-strength'];
-    case 'expansion':
-      return ['economy-growth', 'map-control'];
-    case 'tech':
-      return plan.combatStance === 'pressure'
-        ? ['tech-unlock', 'enemy-degradation']
-        : ['tech-unlock'];
-  }
-};
-
-const planEvidenceLabel = (axes: readonly BotVictoryAxis[]): string => axes.join('/');
 
 const planCoherenceGate = (
   phases: readonly BotTracePhaseSummary[],
@@ -1387,11 +1370,11 @@ const planCoherenceGate = (
   let evidence = 0;
 
   for (const phase of playerPhases) {
-    const axes = planEvidenceAxes(phase.plan);
+    const axes = botPlanEvidenceAxes(phase.plan);
     const count = phaseAxisCount(phase, axes);
     evidence += count;
     if (count === 0) {
-      missing.push(`${phase.phase} ${phase.plan.primaryGoal}/${phase.plan.macroPriority}/${phase.plan.combatStance} lacked ${planEvidenceLabel(axes)}`);
+      missing.push(`${phase.phase} ${phase.plan.primaryGoal}/${phase.plan.macroPriority}/${phase.plan.combatStance} lacked ${botPlanEvidenceLabel(axes)}`);
     }
   }
 
@@ -1528,11 +1511,11 @@ export const botTraceCompetenceGates = (
   gates.push(competenceGate(
     player,
     'phase-evidence',
-    hasVictoryAxes(axes, ['economy-growth', 'production-throughput', 'combat-strength'])
+    botHasExpertObligationEvidence(axes)
       ? 'healthy'
       : 'failing',
     Object.values(axes).reduce((sum, count) => sum + (count ?? 0), 0),
-    `axes economy ${axes['economy-growth'] ?? 0}, production ${axes['production-throughput'] ?? 0}, combat ${axes['combat-strength'] ?? 0}`,
+    botExpertObligationDetail(axes),
   ));
 
   return gates;

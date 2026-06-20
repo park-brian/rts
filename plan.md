@@ -170,6 +170,9 @@ Competence-gate UI slice is done: live bot diagnostics now assemble one trace-de
 post-match health, phase summaries, phase assessments, and core StarCraft obligation gates. The results
 panel shows those gates per bot player so command legality, worker growth, production, combat commitment,
 expert alerts, and phase-axis evidence are visible without opening headless trace logs.
+Expert-system rulebook slice is done: core StarCraft obligations and plan-to-evidence mappings now live
+in `packages/ai/src/macro-expert-system.ts`, so future bot fixes should add facts/rules there or in the
+scheduler's live expert context rather than hiding new strategic assumptions inside trace rendering.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

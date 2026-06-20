@@ -9,8 +9,12 @@ import {
   botTraceExpertDiagnoses,
   botTracePhaseSummaries,
   botTraceFrame,
+  BOT_EXPERT_OBLIGATIONS,
+  botExpertObligationDetail,
+  botHasExpertObligationEvidence,
   botIntentExpectation,
   botIntentVictoryAxis,
+  botPlanEvidenceAxes,
   createBotPlanner,
   runBotMatchTrace,
   type BotMatchTrace,
@@ -46,6 +50,41 @@ const seedCombatProductionPath = (
   s.players.minerals[0] = 300;
   s.players.gas[0] = 0;
 };
+
+test('bot expert system defines core StarCraft obligation evidence', () => {
+  assert.deepEqual(BOT_EXPERT_OBLIGATIONS.map((obligation) => obligation.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(
+    botPlanEvidenceAxes({
+      phase: 'opening',
+      primaryGoal: 'establish-combat',
+      macroPriority: 'production',
+      combatStance: 'rally',
+      techTarget: 'first-combat',
+      reasons: ['first combat production path is not available'],
+    }),
+    ['production-throughput', 'combat-strength'],
+  );
+  assert.deepEqual(
+    botPlanEvidenceAxes({
+      phase: 'pressure',
+      primaryGoal: 'degrade-enemy',
+      macroPriority: 'tech',
+      combatStance: 'pressure',
+      techTarget: 'counter-tech',
+      reasons: ['army reached pressure threshold'],
+    }),
+    ['tech-unlock', 'enemy-degradation'],
+  );
+
+  const counts = {
+    'economy-growth': 1,
+    'production-throughput': 1,
+    'combat-strength': 0,
+  };
+
+  assert.equal(botHasExpertObligationEvidence(counts), false);
+  assert.equal(botExpertObligationDetail(counts), 'axes economy 1, production 1, combat 0');
+});
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8101, factions: [Terran, Terran] });
