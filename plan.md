@@ -166,6 +166,10 @@ alert counts. This gives the expert system a compact timeline of what each strat
 did before we add more scheduler heuristics. App phase-summary slice is done: the post-match results
 panel now renders those bot phase windows under Strategic Health so whole-match opening/ramp/pressure
 behavior is visible without digging into test logs.
+Competence-gate UI slice is done: live bot diagnostics now assemble one trace-derived expert object for
+post-match health, phase summaries, phase assessments, and core StarCraft obligation gates. The results
+panel shows those gates per bot player so command legality, worker growth, production, combat commitment,
+expert alerts, and phase-axis evidence are visible without opening headless trace logs.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

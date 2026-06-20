@@ -9,7 +9,10 @@ import {
   type PlayerCommands,
 } from '../src/sim.ts';
 import {
+  botCompetenceGates,
   botDiagnosticController,
+  botDiagnosticTrace,
+  botExpertReport,
   botExpertHealthRows,
   botPhaseAssessments,
   botPhaseSummaries,
@@ -34,6 +37,9 @@ test('traceable bot controllers produce expert health rows for the post-match pa
 
   assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.frames.length), [1, 1]);
   assert.equal(diagnostics.every((diagnostic) => diagnostic.lastPlan !== null), true);
+  const trace = botDiagnosticTrace(diagnostics, stats);
+  assert.notEqual(trace, null);
+  assert.equal(trace!.invalidCommands, results.filter((result) => !result.ok).length);
   const rows = botExpertHealthRows(diagnostics, stats);
   for (const player of [0, 1]) {
     assert.deepEqual(
@@ -47,14 +53,19 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(rows.some((row) => row.domain === 'strategy' && row.detail.includes('posture')), true);
   assert.equal(rows.some((row) => row.domain === 'summary' && row.detail.includes('plan')), true);
 
-  const phases = botPhaseSummaries(diagnostics);
+  const gates = botCompetenceGates(diagnostics, stats);
+  assert.equal(gates.length, 12);
+  assert.equal(gates.some((gate) => gate.domain === 'commands' && gate.detail.includes('planner commands')), true);
+  assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('axes economy')), true);
+
+  const phases = botPhaseSummaries(diagnostics, stats);
   assert.equal(phases.length > 0, true);
   assert.equal(phases.every((phase) => phase.samples > 0), true);
   assert.equal(phases.some((phase) => (phase.commandsByType.train ?? 0) + (phase.commandsByType.build ?? 0) > 0), true);
   assert.equal(phases.some((phase) => Object.values(phase.intentAxes).some((count) => count > 0)), true);
   assert.equal(phases.some((phase) => phase.plan.reasons.length > 0), true);
 
-  const assessments = botPhaseAssessments(diagnostics);
+  const assessments = botPhaseAssessments(diagnostics, stats);
   assert.equal(assessments.length >= phases.length, true);
   assert.equal(assessments.some((entry) => entry.domain === 'summary' && entry.detail.includes('plan ')), true);
   assert.equal(assessments.every((entry) => phases.some((phase) =>
@@ -62,6 +73,12 @@ test('traceable bot controllers produce expert health rows for the post-match pa
     phase.phase === entry.phase &&
     phase.fromTick === entry.fromTick &&
     phase.toTick === entry.toTick)), true);
+
+  const report = botExpertReport(diagnostics, stats);
+  assert.deepEqual(report.healthRows, rows);
+  assert.deepEqual(report.phaseSummaries, phases);
+  assert.deepEqual(report.phaseAssessments, assessments);
+  assert.deepEqual(report.competenceGates, gates);
 });
 
 test('bot command results are stored only for their owning diagnostic participant', () => {

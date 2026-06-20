@@ -1,5 +1,6 @@
 import {
   botObjectiveTrends,
+  botTraceCompetenceGates,
   botTraceAlerts,
   botTraceExpertDiagnoses,
   botTraceFrame,
@@ -7,7 +8,9 @@ import {
   botTracePhaseSummaries,
   createBotPlanner,
   type BotExpertDiagnosis,
+  type BotMatchTrace,
   type BotPlanner,
+  type BotTraceCompetenceGate,
   type BotTraceFrame,
   type BotTracePhaseAssessment,
   type BotTracePhaseSummary,
@@ -24,6 +27,13 @@ export type AppBotDiagnostics = {
   frames: BotTraceFrame[];
   commandResults: CommandResult[];
   lastPlan: BotTurnPlan | null;
+};
+
+export type AppBotExpertReport = {
+  healthRows: MatchHealthRow[];
+  phaseSummaries: BotTracePhaseSummary[];
+  phaseAssessments: BotTracePhaseAssessment[];
+  competenceGates: BotTraceCompetenceGate[];
 };
 
 const botConfigFor = (player: number): Parameters<typeof createBotPlanner>[1] =>
@@ -73,37 +83,95 @@ const allBotFrames = (diagnostics: readonly AppBotDiagnostics[]): BotTraceFrame[
 const allBotCommandResults = (diagnostics: readonly AppBotDiagnostics[]): CommandResult[] =>
   diagnostics.flatMap((diagnostic) => diagnostic.commandResults);
 
+export const botDiagnosticTrace = (
+  diagnostics: readonly AppBotDiagnostics[],
+  stats: MatchStats,
+): BotMatchTrace | null => {
+  const frames = allBotFrames(diagnostics);
+  if (frames.length === 0) return null;
+  const commandResults = allBotCommandResults(diagnostics);
+  const invalidCommandsByPlayer = stats.players.map(() => 0);
+  let invalidCommands = 0;
+  for (const result of commandResults) {
+    if (result.ok) continue;
+    invalidCommands++;
+    if (result.player >= 0 && result.player < invalidCommandsByPlayer.length) {
+      invalidCommandsByPlayer[result.player]!++;
+    }
+  }
+  const objectiveTrends = botObjectiveTrends(frames);
+  const alerts = botTraceAlerts(frames, commandResults);
+  const phaseSummaries = botTracePhaseSummaries(frames, alerts);
+  return {
+    frames,
+    stats,
+    invalidCommands,
+    invalidCommandsByPlayer,
+    commandResults,
+    objectiveTrends,
+    alerts,
+    expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+    phaseSummaries,
+    phaseAssessments: botTracePhaseAssessments(phaseSummaries),
+  };
+};
+
 export const botExpertDiagnoses = (
   diagnostics: readonly AppBotDiagnostics[],
   stats: MatchStats,
-): BotExpertDiagnosis[] => {
-  const frames = allBotFrames(diagnostics);
-  if (frames.length === 0) return [];
-  const commandResults = allBotCommandResults(diagnostics);
-  const alerts = botTraceAlerts(frames, commandResults);
-  return botTraceExpertDiagnoses(frames, stats, alerts, botObjectiveTrends(frames));
-};
+): BotExpertDiagnosis[] =>
+  botDiagnosticTrace(diagnostics, stats)?.expertDiagnoses ?? [];
 
 export const botExpertHealthRows = (
   diagnostics: readonly AppBotDiagnostics[],
   stats: MatchStats,
-): MatchHealthRow[] => botExpertDiagnoses(diagnostics, stats).map((diagnosis) => ({
-  player: diagnosis.player,
-  domain: diagnosis.domain,
-  status: diagnosis.status,
-  severity: diagnosis.severity,
-  detail: diagnosis.detail,
-}));
+): MatchHealthRow[] =>
+  botExpertReport(diagnostics, stats).healthRows;
+
+export const botExpertReport = (
+  diagnostics: readonly AppBotDiagnostics[],
+  stats: MatchStats,
+): AppBotExpertReport => {
+  const trace = botDiagnosticTrace(diagnostics, stats);
+  if (!trace) {
+    return {
+      healthRows: [],
+      phaseSummaries: [],
+      phaseAssessments: [],
+      competenceGates: [],
+    };
+  }
+  const players = diagnostics
+    .filter((diagnostic) => diagnostic.frames.length > 0)
+    .map((diagnostic) => diagnostic.player);
+  return {
+    healthRows: trace.expertDiagnoses.map((diagnosis) => ({
+      player: diagnosis.player,
+      domain: diagnosis.domain,
+      status: diagnosis.status,
+      severity: diagnosis.severity,
+      detail: diagnosis.detail,
+    })),
+    phaseSummaries: trace.phaseSummaries,
+    phaseAssessments: trace.phaseAssessments,
+    competenceGates: players.flatMap((player) => botTraceCompetenceGates(trace, player)),
+  };
+};
 
 export const botPhaseSummaries = (
   diagnostics: readonly AppBotDiagnostics[],
-): BotTracePhaseSummary[] => {
-  const frames = allBotFrames(diagnostics);
-  if (frames.length === 0) return [];
-  return botTracePhaseSummaries(frames, botTraceAlerts(frames, allBotCommandResults(diagnostics)));
-};
+  stats: MatchStats,
+): BotTracePhaseSummary[] =>
+  botExpertReport(diagnostics, stats).phaseSummaries;
 
 export const botPhaseAssessments = (
   diagnostics: readonly AppBotDiagnostics[],
+  stats: MatchStats,
 ): BotTracePhaseAssessment[] =>
-  botTracePhaseAssessments(botPhaseSummaries(diagnostics));
+  botExpertReport(diagnostics, stats).phaseAssessments;
+
+export const botCompetenceGates = (
+  diagnostics: readonly AppBotDiagnostics[],
+  stats: MatchStats,
+): BotTraceCompetenceGate[] =>
+  botExpertReport(diagnostics, stats).competenceGates;

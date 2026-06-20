@@ -769,9 +769,11 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const stats = p.game.matchStats;
   const duration = Math.max(0, Math.floor((stats.tick - stats.startTick) / FPS));
   const health = matchHealthRows(stats);
-  const botHealth = p.game.botExpertHealthRows();
-  const botPhases = p.game.botPhaseSummaries();
-  const botPhaseAssessments = p.game.botPhaseAssessments();
+  const botReport = p.game.botExpertReport();
+  const botHealth = botReport.healthRows;
+  const botPhases = botReport.phaseSummaries;
+  const botPhaseAssessments = botReport.phaseAssessments;
+  const botGates = botReport.competenceGates;
   return (
     <div style={{ width: 'min(720px, calc(100vw - 32px))', maxHeight: '42vh', overflow: 'auto',
       border: '1px solid #253142', background: '#0b0e13', padding: '10px', fontSize: '12px',
@@ -856,6 +858,32 @@ const MatchStatsPanel = (p: { game: Game }) => {
           );
         })}
       </div>
+      {botGates.length > 0 && (
+        <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+          paddingTop: '8px' }}>
+          <b style={{ color: '#8ea4bd' }}>Competence Gates</b>
+          {stats.players.map((player) => {
+            const gates = botGates.filter((gate) => gate.player === player.player);
+            if (gates.length === 0) return null;
+            return (
+              <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
+                alignItems: 'center', color: '#cdd9e5' }}>
+                <span>P{player.player + 1}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px' }}>
+                  {gates.map((gate) => (
+                    <span key={gate.domain} title={`${gate.domain} ${HEALTH_LABEL[gate.status]}: ${gate.detail}`}
+                      style={{ minWidth: 0, border: `1px solid ${HEALTH_COLOR[gate.status]}`,
+                        background: '#0f151e', color: HEALTH_COLOR[gate.status], padding: '3px 4px',
+                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {gate.domain} {HEALTH_LABEL[gate.status]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {botPhases.length > 0 && (
         <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
           paddingTop: '8px' }}>
