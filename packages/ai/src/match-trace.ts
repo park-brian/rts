@@ -105,6 +105,7 @@ export type BotExpertDiagnosisDomain =
   | 'objective'
   | 'macro'
   | 'economy'
+  | 'tech'
   | 'production'
   | 'combat';
 
@@ -384,6 +385,29 @@ const productionProgressDiagnosis = (
   return { status: 'watch', severity: 0, detail: 'no completed combat production was observed' };
 };
 
+const techProgressDiagnosis = (
+  frames: readonly BotTraceFrame[],
+  trend: BotObjectiveTrend | undefined,
+): ProgressDiagnosis => {
+  const first = frames[0]!;
+  const last = frames[frames.length - 1]!;
+  const before = trend?.before ?? first.objective;
+  const after = trend?.after ?? last.objective;
+  const techGain = after.techUnlocks - before.techUnlocks;
+  if (techGain > 0) {
+    return { status: 'healthy', severity: techGain, detail: `tech unlock count increased by ${techGain}` };
+  }
+  const researchAttempts = frames.reduce((sum, frame) => sum + (frame.commandsByType.research ?? 0), 0);
+  const researchIntents = frames.reduce((sum, frame) => sum + (frame.intentsByKind['research-upgrade'] ?? 0), 0);
+  if (researchAttempts > 0) {
+    return { status: 'watch', severity: researchAttempts, detail: `${plural(researchAttempts, 'research command')} attempted` };
+  }
+  if (researchIntents > 0) {
+    return { status: 'watch', severity: researchIntents, detail: `${plural(researchIntents, 'research-upgrade intent')} observed` };
+  }
+  return { status: 'watch', severity: 0, detail: 'no tech unlock or research attempt was observed' };
+};
+
 const pushFrameStreakAlerts = (
   alerts: BotTraceAlert[],
   frames: readonly BotTraceFrame[],
@@ -594,6 +618,15 @@ export const botTraceExpertDiagnoses = (
       economyProgress.status,
       economyProgress.severity,
       economyProgress.detail,
+    ));
+
+    const techProgress = techProgressDiagnosis(playerFrames, trend);
+    diagnoses.push(diagnosis(
+      'tech',
+      player,
+      techProgress.status,
+      techProgress.severity,
+      techProgress.detail,
     ));
 
     const productionProgress = productionProgressDiagnosis(first, last, armyGain, trend);

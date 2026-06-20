@@ -478,6 +478,7 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   assert.equal(diagnoses.some((entry) => entry.domain === 'strategy' && entry.detail.includes('posture')), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'objective' && entry.status === 'watch'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
+  assert.equal(diagnoses.some((entry) => entry.domain === 'tech' && entry.status === 'watch'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
 });
@@ -503,6 +504,24 @@ test('bot expert diagnoses expose objective progress from trace trends', () => {
   assert.equal(objective.status, 'healthy');
   assert.equal(objective.detail.includes('worker supply increased'), true);
   assert.equal(objective.detail.includes('field army strength increased'), true);
+});
+
+test('bot expert diagnoses expose tech progress from objective trends', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8128, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+  const after = {
+    ...before,
+    tick: before.tick + 120,
+    objective: { ...before.objective, techUnlocks: before.objective.techUnlocks + 2 },
+  };
+  const diagnoses = botTraceExpertDiagnoses([before, after], createMatchStats(s), [], botObjectiveTrends([before, after]));
+  const tech = diagnoses.find((entry) => entry.domain === 'tech');
+
+  assert.ok(tech);
+  assert.equal(tech.status, 'healthy');
+  assert.equal(tech.detail.includes('tech unlock count increased by 2'), true);
 });
 
 test('bot expert diagnoses distinguish pending production from no production', () => {

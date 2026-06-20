@@ -1107,6 +1107,10 @@ Remaining work:
     domain derived from the same worker, army, enemy-damage, and resource-float trend reasons used
     for scoring. The post-match health UI can now distinguish "the bot issued legal commands" from
     "the bot actually improved its victory position" without a separate debug surface.
+  - Tech-diagnosis slice is done: bot expert reports now include a first-class `tech` domain derived
+    from objective tech unlock deltas plus research command/intent evidence, so post-match results
+    can distinguish active tech pursuit from a silent missing-tech stall.
+
   - First expert-kernel slice is done: intent construction, default urgency, score annotation, and
     deterministic ranking now live in `packages/ai/src/macro-expert.ts`, so macro schedulers,
     tactical directors, traces, and future strategy policies can share one StarCraft expert
@@ -1114,6 +1118,9 @@ Remaining work:
   - First capability-timing slice is done: gas access now uses the same expert vocabulary via
     `take-gas`, so strategy posture can request a race-specific Refinery/Assimilator/Extractor
     through normal build validation and expose the choice in traces/results.
+  - Strategy-training scorer slice is done: combat-unit training now consumes the same strategy
+    posture pressure as production capacity, so `opening`/`ramp`/`pressure` plans can explain why
+    army production is urgent instead of relying only on a static attack threshold.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

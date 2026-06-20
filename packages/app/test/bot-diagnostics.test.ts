@@ -39,7 +39,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
         .filter((row) => row.player === player)
         .map((row) => row.domain)
         .sort(),
-      ['combat', 'economy', 'macro', 'objective', 'production', 'strategy'],
+      ['combat', 'economy', 'macro', 'objective', 'production', 'strategy', 'tech'],
     );
   }
   assert.equal(rows.some((row) => row.domain === 'strategy' && row.detail.includes('posture')), true);

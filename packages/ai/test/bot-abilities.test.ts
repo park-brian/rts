@@ -533,6 +533,20 @@ test('bot expert scores army training from queued combat value, not just count',
     reason.detail.includes('720/1080')), true);
 });
 
+test('bot expert scores army training from strategy combat posture', () => {
+  const economyPosture = scoreBotIntent(botIntent('train-counter'), expertContext({
+    strategy: strategyPosture({ name: 'expand', productionRatio: 0.25, techTarget: 'economy-scale' }),
+  }));
+  const combatPosture = scoreBotIntent(botIntent('train-counter'), expertContext({
+    strategy: strategyPosture({ name: 'ramp', productionRatio: 1, techTarget: 'combat-production' }),
+  }));
+
+  assert.equal((combatPosture.score?.value ?? 0) > (economyPosture.score?.value ?? 0), true);
+  assert.equal(combatPosture.score?.reasons.some((reason) =>
+    reason.kind === 'strategy' &&
+    reason.detail.includes('ramp posture trains toward combat-production')), true);
+});
+
 test('bot expert scores upgrades from army value and existing tech saturation', () => {
   const usefulArmy = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
     objective: objectiveSnapshot({ armyStrength: 1_200, techUnlocks: 0 }),

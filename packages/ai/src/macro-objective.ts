@@ -503,10 +503,16 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strengthPipeline = armyStrengthPipeline(ctx.objective);
       const strengthTarget = desiredArmyStrength(ctx);
       const firstArmy = strengthPipeline === 0;
-      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2), [
+      const strategyBonus = strategyProductionBonus(ctx.strategy);
+      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2) + strategyBonus, [
         scoreReason('army-growth', armyDemand, firstArmy
           ? 'first combat unit unlocks pressure'
           : `army strength gap is ${armyDemand}; pipeline is ${strengthPipeline}/${strengthTarget}`),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture trains toward ${strategy.techTarget}`,
+        ),
       ]);
     }
     case 'add-production': {
