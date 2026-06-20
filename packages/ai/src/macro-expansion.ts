@@ -1,6 +1,5 @@
 import {
   Order,
-  Kind,
   NONE,
   ONE,
   Role,
@@ -8,7 +7,7 @@ import {
   baseDepotFootprint,
   eid,
   footprintsOverlap,
-  isLarvaSourceKind,
+  isBaseDepotKind,
   isLiftedStructureFlags,
   sameTeam,
   structureFootprint,
@@ -47,9 +46,6 @@ export type ExpansionAttempt = {
   outcome?: BotIntentRecord;
 };
 
-const depotKind = (kind: number): boolean =>
-  kind === Kind.CommandCenter || kind === Kind.Nexus || isLarvaSourceKind(kind);
-
 const siteDepotFootprint = (site: BaseSite): { x0: number; y0: number; x1: number; y1: number } =>
   site.depotFootprint ?? baseDepotFootprint(site);
 
@@ -61,7 +57,7 @@ const siteReservedByTeam = (s: State, player: number, site: BaseSite, plannedKin
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || !sameTeam(s, e.owner[i]!, player)) continue;
     const kind = e.kind[i]!;
-    if (depotKind(kind) && footprintTouchesSite(kind, e.x[i]!, e.y[i]!, site)) return true;
+    if (isBaseDepotKind(kind) && footprintTouchesSite(kind, e.x[i]!, e.y[i]!, site)) return true;
     if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === plannedKind) {
       if (footprintTouchesSite(plannedKind, e.tx[i]!, e.ty[i]!, site)) return true;
     }
@@ -74,7 +70,7 @@ const ownedOrPendingDepotCount = (s: State, player: number, plannedKind: number)
   let count = 0;
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
-    if (depotKind(e.kind[i]!)) {
+    if (isBaseDepotKind(e.kind[i]!)) {
       count++;
     } else if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === plannedKind) {
       count++;

@@ -9,6 +9,7 @@ import {
   eid,
   isEnemy,
   isLarvaSourceKind,
+  isBaseDepotKind,
   canProduceKind,
   kindHasDirectWeapon,
   kindHasAbilities,
@@ -83,9 +84,6 @@ export const canRetaskArmy = (s: State, slot: number): boolean => {
 
 const near = (s: State, slot: number, x: number, y: number, tiles: number): boolean =>
   withinRangeSq(s.e.x[slot]!, s.e.y[slot]!, x, y, tiles * TILE * ONE);
-
-const isDepotKind = (kind: number): boolean =>
-  kind === Kind.CommandCenter || kind === Kind.Nexus || isLarvaSourceKind(kind);
 
 const tileCoord = (v: number, max: number): number =>
   Math.max(0, Math.min(max - 1, Math.trunc(v / (TILE * ONE))));
@@ -200,7 +198,7 @@ export const collectBotFacts = (
     if (owner !== player) {
       if (isEnemy(s, player, owner) && enemyVisible(s, player, i)) {
         facts.visibleEnemies.push(i);
-        if (e.built[i] === 1 && isDepotKind(kind)) enemyBases.push(i);
+        if (e.built[i] === 1 && isBaseDepotKind(kind)) enemyBases.push(i);
       }
       continue;
     }

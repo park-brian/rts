@@ -19,6 +19,7 @@ import {
   canProduceKind,
   canResearchTech,
   buildMethodForKind,
+  isBaseDepotKind,
   isLarvaProductKind,
   isSmallStaticDefenseKind,
   kindHasDirectWeapon,
@@ -85,6 +86,12 @@ test('producer capability facts own products and worker-rally classification', (
   assert.equal(buildMethodForKind(Kind.Zergling), 'larva');
   assert.equal(isLarvaProductKind(Kind.Zergling), true);
   assert.equal(isLarvaProductKind(Kind.Marine), false);
+  assert.equal(isBaseDepotKind(Kind.CommandCenter), true);
+  assert.equal(isBaseDepotKind(Kind.Nexus), true);
+  assert.equal(isBaseDepotKind(Kind.Hatchery), true);
+  assert.equal(isBaseDepotKind(Kind.Lair), true);
+  assert.equal(isBaseDepotKind(Kind.Hive), true);
+  assert.equal(isBaseDepotKind(Kind.InfestedCommandCenter), false);
   assert.equal(isSmallStaticDefenseKind(Kind.MissileTurret), true);
   assert.equal(isSmallStaticDefenseKind(Kind.PhotonCannon), true);
   assert.equal(isSmallStaticDefenseKind(Kind.SporeColony), true);

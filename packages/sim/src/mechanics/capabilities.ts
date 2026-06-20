@@ -9,6 +9,7 @@ const EMPTY_PRODUCTS: readonly number[] = [];
 const EMPTY_TECHS: readonly number[] = [];
 const EMPTY_ABILITIES: readonly number[] = [];
 const EMPTY_BUILDS: readonly number[] = [];
+const BASE_DEPOT_KINDS = [Kind.CommandCenter, Kind.Nexus, Kind.Hatchery, Kind.Lair, Kind.Hive] as const;
 const SMALL_STATIC_DEFENSE_KINDS = [Kind.MissileTurret, Kind.PhotonCannon, Kind.SporeColony] as const;
 
 const maxKind = (): number => {
@@ -27,6 +28,7 @@ const abilitiesByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND
 const workerBuildsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const buildMethodByKind: Array<BuildMethod | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
+const baseDepotByKind = new Uint8Array(MAX_KIND + 1);
 const directWeaponByKind = new Uint8Array(MAX_KIND + 1);
 const smallStaticDefenseByKind = new Uint8Array(MAX_KIND + 1);
 
@@ -63,6 +65,8 @@ for (const [key, def] of Object.entries(TechDefs)) {
 
 for (const techs of researchTechsByKind) techs?.sort((a, b) => a - b);
 
+for (const kind of BASE_DEPOT_KINDS) baseDepotByKind[kind] = 1;
+
 for (const kind of SMALL_STATIC_DEFENSE_KINDS) {
   const def = Units[kind];
   if (def && def.footprintW <= 2 && def.footprintH <= 2) smallStaticDefenseByKind[kind] = 1;
@@ -79,6 +83,9 @@ export const buildMethodForKind = (kind: number): BuildMethod | undefined =>
 
 export const isLarvaProductKind = (kind: number): boolean =>
   buildMethodForKind(kind) === 'larva';
+
+export const isBaseDepotKind = (kind: number): boolean =>
+  baseDepotByKind[kind] === 1;
 
 export const isSmallStaticDefenseKind = (kind: number): boolean =>
   smallStaticDefenseByKind[kind] === 1;

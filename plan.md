@@ -340,6 +340,9 @@ Migration plan:
   - Direct-weapon capability slice is done: `mechanics/capabilities.ts` now owns direct weapon
     identity. Bot army fact collection and tactical ability scoring use that owner instead of
     re-reading `weapon || airWeapon` in AI code.
+  - Base-depot capability slice is done: `mechanics/capabilities.ts` now owns normal base depot
+    identity for bot expansion and visible enemy-base tracking, preserving the distinction that
+    Infested Command Centers are not ordinary expansion depots.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and
