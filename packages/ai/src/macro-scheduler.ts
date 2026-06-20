@@ -24,6 +24,7 @@ import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-
 import { type ProducerReservations } from './macro-producers.ts';
 import { maybeQueueRaceResearch } from './macro-research.ts';
 import { queueRaceTechStructure } from './macro-tech.ts';
+import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import type { BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
@@ -47,6 +48,7 @@ export type MacroSchedule = {
 const intentUrgency = (kind: BotIntent['kind']): number => {
   switch (kind) {
     case 'rebuild-tech': return 45;
+    case 'add-static-defense': return 42;
     case 'expand': return 35;
     case 'train-worker': return 35;
     case 'spend-larva': return 35;
@@ -78,6 +80,7 @@ const trainOutcome = (
 };
 
 const structureIntentKind = (faction: Faction, kind: number): BotIntent['kind'] => {
+  if (isStaticDefenseMacroKind(faction, kind)) return 'add-static-defense';
   if (kind === faction.depot) return 'expand';
   if (kind === faction.supplyStructure || kind === faction.armyStructure || kind === Kind.Hatchery) {
     return 'add-production';
@@ -123,6 +126,9 @@ const commandMacroIntent = (command: Command, faction: Faction): BotIntent | nul
       return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
     }
     case 'transform': {
+      if (isStaticDefenseMacroKind(faction, command.kind)) {
+        return { kind: 'add-static-defense', urgency: intentUrgency('add-static-defense'), targetKind: command.kind };
+      }
       const kind = techTransformKind(command.kind) ? 'rebuild-tech' : 'train-counter';
       return { kind, urgency: intentUrgency(kind), targetKind: command.kind };
     }
@@ -227,6 +233,26 @@ export const scheduleBotMacro = (
   }
 
   if (!supplyQueued.queued) {
+    const staticDefense = queueStaticDefense(
+      s,
+      player,
+      faction,
+      facts,
+      cmds,
+      budget,
+      economy.builder,
+      depot,
+      riskAwareFindMacroSpot,
+      riskAwareFindSpot,
+    );
+    if (staticDefense.queued) {
+      builderUsed = staticDefense.usedBuilder;
+    } else if (staticDefense.block) {
+      intentResults.push(structureOutcome(faction, staticDefense.block));
+    }
+  }
+
+  if (!supplyQueued.queued && !builderUsed) {
     const armyStructure = queueArmyStructure(
       s,
       player,

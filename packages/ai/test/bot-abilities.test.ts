@@ -202,6 +202,88 @@ test('macro bot worker training shares train validation and reserved supply', ()
   });
 });
 
+test('bot queues static-defense prerequisites for visible base air threats', () => {
+  const scenario = botScenario({ seed: 836, factions: [Terran, Terran] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.resources(0, 1_000, 0);
+  scenario.spawn(Kind.Wraith, 1, base.x + fx(96), base.y);
+
+  const engineeringBay = findBuild(scenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.EngineeringBay);
+
+  assert.ok(engineeringBay);
+  assert.deepEqual(validateCommand(scenario.state, 0, engineeringBay), { ok: true });
+});
+
+test('bot builds missile turrets only for threats they can answer', () => {
+  const airScenario = botScenario({ seed: 837, factions: [Terran, Terran] });
+  const airBase = airScenario.pos(airScenario.entity(Kind.CommandCenter, 0));
+  airScenario.resources(0, 1_000, 0);
+  airScenario.spawn(Kind.EngineeringBay, 0, airBase.x + fx(160), airBase.y);
+  airScenario.spawn(Kind.Wraith, 1, airBase.x + fx(96), airBase.y);
+
+  const turret = findBuild(airScenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.MissileTurret);
+  assert.ok(turret);
+  assert.deepEqual(validateCommand(airScenario.state, 0, turret), { ok: true });
+
+  const groundScenario = botScenario({ seed: 838, factions: [Terran, Terran] });
+  const groundBase = groundScenario.pos(groundScenario.entity(Kind.CommandCenter, 0));
+  groundScenario.resources(0, 1_000, 0);
+  groundScenario.spawn(Kind.EngineeringBay, 0, groundBase.x + fx(160), groundBase.y);
+  groundScenario.spawn(Kind.Marine, 1, groundBase.x + fx(96), groundBase.y);
+
+  assert.equal(hasBuild(groundScenario.run(Terran, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.MissileTurret), false);
+});
+
+test('protoss bot builds powered photon cannons for visible base ground threats', () => {
+  const scenario = botScenario({ seed: 839, factions: [Protoss, Terran] });
+  const base = scenario.pos(scenario.entity(Kind.Nexus, 0));
+  scenario.resources(0, 1_000, 0);
+  scenario.spawn(Kind.Pylon, 0, base.x + fx(128), base.y);
+  scenario.spawn(Kind.Forge, 0, base.x + fx(180), base.y);
+  scenario.spawn(Kind.Marine, 1, base.x + fx(96), base.y);
+
+  const cannon = findBuild(scenario.run(Protoss, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.PhotonCannon);
+
+  assert.ok(cannon);
+  assert.deepEqual(validateCommand(scenario.state, 0, cannon), { ok: true });
+});
+
+test('zerg bot builds and morphs colony defenses near threatened bases', () => {
+  const buildScenario = botScenario({ seed: 840, factions: [Zerg, Terran] });
+  const buildBase = buildScenario.pos(buildScenario.entity(Kind.Hatchery, 0));
+  buildScenario.resources(0, 1_000, 0);
+  buildScenario.spawn(Kind.SpawningPool, 0, buildBase.x + fx(160), buildBase.y);
+  buildScenario.spawn(Kind.Marine, 1, buildBase.x + fx(96), buildBase.y);
+
+  const colony = findBuild(buildScenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.CreepColony);
+  assert.ok(colony);
+  assert.deepEqual(validateCommand(buildScenario.state, 0, colony), { ok: true });
+
+  const morphScenario = botScenario({ seed: 841, factions: [Zerg, Terran] });
+  const morphBase = morphScenario.pos(morphScenario.entity(Kind.Hatchery, 0));
+  morphScenario.resources(0, 1_000, 0);
+  morphScenario.spawn(Kind.SpawningPool, 0, morphBase.x + fx(160), morphBase.y);
+  morphScenario.spawn(Kind.CreepColony, 0, morphBase.x + fx(96), morphBase.y);
+  morphScenario.spawn(Kind.Marine, 1, morphBase.x + fx(112), morphBase.y);
+
+  const sunken = findTransform(morphScenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 0 }), Kind.SunkenColony);
+  assert.ok(sunken);
+  assert.deepEqual(validateCommand(morphScenario.state, 0, sunken), { ok: true });
+
+  const detectionScenario = botScenario({ seed: 842, factions: [Zerg, Protoss] });
+  const detectionBase = detectionScenario.pos(detectionScenario.entity(Kind.Hatchery, 0));
+  detectionScenario.resources(0, 1_000, 0);
+  detectionScenario.spawn(Kind.EvolutionChamber, 0, detectionBase.x + fx(160), detectionBase.y);
+  detectionScenario.spawn(Kind.CreepColony, 0, detectionBase.x + fx(96), detectionBase.y);
+  detectionScenario.spawn(Kind.DarkTemplar, 1, detectionBase.x + fx(112), detectionBase.y);
+
+  const detectionCmds = detectionScenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 0 });
+  const spore = findTransform(detectionCmds, Kind.SporeColony);
+  assert.ok(spore);
+  assert.deepEqual(validateCommand(detectionScenario.state, 0, spore), { ok: true });
+  assert.equal(hasTransform(detectionCmds, Kind.SunkenColony), false);
+});
+
 test('bot tactical ability policy descriptors match sim ability target modes', () => {
   const expectedTactical = [
     Ability.ShieldRecharge,
@@ -257,6 +339,7 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
     'get-detection',
     'clear-site',
     'evacuate-workers',
+    'add-static-defense',
     'train-worker',
     'scout',
     'attack-wave',
@@ -273,6 +356,7 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   const intents = macroIntentsFromCommands([
     { t: 'build', unit: 1, kind: Kind.CommandCenter, x: fx(100), y: fx(100) },
     { t: 'build', unit: 1, kind: Kind.Barracks, x: fx(120), y: fx(100) },
+    { t: 'build', unit: 1, kind: Kind.MissileTurret, x: fx(130), y: fx(100) },
     { t: 'research', building: 2, tech: Tech.StimPack },
     { t: 'train', building: 3, kind: Kind.SCV },
     { t: 'train', building: 3, kind: Kind.Marine },
@@ -282,15 +366,25 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   assert.deepEqual(intents.map((intent) => intent.kind), [
     'expand',
     'add-production',
+    'add-static-defense',
     'research-upgrade',
     'train-worker',
     'train-counter',
   ]);
   assert.equal(intents[0]?.targetKind, Kind.CommandCenter);
   assert.equal(intents[1]?.targetKind, Kind.Barracks);
-  assert.equal(intents[2]?.targetTech, Tech.StimPack);
-  assert.equal(intents[3]?.targetKind, Kind.SCV);
-  assert.equal(intents[4]?.targetKind, Kind.Marine);
+  assert.equal(intents[2]?.targetKind, Kind.MissileTurret);
+  assert.equal(intents[3]?.targetTech, Tech.StimPack);
+  assert.equal(intents[4]?.targetKind, Kind.SCV);
+  assert.equal(intents[5]?.targetKind, Kind.Marine);
+
+  const zergIntents = macroIntentsFromCommands([
+    { t: 'build', unit: 1, kind: Kind.CreepColony, x: fx(100), y: fx(100) },
+    { t: 'transform', unit: 2, kind: Kind.SunkenColony },
+  ], Zerg);
+  assert.deepEqual(zergIntents.map((intent) => intent.kind), ['add-static-defense', 'add-static-defense']);
+  assert.equal(zergIntents[0]?.targetKind, Kind.CreepColony);
+  assert.equal(zergIntents[1]?.targetKind, Kind.SunkenColony);
 });
 
 test('macro army-structure rally setup obeys shared rally validation', () => {

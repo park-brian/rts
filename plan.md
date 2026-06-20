@@ -1241,6 +1241,14 @@ Remaining work:
       optional scoring input, samples visible anti-ground danger along the builder-to-site line, and
       the macro scheduler passes `facts.risk` into normal supply, production, tech, and capacity
       placements without changing exact expansion-site lifecycle validation.
+    - Static-defense macro slice is done: threatened protected regions now request race-appropriate
+      defensive structures through a descriptor-driven AI module. Terran queues Missile Turrets only
+      for air/detection-class threats and can build the Engineering Bay prerequisite, Protoss queues
+      powered Photon Cannons, and Zerg builds Creep Colonies or morphs completed colonies into
+      Sunken/Spore defenses when the final form can answer the visible threat. The scheduler spends
+      this before normal army/tech/capacity macro, uses shared command validation and budget
+      accounting, and suppresses duplicate coverage from completed final defenses or pending seeds
+      without mistaking a completed Creep Colony for an active defense.
   - Expansion must be a lifecycle, not a one-shot build command: choose site, scout/verify when
     uncertain, reserve builder/resources/site, execute, monitor blocked/path/unsafe outcomes, clear
     or detect if needed, choose another site when better, and retry without command spam.

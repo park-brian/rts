@@ -18,6 +18,7 @@ export const BOT_INTENT_KINDS = [
   'clear-site',
   'evacuate-workers',
   'rebuild-tech',
+  'add-static-defense',
   'add-production',
   'expand',
   'train-worker',
