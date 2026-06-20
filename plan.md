@@ -1151,10 +1151,10 @@ Remaining work:
     expert assessments for economy, army, macro, combat, and summary health. This gives the bot a
     compact expert-system audit trail before adding more scheduler policy.
   - Competence-gate slice is done: whole-match traces now expose reusable player gates for command
-    legality, economy growth, combat production, combat commitment, expert alerts/verdicts, and
-    phase-level victory-axis evidence. The all-race bot-vs-four-rax integration gate consumes this
-    surface directly, so regressions fail with a StarCraft-domain reason instead of only a loose
-    "something happened" assertion.
+    legality, economy-target growth, combat production, combat commitment, expert alerts/verdicts,
+    and phase-level victory-axis evidence. The all-race bot-vs-four-rax integration gate consumes
+    this surface directly, so regressions fail with a StarCraft-domain reason instead of only a
+    loose "something happened" assertion.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

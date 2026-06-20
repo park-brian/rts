@@ -1357,6 +1357,7 @@ export const botTraceCompetenceGates = (
 ): BotTraceCompetenceGate[] => {
   const frames = trace.frames.filter((frame) => frame.player === player);
   const first = frames[0];
+  const last = frames[frames.length - 1];
   const stats = trace.stats.players[player];
   const invalidCommands = trace.invalidCommandsByPlayer[player] ?? 0;
   const alerts = trace.alerts.filter((alert) => alert.player === player);
@@ -1371,6 +1372,8 @@ export const botTraceCompetenceGates = (
   const expertStatus: BotExpertDiagnosisStatus = alerts.length > 0
     ? 'failing'
     : summary?.status ?? 'watch';
+  const workerTarget = last?.strategy.workerTarget ?? first?.workers ?? 0;
+  const workersAtTarget = stats !== undefined && stats.peakWorkers >= workerTarget;
   const gates: BotTraceCompetenceGate[] = [];
 
   gates.push(competenceGate(
@@ -1384,10 +1387,10 @@ export const botTraceCompetenceGates = (
   gates.push(competenceGate(
     player,
     'economy',
-    stats && first && stats.peakWorkers > first.workers ? 'healthy' : 'failing',
+    stats && first && workersAtTarget ? 'healthy' : 'failing',
     stats && first ? Math.max(0, stats.peakWorkers - first.workers) : 0,
     stats && first
-      ? `worker peak ${first.workers}->${stats.peakWorkers}`
+      ? `worker peak ${first.workers}->${stats.peakWorkers} against target ${workerTarget}`
       : 'missing economy trace evidence',
   ));
 

@@ -951,6 +951,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.notEqual(summaryDiagnosis?.status, 'failing', `${name} trace should not have a failing expert verdict`);
     assert.equal(summaryDiagnosis?.detail.includes('plan '), true, `${name} expert verdict should name its plan`);
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
+    assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('economy')), true, `${name} gates should summarize victory-axis evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'expert' && gate.detail.includes('expert verdict')), true, `${name} gates should include the expert verdict`);
   }
