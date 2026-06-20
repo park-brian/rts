@@ -31,12 +31,14 @@ export type BotObjectiveSnapshot = {
   armySupply: number;
   armyStrength: number;
   productionCapacity: number;
+  pendingProductionCapacity: number;
   techUnlocks: number;
   supplyAvailable: number;
   enemyWorkerSupply: number;
   enemyArmySupply: number;
   enemyArmyStrength: number;
   enemyProductionCapacity: number;
+  enemyPendingProductionCapacity: number;
   enemyTechUnlocks: number;
   resourceFloat: number;
 };
@@ -92,12 +94,14 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   armySupply: 0,
   armyStrength: 0,
   productionCapacity: 0,
+  pendingProductionCapacity: 0,
   techUnlocks: 0,
   supplyAvailable: shownSupply(Math.max(0, s.players.supplyMax[player]! - s.players.supplyUsed[player]!)),
   enemyWorkerSupply: 0,
   enemyArmySupply: 0,
   enemyArmyStrength: 0,
   enemyProductionCapacity: 0,
+  enemyPendingProductionCapacity: 0,
   enemyTechUnlocks: 0,
   resourceFloat: s.players.minerals[player]! + s.players.gas[player]!,
 });
@@ -168,6 +172,18 @@ const productionCapacityValue = (kind: number): number => {
   return def && def.produces.some(isCombatProductKind) ? 1 : 0;
 };
 
+const pendingProductionCapacityValue = (s: State, slot: number, kind: number): number => {
+  if (s.e.built[slot] !== 1) return productionCapacityValue(kind);
+  const pendingKind = s.e.buildKind[slot]!;
+  return pendingKind === Kind.None ? 0 : productionCapacityValue(pendingKind);
+};
+
+const totalProductionCapacity = (objective: BotObjectiveSnapshot): number =>
+  objective.productionCapacity + objective.pendingProductionCapacity;
+
+const totalEnemyProductionCapacity = (objective: BotObjectiveSnapshot): number =>
+  objective.enemyProductionCapacity + objective.enemyPendingProductionCapacity;
+
 const structureUnlocksCapabilities = (kind: number): boolean => {
   const def = Units[kind];
   return !!def &&
@@ -204,19 +220,23 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
       ? shownSupply(def.supply)
       : 0;
     const armyStrength = armySupply > 0 ? combatValue(s, slot) : 0;
-    const productionCapacity = e.built[slot] === 1 ? productionCapacityValue(kind) : 0;
+    const capacityValue = productionCapacityValue(kind);
+    const productionCapacity = e.built[slot] === 1 ? capacityValue : 0;
+    const pendingProductionCapacity = pendingProductionCapacityValue(s, slot, kind);
 
     if (owner === player) {
       objective.workerSupply += workerSupply;
       objective.armySupply += armySupply;
       objective.armyStrength += armyStrength;
       objective.productionCapacity += productionCapacity;
+      objective.pendingProductionCapacity += pendingProductionCapacity;
       if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) ownTechStructures.add(kind);
     } else if (isEnemy(s, player, owner)) {
       objective.enemyWorkerSupply += workerSupply;
       objective.enemyArmySupply += armySupply;
       objective.enemyArmyStrength += armyStrength;
       objective.enemyProductionCapacity += productionCapacity;
+      objective.enemyPendingProductionCapacity += pendingProductionCapacity;
       if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) enemyTechStructures.add(kind);
     }
   }
@@ -264,12 +284,12 @@ export const botObjectiveReasons = (
   const reasons: BotObjectiveReason[] = [];
   const workerGain = after.workerSupply - before.workerSupply;
   const armyGain = after.armyStrength - before.armyStrength;
-  const productionGain = after.productionCapacity - before.productionCapacity;
+  const productionGain = totalProductionCapacity(after) - totalProductionCapacity(before);
   const techGain = after.techUnlocks - before.techUnlocks;
   const supplyGain = after.supplyAvailable - before.supplyAvailable;
   const enemyWorkerLoss = before.enemyWorkerSupply - after.enemyWorkerSupply;
   const enemyArmyLoss = before.enemyArmyStrength - after.enemyArmyStrength;
-  const enemyProductionLoss = before.enemyProductionCapacity - after.enemyProductionCapacity;
+  const enemyProductionLoss = totalEnemyProductionCapacity(before) - totalEnemyProductionCapacity(after);
   const enemyTechLoss = before.enemyTechUnlocks - after.enemyTechUnlocks;
   const floatGrowth = after.resourceFloat - before.resourceFloat;
 
@@ -388,7 +408,7 @@ const desiredProductionCapacity = (ctx: BotExpertContext): number =>
   Math.max(1, Math.ceil(ctx.attackThreshold / 4));
 
 const productionCapacityGap = (ctx: BotExpertContext): number =>
-  Math.max(0, desiredProductionCapacity(ctx) - ctx.objective.productionCapacity);
+  Math.max(0, desiredProductionCapacity(ctx) - totalProductionCapacity(ctx.objective));
 
 const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
   ctx.objective.supplyAvailable <= 2 ? -6 : 0;
@@ -420,7 +440,7 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
-          : `completed combat production capacity is ${ctx.objective.productionCapacity}/${desiredProductionCapacity(ctx)}`),
+          : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}`),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...strategyReasons(
           ctx.strategy,

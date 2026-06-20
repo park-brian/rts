@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, fx, setTechLevel, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
+import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botObjectiveReasons,
@@ -105,13 +105,35 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
   assert.equal(frame.objective.armySupply, 1);
   assert.equal(frame.objective.armyStrength > 0, true);
   assert.equal(frame.objective.productionCapacity, 1);
+  assert.equal(frame.objective.pendingProductionCapacity, 0);
   assert.equal(frame.objective.techUnlocks >= 2, true);
   assert.equal(frame.objective.supplyAvailable > 0, true);
   assert.equal(frame.objective.enemyWorkerSupply, Terran.startWorkers);
   assert.equal(frame.objective.enemyArmySupply, 1);
   assert.equal(frame.objective.enemyArmyStrength > 0, true);
   assert.equal(frame.objective.enemyProductionCapacity, 1);
+  assert.equal(frame.objective.enemyPendingProductionCapacity, 0);
   assert.equal(frame.objective.enemyTechUnlocks >= 2, true);
+});
+
+test('bot trace objective snapshot separates completed and pending production capacity', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8116, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  const ownBase = primaryBaseSlot(s, 0, Terran);
+  const enemyBase = primaryBaseSlot(s, 1, Terran);
+  const pendingOwn = slotOf(spawnUnit(s, Kind.Barracks, 0, e.x[ownBase]! + fx(160), e.y[ownBase]!));
+  const pendingEnemy = slotOf(spawnUnit(s, Kind.Barracks, 1, e.x[enemyBase]! - fx(160), e.y[enemyBase]!));
+  e.built[pendingOwn] = 0;
+  e.built[pendingEnemy] = 0;
+
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+
+  assert.equal(frame.objective.productionCapacity, 0);
+  assert.equal(frame.objective.pendingProductionCapacity, 1);
+  assert.equal(frame.objective.enemyProductionCapacity, 0);
+  assert.equal(frame.objective.enemyPendingProductionCapacity, 1);
 });
 
 test('bot trace objective army strength uses researched combat upgrades', () => {
@@ -134,12 +156,14 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     armySupply: 2,
     armyStrength: 300,
     productionCapacity: 1,
+    pendingProductionCapacity: 0,
     techUnlocks: 1,
     supplyAvailable: 4,
     enemyWorkerSupply: 8,
     enemyArmySupply: 3,
     enemyArmyStrength: 450,
     enemyProductionCapacity: 2,
+    enemyPendingProductionCapacity: 0,
     enemyTechUnlocks: 2,
     resourceFloat: 200,
   };
@@ -148,12 +172,14 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     armySupply: 4,
     armyStrength: 700,
     productionCapacity: 2,
+    pendingProductionCapacity: 1,
     techUnlocks: 3,
     supplyAvailable: 8,
     enemyWorkerSupply: 6,
     enemyArmySupply: 1,
     enemyArmyStrength: 150,
     enemyProductionCapacity: 1,
+    enemyPendingProductionCapacity: 0,
     enemyTechUnlocks: 1,
     resourceFloat: 900,
   };

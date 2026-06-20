@@ -93,12 +93,14 @@ const objectiveSnapshot = (overrides: Partial<BotObjectiveSnapshot> = {}): BotOb
   armySupply: 0,
   armyStrength: 0,
   productionCapacity: 0,
+  pendingProductionCapacity: 0,
   techUnlocks: 0,
   supplyAvailable: 20,
   enemyWorkerSupply: 8,
   enemyArmySupply: 0,
   enemyArmyStrength: 0,
   enemyProductionCapacity: 0,
+  enemyPendingProductionCapacity: 0,
   enemyTechUnlocks: 0,
   resourceFloat: 0,
   ...overrides,
@@ -453,7 +455,7 @@ test('bot expert scores production from completed capacity and supply headroom',
   assert.equal((blocked.score?.value ?? 0) < (thin.score?.value ?? 0), true);
   assert.equal(thin.score?.reasons.some((reason) =>
     reason.kind === 'production-throughput' &&
-    reason.detail.includes('0/3')), true);
+    reason.detail.includes('0+0/3')), true);
   assert.equal(blocked.score?.reasons.some((reason) =>
     reason.kind === 'supply-availability' &&
     reason.value < 0), true);

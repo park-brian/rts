@@ -1035,6 +1035,12 @@ Remaining work:
     production-capacity and research intents. This is still a thin expert judgement layer over
     ordinary validated commands, but scores now explain scarce macro choices in terms of the same
     objective metrics shown in traces.
+  - Pending-production objective slice is done: objective snapshots now separate completed combat
+    production from pending production capacity, including unfinished production structures and
+    workers already carrying a production-building `buildKind`. Add-production scoring uses the
+    completed+pending total, so traces no longer claim the bot still needs the same throughput while
+    a Barracks/Gateway/Hatchery-equivalent production source is already paid for or under
+    construction.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
