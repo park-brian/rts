@@ -1,6 +1,7 @@
 import { ONE, TILE } from '@rts/sim';
 import type { TacticalIncident } from './macro-incidents.ts';
 import type { BotFailureReason, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
+import { placementAnchorKey, type PlacementDiagnostic } from './macro-placement.ts';
 
 export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
 export const PRODUCTION_STALL_REACTION_COUNT = 3;
@@ -10,6 +11,8 @@ export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_RESOURCES = 800;
 export const COMBAT_STALL_REACTION_TICKS = 15 * 24;
 export const COMBAT_STALL_FRESH_TICKS = 6 * 24;
+export const PLACEMENT_STALL_REACTION_COUNT = 3;
+export const PLACEMENT_STALL_FRESH_TICKS = 6 * 24;
 
 export type ProductionStallMemory = {
   count: number;
@@ -30,9 +33,19 @@ export type CombatStallMemory = {
   reason?: BotFailureReason;
 };
 
+export type PlacementStallMemory = {
+  kind: number;
+  anchorX: number;
+  anchorY: number;
+  count: number;
+  sinceTick: number;
+  lastTick: number;
+};
+
 export type BotMemory = {
   lastTick: number;
   blockedSites: Map<string, { x: number; y: number; reason: BotFailureReason; tick: number }>;
+  placementStalls: Map<string, PlacementStallMemory>;
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
@@ -49,6 +62,7 @@ export type IntentOutcomeMemoryContext = {
 export const createBotMemory = (): BotMemory => ({
   lastTick: -1,
   blockedSites: new Map(),
+  placementStalls: new Map(),
   suspectedInvisibleThreats: new Map(),
   tacticalIncidents: new Map(),
   tacticalCommitments: new Map(),
@@ -114,6 +128,19 @@ export const combatStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.combatStall.sinceTick >= 0 &&
   tick - memory.combatStall.sinceTick >= COMBAT_STALL_REACTION_TICKS &&
   tick - memory.combatStall.lastTick <= COMBAT_STALL_FRESH_TICKS;
+
+export const placementStallAnchorKeys = (memory: BotMemory, tick: number): Set<string> => {
+  const keys = new Set<string>();
+  for (const [key, stall] of memory.placementStalls) {
+    if (
+      stall.count >= PLACEMENT_STALL_REACTION_COUNT &&
+      tick - stall.lastTick <= PLACEMENT_STALL_FRESH_TICKS
+    ) {
+      keys.add(key);
+    }
+  }
+  return keys;
+};
 
 const clearProductionStall = (memory: BotMemory): void => {
   memory.productionStall.count = 0;
@@ -243,5 +270,35 @@ export const rememberIntentOutcomes = (
     if ((result.status === 'blocked' || result.status === 'failed') && locationFailure(result.reason)) {
       memory.blockedSites.set(key, { x: intent.x, y: intent.y, reason: result.reason, tick });
     }
+  }
+};
+
+export const rememberPlacementDiagnostics = (
+  memory: BotMemory,
+  diagnostics: readonly PlacementDiagnostic[],
+  tick: number,
+): void => {
+  const oldest = tick - INTENT_OUTCOME_MEMORY_TICKS;
+  for (const [key, stall] of memory.placementStalls) {
+    if (stall.lastTick < oldest) memory.placementStalls.delete(key);
+  }
+
+  for (const diagnostic of diagnostics) {
+    const key = placementAnchorKey(diagnostic.kind, diagnostic.anchorX, diagnostic.anchorY);
+    if (diagnostic.result === 'chosen') {
+      memory.placementStalls.delete(key);
+      continue;
+    }
+
+    const existing = memory.placementStalls.get(key);
+    const continuing = existing !== undefined && tick - existing.lastTick <= PLACEMENT_STALL_FRESH_TICKS;
+    memory.placementStalls.set(key, {
+      kind: diagnostic.kind,
+      anchorX: diagnostic.anchorX,
+      anchorY: diagnostic.anchorY,
+      count: continuing ? existing.count + 1 : 1,
+      sinceTick: continuing ? existing.sinceTick : tick,
+      lastTick: tick,
+    });
   }
 };

@@ -29,7 +29,7 @@ import { maybeQueueRaceResearch } from './macro-research.ts';
 import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
-import { macroFloatStallActive, productionStallActive, type BotMemory } from './macro-memory.ts';
+import { macroFloatStallActive, placementStallAnchorKeys, productionStallActive, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 import type { BotStrategyPosture } from './macro-strategy.ts';
 
@@ -192,6 +192,7 @@ export const scheduleBotMacro = (
   const placementOptions = {
     risk: facts.risk,
     diagnostics: config.placementDiagnostics,
+    stalledAnchors: memory ? placementStallAnchorKeys(memory, s.tick) : undefined,
   };
   const riskAwareFindSpot: typeof findSpot = (state, owner, worker, kind, x, y) =>
     findSpot(state, owner, worker, kind, x, y, placementOptions);

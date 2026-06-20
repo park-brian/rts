@@ -1107,6 +1107,12 @@ Remaining work:
     rejected candidate counts and the dominant placement rejection reason. Remaining deadlock work:
     make the scheduler react to this evidence with alternate anchors, clear-site/transport intents,
     or strategy fallback instead of only reporting the failure.
+  - Placement-stall reaction slice is done: live planner memory now promotes repeated unavailable
+    placement diagnostics into active stalled anchors, and macro placement widens only that
+    structure+anchor search radius on later turns. This is a conservative recovery path: normal
+    placement stays fast and local, while proven dead anchors get a deterministic broader search.
+    Remaining placement recovery work should add alternate layout roles and clear-site/fallback
+    intents when widened search still cannot find a sane tile.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;

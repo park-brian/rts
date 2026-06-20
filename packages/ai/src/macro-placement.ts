@@ -36,6 +36,7 @@ import { riskAtLayer, type BotRiskMap } from './macro-risk.ts';
 const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const SEARCH_MIN_RADIUS_TILES = 3;
 const SEARCH_MAX_RADIUS_TILES = 14;
+const STALLED_SEARCH_MAX_RADIUS_TILES = 22;
 const BASE_RESOURCE_EDGE_LIMIT_TILES = 12;
 const RESOURCE_RESERVATION_PENALTY = 80_000;
 const HARVEST_CORRIDOR_PENALTY = 120_000;
@@ -108,7 +109,11 @@ export type PlacementOptions = {
   risk?: BotRiskMap;
   diagnostics?: PlacementDiagnostic[];
   diagnosticLimit?: number;
+  stalledAnchors?: ReadonlySet<string>;
 };
+
+export const placementAnchorKey = (kind: number, x: number, y: number): string =>
+  `${kind}:${tileX(x)}:${tileY(y)}`;
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
 
@@ -437,7 +442,10 @@ const findBestSpot = (
   for (const anchor of anchors) {
     const btx = tileX(anchor.x);
     const bty = tileY(anchor.y);
-    for (let r = SEARCH_MIN_RADIUS_TILES; r <= SEARCH_MAX_RADIUS_TILES; r++) {
+    const maxRadius = options.stalledAnchors?.has(placementAnchorKey(kind, anchor.x, anchor.y))
+      ? STALLED_SEARCH_MAX_RADIUS_TILES
+      : SEARCH_MAX_RADIUS_TILES;
+    for (let r = SEARCH_MIN_RADIUS_TILES; r <= maxRadius; r++) {
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;

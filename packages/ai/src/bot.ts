@@ -14,7 +14,7 @@ import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { botStrategyPosture, type BotStrategyPosture } from './macro-strategy.ts';
 import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
-import { createBotMemory, rememberIntentOutcomes, type BotMemory } from './macro-memory.ts';
+import { createBotMemory, rememberIntentOutcomes, rememberPlacementDiagnostics, type BotMemory } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
 import type { BotIntent, BotIntentRecord, BotIntentResult } from './macro-intents.ts';
 
@@ -162,6 +162,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
       resourceFloat: expert.objective.resourceFloat,
     });
+    rememberPlacementDiagnostics(memory, placementDiagnostics, s.tick);
     return {
       commands: cmds,
       intents: rankedIntentResults.map((record) => record.intent),

@@ -24,7 +24,10 @@ import {
   macroFloatStallActive,
   macroIntentsFromCommands,
   missingStructureKinds,
+  placementAnchorKey,
+  placementStallAnchorKeys,
   rememberIntentOutcomes,
+  rememberPlacementDiagnostics,
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
@@ -3956,6 +3959,50 @@ test('macro placement uses risk to prefer safer builder routes', () => {
   assert.ok(spot);
   assert.equal(spot.x, safeSpot.x);
   assert.equal(spot.y, safeSpot.y);
+});
+
+test('bot memory promotes repeated placement failures into stalled anchors', () => {
+  const memory = createBotMemory();
+  const diagnostic = {
+    kind: Kind.Barracks,
+    result: 'unavailable' as const,
+    anchorX: tileCenterFx(40),
+    anchorY: tileCenterFx(40),
+    candidates: 0,
+    rejected: 120,
+    rejectedByReason: { 'placement-blocked': 120 },
+    scoreReasons: [],
+  };
+
+  rememberPlacementDiagnostics(memory, [diagnostic], 100);
+  rememberPlacementDiagnostics(memory, [diagnostic], 124);
+  assert.equal(placementStallAnchorKeys(memory, 124).size, 0);
+  rememberPlacementDiagnostics(memory, [diagnostic], 148);
+  assert.equal(placementStallAnchorKeys(memory, 148).has(placementAnchorKey(Kind.Barracks, diagnostic.anchorX, diagnostic.anchorY)), true);
+
+  rememberPlacementDiagnostics(memory, [{ ...diagnostic, result: 'chosen', x: tileCenterFx(58), y: tileCenterFx(40), score: 0 }], 172);
+  assert.equal(placementStallAnchorKeys(memory, 172).size, 0);
+});
+
+test('macro placement widens search for stalled anchors only', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1123, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const anchor = { x: tileCenterFx(40), y: tileCenterFx(40) };
+  const farSpot = { x: tileCenterFx(58), y: tileCenterFx(40) };
+  s.e.x[worker] = anchor.x;
+  s.e.y[worker] = anchor.y;
+  s.map.build.fill(0);
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, farSpot.x, farSpot.y));
+
+  const stalledAnchors = new Set([placementAnchorKey(Kind.SupplyDepot, anchor.x, anchor.y)]);
+  const normal = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y);
+  const widened = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y, { stalledAnchors });
+
+  assert.equal(normal, null);
+  assert.ok(widened);
+  assert.equal(widened.x, farSpot.x);
+  assert.equal(widened.y, farSpot.y);
 });
 
 test('protoss bot places gateways from completed pylon power anchors', () => {
