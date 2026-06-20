@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Kind, Sim, Terran, sliceMap, spawnUnit } from '@rts/sim';
-import { botTraceFrame, createBotPlanner, runBotMatchTrace } from '../src/index.ts';
+import {
+  botObjectiveReasons,
+  botTraceFrame,
+  createBotPlanner,
+  runBotMatchTrace,
+  type BotObjectiveSnapshot,
+} from '../src/index.ts';
 import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
@@ -21,6 +27,61 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.intentsByKind['train-worker']! > 0 || frame.intentsByKind['add-production']! > 0, true);
   assert.equal(frame.outcomesByStatus.done! + frame.outcomesByStatus.waiting! + frame.outcomesByStatus.blocked! + frame.outcomesByStatus.failed!,
     plan.intentResults.length);
+  assert.equal(frame.objective.workerSupply, Terran.startWorkers);
+  assert.equal(frame.objective.resourceFloat, 500);
+});
+
+test('bot trace objective snapshot scores own and enemy economy and army', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8106, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  let ownBase = 0;
+  let enemyBase = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] === 1 && e.owner[i] === 0 && e.kind[i] === Kind.CommandCenter) ownBase = i;
+    if (e.alive[i] === 1 && e.owner[i] === 1 && e.kind[i] === Kind.CommandCenter) enemyBase = i;
+  }
+  spawnUnit(s, Kind.Marine, 0, e.x[ownBase]!, e.y[ownBase]!);
+  spawnUnit(s, Kind.Marine, 1, e.x[enemyBase]!, e.y[enemyBase]!);
+
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+
+  assert.equal(frame.objective.workerSupply, Terran.startWorkers);
+  assert.equal(frame.objective.armySupply, 1);
+  assert.equal(frame.objective.armyStrength > 0, true);
+  assert.equal(frame.objective.enemyWorkerSupply, Terran.startWorkers);
+  assert.equal(frame.objective.enemyArmySupply, 1);
+  assert.equal(frame.objective.enemyArmyStrength > 0, true);
+});
+
+test('bot objective reasons explain growth, damage, and resource float', () => {
+  const before: BotObjectiveSnapshot = {
+    workerSupply: 8,
+    armySupply: 2,
+    armyStrength: 300,
+    enemyWorkerSupply: 8,
+    enemyArmySupply: 3,
+    enemyArmyStrength: 450,
+    resourceFloat: 200,
+  };
+  const after: BotObjectiveSnapshot = {
+    workerSupply: 10,
+    armySupply: 4,
+    armyStrength: 700,
+    enemyWorkerSupply: 6,
+    enemyArmySupply: 1,
+    enemyArmyStrength: 150,
+    resourceFloat: 900,
+  };
+
+  const reasons = botObjectiveReasons(before, after);
+
+  assert.equal(reasons.some((reason) => reason.kind === 'economy-growth'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'army-growth'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'enemy-economy-damage'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'enemy-army-damage'), true);
+  assert.equal(reasons.some((reason) => reason.kind === 'resource-float'), true);
 });
 
 test('bot trace frame records waiting reasons when production is blocked', () => {
