@@ -1159,6 +1159,10 @@ Remaining work:
     and phase-level victory-axis evidence. The all-race bot-vs-four-rax integration gate consumes
     this surface directly, so regressions fail with a StarCraft-domain reason instead of only a
     loose "something happened" assertion.
+  - Macro/placement gate slice is done: competence gates now expose macro-spending and placement
+    sanity as separate obligations. Resource-float or expected-progress alerts fail the
+    macro-spending gate, repeated placement-stall alerts fail the placement gate, and the all-race
+    trace gate plus post-match UI surface those domains explicitly.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

@@ -212,7 +212,9 @@ export type BotMatchTrace = {
 export type BotTraceCompetenceGateDomain =
   | 'commands'
   | 'economy'
+  | 'macro-spending'
   | 'production'
+  | 'placement'
   | 'combat'
   | 'expert'
   | 'phase-evidence';
@@ -1361,6 +1363,8 @@ export const botTraceCompetenceGates = (
   const stats = trace.stats.players[player];
   const invalidCommands = trace.invalidCommandsByPlayer[player] ?? 0;
   const alerts = trace.alerts.filter((alert) => alert.player === player);
+  const macroAlerts = playerAlerts(trace.alerts, player, ['resource-float-stall', 'expected-progress-stall']);
+  const placementAlerts = playerAlerts(trace.alerts, player, ['placement-stall']);
   const summary = trace.expertDiagnoses.find((entry) => entry.player === player && entry.domain === 'summary');
   const axes = playerAxisCounts(trace.phaseSummaries, player);
   const macroCommands = stats
@@ -1374,6 +1378,7 @@ export const botTraceCompetenceGates = (
     : summary?.status ?? 'watch';
   const workerTarget = last?.strategy.workerTarget ?? first?.workers ?? 0;
   const workersAtTarget = stats !== undefined && stats.peakWorkers >= workerTarget;
+  const peakResourceFloat = frames.reduce((peak, frame) => Math.max(peak, frame.objective.resourceFloat), 0);
   const gates: BotTraceCompetenceGate[] = [];
 
   gates.push(competenceGate(
@@ -1406,6 +1411,26 @@ export const botTraceCompetenceGates = (
 
   gates.push(competenceGate(
     player,
+    'macro-spending',
+    macroAlerts.length === 0 ? 'healthy' : 'failing',
+    alertSeverity(macroAlerts),
+    macroAlerts.length === 0
+      ? `peak resource float ${peakResourceFloat} with ${macroCommands} macro command attempts`
+      : macroAlerts.map((alert) => alert.detail).join('; '),
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'placement',
+    placementAlerts.length === 0 ? 'healthy' : 'failing',
+    alertSeverity(placementAlerts),
+    placementAlerts.length === 0
+      ? 'no repeated placement deadlock was observed'
+      : placementAlerts.map((alert) => alert.detail).join('; '),
+  ));
+
+  gates.push(competenceGate(
+    player,
     'combat',
     combatCommands > 0 ? 'healthy' : 'failing',
     combatCommands,
@@ -1418,7 +1443,7 @@ export const botTraceCompetenceGates = (
     player,
     'expert',
     expertStatus,
-    alerts.reduce((sum, alert) => sum + alert.severity, 0),
+    alertSeverity(alerts),
     alerts.length === 0
       ? `expert verdict ${summary?.status ?? 'missing'}`
       : alerts.map((alert) => alert.detail).join('; '),

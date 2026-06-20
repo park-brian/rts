@@ -13,6 +13,7 @@ import {
   botIntentVictoryAxis,
   createBotPlanner,
   runBotMatchTrace,
+  type BotMatchTrace,
   type BotObjectiveSnapshot,
 } from '../src/index.ts';
 import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
@@ -648,6 +649,57 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
     alert.detail.includes('blocked-by-entity')), true);
 });
 
+test('bot competence gates expose macro-spending and placement failures', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8132, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, build: 0, train: 0, research: 0, addon: 0, transform: 0 },
+    objective: { ...frame.objective, resourceFloat: 900 },
+    placementDiagnostics: [{
+      kind: Kind.Barracks,
+      role: 'production-block' as const,
+      result: 'unavailable' as const,
+      anchorX: fx(10),
+      anchorY: fx(12),
+      candidates: 0,
+      rejected: 120,
+      rejectedByReason: { 'blocked-by-entity': 120 },
+      scoreReasons: [],
+    }],
+  }));
+  const alerts = botTraceAlerts(frames);
+  const stats = createMatchStats(s);
+  const objectiveTrends = botObjectiveTrends(frames);
+  const phaseSummaries = botTracePhaseSummaries(frames, alerts);
+  const trace: BotMatchTrace = {
+    frames,
+    stats,
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends,
+    alerts,
+    expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+    phaseSummaries,
+    phaseAssessments: [],
+  };
+  const gates = botTraceCompetenceGates(trace, 0);
+
+  assert.equal(gates.some((gate) =>
+    gate.domain === 'macro-spending' &&
+    gate.status === 'failing' &&
+    gate.detail.includes('floated 900 resources')), true);
+  assert.equal(gates.some((gate) =>
+    gate.domain === 'placement' &&
+    gate.status === 'failing' &&
+    gate.detail.includes('production-block')), true);
+});
+
 test('bot expert diagnoses summarize trace health by strategic domain', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8109, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -952,6 +1004,8 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(summaryDiagnosis?.detail.includes('plan '), true, `${name} expert verdict should name its plan`);
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
+    assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true, `${name} gates should expose placement evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('economy')), true, `${name} gates should summarize victory-axis evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'expert' && gate.detail.includes('expert verdict')), true, `${name} gates should include the expert verdict`);
   }
