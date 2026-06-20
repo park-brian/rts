@@ -1201,6 +1201,10 @@ Remaining work:
     "idle production with train intents but no train command" from the worse "idle production,
     resources, supply, and no train intent at all" case. Production expert diagnoses treat both as
     production failures, which gives the scheduler a precise future signal for lights-off macro.
+  - Missing-production-intent reaction slice is done: live bot memory now promotes repeated ready
+    production frames with no train intent into a distinct active signal, and the macro scheduler
+    consumes that signal through the existing production-capacity pressure path. This keeps recovery
+    evidence-driven without inventing a second capacity scheduler.
 - Keep validator/action-mask parity for every command family and ability target mode.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.

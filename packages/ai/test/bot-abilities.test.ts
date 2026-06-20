@@ -23,6 +23,7 @@ import {
   issuePressureEngagement,
   macroFloatStallActive,
   macroIntentsFromCommands,
+  missingProductionIntentActive,
   missingStructureKinds,
   placementAnchorKey,
   placementStallAnchorKeys,
@@ -2751,6 +2752,14 @@ const rememberProductionCapacityStall = () => {
   return memory;
 };
 
+const rememberMissingProductionIntent = () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 24, 48]) {
+    rememberIntentOutcomes(memory, [], tick, { missingProductionIntent: true });
+  }
+  return memory;
+};
+
 const rememberMacroFloatStall = () => {
   const memory = createBotMemory();
   for (const tick of [0, 24, 48]) {
@@ -2784,6 +2793,19 @@ test('bot memory promotes repeated production-capacity waits into a live stall s
   }], 72);
 
   assert.equal(productionStallActive(memory, 72), false);
+});
+
+test('bot memory promotes repeated missing production intents into a live stall signal', () => {
+  const memory = rememberMissingProductionIntent();
+
+  assert.equal(missingProductionIntentActive(memory, 48), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+    result: { status: 'done' },
+  }], 72, { missingProductionIntent: false });
+
+  assert.equal(missingProductionIntentActive(memory, 72), false);
 });
 
 test('bot memory promotes repeated banked macro waits into a live float-stall signal', () => {
@@ -2841,6 +2863,31 @@ test('terran scheduler adds production capacity earlier when live expert memory 
     collectBotFacts(s, 0, Terran),
     { barracksTarget: 1, workerTarget: 0 },
     rememberProductionCapacityStall(),
+  );
+
+  const build = findCommandBuild(cmds, Kind.Barracks);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
+});
+
+test('terran scheduler adds production capacity when live expert memory sees missing production intent', () => {
+  const scenario = botScenario({ seed: 518, factions: [Terran, Zerg] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const barracks = scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  s.e.prodKind[slotOf(barracks)] = Kind.Marine;
+  scenario.resources(0, 400, 0);
+  s.players.supplyMax[0] = 1_000;
+  const cmds: Command[] = [];
+
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 1, workerTarget: 0 },
+    rememberMissingProductionIntent(),
   );
 
   const build = findCommandBuild(cmds, Kind.Barracks);

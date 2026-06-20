@@ -29,7 +29,13 @@ import { maybeQueueRaceResearch } from './macro-research.ts';
 import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
-import { macroFloatStallActive, placementStallAnchorKeys, productionStallActive, type BotMemory } from './macro-memory.ts';
+import {
+  macroFloatStallActive,
+  missingProductionIntentActive,
+  placementStallAnchorKeys,
+  productionStallActive,
+  type BotMemory,
+} from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 import type { BotStrategyPosture } from './macro-strategy.ts';
 
@@ -202,11 +208,12 @@ export const scheduleBotMacro = (
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy);
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
+  const missingProductionIntent = memory ? missingProductionIntentActive(memory, s.tick) : false;
   const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
-  const capacityPressure = { productionStalled: productionStalled || postureWantsProduction };
+  const capacityPressure = { productionStalled: productionStalled || missingProductionIntent || postureWantsProduction };
   const expansionPressure = { macroFloatStalled: macroFloatStalled || postureWantsExpansion };
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
@@ -340,7 +347,7 @@ export const scheduleBotMacro = (
   }
 
   let stalledCapacityAttempted = false;
-  if (!builderUsed && productionStalled) {
+  if (!builderUsed && (productionStalled || missingProductionIntent)) {
     stalledCapacityAttempted = true;
     const capacity = queueProductionCapacity();
     if (capacity.queued) {

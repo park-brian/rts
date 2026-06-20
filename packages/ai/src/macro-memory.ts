@@ -6,6 +6,9 @@ import { placementAnchorKey, type PlacementDiagnostic, type PlacementLayoutRole 
 export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
 export const PRODUCTION_STALL_REACTION_COUNT = 3;
 export const PRODUCTION_STALL_FRESH_TICKS = 6 * 24;
+export const MISSING_PRODUCTION_INTENT_REACTION_COUNT = 3;
+export const MISSING_PRODUCTION_INTENT_FRESH_TICKS = 6 * 24;
+export const MISSING_PRODUCTION_INTENT_RESOURCES = 300;
 export const MACRO_FLOAT_STALL_REACTION_COUNT = 3;
 export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_RESOURCES = 800;
@@ -19,6 +22,12 @@ export type ProductionStallMemory = {
   sinceTick: number;
   lastTick: number;
   reason?: BotFailureReason;
+};
+
+export type MissingProductionIntentMemory = {
+  count: number;
+  sinceTick: number;
+  lastTick: number;
 };
 
 export type MacroFloatStallMemory = {
@@ -51,6 +60,7 @@ export type BotMemory = {
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
   productionStall: ProductionStallMemory;
+  missingProductionIntent: MissingProductionIntentMemory;
   macroFloatStall: MacroFloatStallMemory;
   combatStall: CombatStallMemory;
   offenseWaitSince: number;
@@ -58,6 +68,7 @@ export type BotMemory = {
 
 export type IntentOutcomeMemoryContext = {
   resourceFloat?: number;
+  missingProductionIntent?: boolean;
 };
 
 export const createBotMemory = (): BotMemory => ({
@@ -68,6 +79,7 @@ export const createBotMemory = (): BotMemory => ({
   tacticalIncidents: new Map(),
   tacticalCommitments: new Map(),
   productionStall: { count: 0, sinceTick: -1, lastTick: -1 },
+  missingProductionIntent: { count: 0, sinceTick: -1, lastTick: -1 },
   macroFloatStall: { count: 0, sinceTick: -1, lastTick: -1 },
   combatStall: { sinceTick: -1, lastTick: -1 },
   offenseWaitSince: -1,
@@ -86,8 +98,11 @@ const pruneOlderThan = <T extends { tick: number }>(entries: Map<string, T>, tic
 const locationFailure = (reason: BotFailureReason): boolean =>
   reason === 'unsafe-location' || reason === 'occupied-location' || reason === 'path-blocked';
 
-const productionIntent = (kind: BotIntentKind): boolean =>
+export const productionIntent = (kind: BotIntentKind): boolean =>
   kind === 'train-counter' || kind === 'spend-larva';
+
+export const trainIntent = (kind: BotIntentKind): boolean =>
+  kind === 'train-worker' || productionIntent(kind);
 
 const productionCapacityFailure = (reason: BotFailureReason): boolean =>
   reason === 'no-production-capacity' || reason === 'no-producer';
@@ -121,6 +136,10 @@ export const productionStallActive = (memory: BotMemory, tick: number): boolean 
   memory.productionStall.count >= PRODUCTION_STALL_REACTION_COUNT &&
   tick - memory.productionStall.lastTick <= PRODUCTION_STALL_FRESH_TICKS;
 
+export const missingProductionIntentActive = (memory: BotMemory, tick: number): boolean =>
+  memory.missingProductionIntent.count >= MISSING_PRODUCTION_INTENT_REACTION_COUNT &&
+  tick - memory.missingProductionIntent.lastTick <= MISSING_PRODUCTION_INTENT_FRESH_TICKS;
+
 export const macroFloatStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.macroFloatStall.count >= MACRO_FLOAT_STALL_REACTION_COUNT &&
   tick - memory.macroFloatStall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
@@ -148,6 +167,12 @@ const clearProductionStall = (memory: BotMemory): void => {
   memory.productionStall.sinceTick = -1;
   memory.productionStall.lastTick = -1;
   memory.productionStall.reason = undefined;
+};
+
+const clearMissingProductionIntent = (memory: BotMemory): void => {
+  memory.missingProductionIntent.count = 0;
+  memory.missingProductionIntent.sinceTick = -1;
+  memory.missingProductionIntent.lastTick = -1;
 };
 
 const clearMacroFloatStall = (memory: BotMemory): void => {
@@ -184,6 +209,23 @@ const rememberProductionStall = (
   stall.sinceTick = continuing ? stall.sinceTick : tick;
   stall.lastTick = tick;
   stall.reason = record.result.reason;
+};
+
+const rememberMissingProductionIntent = (
+  memory: BotMemory,
+  tick: number,
+  context: IntentOutcomeMemoryContext,
+): void => {
+  if (!context.missingProductionIntent) {
+    clearMissingProductionIntent(memory);
+    return;
+  }
+
+  const stall = memory.missingProductionIntent;
+  const continuing = tick - stall.lastTick <= MISSING_PRODUCTION_INTENT_FRESH_TICKS;
+  stall.count = continuing ? stall.count + 1 : 1;
+  stall.sinceTick = continuing ? stall.sinceTick : tick;
+  stall.lastTick = tick;
 };
 
 const rememberMacroFloatStall = (
@@ -250,6 +292,7 @@ export const rememberIntentOutcomes = (
   pruneOlderThan(memory.blockedSites, tick);
   pruneOlderThan(memory.suspectedInvisibleThreats, tick);
   rememberProductionStall(memory, records, tick);
+  rememberMissingProductionIntent(memory, tick, context);
   rememberMacroFloatStall(memory, records, tick, context);
   rememberCombatStall(memory, records, tick);
 

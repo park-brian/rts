@@ -14,7 +14,14 @@ import { combatReserve } from './macro-reserve.ts';
 import { scheduleBotMacro } from './macro-scheduler.ts';
 import { botStrategyPosture, type BotStrategyPosture } from './macro-strategy.ts';
 import { executeTacticalDefense, proposeTacticalDefense, tacticalIntentResult } from './macro-tactics.ts';
-import { createBotMemory, rememberIntentOutcomes, rememberPlacementDiagnostics, type BotMemory } from './macro-memory.ts';
+import {
+  MISSING_PRODUCTION_INTENT_RESOURCES,
+  createBotMemory,
+  rememberIntentOutcomes,
+  rememberPlacementDiagnostics,
+  trainIntent,
+  type BotMemory,
+} from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
 import type { BotIntent, BotIntentRecord, BotIntentResult } from './macro-intents.ts';
 
@@ -159,8 +166,14 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     }
 
     const rankedIntentResults = rankBotIntentRecords(scoreBotIntentRecords(intentResults, expert));
+    const readyProductionWithoutIntent =
+      expert.objective.resourceFloat >= MISSING_PRODUCTION_INTENT_RESOURCES &&
+      facts.supplyUsed < facts.supplyMax &&
+      facts.idleProducers.length + facts.idleLarvae.length > 0 &&
+      !rankedIntentResults.some((record) => trainIntent(record.intent.kind));
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
       resourceFloat: expert.objective.resourceFloat,
+      missingProductionIntent: readyProductionWithoutIntent,
     });
     rememberPlacementDiagnostics(memory, placementDiagnostics, s.tick);
     return {
