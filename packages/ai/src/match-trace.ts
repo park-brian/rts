@@ -375,13 +375,12 @@ const summaryDiagnosis = (
     .filter((entry) => entry.status === status)
     .reduce((sum, entry) => sum + entry.severity, 0);
   const plan = last.strategicPlan;
-  const label = status === 'healthy' ? 'healthy' : status === 'watch' ? 'watching' : 'failing';
   return diagnosis(
     'summary',
     first.player,
     status,
     severity,
-    `${label}: ${issueSummary(diagnoses, status)}; plan ${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance}`,
+    `${issueSummary(diagnoses, status)}; plan ${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance}`,
   );
 };
 
