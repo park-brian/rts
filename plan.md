@@ -980,6 +980,11 @@ Remaining work:
   Workers and supply are the economic clock; tech-tree steps are justified when they unlock combat,
   preserve worker growth, unlock needed counters, or add production/economy scale. A tech structure
   that does not advance one of those capabilities is not an opening plan.
+  - First tech-capability selector slice is done: race tech structure selection now has a small
+    posture-scored capability table with the old tech order as a deterministic fallback. The
+    scheduler still relies on shared build validation for prerequisites and placement, but pressure
+    Zerg now prefers Spire counter-tech over a passive Evolution Chamber when Hydralisk Den and Lair
+    are already online.
 - The macro objective should eventually be explicit and mathematical: maximize the rate of useful
   worker supply growth plus effective army-strength growth over time. Effective army strength should
   include unit count, weapon/armor/ability upgrades, tech unlocks, production throughput, supply

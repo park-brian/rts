@@ -29,6 +29,7 @@ import {
   pressureFocus,
   pressureCommitmentTicks,
   productionStallActive,
+  rankRaceTechStructureKinds,
   findSpot,
   proposePressureIntent,
   proposeTacticalDefense,
@@ -2017,6 +2018,25 @@ test('zerg bot respects spire prerequisite, placement, duplicates, and budget', 
   });
   broke.resources(0, 1_000, Units[Kind.Spire]!.gas - 1);
   expectNoBotBuild(broke, Zerg, Kind.Spire, zergBuildOptions);
+});
+
+test('zerg pressure posture prefers spire over passive evolution chamber tech', () => {
+  const { scenario } = zergBuildScenario(4007, (scenario, base, hatchery) => {
+    makeLair(scenario, hatchery);
+    spawnZergTechChain(scenario, base, ZERG_POOL_DEN);
+    scenario.spawn(Kind.Zergling, 0, base.x + fx(32), base.y);
+  });
+
+  const cmds = scenario.run(Zerg, 0, { workerTarget: 0, barracksTarget: 1, attackThreshold: 1 });
+  const build = findBuild(cmds, Kind.Spire);
+
+  assert.ok(build);
+  assert.equal(hasBuild(cmds, Kind.EvolutionChamber), false);
+  assertPublicSurfaceExposes(scenario.state, 0, build);
+  assert.equal(
+    rankRaceTechStructureKinds(Zerg, strategyPosture({ techTarget: 'counter-tech' }))[0],
+    Kind.Spire,
+  );
 });
 
 test('zerg bot places a legal queen nest after a completed lair', () => {

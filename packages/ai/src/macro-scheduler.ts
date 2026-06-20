@@ -333,6 +333,7 @@ export const scheduleBotMacro = (
       economy.builder,
       depot,
       riskAwareFindMacroSpot,
+      config.strategy,
     );
     if (techStructure.queued) {
       builderUsed = true;
