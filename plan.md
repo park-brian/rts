@@ -1199,6 +1199,11 @@ Remaining work:
     diagnosis consumes this alert as a failing capability stall instead of hiding it inside generic
     macro health. Background unavailable research options stay as evidence, but they do not fail a
     trace while higher-priority economy, defense, or production work is ahead of them.
+  - Live tech-stall reaction slice is done: bot memory now promotes repeated leading blocked tech
+    intents into a fresh `techStall` signal, and the shared expert scorer boosts `rebuild-tech` with
+    an explicit reason while that signal is active. The macro scheduler consumes this through the
+    same expert context used by normal score-ranked builder choices, instead of adding another
+    priority ladder branch.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;

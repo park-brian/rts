@@ -45,6 +45,7 @@ import {
   scoreBotIntent,
   selectTacticalResponders,
   shouldCommitPressure,
+  techStallActive,
   TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
   tacticalIntentResult,
@@ -569,6 +570,18 @@ test('bot expert scores upgrades from army value and existing tech saturation', 
   assert.equal(saturatedTech.score?.reasons.some((reason) =>
     reason.kind === 'tech-unlock' &&
     reason.value < 0), true);
+});
+
+test('bot expert scores rebuild tech higher when live tech stall memory is active', () => {
+  const normal = scoreBotIntent(botIntent('rebuild-tech', { targetKind: Kind.Academy }), expertContext());
+  const stalled = scoreBotIntent(botIntent('rebuild-tech', { targetKind: Kind.Academy }), expertContext({
+    techStalled: true,
+  }));
+
+  assert.equal((stalled.score?.value ?? 0) > (normal.score?.value ?? 0), true);
+  assert.equal(stalled.score?.reasons.some((reason) =>
+    reason.kind === 'tech-unlock' &&
+    reason.detail.includes('leading tech intent is repeatedly blocked')), true);
 });
 
 test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
@@ -3050,6 +3063,28 @@ test('bot memory promotes sustained passive offense into a live combat-stall sig
   }], 384);
 
   assert.equal(combatStallActive(memory, 384), false);
+});
+
+test('bot memory promotes repeated leading blocked tech intents into a live stall signal', () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 24, 48]) {
+    rememberIntentOutcomes(memory, [{
+      intent: { kind: 'research-upgrade', urgency: 25, targetTech: Tech.StimPack },
+      result: { status: 'waiting', reason: 'missing-prerequisite' },
+    }], tick);
+  }
+
+  assert.equal(techStallActive(memory, 48), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'train-worker', urgency: 35, targetKind: Kind.SCV },
+    result: { status: 'waiting', reason: 'resource-starved' },
+  }, {
+    intent: { kind: 'research-upgrade', urgency: 25, targetTech: Tech.StimPack },
+    result: { status: 'waiting', reason: 'missing-prerequisite' },
+  }], 72);
+
+  assert.equal(techStallActive(memory, 72), false);
 });
 
 test('pressure commitment forces least-bad action after sustained combat stall', () => {

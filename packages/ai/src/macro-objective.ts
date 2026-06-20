@@ -85,6 +85,7 @@ export type BotExpertContext = {
   bases: number;
   attackThreshold: number;
   strategy?: BotStrategyPosture;
+  techStalled?: boolean;
 };
 
 export type ObjectiveFrame = {
@@ -306,6 +307,7 @@ export const botExpertContext = (
   workerTarget: number,
   attackThreshold: number,
   strategy?: BotStrategyPosture,
+  techStalled = false,
 ): BotExpertContext => ({
   objective: botObjectiveSnapshot(s, player),
   workers: facts.workers.length,
@@ -317,6 +319,7 @@ export const botExpertContext = (
   bases: facts.bases.length,
   attackThreshold,
   ...(strategy ? { strategy } : {}),
+  ...(techStalled ? { techStalled } : {}),
 });
 
 const objectiveReason = (
@@ -552,8 +555,9 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       ]);
     }
     case 'rebuild-tech':
-      return scoredIntent(intent, 44, [
+      return scoredIntent(intent, 44 + (ctx.techStalled ? 14 : 0), [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
+        ...(ctx.techStalled ? [scoreReason('tech-unlock', 14, 'leading tech intent is repeatedly blocked')] : []),
       ]);
     case 'research-upgrade': {
       const armyValue = armyStrengthPipeline(ctx.objective);

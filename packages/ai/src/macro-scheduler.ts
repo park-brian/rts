@@ -35,6 +35,7 @@ import {
   missingProductionIntentActive,
   placementStallAnchorKeys,
   productionStallActive,
+  techStallActive,
   type BotMemory,
 } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
@@ -221,7 +222,8 @@ export const scheduleBotMacro = (
     findMacroSpot(state, owner, worker, kind, fallback, { ...placementOptions, ...request });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
-  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy);
+  const techStalled = memory ? techStallActive(memory, s.tick) : false;
+  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, techStalled);
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
   const missingProductionIntent = memory ? missingProductionIntentActive(memory, s.tick) : false;
   const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
