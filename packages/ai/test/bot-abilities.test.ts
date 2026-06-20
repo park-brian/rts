@@ -503,7 +503,7 @@ test('bot expert scores worker and army demand from queued production pipeline',
   const queuedArmy = scoreBotIntent(botIntent('train-counter'), expertContext({
     army: 0,
     attackThreshold: 4,
-    objective: objectiveSnapshot({ armyStrength: 0, queuedArmyProduction: 2 }),
+    objective: objectiveSnapshot({ armyStrength: 0, queuedArmyProduction: 2, queuedArmyStrength: 360 }),
   }));
 
   assert.equal((missingWorkers.score?.value ?? 0) > (queuedWorkers.score?.value ?? 0), true);
@@ -513,7 +513,24 @@ test('bot expert scores worker and army demand from queued production pipeline',
   assert.equal((noArmy.score?.value ?? 0) > (queuedArmy.score?.value ?? 0), true);
   assert.equal(queuedArmy.score?.reasons.some((reason) =>
     reason.kind === 'army-growth' &&
-    reason.detail.includes('army pipeline gap is 2')), true);
+    reason.detail.includes('army strength gap is 2') &&
+    reason.detail.includes('360/720')), true);
+});
+
+test('bot expert scores army training from queued combat value, not just count', () => {
+  const weakQueue = scoreBotIntent(botIntent('train-counter'), expertContext({
+    attackThreshold: 6,
+    objective: objectiveSnapshot({ queuedArmyProduction: 2, queuedArmyStrength: 180 }),
+  }));
+  const strongQueue = scoreBotIntent(botIntent('train-counter'), expertContext({
+    attackThreshold: 6,
+    objective: objectiveSnapshot({ queuedArmyProduction: 2, queuedArmyStrength: 720 }),
+  }));
+
+  assert.equal((weakQueue.score?.value ?? 0) > (strongQueue.score?.value ?? 0), true);
+  assert.equal(strongQueue.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.detail.includes('720/1080')), true);
 });
 
 test('bot expert scores upgrades from army value and existing tech saturation', () => {

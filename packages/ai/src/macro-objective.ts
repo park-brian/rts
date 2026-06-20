@@ -461,6 +461,9 @@ const desiredArmyStrength = (ctx: BotExpertContext): number =>
 const armyStrengthGap = (ctx: BotExpertContext): number =>
   Math.max(0, desiredArmyStrength(ctx) - armyStrengthPipeline(ctx.objective));
 
+const armyTrainingDemand = (ctx: BotExpertContext): number =>
+  Math.ceil(armyStrengthGap(ctx) / TARGET_STRENGTH_PER_COMBAT_UNIT);
+
 const desiredProductionCapacity = (ctx: BotExpertContext): number =>
   Math.max(1, Math.ceil(armyStrengthGap(ctx) / STRENGTH_PER_PRODUCTION_CAPACITY));
 
@@ -472,9 +475,7 @@ const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
 
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
   const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
-  const armyPipeline = ctx.army + ctx.objective.queuedArmyProduction;
   const workerGap = Math.max(0, ctx.workerTarget - workerPipeline);
-  const armyGap = Math.max(0, ctx.attackThreshold - armyPipeline);
   const floatBonus = ctx.objective.resourceFloat > 400
     ? Math.min(8, Math.trunc((ctx.objective.resourceFloat - 400) / 150))
     : 0;
@@ -486,9 +487,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       ]);
     case 'spend-larva':
     case 'train-counter': {
-      const firstArmy = ctx.objective.armyStrength === 0 && ctx.objective.queuedArmyProduction === 0;
-      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyGap * 2), [
-        scoreReason('army-growth', armyGap, firstArmy ? 'first combat unit unlocks pressure' : `army pipeline gap is ${armyGap}`),
+      const armyDemand = armyTrainingDemand(ctx);
+      const strengthPipeline = armyStrengthPipeline(ctx.objective);
+      const strengthTarget = desiredArmyStrength(ctx);
+      const firstArmy = strengthPipeline === 0;
+      return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2), [
+        scoreReason('army-growth', armyDemand, firstArmy
+          ? 'first combat unit unlocks pressure'
+          : `army strength gap is ${armyDemand}; pipeline is ${strengthPipeline}/${strengthTarget}`),
       ]);
     }
     case 'add-production': {

@@ -1065,6 +1065,9 @@ Remaining work:
     from fielded+queued combat strength against the current attack-threshold target, and upgrade
     scoring values queued army alongside fielded army. This lets the scheduler consume expert
     evidence instead of expanding production from raw army counts alone.
+  - Combat-training scorer slice is done: `train-counter` and `spend-larva` urgency now use the same
+    fielded+queued combat-strength demand as production capacity, so queued high-value units reduce
+    army-training pressure more than low-value bodies with the same count.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
