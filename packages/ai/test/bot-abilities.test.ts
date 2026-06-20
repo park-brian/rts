@@ -459,9 +459,29 @@ test('bot expert scores production from completed capacity and supply headroom',
   assert.equal(thin.score?.reasons.some((reason) =>
     reason.kind === 'production-throughput' &&
     reason.detail.includes('0+0/3')), true);
+  assert.equal(thin.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail.includes('army strength pipeline is 0/2160')), true);
   assert.equal(blocked.score?.reasons.some((reason) =>
     reason.kind === 'supply-availability' &&
     reason.value < 0), true);
+});
+
+test('bot expert scores production capacity from combat strength pipeline', () => {
+  const noPipeline = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    attackThreshold: 12,
+    objective: objectiveSnapshot({ productionCapacity: 0, queuedArmyStrength: 0, resourceFloat: 800 }),
+  }));
+  const strongPipeline = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    attackThreshold: 12,
+    objective: objectiveSnapshot({ productionCapacity: 0, queuedArmyStrength: 1_500, resourceFloat: 800 }),
+  }));
+
+  assert.equal((noPipeline.score?.value ?? 0) > (strongPipeline.score?.value ?? 0), true);
+  assert.equal(strongPipeline.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail.includes('0+0/1') &&
+    reason.detail.includes('1500/2160')), true);
 });
 
 test('bot expert scores worker and army demand from queued production pipeline', () => {
@@ -500,12 +520,19 @@ test('bot expert scores upgrades from army value and existing tech saturation', 
   const usefulArmy = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
     objective: objectiveSnapshot({ armyStrength: 1_200, techUnlocks: 0 }),
   }));
+  const usefulQueuedArmy = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
+    objective: objectiveSnapshot({ armyStrength: 0, queuedArmyStrength: 1_200, techUnlocks: 0 }),
+  }));
   const saturatedTech = scoreBotIntent(botIntent('research-upgrade', { targetTech: Tech.InfantryWeapons }), expertContext({
     objective: objectiveSnapshot({ armyStrength: 1_200, techUnlocks: 8 }),
   }));
 
   assert.equal((usefulArmy.score?.value ?? 0) > (saturatedTech.score?.value ?? 0), true);
+  assert.equal(usefulQueuedArmy.score?.value, usefulArmy.score?.value);
   assert.equal(usefulArmy.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.value === 1_200), true);
+  assert.equal(usefulQueuedArmy.score?.reasons.some((reason) =>
     reason.kind === 'army-growth' &&
     reason.value === 1_200), true);
   assert.equal(saturatedTech.score?.reasons.some((reason) =>

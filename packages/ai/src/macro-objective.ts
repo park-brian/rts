@@ -118,6 +118,8 @@ const STRENGTH_RANGE_SCALE = 1024;
 const STRENGTH_ARMOR_VALUE = 12;
 const STRENGTH_SPEED_SCALE = 64;
 const STRENGTH_ENERGY_SCALE = 20;
+const TARGET_STRENGTH_PER_COMBAT_UNIT = 180;
+const STRENGTH_PER_PRODUCTION_CAPACITY = 720;
 
 const weaponValueForKind = (
   s: State,
@@ -450,8 +452,17 @@ const strategyProductionBonus = (strategy: BotStrategyPosture | undefined): numb
   return ratioBonus + techBonus;
 };
 
+const armyStrengthPipeline = (objective: BotObjectiveSnapshot): number =>
+  objective.armyStrength + objective.queuedArmyStrength;
+
+const desiredArmyStrength = (ctx: BotExpertContext): number =>
+  ctx.attackThreshold * TARGET_STRENGTH_PER_COMBAT_UNIT;
+
+const armyStrengthGap = (ctx: BotExpertContext): number =>
+  Math.max(0, desiredArmyStrength(ctx) - armyStrengthPipeline(ctx.objective));
+
 const desiredProductionCapacity = (ctx: BotExpertContext): number =>
-  Math.max(1, Math.ceil(ctx.attackThreshold / 4));
+  Math.max(1, Math.ceil(armyStrengthGap(ctx) / STRENGTH_PER_PRODUCTION_CAPACITY));
 
 const productionCapacityGap = (ctx: BotExpertContext): number =>
   Math.max(0, desiredProductionCapacity(ctx) - totalProductionCapacity(ctx.objective));
@@ -483,12 +494,14 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'add-production': {
       const zergMacroHatchery = intent.targetKind === Kind.Hatchery && ctx.idleLarvae === 0;
       const capacityGap = productionCapacityGap(ctx);
+      const strengthPipeline = armyStrengthPipeline(ctx.objective);
+      const strengthTarget = desiredArmyStrength(ctx);
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const supplyPenalty = supplyHeadroomPenalty(ctx);
       return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
-          : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}`),
+          : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}; army strength pipeline is ${strengthPipeline}/${strengthTarget}`),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...strategyReasons(
           ctx.strategy,
@@ -519,10 +532,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
       ]);
     case 'research-upgrade': {
-      const armyValueBonus = Math.min(10, Math.trunc(ctx.objective.armyStrength / 220));
+      const armyValue = armyStrengthPipeline(ctx.objective);
+      const armyValueBonus = Math.min(10, Math.trunc(armyValue / 220));
       const unlockPenalty = Math.min(6, ctx.objective.techUnlocks);
       return scoredIntent(intent, 28 + armyValueBonus - unlockPenalty, [
-        scoreReason('army-growth', ctx.objective.armyStrength, 'upgrade increases current and future combat value'),
+        scoreReason('army-growth', armyValue, 'upgrade increases fielded and queued combat value'),
         scoreReason('tech-unlock', -unlockPenalty, `completed tech unlock count is ${ctx.objective.techUnlocks}`),
       ]);
     }
