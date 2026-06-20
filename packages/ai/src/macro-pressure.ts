@@ -1,5 +1,5 @@
 import { NONE, ONE, TILE, distanceSq, isEnemy, nearest, type State } from '@rts/sim';
-import type { BotMemory } from './macro-memory.ts';
+import { combatStallActive, type BotMemory } from './macro-memory.ts';
 import { type BotFacts, type ProtectedRegion } from './macro.ts';
 import { riskAt } from './macro-risk.ts';
 
@@ -32,6 +32,9 @@ export const pressureCommitmentDecision = (
   }
   const waitTicks = pressureCommitmentTicks(force, threshold);
   if (waitTicks === 0) return { status: 'commit', waitTicks, waitedTicks: 0, forced: false };
+  if (combatStallActive(memory, tick)) {
+    return { status: 'commit', waitTicks, waitedTicks: tick - memory.combatStall.sinceTick, forced: true };
+  }
   if (memory.offenseWaitSince < 0 || tick < memory.offenseWaitSince) memory.offenseWaitSince = tick;
   const waitedTicks = tick - memory.offenseWaitSince;
   if (waitedTicks >= waitTicks) return { status: 'commit', waitTicks, waitedTicks, forced: true };

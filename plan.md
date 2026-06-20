@@ -130,6 +130,14 @@ the macro scheduler consumes that signal by lowering the expansion bank to avoid
 large mineral float when no normal macro spend is completing. Remaining live feedback work should
 focus on passive combat posture and blocked expansion retries, again only when a failing trace
 proves the scheduler needs a live corrective signal rather than another isolated helper.
+Third live expert-feedback slice is done: bot memory now promotes sustained offensive combat waits
+into a `combatStall` signal only after 15 seconds of repeated attack/harass/contain/counterattack
+intent without a command, and the pressure commitment decision consumes that signal by forcing the
+existing least-bad commit path. This deliberately does not bypass pressure focus, Nydus shortcut,
+spell casting, or shared attack-move validation; it only prevents the expert layer from mistaking
+indefinite caution for a strategy. Remaining live feedback should focus on blocked expansion retry
+quality and whole-match competence gates, not more isolated scheduler flags unless traces prove a
+new repeated failure mode.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

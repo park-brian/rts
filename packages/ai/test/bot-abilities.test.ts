@@ -13,6 +13,7 @@ import {
   createBotPlanner,
   createMacroBot,
   createBotMemory,
+  combatStallActive,
   deriveTacticalIncidents,
   executePressureIntent,
   executeTacticalDefense,
@@ -2643,6 +2644,17 @@ const rememberMacroFloatStall = () => {
   return memory;
 };
 
+const rememberCombatIntentStall = () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 120, 240, 360]) {
+    rememberIntentOutcomes(memory, [{
+      intent: { kind: 'attack-wave', urgency: 40 },
+      result: { status: 'waiting', reason: 'insufficient-force' },
+    }], tick);
+  }
+  return memory;
+};
+
 test('bot memory promotes repeated production-capacity waits into a live stall signal', () => {
   const memory = rememberProductionCapacityStall();
 
@@ -2667,6 +2679,30 @@ test('bot memory promotes repeated banked macro waits into a live float-stall si
   }], 72, { resourceFloat: 900 });
 
   assert.equal(macroFloatStallActive(memory, 72), false);
+});
+
+test('bot memory promotes sustained passive offense into a live combat-stall signal', () => {
+  const memory = rememberCombatIntentStall();
+
+  assert.equal(combatStallActive(memory, 240), false);
+  assert.equal(combatStallActive(memory, 360), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'attack-wave', urgency: 40 },
+    result: { status: 'done' },
+  }], 384);
+
+  assert.equal(combatStallActive(memory, 384), false);
+});
+
+test('pressure commitment forces least-bad action after sustained combat stall', () => {
+  const memory = rememberCombatIntentStall();
+  const patient = pressureCommitmentDecision(createBotMemory(), 360, 1, 12);
+  const forced = pressureCommitmentDecision(memory, 360, 1, 12);
+
+  assert.equal(patient.status, 'waiting');
+  assert.equal(forced.status, 'commit');
+  assert.equal(forced.forced, true);
 });
 
 test('terran scheduler adds production capacity earlier when live expert memory sees a stall', () => {

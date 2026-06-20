@@ -8,6 +8,8 @@ export const PRODUCTION_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_REACTION_COUNT = 3;
 export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_RESOURCES = 800;
+export const COMBAT_STALL_REACTION_TICKS = 15 * 24;
+export const COMBAT_STALL_FRESH_TICKS = 6 * 24;
 
 export type ProductionStallMemory = {
   count: number;
@@ -22,6 +24,12 @@ export type MacroFloatStallMemory = {
   lastTick: number;
 };
 
+export type CombatStallMemory = {
+  sinceTick: number;
+  lastTick: number;
+  reason?: BotFailureReason;
+};
+
 export type BotMemory = {
   lastTick: number;
   blockedSites: Map<string, { x: number; y: number; reason: BotFailureReason; tick: number }>;
@@ -30,6 +38,7 @@ export type BotMemory = {
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
   productionStall: ProductionStallMemory;
   macroFloatStall: MacroFloatStallMemory;
+  combatStall: CombatStallMemory;
   offenseWaitSince: number;
 };
 
@@ -45,6 +54,7 @@ export const createBotMemory = (): BotMemory => ({
   tacticalCommitments: new Map(),
   productionStall: { count: 0, sinceTick: -1, lastTick: -1 },
   macroFloatStall: { count: 0, sinceTick: -1, lastTick: -1 },
+  combatStall: { sinceTick: -1, lastTick: -1 },
   offenseWaitSince: -1,
 });
 
@@ -83,6 +93,12 @@ const macroSpendIntent = (kind: BotIntentKind): boolean => {
   }
 };
 
+const offensiveCombatIntent = (kind: BotIntentKind): boolean =>
+  kind === 'attack-wave' || kind === 'harass' || kind === 'contain' || kind === 'counterattack';
+
+const combatStallFailure = (reason: BotFailureReason): boolean =>
+  reason === 'insufficient-force' || reason === 'path-blocked';
+
 export const locationBlockedByIntentMemory = (memory: BotMemory, x: number, y: number): boolean =>
   memory.blockedSites.has(tileKey(x, y));
 
@@ -93,6 +109,11 @@ export const productionStallActive = (memory: BotMemory, tick: number): boolean 
 export const macroFloatStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.macroFloatStall.count >= MACRO_FLOAT_STALL_REACTION_COUNT &&
   tick - memory.macroFloatStall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
+
+export const combatStallActive = (memory: BotMemory, tick: number): boolean =>
+  memory.combatStall.sinceTick >= 0 &&
+  tick - memory.combatStall.sinceTick >= COMBAT_STALL_REACTION_TICKS &&
+  tick - memory.combatStall.lastTick <= COMBAT_STALL_FRESH_TICKS;
 
 const clearProductionStall = (memory: BotMemory): void => {
   memory.productionStall.count = 0;
@@ -105,6 +126,12 @@ const clearMacroFloatStall = (memory: BotMemory): void => {
   memory.macroFloatStall.count = 0;
   memory.macroFloatStall.sinceTick = -1;
   memory.macroFloatStall.lastTick = -1;
+};
+
+const clearCombatStall = (memory: BotMemory): void => {
+  memory.combatStall.sinceTick = -1;
+  memory.combatStall.lastTick = -1;
+  memory.combatStall.reason = undefined;
 };
 
 const rememberProductionStall = (
@@ -163,6 +190,29 @@ const rememberMacroFloatStall = (
   stall.lastTick = tick;
 };
 
+const rememberCombatStall = (
+  memory: BotMemory,
+  records: readonly BotIntentRecord[],
+  tick: number,
+): void => {
+  const record = records.find((candidate) => offensiveCombatIntent(candidate.intent.kind));
+  if (!record || record.result.status === 'done') {
+    clearCombatStall(memory);
+    return;
+  }
+  if (!combatStallFailure(record.result.reason)) {
+    clearCombatStall(memory);
+    return;
+  }
+
+  const stall = memory.combatStall;
+  const continuing = stall.reason === record.result.reason &&
+    tick - stall.lastTick <= COMBAT_STALL_FRESH_TICKS;
+  stall.sinceTick = continuing ? stall.sinceTick : tick;
+  stall.lastTick = tick;
+  stall.reason = record.result.reason;
+};
+
 export const rememberIntentOutcomes = (
   memory: BotMemory,
   records: readonly BotIntentRecord[],
@@ -173,6 +223,7 @@ export const rememberIntentOutcomes = (
   pruneOlderThan(memory.suspectedInvisibleThreats, tick);
   rememberProductionStall(memory, records, tick);
   rememberMacroFloatStall(memory, records, tick, context);
+  rememberCombatStall(memory, records, tick);
 
   for (const { intent, result } of records) {
     if (intent.x === undefined || intent.y === undefined) continue;
