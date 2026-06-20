@@ -25,6 +25,22 @@ export type BotPlanEvidenceAssessment = {
   detail: string;
 };
 
+export type BotPlanObjectiveProgress = {
+  workerGain: number;
+  baseGain: number;
+  armyGain: number;
+  queuedWorkers: number;
+  queuedArmy: number;
+  macroCommands: number;
+  combatCommands: number;
+};
+
+export type BotPlanObjectiveProgressAssessment = {
+  count: number;
+  satisfied: boolean;
+  detail: string;
+};
+
 export type BotCombatPipelineSnapshot = {
   armyStrength: number;
   queuedArmyStrength: number;
@@ -98,6 +114,47 @@ export const botPlanEvidenceAssessment = (
     count,
     satisfied: count > 0,
     detail: `${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance} ${count > 0 ? 'showed' : 'lacked'} ${botPlanEvidenceLabel(axes)}`,
+  };
+};
+
+const botPlanObjectiveProgressCount = (
+  plan: BotStrategyPlan,
+  progress: BotPlanObjectiveProgress,
+): number => {
+  const economy = progress.workerGain + progress.baseGain + progress.queuedWorkers;
+  const combat = progress.armyGain + progress.queuedArmy + progress.combatCommands;
+  switch (plan.primaryGoal) {
+    case 'recover-economy':
+    case 'scale-economy':
+      return economy + progress.macroCommands;
+    case 'establish-combat':
+    case 'build-timing':
+    case 'secure-base':
+      return combat + progress.macroCommands;
+    case 'degrade-enemy':
+      return combat;
+  }
+};
+
+export const botPlanObjectiveProgressAssessment = (
+  plan: BotStrategyPlan,
+  progress: BotPlanObjectiveProgress,
+): BotPlanObjectiveProgressAssessment => {
+  const count = botPlanObjectiveProgressCount(plan, progress);
+
+  const detail = [
+    `workers +${progress.workerGain}`,
+    `bases +${progress.baseGain}`,
+    `army +${progress.armyGain}`,
+    `queued workers ${progress.queuedWorkers}`,
+    `queued army ${progress.queuedArmy}`,
+    `macro cmds ${progress.macroCommands}`,
+    `combat cmds ${progress.combatCommands}`,
+  ].join(', ');
+  return {
+    count,
+    satisfied: count > 0,
+    detail: `${plan.primaryGoal}/${plan.macroPriority}/${plan.combatStance} ${count > 0 ? 'advanced' : 'stalled'} objective progress (${detail})`,
   };
 };
 
