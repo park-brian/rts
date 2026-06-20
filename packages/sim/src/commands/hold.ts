@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Order, Role } from '../data/index.ts';
+import { Order, Role } from '../data/index.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
 import { clearVelocity } from '../spatial/motion.ts';
@@ -18,7 +18,7 @@ export const validateHoldCommand = (s: State, player: number, command: HoldComma
   const actor = canReceiveOrder(s, player, command.unit);
   if (!actor.ok) return actor;
   const slot = actor.slot;
-  if (e.kind[slot] === Kind.SpiderMine || (e.flags[slot]! & Role.Mobile) === 0) return reject('missing-capability');
+  if ((e.flags[slot]! & Role.Mobile) === 0) return reject('missing-capability');
   return { ok: true };
 };
 

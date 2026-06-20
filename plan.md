@@ -470,7 +470,9 @@ Migration plan:
   action masks cannot drift.
   - Actor commandability gate slice is done: shared receive-order validation and Stop validation now
     reject non-commandable actors from `mechanics/actors.ts`, with coverage across move,
-    attack-move, patrol, attack, hold, and stop commands.
+    attack-move, patrol, attack, hold, and stop commands. The stale per-command Spider Mine guards
+    in move, patrol, and hold validation have been deleted, leaving actor commandability as the
+    single owner for non-commandable actor rejection.
 - Add actor lifecycle tests before deleting existing systems: descriptor coverage, replay/hash,
   snapshot/restore, render presentation, action-mask/observation visibility where relevant, and
   focused behavior tests for each old quirk.

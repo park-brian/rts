@@ -1,5 +1,5 @@
 import type { Command } from './types.ts';
-import { Kind, Order, Role } from '../data/index.ts';
+import { Order, Role } from '../data/index.ts';
 import { isContained, sameTeam } from '../mechanics/cargo.ts';
 import { commandMoveSpeed } from '../mechanics/terran-mobility.ts';
 import { isGatherTargetSlot } from '../mechanics/resources.ts';
@@ -23,7 +23,6 @@ export const validateMoveCommand = (s: State, player: number, command: MoveComma
   const actor = canReceiveOrder(s, player, command.unit, { rejectBurrowed: true });
   if (!actor.ok) return actor;
   const slot = actor.slot;
-  if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
     return reject('missing-capability');
   }

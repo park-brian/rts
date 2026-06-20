@@ -1,4 +1,4 @@
-import { Kind, Order, Role } from '../data/index.ts';
+import { Order, Role } from '../data/index.ts';
 import { canQueueOrder, currentOrderIsIdle, enqueueTravelOrder } from '../entity/order-queue.ts';
 import { setPatrolOrder } from '../entity/patrol.ts';
 import type { State } from '../entity/world.ts';
@@ -19,7 +19,6 @@ export const validatePatrolCommand = (s: State, player: number, command: PatrolC
   const actor = canReceiveOrder(s, player, command.unit, { rejectBurrowed: true });
   if (!actor.ok) return actor;
   const slot = actor.slot;
-  if (e.kind[slot] === Kind.SpiderMine) return reject('missing-capability');
   if ((e.flags[slot]! & Role.Mobile) === 0 || commandMoveSpeed(e.kind[slot]!, e.flags[slot]!) <= 0) {
     return reject('missing-capability');
   }
