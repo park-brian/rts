@@ -1,7 +1,7 @@
 import {
   Kind,
   NONE,
-  Units,
+  isLarvaProductKind,
   type Command,
   type Faction,
   type State,
@@ -62,7 +62,7 @@ const techTransformKind = (kind: number): boolean =>
 
 const trainIntentKind = (kind: number, faction: Faction): BotIntent['kind'] => {
   if (kind === faction.worker) return 'train-worker';
-  return Units[kind]?.buildMethod === 'larva' ? 'spend-larva' : 'train-counter';
+  return isLarvaProductKind(kind) ? 'spend-larva' : 'train-counter';
 };
 
 const trainOutcome = (
@@ -171,11 +171,11 @@ export const scheduleBotMacro = (
 
   const budget: ResourceBudget = { minerals: s.players.minerals[player]!, gas: s.players.gas[player]! };
   const supplyBudget: SupplyBudget = { used: s.players.supplyUsed[player]!, max: s.players.supplyMax[player]! };
-  const workerDef = Units[faction.worker]!;
-  const armyDef = Units[faction.armyUnit]!;
-  const workerProducer = workerDef.buildMethod === 'larva' ? idleLarvae : idleDepots;
-  const workerOutcomeProducer = workerDef.buildMethod === 'larva' ? idleLarvae : builtDepots;
-  const armyProducer = armyDef.buildMethod === 'larva' ? idleLarvae : builtArmyStructures;
+  const workerIsLarvaProduct = isLarvaProductKind(faction.worker);
+  const armyIsLarvaProduct = isLarvaProductKind(faction.armyUnit);
+  const workerProducer = workerIsLarvaProduct ? idleLarvae : idleDepots;
+  const workerOutcomeProducer = workerIsLarvaProduct ? idleLarvae : builtDepots;
+  const armyProducer = armyIsLarvaProduct ? idleLarvae : builtArmyStructures;
   const usedProducers = new Set<number>();
   const reservedTechProducers: ProducerReservations = new Set();
   const intentResults: BotIntentRecord[] = [];

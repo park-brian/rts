@@ -331,6 +331,9 @@ Migration plan:
   - Cargo-capability AI slice is done: tactical threat classification and Nydus shortcut planning
     now consume `mechanics/cargo.ts` transport capacity and cargo acceptance rules instead of
     re-reading raw cargo capacity or rebuilding partial loadability checks in AI code.
+  - Product-mode capability slice is done: `mechanics/capabilities.ts` now owns build-method lookup
+    and larva-product classification. Macro scheduling, train failure reporting, and supply/army
+    production decisions use that owner instead of reading raw product build methods in AI code.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

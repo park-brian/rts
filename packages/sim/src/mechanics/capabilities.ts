@@ -1,4 +1,4 @@
-import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind, workerBuildKindsFor } from '../data/index.ts';
+import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind, workerBuildKindsFor, type BuildMethod } from '../data/index.ts';
 
 const ProducerFlags = {
   SupportsWorkerRally: 1 << 0,
@@ -24,6 +24,7 @@ const productsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND 
 const researchTechsByKind: Array<number[] | undefined> = new Array(MAX_KIND + 1);
 const abilitiesByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const workerBuildsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
+const buildMethodByKind: Array<BuildMethod | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
@@ -34,6 +35,7 @@ for (const [key, def] of Object.entries(Units)) {
   const kind = Number(key);
   const products = def.produces.length > 0 ? def.produces : EMPTY_PRODUCTS;
   productsByKind[kind] = products;
+  buildMethodByKind[kind] = def.buildMethod;
   abilitiesByKind[kind] = def.abilities.length > 0 ? def.abilities : EMPTY_ABILITIES;
   if (isWorkerKind(kind)) workerBuildsByKind[kind] = workerBuildKindsFor(def.race);
 
@@ -62,6 +64,12 @@ export const producedKindsFor = (producerKind: number): readonly number[] =>
 
 export const canProduceKind = (producerKind: number, productKind: number): boolean =>
   producedKindsFor(producerKind).includes(productKind);
+
+export const buildMethodForKind = (kind: number): BuildMethod | undefined =>
+  buildMethodByKind[kind];
+
+export const isLarvaProductKind = (kind: number): boolean =>
+  buildMethodForKind(kind) === 'larva';
 
 export const researchTechsFor = (producerKind: number): readonly number[] =>
   researchTechsByKind[producerKind] ?? EMPTY_TECHS;

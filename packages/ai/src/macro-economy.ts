@@ -8,6 +8,7 @@ import {
   TILE,
   Units,
   eid,
+  isLarvaProductKind,
   supply,
   withinRangeSq,
   type Command,
@@ -146,7 +147,7 @@ export const maybeQueueSupply = (
     };
   }
 
-  if (def.buildMethod === 'larva') {
+  if (isLarvaProductKind(faction.supplyStructure)) {
     const queued = maybeQueueTrain(
       s,
       player,
@@ -204,8 +205,7 @@ export const queueArmyStructure = (
   target: number,
   findMacroSpot: MacroSpotFinder,
 ): { queued: boolean; block?: StructureBlock } => {
-  const def = Units[faction.armyStructure]!;
-  if (def.buildMethod === 'larva') return { queued: false };
+  if (isLarvaProductKind(faction.armyStructure)) return { queued: false };
   if (built + pending >= target) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
 };

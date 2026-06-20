@@ -18,6 +18,8 @@ import { validateResearchCommand } from '../src/commands/research.ts';
 import {
   canProduceKind,
   canResearchTech,
+  buildMethodForKind,
+  isLarvaProductKind,
   producedKindsFor,
   producerKindDirectlyProducesOnlyWorkers,
   producerKindSupportsWorkerRally,
@@ -78,6 +80,9 @@ test('producer capability facts own products and worker-rally classification', (
   assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.Gateway), false);
   assert.equal(producerKindSupportsWorkerRally(Kind.Hatchery), true);
   assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.Hatchery), false);
+  assert.equal(buildMethodForKind(Kind.Zergling), 'larva');
+  assert.equal(isLarvaProductKind(Kind.Zergling), true);
+  assert.equal(isLarvaProductKind(Kind.Marine), false);
 
   assert.deepEqual([...trainKindCandidates(s, gateway)], [...producedKindsFor(Kind.Gateway)]);
   assert.deepEqual([...researchTechsFor(Kind.Forge)], [Tech.GroundWeapons, Tech.GroundArmor, Tech.PlasmaShields]);

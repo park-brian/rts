@@ -3,6 +3,7 @@ import {
   NONE,
   Units,
   eid,
+  isLarvaProductKind,
   productionCostCount,
   productionCount,
   validateCommand,
@@ -61,7 +62,7 @@ export const trainFailureReason = (
     producersSeen++;
     if (!usedProducers.has(producer) && s.e.prodKind[producer] === Kind.None) producersReady++;
   }
-  if (producersSeen === 0) return def.buildMethod === 'larva' ? 'no-production-capacity' : 'no-producer';
+  if (producersSeen === 0) return isLarvaProductKind(kind) ? 'no-production-capacity' : 'no-producer';
   if (producersReady === 0) return 'no-production-capacity';
 
   const costCount = productionCostCount(kind);
