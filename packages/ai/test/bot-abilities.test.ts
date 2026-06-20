@@ -583,6 +583,31 @@ test('macro scheduler takes gas when strategy needs tech capability', () => {
   assert.ok(result.intents.some((intent) => intent.kind === 'take-gas' && intent.targetKind === Kind.Refinery));
 });
 
+test('macro scheduler score-ranks scarce builder choices by objective pressure', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 4010, factions: [Protoss, Terran] });
+  const s = sim.fullState();
+  spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  spawnUnit(s, Kind.Gateway, 0, fx(1_240), fx(1_280));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Protoss, {
+    workerTarget: 0,
+    barracksTarget: 2,
+    attackThreshold: 16,
+  })(s, 0);
+
+  const gateway = findBuild(plan.commands, Kind.Gateway);
+  assert.ok(gateway);
+  assert.deepEqual(validateCommand(s, 0, gateway), { ok: true });
+  assert.equal(findBuild(plan.commands, Kind.CyberneticsCore), undefined);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.Gateway &&
+    (record.intent.score?.reasons.some((reason) => reason.kind === 'production-throughput') ?? false)));
+});
+
 test('macro scheduler does not duplicate an existing gas structure', () => {
   const scenario = botScenario({ seed: 4009, factions: [Zerg, Terran] });
   const base = scenario.pos(scenario.entity(Kind.Hatchery, 0));

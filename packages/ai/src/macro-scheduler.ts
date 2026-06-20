@@ -147,6 +147,20 @@ type MacroGrowthCandidate = BotIntentCandidate<{
   run: () => MacroGrowthAttempt;
 }>;
 
+type BuilderChoiceAttempt = MacroGrowthAttempt & {
+  usedBuilder: boolean;
+};
+
+type BuilderChoiceCandidate = BotIntentCandidate<{
+  intent: BotIntent;
+  run: () => BuilderChoiceAttempt;
+}>;
+
+const builderAttempt = (
+  result: MacroGrowthAttempt,
+  usedBuilder = result.queued,
+): BuilderChoiceAttempt => ({ ...result, usedBuilder });
+
 export const macroIntentsFromCommands = (
   commands: readonly Command[],
   faction: Faction,
@@ -217,6 +231,7 @@ export const scheduleBotMacro = (
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
   const capacityPressure = { productionStalled: productionStalled || missingProductionIntent || postureWantsProduction };
   const expansionPressure = { macroFloatStalled: macroFloatStalled || blockedExpansion || postureWantsExpansion };
+  let stalledCapacityAttempted = false;
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
       s,
@@ -288,94 +303,107 @@ export const scheduleBotMacro = (
   }
 
   if (!supplyQueued.queued) {
-    const staticDefense = queueStaticDefense(
-      s,
-      player,
-      faction,
-      facts,
-      cmds,
-      budget,
-      economy.builder,
-      depot,
-      riskAwareFindMacroSpot,
-      riskAwareFindSpot,
-    );
-    if (staticDefense.queued) {
-      builderUsed = staticDefense.usedBuilder;
-    } else if (staticDefense.block) {
-      intentResults.push(structureOutcome(faction, staticDefense.block));
-    }
-  }
+    const builderChoices: BuilderChoiceCandidate[] = [
+      {
+        order: 0,
+        intent: botIntent('add-static-defense'),
+        run: () => {
+          const result = queueStaticDefense(
+            s,
+            player,
+            faction,
+            facts,
+            cmds,
+            budget,
+            economy.builder,
+            depot,
+            riskAwareFindMacroSpot,
+            riskAwareFindSpot,
+          );
+          return builderAttempt(result, result.usedBuilder);
+        },
+      },
+      {
+        order: 1,
+        intent: botIntent('add-production', { targetKind: faction.armyStructure }),
+        run: () => {
+          const result = queueArmyStructure(
+            s,
+            player,
+            faction,
+            cmds,
+            budget,
+            economy.builder,
+            depot,
+            builtArmyStructures.length,
+            pendingArmyStructures,
+            config.barracksTarget,
+            riskAwareFindMacroSpot,
+          );
+          return builderAttempt(result);
+        },
+      },
+      {
+        order: 3,
+        intent: botIntent('rebuild-tech'),
+        run: () => {
+          const result = queueRaceTechStructure(
+            s,
+            player,
+            faction,
+            facts,
+            cmds,
+            budget,
+            economy.builder,
+            depot,
+            riskAwareFindMacroSpot,
+            config.strategy,
+          );
+          return builderAttempt(result);
+        },
+      },
+    ];
 
-  if (!supplyQueued.queued && !builderUsed) {
-    const armyStructure = queueArmyStructure(
-      s,
-      player,
-      faction,
-      cmds,
-      budget,
-      economy.builder,
-      depot,
-      builtArmyStructures.length,
-      pendingArmyStructures,
-      config.barracksTarget,
-      riskAwareFindMacroSpot,
-    );
-    if (armyStructure.queued) {
-      builderUsed = true;
-    } else if (armyStructure.block) {
-      intentResults.push(structureOutcome(faction, armyStructure.block));
-    }
-  }
-
-  if (!supplyQueued.queued && !builderUsed && config.strategy?.gasTiming === 'soon') {
     const gasKind = gasStructureKind(faction);
-    if (!facts.ownedOrPendingStructureKinds.has(gasKind)) {
-      const gas = queueGasStructure(
-        s,
-        player,
-        faction,
-        cmds,
-        budget,
-        economy.builder,
-        depot,
-      );
-      if (gas.queued) {
+    if (config.strategy?.gasTiming === 'soon' && !facts.ownedOrPendingStructureKinds.has(gasKind)) {
+      builderChoices.push({
+        order: 2,
+        intent: botIntent('take-gas', { targetKind: gasKind }),
+        run: () => {
+          const result = queueGasStructure(
+            s,
+            player,
+            faction,
+            cmds,
+            budget,
+            economy.builder,
+            depot,
+          );
+          return builderAttempt(result);
+        },
+      });
+    }
+
+    if (productionStalled || missingProductionIntent) {
+      builderChoices.push({
+        order: -1,
+        intent: botIntent('add-production', { targetKind: faction.name === 'Zerg' ? Kind.Hatchery : faction.armyStructure }),
+        run: () => {
+          stalledCapacityAttempted = true;
+          const result = queueProductionCapacity();
+          return builderAttempt(result);
+        },
+      });
+    }
+
+    for (const candidate of rankBotIntentCandidates(builderChoices, expert)) {
+      const attempt = candidate.run();
+      if (attempt.block) intentResults.push(structureOutcome(faction, attempt.block));
+      if (attempt.outcome) intentResults.push(attempt.outcome);
+      if (attempt.usedBuilder) {
         builderUsed = true;
-      } else if (gas.block) {
-        intentResults.push(structureOutcome(faction, gas.block));
+        break;
       }
-    }
-  }
-
-  let stalledCapacityAttempted = false;
-  if (!builderUsed && (productionStalled || missingProductionIntent)) {
-    stalledCapacityAttempted = true;
-    const capacity = queueProductionCapacity();
-    if (capacity.queued) {
-      builderUsed = true;
-    } else if (capacity.block) {
-      intentResults.push(structureOutcome(faction, capacity.block));
-    }
-  }
-
-  if (!builderUsed) {
-    const techStructure = queueRaceTechStructure(
-      s,
-      player,
-      faction,
-      facts,
-      cmds,
-      budget,
-      economy.builder,
-      depot,
-      riskAwareFindMacroSpot,
-      config.strategy,
-    );
-    if (techStructure.queued) {
-      builderUsed = true;
-    } else if (techStructure.block) {
-      intentResults.push(structureOutcome(faction, techStructure.block));
     }
   }
 

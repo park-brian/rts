@@ -1045,6 +1045,13 @@ Remaining work:
     spending the builder, while blocked/waiting outcomes still flow through the existing intent
     trace. Next scheduler slices should use this pattern only where two legal macro choices compete
     for the same scarce producer, worker, or resource window.
+  - Scarce-builder scheduler-choice slice is done: after worker/supply guards, defense, first/core
+    production, gas access, live production-stall recovery, and tech-structure choices now compete
+    as scored expert intents before spending the builder. This preserves shared validation and
+    records the same blocked/waiting outcomes, but prevents locally legal tech or gas steps from
+    quietly outranking a larger production-throughput gap. A Protoss regression pins the case where
+    a second Gateway beats premature Cybernetics Core when the attack window needs much more combat
+    production.
   - Trace reason-surface slice is done: sampled bot trace frames now carry a bounded top-intent
     summary with result status, target, score, and score reasons, so whole-match diagnostics can
     explain the highest-priority bot choices instead of only counting intent kinds.

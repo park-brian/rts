@@ -33,7 +33,15 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.frames.length), [1, 1]);
   assert.equal(diagnostics.every((diagnostic) => diagnostic.lastPlan !== null), true);
   const rows = botExpertHealthRows(diagnostics, stats);
-  assert.equal(rows.length, 10);
+  for (const player of [0, 1]) {
+    assert.deepEqual(
+      rows
+        .filter((row) => row.player === player)
+        .map((row) => row.domain)
+        .sort(),
+      ['combat', 'economy', 'macro', 'objective', 'production', 'strategy'],
+    );
+  }
   assert.equal(rows.some((row) => row.domain === 'strategy' && row.detail.includes('posture')), true);
 });
 
