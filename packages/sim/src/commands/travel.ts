@@ -1,6 +1,7 @@
-import { Order, Units, hasAnyWeapon } from '../data/index.ts';
+import { Order } from '../data/index.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { eid, NONE, type State } from '../entity/world.ts';
+import { kindHasDirectWeapon } from '../mechanics/capabilities.ts';
 import {
   currentOrderIsIdle,
   enqueueTravelOrder,
@@ -18,8 +19,7 @@ export type IssuedTravel = {
 };
 
 const canAttackMove = (s: State, slot: number): boolean => {
-  const def = Units[s.e.kind[slot]!];
-  return !!def && hasAnyWeapon(def);
+  return kindHasDirectWeapon(s.e.kind[slot]!);
 };
 
 export const travelOrder = (s: State, slot: number, intent: TravelIntent): QueuedTravelOrder['order'] => {

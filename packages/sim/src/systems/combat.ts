@@ -9,7 +9,7 @@
 import type { State } from '../entity/world.ts';
 import { slotOf, eid, isAlive, isEnemy, NONE } from '../entity/world.ts';
 import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
-import { EffectKind, Order, Role, Units, hasAnyWeapon, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
+import { EffectKind, Order, Role, Units, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { type Grid, nearestAttackableEnemy, nearestEnemy } from '../spatial/grid.ts';
@@ -20,6 +20,7 @@ import { upgradedRange } from '../mechanics/upgrades.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
+import { kindHasDirectWeapon } from '../mechanics/capabilities.ts';
 import { topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
@@ -71,7 +72,7 @@ export const combat = (s: State, grid: Grid): void => {
     const containerProvider = mechanic?.containerProvider === true;
     const interceptorMechanic = isInterceptorLaunchMechanic(mechanic) ? mechanic : undefined;
     const interceptorLaunch = interceptorMechanic !== undefined;
-    if (!def || (!hasAnyWeapon(def) && !containerProvider && !interceptorLaunch)) continue;
+    if (!def || (!kindHasDirectWeapon(e.kind[i]!) && !containerProvider && !interceptorLaunch)) continue;
     if (e.wcd[i]! > 0) e.wcd[i] = e.wcd[i]! - 1;
     if (!containerProvider && !interceptorLaunch && !hasWeaponMechanicAmmo(s, i, mechanic)) continue;
     if (!containerProvider && !canUseWeaponNow(s, i)) continue;

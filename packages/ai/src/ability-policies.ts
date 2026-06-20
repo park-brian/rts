@@ -296,7 +296,7 @@ const scoreOpticalFlareTarget = (s: State, _player: number, slot: number): numbe
 
 const scoreLockdownTarget = (s: State, _player: number, slot: number): number => {
   if ((unitTraits(s.e.kind[slot]!) & Trait.Mechanical) === 0 || (s.e.flags[slot]! & Role.Mobile) === 0 || s.e.lockdownTimer[slot]! > 0) return 0;
-  return Math.min(220, s.e.hp[slot]! + s.e.shield[slot]!) + (Units[s.e.kind[slot]!]!.weapon ? 60 : 0);
+  return Math.min(220, s.e.hp[slot]! + s.e.shield[slot]!) + (kindHasDirectWeapon(s.e.kind[slot]!) ? 60 : 0);
 };
 
 const scoreIrradiateTarget = (s: State, player: number, slot: number): number => {
