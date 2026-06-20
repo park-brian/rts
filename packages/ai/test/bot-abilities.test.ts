@@ -689,6 +689,31 @@ test('bot tactical incidents classify bypass, static, and containment threats', 
   });
 });
 
+test('bot tactical incidents classify only active transports as drop threats', () => {
+  const unupgraded = botScenario({ seed: 816, factions: [Terran, Zerg] });
+  const commandCenter = unupgraded.entity(Kind.CommandCenter, 0);
+  const base = unupgraded.pos(commandCenter);
+  unupgraded.spawn(Kind.Overlord, 1, base.x + fx(48), base.y);
+
+  const unupgradedIncident = deriveTacticalIncidents(
+    unupgraded.state,
+    collectBotFacts(unupgraded.state, 0, Terran),
+  )[0];
+
+  const upgraded = botScenario({ seed: 817, factions: [Terran, Zerg] });
+  grant(upgraded.sim, 1, Tech.VentralSacs);
+  const upgradedBase = upgraded.pos(upgraded.entity(Kind.CommandCenter, 0));
+  upgraded.spawn(Kind.Overlord, 1, upgradedBase.x + fx(48), upgradedBase.y);
+
+  const upgradedIncident = deriveTacticalIncidents(
+    upgraded.state,
+    collectBotFacts(upgraded.state, 0, Terran),
+  )[0]!;
+
+  assert.notEqual(unupgradedIncident?.kind, 'transport-drop');
+  assert.equal(upgradedIncident.kind, 'transport-drop');
+});
+
 test('bot ranks responders by tactical incident fit', () => {
   const scenario = botScenario({ seed: 811 });
   const commandCenter = scenario.entity(Kind.CommandCenter, 0);
@@ -4681,6 +4706,20 @@ test('bot uses a same-team nydus network to shortcut attack waves', () => {
   sim.step([{ player: 0, cmds }]);
   assert.equal(e.container[slotOf(marine)], NONE);
   assert.ok(Math.abs(e.x[slotOf(marine)]! - e.x[exit]!) <= fx(96));
+});
+
+test('bot skips isolated nydus entrances when shortcutting attack waves', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 84 });
+  const s = sim.fullState();
+  const e = s.e;
+  const home = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  spawnUnit(s, Kind.NydusCanal, 0, home.x + fx(48), home.y);
+  const marine = spawnUnit(s, Kind.Marine, 0, home.x + fx(56), home.y);
+
+  const cmds = createBot(Terran, { attackThreshold: 1 })(s, 0);
+
+  assert.equal(cmds.some((c) => c.t === 'load' && c.unit === marine), false);
+  assert.equal(e.container[slotOf(marine)], NONE);
 });
 
 test('bot commits scourge against nearby air threats', () => {

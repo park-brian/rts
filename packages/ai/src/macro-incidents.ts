@@ -10,6 +10,7 @@ import {
   isDetectorKind,
   isAlive,
   slotOf,
+  transportCapacity,
   weaponForTarget,
   type State,
 } from '@rts/sim';
@@ -238,7 +239,7 @@ const enemyThreatKind = (s: State, enemies: readonly number[]): TacticalIncident
     const kind = e.kind[enemy]!;
     const def = Units[kind]!;
     if (kind === Kind.NydusCanal) return 'nydus-breach';
-    if ((def.roles & Role.Air) !== 0 && def.cargoCapacity > 0) return 'transport-drop';
+    if ((def.roles & Role.Air) !== 0 && transportCapacity(s, enemy) > 0) return 'transport-drop';
 
     const risk = threatEnvelope(kind);
     if ((def.roles & Role.Structure) !== 0 && risk.score > 0) hasStaticThreat = true;

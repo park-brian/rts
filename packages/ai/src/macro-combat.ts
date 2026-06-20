@@ -11,8 +11,7 @@ import {
   Units,
   abilityTechAvailable,
   canUseAbilityKind,
-  canLoadInto,
-  cargoUsed,
+  canAcceptCargo,
   distanceSq,
   eid,
   getTechLevel,
@@ -132,7 +131,7 @@ const maybeUseNydusNetwork = (
     if (!sameTeam(s, player, e.owner[i]!)) continue;
     const candidateExit = unloadAnchorSlot(s, i, focusX, focusY);
     if (candidateExit === NONE) continue;
-    if (!canLoadInto(s, i, unit) || cargoUsed(s, i) + def.cargoSize > Units[Kind.NydusCanal]!.cargoCapacity) continue;
+    if (!canAcceptCargo(s, i, unit)) continue;
     const loadD = distanceSq(e.x[i]!, e.y[i]!, e.x[unit]!, e.y[unit]!);
     if (loadD > LOAD_RANGE * LOAD_RANGE || loadD >= bestD) continue;
     entrance = i;
