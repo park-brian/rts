@@ -84,6 +84,7 @@ export type BotTraceAlertKind =
   | 'invalid-commands'
   | 'resource-float-stall'
   | 'production-stall'
+  | 'no-army-production'
   | 'combat-intent-stall'
   | 'placement-stall';
 
@@ -205,6 +206,11 @@ const combatCommandCount = (frame: BotTraceFrame): number =>
 
 const trainIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, TRAIN_INTENTS);
+
+const hasReadyArmyProduction = (frame: BotTraceFrame): boolean =>
+  frame.objective.resourceFloat >= PRODUCTION_FLOAT_ALERT &&
+  frame.supplyUsed < frame.supplyMax &&
+  frame.idleProducers + frame.idleLarvae > 0;
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
@@ -423,12 +429,21 @@ export const botTraceAlerts = (
       playerFrames,
       'production-stall',
       (frame) =>
-        frame.objective.resourceFloat >= PRODUCTION_FLOAT_ALERT &&
-        frame.supplyUsed < frame.supplyMax &&
-        frame.idleProducers + frame.idleLarvae > 0 &&
+        hasReadyArmyProduction(frame) &&
         trainIntentCount(frame) > 0 &&
         (frame.commandsByType.train ?? 0) === 0,
       (_start, end, count) => `${count} sampled frames had idle production and ${end.objective.resourceFloat} resources without training`,
+      (_start, end, count) => count * (end.idleProducers + end.idleLarvae),
+    );
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
+      'no-army-production',
+      (frame) =>
+        hasReadyArmyProduction(frame) &&
+        trainIntentCount(frame) === 0 &&
+        (frame.commandsByType.train ?? 0) === 0,
+      (_start, end, count) => `${count} sampled frames had idle production, supply, and ${end.objective.resourceFloat} resources but no train intent`,
       (_start, end, count) => count * (end.idleProducers + end.idleLarvae),
     );
     pushFrameStreakAlerts(
@@ -464,7 +479,7 @@ export const botTraceExpertDiagnoses = (
     const playerStats = stats.players[player];
     const trend = trends.find((candidate) => candidate.player === player);
     const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'placement-stall']);
-    const productionAlerts = playerAlerts(alerts, player, ['production-stall']);
+    const productionAlerts = playerAlerts(alerts, player, ['production-stall', 'no-army-production']);
     const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall']);
     const macroCommands = playerStats ? commandTotal(playerStats.commandsByType, MACRO_COMMANDS) : 0;
     const combatCommands = playerStats ? commandTotal(playerStats.commandsByType, COMBAT_COMMANDS) : 0;

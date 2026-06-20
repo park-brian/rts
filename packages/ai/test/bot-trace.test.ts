@@ -224,6 +224,33 @@ test('bot trace alerts classify macro deadlocks and invalid commands', () => {
   assert.equal(alerts.some((alert) => alert.kind === 'production-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
 });
 
+test('bot trace alerts classify missing army production intent', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8112, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, train: 0 },
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 0, 'spend-larva': 0, 'train-counter': 0 },
+    idleProducers: 1,
+    idleLarvae: 0,
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+
+  const alerts = botTraceAlerts(frames);
+
+  assert.equal(alerts.some((alert) =>
+    alert.kind === 'no-army-production' &&
+    alert.fromTick === 0 &&
+    alert.toTick === 120 &&
+    alert.detail.includes('no train intent')), true);
+});
+
 test('bot trace alerts classify repeated placement deadlocks', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8111, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -279,6 +306,31 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
+});
+
+test('bot expert diagnoses flag missing army production intent as production failure', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8113, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, train: 0 },
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 0, 'spend-larva': 0, 'train-counter': 0 },
+    idleProducers: 1,
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+  const alerts = botTraceAlerts(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
+
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'production' &&
+    entry.status === 'failing' &&
+    entry.detail.includes('no train intent')), true);
 });
 
 test('race macro planners convert ready production paths into combat units', () => {

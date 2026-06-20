@@ -1197,6 +1197,10 @@ Remaining work:
     Barracks, powered Gateway, or Spawning Pool, proves the live Terran/Protoss/Zerg planners issue
     validated train commands with trace intent explanations, then advances the sim until Marines,
     Zealots, and Zerglings complete.
+  - Missing-production-intent detector slice is done: whole-match trace alerts now distinguish
+    "idle production with train intents but no train command" from the worse "idle production,
+    resources, supply, and no train intent at all" case. Production expert diagnoses treat both as
+    production failures, which gives the scheduler a precise future signal for lights-off macro.
 - Keep validator/action-mask parity for every command family and ability target mode.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
