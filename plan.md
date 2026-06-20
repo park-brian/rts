@@ -969,6 +969,11 @@ Remaining work:
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
     choices with score-ranked candidates and add whole-match competence gates instead of adding more
     independent heuristics.
+  - First scheduler-choice slice is done: late anti-float macro growth now score-ranks extra core
+    production, expansion, and Zerg macro Hatchery candidates through the expert scorer before
+    spending the builder, while blocked/waiting outcomes still flow through the existing intent
+    trace. Next scheduler slices should use this pattern only where two legal macro choices compete
+    for the same scarce producer, worker, or resource window.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1746,6 +1751,10 @@ Done when:
 - Added first planner-level expert scoring: bot intents now carry optional score/reason metadata,
   objective math moved out of trace collection into `macro-objective.ts`, and live bot plans annotate
   worker, army, production, tech, defense, and pressure intents without changing command validation.
+- Added the first expert-scored scheduler decision: late anti-float macro growth now ranks extra
+  core production, expansion, and Zerg macro Hatchery candidates before spending a builder, with
+  focused coverage proving production throughput wins the first Terran float window and expansion
+  still works when production targets are disabled.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.

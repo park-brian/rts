@@ -19,6 +19,7 @@ import {
 } from './macro-economy.ts';
 import { queueExpansion } from './macro-expansion.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
+import { botExpertContext, scoreBotIntent, type BotExpertContext } from './macro-objective.ts';
 import { findExactSpot, findMacroSpot, findSpot } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
@@ -32,6 +33,7 @@ import type { BotFacts } from './macro.ts';
 export type MacroScheduleConfig = {
   workerTarget?: number;
   barracksTarget: number;
+  attackThreshold?: number;
 };
 
 export type MacroSchedule = {
@@ -137,6 +139,29 @@ const commandMacroIntent = (command: Command, faction: Faction): BotIntent | nul
   }
 };
 
+type MacroGrowthAttempt = {
+  queued: boolean;
+  block?: StructureBlock;
+  outcome?: BotIntentRecord;
+};
+
+type MacroGrowthCandidate = {
+  order: number;
+  intent: BotIntent;
+  run: () => MacroGrowthAttempt;
+};
+
+const rankedMacroGrowthCandidates = (
+  candidates: MacroGrowthCandidate[],
+  expert: BotExpertContext,
+): MacroGrowthCandidate[] =>
+  candidates
+    .map((candidate) => ({ ...candidate, intent: scoreBotIntent(candidate.intent, expert) }))
+    .sort((a, b) =>
+      (b.intent.score?.value ?? 0) - (a.intent.score?.value ?? 0) ||
+      b.intent.urgency - a.intent.urgency ||
+      a.order - b.order);
+
 export const macroIntentsFromCommands = (
   commands: readonly Command[],
   faction: Faction,
@@ -192,6 +217,7 @@ export const scheduleBotMacro = (
     findMacroSpot(state, owner, worker, kind, fallback, { risk: facts.risk });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
+  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12);
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
 
   if (armyIsLarvaProduct && builtArmyStructures.length > 0 && facts.army.length === 0) {
@@ -340,42 +366,57 @@ export const scheduleBotMacro = (
   }
 
   if (!builderUsed) {
-    const capacity = queueCoreProductionCapacity(
-      s,
-      player,
-      faction,
-      cmds,
-      budget,
-      economy.builder,
-      depot,
-      config.barracksTarget,
-      riskAwareFindMacroSpot,
-    );
-    builderUsed = capacity.queued;
-    if (capacity.block) intentResults.push(structureOutcome(faction, capacity.block));
-  }
+    const growthCandidates: MacroGrowthCandidate[] = [];
+    if (faction.name !== 'Zerg' && config.barracksTarget > 0) {
+      growthCandidates.push({
+        order: 0,
+        intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: faction.armyStructure },
+        run: () => queueCoreProductionCapacity(
+          s,
+          player,
+          faction,
+          cmds,
+          budget,
+          economy.builder,
+          depot,
+          config.barracksTarget,
+          riskAwareFindMacroSpot,
+        ),
+      });
+    }
+    growthCandidates.push({
+      order: 1,
+      intent: { kind: 'expand', urgency: intentUrgency('expand'), targetKind: faction.depot },
+      run: () => queueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory),
+    });
+    if (faction.name === 'Zerg') {
+      growthCandidates.push({
+        order: 2,
+        intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: Kind.Hatchery },
+        run: () => queueZergMacroHatchery(
+          s,
+          player,
+          faction,
+          cmds,
+          budget,
+          economy.builder,
+          depot,
+          idleLarvae,
+          usedProducers,
+          riskAwareFindMacroSpot,
+        ),
+      });
+    }
 
-  if (!builderUsed) {
-    const expansion = queueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory);
-    builderUsed = expansion.queued;
-    if (expansion.outcome) intentResults.push(expansion.outcome);
-  }
-
-  if (!builderUsed) {
-    const macroHatchery = queueZergMacroHatchery(
-      s,
-      player,
-      faction,
-      cmds,
-      budget,
-      economy.builder,
-      depot,
-      idleLarvae,
-      usedProducers,
-      riskAwareFindMacroSpot,
-    );
-    builderUsed = macroHatchery.queued;
-    if (macroHatchery.block) intentResults.push(structureOutcome(faction, macroHatchery.block));
+    for (const candidate of rankedMacroGrowthCandidates(growthCandidates, expert)) {
+      const attempt = candidate.run();
+      if (attempt.block) intentResults.push(structureOutcome(faction, attempt.block));
+      if (attempt.outcome) intentResults.push(attempt.outcome);
+      if (attempt.queued) {
+        builderUsed = true;
+        break;
+      }
+    }
   }
 
   return {

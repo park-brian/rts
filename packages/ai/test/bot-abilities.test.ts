@@ -2175,6 +2175,18 @@ test('terran bot adds core production capacity when mineral-banked past its targ
   scenario.state.players.supplyMax[0] = 1_000;
 
   expectBotBuildsLegal(scenario, Terran, Kind.Barracks, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 });
+
+  const plan = createBotPlanner(Terran, { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
+  const barracks = findBuild(plan.commands, Kind.Barracks);
+  assert.ok(barracks);
+  assert.deepEqual(validateCommand(scenario.state, 0, barracks), { ok: true });
+  assert.equal(hasBuild(plan.commands, Kind.CommandCenter), false);
+  const productionIntent = plan.intentResults.find((record) =>
+    record.intent.kind === 'add-production' &&
+    record.intent.targetKind === Kind.Barracks &&
+    record.result.status === 'done');
+  assert.ok(productionIntent?.intent.score);
+  assert.ok(productionIntent.intent.score.reasons.some((reason) => reason.kind === 'production-throughput'));
 });
 
 const idleWorkers = (scenario: BotScenario, player: number, kind: number): void => {

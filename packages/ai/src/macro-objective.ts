@@ -242,7 +242,7 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'add-production': {
       const zergMacroHatchery = intent.targetKind === Kind.Hatchery && ctx.idleLarvae === 0;
-      return scoredIntent(intent, (zergMacroHatchery ? 38 : 30) + floatBonus, [
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 36) + floatBonus, [
         scoreReason('production-throughput', ctx.idleProducers, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `idle production capacity is ${ctx.idleProducers}`),
