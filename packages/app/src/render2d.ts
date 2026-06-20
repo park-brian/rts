@@ -2,10 +2,10 @@
 // explicit footprint/debug view. It draws gameplay truth, not sprite art.
 
 import {
-  TILE, ONE, Units, Role, Kind, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
+  TILE, ONE, Units, Role, Kind, Order, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
   structureFootprint, POWER_RADIUS, CREEP_RADIUS,
   requiresPower, requiresCreep, providesCreep, actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
-  illusionPresentation, queuedTravelWaypoints, selectionBase, type MapDef, type QueuedTravelWaypoint,
+  illusionPresentation, queuedTravelWaypoints, selectionBase, upgradedCooldown, weaponForTarget, type MapDef, type QueuedTravelWaypoint, type State,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
@@ -27,6 +27,60 @@ const footprintColor = (owner: number, alpha: number): string => {
 };
 const rgba = (rgb: readonly [number, number, number], alpha: number): string =>
   `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+
+const drawEntityLabel = (
+  ctx: CanvasRenderingContext2D,
+  game: Game,
+  label: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxHeight: number,
+  alpha: number,
+): void => {
+  if (alpha <= 0) return;
+  const size = Math.min(11 / game.zoom, maxWidth / Math.max(1, label.length * 0.68), maxHeight * 0.62);
+  if (size < 2 / game.zoom) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(1 / game.zoom, size * 0.24);
+  ctx.strokeStyle = 'rgba(0,0,0,0.88)';
+  ctx.fillStyle = '#f8fbff';
+  ctx.strokeText(label, x, y, maxWidth);
+  ctx.fillText(label, x, y, maxWidth);
+  ctx.restore();
+};
+
+const drawFacingDot = (
+  ctx: CanvasRenderingContext2D,
+  game: Game,
+  x: number,
+  y: number,
+  radius: number,
+  dx: number,
+  dy: number,
+  alpha: number,
+): void => {
+  if (alpha <= 0) return;
+  if (dx === 0 && dy === 0) return;
+  const len = Math.hypot(dx, dy) || 1;
+  const dotX = x + (dx / len) * radius;
+  const dotY = y + (dy / len) * radius;
+  const dotR = Math.max(1 / game.zoom, Math.min(radius * 0.28, 2.6 / game.zoom));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#f8fbff';
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.lineWidth = Math.max(0.75 / game.zoom, dotR * 0.35);
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+};
 
 let terrainKey: MapDef | null = null;
 let terrainCanvas: HTMLCanvasElement | null = null;
@@ -134,6 +188,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   const ty1 = Math.min(m.h - 1, Math.ceil((game.camY + game.viewH / game.zoom) / TILE));
 
   drawEffectFields(ctx, game);
+  drawAttackLinks(ctx, game);
 
   // Entities.
   for (let i = 0; i < e.hi; i++) {
@@ -179,6 +234,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
         ctx.strokeRect(x + 4 / game.zoom, y + 4 / game.zoom, w - 8 / game.zoom, h - 8 / game.zoom);
       }
       ctx.globalAlpha = 1;
+      drawEntityLabel(ctx, game, def.shortName, x + w / 2, y + h / 2, w * 0.82, h * 0.62, alpha);
     } else {
       const r = def.radius / ONE;
       const actorPresentation = actorRenderPresentation(kind, r, game.zoom);
@@ -228,17 +284,9 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
       ctx.lineWidth = 1 / game.zoom;
       ctx.strokeRect(hull.x0, hull.y0, hull.width, hull.height);
 
-      const dx = e.faceX[i]!;
-      const dy = e.faceY[i]!;
-      if (!mergeSummon && (dx !== 0 || dy !== 0)) {
-        const len = Math.hypot(dx, dy) || 1;
-        ctx.strokeStyle = '#ffffffb0';
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(wx + (dx / len) * r, wy + (dy / len) * r);
-        ctx.stroke();
-      }
       ctx.globalAlpha = 1;
+      if (!mergeSummon) drawFacingDot(ctx, game, wx, wy, r, e.faceX[i]!, e.faceY[i]!, alpha);
+      drawEntityLabel(ctx, game, def.shortName, wx, wy, r * 1.68, r * 1.28, alpha);
     }
 
     const selected = game.selection.has(eid(e, i));
@@ -313,15 +361,66 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   if (ui.controlScheme.value !== 'desktop') drawMinimap(ctx, game);
 };
 
+const attackingTarget = (e: State['e'], slot: number): number => {
+  const combatTarget = e.combatTarget[slot]!;
+  if (combatTarget !== NONE) return combatTarget;
+  return e.order[slot] === Order.Attack ? e.target[slot]! : NONE;
+};
+
+const recentlyFiredTarget = (s: State, slot: number): number => {
+  const e = s.e;
+  const targetId = attackingTarget(e, slot);
+  if (targetId === NONE || !isAlive(e, targetId)) return NONE;
+  const target = slotOf(targetId);
+  const weapon = weaponForTarget(Units[e.kind[slot]!]!, Units[e.kind[target]!]!);
+  if (!weapon) return NONE;
+  const cooldown = upgradedCooldown(s, slot, weapon.cooldown);
+  return e.wcd[slot]! > Math.max(0, cooldown - 3) ? targetId : NONE;
+};
+
+const drawAttackLinks = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const s = game.sim.fullState();
+  const e = s.e;
+  ctx.save();
+  ctx.lineWidth = 1.2 / game.zoom;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.container[i] !== NONE || !game.canSeeEntity(i)) continue;
+    const targetId = recentlyFiredTarget(s, i);
+    if (targetId === NONE || !isAlive(e, targetId)) continue;
+    const target = slotOf(targetId);
+    if (target === i || e.container[target] !== NONE || !game.canSeeEntity(target)) continue;
+    ctx.strokeStyle = footprintColor(e.owner[i]!, 0.58);
+    ctx.beginPath();
+    ctx.moveTo(e.x[i]! / ONE, e.y[i]! / ONE);
+    ctx.lineTo(e.x[target]! / ONE, e.y[target]! / ONE);
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
 const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {
   const s = game.sim.fullState();
+  const e = s.e;
   ctx.save();
   for (const a of workActivities(s, workScratch)) {
     if (!game.canSeeEntity(a.worker) || !game.canSeeEntity(a.target)) continue;
     const x = a.x / ONE;
     const y = a.y / ONE;
+    if (a.kind === 'harvest') {
+      ctx.globalAlpha = 0.42;
+      ctx.strokeStyle = 'rgba(73,208,192,0.78)';
+      ctx.lineWidth = 1.1 / game.zoom;
+      ctx.beginPath();
+      ctx.moveTo(e.x[a.worker]! / ONE, e.y[a.worker]! / ONE);
+      ctx.lineTo(e.x[a.target]! / ONE, e.y[a.target]! / ONE);
+      ctx.stroke();
+      if (!a.active) {
+        ctx.globalAlpha = 1;
+        continue;
+      }
+    }
     const tick = s.tick + a.worker * 7;
-    const color = a.kind === 'repair' ? '#8feeff' : '#ffd57a';
+    const color = a.kind === 'repair' ? '#8feeff' : a.kind === 'harvest' ? '#49d0c0' : '#ffd57a';
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
     ctx.lineWidth = 1.2 / game.zoom;

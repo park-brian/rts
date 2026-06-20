@@ -33,7 +33,8 @@ Historical implementation notes and completed phase detail live in
   observations must stay grid- or typed-array-friendly.
 - Each feature slice ends with focused tests, `npm run typecheck`, `git diff --check`, `npm test`,
   relevant benchmarks, and `npm run build:app` for app-facing slices.
-- Commit each clean slice, then continue from this roadmap inline. HEAVY NOTE: do not use a
+- Commit and push each clean slice, then continue from this roadmap inline. Do not batch unrelated
+  work behind a later push; teammates should be able to pull each validated slice. HEAVY NOTE: do not use a
   subagent for roadmap validation unless the user explicitly asks for outside/adversarial review.
   The subagent validator loop is too slow for normal continuation and usually agrees with the
   obvious next step; make the continuation call directly from the roadmap, tests, and code state.
@@ -48,6 +49,60 @@ Historical implementation notes and completed phase detail live in
   and which callers still need migration.
 
 ## Active Roadmap
+
+### Current Priority Stack
+
+This roadmap is intentionally broad, but the active execution order should stay narrow enough to
+keep the codebase improving slice by slice. The near-term focus is whole-game AI behavior,
+player-facing completeness, and the debug surfaces needed to see why the game behaves the way it
+does:
+
+1. **AI whole-match coherence.** Unpause AI work, but aim it at composed behavior rather than more
+   isolated director features. The bot should stop producing legal-but-random buildings and instead
+   pursue an explainable opening, spend resources, produce workers/army, attack, defend, rebuild
+   broken prerequisites, and expand from one coherent strategy state.
+2. **Player setup, map setup, and command reachability.** Add race/team/map setup for local human,
+   scripted AI, and future multiplayer configurations, then prove every player-available sim
+   capability is reachable through shared selection/command-card/hotkey/smart-command paths.
+3. **Canonical spatial presentation.** Make Math/fallback rendering the exact oracle for body
+   footprints, building footprints, range/interaction hulls, creep, power, selection bases, health
+   and progress bars, placement ghosts, visibility affordances, and short unit/building labels.
+4. **Control-surface completion.** Finish desktop StarCraft-style controls and compact mobile
+   command grammar without letting the top or bottom UI cover game-space rendering or interaction.
+5. **Command queue semantics.** Extend queued-command behavior beyond travel only after the command
+   model has clear append, interruption, serialization, replay, observation, and action-mask rules.
+6. **BW-fidelity provenance.** Replace provisional timings and tunables with sourced data where it
+   affects gameplay feel, especially siege/burrow transitions, Yamato, Carrier/Reaver cadence, and
+   any projectile-like damage delay that turns out to be real gameplay.
+7. **Pathing proof, not churn.** Compare any smoother pathing approach against the existing movement
+   contract with behavior tests, collision counters, resource-route tests, and benchmarks before
+   replacing current steering/scoring code.
+
+Near-term fidelity notes from the current economy/repair slice:
+
+- Repair timing must stay proportional to the target's build time: one SCV repairs a full HP bar in
+  one target build duration, total full repair cost is 25% of the target resource cost, and additional
+  SCVs increase speed linearly without multiplying total cost.
+- Terran construction uses the same worker-work model: extra SCVs on an unfinished Terran structure
+  reduce remaining construction time linearly while the already-paid construction ledger stays fixed.
+- Mineral harvesting should remain explicit as `2.0s` occupying the mineral field, then a `0.35s`
+  post-extraction pause before returning at full speed. Gas workers should remain inside the geyser
+  for `1.415s` before leaving with gas.
+- Do not hardcode "3 workers per gas" in sim diagnostics. The sim should expose gas dwell time,
+  route time, depot/resource geometry, and throughput facts; AI/economy policy chooses the optimal
+  worker count for a geyser from those facts plus current opportunity cost.
+- Implement repair autocast as a default-on SCV behavior after the manual repair timing is stable:
+  idle/local SCVs may choose nearby damaged allied mechanical units or Terran structures when it does
+  not steal workers from higher-priority explicit orders.
+- Implement Terran structure burn-down as a deterministic structure health drain below the BW red-HP
+  threshold, with repair/build sparks and UI progress making the state visible.
+
+Execution contract: every implementation slice should end with targeted validation, a focused commit,
+and a push before starting the next slice. Do not batch unrelated work behind one later push.
+
+AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
+or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
+army, attacks, defenses, and waits.
 
 ### Architecture Compression Guardrails
 
@@ -162,6 +217,15 @@ Near-term architecture slices from this review:
    faster or neutral, and easier to audit than the explicit Scarab, Interceptor, and Spider Mine
    systems. The policy facts are now in actor descriptors; the remaining bar is interpreter quality,
    not missing metadata.
+6. Split app orchestration only at real ownership boundaries: command discovery, input grammar,
+   HUD/chrome layout, world overlays, replay controls, minimap interaction, and renderer lifecycle.
+   Avoid a giant app rewrite; the win is deleting private UI legality and geometry guesses.
+7. Treat the command surface as architecture, not UI polish. Each sim capability should have one
+   shared discovery/validation path consumed by command cards, hotkeys, smart commands, action
+   masks, bots, replays, and future network/RL callers.
+8. Keep Math/fallback rendering descriptor-driven. The app may choose visual style, but it must not
+   invent gameplay footprints, range math, targetability, power/creep coverage, cloaking state, or
+   construction/progress state.
 
 ### Source Layout Direction
 
@@ -830,8 +894,134 @@ Done when:
 
 Purpose: make the game a clean training substrate, not just a playable browser app.
 
+Status: active again, but the focus is live behavior, not isolated feature slices. The current smell
+is that individual directors and validators pass tests while the composed bot looks like the lights
+are off: it places buildings in nonsense locations, fails to make enough units, drifts into random
+tech or structure choices, and does not turn legal commands into a coherent game plan. Treat that as
+an integration architecture bug until whole-match tests and traces prove otherwise.
+
 Remaining work:
 
+- Add a "lights-on" bot integration harness before adding more macro features. It should run
+  deterministic multi-minute bot-vs-baseline games for each race and emit a compact per-phase trace:
+  selected strategy posture, proposed intents, accepted/rejected intents with reasons, resource
+  bank, supply, worker count, producer count, active production queues, tech target, army count,
+  attack/defense commitments, expansion attempts, placement failures, and idle-producer/idle-larva
+  counters.
+- Add whole-match acceptance gates for basic competence:
+  - the bot continuously trains workers until its current economy target is met;
+  - it trains army from available producers instead of spending only on tech structures;
+  - it does not float large minerals/gas while legal worker, army, supply, upgrade, expansion, or
+    production-capacity actions exist;
+  - it does not place buildings in mineral paths, unreachable pockets, add-on-blocking positions,
+    or scattered locations unrelated to the chosen base/choke/power/creep plan;
+  - it attacks or harasses once its posture says it should, and it responds to local base pressure
+    with an appropriate committed squad.
+- Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
+  know the current opener/posture, tech target, production ratio, expansion target, defensive
+  posture, and attack timing window, then let directors propose commands inside that plan. Random
+  buildings are usually a symptom of independent directors all being locally legal but globally
+  uncoordinated.
+- Add a failure-aware scheduler instead of a bigger priority ladder. Each durable intent should
+  carry an owner, target, start tick, expiry, retry budget, expected progress counters, last progress
+  tick, blocking reason, and escalation policy. The scheduler should mark an intent healthy when its
+  progress metric moves, waiting when it is resource/tech/supply gated, blocked when validation or
+  pathing says the target cannot currently work, deadlocked when the same wait/block repeats past a
+  threshold, and abandoned only after recording the reason and a fallback intent. This is the
+  "lights-on" layer: it lets the bot know whether it is actually doing StarCraft or just issuing
+  locally legal commands.
+- Model bot play like an actual StarCraft player's decision loop:
+  - Economy: keep workers producing, avoid supply blocks, saturate bases, take gas when the plan
+    needs gas, and add production before money floats.
+  - Tech: choose one coherent tech path at a time, build only prerequisite structures that serve the
+    current plan, and rebuild destroyed dependencies before asking for dependent units/upgrades.
+  - Expansion: choose an unoccupied resource cluster, then place the depot at the valid point closest
+    to that cluster's mineral/gas docking geometry. Map base metadata can seed or cache clusters,
+    but the source of truth should be resources plus occupancy so procedurally/dynamically placed
+    minerals, rebuilt naturals, island bases, and odd map layouts still work. "Natural" should mean
+    the best nearby unoccupied resource cluster by route distance, safety, and strategic value, not a
+    hard-coded site label. Never treat "closest legal tile near the main" as an expansion.
+  - Production capacity: treat extra production as its own macro intent, not as expansion. Terran
+    Barracks/Factories/Starports, Protoss Gateways/Robo/Stargates, and Zerg macro Hatcheries all
+    fulfill combat-production needs. Zerg especially often wants a second or third Hatchery near the
+    main before or alongside a resource expansion; that should be scored as production throughput,
+    larva availability, rally safety, creep/base proximity, and mineral path safety, not confused
+    with taking a new resource cluster.
+  - Defense: protect workers, depots, production, ramps, and expansions by region value; pull
+    workers only as emergency local defenders and release them when the incident resolves.
+  - Offense: scout, pressure, harass, contain, timing attack, counterattack, or retreat according to
+    posture and enemy facts; never freeze forever just because every route has risk.
+  - Micro: implement kiting, focus fire, siege/unsiege, burrow/unburrow, spell casts, retreat,
+    surround, and choke holding as short-horizon controllers that emit ordinary commands for a
+    committed squad, not as hidden changes inside `stepWorld`.
+    Initial micro should stay intentionally simple: gather assigned combat units into a coherent
+    group, move/attack as one, keep stragglers from permanently idling, and distribute attack
+    commands across visible threats so the squad actually targets all relevant enemies instead of
+    dogpiling one target or ignoring flankers. Add kiting/surround/choke sophistication only after
+    this group-commit behavior is reliable and benchmarked.
+- Add deadlock detectors over intent traces:
+  - no production progress while resources/supply/producers are available;
+  - repeated placement failures for the same kind without changing anchor/site;
+  - expansion attempts targeting non-cluster tiles or a worse cluster while a better nearby
+    unoccupied resource cluster is open;
+  - army idle at home after attack posture becomes active;
+  - defenders repeatedly assigned to unreachable or invisible threats without requesting detection
+    or clearing the route;
+  - tech path asks for units/upgrades whose prerequisite structure was destroyed and not rebuilt;
+  - resource float grows while all macro directors report waiting for unrelated reasons.
+- Add a small strategy-posture contract before more tactics. A posture should declare expansion
+  priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
+  attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;
+  the scheduler arbitrates scarce resources and actors; executors validate commands; the failure
+  monitor decides whether to retry, escalate, switch posture, or force a least-bad action.
+- Generalize production-capacity intents around combat demand. The bot should estimate desired army
+  spend per minute, current producer throughput, larva throughput, queued production, and resource
+  float, then add the right capacity for the race and posture. For Zerg, Hatcheries are both depots
+  and production engines: resource-cluster Hatcheries are expansions, while in-base macro Hatcheries
+  are production-capacity structures and should be placed near safe rally/creep/base areas without
+  blocking mineral/gas routes.
+- Make building placement a first-class bot contract. Expansion placement should use a dedicated
+  resource-cluster helper: group nearby minerals/gas, discard occupied or reserved clusters, derive
+  valid depot anchors closest to the cluster's collection geometry, then score route distance,
+  worker travel, safety, saturation value, island/transport access, and strategic posture. Ordinary
+  structure placement should separately score base ownership, mineral/gas path safety, add-on
+  reservations, pylon/creep/power coverage, choke walls, static-defense coverage, future expansion
+  room, and route reachability. A placement failure should become a traceable intent result, not
+  silent drift to the next random legal tile.
+- Treat building layout as a strategic planning problem, not a legal-tile search. The bot should
+  choose layout roles before choosing tiles:
+  - resource depots go on resource-cluster anchors with the shortest sane worker routes;
+  - production blocks sit near the main/natural rally side, close enough for defense and rallies but
+    outside mineral/gas corridors;
+  - ordinary structures should help protect the main depot/town hall and mineral line by occupying
+    useful approach-side space, but they should preserve worker, army, builder, repair, rally, and
+    retreat pathing unless the posture explicitly wants a wall;
+  - Terran add-on-capable buildings reserve their future add-on side before placement;
+  - Zerg macro Hatcheries stay near safe creep/base/rally space without pretending to be expansions;
+  - Protoss tech/production should be inside reliable pylon coverage with room for later pylons and
+    reinforcements;
+  - supply structures can form partial walls or low-value buffers, but must not trap workers or
+    block future production/add-ons;
+  - static defense covers mineral lines, ramps, air paths, drops, and detector gaps without blocking
+    worker routes unless the structure is small enough and intentionally placed off the main path;
+    ramp/choke coverage should be strongly weighted by race-specific defensive structures: Terran
+    Bunkers backed by repairable walls/turrets, Zerg Sunken/Spore Colonies on creep, and Protoss
+    Photon Cannons under pylon power. Bases should aim for coverage of the town hall, mineral line,
+    production block, and main approach vectors, not isolated defensive structures sprinkled near
+    random buildings;
+  - choke walls and partial blocks should be deliberate advantages, not accidental path blockers:
+    leave friendly pathing and repair/build access, protect the main depot/town hall, and be scored
+    by ramp width, enemy approach vector, ranged defender positions, worker escape, and retreat path;
+  - tech buildings belong in protected interior space unless the posture intentionally uses them as
+    wall pieces.
+- Add placement diagnostics to the bot trace: chosen layout role, anchor, rejected candidates with
+  reasons, final score components, and whether the resulting footprint blocked mineral paths,
+  add-ons, choke movement, future expansion space, pylon/creep coverage, or rally routes. If the bot
+  places a legal but strategically nonsense building, the trace should make the bad score obvious.
+- Add "not making units" regressions. Each race needs a long-running macro test proving that once a
+  Barracks/Gateway/Hatchery/Larva path exists, the bot actually converts production capacity into
+  Marines/Zealots/Zerglings or the current strategy's requested unit mix under realistic resource
+  and supply pressure.
 - Keep validator/action-mask parity for every command family and ability target mode.
 - Expose active and queued orders, production queues, and queue-append legality in observations and
   action masks so policies can reason about future intent without depending on app-only state.
@@ -1385,6 +1575,13 @@ Done when:
 
 - Headless AI and RL code can enumerate legal actions, observe compact state, and step batches
   without depending on app/UI behavior or allocation-heavy object churn.
+- The built-in bot passes deterministic whole-match smoke tests for Terran, Protoss, and Zerg:
+  it builds near sensible owned bases, trains workers and combat units, spends resources under
+  supply pressure, attacks or harasses according to posture, responds to base pressure, and emits a
+  trace that explains each major macro/tactical decision.
+- Bot-vs-aggressive-baseline runs fail loudly when the bot becomes inert, stops unit production,
+  floats resources with legal spending options, places structures in invalid strategic areas, or
+  never commits pressure.
 
 ### 6. Finish UI, Controls, And Rendering Polish
 
@@ -1393,10 +1590,33 @@ letting app presentation become a second gameplay engine.
 
 Remaining work:
 
+- Add race/team/map setup as a first-class player flow. A local setup modal should choose each slot's
+  race, controller type, team, and enabled/disabled state for human-vs-AI and future multiplayer
+  sessions, plus a deterministic map recipe. Current provisions already exist in the sim/replay
+  layer: `MapSpec` supports `slice` and procedural maps, procedural maps support `perTeam`, `seed`,
+  `preset` (`teamPlateaus`, `cornerBases`, `isolatedMains`, `fortress`, `islandExpansions`), and
+  `midfield` (`empty`, `blocks`, `dualChoke`, `arena`, `raisedCenter`). The app currently exposes
+  `perTeam` and random-map restart only; it must expose map preset, midfield module, seed entry,
+  randomize seed, and generated-map name/preview in setup, then pass the full `MapSpec` through
+  `createPlaySession`, `Game.restart`, replay export, replay import, and headless-compatible setup.
+  Because setup will be large, organize the modal as native `<details>` sections: essentials open by
+  default, advanced/debug sections collapsed, and a sticky footer for Start/Cancel/Randomize so the
+  player never has to hunt for the action button on mobile. Recommended sections:
+  - Match: Play/Watch mode, per-team size, human slot, start seed summary.
+  - Map: map kind, procedural preset, midfield module, seed input, randomize seed, generated map
+    name, and eventually a compact preview.
+  - Players: per-slot race, controller type, team, and enabled/disabled state.
+  - Controls: mobile/desktop scheme plus a nested collapsed Keybindings section for hotkey
+    remapping/reset, since keybindings are dense and should not dominate normal match setup.
+  - Debug: Math renderer, full-vision/watch toggles, bot trace/labels, and future scenario knobs.
 - Add explicit subgroup handling for large mixed selections.
-- Add a command-surface coverage audit proving every player-available sim action is exposed through
-  shared selection options and then rendered by the command card. Worker-built expansion town halls
-  are the first fixed example: SCV -> Command Center, Probe -> Nexus, Drone -> Hatchery.
+- Add a command-surface coverage audit proving every player-available sim action and every
+  data-defined player capability is exposed through shared selection options and then rendered by
+  command cards/hotkeys/smart commands. This must cover build, train, research, upgrades, spells,
+  transforms, morphs, merge, lift/land, burrow/unburrow, siege/unsiege, cloak toggles, load/unload,
+  rally/gather-rally, Nydus/transport routing, Spider Mines, Nukes, Scarabs/Reavers, Carrier
+  Interceptors, and worker-built expansion town halls. Worker-built expansion town halls are the
+  first fixed example: SCV -> Command Center, Probe -> Nexus, Drone -> Hatchery.
   - Move command-card slice is done: mobile and desktop command cards expose first-class Move for
     mobile units, `M` arms Move/follow mode in desktop hotkeys, and armed Move taps use shared
     move validation for point movement, friendly follow targets, and queued travel.
@@ -1411,14 +1631,32 @@ Remaining work:
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
-  command cards stay compact enough not to cover play.
+  command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
+  selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart
+  defaults only happen when they are deterministic and explainable.
 - Continue moving desktop HUD toward the StarCraft layout: minimap left, selected state center,
   hotkey-labeled commands right.
 - Keep top and bottom panels separate from the playfield. They reserve layout space and must never
   occlude world rendering, selection boxes, placement ghosts, minimap interaction, edge pan, or
   game-space UI.
 - Add app-side spell field, last-known, and fog affordances once effect descriptors exist.
-- Keep Math renderer as the exact footprint/body/power/creep reference renderer.
+- Keep Math renderer as the exact footprint/body/power/creep reference renderer. It should expose a
+  subtle grid plus canonical overlays for unit bodies, building footprints, selection bases,
+  interaction hulls, weapon/ability ranges, creep, pylon power, detector coverage, cloaked/illusion
+  presentation, selected-unit health bars, construction progress, production/research activity,
+  placement ghosts, rally/queued-order paths, centered actor labels, and facing dots on body
+  perimeters.
+- Add `shortName` beside each long `name` in `UnitDef`, then draw that value as a small Math-mode
+  label for every unit, building, resource, projectile/sortie, and temporary actor so bot/debug
+  screenshots are readable without sprite recognition. Short names should be data-owned, unique
+  across `Units`, uppercase ASCII, and 2-4 characters. Prefer natural RTS shorthand over forced
+  compression, e.g. `GAS`, `ENG`, `RAX`, `CC`, `BC`, `HT`, `DT`, `ROBO`, and `LING`. Draw the label centered inside the actor
+  body/footprint, with enough contrast to remain readable over fill colors, because Math mode is
+  identifying the abstract gameplay hull rather than the sprite. Replace the current facing line
+  with a small dot on the actor body's perimeter in the facing direction, so labels, health bars,
+  and facing never fight for the same pixels. Math mode should also draw team-colored combat target
+  links and economy work links from workers to their current resources, with the existing work-spark
+  effect reused when workers are actively building, repairing, or extracting.
 - Audit the full spatial affordance contract for melee, harvest, repair, weapon range, ability
   range, body bounds, visible art, selection bases, and Math renderer overlays. The player should
   never see a unit appear to mine, repair, melee, or shoot from a distance that contradicts the
@@ -1432,12 +1670,17 @@ Remaining work:
 - Add richer construction, warp-in, repair, and sound cues after the refreshed asset pass.
 - Maintain sprite footprint/art placement checks for every imported asset refresh.
 - Split `Game` selection, input, HUD, replay, and renderer coordination once command-card growth
-  stabilizes.
+  stabilizes. The target split is command discovery/selection state, desktop input, mobile input,
+  HUD/chrome layout, world overlays, minimap interaction, replay controls, and renderer lifecycle,
+  with shared sim queries replacing private app legality or geometry rules.
 
 Done when:
 
 - Every sim command needed to build, upgrade, cast, load/unload, transform, rally, and fight is
   reachable through shared command options, and the UI never needs private legality rules.
+- A human can start a Terran/Protoss/Zerg match with chosen teams/controllers and selected map
+  recipe, inspect exact gameplay geometry in Math mode, and use either mobile or desktop controls
+  without UI chrome covering playable space.
 
 ## Recently Completed Consolidation Slices
 

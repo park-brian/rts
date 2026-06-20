@@ -49,3 +49,14 @@ test('worker build palettes expose valid worker-startable structures', () => {
   assert.deepEqual(missingWorkerBuiltStructures, []);
   assert.deepEqual(invalidPaletteEntries, []);
 });
+
+test('unit short names are explicit compact math-mode labels', () => {
+  const seen = new Map<string, string>();
+
+  for (const [kindText, def] of Object.entries(Units)) {
+    const kindName = kindNames.get(Number(kindText)) ?? kindText;
+    assert.match(def.shortName, /^[A-Z0-9]{2,4}$/, `${kindName} has an invalid shortName`);
+    assert.equal(seen.has(def.shortName), false, `${kindName} duplicates ${def.shortName} from ${seen.get(def.shortName)}`);
+    seen.set(def.shortName, kindName);
+  }
+});

@@ -4,7 +4,7 @@
 // The worker is freed and auto-returns to mining.
 
 import type { State } from '../entity/world.ts';
-import { spawn, slotOf, eid, nearest, kill, NONE } from '../entity/world.ts';
+import { CAP, spawn, slotOf, eid, nearest, kill, NONE, isAlive } from '../entity/world.ts';
 import { Order, Role, Kind, Units, BUILD_RANGE, GAS_AMOUNT, ResourceType, TILE, tiles } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { navigate } from '../spatial/pathing.ts';
@@ -18,6 +18,8 @@ import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { isAddonKind } from '../mechanics/addons.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { distanceSqToRect } from '../spatial/geometry.ts';
+
+const activeBuildCounts = new Int32Array(CAP);
 
 const becomeFoundation = (s: State, slot: number, kind: number, x: number, y: number): void => {
   const e = s.e;
@@ -98,14 +100,14 @@ const releaseWorker = (s: State, worker: number): void => {
   }
 };
 
-const activeBuilder = (s: State, structure: number): number => {
+const releaseBuildWorkers = (s: State, structure: number): void => {
   const e = s.e;
-  const id = e.target[structure]!;
-  if (id === NONE) return NONE;
-  const worker = slotOf(id);
-  if (e.alive[worker] !== 1 || isContained(s, worker) || e.order[worker] !== Order.Build || e.target[worker] !== eid(e, structure)) return NONE;
-  if (!nearBuildFootprint(s, worker, structure)) return NONE;
-  return worker;
+  const id = eid(e, structure);
+  for (let worker = 0; worker < e.hi; worker++) {
+    if (e.alive[worker] === 1 && e.order[worker] === Order.Build && e.target[worker] === id) {
+      releaseWorker(s, worker);
+    }
+  }
 };
 
 export const construction = (s: State): void => {
@@ -182,16 +184,27 @@ export const construction = (s: State): void => {
   }
 
   // 2) Structures finishing construction.
+  activeBuildCounts.fill(0, 0, e.hi);
+  for (let worker = 0; worker < e.hi; worker++) {
+    if (e.alive[worker] !== 1 || isContained(s, worker)) continue;
+    if (e.order[worker] !== Order.Build || e.buildKind[worker] !== Kind.None || e.target[worker] === NONE) continue;
+    if (!isAlive(e, e.target[worker]!)) continue;
+    const structure = slotOf(e.target[worker]!);
+    if (e.built[structure] === 1 || !nearBuildFootprint(s, worker, structure)) continue;
+    activeBuildCounts[structure]++;
+  }
+
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || e.built[i] === 1) continue;
     const def = Units[e.kind[i]!]!;
-    if (requiresBuilder(e.kind[i]!) && activeBuilder(s, i) === NONE) continue;
+    const builderCount = requiresBuilder(e.kind[i]!) ? activeBuildCounts[i]! : 1;
+    if (builderCount <= 0) continue;
     if (e.ctimer[i]! > 0) {
-      e.ctimer[i] = e.ctimer[i]! - 1;
+      e.ctimer[i] = e.ctimer[i]! - builderCount;
       if (e.ctimer[i]! <= 0) {
+        e.ctimer[i] = 0;
         e.built[i] = 1;
-        const worker = activeBuilder(s, i);
-        if (worker !== NONE) releaseWorker(s, worker);
+        releaseBuildWorkers(s, i);
         if (!isAddonKind(e.kind[i]!)) {
           e.target[i] = NONE;
           e.intentTarget[i] = NONE;

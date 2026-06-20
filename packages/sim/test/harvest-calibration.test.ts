@@ -15,7 +15,7 @@ import {
   type HarvestCalibrationBase,
 } from '../src/map/harvest-calibration.ts';
 import { resourceSpawnCenterPx, sliceMap, solveBaseCluster, type BaseResourceDir, type MapDef, type ResourceSpawn } from '../src/map/core.ts';
-import { Kind, TILE } from '../src/data/index.ts';
+import { GAS_MINE_TICKS, Kind, MINERAL_MINE_TICKS, TILE } from '../src/data/index.ts';
 import { makeState, NEUTRAL, slotOf } from '../src/entity/world.ts';
 import { topDownEdgeDistance } from '../src/spatial/geometry.ts';
 
@@ -67,8 +67,8 @@ test('main-base mineral diagnostics expose positive-only BW route slack data', (
   for (const entry of entries) {
     assert.equal(entry.workerKind, Kind.SCV);
     assert.equal(entry.depotKind, Kind.CommandCenter);
-    assert.equal(entry.mineFrames, 80);
-    assert.equal(entry.targetRouteFrames, 97);
+    assert.equal(entry.mineFrames, MINERAL_MINE_TICKS);
+    assert.equal(entry.targetRouteFrames, Math.ceil((profile.targetTripFramesTenths - MINERAL_MINE_TICKS * 10) / 10));
     assert.equal(entry.actualRouteFrames <= entry.targetRouteFrames + entry.toleranceFrames, true);
     assert.equal(entry.slackFrames, Math.max(0, entry.targetRouteFrames - entry.actualRouteFrames));
     assert.equal(entry.slackFrames >= 0, true);
@@ -135,7 +135,7 @@ test('harvest diagnostics support side-facing base resource directions', () => {
   }
 });
 
-test('base gas diagnostics validate the three-worker refinery cadence target', () => {
+test('base gas diagnostics validate refinery route cadence data', () => {
   const map = generateMap(2, 44, { midfield: 'blocks' });
   const bases = map.bases ?? [];
   const profile = gasTimingProfile(Kind.SCV, Kind.CommandCenter);
@@ -147,8 +147,7 @@ test('base gas diagnostics validate the three-worker refinery cadence target', (
     assert.equal(entry.workerKind, Kind.SCV);
     assert.equal(entry.depotKind, Kind.CommandCenter);
     assert.equal(entry.gasKind, Kind.Refinery);
-    assert.equal(entry.targetWorkers, 3);
-    assert.equal(entry.mineFrames, 37);
+    assert.equal(entry.mineFrames, GAS_MINE_TICKS);
     assert.equal(entry.targetRouteFrames, 89);
     assert.equal(Math.abs(entry.actualRouteFrames - entry.targetRouteFrames) <= entry.toleranceFrames, true);
     assert.equal(entry.valid, true);

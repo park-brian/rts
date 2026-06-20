@@ -5,6 +5,7 @@
 
 import {
   bwRange,
+  FPS,
   Kind,
   SUPPLY_SCALE,
   tiles,
@@ -34,8 +35,10 @@ export type FactionName = 'terran' | 'protoss' | 'zerg';
 
 // ---- economy / combat tunables (provisional) ----
 export const MINE_AMOUNT = 8;
-export const MINERAL_MINE_TICKS = 80;
-export const GAS_MINE_TICKS = 37;
+export const MINERAL_OCCUPY_TICKS = Math.round(2 * FPS);
+export const MINERAL_RETURN_PAUSE_TICKS = Math.round(0.35 * FPS);
+export const MINERAL_MINE_TICKS = MINERAL_OCCUPY_TICKS + MINERAL_RETURN_PAUSE_TICKS;
+export const GAS_MINE_TICKS = Math.round(1.415 * FPS);
 export const MINE_TICKS = MINERAL_MINE_TICKS;
 export const MINE_RANGE = bwRange(HarvestRangePx.Mine);
 export const MAX_PER_PATCH = 3; // ceiling for the timing-derived patch saturation cap

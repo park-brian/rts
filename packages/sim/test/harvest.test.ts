@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { kill, makeState, slotOf, eid, NEUTRAL } from '../src/entity/world.ts';
+import { kill, makeState, slotOf, eid, NEUTRAL, NONE } from '../src/entity/world.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { stepWorld } from '../src/tick.ts';
 import { setupMatch } from '../src/map/setup.ts';
 import { resourceSpawnCenterPx, sliceMap } from '../src/map/core.ts';
 import {
-  Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE, MINE_TICKS, GAS_MINE_TICKS, Units,
+  Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE,
+  MINERAL_OCCUPY_TICKS, MINERAL_RETURN_PAUSE_TICKS, GAS_MINE_TICKS, Units,
   bwRange,
 } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
@@ -133,7 +134,7 @@ test('diagonal mineral approaches dock on a face, not a point-contact corner', (
   e.target[miner] = eid(e, node);
   stepWorld(s, []);
 
-  assert.equal(e.timer[miner], MINE_TICKS);
+  assert.equal(e.timer[miner], MINERAL_OCCUPY_TICKS);
   assert.equal(topDownEdgeDistance(s, miner, node), 0);
 });
 
@@ -247,8 +248,81 @@ test('harvest timers use BW mineral and gas action frames', () => {
 
   stepWorld(s, []);
 
-  assert.equal(e.timer[mineralWorker], MINE_TICKS);
+  assert.equal(e.timer[mineralWorker], MINERAL_OCCUPY_TICKS);
   assert.equal(e.timer[gasWorker], GAS_MINE_TICKS);
+  assert.equal(e.container[gasWorker], eid(e, refinery));
+  assert.equal(e.x[gasWorker], e.x[refinery]);
+  assert.equal(e.y[gasWorker], e.y[refinery]);
+});
+
+test('mineral workers occupy a patch, pause briefly, then return at speed', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  const depot = slotOf(spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12)));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(10), tc(8)));
+  e.cargo[mineral] = 1_000_000;
+  const dock = topDownDockingPoint(
+    Kind.SCV,
+    Kind.Mineral,
+    e.x[mineral]!,
+    e.y[mineral]!,
+    e.flags[mineral]!,
+    e.x[depot]!,
+    e.y[depot]!,
+  );
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, dock.x, dock.y));
+  e.order[worker] = Order.Harvest;
+  e.target[worker] = eid(e, mineral);
+
+  stepWorld(s, []);
+  for (let t = 0; t < MINERAL_OCCUPY_TICKS; t++) stepWorld(s, []);
+
+  assert.equal(e.cargo[worker], MINE_AMOUNT);
+  assert.equal(e.timer[worker], -MINERAL_RETURN_PAUSE_TICKS);
+  assert.equal(e.x[worker], dock.x);
+  assert.equal(e.y[worker], dock.y);
+
+  for (let t = 0; t < MINERAL_RETURN_PAUSE_TICKS; t++) stepWorld(s, []);
+  const pausedX = e.x[worker]!;
+  const pausedY = e.y[worker]!;
+
+  stepWorld(s, []);
+
+  assert.equal(e.timer[worker], 0);
+  assert.ok(e.x[worker] !== pausedX || e.y[worker] !== pausedY, 'worker moves after the post-mining pause');
+});
+
+test('gas workers enter refineries for the harvest timer then exit carrying gas', () => {
+  const s = makeState(open(24, 24), 1, 1);
+  const e = s.e;
+  const depot = slotOf(spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12)));
+  const refinery = slotOf(spawnUnit(s, Kind.Refinery, 0, tc(15), tc(8)));
+  e.cargo[refinery] = 1_000_000;
+  const gasDock = topDownDockingPoint(
+    Kind.SCV,
+    Kind.Refinery,
+    e.x[refinery]!,
+    e.y[refinery]!,
+    e.flags[refinery]!,
+    e.x[depot]!,
+    e.y[depot]!,
+  );
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, gasDock.x, gasDock.y));
+  e.order[worker] = Order.Harvest;
+  e.target[worker] = eid(e, refinery);
+
+  stepWorld(s, []);
+  assert.equal(e.container[worker], eid(e, refinery));
+
+  for (let t = 0; t < GAS_MINE_TICKS; t++) stepWorld(s, []);
+
+  assert.equal(e.container[worker], NONE);
+  assert.equal(e.order[worker], Order.Harvest);
+  assert.equal(e.target[worker], eid(e, refinery));
+  assert.equal(e.cargo[worker], MINE_AMOUNT);
+  assert.equal(e.cargoType[worker], ResourceType.Gas);
+  assert.equal(e.cargo[refinery], 1_000_000 - MINE_AMOUNT);
+  assert.notEqual(e.x[worker], e.x[refinery]);
 });
 
 test('workers deposit immediately at depot docks even when route diagnostics have slack', () => {

@@ -170,7 +170,8 @@ export type WorkActivity = {
   target: number;
   x: number;
   y: number;
-  kind: 'build' | 'repair';
+  kind: 'build' | 'repair' | 'harvest';
+  active: boolean;
 };
 
 export type QueuedTravelWaypoint = {
@@ -586,16 +587,21 @@ export const workActivities = (s: State, out: WorkActivity[] = []): WorkActivity
     if (e.container[target] !== NONE) continue;
 
     if (e.order[worker] === Order.Build && e.buildKind[worker] === Kind.None) {
-      if (e.built[target] === 1 || e.ctimer[target]! <= 0 || e.target[target] !== eid(e, worker)) continue;
+      if (e.built[target] === 1 || e.ctimer[target]! <= 0) continue;
       if (!nearBuildFootprint(s, worker, target)) continue;
       const p = structureWorkPoint(s, worker, target);
-      out.push({ worker, target, x: p.x, y: p.y, kind: 'build' });
+      out.push({ worker, target, x: p.x, y: p.y, kind: 'build', active: true });
     } else if (e.order[worker] === Order.Repair) {
       const def = Units[e.kind[target]!];
       if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) continue;
       if (!withinRepairRange(s, worker, target)) continue;
       const p = (def.roles & Role.Structure) !== 0 ? structureWorkPoint(s, worker, target) : unitWorkPoint(s, worker, target);
-      out.push({ worker, target, x: p.x, y: p.y, kind: 'repair' });
+      out.push({ worker, target, x: p.x, y: p.y, kind: 'repair', active: true });
+    } else if (e.order[worker] === Order.Harvest) {
+      const def = Units[e.kind[target]!];
+      if (!def || (def.roles & Role.Resource) === 0) continue;
+      const p = unitWorkPoint(s, worker, target);
+      out.push({ worker, target, x: p.x, y: p.y, kind: 'harvest', active: e.cargo[worker] === 0 && e.timer[worker]! > 0 });
     }
   }
   return out;

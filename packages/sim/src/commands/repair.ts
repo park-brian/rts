@@ -2,10 +2,9 @@ import type { Command } from './types.ts';
 import { Kind, Order, Units } from '../data/index.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import {
-  REPAIR_RATE,
   canContinueConstructionKind,
   isRepairableKind,
-  repairCost,
+  nextRepairCost,
   resumeConstruction,
 } from '../mechanics/repair.ts';
 import type { State } from '../entity/world.ts';
@@ -34,8 +33,7 @@ export const validateRepairCommand = (s: State, player: number, command: RepairC
   const def = Units[e.kind[target]!];
   if (def && e.built[target] !== 1 && canContinueConstructionKind(e.kind[target]!)) return { ok: true };
   if (!def || e.built[target] !== 1 || !isRepairableKind(e.kind[target]!) || e.hp[target]! >= def.hp) return reject('target-not-allowed');
-  const cost = repairCost(e.kind[target]!, Math.min(REPAIR_RATE, def.hp - e.hp[target]!));
-  return canPay(s, player, cost);
+  return canPay(s, player, nextRepairCost(e.kind[target]!, e.hp[target]!));
 };
 
 export const applyRepairCommand = (s: State, command: RepairCommand): void => {

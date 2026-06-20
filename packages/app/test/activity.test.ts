@@ -16,7 +16,7 @@ test('workActivities reports active Terran construction at the foundation edge',
   e.target[scv] = eid(e, depot);
   e.target[depot] = eid(e, scv);
 
-  const [activity] = workActivities(s);
+  const activity = workActivities(s).find((a) => a.kind === 'build');
 
   assert.ok(activity);
   assert.equal(activity?.kind, 'build');
@@ -36,7 +36,7 @@ test('workActivities ignores workers still walking to an unplaced build site', (
   e.ty[scv] = fx(900);
   e.target[scv] = NONE;
 
-  assert.deepEqual(workActivities(s), []);
+  assert.equal(workActivities(s).some((a) => a.worker === scv), false);
 });
 
 test('workActivities reports useful in-range repair but not idle repair orders', () => {
@@ -49,9 +49,9 @@ test('workActivities reports useful in-range repair but not idle repair orders',
   e.order[scv] = Order.Repair;
   e.target[scv] = eid(e, tank);
 
-  assert.equal(workActivities(s)[0]?.kind, 'repair');
+  assert.equal(workActivities(s).find((a) => a.worker === scv)?.kind, 'repair');
 
   e.hp[tank] = Units[Kind.SiegeTank]!.hp;
 
-  assert.deepEqual(workActivities(s), []);
+  assert.equal(workActivities(s).some((a) => a.worker === scv), false);
 });

@@ -122,11 +122,21 @@ test('player command surface accounts for every sim command type', () => {
 
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+  const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');
 
+  assert.match(store, /mathRenderer:\s*signal\(true\)/);
   assert.match(render2d, /Math mode is the canonical gameplay-geometry view/);
   assert.match(render2d, /rgba\(125,\s*170,\s*210,\s*0\.10\)/);
   assert.match(render2d, /for \(let x = 0; x <= m\.w \* TILE; x \+= TILE\)/);
   assert.match(render2d, /for \(let y = 0; y <= m\.h \* TILE; y \+= TILE\)/);
+  assert.match(render2d, /drawEntityLabel\(ctx,\s*game,\s*def\.shortName/);
+  assert.match(render2d, /drawFacingDot\(ctx,\s*game/);
+  assert.match(render2d, /drawAttackLinks\(ctx,\s*game\)/);
+  assert.match(render2d, /recentlyFiredTarget\(s,\s*i\)/);
+  assert.match(render2d, /upgradedCooldown\(s,\s*slot,\s*weapon\.cooldown\)/);
+  assert.match(render2d, /a\.kind === 'harvest'/);
+  assert.match(render2d, /if \(!a\.active\) \{/);
+  assert.match(render2d, /ctx\.globalAlpha = 1;\s*continue;/);
 });
 
 test('renderer draws queued travel waypoints from sim descriptors', () => {

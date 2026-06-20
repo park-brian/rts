@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eid, slotOf } from '../src/entity/world.ts';
+import { eid, NONE, slotOf } from '../src/entity/world.ts';
 import { Kind, Order, Units } from '../src/data/index.ts';
-import { repairCost } from '../src/mechanics/repair.ts';
+import { repairCostDelta, repairDuration } from '../src/mechanics/repair.ts';
 import { parseReplay } from '../src/io/replay.ts';
 import { fx } from '../src/fixed.ts';
 import { validateRepairCommand } from '../src/commands/repair.ts';
@@ -13,23 +13,69 @@ import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 type RepairCommand = Extract<Command, { t: 'repair' }>;
 type Expected = { ok: true } | { ok: false; reason: CommandRejectReason };
 
-test('SCVs repair damaged mechanical units and spend resources', () => {
+const idleWorkers = (e: ReturnType<typeof simScenario>['state']['e']): void => {
+  for (let i = 0; i < e.hi; i++) {
+    if (e.order[i] !== Order.Harvest) continue;
+    e.order[i] = Order.Idle;
+    e.target[i] = NONE;
+    e.intentTarget[i] = NONE;
+    e.combatTarget[i] = NONE;
+    e.cargo[i] = 0;
+    e.timer[i] = 0;
+  }
+};
+
+test('one SCV fully repairs over the target build time for 25 percent total cost', () => {
   const { sim, state: s, spawn } = simScenario({ players: 1, seed: 120 });
   const e = s.e;
+  idleWorkers(e);
   const scv = slotOf(spawn(Kind.SCV, 0, fx(400), fx(400)));
   const tank = slotOf(spawn(Kind.SiegeTank, 0, fx(408), fx(400)));
-  e.hp[tank] = Units[Kind.SiegeTank]!.hp - 8;
-  s.players.minerals[0] = 100;
-  s.players.gas[0] = 100;
-  const cost = repairCost(Kind.SiegeTank, 4);
+  e.hp[tank] = 0;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const cost = repairCostDelta(Kind.SiegeTank, 0, Units[Kind.SiegeTank]!.hp);
+  const duration = repairDuration(Kind.SiegeTank);
 
   const results = sim.step([{ player: 0, cmds: [{ t: 'repair', unit: eid(e, scv), target: eid(e, tank) }] }]);
+  for (let t = 1; t < duration; t++) sim.step([]);
 
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'repair', ok: true }]);
-  assert.equal(e.order[scv], Order.Repair);
-  assert.equal(e.hp[tank], Units[Kind.SiegeTank]!.hp - 4);
-  assert.equal(s.players.minerals[0], 100 - cost.minerals);
-  assert.equal(s.players.gas[0], 100 - cost.gas);
+  assert.equal(e.hp[tank], Units[Kind.SiegeTank]!.hp);
+  assert.equal(e.order[scv], Order.Idle);
+  assert.equal(s.players.minerals[0], 1_000 - cost.minerals);
+  assert.equal(s.players.gas[0], 1_000 - cost.gas);
+});
+
+test('multiple SCVs repair linearly faster without multiplying total cost', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 123 });
+  const e = s.e;
+  idleWorkers(e);
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(408), fx(400)));
+  e.hp[depot] = 0;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const workers = [
+    slotOf(spawn(Kind.SCV, 0, fx(360), fx(376))),
+    slotOf(spawn(Kind.SCV, 0, fx(456), fx(376))),
+    slotOf(spawn(Kind.SCV, 0, fx(360), fx(424))),
+    slotOf(spawn(Kind.SCV, 0, fx(456), fx(424))),
+    slotOf(spawn(Kind.SCV, 0, fx(408), fx(352))),
+  ];
+  const cost = repairCostDelta(Kind.SupplyDepot, 0, Units[Kind.SupplyDepot]!.hp);
+  const frames = Math.ceil(repairDuration(Kind.SupplyDepot) / workers.length);
+
+  const results = sim.step([{ player: 0, cmds: workers.map((worker) => ({
+    t: 'repair' as const,
+    unit: eid(e, worker),
+    target: eid(e, depot),
+  })) }]);
+  for (let t = 1; t < frames; t++) sim.step([]);
+
+  assert.deepEqual(results, workers.map((_, index) => ({ player: 0, index, t: 'repair', ok: true })));
+  assert.equal(e.hp[depot], Units[Kind.SupplyDepot]!.hp);
+  assert.equal(s.players.minerals[0], 1_000 - cost.minerals);
+  assert.equal(s.players.gas[0], 1_000 - cost.gas);
 });
 
 test('repair rejects invalid targets but allows SCVs to resume Terran foundations', () => {
@@ -63,6 +109,38 @@ test('repair rejects invalid targets but allows SCVs to resume Terran foundation
   ]);
   assert.equal(e.order[scv], Order.Build);
   assert.equal(e.target[scv], eid(e, depot));
+});
+
+test('multiple SCVs build Terran foundations linearly faster', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 124 });
+  const e = s.e;
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(408), fx(400)));
+  const builder = slotOf(spawn(Kind.SCV, 0, fx(392), fx(400)));
+  const helpers = [
+    slotOf(spawn(Kind.SCV, 0, fx(400), fx(400))),
+    slotOf(spawn(Kind.SCV, 0, fx(416), fx(400))),
+  ];
+  e.built[depot] = 0;
+  e.ctimer[depot] = 6;
+  e.order[builder] = Order.Build;
+  e.target[builder] = eid(e, depot);
+  e.buildKind[builder] = Kind.None;
+  e.target[depot] = eid(e, builder);
+
+  const results = sim.step([{ player: 0, cmds: helpers.map((helper) => ({
+    t: 'repair' as const,
+    unit: eid(e, helper),
+    target: eid(e, depot),
+  })) }]);
+
+  assert.deepEqual(results, helpers.map((_, index) => ({ player: 0, index, t: 'repair', ok: true })));
+  assert.equal(e.ctimer[depot], 3);
+
+  sim.step([]);
+
+  assert.equal(e.built[depot], 1);
+  assert.equal(e.ctimer[depot], 0);
+  for (const worker of [builder, ...helpers]) assert.notEqual(e.order[worker], Order.Build);
 });
 
 test('repair validation shares actor ownership gates', () => {

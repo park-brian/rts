@@ -33,10 +33,9 @@ export const cancelFoundation = (s: State, slot: number): void => {
     e.combatTarget[slot] = NONE;
     return;
   }
-  const workerId = e.target[slot]!;
-  if (workerId !== NONE && isAlive(e, workerId)) {
-    const worker = slotOf(workerId);
-    if (e.order[worker] === Order.Build && e.target[worker] === eid(e, slot)) {
+  const foundationId = eid(e, slot);
+  for (let worker = 0; worker < e.hi; worker++) {
+    if (e.alive[worker] === 1 && e.order[worker] === Order.Build && e.target[worker] === foundationId) {
       e.order[worker] = Order.Idle;
       e.target[worker] = NONE;
       e.intentTarget[worker] = NONE;

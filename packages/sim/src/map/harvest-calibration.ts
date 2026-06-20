@@ -43,7 +43,6 @@ export type GasTimingProfile = {
   workerKind: number;
   depotKind: number;
   gasKind: number;
-  targetWorkers: number;
   mineFrames: number;
   targetRouteFrames: number;
   toleranceFrames: number;
@@ -86,7 +85,6 @@ export type GasRouteCalibration = {
   workerKind: number;
   depotKind: number;
   gasKind: number;
-  targetWorkers: number;
   mineFrames: number;
   targetRouteFrames: number;
   actualRouteFrames: number;
@@ -203,7 +201,6 @@ export const gasTimingProfile = (
   workerKind,
   depotKind,
   gasKind,
-  targetWorkers: 3,
   mineFrames: GAS_MINE_TICKS,
   targetRouteFrames: routeFrames(fx(BASE_GAS_DOCK_DISTANCE_PX), workerKind),
   toleranceFrames,
@@ -410,7 +407,6 @@ export const calibrateGasRoute = (
     workerKind: profile.workerKind,
     depotKind: profile.depotKind,
     gasKind: profile.gasKind,
-    targetWorkers: profile.targetWorkers,
     mineFrames: profile.mineFrames,
     targetRouteFrames: profile.targetRouteFrames,
     actualRouteFrames,

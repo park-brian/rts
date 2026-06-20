@@ -16,18 +16,20 @@
 
 import type { State } from '../entity/world.ts';
 import { CAP, slotOf, eid, kill, NONE } from '../entity/world.ts';
-import { Order, Role, ResourceType, Units, MINE_AMOUNT } from '../data/index.ts';
+import { Order, Role, ResourceType, Units, MINE_AMOUNT, MINERAL_RETURN_PAUSE_TICKS } from '../data/index.ts';
 import { clearVelocity, faceToward } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
-import { isContained } from '../mechanics/cargo.ts';
+import { canUnloadAt, isContained } from '../mechanics/cargo.ts';
 import { fx } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';
 import {
   canPlayerGatherTarget,
   isGatherTarget,
+  isGatherTargetSlot,
   mineTicksFor,
   pickPatch,
+  resourceOccupyTicksFor,
   resourceDockingPoint,
   shouldSpreadExplicitMineralTarget,
 } from '../mechanics/resources.ts';
@@ -39,6 +41,9 @@ const HARVEST_DOCK_EPSILON = fx(1);
 // work in the loop be O(1)/O(depots) instead of an O(workers) rescan each.
 const mineLock = new Int32Array(CAP);
 const depotList = new Int32Array(CAP);
+const gasExitOffsets: ReadonlyArray<readonly [number, number]> = [
+  [0, 0], [16, 0], [-16, 0], [0, 16], [0, -16], [16, 16], [16, -16], [-16, 16], [-16, -16],
+];
 
 const resourceSlotFromTarget = (s: State, id: number): number => {
   if (id === NONE) return NONE;
@@ -48,11 +53,27 @@ const resourceSlotFromTarget = (s: State, id: number): number => {
 const workerTargetIsGatherable = (s: State, worker: number): boolean =>
   canPlayerGatherTarget(s, s.e.owner[worker]!, s.e.target[worker]!);
 
+const isGasResource = (s: State, slot: number): boolean =>
+  isGatherTargetSlot(s, slot) && Units[s.e.kind[slot]!]!.resourceType === ResourceType.Gas;
+
 const atDockingPoint = (s: State, worker: number, target: number, p: InteractionPoint): boolean => {
   const e = s.e;
   const dx = e.x[worker]! - p.x;
   const dy = e.y[worker]! - p.y;
   return dx === 0 && dy === 0 && withinTopDownEdgeRange(s, worker, target, HARVEST_DOCK_EPSILON);
+};
+
+const gasExitPoint = (s: State, worker: number, refinery: number, depot: number): InteractionPoint | null => {
+  const e = s.e;
+  const approachX = depot === NONE ? e.x[refinery]! : e.x[depot]!;
+  const approachY = depot === NONE ? e.y[refinery]! : e.y[depot]!;
+  const dock = resourceDockingPoint(s, worker, refinery, approachX, approachY);
+  for (const [ox, oy] of gasExitOffsets) {
+    const x = dock.x + fx(ox);
+    const y = dock.y + fx(oy);
+    if (canUnloadAt(s, worker, x, y, refinery)) return { x, y };
+  }
+  return null;
 };
 
 export const harvest = (s: State): void => {
@@ -66,7 +87,8 @@ export const harvest = (s: State): void => {
     if (e.alive[i] !== 1 || isContained(s, i)) continue;
     if ((e.flags[i]! & Role.ResourceDepot) !== 0) depotList[nDepots++] = i;
     if ((e.flags[i]! & Role.Worker) !== 0 && e.order[i] === Order.Harvest && e.timer[i]! > 0 && isGatherTarget(s, e.target[i]!)) {
-      mineLock[slotOf(e.target[i]!)] = i;
+      const target = slotOf(e.target[i]!);
+      if (Units[e.kind[target]!]!.resourceType === ResourceType.Minerals) mineLock[target] = i;
     }
   }
   const nearestDepot = (x: number, y: number, owner: number): number => {
@@ -81,12 +103,36 @@ export const harvest = (s: State): void => {
   };
 
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || isContained(s, i) || (e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
+    if (e.alive[i] !== 1 || (e.flags[i]! & Role.Worker) === 0 || e.order[i] !== Order.Harvest) continue;
+    if (isContained(s, i)) {
+      const refinery = slotOf(e.container[i]!);
+      if (!isGasResource(s, refinery) || e.target[i] !== e.container[i]) continue;
+      if (isDisabled(e, i)) continue;
+      if (e.timer[i]! > 0) e.timer[i] = e.timer[i]! - 1;
+      if (e.timer[i]! > 0) continue;
+      const depot = nearestDepot(e.x[refinery]!, e.y[refinery]!, e.owner[i]!);
+      const exit = gasExitPoint(s, i, refinery, depot);
+      if (!exit) continue;
+      const taken = Math.min(MINE_AMOUNT, e.cargo[refinery]!);
+      e.cargo[refinery] = e.cargo[refinery]! - taken;
+      e.cargo[i] = taken;
+      e.cargoType[i] = ResourceType.Gas;
+      e.container[i] = NONE;
+      e.x[i] = exit.x;
+      e.y[i] = exit.y;
+      clearVelocity(e, i);
+      continue;
+    }
     if (isDisabled(e, i)) continue;
     const owner = e.owner[i]!;
     const speed = effectiveSpeed(s, e, i, Units[e.kind[i]!]!.speed);
 
     if (e.cargo[i]! > 0) {
+      if (e.timer[i]! < 0) {
+        clearVelocity(e, i);
+        e.timer[i] = e.timer[i]! + 1;
+        continue;
+      }
       // Returning: deliver to the nearest owned resource depot.
       const depot = nearestDepot(e.x[i]!, e.y[i]!, owner);
       if (depot === NONE) { e.order[i] = Order.Idle; continue; }
@@ -132,6 +178,13 @@ export const harvest = (s: State): void => {
     faceToward(e, i, e.x[node]!, e.y[node]!);
     if (atDockingPoint(s, i, node, dock)) {
       clearVelocity(e, i);
+      if (isGasResource(s, node)) {
+        e.container[i] = eid(e, node);
+        e.x[i] = e.x[node]!;
+        e.y[i] = e.y[node]!;
+        e.timer[i] = mineTicksFor(s, node);
+        continue;
+      }
       if (e.timer[i]! > 0) {
         // We hold the patch (reserved): extract.
         e.timer[i] = e.timer[i]! - 1;
@@ -140,11 +193,12 @@ export const harvest = (s: State): void => {
           e.cargo[node] = e.cargo[node]! - taken;
           e.cargo[i] = taken;
           e.cargoType[i] = Units[e.kind[node]!]!.resourceType;
+          e.timer[i] = -MINERAL_RETURN_PAUSE_TICKS;
           mineLock[node] = -1; // done extracting → release for a waiting worker
           if (e.cargo[node]! <= 0) kill(s, node);
         }
       } else if (mineLock[node] === -1) {
-        e.timer[i] = mineTicksFor(s, node); mineLock[node] = i; // patch free → reserve it and begin mining
+        e.timer[i] = resourceOccupyTicksFor(s, node); mineLock[node] = i; // patch free → reserve it and begin mining
       }
       // else: another worker is mining here — wait our turn (hold position).
     } else {

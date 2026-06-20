@@ -1,4 +1,13 @@
-import { GAS_MINE_TICKS, MAX_PER_PATCH, MINE_TICKS, Order, ResourceType, Role, Units } from '../data/index.ts';
+import {
+  GAS_MINE_TICKS,
+  MAX_PER_PATCH,
+  MINERAL_OCCUPY_TICKS,
+  MINE_TICKS,
+  Order,
+  ResourceType,
+  Role,
+  Units,
+} from '../data/index.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
 import { isContained, sameTeam } from './cargo.ts';
 import { isAlive, nearest, slotOf, NONE, type State } from '../entity/world.ts';
@@ -37,6 +46,9 @@ export const resourceDockingPoint = (
 
 export const mineTicksFor = (s: State, node: number): number =>
   Units[s.e.kind[node]!]!.resourceType === ResourceType.Gas ? GAS_MINE_TICKS : MINE_TICKS;
+
+export const resourceOccupyTicksFor = (s: State, node: number): number =>
+  Units[s.e.kind[node]!]!.resourceType === ResourceType.Gas ? GAS_MINE_TICKS : MINERAL_OCCUPY_TICKS;
 
 const dockDistance = (a: InteractionPoint, b: InteractionPoint): number => {
   const dx = a.x - b.x;

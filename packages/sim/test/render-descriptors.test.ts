@@ -327,6 +327,7 @@ test('work activities expose construction and repair spark policy from sim state
 
   const [build] = workActivities(s);
   assert.equal(build?.kind, 'build');
+  assert.equal(build?.active, true);
   assert.equal(build?.worker, scv);
   assert.equal(build?.target, depot);
   assert.ok(build.x <= e.x[scv]!);
@@ -338,6 +339,23 @@ test('work activities expose construction and repair spark policy from sim state
 
   const [repair] = workActivities(s);
   assert.equal(repair?.kind, 'repair');
+  assert.equal(repair?.active, true);
   assert.equal(repair?.worker, scv);
   assert.equal(repair?.target, tank);
+
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, 0, fx(420), fx(400)));
+  e.order[scv] = Order.Harvest;
+  e.target[scv] = eid(e, mineral);
+  e.timer[scv] = 0;
+
+  const [harvestTransit] = workActivities(s);
+  assert.equal(harvestTransit?.kind, 'harvest');
+  assert.equal(harvestTransit?.active, false);
+  assert.equal(harvestTransit?.worker, scv);
+  assert.equal(harvestTransit?.target, mineral);
+
+  e.timer[scv] = 3;
+  const [harvestActive] = workActivities(s);
+  assert.equal(harvestActive?.kind, 'harvest');
+  assert.equal(harvestActive?.active, true);
 });
