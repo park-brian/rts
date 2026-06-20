@@ -1158,27 +1158,19 @@ Remaining work:
       unsafe expansion sites still need their own outcome sources.
     - Expansion no-builder outcome slice is done: expansion attempts now use a generic optional
       outcome record and report `waiting: no-builder` when the bot wants a base, has a viable site
-      and bank, but no available worker builder. Remaining work: macro directors still need explicit
-      outcomes for resource starvation, supply blocks, and occupied producers where those states are
-      genuinely actionable.
+      and bank, but no available worker builder.
     - Army-training outcome slice is done: failed army production now reports `train-counter` /
       `spend-larva` waiting outcomes for resource starvation, supply blocks, missing producers, and
-      occupied production capacity after the normal validator-backed training path fails. Remaining
-      work: worker, research, add-on, morph, and tech-structure directors still need similarly
-      explicit outcomes where they are actionable.
+      occupied production capacity after the normal validator-backed training path fails.
     - Worker-training outcome slice is done: successful worker production now surfaces a
       `train-worker` intent, and failed worker production reuses the shared train-failure classifier
-      for resource starvation, supply blocks, and occupied producer capacity. Remaining work:
-      supply/build, research, add-on, morph, and tech-structure directors still need explicit
-      outcomes where they are actionable.
+      for resource starvation, supply blocks, and occupied producer capacity.
     - Research-outcome slice is done: research intents now carry `targetTech`, and the research macro
       reports waiting outcomes for missing prerequisite producers, resource starvation, and occupied
-      research capacity when it cannot queue any upgrade/spell research. Remaining work: supply/build,
-      add-on, morph, and tech-structure directors still need explicit outcomes where actionable.
+      research capacity when it cannot queue any upgrade/spell research.
     - Add-on outcome slice is done: Terran add-on macro now reports `add-production` outcomes
       for missing prerequisites/parents, resource starvation, occupied add-on slots, and blocked
-      add-on placement after the normal validator-backed add-on queueing path fails. Remaining work:
-      supply/build, morph, and tech-structure directors still need explicit outcomes where actionable.
+      add-on placement after the normal validator-backed add-on queueing path fails.
     - Supply/build outcome slice is done: supply structures, first army production structures,
       Protoss/Zerg tech structures, Terran/Protoss anti-float capacity, and Zerg macro Hatcheries
       now use the richer shared structure-queue result so resource starvation, missing builders,
@@ -1187,6 +1179,10 @@ Remaining work:
       now return validator-backed intent results for missing prerequisites/tech, resource starvation,
       supply blocks, and busy morph sources. Non-actionable "no source unit exists yet" cases stay
       quiet so earlier macro/tech directors can own the prerequisite work.
+    - Macro outcome coverage is now guarded across worker training, army training, supply/build,
+      research, add-ons, morphs, tech structures, production-capacity builds, macro Hatcheries, and
+      expansion attempts. Remaining macro-outcome work should target route/path failures, unsafe
+      expansion sites, and follow-up intent selection from remembered blocked/unsafe locations.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
