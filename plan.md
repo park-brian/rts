@@ -1185,9 +1185,13 @@ Remaining work:
       quiet so earlier macro/tech directors can own the prerequisite work.
     - Macro outcome coverage is now guarded across worker training, army training, supply/build,
       research, add-ons, morphs, tech structures, production-capacity builds, macro Hatcheries, and
-      expansion attempts. Remaining macro-outcome work should target follow-up intent selection from
-      remembered blocked/unsafe locations and live expansion lifecycle monitoring after a builder has
-      already started moving.
+      expansion attempts.
+    - Blocked-site follow-up slice is done: location outcome memory now stores coordinates, remembered
+      unsafe/occupied expansion sites become `expansion-blocked` tactical incidents, remembered
+      path-blocked sites become `route-trap` incidents, and the existing tactical executor turns them
+      into `clear-site` commands through normal responder selection. Remaining expansion lifecycle
+      work: monitor builders already moving toward expansions and emit/clear blocked outcomes from
+      live worker progress instead of only pre-command candidate checks.
   - A reservation/scheduler pass owns minerals, gas, supply, producers, larvae, builders, army
     squads, spell casters, and locations for the current command batch. Lower-priority intents see
     only the remaining budget, so emergency defense/rebuilds cannot be starved by upgrades, and
@@ -1768,6 +1772,9 @@ Done when:
 - Added expansion route/safety outcomes to the bot macro scheduler: candidate expansion sites under
   visible enemy weapon coverage now produce `unsafe-location`, terrain-disconnected builder routes
   produce `path-blocked`, and focused tests pin both outcomes through the live planner.
+- Fed remembered blocked expansion locations back into tactical response: blocked-site memory stores
+  coordinates, derives `expansion-blocked` / `route-trap` incidents, and the live planner now emits a
+  `clear-site` intent and validated attack-move response for remembered unsafe sites.
 
 ## Review Checklist
 

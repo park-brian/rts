@@ -5,6 +5,7 @@ import { emergencyWorkerResponders, incidentTarget } from './macro-defense.ts';
 import {
   commitTacticalResponders,
   deriveTacticalIncidents,
+  rememberedBlockedSiteIncidents,
   rememberTacticalIncidents,
   type TacticalIncident,
 } from './macro-incidents.ts';
@@ -57,7 +58,10 @@ export const proposeTacticalDefense = (
   facts: BotFacts,
   memory: BotMemory,
 ): TacticalDefenseProposal => {
-  const incident = rememberTacticalIncidents(memory, deriveTacticalIncidents(s, facts), s.tick)[0];
+  const incident = rememberTacticalIncidents(memory, [
+    ...deriveTacticalIncidents(s, facts),
+    ...rememberedBlockedSiteIncidents(memory, s.tick),
+  ], s.tick)[0];
   return { incident, intent: incident ? tacticalIntent(incident) : null };
 };
 

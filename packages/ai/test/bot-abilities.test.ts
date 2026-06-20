@@ -524,7 +524,7 @@ test('bot memory records actionable intent outcome locations', () => {
   ], 100);
 
   assert.deepEqual([...memory.suspectedInvisibleThreats.values()], [{ x, y, tick: 100 }]);
-  assert.deepEqual([...memory.blockedSites.values()], [{ reason: 'occupied-location', tick: 100 }]);
+  assert.deepEqual([...memory.blockedSites.values()], [{ x: x + TILE * ONE, y, reason: 'occupied-location', tick: 100 }]);
 
   rememberIntentOutcomes(memory, [], 100 + INTENT_OUTCOME_MEMORY_TICKS + 1);
   assert.equal(memory.suspectedInvisibleThreats.size, 0);
@@ -2547,6 +2547,42 @@ test('live bot planner reports unsafe expansion site outcomes', () => {
     record.intent.targetKind === Kind.CommandCenter &&
     record.result.status === 'blocked' &&
     record.result.reason === 'unsafe-location'));
+});
+
+test('bot converts remembered blocked expansion sites into clear-site intents', () => {
+  const scenario = bankedExpansionScenario(553);
+  const natural = playerNatural(scenario);
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const point = {
+    x: fx(natural.x * TILE + TILE / 2),
+    y: fx(natural.y * TILE + TILE / 2),
+  };
+  const side = natural.x < (scenario.state.map.w >> 1) ? 1 : -1;
+  scenario.spawn(Kind.Marine, 0, base.x + fx(32), base.y);
+  scenario.spawn(Kind.SiegeTankSieged, 1, point.x + fx(side * TILE * 9), point.y);
+
+  const planner = createBotPlanner(Terran, {
+    barracksTarget: 0,
+    workerTarget: 0,
+    attackThreshold: 99,
+  });
+  const first = planner(scenario.state, 0);
+  assert.ok(first.intentResults.some((record) =>
+    record.intent.kind === 'expand' &&
+    record.result.status === 'blocked' &&
+    record.result.reason === 'unsafe-location'));
+
+  scenario.state.tick++;
+  const second = planner(scenario.state, 0);
+  const clearSite = second.intentResults.find((record) =>
+    record.intent.kind === 'clear-site' &&
+    record.intent.x === point.x &&
+    record.intent.y === point.y);
+
+  assert.ok(clearSite);
+  assert.deepEqual(clearSite.result, { status: 'done' });
+  assert.ok(second.commands.some((command) =>
+    command.t === 'amove' && command.x === point.x && command.y === point.y));
 });
 
 test('live bot planner reports waiting expansion outcomes when no builder exists', () => {

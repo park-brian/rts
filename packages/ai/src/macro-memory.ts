@@ -6,7 +6,7 @@ export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
 
 export type BotMemory = {
   lastTick: number;
-  blockedSites: Map<string, { reason: BotFailureReason; tick: number }>;
+  blockedSites: Map<string, { x: number; y: number; reason: BotFailureReason; tick: number }>;
   suspectedInvisibleThreats: Map<string, { x: number; y: number; tick: number }>;
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
@@ -55,7 +55,7 @@ export const rememberIntentOutcomes = (
       memory.suspectedInvisibleThreats.set(key, { x: intent.x, y: intent.y, tick });
     }
     if ((result.status === 'blocked' || result.status === 'failed') && locationFailure(result.reason)) {
-      memory.blockedSites.set(key, { reason: result.reason, tick });
+      memory.blockedSites.set(key, { x: intent.x, y: intent.y, reason: result.reason, tick });
     }
   }
 };

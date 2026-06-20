@@ -18,7 +18,8 @@ import {
   type BotFacts,
   type ProtectedRegion,
 } from './macro.ts';
-import type { BotMemory } from './macro-memory.ts';
+import { INTENT_OUTCOME_MEMORY_TICKS, type BotMemory } from './macro-memory.ts';
+import type { BotFailureReason } from './macro-intents.ts';
 import { riskAtLayer } from './macro-risk.ts';
 
 export type TacticalIncidentKind =
@@ -70,6 +71,18 @@ const incidentKindBonus = (kind: TacticalIncidentKind): number => {
     case 'transport-drop': return 150;
     case 'siege-containment': return 125;
     case 'static-threat-zone': return 100;
+    default: return 0;
+  }
+};
+
+const blockedSiteIncidentKind = (reason: BotFailureReason): TacticalIncidentKind =>
+  reason === 'path-blocked' ? 'route-trap' : 'expansion-blocked';
+
+const blockedSiteSeverity = (reason: BotFailureReason): number => {
+  switch (reason) {
+    case 'unsafe-location': return 130;
+    case 'occupied-location': return 110;
+    case 'path-blocked': return 90;
     default: return 0;
   }
 };
@@ -282,6 +295,23 @@ export const deriveTacticalIncidents = (s: State, facts: BotFacts): TacticalInci
   return incidents;
 };
 
+export const rememberedBlockedSiteIncidents = (memory: BotMemory, tick: number): TacticalIncident[] => {
+  const incidents: TacticalIncident[] = [];
+  for (const site of memory.blockedSites.values()) {
+    if (tick - site.tick > INTENT_OUTCOME_MEMORY_TICKS) continue;
+    incidents.push({
+      kind: blockedSiteIncidentKind(site.reason),
+      severity: blockedSiteSeverity(site.reason),
+      x: site.x,
+      y: site.y,
+      expiresAt: site.tick + INTENT_OUTCOME_MEMORY_TICKS,
+      remembered: true,
+    });
+  }
+  incidents.sort(incidentSort);
+  return incidents;
+};
+
 export const rememberTacticalIncidents = (
   memory: BotMemory,
   visibleIncidents: readonly TacticalIncident[],
@@ -296,7 +326,7 @@ export const rememberTacticalIncidents = (
     visibleKeys.add(key);
     memory.tacticalIncidents.set(key, {
       ...incident,
-      expiresAt: tick + TACTICAL_INCIDENT_MEMORY_TICKS,
+      expiresAt: incident.expiresAt ?? tick + TACTICAL_INCIDENT_MEMORY_TICKS,
       lastSeenTick: tick,
       remembered: false,
     });
