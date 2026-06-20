@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Terran, Protoss, Zerg, fx, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
+import { Kind, Sim, Terran, Protoss, Zerg, createMatchStats, fx, sliceMap, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botObjectiveReasons,
   botObjectiveTrends,
+  botTraceExpertDiagnoses,
   botTraceFrame,
   createBotPlanner,
   runBotMatchTrace,
@@ -208,6 +209,29 @@ test('bot trace alerts classify macro deadlocks and invalid commands', () => {
   assert.equal(alerts.some((alert) => alert.kind === 'production-stall' && alert.fromTick === 0 && alert.toTick === 120), true);
 });
 
+test('bot expert diagnoses summarize trace health by strategic domain', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8109, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  s.players.minerals[0] = 900;
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, build: 0, train: 0, research: 0, addon: 0, transform: 0 },
+    idleProducers: 1,
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+  const alerts = botTraceAlerts(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
+
+  assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
+  assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
+  assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
+});
+
 test('race macro planners convert ready production paths into combat units', () => {
   const cases: Array<{
     faction: Faction;
@@ -263,6 +287,7 @@ test('whole-match bot trace samples planner decisions and match stats', () => {
   assert.equal(trace.frames.some((frame) =>
     frame.topIntents.some((intent) => intent.score !== undefined && intent.scoreReasons.length > 0)), true);
   assert.equal(Array.isArray(trace.alerts), true);
+  assert.equal(trace.expertDiagnoses.length >= 4, true);
   assert.equal(trace.objectiveTrends.length, 1);
   assert.equal(trace.objectiveTrends[0]!.player, 0);
   assert.equal(trace.frames.every((frame) => frame.player === 0), true);

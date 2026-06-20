@@ -83,6 +83,22 @@ export type BotTraceAlert = {
   detail: string;
 };
 
+export type BotExpertDiagnosisDomain =
+  | 'macro'
+  | 'economy'
+  | 'production'
+  | 'combat';
+
+export type BotExpertDiagnosisStatus = 'healthy' | 'watch' | 'failing';
+
+export type BotExpertDiagnosis = {
+  domain: BotExpertDiagnosisDomain;
+  player: number;
+  status: BotExpertDiagnosisStatus;
+  severity: number;
+  detail: string;
+};
+
 export type BotTraceParticipant = {
   faction: Faction;
   planner?: BotPlanner;
@@ -101,6 +117,7 @@ export type BotMatchTrace = {
   commandResults: CommandResult[];
   objectiveTrends: BotObjectiveTrend[];
   alerts: BotTraceAlert[];
+  expertDiagnoses: BotExpertDiagnosis[];
 };
 
 const blankCounts = <K extends string>(keys: readonly K[]): CountMap<K> => {
@@ -156,6 +173,33 @@ const trainIntentCount = (frame: BotTraceFrame): number =>
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
+
+const playerAlerts = (
+  alerts: readonly BotTraceAlert[],
+  player: number,
+  kinds: readonly BotTraceAlertKind[],
+): BotTraceAlert[] =>
+  alerts.filter((alert) => alert.player === player && kinds.includes(alert.kind));
+
+const alertSeverity = (alerts: readonly BotTraceAlert[]): number =>
+  alerts.reduce((sum, alert) => sum + alert.severity, 0);
+
+const commandTotal = (counts: CountMap<CommandType>, types: readonly CommandType[]): number =>
+  types.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
+
+const diagnosis = (
+  domain: BotExpertDiagnosisDomain,
+  player: number,
+  status: BotExpertDiagnosisStatus,
+  severity: number,
+  detail: string,
+): BotExpertDiagnosis => ({
+  domain,
+  player,
+  status,
+  severity,
+  detail,
+});
 
 const framesByPlayer = (frames: readonly BotTraceFrame[]): Map<number, BotTraceFrame[]> => {
   const byPlayer = new Map<number, BotTraceFrame[]>();
@@ -266,6 +310,69 @@ export const botTraceAlerts = (
     a.kind.localeCompare(b.kind));
 };
 
+export const botTraceExpertDiagnoses = (
+  frames: readonly BotTraceFrame[],
+  stats: MatchStats,
+  alerts: readonly BotTraceAlert[] = botTraceAlerts(frames),
+  trends: readonly BotObjectiveTrend[] = botObjectiveTrends(frames),
+): BotExpertDiagnosis[] => {
+  const diagnoses: BotExpertDiagnosis[] = [];
+
+  for (const playerFrames of framesByPlayer(frames).values()) {
+    const first = playerFrames[0]!;
+    const last = playerFrames[playerFrames.length - 1]!;
+    const player = first.player;
+    const playerStats = stats.players[player];
+    const trend = trends.find((candidate) => candidate.player === player);
+    const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall']);
+    const productionAlerts = playerAlerts(alerts, player, ['production-stall']);
+    const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall']);
+    const macroCommands = playerStats ? commandTotal(playerStats.commandsByType, MACRO_COMMANDS) : 0;
+    const combatCommands = playerStats ? commandTotal(playerStats.commandsByType, COMBAT_COMMANDS) : 0;
+    const workerGain = trend ? trend.after.workerSupply - trend.before.workerSupply : last.workers - first.workers;
+    const armyGain = trend ? trend.after.armyStrength - trend.before.armyStrength : last.army - first.army;
+    const enemyLoss = trend
+      ? trend.reasons.some((reason) => reason.kind === 'enemy-economy-damage' || reason.kind === 'enemy-army-damage')
+      : false;
+
+    diagnoses.push(macroAlerts.length > 0
+      ? diagnosis('macro', player, 'failing', alertSeverity(macroAlerts), macroAlerts.map((alert) => alert.detail).join('; '))
+      : diagnosis('macro', player, macroCommands > 0 ? 'healthy' : 'watch', macroCommands, macroCommands > 0
+        ? `${macroCommands} macro command attempts in the trace`
+        : 'no macro command attempts were observed'));
+
+    const economyStatus: BotExpertDiagnosisStatus = workerGain > 0
+      ? 'healthy'
+      : last.workers >= first.workers ? 'watch' : 'failing';
+    diagnoses.push(diagnosis(
+      'economy',
+      player,
+      economyStatus,
+      Math.abs(workerGain),
+      workerGain > 0
+        ? `worker supply increased by ${workerGain}`
+        : last.workers >= first.workers ? 'worker count held steady during the trace' : 'worker count declined during the trace',
+    ));
+
+    diagnoses.push(productionAlerts.length > 0
+      ? diagnosis('production', player, 'failing', alertSeverity(productionAlerts), productionAlerts.map((alert) => alert.detail).join('; '))
+      : diagnosis('production', player, armyGain > 0 ? 'healthy' : 'watch', Math.max(0, armyGain), armyGain > 0
+        ? `field army strength increased by ${armyGain}`
+        : 'no completed combat production was observed'));
+
+    const combatDetail = combatCommands > 0
+      ? `${combatCommands} combat command attempts in the trace`
+      : enemyLoss ? 'enemy economy or army degraded during the trace' : 'no combat commitment was observed';
+    diagnoses.push(combatAlerts.length > 0
+      ? diagnosis('combat', player, 'failing', alertSeverity(combatAlerts), combatAlerts.map((alert) => alert.detail).join('; '))
+      : diagnosis('combat', player, combatCommands > 0 || enemyLoss ? 'healthy' : 'watch', combatCommands, combatDetail));
+  }
+
+  return diagnoses.sort((a, b) =>
+    a.player - b.player ||
+    a.domain.localeCompare(b.domain));
+};
+
 export const botTraceFrame = (
   s: State,
   player: number,
@@ -351,12 +458,16 @@ export const runBotMatchTrace = (
     recordMatchStatsStep(stats, sim.fullState(), batch, results);
   }
 
+  const objectiveTrends = botObjectiveTrends(frames);
+  const alerts = botTraceAlerts(frames, commandResults);
+
   return {
     frames,
     stats,
     invalidCommands,
     commandResults,
-    objectiveTrends: botObjectiveTrends(frames),
-    alerts: botTraceAlerts(frames, commandResults),
+    objectiveTrends,
+    alerts,
+    expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
   };
 };

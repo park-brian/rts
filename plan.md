@@ -981,6 +981,11 @@ Remaining work:
     rejected commands, resource float with no macro spending, idle production with no training, and
     combat intent with no combat commands. These alerts are deliberately diagnostics first; policy
     should start reacting to them only after the scenarios are pinned.
+  - First expert-diagnosis slice is done: whole-match traces now summarize macro, economy,
+    production, and combat health as deterministic `healthy` / `watch` / `failing` rows with
+    player-readable details. This is the first stable "expert system" report surface; future
+    scheduler reactions should consume these diagnoses only after the relevant failing scenarios
+    are covered by tests.
 - Replace "any legal macro action" composition with a coherent strategy state. The scheduler should
   know the current opener/posture, tech target, production ratio, expansion target, defensive
   posture, and attack timing window, then let directors propose commands inside that plan. Random
@@ -1775,6 +1780,9 @@ Done when:
 - Added ready-production planner-to-sim regressions for all three races: when a completed Barracks,
   powered Gateway, or Spawning Pool is available, the live planner now has test coverage proving it
   issues explained, valid train commands and completes Marines, Zealots, or Zerglings.
+- Added the first expert-diagnosis report layer to bot match traces: macro, economy, production, and
+  combat health now produce deterministic report rows, and the failing macro/production case is
+  covered by focused trace tests.
 - Expanded the post-match UI diagnostics with compact per-player command-mix and reject-reason
   breakdowns, and recorded the observed Zerg opening failure modes as capability-planning gates
   for the next bot competence slice.
