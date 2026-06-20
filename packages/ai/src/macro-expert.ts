@@ -1,4 +1,4 @@
-import type { BotIntent, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
+import type { BotIntent, BotIntentExpectation, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
 import { scoreBotIntent, scoreBotIntentRecord, type BotExpertContext } from './macro-objective.ts';
 
 export type BotIntentFields = Omit<BotIntent, 'kind' | 'urgency'> & {
@@ -22,6 +22,75 @@ export const botIntentUrgency = (kind: BotIntentKind): number => {
     case 'train-counter': return 30;
     case 'research-upgrade': return 25;
     default: return 20;
+  }
+};
+
+export const botIntentExpectation = (kind: BotIntentKind): BotIntentExpectation => {
+  switch (kind) {
+    case 'train-worker':
+      return {
+        metric: 'worker-pipeline',
+        windowTicks: 8 * 24,
+        detail: 'worker production should enter the queue',
+      };
+    case 'spend-larva':
+    case 'train-counter':
+      return {
+        metric: 'combat-pipeline',
+        windowTicks: 8 * 24,
+        detail: 'combat production should enter the queue',
+      };
+    case 'add-production':
+      return {
+        metric: 'production-capacity',
+        windowTicks: 45 * 24,
+        detail: 'combat production capacity should increase or become pending',
+      };
+    case 'expand':
+      return {
+        metric: 'base-count',
+        windowTicks: 90 * 24,
+        detail: 'a resource depot should start or complete at a base cluster',
+      };
+    case 'take-gas':
+    case 'rebuild-tech':
+    case 'research-upgrade':
+      return {
+        metric: 'tech-unlock',
+        windowTicks: 60 * 24,
+        detail: 'a tech, upgrade, gas, add-on, or prerequisite should progress',
+      };
+    case 'add-static-defense':
+      return {
+        metric: 'defense-command',
+        windowTicks: 45 * 24,
+        detail: 'static defense should start near the protected region',
+      };
+    case 'defend-base':
+    case 'get-detection':
+    case 'clear-site':
+    case 'evacuate-workers':
+    case 'retreat':
+      return {
+        metric: 'safety-command',
+        windowTicks: 10 * 24,
+        detail: 'a safety command should be issued or the incident should resolve',
+      };
+    case 'attack-wave':
+    case 'harass':
+    case 'contain':
+    case 'counterattack':
+      return {
+        metric: 'combat-command',
+        windowTicks: 12 * 24,
+        detail: 'combat units should receive attack, travel, or ability commands',
+      };
+    case 'scout':
+      return {
+        metric: 'map-control',
+        windowTicks: 30 * 24,
+        detail: 'scouting should reveal or approach valuable map space',
+      };
   }
 };
 

@@ -1156,6 +1156,10 @@ Remaining work:
   threshold, and abandoned only after recording the reason and a fallback intent. This is the
   "lights-on" layer: it lets the bot know whether it is actually doing StarCraft or just issuing
   locally legal commands.
+  - First expected-progress slice is done: `macro-expert` now owns a deterministic progress
+    expectation for every bot intent kind, including the metric to watch, progress window, and
+    player-readable detail. Top-intent trace summaries expose that descriptor beside score and
+    outcome, giving future deadlock logic a shared contract instead of another parallel heuristic.
 - Model bot play like an actual StarCraft player's decision loop:
   - Economy: keep workers producing, avoid supply blocks, saturate bases, take gas when the plan
     needs gas, and add production before money floats.
@@ -1217,6 +1221,10 @@ Remaining work:
     an explicit reason while that signal is active. The macro scheduler consumes this through the
     same expert context used by normal score-ranked builder choices, instead of adding another
     priority ladder branch.
+  - Pressure-idle detector slice is done: sampled traces now emit `pressure-idle-stall`
+    when the strategic plan says to pressure, retaskable army exists, and no combat commands are
+    emitted for a sustained sampled streak. The combat diagnosis consumes this as a failing row,
+    catching the lights-off case where attack posture exists but no attack intent is visible.
 - Add a small strategy-posture contract before more tactics. A posture should declare expansion
   priority, worker target, gas timing, production ratio, tech target, static-defense tolerance,
   attack timing, retreat tolerance, and harassment appetite. Directors propose within that contract;

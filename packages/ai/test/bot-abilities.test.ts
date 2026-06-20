@@ -6,6 +6,7 @@ import {
   INTENT_OUTCOME_MEMORY_TICKS,
   PRESSURE_COMMITMENT_TICKS,
   botIntent,
+  botIntentExpectation,
   botIntentUrgency,
   TACTICAL_ABILITY_POLICIES,
   blockedExpansionActive,
@@ -435,6 +436,21 @@ test('bot intent vocabulary covers proactive and reflex directors', () => {
 test('bot expert helpers own intent urgency and trace ranking', () => {
   assert.equal(botIntentUrgency('rebuild-tech'), 45);
   assert.equal(botIntentUrgency('take-gas'), 46);
+  assert.deepEqual(botIntentExpectation('train-worker'), {
+    metric: 'worker-pipeline',
+    windowTicks: 8 * 24,
+    detail: 'worker production should enter the queue',
+  });
+  assert.deepEqual(botIntentExpectation('attack-wave'), {
+    metric: 'combat-command',
+    windowTicks: 12 * 24,
+    detail: 'combat units should receive attack, travel, or ability commands',
+  });
+  for (const kind of BOT_INTENT_KINDS) {
+    const expectation = botIntentExpectation(kind);
+    assert.equal(expectation.windowTicks > 0, true, `${kind} expectation window must be positive`);
+    assert.equal(expectation.detail.length > 0, true, `${kind} expectation detail must explain progress`);
+  }
   assert.equal(botIntent('expand', { targetKind: Kind.CommandCenter }).urgency, 35);
   assert.equal(botIntent('attack-wave', { urgency: 99 }).urgency, 99);
 

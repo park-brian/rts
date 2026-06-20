@@ -16,6 +16,7 @@ import { collectBotFacts } from './macro.ts';
 import {
   BOT_INTENT_KINDS,
   type BotFailureReason,
+  type BotIntentExpectation,
   type BotIntentKind,
   type BotIntentRecord,
   type BotIntentScoreReason,
@@ -29,6 +30,7 @@ import {
 import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
+import { botIntentExpectation } from './macro-expert.ts';
 
 export type BotTraceFrame = {
   tick: number;
@@ -78,6 +80,7 @@ export type BotTraceIntentSummary = {
   reason?: BotFailureReason;
   score?: number;
   scoreReasons: BotTraceIntentReason[];
+  expectation: BotIntentExpectation;
   targetKind?: number;
   targetTech?: number;
   x?: number;
@@ -91,6 +94,7 @@ export type BotTraceAlertKind =
   | 'no-army-production'
   | 'tech-stall'
   | 'combat-intent-stall'
+  | 'pressure-idle-stall'
   | 'placement-stall';
 
 export type BotTraceAlert = {
@@ -184,6 +188,7 @@ const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSumma
     value: reason.value,
     detail: reason.detail,
   })) ?? [],
+  expectation: botIntentExpectation(intent.kind),
   ...(intent.targetKind !== undefined ? { targetKind: intent.targetKind } : {}),
   ...(intent.targetTech !== undefined ? { targetTech: intent.targetTech } : {}),
   ...(intent.x !== undefined ? { x: intent.x } : {}),
@@ -237,6 +242,11 @@ const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
+
+const pressurePlanIsIdle = (frame: BotTraceFrame): boolean =>
+  frame.strategicPlan.combatStance === 'pressure' &&
+  frame.retaskableArmy > 0 &&
+  combatCommandCount(frame) === 0;
 
 const techStallReason = (frame: BotTraceFrame): BotFailureReason | undefined => {
   const intent = frame.topIntents[0];
@@ -607,6 +617,14 @@ export const botTraceAlerts = (
       (_start, _end, count) => `${count} sampled frames had combat intent but no combat commands`,
       (_start, end, count) => count * end.retaskableArmy,
     );
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
+      'pressure-idle-stall',
+      pressurePlanIsIdle,
+      (_start, end, count) => `${count} sampled frames had pressure posture and ${end.retaskableArmy} retaskable army but no combat commands`,
+      (_start, end, count) => count * end.retaskableArmy,
+    );
     pushPlacementStallAlerts(alerts, playerFrames);
   }
 
@@ -634,7 +652,7 @@ export const botTraceExpertDiagnoses = (
     const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'placement-stall']);
     const productionAlerts = playerAlerts(alerts, player, ['production-stall', 'no-army-production']);
     const techAlerts = playerAlerts(alerts, player, ['tech-stall']);
-    const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall']);
+    const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall', 'pressure-idle-stall']);
     const macroCommands = playerStats ? commandTotal(playerStats.commandsByType, MACRO_COMMANDS) : 0;
     const combatCommands = playerStats ? commandTotal(playerStats.commandsByType, COMBAT_COMMANDS) : 0;
     const workerGain = trend ? trend.after.workerSupply - trend.before.workerSupply : last.workers - first.workers;

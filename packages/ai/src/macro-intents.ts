@@ -56,6 +56,23 @@ export type BotIntentScore = {
   reasons: BotIntentScoreReason[];
 };
 
+export type BotIntentProgressMetric =
+  | 'worker-pipeline'
+  | 'combat-pipeline'
+  | 'production-capacity'
+  | 'tech-unlock'
+  | 'base-count'
+  | 'defense-command'
+  | 'combat-command'
+  | 'safety-command'
+  | 'map-control';
+
+export type BotIntentExpectation = {
+  metric: BotIntentProgressMetric;
+  windowTicks: number;
+  detail: string;
+};
+
 export type BotIntent = {
   kind: BotIntentKind;
   urgency: number;

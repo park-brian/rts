@@ -7,6 +7,7 @@ import {
   botObjectiveTrends,
   botTraceExpertDiagnoses,
   botTraceFrame,
+  botIntentExpectation,
   createBotPlanner,
   runBotMatchTrace,
   type BotObjectiveSnapshot,
@@ -66,6 +67,8 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents.length <= 5, true);
   assert.equal(frame.topIntents[0]!.kind, plan.intentResults[0]!.intent.kind);
   assert.equal(frame.topIntents[0]!.status, plan.intentResults[0]!.result.status);
+  assert.equal(frame.topIntents.every((intent) => intent.expectation.windowTicks > 0), true);
+  assert.equal(frame.topIntents.every((intent) => intent.expectation.detail.length > 0), true);
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
   assert.equal(plan.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length > 0, true);
@@ -431,6 +434,36 @@ test('bot trace alerts classify queued army pipeline as production underuse, not
   assert.equal(alerts.some((alert) => alert.kind === 'no-army-production'), false);
 });
 
+test('bot trace alerts classify pressure posture with idle army', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8130, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const e = s.e;
+  const base = primaryBaseSlot(s, 0, Terran);
+  for (let n = 0; n < 4; n++) {
+    spawnUnit(s, Kind.Marine, 0, e.x[base]! + n * 64, e.y[base]!);
+  }
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 1 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, attack: 0, amove: 0, ability: 0, mine: 0 },
+    intentsByKind: { ...frame.intentsByKind, 'attack-wave': 0, harass: 0, contain: 0, counterattack: 0 },
+    topIntents: [],
+  }));
+  const alerts = botTraceAlerts(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
+  const alert = alerts.find((candidate) => candidate.kind === 'pressure-idle-stall');
+
+  assert.ok(alert);
+  assert.equal(alert.detail.includes('pressure posture'), true);
+  assert.equal(alert.detail.includes('retaskable army'), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'combat' &&
+    entry.status === 'failing' &&
+    entry.detail.includes('pressure posture')), true);
+});
+
 test('bot trace alerts classify repeated blocked tech intent', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8129, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -449,6 +482,7 @@ test('bot trace alerts classify repeated blocked tech intent', () => {
       urgency: 25,
       reason: 'missing-prerequisite' as const,
       scoreReasons: [],
+      expectation: botIntentExpectation('research-upgrade'),
     }],
   }));
 
@@ -484,12 +518,14 @@ test('bot trace alerts ignore background blocked tech while another intent leads
       urgency: 35,
       reason: 'resource-starved' as const,
       scoreReasons: [],
+      expectation: botIntentExpectation('train-worker'),
     }, {
       kind: 'research-upgrade' as const,
       status: 'waiting' as const,
       urgency: 25,
       reason: 'missing-prerequisite' as const,
       scoreReasons: [],
+      expectation: botIntentExpectation('research-upgrade'),
     }],
   }));
 
