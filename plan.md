@@ -118,6 +118,12 @@ deadlocks trigger corrective intents instead of only post-game explanation.
 Instrumentation correction slice is done: match stats now count same-slot Zerg Egg completion as
 the produced unit, so Drone/Ling/Hydra/etc. production contributes to created worker/combat/value
 metrics instead of disappearing from post-match health and bot traces.
+First live expert-feedback slice is done: bot memory now promotes repeated combat-production
+capacity waits into a fresh `productionStall` signal, and the macro scheduler consumes that signal
+to add Terran/Protoss production capacity or Zerg macro Hatcheries earlier than the normal
+anti-float thresholds. This is deliberately scoped to production throughput; remaining live
+feedback work should add similarly narrow signals for passive combat posture, blocked expansion
+retries, and resource-float deadlocks only after a failing trace proves the need.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

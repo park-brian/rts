@@ -24,6 +24,7 @@ import {
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
+  productionStallActive,
   findSpot,
   proposePressureIntent,
   proposeTacticalDefense,
@@ -2617,6 +2618,87 @@ test('core production anti-float respects disabled army-structure targets', () =
   scenario.state.players.supplyMax[0] = 1_000;
 
   assert.equal(hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.Barracks), false);
+});
+
+const rememberProductionCapacityStall = () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 24, 48]) {
+    rememberIntentOutcomes(memory, [{
+      intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+      result: { status: 'waiting', reason: 'no-production-capacity' },
+    }], tick);
+  }
+  return memory;
+};
+
+test('bot memory promotes repeated production-capacity waits into a live stall signal', () => {
+  const memory = rememberProductionCapacityStall();
+
+  assert.equal(productionStallActive(memory, 48), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+    result: { status: 'done' },
+  }], 72);
+
+  assert.equal(productionStallActive(memory, 72), false);
+});
+
+test('terran scheduler adds production capacity earlier when live expert memory sees a stall', () => {
+  const scenario = botScenario({ seed: 513, factions: [Terran, Zerg] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const barracks = scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  s.e.prodKind[slotOf(barracks)] = Kind.Marine;
+  scenario.resources(0, 400, 0);
+  s.players.supplyMax[0] = 1_000;
+  const cmds: Command[] = [];
+
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    cmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 1, workerTarget: 0 },
+    rememberProductionCapacityStall(),
+  );
+
+  const build = findCommandBuild(cmds, Kind.Barracks);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
+});
+
+test('zerg scheduler adds macro hatchery earlier when live expert memory sees larva stall', () => {
+  const scenario = botScenario({ seed: 516, factions: [Zerg, Terran] });
+  const s = scenario.state;
+  const hatchery = scenario.entity(Kind.Hatchery, 0);
+  const base = scenario.pos(hatchery);
+  scenario.spawn(Kind.SpawningPool, 0, base.x + fx(160), base.y);
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === 0 && s.e.kind[i] === Kind.Larva) {
+      s.e.kind[i] = Kind.Egg;
+      s.e.prodKind[i] = Kind.Zergling;
+      s.e.prodTimer[i] = 100;
+    }
+  }
+  scenario.resources(0, 350, 0);
+  s.players.supplyMax[0] = 1_000;
+  const cmds: Command[] = [];
+
+  scheduleBotMacro(
+    s,
+    0,
+    Zerg,
+    cmds,
+    collectBotFacts(s, 0, Zerg),
+    { barracksTarget: 1, workerTarget: 0 },
+    rememberProductionCapacityStall(),
+  );
+
+  const build = findCommandBuild(cmds, Kind.Hatchery);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
 });
 
 const bankedExpansionScenario = (seed: number): BotScenario => {

@@ -14,9 +14,11 @@ import {
 } from './macro-build.ts';
 
 const ZERG_MACRO_HATCHERY_BANK = 800;
+const ZERG_STALLED_MACRO_HATCHERY_BANK = 300;
 const ZERG_MACRO_HATCHERY_STEP = 600;
 const ZERG_MACRO_HATCHERY_MAX = 6;
 const CORE_PRODUCTION_BANK = 700;
+const CORE_STALLED_PRODUCTION_BANK = 300;
 const CORE_PRODUCTION_STEP = 500;
 const CORE_PRODUCTION_MAX = 8;
 
@@ -61,6 +63,10 @@ export type CapacityQueueResult = {
   block?: StructureBlock;
 };
 
+export type CapacityPressure = {
+  productionStalled?: boolean;
+};
+
 export const queueCoreProductionCapacity = (
   s: State,
   player: number,
@@ -71,13 +77,15 @@ export const queueCoreProductionCapacity = (
   anchor: number,
   baseTarget: number,
   findMacroSpot: MacroSpotFinder,
+  pressure: CapacityPressure = {},
 ): CapacityQueueResult => {
   if (faction.name === 'Zerg' || baseTarget <= 0) return { queued: false };
-  if (budget.minerals < CORE_PRODUCTION_BANK) return { queued: false };
+  const bank = pressure.productionStalled ? CORE_STALLED_PRODUCTION_BANK : CORE_PRODUCTION_BANK;
+  if (budget.minerals < bank) return { queued: false };
 
   const desired = Math.min(
     CORE_PRODUCTION_MAX,
-    baseTarget + 1 + Math.trunc((budget.minerals - CORE_PRODUCTION_BANK) / CORE_PRODUCTION_STEP),
+    baseTarget + 1 + Math.trunc((budget.minerals - bank) / CORE_PRODUCTION_STEP),
   );
   if (ownedOrPendingStructureCount(s, player, faction.armyStructure) >= desired) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, anchor, faction.armyStructure, findMacroSpot);
@@ -94,14 +102,16 @@ export const queueZergMacroHatchery = (
   idleLarvae: readonly number[],
   usedProducers: Set<number>,
   findMacroSpot: MacroSpotFinder,
+  pressure: CapacityPressure = {},
 ): CapacityQueueResult => {
   if (faction.name !== 'Zerg') return { queued: false };
   if (remainingIdleLarvae(idleLarvae, usedProducers) > 0) return { queued: false };
-  if (budget.minerals < ZERG_MACRO_HATCHERY_BANK) return { queued: false };
+  const bank = pressure.productionStalled ? ZERG_STALLED_MACRO_HATCHERY_BANK : ZERG_MACRO_HATCHERY_BANK;
+  if (budget.minerals < bank) return { queued: false };
 
   const desired = Math.min(
     ZERG_MACRO_HATCHERY_MAX,
-    2 + Math.trunc((budget.minerals - ZERG_MACRO_HATCHERY_BANK) / ZERG_MACRO_HATCHERY_STEP),
+    2 + Math.trunc((budget.minerals - bank) / ZERG_MACRO_HATCHERY_STEP),
   );
   if (larvaCapacityCount(s, player) >= desired) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, anchor, Kind.Hatchery, findMacroSpot);

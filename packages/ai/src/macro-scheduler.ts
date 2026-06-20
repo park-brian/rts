@@ -8,7 +8,7 @@ import {
 } from '@rts/sim';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
 import { type ResourceBudget, type StructureBlock } from './macro-build.ts';
-import { queueCoreProductionCapacity, queueZergMacroHatchery } from './macro-capacity.ts';
+import { queueCoreProductionCapacity, queueZergMacroHatchery, type CapacityQueueResult } from './macro-capacity.ts';
 import {
   desiredWorkerCount,
   queueArmyStructure,
@@ -27,7 +27,7 @@ import { maybeQueueRaceResearch } from './macro-research.ts';
 import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
-import type { BotMemory } from './macro-memory.ts';
+import { productionStallActive, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
 export type MacroScheduleConfig = {
@@ -218,6 +218,34 @@ export const scheduleBotMacro = (
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12);
+  const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
+  const capacityPressure = { productionStalled };
+  const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
+    ? queueZergMacroHatchery(
+      s,
+      player,
+      faction,
+      cmds,
+      budget,
+      economy.builder,
+      depot,
+      idleLarvae,
+      usedProducers,
+      riskAwareFindMacroSpot,
+      capacityPressure,
+    )
+    : queueCoreProductionCapacity(
+      s,
+      player,
+      faction,
+      cmds,
+      budget,
+      economy.builder,
+      depot,
+      config.barracksTarget,
+      riskAwareFindMacroSpot,
+      capacityPressure,
+    );
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
 
   if (armyIsLarvaProduct && builtArmyStructures.length > 0 && facts.army.length === 0) {
@@ -303,6 +331,17 @@ export const scheduleBotMacro = (
     }
   }
 
+  let stalledCapacityAttempted = false;
+  if (!builderUsed && productionStalled) {
+    stalledCapacityAttempted = true;
+    const capacity = queueProductionCapacity();
+    if (capacity.queued) {
+      builderUsed = true;
+    } else if (capacity.block) {
+      intentResults.push(structureOutcome(faction, capacity.block));
+    }
+  }
+
   if (!builderUsed) {
     const techStructure = queueRaceTechStructure(
       s,
@@ -371,17 +410,7 @@ export const scheduleBotMacro = (
       growthCandidates.push({
         order: 0,
         intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: faction.armyStructure },
-        run: () => queueCoreProductionCapacity(
-          s,
-          player,
-          faction,
-          cmds,
-          budget,
-          economy.builder,
-          depot,
-          config.barracksTarget,
-          riskAwareFindMacroSpot,
-        ),
+        run: queueProductionCapacity,
       });
     }
     growthCandidates.push({
@@ -393,22 +422,14 @@ export const scheduleBotMacro = (
       growthCandidates.push({
         order: 2,
         intent: { kind: 'add-production', urgency: intentUrgency('add-production'), targetKind: Kind.Hatchery },
-        run: () => queueZergMacroHatchery(
-          s,
-          player,
-          faction,
-          cmds,
-          budget,
-          economy.builder,
-          depot,
-          idleLarvae,
-          usedProducers,
-          riskAwareFindMacroSpot,
-        ),
+        run: queueProductionCapacity,
       });
     }
 
-    for (const candidate of rankedMacroGrowthCandidates(growthCandidates, expert)) {
+    const candidates = stalledCapacityAttempted
+      ? growthCandidates.filter((candidate) => candidate.intent.kind !== 'add-production')
+      : growthCandidates;
+    for (const candidate of rankedMacroGrowthCandidates(candidates, expert)) {
       const attempt = candidate.run();
       if (attempt.block) intentResults.push(structureOutcome(faction, attempt.block));
       if (attempt.outcome) intentResults.push(attempt.outcome);
