@@ -1041,6 +1041,10 @@ Remaining work:
     completed+pending total, so traces no longer claim the bot still needs the same throughput while
     a Barracks/Gateway/Hatchery-equivalent production source is already paid for or under
     construction.
+  - Pending-production diagnosis slice is done: expert production reports now distinguish fielded
+    army growth, newly completed production capacity, and pending production capacity from the true
+    "no completed combat production" stall case, so post-match evidence matches the objective
+    scorer's view of macro progress.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler

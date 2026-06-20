@@ -313,6 +313,40 @@ const objectiveDiagnosis = (
   return diagnosis('objective', first.player, status, Math.abs(score), detail);
 };
 
+type ProductionProgressDiagnosis = Pick<BotExpertDiagnosis, 'status' | 'severity' | 'detail'>;
+
+const plural = (count: number, singular: string, pluralized = `${singular}s`): string =>
+  `${count} ${count === 1 ? singular : pluralized}`;
+
+const productionProgressDiagnosis = (
+  first: BotTraceFrame,
+  last: BotTraceFrame,
+  armyGain: number,
+  trend: BotObjectiveTrend | undefined,
+): ProductionProgressDiagnosis => {
+  const before = trend?.before ?? first.objective;
+  const after = trend?.after ?? last.objective;
+  const capacityGain = after.productionCapacity - before.productionCapacity;
+  const pendingGain = after.pendingProductionCapacity - before.pendingProductionCapacity;
+
+  if (armyGain > 0) {
+    return { status: 'healthy', severity: armyGain, detail: `field army strength increased by ${armyGain}` };
+  }
+  if (capacityGain > 0) {
+    const sources = plural(capacityGain, 'combat production source');
+    return { status: 'healthy', severity: capacityGain, detail: `${sources} completed` };
+  }
+  if (pendingGain > 0) {
+    const sources = plural(pendingGain, 'combat production source');
+    return { status: 'watch', severity: pendingGain, detail: `${sources} entered construction` };
+  }
+  if (after.pendingProductionCapacity > 0) {
+    const sources = plural(after.pendingProductionCapacity, 'combat production source');
+    return { status: 'watch', severity: after.pendingProductionCapacity, detail: `${sources} pending completion` };
+  }
+  return { status: 'watch', severity: 0, detail: 'no completed combat production was observed' };
+};
+
 const pushFrameStreakAlerts = (
   alerts: BotTraceAlert[],
   frames: readonly BotTraceFrame[],
@@ -528,11 +562,10 @@ export const botTraceExpertDiagnoses = (
         : last.workers >= first.workers ? 'worker count held steady during the trace' : 'worker count declined during the trace',
     ));
 
+    const productionProgress = productionProgressDiagnosis(first, last, armyGain, trend);
     diagnoses.push(productionAlerts.length > 0
       ? diagnosis('production', player, 'failing', alertSeverity(productionAlerts), productionAlerts.map((alert) => alert.detail).join('; '))
-      : diagnosis('production', player, armyGain > 0 ? 'healthy' : 'watch', Math.max(0, armyGain), armyGain > 0
-        ? `field army strength increased by ${armyGain}`
-        : 'no completed combat production was observed'));
+      : diagnosis('production', player, productionProgress.status, productionProgress.severity, productionProgress.detail));
 
     const combatDetail = combatCommands > 0
       ? `${combatCommands} combat command attempts in the trace`

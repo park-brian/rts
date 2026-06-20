@@ -396,6 +396,24 @@ test('bot expert diagnoses expose objective progress from trace trends', () => {
   assert.equal(objective.detail.includes('field army strength increased'), true);
 });
 
+test('bot expert diagnoses distinguish pending production from no production', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8117, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const base = primaryBaseSlot(s, 0, Terran);
+  const planner = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 99 });
+  const before = botTraceFrame(s, 0, Terran, planner(s, 0));
+  const pendingBarracks = slotOf(spawnUnit(s, Kind.Barracks, 0, s.e.x[base]! + fx(160), s.e.y[base]!));
+  s.e.built[pendingBarracks] = 0;
+  const after = botTraceFrame(s, 0, Terran, planner(s, 0));
+  const diagnoses = botTraceExpertDiagnoses([before, after], createMatchStats(s), [], botObjectiveTrends([before, after]));
+  const production = diagnoses.find((entry) => entry.domain === 'production');
+
+  assert.ok(production);
+  assert.equal(production.status, 'watch');
+  assert.equal(production.detail.includes('entered construction'), true);
+  assert.equal(production.detail.includes('no completed combat production'), false);
+});
+
 test('bot expert diagnoses flag missing army production intent as production failure', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8113, factions: [Terran, Terran] });
   const s = sim.fullState();
