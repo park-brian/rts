@@ -135,7 +135,9 @@ Feasibility review against the current code:
   former setup/resource-patch and command-time ability-execution leaks are now closed. Public barrel
   exports for census and command-time ability helpers are also closed after verifying no monorepo
   caller imported them through `@rts/sim`; `stepWorld` and collision pressure counters remain
-  exported intentionally for headless benchmarks and low-level deterministic tests.
+  exported intentionally for headless benchmarks and low-level deterministic tests. Weapon delivery
+  and hit-resolution internals are private too; upgrade-derived stat helpers remain public because
+  the app uses them for selected-unit stat presentation.
 
 Near-term architecture slices from this review:
 
