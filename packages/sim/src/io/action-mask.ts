@@ -13,11 +13,10 @@ import type { State } from '../entity/world.ts';
 import { eid, freeEffectSlots, isAlive, NONE, slotOf } from '../entity/world.ts';
 import { validateCommand } from '../commands/validate.ts';
 import {
-  Abilities, Ability, Kind, Role, TechDefs, Units, productionCostCount, productionCount,
-  workerBuildKindsFor,
+  Abilities, Ability, Kind, TechDefs, Units, productionCostCount, productionCount,
 } from '../data/index.ts';
 import { addonKindsForParent } from '../mechanics/addons.ts';
-import { abilitiesFor, producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
+import { abilitiesFor, producedKindsFor, researchTechsFor, workerBuildKindsForWorkerKind } from '../mechanics/capabilities.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from '../mechanics/tech.ts';
@@ -562,8 +561,7 @@ export const trainKindCandidates = (s: State, producer: number): readonly number
 };
 
 export const buildKindCandidates = (s: State, worker: number): readonly number[] => {
-  const def = Units[actorKind(s, worker)];
-  return def && (def.roles & Role.Worker) !== 0 ? workerBuildKindsFor(def.race) : [];
+  return workerBuildKindsForWorkerKind(actorKind(s, worker));
 };
 
 export const researchTechCandidates = (s: State, producer: number): readonly number[] => {

@@ -1,6 +1,7 @@
 import type { Command } from './types.ts';
-import { Order, Role, Units, workerBuildKindsFor } from '../data/index.ts';
+import { Order, Role, Units } from '../data/index.ts';
 import { cancelPendingBuild, hasPendingBuild } from '../mechanics/build-cancel.ts';
+import { canWorkerBuildKind } from '../mechanics/capabilities.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import { canPlaceStructure, placementForStructure, type PlacementResult } from '../mechanics/placement.ts';
 import type { State } from '../entity/world.ts';
@@ -19,13 +20,6 @@ type BuildCommand = Extract<Command, { t: 'build' }>;
 
 const playerExists = (s: State, player: number): boolean => player >= 0 && player < s.teams.length;
 
-const canBuildWithWorker = (workerKind: number, structureKind: number): boolean => {
-  const worker = Units[workerKind];
-  const structure = Units[structureKind];
-  if (!worker || !structure || worker.race !== structure.race) return false;
-  return workerBuildKindsFor(worker.race).includes(structureKind);
-};
-
 export const canWorkerStartStructure = (
   s: State,
   player: number,
@@ -41,7 +35,7 @@ export const canWorkerStartStructure = (
   }
   const def = Units[kind];
   if (!def || (def.roles & Role.Structure) === 0 || (e.flags[workerSlot]! & Role.Worker) === 0 ||
-      !canBuildWithWorker(e.kind[workerSlot]!, kind)) {
+      !canWorkerBuildKind(e.kind[workerSlot]!, kind)) {
     return reject('missing-capability');
   }
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');

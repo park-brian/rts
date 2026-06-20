@@ -321,6 +321,10 @@ Migration plan:
   - Add-on candidate slice is done: `mechanics/addons.ts` now owns parent-to-add-on candidate lists
     and parent/add-on legality. Add-on validation, command-card discovery, and action-mask
     candidates use that owner instead of maintaining local add-on scans or maps.
+  - Worker-build capability slice is done: `mechanics/capabilities.ts` now owns worker-kind build
+    candidate lists and worker/structure build legality. Build validation, command-card discovery,
+    and action-mask candidates consume that owner instead of reaching into race build lists
+    independently.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

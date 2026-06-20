@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addonKindCandidates, addonKindMask, researchTechCandidates, researchTechMask, trainKindCandidates, trainKindMask } from '../src/io/action-mask.ts';
+import {
+  addonKindCandidates,
+  addonKindMask,
+  buildKindCandidates,
+  researchTechCandidates,
+  researchTechMask,
+  trainKindCandidates,
+  trainKindMask,
+} from '../src/io/action-mask.ts';
 import { validateAddonCommand } from '../src/commands/addon.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind, Tech } from '../src/data/index.ts';
@@ -14,6 +22,8 @@ import {
   producerKindDirectlyProducesOnlyWorkers,
   producerKindSupportsWorkerRally,
   researchTechsFor,
+  canWorkerBuildKind,
+  workerBuildKindsForWorkerKind,
 } from '../src/mechanics/capabilities.ts';
 import { addonKindsForParent, canBuildAddonKind } from '../src/mechanics/addons.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
@@ -57,6 +67,7 @@ test('producer capability facts own products and worker-rally classification', (
   const scenario = simScenario({ players: 1, seed: 693 });
   const { state: s, spawn } = scenario;
   const gateway = spawn(Kind.Gateway, 0, fx(300), fx(300));
+  const scv = spawn(Kind.SCV, 0, fx(400), fx(400));
 
   assert.deepEqual([...producedKindsFor(Kind.CommandCenter)], [Kind.SCV]);
   assert.equal(canProduceKind(Kind.CommandCenter, Kind.SCV), true);
@@ -73,6 +84,10 @@ test('producer capability facts own products and worker-rally classification', (
   assert.equal(canResearchTech(Kind.Forge, Tech.GroundWeapons), true);
   assert.equal(canResearchTech(Kind.Forge, Tech.StimPack), false);
   assert.deepEqual([...researchTechCandidates(s, gateway)], [...researchTechsFor(Kind.Gateway)]);
+  assert.equal(workerBuildKindsForWorkerKind(Kind.SCV).includes(Kind.CommandCenter), true);
+  assert.equal(canWorkerBuildKind(Kind.SCV, Kind.Barracks), true);
+  assert.equal(canWorkerBuildKind(Kind.SCV, Kind.Hatchery), false);
+  assert.deepEqual([...buildKindCandidates(s, scv)], [...workerBuildKindsForWorkerKind(Kind.SCV)]);
   assert.deepEqual([...addonKindsForParent(Kind.Factory)], [Kind.MachineShop]);
   assert.equal(canBuildAddonKind(Kind.Factory, Kind.MachineShop), true);
   assert.equal(canBuildAddonKind(Kind.Factory, Kind.ControlTower), false);

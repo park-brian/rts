@@ -1,6 +1,7 @@
 import type { Command, CommandRejectReason } from './types.ts';
-import { Abilities, ResourceType, Role, Units, workerBuildKindsFor, type AbilityTarget } from '../data/index.ts';
+import { Abilities, ResourceType, Role, Units, type AbilityTarget } from '../data/index.ts';
 import { addonKindsForParent } from '../mechanics/addons.ts';
+import { workerBuildKindsForWorkerKind } from '../mechanics/capabilities.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
 import { canAcceptCargo, sameTeam, transportCapacity, unloadAnchorSlot } from '../mechanics/cargo.ts';
@@ -534,8 +535,7 @@ export const workerBuildSelectionOptions = (
     if (!isAlive(e, worker)) continue;
     const slot = slotOf(worker);
     if ((e.flags[slot]! & Role.Worker) === 0) continue;
-    const kind = e.kind[slot]!;
-    for (const build of Units[kind] ? workerBuildKindsFor(Units[kind]!.race) : []) {
+    for (const build of workerBuildKindsForWorkerKind(e.kind[slot]!)) {
       const starter = canWorkerStartStructure(s, player, slot, build);
       if (!starter.ok) {
         if (starter.reason !== 'missing-capability') {

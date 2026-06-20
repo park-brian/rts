@@ -1,4 +1,4 @@
-import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind } from '../data/index.ts';
+import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind, workerBuildKindsFor } from '../data/index.ts';
 
 const ProducerFlags = {
   SupportsWorkerRally: 1 << 0,
@@ -8,6 +8,7 @@ const ProducerFlags = {
 const EMPTY_PRODUCTS: readonly number[] = [];
 const EMPTY_TECHS: readonly number[] = [];
 const EMPTY_ABILITIES: readonly number[] = [];
+const EMPTY_BUILDS: readonly number[] = [];
 
 const maxKind = (): number => {
   let max = 0;
@@ -22,6 +23,7 @@ const MAX_KIND = maxKind();
 const productsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const researchTechsByKind: Array<number[] | undefined> = new Array(MAX_KIND + 1);
 const abilitiesByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
+const workerBuildsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
@@ -33,6 +35,7 @@ for (const [key, def] of Object.entries(Units)) {
   const products = def.produces.length > 0 ? def.produces : EMPTY_PRODUCTS;
   productsByKind[kind] = products;
   abilitiesByKind[kind] = def.abilities.length > 0 ? def.abilities : EMPTY_ABILITIES;
+  if (isWorkerKind(kind)) workerBuildsByKind[kind] = workerBuildKindsFor(def.race);
 
   let flags = 0;
   if (isLarvaSourceKind(kind) || products.some(isWorkerKind)) flags |= ProducerFlags.SupportsWorkerRally;
@@ -74,6 +77,16 @@ export const canUseAbilityKind = (kind: number, ability: number): boolean =>
 
 export const kindHasAbilities = (kind: number): boolean =>
   abilitiesFor(kind).length > 0;
+
+export const workerBuildKindsForWorkerKind = (workerKind: number): readonly number[] =>
+  workerBuildsByKind[workerKind] ?? EMPTY_BUILDS;
+
+export const canWorkerBuildKind = (workerKind: number, structureKind: number): boolean => {
+  const worker = Units[workerKind];
+  const structure = Units[structureKind];
+  if (!worker || !structure || worker.race !== structure.race) return false;
+  return workerBuildKindsForWorkerKind(workerKind).includes(structureKind);
+};
 
 export const producerKindSupportsWorkerRally = (producerKind: number): boolean =>
   (producerFlagsByKind[producerKind] & ProducerFlags.SupportsWorkerRally) !== 0;
