@@ -46,6 +46,7 @@ export * from './mechanics/upgrades.ts';
 export * from './mechanics/rally.ts';
 export * from './mechanics/resources.ts';
 export * from './mechanics/abilities.ts';
+export * from './mechanics/ability-execution.ts';
 export * from './entity/world.ts';
 export * from './spatial/pathing.ts';
 export * from './map/procedural.ts';

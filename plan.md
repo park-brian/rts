@@ -95,11 +95,10 @@ Feasibility review against the current code:
   Carrier, Reaver, Bunker, Lurker, Mutalisk, Devourer, Scourge, and Spider Mine behavior must keep
   focused tests before any merge.
 - **Ability descriptorization is partially done and worth continuing carefully.** `AbilityExecution`
-  already covers the implemented spell modes, and `systems/abilities.ts` has a generic executor.
-  The main architectural leak is that `commands/ability.ts` imports `castAbility` from a tick system.
-  Split command-time execution into a mechanics owner before attempting broader status or effect
-  consolidation. Persistent field ticking, channel ticking, cloak drain, energy regen, life timers,
-  and status timers should remain explicit phase logic until a smaller shared interpreter is proven.
+  already covers the implemented spell modes, and command-time execution now lives in mechanics
+  instead of the ability tick system. Persistent field ticking, channel ticking, cloak drain, energy
+  regen, life timers, and status timers should remain explicit phase logic until a smaller shared
+  interpreter is proven.
 - **Status compression is not an immediate win.** Query ownership now lives in `mechanics/status.ts`,
   but dynamic status state is still many typed-array columns because clone/serialize/hash coverage
   is explicit and benchmarked around stable object shapes. A fixed-width generic status set may be
@@ -131,10 +130,9 @@ Feasibility review against the current code:
   one input handler would conflict with the existing architecture: canvas/WebGL owns the world render
   loop, while Preact/signals owns compact UI chrome. Reduce duplicated command discovery and layout
   waste, but do not collapse UI, input, and rendering into a monolith.
-- **Known cross-layer leaks to clean up before broad rewrites:** `map/setup.ts` still imports
-  `pickPatch` from `systems/harvest.ts`; `commands/ability.ts` still imports `castAbility` from
-  `systems/abilities.ts`; public barrel exports for system helpers should be audited so stable API
-  does not normalize private tick-system ownership.
+- **Known cross-layer leaks to clean up before broad rewrites:** public barrel exports for system
+  helpers should be audited so stable API does not normalize private tick-system ownership. The
+  former setup/resource-patch and command-time ability-execution leaks are now closed.
 
 Near-term architecture slices from this review:
 
@@ -142,7 +140,7 @@ Near-term architecture slices from this review:
    helper so setup, construction, and harvest share the rule without depending on a tick system.
 2. Split command-time ability execution from ability ticking: mechanics owns `castAbility` and
    execution applicators; `systems/abilities.ts` owns only energy, cloak drain, effects, channels,
-   life timers, status timers, and regeneration ticks.
+   life timers, status timers, and regeneration ticks. Done.
 3. Move weapon on-hit/post-fire applicators and Bunker contained-fire policy behind mechanics
    helpers while keeping combat as the phase interpreter.
 4. Continue capability ownership slices only when they delete a duplicated UI/AI/action-mask/
@@ -430,6 +428,12 @@ Migration plan:
     mineral saturation, explicit-target spreading, and auto-mining patch selection. Setup,
     construction worker release, harvest retargeting, and production gather-rally now share the
     same resource mechanic instead of importing the harvest tick system.
+  - Ability execution ownership slice is done: `mechanics/ability-execution.ts` now owns
+    command-time `AbilityExecution` interpretation, status/restore/marker/buffer applicators,
+    point drains, Recall placement, target conversion/spawn/transform, effect spawning, nuke
+    consumption, and cast cost/facing. `systems/abilities.ts` now owns only ticking behavior:
+    persistent effects, target channels, DOTs, hallucination/life timers, cloak drain, energy
+    regeneration, status timers, regeneration, and aura refresh.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

@@ -6,7 +6,7 @@ import { isPowered } from '../mechanics/power.ts';
 import { hasReadyNuke } from '../mechanics/nuke.ts';
 import type { State } from '../entity/world.ts';
 import { NONE, slotOf } from '../entity/world.ts';
-import { castAbility } from '../systems/abilities.ts';
+import { castAbility } from '../mechanics/ability-execution.ts';
 import { withinTopDownEdgeRange, withinTopDownPointRange } from '../spatial/geometry.ts';
 import { abilityCapacityAvailable, abilityTechAvailable, isFreeAbilityToggleOff } from '../mechanics/abilities.ts';
 import { canReceiveOrder, canTargetEntity, discardQueuedOrders, reject, type CommandValidation } from './shared.ts';
