@@ -1,4 +1,4 @@
-import type { CountMap } from '@rts/sim';
+import { Factions, type CountMap } from '@rts/sim';
 import type { BotVictoryAxis } from './macro-intents.ts';
 import type { BotStrategyPlan } from './macro-strategy.ts';
 
@@ -24,6 +24,17 @@ export type BotPlanEvidenceAssessment = {
   satisfied: boolean;
   detail: string;
 };
+
+export type BotCombatPipelineSnapshot = {
+  armyStrength: number;
+  queuedArmyStrength: number;
+  productionCapacity: number;
+  pendingProductionCapacity: number;
+};
+
+const firstCombatStructureKinds: ReadonlySet<number> = new Set(
+  Object.values(Factions).map((faction) => faction.armyStructure),
+);
 
 export const BOT_EXPERT_OBLIGATIONS: readonly BotExpertObligation[] = [
   {
@@ -62,6 +73,19 @@ export const botPlanEvidenceAxes = (plan: BotStrategyPlan): readonly BotVictoryA
 };
 
 export const botPlanEvidenceLabel = (axes: readonly BotVictoryAxis[]): string => axes.join('/');
+
+export const botHasCombatPipeline = (snapshot: BotCombatPipelineSnapshot): boolean =>
+  snapshot.armyStrength + snapshot.queuedArmyStrength > 0 ||
+  snapshot.productionCapacity + snapshot.pendingProductionCapacity > 0;
+
+export const botNeedsOpeningCombatPipeline = (
+  plan: BotStrategyPlan | undefined,
+  snapshot: BotCombatPipelineSnapshot,
+): boolean =>
+  plan?.primaryGoal === 'establish-combat' && !botHasCombatPipeline(snapshot);
+
+export const botBuildsFirstCombatStructure = (kind: number | undefined): boolean =>
+  kind !== undefined && firstCombatStructureKinds.has(kind);
 
 export const botPlanEvidenceAssessment = (
   plan: BotStrategyPlan,

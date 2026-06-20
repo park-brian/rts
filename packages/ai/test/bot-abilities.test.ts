@@ -9,6 +9,8 @@ import {
   botIntentExpectation,
   botIntentUrgency,
   botIntentVictoryAxis,
+  botBuildsFirstCombatStructure,
+  botNeedsOpeningCombatPipeline,
   TACTICAL_ABILITY_POLICIES,
   blockedExpansionActive,
   collectBotFacts,
@@ -521,6 +523,41 @@ test('bot expert scores production capacity from combat strength pipeline', () =
     reason.kind === 'production-throughput' &&
     reason.detail.includes('0+0/1') &&
     reason.detail.includes('1500/2160')), true);
+});
+
+test('bot expert treats first combat access as an opening obligation', () => {
+  const opening = expertContext({
+    strategicPlan: strategicPlan(),
+    objective: objectiveSnapshot({
+      armyStrength: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+      resourceFloat: 500,
+    }),
+  });
+  const firstAccess = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), opening);
+  const optionalTech = scoreBotIntent(botIntent('rebuild-tech', { targetKind: Kind.Academy }), opening);
+  const gas = scoreBotIntent(botIntent('take-gas', { targetKind: Kind.Refinery }), opening);
+
+  assert.equal(botBuildsFirstCombatStructure(Kind.Barracks), true);
+  assert.equal(botBuildsFirstCombatStructure(Kind.Hatchery), false);
+  assert.equal(botNeedsOpeningCombatPipeline(opening.strategicPlan, opening.objective), true);
+  assert.equal((firstAccess.score?.value ?? 0) > (optionalTech.score?.value ?? 0), true);
+  assert.equal((firstAccess.score?.value ?? 0) > (gas.score?.value ?? 0), true);
+  assert.equal(firstAccess.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail === 'opening needs a combat pipeline before optional tech'), true);
+  assert.equal(optionalTech.score?.reasons.some((reason) =>
+    reason.kind === 'tech-unlock' &&
+    reason.value < 0 &&
+    reason.detail === 'opening needs a combat pipeline before optional tech'), true);
+
+  const queuedCombat = expertContext({
+    strategicPlan: strategicPlan(),
+    objective: objectiveSnapshot({ queuedArmyStrength: 200 }),
+  });
+  assert.equal(botNeedsOpeningCombatPipeline(queuedCombat.strategicPlan, queuedCombat.objective), false);
 });
 
 test('bot expert scores add-production higher when live production stall signals are active', () => {

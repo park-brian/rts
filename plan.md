@@ -178,6 +178,13 @@ assessment helpers, and trace competence gates consume those helpers instead of 
 victory-axis counts. This keeps the future live scheduler path and post-match diagnostic path pointed
 at the same expert-system question: did this plan produce evidence for the StarCraft objective it
 claimed to pursue?
+Opening-combat expert slice is done: the rulebook now owns the shared "combat pipeline exists" and
+"opening still needs combat pipeline" predicates, and intent scoring boosts first combat structure
+and first combat unit intents while discounting optional gas/tech/research until the opening has
+actual combat access or queued/fielded combat strength. This is the reusable guard against symptoms
+such as Zerg teching into Evolution Chamber-style infrastructure before getting a real fighting unit
+path online; future race-specific bot fixes should use this expert predicate instead of re-encoding
+opening-combat urgency in each scheduler branch.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
