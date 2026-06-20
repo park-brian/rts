@@ -1439,6 +1439,9 @@ Done when:
   deleting the old root `addon.ts` helper while preserving the stable package export.
 - Moved shared weapon, spell, plague, matrix, and nuke damage application under
   `mechanics/damage.ts`, deleting the old root `damage.ts` helper.
+- Moved shared weapon-hit resolution and splash falloff geometry under `mechanics/weapon-hit.ts`,
+  deleting the tick-system-shaped helper so combat, abilities, Scarab impact, and focused tests read
+  the real mechanic owner.
 - Moved transform, morph, and merge descriptors plus application helpers under
   `mechanics/transforms.ts`, deleting the old root `unit-transform.ts` helper while preserving the
   stable package export.

@@ -26,7 +26,7 @@ import {
   type InteractionRect,
 } from '../spatial/geometry.ts';
 import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts';
-import { applyWeaponHit } from './weapon-hit.ts';
+import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
 import { launchScarab } from '../mechanics/scarab.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredActor, participatesInNormalCombat } from '../mechanics/actors.ts';

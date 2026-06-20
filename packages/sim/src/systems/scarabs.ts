@@ -7,7 +7,7 @@ import { navigate } from '../spatial/pathing.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { faceToward } from '../spatial/motion.ts';
 import { effectiveSpeed } from './status.ts';
-import { applyWeaponHit } from './weapon-hit.ts';
+import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
 
 const validScarabTarget = (s: State, scarab: number, reaver: number, target: number): boolean => {
   const e = s.e;

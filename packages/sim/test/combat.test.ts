@@ -8,7 +8,7 @@ import { DamageType, Kind, Order, ProjectilePresentation, Tech, Units, bwRange, 
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, distanceSq, topDownEdgeDistance, topDownEdgeDistanceSq } from '../src/spatial/geometry.ts';
 import { applyWeaponDamage } from '../src/mechanics/damage.ts';
-import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
+import { applyWeaponHit } from '../src/mechanics/weapon-hit.ts';
 import { setTechLevel } from '../src/mechanics/tech.ts';
 import { entityApproachPoint } from '../src/entity/approach.ts';
 

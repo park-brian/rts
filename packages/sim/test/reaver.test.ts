@@ -17,7 +17,7 @@ import {
 import {
   ActorDefs, actorDef, actorProjectile, actorSortie, isExternallySteeredActor, participatesInNormalCombat,
 } from '../src/mechanics/actors.ts';
-import { applyWeaponHit } from '../src/systems/weapon-hit.ts';
+import { applyWeaponHit } from '../src/mechanics/weapon-hit.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/mechanics/interceptor.ts';
 import { interceptors } from '../src/systems/interceptors.ts';

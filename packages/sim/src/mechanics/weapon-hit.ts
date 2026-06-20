@@ -1,7 +1,7 @@
 import type { State } from '../entity/world.ts';
 import { Role, type Weapon } from '../data/index.ts';
-import { applyWeaponDamage } from '../mechanics/damage.ts';
-import { isContained } from '../mechanics/cargo.ts';
+import { applyWeaponDamage } from './damage.ts';
+import { isContained } from './cargo.ts';
 import { isLowGroundAttackingHigh } from '../spatial/terrain.ts';
 import { range } from '../rng.ts';
 import { topDownPointDistanceSq } from '../spatial/geometry.ts';
