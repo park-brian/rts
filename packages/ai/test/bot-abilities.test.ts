@@ -53,6 +53,7 @@ import {
   type BotExpertContext,
   type BotObjectiveSnapshot,
   type BotStrategyPosture,
+  type PlacementDiagnostic,
 } from '../src/index.ts';
 import { maybeSetArmyStructureRallies } from '../src/macro-economy.ts';
 import {
@@ -4308,6 +4309,48 @@ test('macro placement uses risk to prefer safer builder routes', () => {
   assert.ok(spot);
   assert.equal(spot.x, safeSpot.x);
   assert.equal(spot.y, safeSpot.y);
+});
+
+test('macro placement diagnostics expose Protoss pylon support coverage', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1123, factions: [Protoss, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.Probe, 0));
+  const pylon = slotOf(spawnUnit(s, Kind.Pylon, 0, tileCenterFx(40), tileCenterFx(40)));
+  const diagnostics: PlacementDiagnostic[] = [];
+
+  const spot = findSpot(s, 0, worker, Kind.Gateway, s.e.x[pylon]!, s.e.y[pylon]!, {
+    diagnostics,
+    role: 'production-block',
+  });
+
+  assert.ok(spot);
+  assert.equal(diagnostics.some((diagnostic) =>
+    diagnostic.result === 'chosen' &&
+    diagnostic.scoreReasons.some((reason) =>
+      reason.kind === 'support-coverage' &&
+      reason.value === 0 &&
+      reason.detail === 'powered by pylon')), true);
+});
+
+test('macro placement diagnostics expose Zerg creep support coverage', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1124, factions: [Zerg, Terran] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.Drone, 0));
+  const hatchery = slotOf(findEntity(sim, Kind.Hatchery, 0));
+  const diagnostics: PlacementDiagnostic[] = [];
+
+  const spot = findSpot(s, 0, worker, Kind.HydraliskDen, s.e.x[hatchery]!, s.e.y[hatchery]!, {
+    diagnostics,
+    role: 'tech-interior',
+  });
+
+  assert.ok(spot);
+  assert.equal(diagnostics.some((diagnostic) =>
+    diagnostic.result === 'chosen' &&
+    diagnostic.scoreReasons.some((reason) =>
+      reason.kind === 'support-coverage' &&
+      reason.value === 0 &&
+      reason.detail === 'covered by creep')), true);
 });
 
 test('bot memory promotes repeated placement failures into stalled anchors', () => {

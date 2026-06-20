@@ -13,8 +13,11 @@ import {
   canPlaceStructure,
   expandResourceFootprint,
   footprintsOverlap,
+  hasCreepAt,
+  hasPowerAt,
   inBounds,
   isSmallStaticDefenseKind,
+  requiresCreep,
   requiresPower,
   resourceDirVector,
   resourceFootprintBounds,
@@ -66,6 +69,7 @@ type HarvestPlacementContext = {
   reservation: ResourceFootprint | null;
 };
 type PlacementContext = {
+  player: number;
   harvest: HarvestPlacementContext[];
   addonSlots: Footprint[];
   buildingRings: Footprint[];
@@ -93,7 +97,8 @@ export type PlacementScoreReasonKind =
   | 'building-ring'
   | 'blocked-ring'
   | 'route-risk'
-  | 'own-addon-clearance';
+  | 'own-addon-clearance'
+  | 'support-coverage';
 
 export type PlacementScoreReason = {
   kind: PlacementScoreReasonKind;
@@ -294,6 +299,7 @@ const existingAddonSlots = (s: State, player: number): Footprint[] => {
 };
 
 const placementContext = (s: State, player: number, worker: number, options: PlacementOptions = {}): PlacementContext => ({
+  player,
   harvest: harvestPlacementContext(s),
   addonSlots: existingAddonSlots(s, player),
   buildingRings: existingBuildingRings(s, player),
@@ -349,6 +355,14 @@ const addScoreReason = (
   reasons.push(detail ? { kind, value, detail } : { kind, value });
 };
 
+const addSupportCoverageReason = (
+  reasons: PlacementScoreReason[] | undefined,
+  detail: string,
+): void => {
+  if (!reasons) return;
+  reasons.push({ kind: 'support-coverage', value: 0, detail });
+};
+
 const placementPreferenceScore = (
   s: State,
   context: PlacementContext,
@@ -400,6 +414,13 @@ const placementPreferenceScore = (
   const risk = routeRiskScore(context, x, y);
   score += risk;
   addScoreReason(reasons, 'route-risk', risk);
+
+  if (requiresPower(kind) && hasPowerAt(s, context.player, x, y)) {
+    addSupportCoverageReason(reasons, 'powered by pylon');
+  }
+  if (requiresCreep(kind) && hasCreepAt(s, context.player, x, y)) {
+    addSupportCoverageReason(reasons, 'covered by creep');
+  }
 
   const ownAddons = addonKindsForParent(kind);
   if (ownAddons.length > 0 && addonSlotBlocked(s, addonFootprintAt(kind, x, y, ownAddons[0]!))) {

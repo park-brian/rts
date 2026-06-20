@@ -1276,6 +1276,9 @@ Remaining work:
     resource-depot expansion, and static-defense paths now label the layout role they are asking
     for, and placement-stall memory/alerts key by role as well as kind and anchor. This gives future
     scoring/recovery a stable contract instead of guessing from unit kind.
+  - Support-coverage diagnostic slice is done: chosen placement diagnostics now expose zero-score
+    `support-coverage` reasons for powered Protoss structures and creep-backed Zerg structures,
+    so pylon/creep coverage is visible in traces without changing placement scoring.
 - Add "not making units" regressions. Each race needs a long-running macro test proving that once a
   Barracks/Gateway/Hatchery/Larva path exists, the bot actually converts production capacity into
   Marines/Zealots/Zerglings or the current strategy's requested unit mix under realistic resource
