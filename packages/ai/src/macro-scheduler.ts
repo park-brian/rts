@@ -27,7 +27,7 @@ import { maybeQueueRaceResearch } from './macro-research.ts';
 import { queueRaceTechStructure } from './macro-tech.ts';
 import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-defense.ts';
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
-import { productionStallActive, type BotMemory } from './macro-memory.ts';
+import { macroFloatStallActive, productionStallActive, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
 
 export type MacroScheduleConfig = {
@@ -219,7 +219,9 @@ export const scheduleBotMacro = (
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12);
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
+  const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
   const capacityPressure = { productionStalled };
+  const expansionPressure = { macroFloatStalled };
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
       s,
@@ -416,7 +418,18 @@ export const scheduleBotMacro = (
     growthCandidates.push({
       order: 1,
       intent: { kind: 'expand', urgency: intentUrgency('expand'), targetKind: faction.depot },
-      run: () => queueExpansion(s, player, faction, facts, cmds, budget, economy.builder, findExactSpot, memory),
+      run: () => queueExpansion(
+        s,
+        player,
+        faction,
+        facts,
+        cmds,
+        budget,
+        economy.builder,
+        findExactSpot,
+        memory,
+        expansionPressure,
+      ),
     });
     if (faction.name === 'Zerg') {
       growthCandidates.push({

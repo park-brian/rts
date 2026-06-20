@@ -30,6 +30,7 @@ import { locationBlockedByIntentMemory, type BotMemory } from './macro-memory.ts
 import type { BotFacts } from './macro.ts';
 
 const EXPANSION_BANK = 1_000;
+const EXPANSION_STALLED_BANK = 800;
 const EXPANSION_STEP = 800;
 const EXPANSION_MAX = 4;
 const TILE_FX = TILE * ONE;
@@ -51,6 +52,10 @@ const siteCenter = (site: BaseSite): { x: number; y: number } => ({
 export type ExpansionAttempt = {
   queued: boolean;
   outcome?: BotIntentRecord;
+};
+
+export type ExpansionPressure = {
+  macroFloatStalled?: boolean;
 };
 
 const siteDepotFootprint = (site: BaseSite): { x0: number; y0: number; x1: number; y1: number } =>
@@ -86,8 +91,11 @@ const ownedOrPendingDepotCount = (s: State, player: number, plannedKind: number)
   return count;
 };
 
-const desiredDepotCount = (minerals: number): number =>
-  Math.min(EXPANSION_MAX, 2 + Math.trunc((minerals - EXPANSION_BANK) / EXPANSION_STEP));
+const expansionBank = (pressure: ExpansionPressure): number =>
+  pressure.macroFloatStalled ? EXPANSION_STALLED_BANK : EXPANSION_BANK;
+
+const desiredDepotCount = (minerals: number, bank: number): number =>
+  Math.min(EXPANSION_MAX, 2 + Math.trunc((minerals - bank) / EXPANSION_STEP));
 
 const expansionOutcome = (
   faction: Faction,
@@ -291,6 +299,7 @@ export const queueExpansion = (
   worker: number,
   findSpot: PointSpotFinder,
   memory?: BotMemory,
+  pressure: ExpansionPressure = {},
 ): ExpansionAttempt => {
   if (facts.primaryBase === NONE) return { queued: false };
   const lifted = queueLiftedIslandDepot(s, player, faction, facts.primaryBase, faction.depot, cmds, memory);
@@ -299,8 +308,9 @@ export const queueExpansion = (
   if (foundation) return foundation;
   const pendingOutcome = pendingExpansionOutcome(s, player, faction, facts);
   if (pendingOutcome) return { queued: false, outcome: pendingOutcome };
-  if (budget.minerals < EXPANSION_BANK) return { queued: false };
-  if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals)) return { queued: false };
+  const bank = expansionBank(pressure);
+  if (budget.minerals < bank) return { queued: false };
+  if (ownedOrPendingDepotCount(s, player, faction.depot) >= desiredDepotCount(budget.minerals, bank)) return { queued: false };
 
   let outcome: BotIntentRecord | undefined;
   const sites = candidateSites(s, player, facts.primaryBase, faction.depot, { memory });

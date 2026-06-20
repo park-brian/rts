@@ -5,12 +5,21 @@ import type { BotFailureReason, BotIntentKind, BotIntentRecord } from './macro-i
 export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
 export const PRODUCTION_STALL_REACTION_COUNT = 3;
 export const PRODUCTION_STALL_FRESH_TICKS = 6 * 24;
+export const MACRO_FLOAT_STALL_REACTION_COUNT = 3;
+export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
+export const MACRO_FLOAT_STALL_RESOURCES = 800;
 
 export type ProductionStallMemory = {
   count: number;
   sinceTick: number;
   lastTick: number;
   reason?: BotFailureReason;
+};
+
+export type MacroFloatStallMemory = {
+  count: number;
+  sinceTick: number;
+  lastTick: number;
 };
 
 export type BotMemory = {
@@ -20,7 +29,12 @@ export type BotMemory = {
   tacticalIncidents: Map<string, TacticalIncident>;
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
   productionStall: ProductionStallMemory;
+  macroFloatStall: MacroFloatStallMemory;
   offenseWaitSince: number;
+};
+
+export type IntentOutcomeMemoryContext = {
+  resourceFloat?: number;
 };
 
 export const createBotMemory = (): BotMemory => ({
@@ -30,6 +44,7 @@ export const createBotMemory = (): BotMemory => ({
   tacticalIncidents: new Map(),
   tacticalCommitments: new Map(),
   productionStall: { count: 0, sinceTick: -1, lastTick: -1 },
+  macroFloatStall: { count: 0, sinceTick: -1, lastTick: -1 },
   offenseWaitSince: -1,
 });
 
@@ -52,6 +67,22 @@ const productionIntent = (kind: BotIntentKind): boolean =>
 const productionCapacityFailure = (reason: BotFailureReason): boolean =>
   reason === 'no-production-capacity' || reason === 'no-producer';
 
+const macroSpendIntent = (kind: BotIntentKind): boolean => {
+  switch (kind) {
+    case 'rebuild-tech':
+    case 'add-static-defense':
+    case 'add-production':
+    case 'expand':
+    case 'train-worker':
+    case 'spend-larva':
+    case 'train-counter':
+    case 'research-upgrade':
+      return true;
+    default:
+      return false;
+  }
+};
+
 export const locationBlockedByIntentMemory = (memory: BotMemory, x: number, y: number): boolean =>
   memory.blockedSites.has(tileKey(x, y));
 
@@ -59,11 +90,21 @@ export const productionStallActive = (memory: BotMemory, tick: number): boolean 
   memory.productionStall.count >= PRODUCTION_STALL_REACTION_COUNT &&
   tick - memory.productionStall.lastTick <= PRODUCTION_STALL_FRESH_TICKS;
 
+export const macroFloatStallActive = (memory: BotMemory, tick: number): boolean =>
+  memory.macroFloatStall.count >= MACRO_FLOAT_STALL_REACTION_COUNT &&
+  tick - memory.macroFloatStall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
+
 const clearProductionStall = (memory: BotMemory): void => {
   memory.productionStall.count = 0;
   memory.productionStall.sinceTick = -1;
   memory.productionStall.lastTick = -1;
   memory.productionStall.reason = undefined;
+};
+
+const clearMacroFloatStall = (memory: BotMemory): void => {
+  memory.macroFloatStall.count = 0;
+  memory.macroFloatStall.sinceTick = -1;
+  memory.macroFloatStall.lastTick = -1;
 };
 
 const rememberProductionStall = (
@@ -90,14 +131,48 @@ const rememberProductionStall = (
   stall.reason = record.result.reason;
 };
 
+const rememberMacroFloatStall = (
+  memory: BotMemory,
+  records: readonly BotIntentRecord[],
+  tick: number,
+  context: IntentOutcomeMemoryContext,
+): void => {
+  if ((context.resourceFloat ?? 0) < MACRO_FLOAT_STALL_RESOURCES) {
+    clearMacroFloatStall(memory);
+    return;
+  }
+
+  let sawMacroSpend = false;
+  for (const record of records) {
+    if (!macroSpendIntent(record.intent.kind)) continue;
+    sawMacroSpend = true;
+    if (record.result.status === 'done') {
+      clearMacroFloatStall(memory);
+      return;
+    }
+  }
+  if (!sawMacroSpend) {
+    clearMacroFloatStall(memory);
+    return;
+  }
+
+  const stall = memory.macroFloatStall;
+  const continuing = tick - stall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
+  stall.count = continuing ? stall.count + 1 : 1;
+  stall.sinceTick = continuing ? stall.sinceTick : tick;
+  stall.lastTick = tick;
+};
+
 export const rememberIntentOutcomes = (
   memory: BotMemory,
   records: readonly BotIntentRecord[],
   tick: number,
+  context: IntentOutcomeMemoryContext = {},
 ): void => {
   pruneOlderThan(memory.blockedSites, tick);
   pruneOlderThan(memory.suspectedInvisibleThreats, tick);
   rememberProductionStall(memory, records, tick);
+  rememberMacroFloatStall(memory, records, tick, context);
 
   for (const { intent, result } of records) {
     if (intent.x === undefined || intent.y === undefined) continue;

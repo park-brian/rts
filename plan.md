@@ -124,6 +124,12 @@ to add Terran/Protoss production capacity or Zerg macro Hatcheries earlier than 
 anti-float thresholds. This is deliberately scoped to production throughput; remaining live
 feedback work should add similarly narrow signals for passive combat posture, blocked expansion
 retries, and resource-float deadlocks only after a failing trace proves the need.
+Second live expert-feedback slice is done: bot memory now promotes repeated banked macro waits into
+a fresh `macroFloatStall` signal using the same 800-resource threshold as the trace diagnostic, and
+the macro scheduler consumes that signal by lowering the expansion bank to avoid sitting on a
+large mineral float when no normal macro spend is completing. Remaining live feedback work should
+focus on passive combat posture and blocked expansion retries, again only when a failing trace
+proves the scheduler needs a live corrective signal rather than another isolated helper.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,

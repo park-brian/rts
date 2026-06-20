@@ -18,6 +18,7 @@ import {
   executeTacticalDefense,
   issueDefenseEngagement,
   issuePressureEngagement,
+  macroFloatStallActive,
   macroIntentsFromCommands,
   missingStructureKinds,
   rememberIntentOutcomes,
@@ -2631,6 +2632,17 @@ const rememberProductionCapacityStall = () => {
   return memory;
 };
 
+const rememberMacroFloatStall = () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 24, 48]) {
+    rememberIntentOutcomes(memory, [{
+      intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+      result: { status: 'waiting', reason: 'no-producer' },
+    }], tick, { resourceFloat: 900 });
+  }
+  return memory;
+};
+
 test('bot memory promotes repeated production-capacity waits into a live stall signal', () => {
   const memory = rememberProductionCapacityStall();
 
@@ -2642,6 +2654,19 @@ test('bot memory promotes repeated production-capacity waits into a live stall s
   }], 72);
 
   assert.equal(productionStallActive(memory, 72), false);
+});
+
+test('bot memory promotes repeated banked macro waits into a live float-stall signal', () => {
+  const memory = rememberMacroFloatStall();
+
+  assert.equal(macroFloatStallActive(memory, 48), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'expand', urgency: 35, targetKind: Kind.CommandCenter },
+    result: { status: 'done' },
+  }], 72, { resourceFloat: 900 });
+
+  assert.equal(macroFloatStallActive(memory, 72), false);
 });
 
 test('terran scheduler adds production capacity earlier when live expert memory sees a stall', () => {
@@ -2699,6 +2724,44 @@ test('zerg scheduler adds macro hatchery earlier when live expert memory sees la
   const build = findCommandBuild(cmds, Kind.Hatchery);
   assert.ok(build);
   assertPublicSurfaceExposes(s, 0, build);
+});
+
+test('terran scheduler expands earlier when live expert memory sees banked macro deadlock', () => {
+  const scenario = botScenario({
+    seed: 517,
+    map: generateMap(1, 517, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg],
+  });
+  const s = scenario.state;
+  scenario.resources(0, 900, 0);
+  s.players.supplyMax[0] = 1_000;
+
+  const stalledCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    stalledCmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 },
+    rememberMacroFloatStall(),
+  );
+
+  const build = findCommandBuild(stalledCmds, Kind.CommandCenter);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
+
+  const normalCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    normalCmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 },
+  );
+
+  assert.equal(findCommandBuild(normalCmds, Kind.CommandCenter), undefined);
 });
 
 const bankedExpansionScenario = (seed: number): BotScenario => {

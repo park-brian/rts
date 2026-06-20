@@ -147,7 +147,9 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
 
     const scoredIntentResults = intentResults.map((record) => scoreBotIntentRecord(record, expert));
     const rankedIntentResults = rankIntentRecords(scoredIntentResults);
-    rememberIntentOutcomes(memory, rankedIntentResults, s.tick);
+    rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
+      resourceFloat: expert.objective.resourceFloat,
+    });
     return {
       commands: cmds,
       intents: rankedIntentResults.map((record) => record.intent),
