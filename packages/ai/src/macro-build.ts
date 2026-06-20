@@ -6,6 +6,7 @@ import {
   type State,
 } from '@rts/sim';
 import type { BotFailureReason } from './macro-intents.ts';
+import type { PlacementRequest } from './macro-placement.ts';
 
 export type ResourceBudget = { minerals: number; gas: number };
 
@@ -15,6 +16,7 @@ export type MacroSpotFinder = (
   worker: number,
   kind: number,
   fallback: number,
+  request?: PlacementRequest,
 ) => { x: number; y: number } | null;
 
 export type PointSpotFinder = (
@@ -24,6 +26,7 @@ export type PointSpotFinder = (
   kind: number,
   x: number,
   y: number,
+  request?: PlacementRequest,
 ) => { x: number; y: number } | null;
 
 export type StructureBlock = {
@@ -109,9 +112,10 @@ export const queueStructureBuild = (
   anchor: number,
   kind: number,
   findMacroSpot: MacroSpotFinder,
+  request: PlacementRequest = {},
 ): StructureQueueResult => {
   if (worker < 0) return { queued: false, block: { kind, reason: 'no-builder' } };
-  return queueStructureAtSpot(s, player, cmds, budget, worker, kind, findMacroSpot(s, player, worker, kind, anchor));
+  return queueStructureAtSpot(s, player, cmds, budget, worker, kind, findMacroSpot(s, player, worker, kind, anchor, request));
 };
 
 export const maybeQueueStructureAtPoint = (
@@ -124,8 +128,9 @@ export const maybeQueueStructureAtPoint = (
   x: number,
   y: number,
   findSpot: PointSpotFinder,
+  request: PlacementRequest = {},
 ): boolean =>
-  maybeQueueStructureAtSpot(s, player, cmds, budget, worker, kind, findSpot(s, player, worker, kind, x, y));
+  maybeQueueStructureAtSpot(s, player, cmds, budget, worker, kind, findSpot(s, player, worker, kind, x, y, request));
 
 export const queueStructureAtPoint = (
   s: State,
@@ -137,7 +142,8 @@ export const queueStructureAtPoint = (
   x: number,
   y: number,
   findSpot: PointSpotFinder,
+  request: PlacementRequest = {},
 ): StructureQueueResult => {
   if (worker < 0) return { queued: false, block: { kind, reason: 'no-builder' } };
-  return queueStructureAtSpot(s, player, cmds, budget, worker, kind, findSpot(s, player, worker, kind, x, y));
+  return queueStructureAtSpot(s, player, cmds, budget, worker, kind, findSpot(s, player, worker, kind, x, y, request));
 };

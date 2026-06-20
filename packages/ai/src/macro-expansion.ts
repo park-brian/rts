@@ -335,7 +335,7 @@ export const queueExpansion = (
       continue;
     }
 
-    const build = queueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot);
+    const build = queueStructureAtPoint(s, player, cmds, budget, worker, faction.depot, point.x, point.y, findSpot, { role: 'resource-depot' });
     if (build.queued) {
       return { queued: true, ...(outcome ? { outcome } : {}) };
     }

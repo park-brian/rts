@@ -62,7 +62,7 @@ type BotTracePlacementReason = Pick<PlacementScoreReason, 'kind' | 'value' | 'de
 
 export type BotTracePlacementDiagnostic = Pick<
   PlacementDiagnostic,
-  'kind' | 'result' | 'anchorX' | 'anchorY' | 'x' | 'y' | 'score' | 'candidates' | 'rejected' | 'rejectedByReason'
+  'kind' | 'role' | 'result' | 'anchorX' | 'anchorY' | 'x' | 'y' | 'score' | 'candidates' | 'rejected' | 'rejectedByReason'
 > & {
   scoreReasons: BotTracePlacementReason[];
 };
@@ -174,6 +174,7 @@ const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSumma
 
 const placementSummary = (diagnostic: PlacementDiagnostic): BotTracePlacementDiagnostic => ({
   kind: diagnostic.kind,
+  role: diagnostic.role,
   result: diagnostic.result,
   anchorX: diagnostic.anchorX,
   anchorY: diagnostic.anchorY,
@@ -213,6 +214,7 @@ type PlacementStreak = {
   end: number;
   count: number;
   kind: number;
+  role: string;
   anchorX: number;
   anchorY: number;
   rejected: number;
@@ -220,7 +222,7 @@ type PlacementStreak = {
 };
 
 const placementFailureKey = (diagnostic: BotTracePlacementDiagnostic): string =>
-  `${diagnostic.kind}:${diagnostic.anchorX}:${diagnostic.anchorY}`;
+  `${diagnostic.role}:${diagnostic.kind}:${diagnostic.anchorX}:${diagnostic.anchorY}`;
 
 const placementReasonDetail = (counts: CountMap<string>): string => {
   const topReason = Object.entries(counts)
@@ -341,7 +343,7 @@ const pushPlacementStallAlerts = (
       fromTick: first.tick,
       toTick: last.tick,
       severity: streak.count + Math.trunc(streak.rejected / 100),
-      detail: `${streak.count} sampled frames could not place kind ${streak.kind} near ${streak.anchorX},${streak.anchorY}; rejected ${streak.rejected} candidates${placementReasonDetail(streak.rejectedByReason)}`,
+      detail: `${streak.count} sampled frames could not place ${streak.role} kind ${streak.kind} near ${streak.anchorX},${streak.anchorY}; rejected ${streak.rejected} candidates${placementReasonDetail(streak.rejectedByReason)}`,
     });
   };
 
@@ -368,6 +370,7 @@ const pushPlacementStallAlerts = (
         end: i,
         count: 1,
         kind: diagnostic.kind,
+        role: diagnostic.role,
         anchorX: diagnostic.anchorX,
         anchorY: diagnostic.anchorY,
         rejected: diagnostic.rejected,

@@ -3965,6 +3965,7 @@ test('bot memory promotes repeated placement failures into stalled anchors', () 
   const memory = createBotMemory();
   const diagnostic = {
     kind: Kind.Barracks,
+    role: 'production-block' as const,
     result: 'unavailable' as const,
     anchorX: tileCenterFx(40),
     anchorY: tileCenterFx(40),
@@ -3978,10 +3979,39 @@ test('bot memory promotes repeated placement failures into stalled anchors', () 
   rememberPlacementDiagnostics(memory, [diagnostic], 124);
   assert.equal(placementStallAnchorKeys(memory, 124).size, 0);
   rememberPlacementDiagnostics(memory, [diagnostic], 148);
-  assert.equal(placementStallAnchorKeys(memory, 148).has(placementAnchorKey(Kind.Barracks, diagnostic.anchorX, diagnostic.anchorY)), true);
+  assert.equal(
+    placementStallAnchorKeys(memory, 148).has(
+      placementAnchorKey(Kind.Barracks, diagnostic.anchorX, diagnostic.anchorY, diagnostic.role),
+    ),
+    true,
+  );
 
   rememberPlacementDiagnostics(memory, [{ ...diagnostic, result: 'chosen', x: tileCenterFx(58), y: tileCenterFx(40), score: 0 }], 172);
   assert.equal(placementStallAnchorKeys(memory, 172).size, 0);
+});
+
+test('bot placement stalls are separated by layout role', () => {
+  const memory = createBotMemory();
+  const diagnostic = {
+    kind: Kind.Hatchery,
+    role: 'macro-hatchery' as const,
+    result: 'unavailable' as const,
+    anchorX: tileCenterFx(40),
+    anchorY: tileCenterFx(40),
+    candidates: 0,
+    rejected: 120,
+    rejectedByReason: { 'placement-blocked': 120 },
+    scoreReasons: [],
+  };
+
+  rememberPlacementDiagnostics(memory, [diagnostic], 100);
+  rememberPlacementDiagnostics(memory, [{ ...diagnostic, role: 'resource-depot' }], 124);
+  rememberPlacementDiagnostics(memory, [diagnostic], 148);
+  rememberPlacementDiagnostics(memory, [diagnostic], 172);
+
+  const keys = placementStallAnchorKeys(memory, 172);
+  assert.equal(keys.has(placementAnchorKey(Kind.Hatchery, diagnostic.anchorX, diagnostic.anchorY, 'macro-hatchery')), true);
+  assert.equal(keys.has(placementAnchorKey(Kind.Hatchery, diagnostic.anchorX, diagnostic.anchorY, 'resource-depot')), false);
 });
 
 test('macro placement widens search for stalled anchors only', () => {
@@ -3995,9 +4025,9 @@ test('macro placement widens search for stalled anchors only', () => {
   s.map.build.fill(0);
   openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, farSpot.x, farSpot.y));
 
-  const stalledAnchors = new Set([placementAnchorKey(Kind.SupplyDepot, anchor.x, anchor.y)]);
+  const stalledAnchors = new Set([placementAnchorKey(Kind.SupplyDepot, anchor.x, anchor.y, 'supply-buffer')]);
   const normal = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y);
-  const widened = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y, { stalledAnchors });
+  const widened = findSpot(s, 0, worker, Kind.SupplyDepot, anchor.x, anchor.y, { stalledAnchors, role: 'supply-buffer' });
 
   assert.equal(normal, null);
   assert.ok(widened);

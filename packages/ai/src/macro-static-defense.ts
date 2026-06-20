@@ -194,7 +194,7 @@ export const queueStaticDefense = (
 
   const missing = missingStructureKinds(facts, Units[request.plan.finalKind]!.requires);
   if (missing.length > 0) {
-    const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, missing[0]!, findMacroSpot);
+    const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, missing[0]!, findMacroSpot, { role: 'tech-interior' });
     return { queued: result.queued, usedBuilder: result.queued, ...(result.block ? { block: result.block } : {}) };
   }
 
@@ -214,6 +214,7 @@ export const queueStaticDefense = (
     request.region.x,
     request.region.y,
     findSpot,
+    { role: 'static-defense' },
   );
   return { queued: result.queued, usedBuilder: result.queued, ...(result.block ? { block: result.block } : {}) };
 };

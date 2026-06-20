@@ -75,6 +75,16 @@ type PlacementContext = {
   workerY: number;
 };
 
+export type PlacementLayoutRole =
+  | 'general'
+  | 'resource-depot'
+  | 'gas'
+  | 'production-block'
+  | 'macro-hatchery'
+  | 'tech-interior'
+  | 'supply-buffer'
+  | 'static-defense';
+
 export type PlacementScoreReasonKind =
   | 'anchor-distance'
   | 'harvest-reservation'
@@ -93,6 +103,7 @@ export type PlacementScoreReason = {
 
 export type PlacementDiagnostic = {
   kind: number;
+  role: PlacementLayoutRole;
   result: 'chosen' | 'unavailable';
   anchorX: number;
   anchorY: number;
@@ -110,10 +121,20 @@ export type PlacementOptions = {
   diagnostics?: PlacementDiagnostic[];
   diagnosticLimit?: number;
   stalledAnchors?: ReadonlySet<string>;
+  role?: PlacementLayoutRole;
 };
 
-export const placementAnchorKey = (kind: number, x: number, y: number): string =>
-  `${kind}:${tileX(x)}:${tileY(y)}`;
+export type PlacementRequest = {
+  role?: PlacementLayoutRole;
+};
+
+export const placementAnchorKey = (
+  kind: number,
+  x: number,
+  y: number,
+  role: PlacementLayoutRole = 'general',
+): string =>
+  `${role}:${kind}:${tileX(x)}:${tileY(y)}`;
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
 
@@ -413,6 +434,7 @@ const maybePushPlacementDiagnostic = (
   const anchor = anchors[0] ?? { x: 0, y: 0 };
   diagnostics.push({
     kind,
+    role: options.role ?? 'general',
     result: best ? 'chosen' : 'unavailable',
     anchorX: anchor.x,
     anchorY: anchor.y,
@@ -442,7 +464,8 @@ const findBestSpot = (
   for (const anchor of anchors) {
     const btx = tileX(anchor.x);
     const bty = tileY(anchor.y);
-    const maxRadius = options.stalledAnchors?.has(placementAnchorKey(kind, anchor.x, anchor.y))
+    const role = options.role ?? 'general';
+    const maxRadius = options.stalledAnchors?.has(placementAnchorKey(kind, anchor.x, anchor.y, role))
       ? STALLED_SEARCH_MAX_RADIUS_TILES
       : SEARCH_MAX_RADIUS_TILES;
     for (let r = SEARCH_MIN_RADIUS_TILES; r <= maxRadius; r++) {

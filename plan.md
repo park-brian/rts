@@ -1180,6 +1180,11 @@ Remaining work:
     summaries with candidate counts, rejection reasons, final score, and score components. Remaining
     placement work should add explicit layout roles, resource-cluster anchors, pylon/creep coverage,
     and rally-route diagnostics instead of widening the current legal-tile search blindly.
+  - Placement-role request slice is done: shared macro build helpers now carry an explicit
+    `PlacementRequest` role into placement diagnostics. Supply, production, macro Hatchery, tech,
+    resource-depot expansion, and static-defense paths now label the layout role they are asking
+    for, and placement-stall memory/alerts key by role as well as kind and anchor. This gives future
+    scoring/recovery a stable contract instead of guessing from unit kind.
 - Add "not making units" regressions. Each race needs a long-running macro test proving that once a
   Barracks/Gateway/Hatchery/Larva path exists, the bot actually converts production capacity into
   Marines/Zealots/Zerglings or the current strategy's requested unit mix under realistic resource

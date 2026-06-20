@@ -97,7 +97,7 @@ export const queueRaceTechStructure = (
   if (faction.name === 'Zerg' && !hasCompletedStructure(s, player, Kind.SpawningPool)) return { queued: false };
   let firstBlock: StructureBlock | undefined;
   for (const kind of missingStructureKinds(facts, techStructures)) {
-    const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot);
+    const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot, { role: 'tech-interior' });
     if (result.queued) return { queued: true };
     firstBlock ??= result.block;
   }

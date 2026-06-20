@@ -189,6 +189,7 @@ export const maybeQueueSupply = (
     s.e.x[depot]!,
     s.e.y[depot]!,
     findSpot,
+    { role: 'supply-buffer' },
   );
   return { queued: result.queued, usedBuilder: result.queued, ...(result.block ? { block: result.block } : {}) };
 };
@@ -209,7 +210,7 @@ export const queueArmyStructure = (
   if (isLarvaProductKind(faction.armyStructure)) return { queued: false };
   const desired = isLarvaProductKind(faction.armyUnit) ? Math.min(target, 1) : target;
   if (built + pending >= desired) return { queued: false };
-  return queueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot);
+  return queueStructureBuild(s, player, cmds, budget, worker, depot, faction.armyStructure, findMacroSpot, { role: 'production-block' });
 };
 
 export const maybeSetArmyStructureRallies = (

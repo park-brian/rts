@@ -71,6 +71,7 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.candidates > 0), true);
   assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.rejected > 0), true);
   assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.scoreReasons.length > 0), true);
+  assert.equal(frame.placementDiagnostics.some((diagnostic) => diagnostic.role !== 'general'), true);
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.resourceFloat, 500);
   assert.equal(frame.strategy.name, 'opening');
@@ -234,6 +235,7 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
     tick,
     placementDiagnostics: [{
       kind: Kind.Barracks,
+      role: 'production-block' as const,
       result: 'unavailable' as const,
       anchorX: fx(10),
       anchorY: fx(12),
@@ -250,6 +252,7 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
     alert.kind === 'placement-stall' &&
     alert.fromTick === 0 &&
     alert.toTick === 120 &&
+    alert.detail.includes('production-block') &&
     alert.detail.includes('kind') &&
     alert.detail.includes('blocked-by-entity')), true);
 });

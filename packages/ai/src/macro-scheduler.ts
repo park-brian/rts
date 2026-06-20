@@ -7,7 +7,7 @@ import {
   type State,
 } from '@rts/sim';
 import { maybeQueueTerranAddons } from './macro-addons.ts';
-import { type ResourceBudget, type StructureBlock } from './macro-build.ts';
+import { type MacroSpotFinder, type PointSpotFinder, type ResourceBudget, type StructureBlock } from './macro-build.ts';
 import { queueCoreProductionCapacity, queueZergMacroHatchery, type CapacityQueueResult } from './macro-capacity.ts';
 import {
   desiredWorkerCount,
@@ -194,10 +194,10 @@ export const scheduleBotMacro = (
     diagnostics: config.placementDiagnostics,
     stalledAnchors: memory ? placementStallAnchorKeys(memory, s.tick) : undefined,
   };
-  const riskAwareFindSpot: typeof findSpot = (state, owner, worker, kind, x, y) =>
-    findSpot(state, owner, worker, kind, x, y, placementOptions);
-  const riskAwareFindMacroSpot: typeof findMacroSpot = (state, owner, worker, kind, fallback) =>
-    findMacroSpot(state, owner, worker, kind, fallback, placementOptions);
+  const riskAwareFindSpot: PointSpotFinder = (state, owner, worker, kind, x, y, request = {}) =>
+    findSpot(state, owner, worker, kind, x, y, { ...placementOptions, ...request });
+  const riskAwareFindMacroSpot: MacroSpotFinder = (state, owner, worker, kind, fallback, request = {}) =>
+    findMacroSpot(state, owner, worker, kind, fallback, { ...placementOptions, ...request });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy);

@@ -88,7 +88,7 @@ export const queueCoreProductionCapacity = (
     baseTarget + 1 + Math.trunc((budget.minerals - bank) / CORE_PRODUCTION_STEP),
   );
   if (ownedOrPendingStructureCount(s, player, faction.armyStructure) >= desired) return { queued: false };
-  return queueStructureBuild(s, player, cmds, budget, worker, anchor, faction.armyStructure, findMacroSpot);
+  return queueStructureBuild(s, player, cmds, budget, worker, anchor, faction.armyStructure, findMacroSpot, { role: 'production-block' });
 };
 
 export const queueZergMacroHatchery = (
@@ -114,5 +114,5 @@ export const queueZergMacroHatchery = (
     2 + Math.trunc((budget.minerals - bank) / ZERG_MACRO_HATCHERY_STEP),
   );
   if (larvaCapacityCount(s, player) >= desired) return { queued: false };
-  return queueStructureBuild(s, player, cmds, budget, worker, anchor, Kind.Hatchery, findMacroSpot);
+  return queueStructureBuild(s, player, cmds, budget, worker, anchor, Kind.Hatchery, findMacroSpot, { role: 'macro-hatchery' });
 };

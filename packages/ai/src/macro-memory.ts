@@ -1,7 +1,7 @@
 import { ONE, TILE } from '@rts/sim';
 import type { TacticalIncident } from './macro-incidents.ts';
 import type { BotFailureReason, BotIntentKind, BotIntentRecord } from './macro-intents.ts';
-import { placementAnchorKey, type PlacementDiagnostic } from './macro-placement.ts';
+import { placementAnchorKey, type PlacementDiagnostic, type PlacementLayoutRole } from './macro-placement.ts';
 
 export const INTENT_OUTCOME_MEMORY_TICKS = 20 * 24;
 export const PRODUCTION_STALL_REACTION_COUNT = 3;
@@ -35,6 +35,7 @@ export type CombatStallMemory = {
 
 export type PlacementStallMemory = {
   kind: number;
+  role: PlacementLayoutRole;
   anchorX: number;
   anchorY: number;
   count: number;
@@ -284,7 +285,7 @@ export const rememberPlacementDiagnostics = (
   }
 
   for (const diagnostic of diagnostics) {
-    const key = placementAnchorKey(diagnostic.kind, diagnostic.anchorX, diagnostic.anchorY);
+    const key = placementAnchorKey(diagnostic.kind, diagnostic.anchorX, diagnostic.anchorY, diagnostic.role);
     if (diagnostic.result === 'chosen') {
       memory.placementStalls.delete(key);
       continue;
@@ -294,6 +295,7 @@ export const rememberPlacementDiagnostics = (
     const continuing = existing !== undefined && tick - existing.lastTick <= PLACEMENT_STALL_FRESH_TICKS;
     memory.placementStalls.set(key, {
       kind: diagnostic.kind,
+      role: diagnostic.role,
       anchorX: diagnostic.anchorX,
       anchorY: diagnostic.anchorY,
       count: continuing ? existing.count + 1 : 1,
