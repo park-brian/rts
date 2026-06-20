@@ -5,13 +5,14 @@
 
 import type { State } from '../entity/world.ts';
 import { eid, isAlive, NEUTRAL, NONE, slotOf } from '../entity/world.ts';
-import { EffectKind, Kind, Role, TECH_CAP, TILE, Units, isLarvaSourceKind } from '../data/index.ts';
+import { EffectKind, Kind, Role, TECH_CAP, TILE, isLarvaSourceKind } from '../data/index.ts';
 import { ONE } from '../fixed.ts';
 import { actorPresentation, isUserCommandableKind } from '../mechanics/actors.ts';
 import {
   abilitiesFor,
   isBaseDepotKind,
   isSmallStaticDefenseKind,
+  kindHasCargoCapacity,
   kindHasDirectWeapon,
   producedKindsFor,
   producerKindSupportsWorkerRally,
@@ -418,7 +419,7 @@ const entityCapabilities = (s: State, i: number): number => {
   if (researchTechsFor(kind).length > 0) capabilities |= ObservationCapability.ResearchProducer;
   if (abilitiesFor(kind).length > 0) capabilities |= ObservationCapability.Caster;
   if (workerBuildKindsForWorkerKind(kind).length > 0) capabilities |= ObservationCapability.WorkerBuilder;
-  if ((Units[kind]?.cargoCapacity ?? 0) > 0) capabilities |= ObservationCapability.Transport;
+  if (kindHasCargoCapacity(kind)) capabilities |= ObservationCapability.Transport;
   if (isDetectorKind(kind)) capabilities |= ObservationCapability.Detector;
   if (isBaseDepotKind(kind)) capabilities |= ObservationCapability.BaseDepot;
   if (producerKindSupportsWorkerRally(kind)) capabilities |= ObservationCapability.WorkerRallyProducer;

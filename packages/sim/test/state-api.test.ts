@@ -87,6 +87,7 @@ test('observe exposes compact entity capability facts in object and buffer obser
   const scv = spawn(Kind.SCV, 0, fx(560), fx(500));
   const dropship = spawn(Kind.Dropship, 0, fx(620), fx(500));
   const observer = spawn(Kind.Observer, 0, fx(680), fx(500));
+  const overlord = spawn(Kind.Overlord, 0, fx(740), fx(500));
   sim.step([]);
 
   const obs = sim.observe(0);
@@ -101,6 +102,8 @@ test('observe exposes compact entity capability facts in object and buffer obser
   assert.equal((capsFor(dropship) & ObservationCapability.Transport) !== 0, true);
   assert.equal((capsFor(dropship) & ObservationCapability.Air) !== 0, true);
   assert.equal((capsFor(observer) & ObservationCapability.Detector) !== 0, true);
+  assert.equal((capsFor(overlord) & ObservationCapability.Transport) !== 0, true);
+  assert.equal((capsFor(overlord) & ObservationCapability.Air) !== 0, true);
 
   const buffers = createObservationBuffers(s.map, { entities: 32 });
   const counts = writeObservation(s, 0, buffers);

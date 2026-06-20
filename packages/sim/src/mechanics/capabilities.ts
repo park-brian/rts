@@ -31,6 +31,7 @@ const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
 const baseDepotByKind = new Uint8Array(MAX_KIND + 1);
 const directWeaponByKind = new Uint8Array(MAX_KIND + 1);
 const smallStaticDefenseByKind = new Uint8Array(MAX_KIND + 1);
+const transportByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
   ((Units[kind]?.roles ?? 0) & Role.Worker) !== 0;
@@ -43,6 +44,7 @@ for (const [key, def] of Object.entries(Units)) {
   buildMethodByKind[kind] = def.buildMethod;
   abilitiesByKind[kind] = def.abilities.length > 0 ? def.abilities : EMPTY_ABILITIES;
   if (hasAnyWeapon(def)) directWeaponByKind[kind] = 1;
+  if (def.cargoCapacity > 0) transportByKind[kind] = 1;
   if (isWorkerKind(kind)) workerBuildsByKind[kind] = workerBuildKindsFor(def.race);
 
   let flags = 0;
@@ -92,6 +94,9 @@ export const isSmallStaticDefenseKind = (kind: number): boolean =>
 
 export const kindHasDirectWeapon = (kind: number): boolean =>
   directWeaponByKind[kind] === 1;
+
+export const kindHasCargoCapacity = (kind: number): boolean =>
+  transportByKind[kind] === 1;
 
 export const researchTechsFor = (producerKind: number): readonly number[] =>
   researchTechsByKind[producerKind] ?? EMPTY_TECHS;

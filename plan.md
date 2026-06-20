@@ -423,6 +423,10 @@ Migration plan:
   - Cargo-capability AI slice is done: tactical threat classification and Nydus shortcut planning
     now consume `mechanics/cargo.ts` transport capacity and cargo acceptance rules instead of
     re-reading raw cargo capacity or rebuilding partial loadability checks in AI code.
+  - Transport capability observation slice is done: `mechanics/capabilities.ts` now owns static
+    per-kind cargo-capacity identity, and fair-play observations use that fact instead of reading raw
+    unit cargo capacity. Live load legality remains in `mechanics/cargo.ts`, so Overlord transport
+    research and isolated Nydus state are not leaked through capability bits.
   - Product-mode capability slice is done: `mechanics/capabilities.ts` now owns build-method lookup
     and larva-product classification. Macro scheduling, train failure reporting, and supply/army
     production decisions use that owner instead of reading raw product build methods in AI code.
