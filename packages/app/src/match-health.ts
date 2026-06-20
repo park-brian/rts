@@ -5,7 +5,7 @@ import {
   type PlayerMatchStats,
 } from './sim.ts';
 
-export type MatchHealthDomain = 'macro' | 'economy' | 'production' | 'combat';
+export type MatchHealthDomain = 'strategy' | 'macro' | 'economy' | 'production' | 'combat';
 export type MatchHealthStatus = 'healthy' | 'watch' | 'failing';
 
 export type MatchHealthRow = {

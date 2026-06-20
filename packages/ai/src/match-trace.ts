@@ -86,6 +86,7 @@ export type BotTraceAlert = {
 };
 
 export type BotExpertDiagnosisDomain =
+  | 'strategy'
   | 'macro'
   | 'economy'
   | 'production'
@@ -215,6 +216,28 @@ const framesByPlayer = (frames: readonly BotTraceFrame[]): Map<number, BotTraceF
   return byPlayer;
 };
 
+const posturePath = (frames: readonly BotTraceFrame[]): string[] => {
+  const names: string[] = [];
+  for (const frame of frames) {
+    if (names[names.length - 1] !== frame.strategy.name) names.push(frame.strategy.name);
+  }
+  return names;
+};
+
+const strategyDiagnosis = (frames: readonly BotTraceFrame[]): BotExpertDiagnosis => {
+  const first = frames[0]!;
+  const last = frames[frames.length - 1]!;
+  const path = posturePath(frames);
+  const reason = last.strategy.reasons[0] ?? 'no strategy reason recorded';
+  return diagnosis(
+    'strategy',
+    first.player,
+    last.strategy.name === 'opening' && frames.length >= ALERT_STREAK_FRAMES ? 'watch' : 'healthy',
+    path.length,
+    `posture ${path.join(' -> ')}; current ${last.strategy.name}, tech ${last.strategy.techTarget}, expansion ${last.strategy.expansionPriority}, harassment ${last.strategy.harassmentAppetite}; ${reason}`,
+  );
+};
+
 const pushFrameStreakAlerts = (
   alerts: BotTraceAlert[],
   frames: readonly BotTraceFrame[],
@@ -337,6 +360,8 @@ export const botTraceExpertDiagnoses = (
     const enemyLoss = trend
       ? trend.reasons.some((reason) => reason.kind === 'enemy-economy-damage' || reason.kind === 'enemy-army-damage')
       : false;
+
+    diagnoses.push(strategyDiagnosis(playerFrames));
 
     diagnoses.push(macroAlerts.length > 0
       ? diagnosis('macro', player, 'failing', alertSeverity(macroAlerts), macroAlerts.map((alert) => alert.detail).join('; '))

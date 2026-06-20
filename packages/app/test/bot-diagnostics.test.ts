@@ -32,7 +32,9 @@ test('traceable bot controllers produce expert health rows for the post-match pa
 
   assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.frames.length), [1, 1]);
   assert.equal(diagnostics.every((diagnostic) => diagnostic.lastPlan !== null), true);
-  assert.equal(botExpertHealthRows(diagnostics, stats).length, 8);
+  const rows = botExpertHealthRows(diagnostics, stats);
+  assert.equal(rows.length, 10);
+  assert.equal(rows.some((row) => row.domain === 'strategy' && row.detail.includes('posture')), true);
 });
 
 test('bot command results are stored only for their owning diagnostic participant', () => {

@@ -1089,6 +1089,10 @@ Remaining work:
     worker/attack targets, gas timing, production ratio, tech focus, defense/retreat tolerances,
     harassment appetite, and reasons. The trace frame records this posture, and macro/offense target
     thresholds now read through it instead of separate ad hoc config values.
+  - Strategy diagnosis slice is done: bot expert health now emits a `strategy` row that summarizes
+    the sampled posture path and the current tech/expansion/harassment posture, so the post-match UI
+    can explain what plan the bot believed it was following instead of only reporting macro/economy
+    symptoms.
 - Generalize production-capacity intents around combat demand. The bot should estimate desired army
   spend per minute, current producer throughput, larva throughput, queued production, and resource
   float, then add the right capacity for the race and posture. For Zerg, Hatcheries are both depots

@@ -234,6 +234,7 @@ test('bot expert diagnoses summarize trace health by strategic domain', () => {
   const alerts = botTraceAlerts(frames);
   const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
 
+  assert.equal(diagnoses.some((entry) => entry.domain === 'strategy' && entry.detail.includes('posture')), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'macro' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'production' && entry.status === 'failing'), true);
   assert.equal(diagnoses.some((entry) => entry.domain === 'combat' && entry.status === 'watch'), true);
