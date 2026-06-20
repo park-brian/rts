@@ -1,5 +1,6 @@
 import type { Command } from './types.ts';
 import { Role, TECH_CAP, TechDefs } from '../data/index.ts';
+import { canResearchTech } from '../mechanics/capabilities.ts';
 import { requirementsMet } from '../mechanics/requirements.ts';
 import {
   getTechLevel,
@@ -37,7 +38,7 @@ export const validateResearchCommand = (s: State, player: number, command: Resea
   if (hasActiveResearch(s, slot)) return reject('queue-full');
   if (!validTechId(command.tech)) return reject('target-not-allowed');
   const def = TechDefs[command.tech];
-  if (!def || !def.producers.includes(e.kind[slot]!)) return reject('target-not-allowed');
+  if (!def || !canResearchTech(e.kind[slot]!, command.tech)) return reject('target-not-allowed');
   if (!requirementsMet(s, player, def.requires)) return reject('missing-requirement');
   if (isTechInProgress(s, player, command.tech) || getTechLevel(s, player, command.tech) >= def.maxLevel) {
     return reject('target-not-allowed');

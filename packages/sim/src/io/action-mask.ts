@@ -17,7 +17,7 @@ import {
   workerBuildKindsFor,
 } from '../data/index.ts';
 import { addonParentKind } from '../mechanics/addons.ts';
-import { producedKindsFor } from '../mechanics/capabilities.ts';
+import { producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from '../mechanics/tech.ts';
@@ -164,12 +164,6 @@ const buildProducerIndex = <T>(
   for (const values of mutable.values()) values.sort((a, b) => a - b);
   return mutable;
 };
-
-const RESEARCH_BY_PRODUCER = buildProducerIndex(
-  Object.entries(TechDefs),
-  ([, def]) => def.producers,
-  ([tech]) => Number(tech),
-);
 
 const ADDONS_BY_PARENT = buildProducerIndex(
   Object.entries(Units),
@@ -601,8 +595,7 @@ export const buildKindCandidates = (s: State, worker: number): readonly number[]
 };
 
 export const researchTechCandidates = (s: State, producer: number): readonly number[] => {
-  const kind = actorKind(s, producer);
-  return RESEARCH_BY_PRODUCER.get(kind) ?? [];
+  return researchTechsFor(actorKind(s, producer));
 };
 
 export const addonKindCandidates = (s: State, producer: number): readonly number[] => {

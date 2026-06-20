@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addonKindMask, researchTechMask, trainKindCandidates, trainKindMask } from '../src/io/action-mask.ts';
+import { addonKindMask, researchTechCandidates, researchTechMask, trainKindCandidates, trainKindMask } from '../src/io/action-mask.ts';
 import { validateAddonCommand } from '../src/commands/addon.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Kind, Tech } from '../src/data/index.ts';
@@ -9,9 +9,11 @@ import { validateTrainCommand } from '../src/commands/production.ts';
 import { validateResearchCommand } from '../src/commands/research.ts';
 import {
   canProduceKind,
+  canResearchTech,
   producedKindsFor,
   producerKindDirectlyProducesOnlyWorkers,
   producerKindSupportsWorkerRally,
+  researchTechsFor,
 } from '../src/mechanics/capabilities.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
@@ -66,6 +68,10 @@ test('producer capability facts own products and worker-rally classification', (
   assert.equal(producerKindDirectlyProducesOnlyWorkers(Kind.Hatchery), false);
 
   assert.deepEqual([...trainKindCandidates(s, gateway)], [...producedKindsFor(Kind.Gateway)]);
+  assert.deepEqual([...researchTechsFor(Kind.Forge)], [Tech.GroundWeapons, Tech.GroundArmor, Tech.PlasmaShields]);
+  assert.equal(canResearchTech(Kind.Forge, Tech.GroundWeapons), true);
+  assert.equal(canResearchTech(Kind.Forge, Tech.StimPack), false);
+  assert.deepEqual([...researchTechCandidates(s, gateway)], [...researchTechsFor(Kind.Gateway)]);
 });
 
 test('train validation shares producer preflight without hiding product rules', () => {

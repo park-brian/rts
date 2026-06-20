@@ -1,5 +1,5 @@
 import type { Command, CommandRejectReason } from './types.ts';
-import { Abilities, ResourceType, Role, TechDefs, Units, workerBuildKindsFor, type AbilityTarget } from '../data/index.ts';
+import { Abilities, ResourceType, Role, Units, workerBuildKindsFor, type AbilityTarget } from '../data/index.ts';
 import { addonParentKind } from '../mechanics/addons.ts';
 import { canWorkerStartStructure } from './build.ts';
 import { canPay } from './shared.ts';
@@ -10,7 +10,7 @@ import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from '../mechanics/rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
-import { producedKindsFor } from '../mechanics/capabilities.ts';
+import { producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
 import type { TravelEndpoint, TravelIntent } from './travel.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
 import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
@@ -603,9 +603,7 @@ export const researchSelectionOptions = (
   for (const building of selected) {
     if (!isAlive(e, building)) continue;
     const kind = e.kind[slotOf(building)]!;
-    for (const key of Object.keys(TechDefs)) {
-      const tech = Number(key);
-      if (!TechDefs[tech]?.producers.includes(kind)) continue;
+    for (const tech of researchTechsFor(kind)) {
       const command: Command = { t: 'research', building, tech };
       const result = validateCommand(s, player, command);
       if (result.ok || result.reason !== 'target-not-allowed') {

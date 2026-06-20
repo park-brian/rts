@@ -310,6 +310,10 @@ Migration plan:
     Train validation, command-card train discovery, action-mask train candidates, rally helpers, and
     the macro bot worker-production loop consume the same capability owner instead of reading
     `Units[kind].produces` independently.
+  - Research producer capability slice is done: the same capability owner now indexes producer tech
+    lists and research producer legality. Research validation, command-card discovery, action-mask
+    candidates, and macro research all share that owner instead of independently scanning
+    `TechDefs[tech].producers`.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

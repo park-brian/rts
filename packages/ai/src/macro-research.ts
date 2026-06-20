@@ -2,6 +2,7 @@ import {
   Tech,
   TechDefs,
   Kind,
+  canResearchTech,
   eid,
   getTechLevel,
   nextTechLevel,
@@ -148,7 +149,7 @@ const maybeQueueResearch = (
 
   const e = s.e;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
+    if (e.alive[i] !== 1 || e.owner[i] !== player || !canResearchTech(e.kind[i]!, tech)) continue;
     if (reserved && producerReserved(s, reserved, i)) continue;
     const command: Command = { t: 'research', building: eid(e, i), tech };
     if (!validateCommand(s, player, command).ok) continue;
@@ -179,7 +180,7 @@ const researchBlockReason = (
   let sawProducer = false;
   let sawAvailableProducer = false;
   for (let i = 0; i < e.hi; i++) {
-    if (e.alive[i] !== 1 || e.owner[i] !== player || !def.producers.includes(e.kind[i]!)) continue;
+    if (e.alive[i] !== 1 || e.owner[i] !== player || !canResearchTech(e.kind[i]!, tech)) continue;
     sawProducer = true;
     if ((reserved && producerReserved(s, reserved, i)) || e.researchKind[i] !== Kind.None) continue;
     sawAvailableProducer = true;

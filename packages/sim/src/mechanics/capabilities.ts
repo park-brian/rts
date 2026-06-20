@@ -1,4 +1,4 @@
-import { Kind, Role, Units, isLarvaSourceKind } from '../data/index.ts';
+import { Kind, Role, TechDefs, Units, isLarvaSourceKind } from '../data/index.ts';
 
 const ProducerFlags = {
   SupportsWorkerRally: 1 << 0,
@@ -6,6 +6,7 @@ const ProducerFlags = {
 } as const;
 
 const EMPTY_PRODUCTS: readonly number[] = [];
+const EMPTY_TECHS: readonly number[] = [];
 
 const maxKind = (): number => {
   let max = 0;
@@ -18,6 +19,7 @@ const maxKind = (): number => {
 const MAX_KIND = maxKind();
 
 const productsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
+const researchTechsByKind: Array<number[] | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
@@ -35,11 +37,31 @@ for (const [key, def] of Object.entries(Units)) {
   producerFlagsByKind[kind] = flags;
 }
 
+for (const [key, def] of Object.entries(TechDefs)) {
+  const tech = Number(key);
+  for (const producer of def.producers) {
+    let techs = researchTechsByKind[producer];
+    if (!techs) {
+      techs = [];
+      researchTechsByKind[producer] = techs;
+    }
+    techs.push(tech);
+  }
+}
+
+for (const techs of researchTechsByKind) techs?.sort((a, b) => a - b);
+
 export const producedKindsFor = (producerKind: number): readonly number[] =>
   productsByKind[producerKind] ?? EMPTY_PRODUCTS;
 
 export const canProduceKind = (producerKind: number, productKind: number): boolean =>
   producedKindsFor(producerKind).includes(productKind);
+
+export const researchTechsFor = (producerKind: number): readonly number[] =>
+  researchTechsByKind[producerKind] ?? EMPTY_TECHS;
+
+export const canResearchTech = (producerKind: number, tech: number): boolean =>
+  researchTechsFor(producerKind).includes(tech);
 
 export const producerKindSupportsWorkerRally = (producerKind: number): boolean =>
   (producerFlagsByKind[producerKind] & ProducerFlags.SupportsWorkerRally) !== 0;
