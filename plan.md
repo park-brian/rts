@@ -88,12 +88,12 @@ Feasibility review against the current code:
   they intentionally run in separate deterministic phases. Collapsing them into "go to target, then
   do action" would risk tick-order bugs, replay churn, and worse hot-loop locality. The better
   short-term move is to share approach/range/resource helpers while keeping phase systems explicit.
-- **Weapon descriptorization is feasible, but not as one giant `fireWeapon` yet.** The repo already
-  has `WeaponMechanicDefs`, shared weapon-hit resolution, Scarab launch ownership, and Interceptor
-  capability facts. The next clean slice is to move on-hit/post-fire applicators and container-fire
-  policy into mechanics-owned helpers while leaving `systems/combat.ts` as the phase interpreter.
-  Carrier, Reaver, Bunker, Lurker, Mutalisk, Devourer, Scourge, and Spider Mine behavior must keep
-  focused tests before any merge.
+- **Weapon descriptorization is feasible, but not as one giant `fireWeapon` yet.** The repo now has
+  `WeaponMechanicDefs`, shared weapon-hit resolution, Scarab launch ownership, Interceptor
+  capability facts, mechanics-owned on-hit/post-fire applicators, and Bunker contained-fire policy.
+  `systems/combat.ts` remains the phase interpreter because Carrier, Reaver, Bunker, Lurker,
+  Mutalisk, Devourer, Scourge, and Spider Mine behavior still have timing/pathing edge cases that
+  are easier to audit as explicit phases until a smaller shared interpreter is proven.
 - **Ability descriptorization is partially done and worth continuing carefully.** `AbilityExecution`
   already covers the implemented spell modes, and command-time execution now lives in mechanics
   instead of the ability tick system. Persistent field ticking, channel ticking, cloak drain, energy
@@ -143,6 +143,7 @@ Near-term architecture slices from this review:
 
 1. Move shared resource-patch selection out of `systems/harvest.ts` into a mechanics/resource
    helper so setup, construction, and harvest share the rule without depending on a tick system.
+   Done.
 2. Split command-time ability execution from ability ticking: mechanics owns `castAbility` and
    execution applicators; `systems/abilities.ts` owns only energy, cloak drain, effects, channels,
    life timers, status timers, and regeneration ticks. Done.
@@ -151,9 +152,10 @@ Near-term architecture slices from this review:
 4. Continue capability ownership slices only when they delete a duplicated UI/AI/action-mask/
    command rule. Do not add descriptor tables that merely mirror existing data without removing a
    caller-side branch.
-5. Delay any shared child-actor interpreter until Scarab, Interceptor, and Spider Mine policy facts
-   are complete and focused tests prove the common loop is smaller, faster or neutral, and easier to
-   audit than the explicit systems.
+5. Delay any shared child-actor interpreter until focused tests prove the common loop is smaller,
+   faster or neutral, and easier to audit than the explicit Scarab, Interceptor, and Spider Mine
+   systems. The policy facts are now in actor descriptors; the remaining bar is interpreter quality,
+   not missing metadata.
 
 ### Source Layout Direction
 
