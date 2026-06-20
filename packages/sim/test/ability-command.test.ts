@@ -4,6 +4,8 @@ import { validateAbilityCommand } from '../src/commands/ability.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 import { Ability, Abilities, Kind, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
+import { abilityCandidates } from '../src/io/action-mask.ts';
+import { abilitiesFor, canUseAbilityKind, kindHasAbilities } from '../src/mechanics/capabilities.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
@@ -64,6 +66,18 @@ test('ability validation shares actor ownership and capability gates', () => {
   expectAbility('illusion', { ok: false, reason: 'missing-capability' });
   expectAbility('disabled', { ok: false, reason: 'missing-capability' });
   expectAbility('unfinished', { ok: false, reason: 'missing-capability' });
+});
+
+test('caster capability facts own ability lists and command discovery', () => {
+  const { state: s, spawn } = simScenario({ players: 1, seed: 679 });
+  const marine = spawn(Kind.Marine, 0, fx(300), fx(300));
+
+  assert.deepEqual([...abilitiesFor(Kind.Marine)], [Ability.StimPack]);
+  assert.equal(canUseAbilityKind(Kind.Marine, Ability.StimPack), true);
+  assert.equal(canUseAbilityKind(Kind.Marine, Ability.PsionicStorm), false);
+  assert.equal(kindHasAbilities(Kind.Marine), true);
+  assert.equal(kindHasAbilities(Kind.Zealot), false);
+  assert.deepEqual([...abilityCandidates(s, marine)], [...abilitiesFor(Kind.Marine)]);
 });
 
 test('entity ability target gates preserve range before team-specific legality', () => {

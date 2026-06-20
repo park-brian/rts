@@ -1,5 +1,5 @@
 import {
-  Abilities, Ability, Kind, Role, Trait, Units, abilityTechAvailable, canDetect, distanceSq, eid,
+  Abilities, Ability, Kind, Role, Trait, Units, abilityTechAvailable, canDetect, canUseAbilityKind, distanceSq, eid,
   hasReadyNuke, isCloaked, isEnemy, NONE, TILE, unitTraits, validateCommand, withinRangeSq,
   type Command, type State,
 } from '@rts/sim';
@@ -118,9 +118,9 @@ export const castTacticalAbilities = (s: State, player: number, cmds: Command[],
   const used = new Set<number>();
   for (const caster of casters) {
     if (used.has(caster)) continue;
-    const def = Units[s.e.kind[caster]!]!;
+    const kind = s.e.kind[caster]!;
     for (const policy of TACTICAL_ABILITY_POLICIES) {
-      if (!def.abilities.includes(policy.ability)) continue;
+      if (!canUseAbilityKind(kind, policy.ability)) continue;
       if (tryCastPolicy(s, player, cmds, caster, policy, focusX, focusY)) {
         used.add(caster);
         break;
@@ -128,7 +128,7 @@ export const castTacticalAbilities = (s: State, player: number, cmds: Command[],
     }
     if (used.has(caster)) continue;
     for (const ability of ACTIVE_CLOAK_ABILITIES) {
-      if (!def.abilities.includes(ability)) continue;
+      if (!canUseAbilityKind(kind, ability)) continue;
       if (maybeCastCloak(s, cmds, caster, ability, focusX, focusY)) {
         used.add(caster);
         break;

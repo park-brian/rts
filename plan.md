@@ -314,6 +314,10 @@ Migration plan:
     lists and research producer legality. Research validation, command-card discovery, action-mask
     candidates, and macro research all share that owner instead of independently scanning
     `TechDefs[tech].producers`.
+  - Caster capability slice is done: `mechanics/capabilities.ts` now owns per-kind ability lists,
+    ability legality, and "has abilities" facts. Ability validation, command-card discovery,
+    action-mask candidates, bot caster fact collection, and tactical ability policy checks consume
+    that owner instead of reading `Units[kind].abilities` independently.
 - Fourth pass should make command option discovery and command-card rendering consume facets plus
   shared validators, closing gaps where the sim can perform actions the UI cannot discover.
 - Fifth pass should expose relevant capability facts to AI/RL observations and masks so bots and

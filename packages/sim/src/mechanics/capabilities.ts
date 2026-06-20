@@ -1,4 +1,4 @@
-import { Kind, Role, TechDefs, Units, isLarvaSourceKind } from '../data/index.ts';
+import { Abilities, Kind, Role, TechDefs, Units, isLarvaSourceKind } from '../data/index.ts';
 
 const ProducerFlags = {
   SupportsWorkerRally: 1 << 0,
@@ -7,6 +7,7 @@ const ProducerFlags = {
 
 const EMPTY_PRODUCTS: readonly number[] = [];
 const EMPTY_TECHS: readonly number[] = [];
+const EMPTY_ABILITIES: readonly number[] = [];
 
 const maxKind = (): number => {
   let max = 0;
@@ -20,6 +21,7 @@ const MAX_KIND = maxKind();
 
 const productsByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const researchTechsByKind: Array<number[] | undefined> = new Array(MAX_KIND + 1);
+const abilitiesByKind: Array<readonly number[] | undefined> = new Array(MAX_KIND + 1);
 const producerFlagsByKind = new Uint8Array(MAX_KIND + 1);
 
 const isWorkerKind = (kind: number): boolean =>
@@ -30,6 +32,7 @@ for (const [key, def] of Object.entries(Units)) {
   const kind = Number(key);
   const products = def.produces.length > 0 ? def.produces : EMPTY_PRODUCTS;
   productsByKind[kind] = products;
+  abilitiesByKind[kind] = def.abilities.length > 0 ? def.abilities : EMPTY_ABILITIES;
 
   let flags = 0;
   if (isLarvaSourceKind(kind) || products.some(isWorkerKind)) flags |= ProducerFlags.SupportsWorkerRally;
@@ -62,6 +65,15 @@ export const researchTechsFor = (producerKind: number): readonly number[] =>
 
 export const canResearchTech = (producerKind: number, tech: number): boolean =>
   researchTechsFor(producerKind).includes(tech);
+
+export const abilitiesFor = (kind: number): readonly number[] =>
+  abilitiesByKind[kind] ?? EMPTY_ABILITIES;
+
+export const canUseAbilityKind = (kind: number, ability: number): boolean =>
+  abilitiesFor(kind).includes(ability) && (Abilities[ability]?.casters.includes(kind) ?? false);
+
+export const kindHasAbilities = (kind: number): boolean =>
+  abilitiesFor(kind).length > 0;
 
 export const producerKindSupportsWorkerRally = (producerKind: number): boolean =>
   (producerFlagsByKind[producerKind] & ProducerFlags.SupportsWorkerRally) !== 0;

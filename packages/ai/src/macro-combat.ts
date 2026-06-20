@@ -10,6 +10,7 @@ import {
   UNLOAD_RANGE,
   Units,
   abilityTechAvailable,
+  canUseAbilityKind,
   canLoadInto,
   cargoUsed,
   distanceSq,
@@ -30,8 +31,7 @@ export type CombatFocus = { x: number; y: number; target: number };
 
 const maybeStim = (s: State, cmds: Command[], slot: number): void => {
   const e = s.e;
-  const def = Units[e.kind[slot]!]!;
-  if (!def.abilities.includes(Ability.StimPack)) return;
+  if (!canUseAbilityKind(e.kind[slot]!, Ability.StimPack)) return;
   if (!abilityTechAvailable(s, e.owner[slot]!, Ability.StimPack)) return;
   if (e.stimTimer[slot]! > 0 || e.hp[slot]! <= 20) return;
   cmds.push({ t: 'ability', unit: eid(e, slot), ability: Ability.StimPack });

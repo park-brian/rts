@@ -17,7 +17,7 @@ import {
   workerBuildKindsFor,
 } from '../data/index.ts';
 import { addonParentKind } from '../mechanics/addons.ts';
-import { producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
+import { abilitiesFor, producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
 import { hasPendingBuild } from '../mechanics/build-cancel.ts';
 import { internalProductCapacity, internalProductReadyCount } from '../mechanics/internal-products.ts';
 import { techGas, techMinerals, nextTechLevel } from '../mechanics/tech.ts';
@@ -607,7 +607,7 @@ export const transformKindCandidates = (s: State, actor: number): readonly numbe
   transformTargetsFor(actorKind(s, actor));
 
 export const abilityCandidates = (s: State, actor: number): readonly number[] =>
-  Units[actorKind(s, actor)]?.abilities ?? [];
+  abilitiesFor(actorKind(s, actor));
 
 export const trainKindMask = (
   s: State,

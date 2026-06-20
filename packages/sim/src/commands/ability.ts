@@ -1,6 +1,7 @@
 import type { Command } from './types.ts';
 import { Ability, Abilities, Kind, Order, Units, unitTraits } from '../data/index.ts';
 import { isActiveAddon } from '../mechanics/addons.ts';
+import { canUseAbilityKind } from '../mechanics/capabilities.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { hasReadyNuke } from '../mechanics/nuke.ts';
 import type { State } from '../entity/world.ts';
@@ -19,9 +20,8 @@ export const validateAbilityCommand = (s: State, player: number, command: Abilit
   const slot = actor.slot;
   if (!isActiveAddon(s, slot)) return reject('missing-capability');
   if (!isPowered(s, slot)) return reject('missing-capability');
-  const caster = Units[e.kind[slot]!]!;
   const ability = Abilities[command.ability];
-  if (!ability || !caster.abilities.includes(command.ability) || !ability.casters.includes(e.kind[slot]!)) {
+  if (!ability || !canUseAbilityKind(e.kind[slot]!, command.ability)) {
     return reject('invalid-ability');
   }
   if (!abilityTechAvailable(s, player, command.ability)) return reject('missing-requirement');

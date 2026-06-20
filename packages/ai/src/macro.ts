@@ -11,6 +11,7 @@ import {
   isEnemy,
   isLarvaSourceKind,
   canProduceKind,
+  kindHasAbilities,
   withinRangeSq,
   type Command,
   type Controller,
@@ -207,7 +208,7 @@ export const collectBotFacts = (
     const flags = e.flags[i]!;
     recordOwnedStructure(facts, kind);
     if ((flags & Role.Worker) !== 0 && e.buildKind[i] !== Kind.None) recordOwnedStructure(facts, e.buildKind[i]!);
-    if (Units[kind]!.abilities.length > 0) facts.casters.push(i);
+    if (kindHasAbilities(kind)) facts.casters.push(i);
     if (kind === faction.worker) {
       facts.workers.push(i);
       if (e.order[i] === Order.Idle) facts.idleWorkers.push(i);

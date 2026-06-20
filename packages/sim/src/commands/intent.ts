@@ -10,7 +10,7 @@ import {
   producerSupportsWorkerRally, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint, type RallyEndpoint,
 } from '../mechanics/rally.ts';
 import { canPlayerGatherTarget, canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
-import { producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
+import { abilitiesFor, producedKindsFor, researchTechsFor } from '../mechanics/capabilities.ts';
 import type { TravelEndpoint, TravelIntent } from './travel.ts';
 import { entityWorkQueue } from '../entity/work-queue.ts';
 import { transformFor, transformTargetsFor } from '../mechanics/transforms.ts';
@@ -670,7 +670,7 @@ export const abilitySelectionOptions = (
   for (const id of selected) {
     if (!isAlive(e, id)) continue;
     const slot = slotOf(id);
-    for (const abilityId of Units[e.kind[slot]!]!.abilities) {
+    for (const abilityId of abilitiesFor(e.kind[slot]!)) {
       const ability = Abilities[abilityId];
       if (!ability) continue;
       addAbilitySelectionOption(options, abilityId, ability.target, id, abilityAvailability(s, player, id, abilityId));
