@@ -92,6 +92,8 @@ const objectiveSnapshot = (overrides: Partial<BotObjectiveSnapshot> = {}): BotOb
   workerSupply: 8,
   armySupply: 0,
   armyStrength: 0,
+  queuedWorkerProduction: 0,
+  queuedArmyProduction: 0,
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,
@@ -459,6 +461,38 @@ test('bot expert scores production from completed capacity and supply headroom',
   assert.equal(blocked.score?.reasons.some((reason) =>
     reason.kind === 'supply-availability' &&
     reason.value < 0), true);
+});
+
+test('bot expert scores worker and army demand from queued production pipeline', () => {
+  const missingWorkers = scoreBotIntent(botIntent('train-worker'), expertContext({
+    workers: 8,
+    workerTarget: 10,
+    objective: objectiveSnapshot({ queuedWorkerProduction: 0 }),
+  }));
+  const queuedWorkers = scoreBotIntent(botIntent('train-worker'), expertContext({
+    workers: 8,
+    workerTarget: 10,
+    objective: objectiveSnapshot({ queuedWorkerProduction: 2 }),
+  }));
+  const noArmy = scoreBotIntent(botIntent('train-counter'), expertContext({
+    army: 0,
+    attackThreshold: 4,
+    objective: objectiveSnapshot({ armyStrength: 0, queuedArmyProduction: 0 }),
+  }));
+  const queuedArmy = scoreBotIntent(botIntent('train-counter'), expertContext({
+    army: 0,
+    attackThreshold: 4,
+    objective: objectiveSnapshot({ armyStrength: 0, queuedArmyProduction: 2 }),
+  }));
+
+  assert.equal((missingWorkers.score?.value ?? 0) > (queuedWorkers.score?.value ?? 0), true);
+  assert.equal(queuedWorkers.score?.reasons.some((reason) =>
+    reason.kind === 'economy-growth' &&
+    reason.detail.includes('worker pipeline gap is 0')), true);
+  assert.equal((noArmy.score?.value ?? 0) > (queuedArmy.score?.value ?? 0), true);
+  assert.equal(queuedArmy.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.detail.includes('army pipeline gap is 2')), true);
 });
 
 test('bot expert scores upgrades from army value and existing tech saturation', () => {

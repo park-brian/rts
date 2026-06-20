@@ -106,6 +106,8 @@ test('bot trace objective snapshot scores own and enemy economy and army', () =>
   assert.equal(frame.objective.workerSupply, Terran.startWorkers);
   assert.equal(frame.objective.armySupply, 1);
   assert.equal(frame.objective.armyStrength > 0, true);
+  assert.equal(frame.objective.queuedWorkerProduction, 0);
+  assert.equal(frame.objective.queuedArmyProduction, 0);
   assert.equal(frame.objective.productionCapacity, 1);
   assert.equal(frame.objective.pendingProductionCapacity, 0);
   assert.equal(frame.objective.techUnlocks >= 2, true);
@@ -154,6 +156,8 @@ test('bot trace frame exposes active worker and army production queues', () => {
 
   assert.equal(frame.queuedWorkerProduction, 1);
   assert.equal(frame.queuedArmyProduction, 1);
+  assert.equal(frame.objective.queuedWorkerProduction, 1);
+  assert.equal(frame.objective.queuedArmyProduction, 1);
   const diagnoses = botTraceExpertDiagnoses([frame], createMatchStats(s), [], botObjectiveTrends([frame]));
   assert.equal(diagnoses.some((entry) =>
     entry.domain === 'economy' &&
@@ -178,6 +182,7 @@ test('bot trace frame exposes active worker and army production queues', () => {
   const zergFrame = botTraceFrame(s, 0, Zerg, zergPlan);
 
   assert.equal(zergFrame.queuedArmyProduction, 2);
+  assert.equal(zergFrame.objective.queuedArmyProduction, 2);
 });
 
 test('bot trace objective army strength uses researched combat upgrades', () => {
@@ -199,6 +204,8 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     workerSupply: 8,
     armySupply: 2,
     armyStrength: 300,
+    queuedWorkerProduction: 0,
+    queuedArmyProduction: 0,
     productionCapacity: 1,
     pendingProductionCapacity: 0,
     techUnlocks: 1,
@@ -215,6 +222,8 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     workerSupply: 10,
     armySupply: 4,
     armyStrength: 700,
+    queuedWorkerProduction: 0,
+    queuedArmyProduction: 0,
     productionCapacity: 2,
     pendingProductionCapacity: 1,
     techUnlocks: 3,

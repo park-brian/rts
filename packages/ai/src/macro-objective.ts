@@ -7,6 +7,7 @@ import {
   TECH_CAP,
   TechDefs,
   armorUpgradeBonus,
+  productionCount,
   shownSupply,
   type State,
   Units,
@@ -30,6 +31,8 @@ export type BotObjectiveSnapshot = {
   workerSupply: number;
   armySupply: number;
   armyStrength: number;
+  queuedWorkerProduction: number;
+  queuedArmyProduction: number;
   productionCapacity: number;
   pendingProductionCapacity: number;
   techUnlocks: number;
@@ -93,6 +96,8 @@ const blankObjective = (s: State, player: number): BotObjectiveSnapshot => ({
   workerSupply: 0,
   armySupply: 0,
   armyStrength: 0,
+  queuedWorkerProduction: 0,
+  queuedArmyProduction: 0,
   productionCapacity: 0,
   pendingProductionCapacity: 0,
   techUnlocks: 0,
@@ -178,6 +183,29 @@ const pendingProductionCapacityValue = (s: State, slot: number, kind: number): n
   return pendingKind === Kind.None ? 0 : productionCapacityValue(pendingKind);
 };
 
+const queuedProductionCount = (s: State, slot: number): number => {
+  const kind = s.e.prodKind[slot]!;
+  return kind === Kind.None ? 0 : productionCount(kind) * (1 + s.e.prodQueued[slot]!);
+};
+
+const queuedWorkerProductionValue = (s: State, slot: number): number => {
+  const kind = s.e.prodKind[slot]!;
+  const def = Units[kind];
+  return def && (def.roles & Role.Worker) !== 0 ? queuedProductionCount(s, slot) : 0;
+};
+
+const queuedArmyProductionValue = (s: State, slot: number): number => {
+  const kind = s.e.prodKind[slot]!;
+  const def = Units[kind];
+  return def &&
+    def.supply > 0 &&
+    (def.roles & Role.Mobile) !== 0 &&
+    (def.roles & Role.Worker) === 0 &&
+    kindHasDirectWeapon(kind)
+    ? queuedProductionCount(s, slot)
+    : 0;
+};
+
 const totalProductionCapacity = (objective: BotObjectiveSnapshot): number =>
   objective.productionCapacity + objective.pendingProductionCapacity;
 
@@ -223,11 +251,15 @@ export const botObjectiveSnapshot = (s: State, player: number): BotObjectiveSnap
     const capacityValue = productionCapacityValue(kind);
     const productionCapacity = e.built[slot] === 1 ? capacityValue : 0;
     const pendingProductionCapacity = pendingProductionCapacityValue(s, slot, kind);
+    const queuedWorkerProduction = queuedWorkerProductionValue(s, slot);
+    const queuedArmyProduction = queuedArmyProductionValue(s, slot);
 
     if (owner === player) {
       objective.workerSupply += workerSupply;
       objective.armySupply += armySupply;
       objective.armyStrength += armyStrength;
+      objective.queuedWorkerProduction += queuedWorkerProduction;
+      objective.queuedArmyProduction += queuedArmyProduction;
       objective.productionCapacity += productionCapacity;
       objective.pendingProductionCapacity += pendingProductionCapacity;
       if (e.built[slot] === 1 && structureUnlocksCapabilities(kind)) ownTechStructures.add(kind);
@@ -414,8 +446,10 @@ const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
   ctx.objective.supplyAvailable <= 2 ? -6 : 0;
 
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
-  const workerGap = Math.max(0, ctx.workerTarget - ctx.workers);
-  const armyGap = Math.max(0, ctx.attackThreshold - ctx.army);
+  const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
+  const armyPipeline = ctx.army + ctx.objective.queuedArmyProduction;
+  const workerGap = Math.max(0, ctx.workerTarget - workerPipeline);
+  const armyGap = Math.max(0, ctx.attackThreshold - armyPipeline);
   const floatBonus = ctx.objective.resourceFloat > 400
     ? Math.min(8, Math.trunc((ctx.objective.resourceFloat - 400) / 150))
     : 0;
@@ -423,13 +457,13 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
   switch (intent.kind) {
     case 'train-worker':
       return scoredIntent(intent, 35 + Math.min(20, workerGap * 2), [
-        scoreReason('economy-growth', workerGap, `worker target gap is ${workerGap}`),
+        scoreReason('economy-growth', workerGap, `worker pipeline gap is ${workerGap}`),
       ]);
     case 'spend-larva':
     case 'train-counter': {
-      const firstArmy = ctx.objective.armyStrength === 0;
+      const firstArmy = ctx.objective.armyStrength === 0 && ctx.objective.queuedArmyProduction === 0;
       return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyGap * 2), [
-        scoreReason('army-growth', armyGap, firstArmy ? 'first combat unit unlocks pressure' : `army target gap is ${armyGap}`),
+        scoreReason('army-growth', armyGap, firstArmy ? 'first combat unit unlocks pressure' : `army pipeline gap is ${armyGap}`),
       ]);
     }
     case 'add-production': {

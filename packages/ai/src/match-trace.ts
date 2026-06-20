@@ -1,11 +1,6 @@
 import {
   COMMAND_TYPES,
-  Kind,
-  Role,
-  Units,
   createMatchStats,
-  kindHasDirectWeapon,
-  productionCount,
   recordMatchStatsStep,
   type CommandResult,
   type CommandType,
@@ -259,30 +254,6 @@ const alertSeverity = (alerts: readonly BotTraceAlert[]): number =>
 
 const commandTotal = (counts: CountMap<CommandType>, types: readonly CommandType[]): number =>
   types.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
-
-const queuedProductionCounts = (
-  s: State,
-  player: number,
-): Pick<BotTraceFrame, 'queuedWorkerProduction' | 'queuedArmyProduction'> => {
-  let queuedWorkerProduction = 0;
-  let queuedArmyProduction = 0;
-  const e = s.e;
-
-  for (let slot = 0; slot < e.hi; slot++) {
-    if (e.alive[slot] !== 1 || e.owner[slot] !== player || e.prodKind[slot] === Kind.None) continue;
-    const kind = e.prodKind[slot]!;
-    const def = Units[kind];
-    if (!def) continue;
-
-    const count = productionCount(kind) * (1 + e.prodQueued[slot]!);
-    const isWorker = (def.roles & Role.Worker) !== 0;
-    const isArmy = (def.roles & Role.Mobile) !== 0 && !isWorker && kindHasDirectWeapon(kind);
-    if (isWorker) queuedWorkerProduction += count;
-    if (isArmy) queuedArmyProduction += count;
-  }
-
-  return { queuedWorkerProduction, queuedArmyProduction };
-};
 
 const diagnosis = (
   domain: BotExpertDiagnosisDomain,
@@ -656,7 +627,7 @@ export const botTraceFrame = (
     if (record.result.status === 'waiting') inc(waitsByReason, record.result.reason);
     if (record.result.status === 'blocked') inc(blocksByReason, record.result.reason);
   }
-  const queuedProduction = queuedProductionCounts(s, player);
+  const objective = botObjectiveSnapshot(s, player);
 
   return {
     tick: s.tick,
@@ -669,7 +640,8 @@ export const botTraceFrame = (
     workers: facts.workers.length,
     army: facts.army.length,
     retaskableArmy: facts.retaskableArmy.length,
-    ...queuedProduction,
+    queuedWorkerProduction: objective.queuedWorkerProduction,
+    queuedArmyProduction: objective.queuedArmyProduction,
     idleProducers: facts.idleProducers.length,
     idleLarvae: facts.idleLarvae.length,
     visibleEnemies: facts.visibleEnemies.length,
@@ -681,7 +653,7 @@ export const botTraceFrame = (
     blocksByReason,
     topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
     placementDiagnostics: plan.placementDiagnostics.slice(0, TOP_TRACE_PLACEMENTS).map(placementSummary),
-    objective: botObjectiveSnapshot(s, player),
+    objective,
     strategy: plan.strategy,
   };
 };
