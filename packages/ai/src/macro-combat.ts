@@ -9,12 +9,12 @@ import {
   UNLOAD_RANGE,
   Units,
   canAcceptCargo,
+  canUnloadAt,
   distanceSq,
   eid,
   isqrt,
   sameTeam,
   unloadAnchorSlot,
-  unloadPassable,
   validateCommand,
   weaponForTarget,
   withinRangeSq,
@@ -135,14 +135,16 @@ const maybeUseNydusNetwork = (
   }
   if (entrance === NONE || exit === NONE) return false;
 
-  const point = nydusUnloadPoint(s, exit, focusX, focusY);
+  const load: Command = { t: 'load', transport: eid(e, entrance), unit: eid(e, unit) };
+  if (!validateCommand(s, player, load).ok) return false;
+  const point = nydusUnloadPoint(s, unit, exit, focusX, focusY);
   if (!point) return false;
-  cmds.push({ t: 'load', transport: eid(e, entrance), unit: eid(e, unit) });
+  cmds.push(load);
   cmds.push({ t: 'unload', transport: eid(e, entrance), unit: eid(e, unit), x: point.x, y: point.y });
   return true;
 };
 
-const nydusUnloadPoint = (s: State, exit: number, focusX: number, focusY: number): { x: number; y: number } | null => {
+const nydusUnloadPoint = (s: State, unit: number, exit: number, focusX: number, focusY: number): { x: number; y: number } | null => {
   const e = s.e;
   const dx = focusX - e.x[exit]!;
   const dy = focusY - e.y[exit]!;
@@ -159,7 +161,7 @@ const nydusUnloadPoint = (s: State, exit: number, focusX: number, focusY: number
     [e.x[exit]!, e.y[exit]! - step],
   ];
   for (const [x, y] of options) {
-    if (withinRangeSq(e.x[exit]!, e.y[exit]!, x, y, UNLOAD_RANGE) && unloadPassable(s, x, y)) {
+    if (withinRangeSq(e.x[exit]!, e.y[exit]!, x, y, UNLOAD_RANGE) && canUnloadAt(s, unit, x, y, exit)) {
       return { x, y };
     }
   }

@@ -1291,6 +1291,10 @@ Remaining work:
   - Bot self-ability validation slice is done: tactical Stim and cloak toggles keep local usefulness
     filters, but the final self-ability command now passes through shared `validateCommand` before
     emission, matching the target/point spell policy path.
+  - Nydus shortcut validation slice is done: pressure shortcuts validate the same-team Nydus load
+    command before emission and select unload points through shared cargo footprint placement rather
+    than terrain-only passability, while leaving same-tick unload command validation to ingestion
+    after the load has made containment true.
   - Pressure scheduler extraction slice is done: commitment timing, focus fact refresh, strategic
     counter-pressure selection, offensive Nydus endpoint planning, offensive spell casting, pressure
     engagement emission, and pressure-memory refresh now live in `packages/ai/src/macro-offense.ts`.

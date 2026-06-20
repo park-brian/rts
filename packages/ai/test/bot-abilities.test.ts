@@ -4774,6 +4774,31 @@ test('bot uses a same-team nydus network to shortcut attack waves', () => {
   assert.ok(Math.abs(e.x[slotOf(marine)]! - e.x[exit]!) <= fx(96));
 });
 
+test('bot skips nydus shortcut when no legal unload point exists', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 831 });
+  const s = sim.fullState();
+  const e = s.e;
+  const home = entityPos(sim, findEntity(sim, Kind.CommandCenter, 0));
+  const enemyRegion = enemyOffensiveRegion(collectBotFacts(s, 0, Terran), home);
+  spawnUnit(s, Kind.NydusCanal, 0, home.x + fx(48), home.y);
+  const exit = slotOf(spawnUnit(s, Kind.NydusCanal, 0, enemyRegion.x - fx(48), enemyRegion.y));
+  const marine = spawnUnit(s, Kind.Marine, 0, home.x + fx(56), home.y);
+  const step = 2 * TILE * ONE;
+  for (const [x, y] of [
+    [e.x[exit]! - step, e.y[exit]!],
+    [e.x[exit]! + step, e.y[exit]!],
+    [e.x[exit]!, e.y[exit]! + step],
+    [e.x[exit]!, e.y[exit]! - step],
+  ] as const) {
+    spawnUnit(s, Kind.SupplyDepot, 0, x, y);
+  }
+
+  const cmds = createBot(Terran, { attackThreshold: 1 })(s, 0);
+
+  assert.equal(cmds.some((c) => c.t === 'load' && c.unit === marine), false);
+  assert.equal(cmds.some((c) => c.t === 'unload' && c.unit === marine), false);
+});
+
 test('bot skips isolated nydus entrances when shortcutting attack waves', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 84 });
   const s = sim.fullState();
