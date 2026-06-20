@@ -150,6 +150,9 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /setSeedText\(String\(randomSeed\(\)\)\)/);
   assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams\)/);
   assert.match(ui, /setupTeams\(ui\.playerTeams\.value,\s*ui\.perTeam\.value \* 2\)/);
+  assert.match(ui, /setController = \(slot: number, controller: 'human' \| 'ai'\)/);
+  assert.match(ui, /value=\{mode === 'play' && human === slot \? 'human' : 'ai'\}/);
+  assert.match(ui, /<option value="human">Human<\/option>/);
   assert.match(ui, /<option value=\{team\}>Team \{team \+ 1\}<\/option>/);
   assert.match(ui, /<details open[\s\S]*>Map<\/summary>/);
   assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);

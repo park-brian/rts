@@ -1992,6 +1992,10 @@ Remaining work:
     Game.restart/createPlaySession pass them into the sim, replay export/import preserves them,
     and session restore normalizes missing legacy replays. Remaining setup work is controller type,
     enabled/disabled slots, generated-map name/preview, and debug/watch toggles.
+  - Controller setup slice is done for the current one-local-human model: each player row now
+    exposes Human/AI explicitly, choosing Human switches the match to Play for that slot, and choosing
+    AI for the active human slot switches back to Watch AI. Remaining setup work is enabled/disabled
+    slots, generated-map name/preview, and debug/watch toggles.
 - Add explicit subgroup handling for large mixed selections.
 - Add a command-surface coverage audit proving every player-available sim action and every
   data-defined player capability is exposed through shared selection options and then rendered by

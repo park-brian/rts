@@ -1064,6 +1064,14 @@ const SetupModal = (p: { game: Game }) => {
     next[slot] = Math.max(0, Math.trunc(team));
     setTeams(next);
   };
+  const setController = (slot: number, controller: 'human' | 'ai'): void => {
+    if (controller === 'human') {
+      setMode('play');
+      setHuman(slot);
+    } else if (human === slot) {
+      setMode('spectate');
+    }
+  };
   const start = (): void => {
     ui.setupOpen.value = false;
     p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams);
@@ -1133,9 +1141,14 @@ const SetupModal = (p: { game: Game }) => {
             <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Players</summary>
             <div style={{ display: 'grid', gap: '8px' }}>
               {Array.from({ length: players }, (_, slot) => (
-                <div style={{ display: 'grid', gridTemplateColumns: '64px 88px 1fr', gap: '8px', alignItems: 'center' }}>
-                  <Btn compact label={`P${slot + 1}`} active={mode === 'play' && human === slot}
-                    onClick={() => setHuman(slot)} />
+                <div style={{ display: 'grid', gridTemplateColumns: '46px 92px 88px 1fr', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ color: '#cdd9e5', fontWeight: '700' }}>P{slot + 1}</span>
+                  <select value={mode === 'play' && human === slot ? 'human' : 'ai'}
+                    onInput={(e) => setController(slot, e.currentTarget.value === 'human' ? 'human' : 'ai')}
+                    style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
+                    <option value="human">Human</option>
+                    <option value="ai">AI</option>
+                  </select>
                   <select value={teams[slot] ?? 0} onInput={(e) => setTeam(slot, Number.parseInt(e.currentTarget.value, 10))}
                     style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
                     {Array.from({ length: players }, (_, team) => (
