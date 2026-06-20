@@ -15,6 +15,7 @@ import type {
   BotIntentScoreReason,
 } from './macro-intents.ts';
 import type { BotFacts } from './macro.ts';
+import type { BotStrategyPosture, BotStrategyPriority, BotStrategyTolerance } from './macro-strategy.ts';
 
 export type BotObjectiveSnapshot = {
   workerSupply: number;
@@ -58,6 +59,7 @@ export type BotExpertContext = {
   idleLarvae: number;
   bases: number;
   attackThreshold: number;
+  strategy?: BotStrategyPosture;
 };
 
 export type ObjectiveFrame = {
@@ -142,6 +144,7 @@ export const botExpertContext = (
   facts: BotFacts,
   workerTarget: number,
   attackThreshold: number,
+  strategy?: BotStrategyPosture,
 ): BotExpertContext => ({
   objective: botObjectiveSnapshot(s, player),
   workers: facts.workers.length,
@@ -152,6 +155,7 @@ export const botExpertContext = (
   idleLarvae: facts.idleLarvae.length,
   bases: facts.bases.length,
   attackThreshold,
+  ...(strategy ? { strategy } : {}),
 });
 
 const objectiveReason = (
@@ -221,6 +225,42 @@ export const botObjectiveTrends = (frames: readonly ObjectiveFrame[]): BotObject
     }));
 };
 
+const priorityBonus = (priority: BotStrategyPriority | undefined): number => {
+  switch (priority) {
+    case 'high': return 10;
+    case 'low': return -8;
+    default: return 0;
+  }
+};
+
+const toleranceBonus = (tolerance: BotStrategyTolerance | undefined): number => {
+  switch (tolerance) {
+    case 'high': return 8;
+    case 'low': return -6;
+    default: return 0;
+  }
+};
+
+const strategyReason = (
+  value: number,
+  detail: string,
+): BotIntentScoreReason => scoreReason('strategy', value, detail);
+
+const strategyReasons = (
+  strategy: BotStrategyPosture | undefined,
+  value: number,
+  detail: (strategy: BotStrategyPosture) => string,
+): BotIntentScoreReason[] => strategy ? [strategyReason(value, detail(strategy))] : [];
+
+const strategyProductionBonus = (strategy: BotStrategyPosture | undefined): number => {
+  if (!strategy) return 0;
+  const ratioBonus = Math.round((strategy.productionRatio - 0.5) * 16);
+  const techBonus = strategy.techTarget === 'combat-production' || strategy.techTarget === 'first-combat'
+    ? 5
+    : 0;
+  return ratioBonus + techBonus;
+};
+
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
   const workerGap = Math.max(0, ctx.workerTarget - ctx.workers);
   const armyGap = Math.max(0, ctx.attackThreshold - ctx.army);
@@ -242,16 +282,29 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     }
     case 'add-production': {
       const zergMacroHatchery = intent.targetKind === Kind.Hatchery && ctx.idleLarvae === 0;
-      return scoredIntent(intent, (zergMacroHatchery ? 42 : 36) + floatBonus, [
+      const strategyBonus = strategyProductionBonus(ctx.strategy);
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 36) + floatBonus + strategyBonus, [
         scoreReason('production-throughput', ctx.idleProducers, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `idle production capacity is ${ctx.idleProducers}`),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture wants ${strategy.productionRatio} production ratio`,
+        ),
       ]);
     }
-    case 'expand':
-      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus, [
+    case 'expand': {
+      const strategyBonus = priorityBonus(ctx.strategy?.expansionPriority);
+      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus, [
         scoreReason('economy-growth', ctx.bases, `owned base count is ${ctx.bases}`),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture expansion priority is ${strategy.expansionPriority}`,
+        ),
       ]);
+    }
     case 'rebuild-tech':
       return scoredIntent(intent, 44, [
         scoreReason('tech-unlock', 1, 'restores or unlocks a required capability'),
@@ -260,10 +313,17 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       return scoredIntent(intent, 28 + Math.min(8, Math.trunc(ctx.objective.armyStrength / 250)), [
         scoreReason('army-growth', ctx.objective.armyStrength, 'upgrade increases future combat value'),
       ]);
-    case 'add-static-defense':
-      return scoredIntent(intent, 42, [
+    case 'add-static-defense': {
+      const strategyBonus = toleranceBonus(ctx.strategy?.staticDefenseTolerance);
+      return scoredIntent(intent, 42 + strategyBonus, [
         scoreReason('safety', 1, 'static defense protects base economy and production'),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture static defense tolerance is ${strategy.staticDefenseTolerance}`,
+        ),
       ]);
+    }
     case 'defend-base':
     case 'get-detection':
     case 'clear-site':
@@ -274,14 +334,28 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'attack-wave':
     case 'harass':
     case 'contain':
-    case 'counterattack':
-      return scoredIntent(intent, intent.urgency + Math.min(10, Math.trunc(ctx.objective.armyStrength / 300)), [
+    case 'counterattack': {
+      const strategyBonus = priorityBonus(ctx.strategy?.harassmentAppetite);
+      return scoredIntent(intent, intent.urgency + Math.min(10, Math.trunc(ctx.objective.armyStrength / 300)) + strategyBonus, [
         scoreReason('enemy-degradation', ctx.retaskableArmy, 'uses available army to lower enemy economy or army slope'),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture harassment appetite is ${strategy.harassmentAppetite}`,
+        ),
       ]);
-    case 'retreat':
-      return scoredIntent(intent, Math.max(55, intent.urgency), [
+    }
+    case 'retreat': {
+      const strategyBonus = toleranceBonus(ctx.strategy?.retreatTolerance);
+      return scoredIntent(intent, Math.max(55, intent.urgency) + strategyBonus, [
         scoreReason('safety', intent.urgency, 'preserves force for a better future fight'),
+        ...strategyReasons(
+          ctx.strategy,
+          strategyBonus,
+          (strategy) => `${strategy.name} posture retreat tolerance is ${strategy.retreatTolerance}`,
+        ),
       ]);
+    }
     case 'scout':
       return scoredIntent(intent, 24, [
         scoreReason('map-control', 1, 'improves future expansion, defense, and attack decisions'),

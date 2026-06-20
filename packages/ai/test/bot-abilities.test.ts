@@ -42,6 +42,7 @@ import {
   TACTICAL_INCIDENT_MEMORY_TICKS,
   tacticalIntentResult,
   tacticalResponseBudget,
+  type BotStrategyPosture,
 } from '../src/index.ts';
 import { maybeSetArmyStructureRallies } from '../src/macro-economy.ts';
 import {
@@ -62,6 +63,21 @@ import {
 } from '@rts/sim';
 
 type BotCommand = ReturnType<ReturnType<typeof createBot>>[number];
+
+const strategyPosture = (overrides: Partial<BotStrategyPosture> = {}): BotStrategyPosture => ({
+  name: 'expand',
+  workerTarget: 0,
+  attackThreshold: 99,
+  expansionPriority: 'normal',
+  gasTiming: 'defer',
+  productionRatio: 0.5,
+  techTarget: 'economy-scale',
+  staticDefenseTolerance: 'normal',
+  retreatTolerance: 'normal',
+  harassmentAppetite: 'normal',
+  reasons: ['test posture'],
+  ...overrides,
+});
 
 const commandTypes = (cmds: ReturnType<ReturnType<typeof createBot>>): string[] => cmds.map((c) => c.t);
 const findBuild = (cmds: ReturnType<ReturnType<typeof createBot>>, kind: number): Extract<BotCommand, { t: 'build' }> | undefined =>
@@ -618,6 +634,7 @@ test('live bot planner exposes sorted macro, defense, and pressure intents', () 
   assert.equal(plan.intents[0]!.score?.reasons.some((reason) => reason.kind === 'safety'), true);
   assert.equal(plan.intents[1]!.score?.reasons.some((reason) => reason.kind === 'enemy-degradation'), true);
   assert.equal(plan.intents[2]!.score?.reasons.some((reason) => reason.kind === 'production-throughput'), true);
+  assert.equal(plan.intents[2]!.score?.reasons.some((reason) => reason.kind === 'strategy'), true);
 });
 
 test('live bot planner annotates macro intents with expert scores and reasons', () => {
@@ -2817,6 +2834,53 @@ test('terran scheduler expands earlier when live expert memory sees banked macro
     normalCmds,
     collectBotFacts(s, 0, Terran),
     { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 },
+  );
+
+  assert.equal(findCommandBuild(normalCmds, Kind.CommandCenter), undefined);
+});
+
+test('terran scheduler expands earlier when strategy posture asks for expansion', () => {
+  const scenario = botScenario({
+    seed: 519,
+    map: generateMap(1, 519, { preset: 'teamPlateaus' }),
+    factions: [Terran, Zerg],
+  });
+  const s = scenario.state;
+  scenario.resources(0, 900, 0);
+  s.players.supplyMax[0] = 1_000;
+
+  const expansionCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    expansionCmds,
+    collectBotFacts(s, 0, Terran),
+    {
+      barracksTarget: 0,
+      workerTarget: 0,
+      attackThreshold: 99,
+      strategy: strategyPosture({ expansionPriority: 'high' }),
+    },
+  );
+
+  const build = findCommandBuild(expansionCmds, Kind.CommandCenter);
+  assert.ok(build);
+  assertPublicSurfaceExposes(s, 0, build);
+
+  const normalCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    normalCmds,
+    collectBotFacts(s, 0, Terran),
+    {
+      barracksTarget: 0,
+      workerTarget: 0,
+      attackThreshold: 99,
+      strategy: strategyPosture({ expansionPriority: 'normal' }),
+    },
   );
 
   assert.equal(findCommandBuild(normalCmds, Kind.CommandCenter), undefined);

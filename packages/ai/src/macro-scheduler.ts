@@ -30,11 +30,13 @@ import { isStaticDefenseMacroKind, queueStaticDefense } from './macro-static-def
 import type { BotFailureReason, BotIntent, BotIntentRecord } from './macro-intents.ts';
 import { macroFloatStallActive, productionStallActive, type BotMemory } from './macro-memory.ts';
 import type { BotFacts } from './macro.ts';
+import type { BotStrategyPosture } from './macro-strategy.ts';
 
 export type MacroScheduleConfig = {
   workerTarget?: number;
   barracksTarget: number;
   attackThreshold?: number;
+  strategy?: BotStrategyPosture;
 };
 
 export type MacroSchedule = {
@@ -190,11 +192,14 @@ export const scheduleBotMacro = (
     findMacroSpot(state, owner, worker, kind, fallback, { risk: facts.risk });
 
   const workerTarget = desiredWorkerCount(s, depot, config.workerTarget);
-  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12);
+  const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy);
   const productionStalled = memory ? productionStallActive(memory, s.tick) : false;
   const macroFloatStalled = memory ? macroFloatStallActive(memory, s.tick) : false;
-  const capacityPressure = { productionStalled };
-  const expansionPressure = { macroFloatStalled };
+  const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
+    config.strategy?.techTarget === 'combat-production';
+  const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
+  const capacityPressure = { productionStalled: productionStalled || postureWantsProduction };
+  const expansionPressure = { macroFloatStalled: macroFloatStalled || postureWantsExpansion };
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
       s,

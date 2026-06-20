@@ -1093,6 +1093,10 @@ Remaining work:
     the sampled posture path and the current tech/expansion/harassment posture, so the post-match UI
     can explain what plan the bot believed it was following instead of only reporting macro/economy
     symptoms.
+  - Strategy scheduler-input slice is done: `BotExpertContext` now carries the selected posture,
+    intent scoring emits explicit `strategy` reasons, and high expansion/production postures feed
+    the same expansion/capacity pressure gates as live stall memory. This keeps posture as one
+    expert contract consumed by directors and schedulers instead of a separate bot implementation.
 - Generalize production-capacity intents around combat demand. The bot should estimate desired army
   spend per minute, current producer throughput, larva throughput, queued production, and resource
   float, then add the right capacity for the race and posture. For Zerg, Hatcheries are both depots

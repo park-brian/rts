@@ -83,11 +83,12 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
     if (depot === NONE) return { commands: cmds, intents: [], intentResults, strategy }; // no base: nothing to do
 
     const memory = prepareMemory(p, s.tick);
-    const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold);
+    const expert = botExpertContext(s, p, facts, strategy.workerTarget, strategy.attackThreshold, strategy);
     const macro = scheduleBotMacro(s, p, faction, cmds, facts, {
       ...c,
       workerTarget: strategy.workerTarget,
       attackThreshold: strategy.attackThreshold,
+      strategy,
     }, memory);
     for (const intent of macro.intents) intentResults.push({ intent, result: done });
     intentResults.push(...macro.intentResults);

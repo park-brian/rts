@@ -43,7 +43,8 @@ export type BotIntentScoreReason = {
     | 'tech-unlock'
     | 'safety'
     | 'enemy-degradation'
-    | 'map-control';
+    | 'map-control'
+    | 'strategy';
   value: number;
   detail: string;
 };
