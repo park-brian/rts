@@ -1163,6 +1163,9 @@ Remaining work:
     sanity as separate obligations. Resource-float or expected-progress alerts fail the
     macro-spending gate, repeated placement-stall alerts fail the placement gate, and the all-race
     trace gate plus post-match UI surface those domains explicitly.
+  - Tech competence gate slice is done: repeated tech-stall alerts now fail a first-class tech gate,
+    while clean low-tech openings report that no repeated tech deadlock was observed. This keeps
+    prerequisite/research deadlocks visible without punishing plans that correctly make combat units first.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

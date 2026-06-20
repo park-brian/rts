@@ -569,7 +569,23 @@ test('bot trace alerts classify repeated blocked tech intent', () => {
   }));
 
   const alerts = botTraceAlerts(frames);
-  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts, botObjectiveTrends(frames));
+  const stats = createMatchStats(s);
+  const objectiveTrends = botObjectiveTrends(frames);
+  const phaseSummaries = botTracePhaseSummaries(frames, alerts);
+  const diagnoses = botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends);
+  const trace: BotMatchTrace = {
+    frames,
+    stats,
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends,
+    alerts,
+    expertDiagnoses: diagnoses,
+    phaseSummaries,
+    phaseAssessments: [],
+  };
+  const gates = botTraceCompetenceGates(trace, 0);
 
   assert.equal(alerts.some((alert) =>
     alert.kind === 'tech-stall' &&
@@ -580,6 +596,10 @@ test('bot trace alerts classify repeated blocked tech intent', () => {
     entry.domain === 'tech' &&
     entry.status === 'failing' &&
     entry.detail.includes('tech intent blocked')), true);
+  assert.equal(gates.some((gate) =>
+    gate.domain === 'tech' &&
+    gate.status === 'failing' &&
+    gate.detail.includes('missing-prerequisite')), true);
 });
 
 test('bot trace alerts ignore background blocked tech while another intent leads', () => {

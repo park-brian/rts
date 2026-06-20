@@ -54,10 +54,11 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(rows.some((row) => row.domain === 'summary' && row.detail.includes('plan')), true);
 
   const gates = botCompetenceGates(diagnostics, stats);
-  assert.equal(gates.length, 16);
+  assert.equal(gates.length, 18);
   assert.equal(gates.some((gate) => gate.domain === 'commands' && gate.detail.includes('planner commands')), true);
   assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true);
   assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true);
+  assert.equal(gates.some((gate) => gate.domain === 'tech' && gate.detail.includes('tech deadlock')), true);
   assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('axes economy')), true);
 
   const phases = botPhaseSummaries(diagnostics, stats);

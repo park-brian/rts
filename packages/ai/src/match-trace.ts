@@ -214,6 +214,7 @@ export type BotTraceCompetenceGateDomain =
   | 'economy'
   | 'macro-spending'
   | 'production'
+  | 'tech'
   | 'placement'
   | 'combat'
   | 'expert'
@@ -1365,6 +1366,7 @@ export const botTraceCompetenceGates = (
   const alerts = trace.alerts.filter((alert) => alert.player === player);
   const macroAlerts = playerAlerts(trace.alerts, player, ['resource-float-stall', 'expected-progress-stall']);
   const placementAlerts = playerAlerts(trace.alerts, player, ['placement-stall']);
+  const techAlerts = playerAlerts(trace.alerts, player, ['tech-stall']);
   const summary = trace.expertDiagnoses.find((entry) => entry.player === player && entry.domain === 'summary');
   const axes = playerAxisCounts(trace.phaseSummaries, player);
   const macroCommands = stats
@@ -1427,6 +1429,16 @@ export const botTraceCompetenceGates = (
     placementAlerts.length === 0
       ? 'no repeated placement deadlock was observed'
       : placementAlerts.map((alert) => alert.detail).join('; '),
+  ));
+
+  gates.push(competenceGate(
+    player,
+    'tech',
+    techAlerts.length === 0 ? 'healthy' : 'failing',
+    alertSeverity(techAlerts),
+    techAlerts.length === 0
+      ? 'no repeated tech deadlock was observed'
+      : techAlerts.map((alert) => alert.detail).join('; '),
   ));
 
   gates.push(competenceGate(
