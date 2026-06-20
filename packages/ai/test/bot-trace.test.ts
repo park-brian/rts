@@ -424,6 +424,41 @@ test('bot trace alerts classify queued army pipeline as production underuse, not
   assert.equal(alerts.some((alert) => alert.kind === 'no-army-production'), false);
 });
 
+test('bot trace alerts classify repeated blocked tech intent', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8129, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, addon: 0, build: 0, research: 0, transform: 0 },
+    intentsByKind: { ...frame.intentsByKind, 'take-gas': 0, 'rebuild-tech': 0, 'research-upgrade': 1 },
+    waitsByReason: { ...frame.waitsByReason, 'missing-prerequisite': 1 },
+    blocksByReason: { ...frame.blocksByReason },
+    topIntents: [{
+      kind: 'research-upgrade' as const,
+      status: 'waiting' as const,
+      urgency: 25,
+      reason: 'missing-prerequisite' as const,
+      scoreReasons: [],
+    }],
+  }));
+
+  const alerts = botTraceAlerts(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts, botObjectiveTrends(frames));
+
+  assert.equal(alerts.some((alert) =>
+    alert.kind === 'tech-stall' &&
+    alert.fromTick === 0 &&
+    alert.toTick === 120 &&
+    alert.detail.includes('missing-prerequisite')), true);
+  assert.equal(diagnoses.some((entry) =>
+    entry.domain === 'tech' &&
+    entry.status === 'failing' &&
+    entry.detail.includes('tech intent blocked')), true);
+});
+
 test('bot trace alerts classify repeated placement deadlocks', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8111, factions: [Terran, Terran] });
   const s = sim.fullState();

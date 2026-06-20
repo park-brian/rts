@@ -88,6 +88,7 @@ export type BotTraceAlertKind =
   | 'resource-float-stall'
   | 'production-stall'
   | 'no-army-production'
+  | 'tech-stall'
   | 'combat-intent-stall'
   | 'placement-stall';
 
@@ -159,6 +160,16 @@ const PRODUCTION_FLOAT_ALERT = 300;
 const MACRO_COMMANDS: readonly CommandType[] = ['build', 'train', 'research', 'addon', 'transform'];
 const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', 'mine'];
 const TRAIN_INTENTS: readonly BotIntentKind[] = ['train-worker', 'spend-larva', 'train-counter'];
+const TECH_INTENTS: readonly BotIntentKind[] = ['take-gas', 'rebuild-tech', 'research-upgrade'];
+const TECH_PROGRESS_COMMANDS: readonly CommandType[] = ['build', 'research', 'addon', 'transform'];
+const TECH_STALL_REASONS: readonly BotFailureReason[] = [
+  'missing-prerequisite',
+  'no-builder',
+  'no-producer',
+  'placement-unavailable',
+  'path-blocked',
+  'unsafe-location',
+];
 const COMBAT_INTENTS: readonly BotIntentKind[] = ['attack-wave', 'harass', 'contain', 'counterattack', 'defend-base'];
 
 const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSummary => ({
@@ -212,6 +223,9 @@ const combatCommandCount = (frame: BotTraceFrame): number =>
 const trainIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, TRAIN_INTENTS);
 
+const techIntentCount = (frame: BotTraceFrame): number =>
+  countIntents(frame, TECH_INTENTS);
+
 const hasReadyArmyProduction = (frame: BotTraceFrame): boolean =>
   frame.objective.resourceFloat >= PRODUCTION_FLOAT_ALERT &&
   frame.supplyUsed < frame.supplyMax &&
@@ -222,6 +236,18 @@ const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
+
+const techStallReason = (frame: BotTraceFrame): BotFailureReason | undefined =>
+  frame.topIntents.find((intent) =>
+    TECH_INTENTS.includes(intent.kind) &&
+    intent.status !== 'done' &&
+    intent.reason !== undefined &&
+    TECH_STALL_REASONS.includes(intent.reason))?.reason;
+
+const hasBlockedTechIntent = (frame: BotTraceFrame): boolean =>
+  techIntentCount(frame) > 0 &&
+  techStallReason(frame) !== undefined &&
+  countCommands(frame, TECH_PROGRESS_COMMANDS) === 0;
 
 type PlacementStreak = {
   start: number;
@@ -562,6 +588,17 @@ export const botTraceAlerts = (
     pushFrameStreakAlerts(
       alerts,
       playerFrames,
+      'tech-stall',
+      hasBlockedTechIntent,
+      (_start, end, count) => {
+        const reason = techStallReason(end) ?? 'missing-prerequisite';
+        return `${count} sampled frames had tech intent blocked by ${reason} without tech-progress commands`;
+      },
+      (_start, end, count) => count * Math.max(1, techIntentCount(end)),
+    );
+    pushFrameStreakAlerts(
+      alerts,
+      playerFrames,
       'combat-intent-stall',
       (frame) => frame.retaskableArmy > 0 && combatIntentCount(frame) > 0 && combatCommandCount(frame) === 0,
       (_start, _end, count) => `${count} sampled frames had combat intent but no combat commands`,
@@ -593,6 +630,7 @@ export const botTraceExpertDiagnoses = (
     const trend = trends.find((candidate) => candidate.player === player);
     const macroAlerts = playerAlerts(alerts, player, ['invalid-commands', 'resource-float-stall', 'placement-stall']);
     const productionAlerts = playerAlerts(alerts, player, ['production-stall', 'no-army-production']);
+    const techAlerts = playerAlerts(alerts, player, ['tech-stall']);
     const combatAlerts = playerAlerts(alerts, player, ['combat-intent-stall']);
     const macroCommands = playerStats ? commandTotal(playerStats.commandsByType, MACRO_COMMANDS) : 0;
     const combatCommands = playerStats ? commandTotal(playerStats.commandsByType, COMBAT_COMMANDS) : 0;
@@ -621,13 +659,9 @@ export const botTraceExpertDiagnoses = (
     ));
 
     const techProgress = techProgressDiagnosis(playerFrames, trend);
-    diagnoses.push(diagnosis(
-      'tech',
-      player,
-      techProgress.status,
-      techProgress.severity,
-      techProgress.detail,
-    ));
+    diagnoses.push(techAlerts.length > 0
+      ? diagnosis('tech', player, 'failing', alertSeverity(techAlerts), techAlerts.map((alert) => alert.detail).join('; '))
+      : diagnosis('tech', player, techProgress.status, techProgress.severity, techProgress.detail));
 
     const productionProgress = productionProgressDiagnosis(first, last, armyGain, trend);
     diagnoses.push(productionAlerts.length > 0
