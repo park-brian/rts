@@ -248,7 +248,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
     workerSupply: 10,
     armySupply: 4,
     armyStrength: 700,
-    queuedWorkerProduction: 0,
+    queuedWorkerProduction: 1,
     queuedArmyProduction: 0,
     queuedArmyStrength: 480,
     productionCapacity: 2,
@@ -267,6 +267,7 @@ test('bot objective reasons explain growth, damage, and resource float', () => {
   const reasons = botObjectiveReasons(before, after);
 
   assert.equal(reasons.some((reason) => reason.kind === 'economy-growth'), true);
+  assert.equal(reasons.some((reason) => reason.detail === 'queued worker production increased by 1'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'army-growth'), true);
   assert.equal(reasons.some((reason) => reason.detail === 'queued army strength increased by 480'), true);
   assert.equal(reasons.some((reason) => reason.kind === 'production-throughput'), true);

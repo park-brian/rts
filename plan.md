@@ -1071,6 +1071,9 @@ Remaining work:
   - Queued-strength trend slice is done: objective trend reasons now report queued army-strength
     growth, so post-match diagnosis can explain combat value entering the production pipeline before
     it reaches the field.
+  - Queued-worker trend slice is done: objective trend reasons now report queued worker-production
+    growth, so economy repair is visible as soon as workers enter the pipeline instead of only after
+    they finish.
   - First planner-scoring slice is done: objective math now lives in `packages/ai/src/macro-objective.ts`,
     live bot plans annotate intents with expert scores and human-readable reasons, and intent ranking
     uses score only as a same-urgency tie-breaker. Next slices should replace individual scheduler
