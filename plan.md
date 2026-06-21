@@ -198,6 +198,11 @@ Expert-agenda consumption slice is done: every current agenda remedy intent now 
 obligation pressure in `scoreBotIntent`, including expansion as an economy remedy. Future remedy rows
 must add both the rulebook mapping and a scorer/trace test proving the mapped intent receives the
 same obligation reason.
+Safety-obligation slice is done: protected-region threat count now feeds the same expert pressure
+and agenda system as economy, production, and combat. Defensive remedies (`defend-base`,
+`get-detection`, `clear-site`, `evacuate-workers`, `add-static-defense`, and `retreat`) receive
+explicit safety pressure reasons, while long-horizon phase evidence still requires only economy,
+production, and combat axes so peaceful games are not penalized for lacking safety commands.
 Opening-combat expert slice is done: the rulebook now owns the shared "combat pipeline exists" and
 "opening still needs combat pipeline" predicates, and intent scoring boosts first combat structure
 and first combat unit intents while discounting optional gas/tech/research until the opening has

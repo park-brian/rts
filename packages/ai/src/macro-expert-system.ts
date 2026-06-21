@@ -3,6 +3,7 @@ import type { BotIntentKind, BotVictoryAxis } from './macro-intents.ts';
 import type { BotStrategyPlan } from './macro-strategy.ts';
 
 export type BotExpertObligationId =
+  | 'safety'
   | 'economy'
   | 'production'
   | 'combat';
@@ -23,6 +24,7 @@ export type BotExpertObligationPressureContext = {
   workerTarget: number;
   bases: number;
   attackThreshold: number;
+  protectedThreats?: number;
   objective: BotCombatPipelineSnapshot & {
     queuedWorkerProduction: number;
   };
@@ -78,6 +80,11 @@ const firstCombatStructureKinds: ReadonlySet<number> = new Set(
 
 export const BOT_EXPERT_OBLIGATIONS: readonly BotExpertObligation[] = [
   {
+    id: 'safety',
+    axis: 'safety',
+    detail: 'answer active threats before they erase workers, bases, or production',
+  },
+  {
     id: 'economy',
     axis: 'economy-growth',
     detail: 'grow workers or bases so the bot can afford the next decision',
@@ -95,19 +102,24 @@ export const BOT_EXPERT_OBLIGATIONS: readonly BotExpertObligation[] = [
 ] as const;
 
 const BOT_EXPERT_OBLIGATION_REMEDIES: Record<BotExpertObligationId, readonly BotIntentKind[]> = {
+  safety: ['defend-base', 'get-detection', 'clear-site', 'evacuate-workers', 'add-static-defense', 'retreat'],
   economy: ['train-worker', 'expand'],
   production: ['add-production'],
   combat: ['spend-larva', 'train-counter'],
 };
 
 const BOT_EXPERT_OBLIGATION_ORDER: Record<BotExpertObligationId, number> = {
-  economy: 0,
-  production: 1,
-  combat: 2,
+  safety: 0,
+  economy: 1,
+  production: 2,
+  combat: 3,
 };
 
-export const BOT_EXPERT_REQUIRED_AXES: readonly BotVictoryAxis[] =
-  BOT_EXPERT_OBLIGATIONS.map((obligation) => obligation.axis);
+export const BOT_EXPERT_REQUIRED_AXES: readonly BotVictoryAxis[] = [
+  'economy-growth',
+  'production-throughput',
+  'combat-strength',
+];
 
 export const botPlanEvidenceAxes = (plan: BotStrategyPlan): readonly BotVictoryAxis[] => {
   switch (plan.macroPriority) {
@@ -231,6 +243,7 @@ const obligationPressure = (
 });
 
 type BotExpertObligationPressureFacts = {
+  protectedThreats: number;
   workerGap: number;
   armyStrengthGap: number;
   productionGap: number;
@@ -242,6 +255,7 @@ const obligationPressureFacts = (
 ): BotExpertObligationPressureFacts => {
   const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
   return {
+    protectedThreats: Math.max(0, ctx.protectedThreats ?? 0),
     workerGap: Math.max(0, ctx.workerTarget - workerPipeline),
     armyStrengthGap: Math.max(0, desiredArmyStrength(ctx) - totalCombatPipelineStrength(ctx.objective)),
     productionGap: Math.max(0, desiredProductionCapacity(ctx) - totalProductionCapacity(ctx.objective)),
@@ -254,6 +268,8 @@ const obligationPressureValue = (
   facts: BotExpertObligationPressureFacts,
 ): number => {
   switch (obligation.id) {
+    case 'safety':
+      return Math.min(30, facts.protectedThreats * 12);
     case 'economy':
       return Math.min(20, facts.workerGap * 2) + (facts.bases === 0 ? 20 : 0);
     case 'production':

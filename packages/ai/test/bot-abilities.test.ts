@@ -141,6 +141,7 @@ const expertContext = (overrides: Partial<BotExpertContext> = {}): BotExpertCont
   idleLarvae: 0,
   bases: 1,
   attackThreshold: 12,
+  protectedThreats: 0,
   ...overrides,
 });
 
@@ -541,7 +542,8 @@ test('bot expert system measures live StarCraft obligation pressure', () => {
 
   const pressures = botExpertObligationPressures(opening);
 
-  assert.deepEqual(pressures.map((pressure) => pressure.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(pressures.map((pressure) => pressure.id), ['safety', 'economy', 'production', 'combat']);
+  assert.equal(botExpertAxisPressure(opening, 'safety')?.pressure, 0);
   assert.equal(botExpertAxisPressure(opening, 'economy-growth')?.pressure, 6);
   assert.equal(botExpertAxisPressure(opening, 'production-throughput')?.pressure, 12);
   assert.equal(botExpertAxisPressure(opening, 'combat-strength')?.pressure, 12);
@@ -619,6 +621,12 @@ test('bot expert scoring consumes obligation pressure as explicit reasons', () =
   const expansion = scoreBotIntent(botIntent('expand', { targetKind: Kind.CommandCenter }), opening);
   const production = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), opening);
   const army = scoreBotIntent(botIntent('train-counter', { targetKind: Kind.Marine }), opening);
+  const safety = scoreBotIntent(botIntent('defend-base'), expertContext({
+    protectedThreats: 2,
+  }));
+  const staticDefense = scoreBotIntent(botIntent('add-static-defense'), expertContext({
+    protectedThreats: 2,
+  }));
 
   assert.equal(worker.score?.reasons.some((reason) =>
     reason.kind === 'economy-growth' &&
@@ -632,6 +640,12 @@ test('bot expert scoring consumes obligation pressure as explicit reasons', () =
   assert.equal(army.score?.reasons.some((reason) =>
     reason.kind === 'army-growth' &&
     reason.detail === 'combat obligation pressure is 12'), true);
+  assert.equal(safety.score?.reasons.some((reason) =>
+    reason.kind === 'safety' &&
+    reason.detail === 'safety obligation pressure is 24'), true);
+  assert.equal(staticDefense.score?.reasons.some((reason) =>
+    reason.kind === 'safety' &&
+    reason.detail === 'safety obligation pressure is 24'), true);
 });
 
 test('bot expert scores add-production higher when live production stall signals are active', () => {

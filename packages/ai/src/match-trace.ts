@@ -1278,6 +1278,7 @@ export const botTraceFrame = (
     workerTarget: plan.strategy.workerTarget,
     bases: facts.bases.length,
     attackThreshold: plan.strategy.attackThreshold,
+    protectedThreats: facts.protectedRegionThreats.length,
     objective,
   };
   const obligationPressures = botExpertObligationPressures(expertContext).map(obligationPressureSummary);

@@ -54,21 +54,21 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(rows.some((row) => row.domain === 'summary' && row.detail.includes('plan')), true);
 
   const report = botExpertReport(diagnostics, stats);
-  assert.equal(report.obligationPressures.length, 6);
-  assert.equal(report.expertAgenda.length, 6);
+  assert.equal(report.obligationPressures.length, 8);
+  assert.equal(report.expertAgenda.length, 8);
   for (const player of [0, 1]) {
     assert.deepEqual(
       report.obligationPressures
         .filter((pressure) => pressure.player === player)
         .map((pressure) => pressure.id),
-      ['economy', 'production', 'combat'],
+      ['safety', 'economy', 'production', 'combat'],
     );
     assert.deepEqual(
       report.expertAgenda
         .filter((item) => item.player === player)
         .map((item) => item.id)
         .sort(),
-      ['combat', 'economy', 'production'],
+      ['combat', 'economy', 'production', 'safety'],
     );
   }
   assert.equal(report.obligationPressures.every((pressure) => pressure.detail.length > 0), true);
@@ -121,7 +121,11 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(gates.some((gate) => gate.domain === 'placement' && gate.detail.includes('placement deadlock')), true);
   assert.equal(gates.some((gate) => gate.domain === 'tech' && gate.detail.includes('tech deadlock')), true);
   assert.equal(gates.some((gate) => gate.domain === 'plan-coherence' && gate.detail.includes('strategy phases')), true);
-  assert.equal(gates.some((gate) => gate.domain === 'phase-evidence' && gate.detail.includes('axes economy')), true);
+  assert.equal(gates.some((gate) =>
+    gate.domain === 'phase-evidence' &&
+    gate.detail.includes('economy') &&
+    gate.detail.includes('production') &&
+    gate.detail.includes('combat')), true);
 
   const phases = botPhaseSummaries(diagnostics, stats);
   assert.equal(phases.length > 0, true);

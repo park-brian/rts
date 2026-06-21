@@ -57,7 +57,7 @@ const seedCombatProductionPath = (
 };
 
 test('bot expert system defines core StarCraft obligation evidence', () => {
-  assert.deepEqual(BOT_EXPERT_OBLIGATIONS.map((obligation) => obligation.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(BOT_EXPERT_OBLIGATIONS.map((obligation) => obligation.id), ['safety', 'economy', 'production', 'combat']);
   assert.deepEqual(
     botPlanEvidenceAxes({
       phase: 'opening',
@@ -101,9 +101,9 @@ test('bot expert system defines core StarCraft obligation evidence', () => {
   assert.equal(planAssessment.detail, 'establish-combat/production/rally showed production-throughput/combat-strength');
   assert.deepEqual(
     botExpertObligationAssessments(counts).map((assessment) => [assessment.id, assessment.count, assessment.satisfied]),
-    [['economy', 1, true], ['production', 1, true], ['combat', 0, false]],
+    [['safety', 0, false], ['economy', 1, true], ['production', 1, true], ['combat', 0, false]],
   );
-  assert.equal(botExpertObligationDetail(counts), 'axes economy 1, production 1, combat 0');
+  assert.equal(botExpertObligationDetail(counts), 'axes safety 0, economy 1, production 1, combat 0');
 
   const workerEvaluation = botIntentExpertEvaluation('train-worker');
   assert.equal(workerEvaluation.axis, 'economy-growth');
@@ -133,10 +133,38 @@ test('bot expert system defines core StarCraft obligation evidence', () => {
       pendingProductionCapacity: 0,
     },
   });
-  assert.deepEqual(agenda.map((item) => item.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(agenda.map((item) => item.id), ['economy', 'production', 'combat', 'safety']);
   assert.deepEqual(agenda[0]!.intentKinds, ['train-worker', 'expand']);
   assert.equal(agenda[0]!.topIntentKind, 'train-worker');
   assert.equal(agenda[0]!.reason.includes('train-worker or expand'), true);
+  assert.deepEqual(botExpertAgenda({
+    workers: 10,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 1,
+    protectedThreats: 2,
+    objective: {
+      armyStrength: 180,
+      queuedWorkerProduction: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 1,
+      pendingProductionCapacity: 0,
+    },
+  }).map((item) => item.id), ['safety', 'economy', 'production', 'combat']);
+  assert.equal(botExpertIntentPressure({
+    workers: 10,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 1,
+    protectedThreats: 2,
+    objective: {
+      armyStrength: 180,
+      queuedWorkerProduction: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 1,
+      pendingProductionCapacity: 0,
+    },
+  }, 'defend-base')?.pressure, 24);
   assert.equal(botExpertIntentPressure({
     workers: 10,
     workerTarget: 10,
@@ -184,13 +212,14 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents.every((intent) => intent.expert?.policy.length), true);
   assert.equal(frame.topIntents.some((intent) => (intent.expert?.opportunityCosts.length ?? 0) > 0), true);
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
-  assert.deepEqual(frame.obligationPressures.map((pressure) => pressure.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(frame.obligationPressures.map((pressure) => pressure.id), ['safety', 'economy', 'production', 'combat']);
   assert.equal(frame.obligationPressures.every((pressure) => pressure.detail.length > 0), true);
   assert.equal(frame.obligationPressures.every((pressure) => pressure.pressure >= 0), true);
+  assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'safety' && pressure.satisfied), true);
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'economy' && !pressure.satisfied), true);
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'production' && pressure.pressure > 0), true);
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'combat' && pressure.pressure > 0), true);
-  assert.deepEqual(frame.expertAgenda.map((item) => item.id).sort(), ['combat', 'economy', 'production']);
+  assert.deepEqual(frame.expertAgenda.map((item) => item.id).sort(), ['combat', 'economy', 'production', 'safety']);
   assert.equal(frame.expertAgenda.every((item) => item.reason.length > 0), true);
   assert.equal(frame.expertAgenda.some((item) =>
     item.id === 'production' &&

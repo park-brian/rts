@@ -101,6 +101,7 @@ export type BotExpertContext = {
   idleLarvae: number;
   bases: number;
   attackThreshold: number;
+  protectedThreats: number;
   strategy?: BotStrategyPosture;
   strategicPlan?: BotStrategyPlan;
   productionStalled?: boolean;
@@ -362,6 +363,7 @@ export const botExpertContext = (
   idleLarvae: facts.idleLarvae.length,
   bases: facts.bases.length,
   attackThreshold,
+  protectedThreats: facts.protectedRegionThreats.length,
   ...(strategy ? { strategy } : {}),
   ...(strategy ? { strategicPlan: botStrategyPlan(strategy) } : {}),
   ...(signals.productionStalled ? { productionStalled: true } : {}),
@@ -767,8 +769,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strategyBonus = toleranceBonus(ctx.strategy?.staticDefenseTolerance);
       const progressBonus = expectedProgressStalled(ctx, 'defense-command') ? 8 : 0;
       const planBonus = strategicPlanBonus(ctx, 'defense');
-      return scoredIntent(intent, 42 + strategyBonus + progressBonus + planBonus, [
+      const obligation = botExpertIntentPressure(ctx, intent.kind);
+      const expertBonus = obligationBonus(obligation);
+      return scoredIntent(intent, 42 + strategyBonus + progressBonus + planBonus + expertBonus, [
         scoreReason('safety', 1, 'static defense protects base economy and production'),
+        ...obligationReason(obligation, 'safety'),
         ...(progressBonus > 0
           ? [expectedProgressReason('defense-command', 'defense command has not resolved within its expected window', 8)]
           : []),
@@ -785,8 +790,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'clear-site':
     case 'evacuate-workers': {
       const progressBonus = expectedProgressStalled(ctx, 'safety-command') ? 8 : 0;
-      return scoredIntent(intent, Math.max(50, intent.urgency) + progressBonus, [
+      const obligation = botExpertIntentPressure(ctx, intent.kind);
+      const expertBonus = obligationBonus(obligation);
+      return scoredIntent(intent, Math.max(50, intent.urgency) + progressBonus + expertBonus, [
         scoreReason('safety', intent.urgency, 'protects workers, bases, or blocked strategic space'),
+        ...obligationReason(obligation, 'safety'),
         ...(progressBonus > 0
           ? [expectedProgressReason('safety-command', 'safety command has not resolved within its expected window', 8)]
           : []),
@@ -813,8 +821,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
     case 'retreat': {
       const strategyBonus = toleranceBonus(ctx.strategy?.retreatTolerance);
       const progressBonus = expectedProgressStalled(ctx, 'safety-command') ? 8 : 0;
-      return scoredIntent(intent, Math.max(55, intent.urgency) + strategyBonus + progressBonus, [
+      const obligation = botExpertIntentPressure(ctx, intent.kind);
+      const expertBonus = obligationBonus(obligation);
+      return scoredIntent(intent, Math.max(55, intent.urgency) + strategyBonus + progressBonus + expertBonus, [
         scoreReason('safety', intent.urgency, 'preserves force for a better future fight'),
+        ...obligationReason(obligation, 'safety'),
         ...(progressBonus > 0
           ? [expectedProgressReason('safety-command', 'safety command has not resolved within its expected window', 8)]
           : []),
