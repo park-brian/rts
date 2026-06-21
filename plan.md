@@ -1046,6 +1046,11 @@ Remaining work:
     ticks. The earlier Zerg-only gate is superseded by this all-race gate. The trace runner also
     appends a final planner snapshot when the match end tick is not on a sample boundary, so
     objective trends and expert diagnoses include the final production state.
+  - Worker-pipeline competence slice is done: whole-match gates now include a first-class
+    `worker-pipeline` domain that fails sampled frames below the worker target when no queued worker
+    production or `train-worker` intent evidence exists. This catches the lights-off economy case
+    before it hides behind an eventual worker peak, and the all-race four-rax gate now asserts that
+    this evidence stays healthy in composed games.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

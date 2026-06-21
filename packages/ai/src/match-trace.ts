@@ -233,6 +233,7 @@ export type BotMatchTrace = {
 export type BotTraceCompetenceGateDomain =
   | 'commands'
   | 'economy'
+  | 'worker-pipeline'
   | 'macro-spending'
   | 'production'
   | 'obligation-pressure'
@@ -1581,6 +1582,39 @@ const expansionPlanGate = (
   );
 };
 
+const workerPipelineGate = (
+  frames: readonly BotTraceFrame[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const underTarget = frames.filter((frame) => frame.workers < frame.strategy.workerTarget);
+  const darkFrames = underTarget.filter((frame) =>
+    frame.queuedWorkerProduction <= 0 &&
+    (frame.intentsByKind['train-worker'] ?? 0) === 0);
+
+  if (frames.length === 0) {
+    return competenceGate(player, 'worker-pipeline', 'failing', 0, 'missing worker-pipeline trace evidence');
+  }
+  if (underTarget.length === 0) {
+    return competenceGate(player, 'worker-pipeline', 'healthy', 0, 'worker target already reached in sampled frames');
+  }
+  if (darkFrames.length > 0) {
+    return competenceGate(
+      player,
+      'worker-pipeline',
+      'failing',
+      darkFrames.length,
+      `${darkFrames.length} sampled frames were below worker target without queued workers or train-worker intent`,
+    );
+  }
+  return competenceGate(
+    player,
+    'worker-pipeline',
+    'healthy',
+    underTarget.length,
+    `${underTarget.length} sampled frames below worker target showed worker-pipeline evidence`,
+  );
+};
+
 const obligationPressureGate = (
   frames: readonly BotTraceFrame[],
   phases: readonly BotTracePhaseSummary[],
@@ -1663,6 +1697,7 @@ export const botTraceCompetenceGates = (
       ? `worker peak ${first.workers}->${stats.peakWorkers} against target ${workerTarget}`
       : 'missing economy trace evidence',
   ));
+  gates.push(workerPipelineGate(frames, player));
 
   gates.push(competenceGate(
     player,
