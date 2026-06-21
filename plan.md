@@ -177,6 +177,10 @@ suppresses missing-army-production alerts.
 Live army-pipeline feedback slice is done: the live bot planner now uses the same combat-production
 intent predicate as the trace gate when promoting missing-production-intent memory, so worker-only
 training can no longer hide a stalled combat-production pipeline.
+Defense-response gate slice is done: trace frames now expose protected-region threat counts from
+the same bot facts used by tactical defense, and competence gates include a `defense-response`
+domain. Sampled base/mineral-line threats must show `defend-base`, detection, or static-defense
+intent evidence instead of passing because the bot happened to issue unrelated combat commands.
 Expert-system rulebook slice is done: core StarCraft obligations and plan-to-evidence mappings now live
 in `packages/ai/src/macro-expert-system.ts`, so future bot fixes should add facts/rules there or in the
 scheduler's live expert context rather than hiding new strategic assumptions inside trace rendering.
@@ -1058,6 +1062,9 @@ Remaining work:
     production or `train-worker` intent evidence exists. This catches the lights-off economy case
     before it hides behind an eventual worker peak, and the all-race four-rax gate now asserts that
     this evidence stays healthy in composed games.
+  - Defense-response competence slice is done: whole-match gates now fail sampled protected-region
+    threats that have no safety-response intent, keeping "base is under attack and nobody reacts"
+    distinct from generic combat activity elsewhere on the map.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

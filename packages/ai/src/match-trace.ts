@@ -67,6 +67,7 @@ export type BotTraceFrame = {
   idleProducers: number;
   idleLarvae: number;
   visibleEnemies: number;
+  protectedThreats: number;
   commandsIssued: number;
   commandsByType: CountMap<CommandType>;
   intentsByKind: CountMap<BotIntentKind>;
@@ -235,6 +236,7 @@ export type BotTraceCompetenceGateDomain =
   | 'economy'
   | 'worker-pipeline'
   | 'army-pipeline'
+  | 'defense-response'
   | 'macro-spending'
   | 'production'
   | 'obligation-pressure'
@@ -280,6 +282,7 @@ const RESOURCE_FLOAT_ALERT = 800;
 const PRODUCTION_FLOAT_ALERT = 300;
 const MACRO_COMMANDS: readonly CommandType[] = ['build', 'train', 'research', 'addon', 'transform'];
 const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', 'mine'];
+const DEFENSE_RESPONSE_INTENTS: readonly BotIntentKind[] = ['defend-base', 'get-detection', 'add-static-defense'];
 const BOT_TRACE_ALERT_KINDS: readonly BotTraceAlertKind[] = [
   'invalid-commands',
   'resource-float-stall',
@@ -362,6 +365,9 @@ const macroCommandCount = (frame: BotTraceFrame): number =>
 
 const combatCommandCount = (frame: BotTraceFrame): number =>
   countCommands(frame, COMBAT_COMMANDS);
+
+const defenseResponseIntentCount = (frame: BotTraceFrame): number =>
+  countIntents(frame, DEFENSE_RESPONSE_INTENTS);
 
 const armyTrainIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, ARMY_TRAIN_INTENTS);
@@ -1274,6 +1280,7 @@ export const botTraceFrame = (
     idleProducers: facts.idleProducers.length,
     idleLarvae: facts.idleLarvae.length,
     visibleEnemies: facts.visibleEnemies.length,
+    protectedThreats: facts.protectedRegionThreats.length,
     commandsIssued: plan.commands.length,
     commandsByType,
     intentsByKind,
@@ -1649,6 +1656,37 @@ const armyPipelineGate = (
   );
 };
 
+const defenseResponseGate = (
+  frames: readonly BotTraceFrame[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const threatenedFrames = frames.filter((frame) => frame.protectedThreats > 0);
+  const ignoredFrames = threatenedFrames.filter((frame) => defenseResponseIntentCount(frame) === 0);
+
+  if (frames.length === 0) {
+    return competenceGate(player, 'defense-response', 'failing', 0, 'missing defense-response trace evidence');
+  }
+  if (threatenedFrames.length === 0) {
+    return competenceGate(player, 'defense-response', 'healthy', 0, 'no sampled protected-region threats');
+  }
+  if (ignoredFrames.length > 0) {
+    return competenceGate(
+      player,
+      'defense-response',
+      'failing',
+      ignoredFrames.length,
+      `${ignoredFrames.length} sampled protected-threat frames lacked defend-base, detection, or static-defense intent`,
+    );
+  }
+  return competenceGate(
+    player,
+    'defense-response',
+    'healthy',
+    threatenedFrames.length,
+    `${threatenedFrames.length} sampled protected-threat frames showed safety-response intent`,
+  );
+};
+
 const obligationPressureGate = (
   frames: readonly BotTraceFrame[],
   phases: readonly BotTracePhaseSummary[],
@@ -1733,6 +1771,7 @@ export const botTraceCompetenceGates = (
   ));
   gates.push(workerPipelineGate(frames, player));
   gates.push(armyPipelineGate(frames, player));
+  gates.push(defenseResponseGate(frames, player));
 
   gates.push(competenceGate(
     player,

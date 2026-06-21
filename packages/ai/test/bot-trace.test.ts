@@ -783,6 +783,49 @@ test('bot competence gates flag ready army production without an army pipeline',
   assert.equal(passing?.detail.includes('army-pipeline evidence'), true);
 });
 
+test('bot competence gates flag protected threats without a safety response', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8136, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const ignoredFrames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    protectedThreats: 1,
+    intentsByKind: { ...frame.intentsByKind, 'defend-base': 0, 'get-detection': 0, 'add-static-defense': 0 },
+  }));
+  const traceFor = (frames: typeof ignoredFrames): BotMatchTrace => {
+    const alerts = botTraceAlerts(frames);
+    const stats = createMatchStats(s);
+    const objectiveTrends = botObjectiveTrends(frames);
+    return {
+      frames,
+      stats,
+      invalidCommands: 0,
+      invalidCommandsByPlayer: [0, 0],
+      commandResults: [],
+      objectiveTrends,
+      alerts,
+      expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+      phaseSummaries: botTracePhaseSummaries(frames, alerts),
+      phaseAssessments: [],
+    };
+  };
+  const failing = botTraceCompetenceGates(traceFor(ignoredFrames), 0).find((gate) => gate.domain === 'defense-response');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('protected-threat frames lacked defend-base'), true);
+
+  const respondingFrames = ignoredFrames.map((sample) => ({
+    ...sample,
+    intentsByKind: { ...sample.intentsByKind, 'defend-base': 1 },
+  }));
+  const passing = botTraceCompetenceGates(traceFor(respondingFrames), 0).find((gate) => gate.domain === 'defense-response');
+
+  assert.equal(passing?.status, 'healthy');
+  assert.equal(passing?.detail.includes('safety-response intent'), true);
+});
+
 test('bot trace alerts ignore background blocked tech while another intent leads', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8130, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1602,6 +1645,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'worker-pipeline' && gate.status === 'healthy'), true, `${name} gates should expose worker-pipeline evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'army-pipeline' && gate.status === 'healthy'), true, `${name} gates should expose army-pipeline evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'defense-response' && gate.status === 'healthy'), true, `${name} gates should expose defense-response evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.includes('first-combat discipline')), true, `${name} gates should expose opening discipline evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'obligation-pressure' && gate.status === 'healthy'), true, `${name} gates should expose expert obligation pressure`);
