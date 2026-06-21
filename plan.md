@@ -1228,6 +1228,12 @@ Remaining work:
     data-defined structure prerequisites to be owned or pending before they can become live build
     attempts, so openings pursue the first combat path instead of surfacing downstream tech deadlocks
     such as Cybernetics Core before Gateway.
+  - Expert-obligation pressure slice is done: `macro-expert-system.ts` now owns a reusable
+    economy / production-throughput / combat-strength pressure evaluator derived from worker
+    pipeline, bases, army-strength pipeline, and production capacity. Intent scoring consumes those
+    pressures as explicit reasons, so live scheduling and trace diagnostics share the same
+    StarCraft-expert answer to "what obligation is currently behind?" without adding a second
+    command path or hidden scheduler.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

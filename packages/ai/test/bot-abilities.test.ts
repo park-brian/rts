@@ -10,6 +10,8 @@ import {
   botIntentUrgency,
   botIntentVictoryAxis,
   botBuildsFirstCombatStructure,
+  botExpertAxisPressure,
+  botExpertObligationPressures,
   botNeedsOpeningCombatPipeline,
   TACTICAL_ABILITY_POLICIES,
   blockedExpansionActive,
@@ -508,6 +510,44 @@ test('bot expert scores production from completed capacity and supply headroom',
     reason.value < 0), true);
 });
 
+test('bot expert system measures live StarCraft obligation pressure', () => {
+  const opening = expertContext({
+    workers: 6,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 6,
+    objective: objectiveSnapshot({
+      queuedWorkerProduction: 1,
+      armyStrength: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    }),
+  });
+  const stable = expertContext({
+    workers: 10,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 1,
+    objective: objectiveSnapshot({
+      queuedWorkerProduction: 0,
+      armyStrength: 180,
+      queuedArmyStrength: 0,
+      productionCapacity: 1,
+      pendingProductionCapacity: 0,
+    }),
+  });
+
+  const pressures = botExpertObligationPressures(opening);
+
+  assert.deepEqual(pressures.map((pressure) => pressure.id), ['economy', 'production', 'combat']);
+  assert.equal(botExpertAxisPressure(opening, 'economy-growth')?.pressure, 6);
+  assert.equal(botExpertAxisPressure(opening, 'production-throughput')?.pressure, 12);
+  assert.equal(botExpertAxisPressure(opening, 'combat-strength')?.pressure, 12);
+  assert.equal(pressures.every((pressure) => pressure.satisfied), false);
+  assert.equal(botExpertObligationPressures(stable).every((pressure) => pressure.satisfied), true);
+});
+
 test('bot expert scores production capacity from combat strength pipeline', () => {
   const noPipeline = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
     attackThreshold: 12,
@@ -558,6 +598,35 @@ test('bot expert treats first combat access as an opening obligation', () => {
     objective: objectiveSnapshot({ queuedArmyStrength: 200 }),
   });
   assert.equal(botNeedsOpeningCombatPipeline(queuedCombat.strategicPlan, queuedCombat.objective), false);
+});
+
+test('bot expert scoring consumes obligation pressure as explicit reasons', () => {
+  const opening = expertContext({
+    workers: 6,
+    workerTarget: 10,
+    attackThreshold: 6,
+    objective: objectiveSnapshot({
+      queuedWorkerProduction: 1,
+      armyStrength: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    }),
+  });
+
+  const worker = scoreBotIntent(botIntent('train-worker'), opening);
+  const production = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), opening);
+  const army = scoreBotIntent(botIntent('train-counter', { targetKind: Kind.Marine }), opening);
+
+  assert.equal(worker.score?.reasons.some((reason) =>
+    reason.kind === 'economy-growth' &&
+    reason.detail === 'economy obligation pressure is 6'), true);
+  assert.equal(production.score?.reasons.some((reason) =>
+    reason.kind === 'production-throughput' &&
+    reason.detail === 'production obligation pressure is 12'), true);
+  assert.equal(army.score?.reasons.some((reason) =>
+    reason.kind === 'army-growth' &&
+    reason.detail === 'combat obligation pressure is 12'), true);
 });
 
 test('bot expert scores add-production higher when live production stall signals are active', () => {

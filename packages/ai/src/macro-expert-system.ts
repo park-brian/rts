@@ -18,6 +18,21 @@ export type BotExpertObligationAssessment = BotExpertObligation & {
   satisfied: boolean;
 };
 
+export type BotExpertObligationPressureContext = {
+  workers: number;
+  workerTarget: number;
+  bases: number;
+  attackThreshold: number;
+  objective: BotCombatPipelineSnapshot & {
+    queuedWorkerProduction: number;
+  };
+};
+
+export type BotExpertObligationPressure = BotExpertObligation & {
+  pressure: number;
+  satisfied: boolean;
+};
+
 export type BotPlanEvidenceAssessment = {
   axes: readonly BotVictoryAxis[];
   count: number;
@@ -47,6 +62,9 @@ export type BotCombatPipelineSnapshot = {
   productionCapacity: number;
   pendingProductionCapacity: number;
 };
+
+export const BOT_TARGET_STRENGTH_PER_COMBAT_UNIT = 180;
+export const BOT_STRENGTH_PER_PRODUCTION_CAPACITY = 720;
 
 const firstCombatStructureKinds: ReadonlySet<number> = new Set(
   Object.values(Factions).map((faction) => faction.armyStructure),
@@ -169,6 +187,59 @@ export const botExpertObligationAssessments = (
       satisfied: count > 0,
     };
   });
+
+const totalCombatPipelineStrength = (snapshot: BotCombatPipelineSnapshot): number =>
+  snapshot.armyStrength + snapshot.queuedArmyStrength;
+
+const totalProductionCapacity = (snapshot: BotCombatPipelineSnapshot): number =>
+  snapshot.productionCapacity + snapshot.pendingProductionCapacity;
+
+const desiredArmyStrength = (ctx: BotExpertObligationPressureContext): number =>
+  ctx.attackThreshold * BOT_TARGET_STRENGTH_PER_COMBAT_UNIT;
+
+const desiredProductionCapacity = (ctx: BotExpertObligationPressureContext): number =>
+  Math.max(1, Math.ceil(
+    Math.max(0, desiredArmyStrength(ctx) - totalCombatPipelineStrength(ctx.objective)) /
+      BOT_STRENGTH_PER_PRODUCTION_CAPACITY,
+  ));
+
+const obligationPressure = (
+  obligation: BotExpertObligation,
+  pressure: number,
+): BotExpertObligationPressure => ({
+  ...obligation,
+  pressure,
+  satisfied: pressure <= 0,
+});
+
+export const botExpertObligationPressures = (
+  ctx: BotExpertObligationPressureContext,
+): BotExpertObligationPressure[] => {
+  const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
+  const workerGap = Math.max(0, ctx.workerTarget - workerPipeline);
+  const armyStrengthGap = Math.max(0, desiredArmyStrength(ctx) - totalCombatPipelineStrength(ctx.objective));
+  const productionGap = Math.max(0, desiredProductionCapacity(ctx) - totalProductionCapacity(ctx.objective));
+
+  return BOT_EXPERT_OBLIGATIONS.map((obligation) => {
+    switch (obligation.id) {
+      case 'economy':
+        return obligationPressure(obligation, Math.min(20, workerGap * 2) + (ctx.bases === 0 ? 20 : 0));
+      case 'production':
+        return obligationPressure(obligation, Math.min(20, productionGap * 6));
+      case 'combat':
+        return obligationPressure(
+          obligation,
+          Math.min(20, Math.ceil(armyStrengthGap / BOT_TARGET_STRENGTH_PER_COMBAT_UNIT) * 2),
+        );
+    }
+  });
+};
+
+export const botExpertAxisPressure = (
+  ctx: BotExpertObligationPressureContext,
+  axis: BotVictoryAxis,
+): BotExpertObligationPressure | undefined =>
+  botExpertObligationPressures(ctx).find((obligation) => obligation.axis === axis);
 
 export const botHasExpertObligationEvidence = (
   counts: CountMap<BotVictoryAxis>,
