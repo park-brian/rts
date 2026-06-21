@@ -166,6 +166,7 @@ const splitHealthRows = (rows: readonly MatchHealthRow[]): { summary?: MatchHeal
 
 type BotPhaseSummary = ReturnType<Game['botPhaseSummaries']>[number];
 type BotPhaseAssessment = ReturnType<Game['botPhaseAssessments']>[number];
+type BotObligationPressure = ReturnType<Game['botExpertReport']>['obligationPressures'][number];
 
 const keyedCountLine = <K extends string,>(
   counts: CountMap<K>,
@@ -203,6 +204,12 @@ const phaseAssessmentLine = (assessments: readonly BotPhaseAssessment[]): string
     .filter(Boolean)
     .join(' · ');
 };
+
+const pressureLabel = (pressure: BotObligationPressure): string =>
+  `${pressure.id} ${pressure.pressure}${pressure.satisfied ? ' ok' : ' behind'}`;
+
+const pressureTitle = (pressure: BotObligationPressure): string =>
+  `${pressure.id} ${pressure.satisfied ? 'satisfied' : 'behind'}: ${pressure.detail}`;
 
 const Btn = (p: {
   label: string;
@@ -771,6 +778,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const health = matchHealthRows(stats);
   const botReport = p.game.botExpertReport();
   const botHealth = botReport.healthRows;
+  const botPressures = botReport.obligationPressures;
   const botPhases = botReport.phaseSummaries;
   const botPhaseAssessments = botReport.phaseAssessments;
   const botGates = botReport.competenceGates;
@@ -876,6 +884,32 @@ const MatchStatsPanel = (p: { game: Game }) => {
                         background: '#0f151e', color: HEALTH_COLOR[gate.status], padding: '3px 4px',
                         overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                       {gate.domain} {HEALTH_LABEL[gate.status]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {botPressures.length > 0 && (
+        <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+          paddingTop: '8px' }}>
+          <b style={{ color: '#8ea4bd' }}>Expert Pressure</b>
+          {stats.players.map((player) => {
+            const pressures = botPressures.filter((pressure) => pressure.player === player.player);
+            if (pressures.length === 0) return null;
+            return (
+              <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
+                alignItems: 'center', color: '#cdd9e5' }}>
+                <span>P{player.player + 1}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px' }}>
+                  {pressures.map((pressure) => (
+                    <span key={pressure.id} title={pressureTitle(pressure)}
+                      style={{ minWidth: 0, border: `1px solid ${pressure.satisfied ? HEALTH_COLOR.healthy : HEALTH_COLOR.watch}`,
+                        background: '#0f151e', color: pressure.satisfied ? HEALTH_COLOR.healthy : HEALTH_COLOR.watch,
+                        padding: '3px 4px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {pressureLabel(pressure)}
                     </span>
                   ))}
                 </div>

@@ -1238,6 +1238,10 @@ Remaining work:
     production-throughput, and combat-strength pressure values used by intent scoring. Post-match
     tooling and UI work should consume this trace field instead of reconstructing expert judgement
     from top-intent score strings.
+  - Expert-pressure UI slice is done: the app bot report now exposes the latest trace-owned
+    obligation pressures per bot player, and the post-match panel renders a compact Expert Pressure
+    row beside strategic health, competence gates, and phase summaries. The UI consumes the trace
+    field directly, preserving one expert judgement source for headless tests and browser debugging.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

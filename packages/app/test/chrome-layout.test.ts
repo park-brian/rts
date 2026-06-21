@@ -131,6 +131,9 @@ test('post-match stats panel exposes command mix and reject reasons', () => {
   assert.match(ui, /p\.game\.botExpertReport\(\)/);
   assert.match(ui, /botReport\.phaseAssessments/);
   assert.match(ui, /botReport\.competenceGates/);
+  assert.match(ui, /botReport\.obligationPressures/);
+  assert.match(ui, /Expert Pressure/);
+  assert.match(ui, /pressureLabel\(pressure\)/);
   assert.match(ui, /phaseAssessmentLine\(assessments\)/);
   assert.match(ui, /playerHealthRows\(player\.player,\s*health,\s*botHealth\)/);
   assert.match(ui, /Strategic Health/);

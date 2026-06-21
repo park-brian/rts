@@ -12,6 +12,7 @@ import {
   type BotPlanner,
   type BotTraceCompetenceGate,
   type BotTraceFrame,
+  type BotTraceObligationPressure,
   type BotTracePhaseAssessment,
   type BotTracePhaseSummary,
   type BotTurnPlan,
@@ -31,9 +32,14 @@ export type AppBotDiagnostics = {
 
 export type AppBotExpertReport = {
   healthRows: MatchHealthRow[];
+  obligationPressures: AppBotObligationPressure[];
   phaseSummaries: BotTracePhaseSummary[];
   phaseAssessments: BotTracePhaseAssessment[];
   competenceGates: BotTraceCompetenceGate[];
+};
+
+export type AppBotObligationPressure = BotTraceObligationPressure & {
+  player: number;
 };
 
 const botConfigFor = (player: number): Parameters<typeof createBotPlanner>[1] =>
@@ -82,6 +88,16 @@ const allBotFrames = (diagnostics: readonly AppBotDiagnostics[]): BotTraceFrame[
 
 const allBotCommandResults = (diagnostics: readonly AppBotDiagnostics[]): CommandResult[] =>
   diagnostics.flatMap((diagnostic) => diagnostic.commandResults);
+
+const latestBotObligationPressures = (
+  diagnostics: readonly AppBotDiagnostics[],
+): AppBotObligationPressure[] =>
+  diagnostics.flatMap((diagnostic) => {
+    const frame = diagnostic.frames[diagnostic.frames.length - 1];
+    return frame
+      ? frame.obligationPressures.map((pressure) => ({ player: diagnostic.player, ...pressure }))
+      : [];
+  });
 
 export const botDiagnosticTrace = (
   diagnostics: readonly AppBotDiagnostics[],
@@ -136,6 +152,7 @@ export const botExpertReport = (
   if (!trace) {
     return {
       healthRows: [],
+      obligationPressures: [],
       phaseSummaries: [],
       phaseAssessments: [],
       competenceGates: [],
@@ -152,6 +169,7 @@ export const botExpertReport = (
       severity: diagnosis.severity,
       detail: diagnosis.detail,
     })),
+    obligationPressures: latestBotObligationPressures(diagnostics),
     phaseSummaries: trace.phaseSummaries,
     phaseAssessments: trace.phaseAssessments,
     competenceGates: players.flatMap((player) => botTraceCompetenceGates(trace, player)),
