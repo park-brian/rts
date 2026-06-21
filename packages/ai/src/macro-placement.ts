@@ -40,6 +40,8 @@ const px = (tile: number): number => tile * TILE * ONE + ((TILE * ONE) >> 1);
 const SEARCH_MIN_RADIUS_TILES = 3;
 const SEARCH_MAX_RADIUS_TILES = 14;
 const STALLED_SEARCH_MAX_RADIUS_TILES = 22;
+const STALLED_RECOVERY_ANCHOR_LIMIT = 6;
+const STALLED_RECOVERY_ANCHOR_MAX_DISTANCE_TILES = 40;
 const BASE_RESOURCE_EDGE_LIMIT_TILES = 12;
 const RESOURCE_RESERVATION_PENALTY = 80_000;
 const HARVEST_CORRIDOR_PENALTY = 120_000;
@@ -140,6 +142,15 @@ export const placementAnchorKey = (
   role: PlacementLayoutRole = 'general',
 ): string =>
   `${role}:${kind}:${tileX(x)}:${tileY(y)}`;
+
+const stalledAnchor = (
+  kind: number,
+  anchor: BuildAnchor,
+  options: PlacementOptions,
+): boolean => {
+  const role = options.role ?? 'general';
+  return options.stalledAnchors?.has(placementAnchorKey(kind, anchor.x, anchor.y, role)) ?? false;
+};
 
 const tileCenterPx = (tile: number): number => tile * TILE + (TILE >> 1);
 
@@ -485,8 +496,7 @@ const findBestSpot = (
   for (const anchor of anchors) {
     const btx = tileX(anchor.x);
     const bty = tileY(anchor.y);
-    const role = options.role ?? 'general';
-    const maxRadius = options.stalledAnchors?.has(placementAnchorKey(kind, anchor.x, anchor.y, role))
+    const maxRadius = stalledAnchor(kind, anchor, options)
       ? STALLED_SEARCH_MAX_RADIUS_TILES
       : SEARCH_MAX_RADIUS_TILES;
     for (let r = SEARCH_MIN_RADIUS_TILES; r <= maxRadius; r++) {
@@ -525,6 +535,34 @@ const findBestSpot = (
   return best === null ? null : { x: best.x, y: best.y };
 };
 
+const recoveryAnchors = (
+  s: State,
+  player: number,
+  fallback: number,
+): BuildAnchor[] => {
+  const e = s.e;
+  const fx = e.x[fallback]!;
+  const fy = e.y[fallback]!;
+  const max = STALLED_RECOVERY_ANCHOR_MAX_DISTANCE_TILES * TILE * ONE;
+  const maxSq = max * max;
+  const anchors: { x: number; y: number; distance: number; slot: number }[] = [];
+
+  for (let i = 0; i < e.hi; i++) {
+    if (i === fallback || e.alive[i] !== 1 || e.owner[i] !== player || e.built[i] !== 1) continue;
+    if ((e.flags[i]! & Role.Structure) === 0) continue;
+    const dx = e.x[i]! - fx;
+    const dy = e.y[i]! - fy;
+    const distance = dx * dx + dy * dy;
+    if (distance > maxSq) continue;
+    anchors.push({ x: e.x[i]!, y: e.y[i]!, distance, slot: i });
+  }
+
+  return anchors
+    .sort((a, b) => a.distance - b.distance || a.slot - b.slot)
+    .slice(0, STALLED_RECOVERY_ANCHOR_LIMIT)
+    .map(({ x, y }) => ({ x, y }));
+};
+
 /** Find a buildable, reasonably clear tile near (bx, by) for a structure. */
 export const findSpot = (
   s: State,
@@ -559,7 +597,13 @@ export const findMacroSpot = (
   options: PlacementOptions = {},
 ): { x: number; y: number } | null => {
   const e = s.e;
-  if (!requiresPower(kind)) return findSpot(s, player, worker, kind, e.x[fallback]!, e.y[fallback]!, options);
+  if (!requiresPower(kind)) {
+    const primary = { x: e.x[fallback]!, y: e.y[fallback]! };
+    const anchors = stalledAnchor(kind, primary, options)
+      ? [primary, ...recoveryAnchors(s, player, fallback)]
+      : [primary];
+    return findBestSpot(s, player, worker, kind, anchors, options);
+  }
 
   const anchors: BuildAnchor[] = [];
   for (let i = 0; i < e.hi; i++) {

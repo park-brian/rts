@@ -44,6 +44,7 @@ import {
   productionStallActive,
   rankRaceTechStructureKinds,
   findSpot,
+  findMacroSpot,
   proposePressureIntent,
   proposeTacticalDefense,
   rankBotIntentRecords,
@@ -4963,6 +4964,32 @@ test('macro placement widens search for stalled anchors only', () => {
   assert.ok(widened);
   assert.equal(widened.x, farSpot.x);
   assert.equal(widened.y, farSpot.y);
+});
+
+test('macro placement tries owned structure anchors after a stalled fallback', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 1125, factions: [Terran, Zerg] });
+  const s = sim.fullState();
+  const worker = slotOf(findEntity(sim, Kind.SCV, 0));
+  const depot = slotOf(findEntity(sim, Kind.CommandCenter, 0));
+  const anchor = { x: tileCenterFx(20), y: tileCenterFx(40) };
+  const alternate = { x: tileCenterFx(48), y: tileCenterFx(40) };
+  const farSpot = { x: tileCenterFx(56), y: tileCenterFx(40) };
+  s.e.x[worker] = anchor.x;
+  s.e.y[worker] = anchor.y;
+  s.e.x[depot] = anchor.x;
+  s.e.y[depot] = anchor.y;
+  spawnUnit(s, Kind.Barracks, 0, alternate.x, alternate.y);
+  s.map.build.fill(0);
+  openBuildFootprint(s, structureFootprint(Kind.SupplyDepot, farSpot.x, farSpot.y));
+
+  const stalledAnchors = new Set([placementAnchorKey(Kind.SupplyDepot, anchor.x, anchor.y, 'supply-buffer')]);
+  const normal = findMacroSpot(s, 0, worker, Kind.SupplyDepot, depot, { role: 'supply-buffer' });
+  const recovered = findMacroSpot(s, 0, worker, Kind.SupplyDepot, depot, { stalledAnchors, role: 'supply-buffer' });
+
+  assert.equal(normal, null);
+  assert.ok(recovered);
+  assert.equal(recovered.x, farSpot.x);
+  assert.equal(recovered.y, farSpot.y);
 });
 
 test('protoss bot places gateways from completed pylon power anchors', () => {

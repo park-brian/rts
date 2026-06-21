@@ -1387,8 +1387,12 @@ Remaining work:
     placement diagnostics into active stalled anchors, and macro placement widens only that
     structure+anchor search radius on later turns. This is a conservative recovery path: normal
     placement stays fast and local, while proven dead anchors get a deterministic broader search.
-    Remaining placement recovery work should add alternate layout roles and clear-site/fallback
-    intents when widened search still cannot find a sane tile.
+    Alternate-anchor recovery slice is done: once a structure+role+anchor is proven stalled, generic
+    macro placement keeps the widened primary search but also tries a bounded set of nearby owned
+    structure anchors. This changes the bot's next placement question only after expert evidence says
+    the current anchor is dead, preserving the cheap local search for normal ticks. Remaining placement
+    recovery work should add alternate layout roles and clear-site/fallback intents when alternate
+    anchors still cannot find a sane tile.
   - Tech-stall detector slice is done: sampled traces now emit `tech-stall` when the leading tech
     intent repeats with missing prerequisite, producer, builder, path, safety, or placement blockers
     and no build/research/add-on/transform command is making tech progress. The bot expert `tech`
