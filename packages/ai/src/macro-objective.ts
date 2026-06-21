@@ -38,6 +38,7 @@ import {
   BOT_STRENGTH_PER_PRODUCTION_CAPACITY,
   BOT_TARGET_STRENGTH_PER_COMBAT_UNIT,
   botExpertAxisPressure,
+  type BotExpertObligationPressure,
   botBuildsFirstCombatStructure,
   botNeedsOpeningCombatPipeline,
 } from './macro-expert-system.ts';
@@ -603,20 +604,15 @@ const openingCombatReason = (
   scoreReason(kind, value, 'opening needs a combat pipeline before optional tech');
 
 const obligationReason = (
-  ctx: BotExpertContext,
-  axis: 'economy-growth' | 'combat-strength' | 'production-throughput',
+  obligation: BotExpertObligationPressure | undefined,
   kind: BotIntentScoreReason['kind'],
-): BotIntentScoreReason[] => {
-  const obligation = botExpertAxisPressure(ctx, axis);
-  return obligation && obligation.pressure > 0
+): BotIntentScoreReason[] =>
+  obligation && obligation.pressure > 0
     ? [scoreReason(kind, obligation.pressure, `${obligation.id} obligation pressure is ${obligation.pressure}`)]
     : [];
-};
 
-const obligationBonus = (
-  ctx: BotExpertContext,
-  axis: 'economy-growth' | 'combat-strength' | 'production-throughput',
-): number => botExpertAxisPressure(ctx, axis)?.pressure ?? 0;
+const obligationBonus = (obligation: BotExpertObligationPressure | undefined): number =>
+  obligation?.pressure ?? 0;
 
 export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotIntent => {
   const workerPipeline = ctx.workers + ctx.objective.queuedWorkerProduction;
@@ -629,10 +625,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
   switch (intent.kind) {
     case 'train-worker': {
       const progressBonus = expectedProgressStalled(ctx, 'worker-pipeline') ? 10 : 0;
-      const expertBonus = obligationBonus(ctx, 'economy-growth');
+      const obligation = botExpertAxisPressure(ctx, 'economy-growth');
+      const expertBonus = obligationBonus(obligation);
       return scoredIntent(intent, 35 + Math.min(20, workerGap * 2) + progressBonus + expertBonus, [
         scoreReason('economy-growth', workerGap, `worker pipeline gap is ${workerGap}`),
-        ...obligationReason(ctx, 'economy-growth', 'economy-growth'),
+        ...obligationReason(obligation, 'economy-growth'),
         ...(progressBonus > 0
           ? [expectedProgressReason('worker-pipeline', 'worker pipeline has not progressed within its expected window')]
           : []),
@@ -647,12 +644,13 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const progressBonus = expectedProgressStalled(ctx, 'combat-pipeline') ? 10 : 0;
       const openingBonus = openingNeedsCombat ? 14 : 0;
-      const expertBonus = obligationBonus(ctx, 'combat-strength');
+      const obligation = botExpertAxisPressure(ctx, 'combat-strength');
+      const expertBonus = obligationBonus(obligation);
       return scoredIntent(intent, (firstArmy ? 46 : 30) + Math.min(12, armyDemand * 2) + strategyBonus + progressBonus + openingBonus + expertBonus, [
         scoreReason('army-growth', armyDemand, firstArmy
           ? 'first combat unit unlocks pressure'
           : `army strength gap is ${armyDemand}; pipeline is ${strengthPipeline}/${strengthTarget}`),
-        ...obligationReason(ctx, 'combat-strength', 'army-growth'),
+        ...obligationReason(obligation, 'army-growth'),
         ...(openingBonus > 0 ? [openingCombatReason('army-growth', openingBonus)] : []),
         ...(progressBonus > 0
           ? [expectedProgressReason('combat-pipeline', 'combat pipeline has not progressed within its expected window')]
@@ -675,12 +673,13 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0) + progressBonus;
       const planBonus = strategicPlanBonus(ctx, 'production');
       const openingBonus = openingNeedsCombat && botBuildsFirstCombatStructure(intent.targetKind) ? 16 : 0;
-      const expertBonus = obligationBonus(ctx, 'production-throughput');
+      const obligation = botExpertAxisPressure(ctx, 'production-throughput');
+      const expertBonus = obligationBonus(obligation);
       return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus + planBonus + openingBonus + expertBonus, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}; army strength pipeline is ${strengthPipeline}/${strengthTarget}`),
-        ...obligationReason(ctx, 'production-throughput', 'production-throughput'),
+        ...obligationReason(obligation, 'production-throughput'),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...(openingBonus > 0 ? [openingCombatReason('production-throughput', openingBonus)] : []),
         ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
