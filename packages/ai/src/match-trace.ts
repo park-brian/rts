@@ -235,6 +235,7 @@ export type BotTraceCompetenceGateDomain =
   | 'economy'
   | 'macro-spending'
   | 'production'
+  | 'obligation-pressure'
   | 'opening-combat'
   | 'opening-discipline'
   | 'expansion-plan'
@@ -1580,6 +1581,42 @@ const expansionPlanGate = (
   );
 };
 
+const obligationPressureGate = (
+  frames: readonly BotTraceFrame[],
+  phases: readonly BotTracePhaseSummary[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const last = frames.filter((frame) => frame.player === player).at(-1);
+  if (!last) return competenceGate(player, 'obligation-pressure', 'failing', 0, 'missing expert obligation pressure evidence');
+
+  const axes = playerAxisCounts(phases, player);
+  const unsatisfied = last.obligationPressures.filter((pressure) => !pressure.satisfied);
+  const unsupported = unsatisfied.filter((pressure) => (axes[pressure.axis] ?? 0) === 0);
+  if (unsupported.length > 0) {
+    return competenceGate(
+      player,
+      'obligation-pressure',
+      'failing',
+      unsupported.reduce((sum, pressure) => sum + pressure.pressure, 0),
+      unsupported
+        .map((pressure) => `${pressure.id} pressure ${pressure.pressure} without ${pressure.axis} evidence`)
+        .join('; '),
+    );
+  }
+  if (unsatisfied.length > 0) {
+    return competenceGate(
+      player,
+      'obligation-pressure',
+      'healthy',
+      unsatisfied.reduce((sum, pressure) => sum + pressure.pressure, 0),
+      unsatisfied
+        .map((pressure) => `${pressure.id} pressure ${pressure.pressure} covered by ${axes[pressure.axis] ?? 0} ${pressure.axis} evidence`)
+        .join('; '),
+    );
+  }
+  return competenceGate(player, 'obligation-pressure', 'healthy', 0, 'all latest expert obligations were satisfied');
+};
+
 export const botTraceCompetenceGates = (
   trace: BotMatchTrace,
   player: number,
@@ -1637,6 +1674,7 @@ export const botTraceCompetenceGates = (
       : 'missing production trace evidence',
   ));
 
+  gates.push(obligationPressureGate(frames, trace.phaseSummaries, player));
   gates.push(openingCombatGate(trace.phaseSummaries, player, last));
   gates.push(openingDisciplineGate(frames, player));
   gates.push(expansionPlanGate(trace.phaseSummaries, player));

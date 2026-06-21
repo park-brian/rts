@@ -866,6 +866,82 @@ test('bot competence gates flag optional tech before opening combat access', () 
   assert.equal(gate?.detail.includes('take-gas'), true);
 });
 
+test('bot competence gates require evidence for unsatisfied expert obligation pressure', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8135, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const baseFrame = botTraceFrame(s, 0, Terran, plan);
+  const frame = {
+    ...baseFrame,
+    obligationPressures: baseFrame.obligationPressures.map((pressure) =>
+      pressure.id === 'economy'
+        ? { ...pressure, pressure: 8, satisfied: false }
+        : { ...pressure, pressure: 0, satisfied: true }),
+  };
+  const phase = {
+    player: 0,
+    phase: 'opening' as const,
+    fromTick: 0,
+    toTick: 120,
+    samples: 3,
+    plan: frame.strategicPlan,
+    start: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers,
+      army: frame.army,
+      bases: frame.bases,
+    },
+    end: {
+      minerals: frame.minerals,
+      gas: frame.gas,
+      supplyUsed: frame.supplyUsed,
+      supplyMax: frame.supplyMax,
+      workers: frame.workers,
+      army: frame.army,
+      bases: frame.bases,
+    },
+    peaks: {
+      queuedWorkerProduction: 0,
+      queuedArmyProduction: 0,
+      idleProducers: 0,
+      idleLarvae: 0,
+    },
+    commandsByType: {},
+    intentsByKind: {},
+    outcomesByStatus: {},
+    intentAxes: {},
+    waitsByReason: {},
+    blocksByReason: {},
+    alertKinds: {},
+  };
+  const trace: BotMatchTrace = {
+    frames: [frame],
+    stats: createMatchStats(sim.fullState()),
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends: [],
+    alerts: [],
+    expertDiagnoses: [{ player: 0, domain: 'summary', status: 'healthy', severity: 0, detail: 'test summary' }],
+    phaseSummaries: [phase],
+    phaseAssessments: [],
+  };
+
+  const failing = botTraceCompetenceGates(trace, 0).find((entry) => entry.domain === 'obligation-pressure');
+  const passing = botTraceCompetenceGates({
+    ...trace,
+    phaseSummaries: [{ ...phase, intentAxes: { 'economy-growth': 1 } }],
+  }, 0).find((entry) => entry.domain === 'obligation-pressure');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('economy pressure 8 without economy-growth evidence'), true);
+  assert.equal(passing?.status, 'healthy');
+  assert.equal(passing?.detail.includes('covered by 1 economy-growth evidence'), true);
+});
+
 test('bot competence gates flag expansion plans without base attempts', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8127, factions: [Terran, Terran] });
   const s = sim.fullState();
@@ -1427,6 +1503,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.includes('first-combat discipline')), true, `${name} gates should expose opening discipline evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'obligation-pressure' && gate.status === 'healthy'), true, `${name} gates should expose expert obligation pressure`);
     assert.equal(gates.some((gate) => gate.domain === 'expansion-plan'), true, `${name} gates should expose expansion plan evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'objective-progress' && gate.detail.includes('advanced their objective')), true, `${name} gates should expose objective progress evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'macro-spending' && gate.detail.includes('peak resource float')), true, `${name} gates should expose macro spending evidence`);

@@ -1280,6 +1280,11 @@ Remaining work:
     optional add-ons, morphs, or research get the same resource window. This keeps early tech
     available when no immediate army producer can act, but prevents scarce resources from becoming
     Stim/add-ons/research while a ready Barracks/Gateway/larva window should create the first army.
+  - Obligation-pressure competence slice is done: competence gates now treat the trace-owned
+    economy / production-throughput / combat-strength pressures as first-class expert evidence.
+    A pressure is only failing when the latest sample is still unsatisfied and the phase trace has
+    no matching victory-axis evidence, so the gate catches lights-off bot behavior without
+    penalizing a healthy bot that is actively working down a live pressure.
 - Model bot play like an actual StarCraft player's decision loop:
   - Economy: keep workers producing, avoid supply blocks, saturate bases, take gas when the plan
     needs gas, and add production before money floats.
