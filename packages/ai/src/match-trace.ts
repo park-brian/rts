@@ -42,10 +42,12 @@ import {
 import {
   botBuildsFirstCombatStructure,
   botExpertObligationDetail,
+  botExpertObligationPressures,
   botHasCombatPipeline,
   botHasExpertObligationEvidence,
   botPlanEvidenceAssessment,
   botPlanObjectiveProgressAssessment,
+  type BotExpertObligationPressure,
 } from './macro-expert-system.ts';
 
 export type BotTraceFrame = {
@@ -71,6 +73,7 @@ export type BotTraceFrame = {
   outcomesByStatus: CountMap<BotTraceOutcomeStatus>;
   waitsByReason: CountMap<BotFailureReason>;
   blocksByReason: CountMap<BotFailureReason>;
+  obligationPressures: BotTraceObligationPressure[];
   topIntents: BotTraceIntentSummary[];
   placementDiagnostics: BotTracePlacementDiagnostic[];
   objective: BotObjectiveSnapshot;
@@ -81,6 +84,10 @@ export type BotTraceFrame = {
 type BotTraceOutcomeStatus = 'done' | 'waiting' | 'blocked' | 'failed';
 type BotTraceIntentReason = Pick<BotIntentScoreReason, 'kind' | 'value' | 'detail'>;
 type BotTracePlacementReason = Pick<PlacementScoreReason, 'kind' | 'value' | 'detail'>;
+export type BotTraceObligationPressure = Pick<
+  BotExpertObligationPressure,
+  'id' | 'axis' | 'detail' | 'pressure' | 'satisfied'
+>;
 
 export type BotTracePlacementDiagnostic = Pick<
   PlacementDiagnostic,
@@ -331,6 +338,14 @@ const placementSummary = (diagnostic: PlacementDiagnostic): BotTracePlacementDia
     value: reason.value,
     ...(reason.detail ? { detail: reason.detail } : {}),
   })),
+});
+
+const obligationPressureSummary = (pressure: BotExpertObligationPressure): BotTraceObligationPressure => ({
+  id: pressure.id,
+  axis: pressure.axis,
+  detail: pressure.detail,
+  pressure: pressure.pressure,
+  satisfied: pressure.satisfied,
 });
 
 const countCommands = (frame: BotTraceFrame, types: readonly CommandType[]): number =>
@@ -1231,6 +1246,13 @@ export const botTraceFrame = (
     if (record.result.status === 'blocked') inc(blocksByReason, record.result.reason);
   }
   const objective = botObjectiveSnapshot(s, player);
+  const obligationPressures = botExpertObligationPressures({
+    workers: facts.workers.length,
+    workerTarget: plan.strategy.workerTarget,
+    bases: facts.bases.length,
+    attackThreshold: plan.strategy.attackThreshold,
+    objective,
+  }).map(obligationPressureSummary);
 
   return {
     tick: s.tick,
@@ -1255,6 +1277,7 @@ export const botTraceFrame = (
     outcomesByStatus,
     waitsByReason,
     blocksByReason,
+    obligationPressures,
     topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
     placementDiagnostics: plan.placementDiagnostics.slice(0, TOP_TRACE_PLACEMENTS).map(placementSummary),
     objective,

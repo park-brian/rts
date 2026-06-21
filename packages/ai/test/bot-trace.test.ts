@@ -151,6 +151,12 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents.every((intent) => intent.expert?.policy.length), true);
   assert.equal(frame.topIntents.some((intent) => (intent.expert?.opportunityCosts.length ?? 0) > 0), true);
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
+  assert.deepEqual(frame.obligationPressures.map((pressure) => pressure.id), ['economy', 'production', 'combat']);
+  assert.equal(frame.obligationPressures.every((pressure) => pressure.detail.length > 0), true);
+  assert.equal(frame.obligationPressures.every((pressure) => pressure.pressure >= 0), true);
+  assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'economy' && !pressure.satisfied), true);
+  assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'production' && pressure.pressure > 0), true);
+  assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'combat' && pressure.pressure > 0), true);
   assert.equal(plan.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length <= 5, true);

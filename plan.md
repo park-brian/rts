@@ -1234,6 +1234,10 @@ Remaining work:
     pressures as explicit reasons, so live scheduling and trace diagnostics share the same
     StarCraft-expert answer to "what obligation is currently behind?" without adding a second
     command path or hidden scheduler.
+  - Expert-obligation trace slice is done: sampled bot trace frames now carry the same economy,
+    production-throughput, and combat-strength pressure values used by intent scoring. Post-match
+    tooling and UI work should consume this trace field instead of reconstructing expert judgement
+    from top-intent score strings.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.
