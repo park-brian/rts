@@ -11,6 +11,8 @@ export const PRODUCTION_STALL_FRESH_TICKS = 6 * 24;
 export const MISSING_PRODUCTION_INTENT_REACTION_COUNT = 3;
 export const MISSING_PRODUCTION_INTENT_FRESH_TICKS = 6 * 24;
 export const MISSING_PRODUCTION_INTENT_RESOURCES = 300;
+export const SUPPLY_BLOCK_REACTION_COUNT = 2;
+export const SUPPLY_BLOCK_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_REACTION_COUNT = 3;
 export const MACRO_FLOAT_STALL_FRESH_TICKS = 6 * 24;
 export const MACRO_FLOAT_STALL_RESOURCES = 800;
@@ -34,6 +36,13 @@ export type MissingProductionIntentMemory = {
   count: number;
   sinceTick: number;
   lastTick: number;
+};
+
+export type SupplyBlockMemory = {
+  count: number;
+  sinceTick: number;
+  lastTick: number;
+  intentKind?: BotIntentKind;
 };
 
 export type MacroFloatStallMemory = {
@@ -89,6 +98,7 @@ export type BotMemory = {
   tacticalCommitments: Map<string, { unitIds: number[]; expiresAt: number }>;
   productionStall: ProductionStallMemory;
   missingProductionIntent: MissingProductionIntentMemory;
+  supplyBlock: SupplyBlockMemory;
   macroFloatStall: MacroFloatStallMemory;
   blockedExpansion: BlockedExpansionMemory;
   combatStall: CombatStallMemory;
@@ -112,6 +122,7 @@ export const createBotMemory = (): BotMemory => ({
   tacticalCommitments: new Map(),
   productionStall: { count: 0, sinceTick: -1, lastTick: -1 },
   missingProductionIntent: { count: 0, sinceTick: -1, lastTick: -1 },
+  supplyBlock: { count: 0, sinceTick: -1, lastTick: -1 },
   macroFloatStall: { count: 0, sinceTick: -1, lastTick: -1 },
   blockedExpansion: { count: 0, sinceTick: -1, lastTick: -1 },
   combatStall: { sinceTick: -1, lastTick: -1 },
@@ -185,6 +196,10 @@ export const missingProductionIntentActive = (memory: BotMemory, tick: number): 
   memory.missingProductionIntent.count >= MISSING_PRODUCTION_INTENT_REACTION_COUNT &&
   tick - memory.missingProductionIntent.lastTick <= MISSING_PRODUCTION_INTENT_FRESH_TICKS;
 
+export const supplyBlockActive = (memory: BotMemory, tick: number): boolean =>
+  memory.supplyBlock.count >= SUPPLY_BLOCK_REACTION_COUNT &&
+  tick - memory.supplyBlock.lastTick <= SUPPLY_BLOCK_FRESH_TICKS;
+
 export const macroFloatStallActive = (memory: BotMemory, tick: number): boolean =>
   memory.macroFloatStall.count >= MACRO_FLOAT_STALL_REACTION_COUNT &&
   tick - memory.macroFloatStall.lastTick <= MACRO_FLOAT_STALL_FRESH_TICKS;
@@ -225,6 +240,7 @@ export const expectedProgressStallActive = (
 export const botMemoryExpertSignals = (memory: BotMemory, tick: number): BotExpertSignals => ({
   productionStalled: productionStallActive(memory, tick),
   missingProductionIntent: missingProductionIntentActive(memory, tick),
+  supplyBlocked: supplyBlockActive(memory, tick),
   macroFloatStalled: macroFloatStallActive(memory, tick),
   blockedExpansion: blockedExpansionActive(memory, tick),
   techStalled: techStallActive(memory, tick),
@@ -255,6 +271,13 @@ const clearMissingProductionIntent = (memory: BotMemory): void => {
   memory.missingProductionIntent.count = 0;
   memory.missingProductionIntent.sinceTick = -1;
   memory.missingProductionIntent.lastTick = -1;
+};
+
+const clearSupplyBlock = (memory: BotMemory): void => {
+  memory.supplyBlock.count = 0;
+  memory.supplyBlock.sinceTick = -1;
+  memory.supplyBlock.lastTick = -1;
+  memory.supplyBlock.intentKind = undefined;
 };
 
 const clearMacroFloatStall = (memory: BotMemory): void => {
@@ -361,6 +384,30 @@ const rememberMissingProductionIntent = (
   stall.count = continuing ? stall.count + 1 : 1;
   stall.sinceTick = continuing ? stall.sinceTick : tick;
   stall.lastTick = tick;
+};
+
+const rememberSupplyBlock = (
+  memory: BotMemory,
+  records: readonly BotIntentRecord[],
+  tick: number,
+): void => {
+  const record = records.find((candidate) => trainIntent(candidate.intent.kind));
+  if (!record || record.result.status === 'done') {
+    clearSupplyBlock(memory);
+    return;
+  }
+  if (record.result.reason !== 'supply-blocked') {
+    clearSupplyBlock(memory);
+    return;
+  }
+
+  const block = memory.supplyBlock;
+  const continuing = block.intentKind === record.intent.kind &&
+    tick - block.lastTick <= SUPPLY_BLOCK_FRESH_TICKS;
+  block.count = continuing ? block.count + 1 : 1;
+  block.sinceTick = continuing ? block.sinceTick : tick;
+  block.lastTick = tick;
+  block.intentKind = record.intent.kind;
 };
 
 const rememberMacroFloatStall = (
@@ -480,6 +527,7 @@ export const rememberIntentOutcomes = (
   pruneOlderThan(memory.suspectedInvisibleThreats, tick);
   rememberProductionStall(memory, records, tick);
   rememberMissingProductionIntent(memory, tick, context);
+  rememberSupplyBlock(memory, records, tick);
   rememberMacroFloatStall(memory, records, tick, context);
   rememberBlockedExpansion(memory, records, tick);
   rememberCombatStall(memory, records, tick);

@@ -104,6 +104,7 @@ export type BotExpertContext = {
   protectedThreats: number;
   strategy?: BotStrategyPosture;
   strategicPlan?: BotStrategyPlan;
+  supplyBlocked?: boolean;
   productionStalled?: boolean;
   missingProductionIntent?: boolean;
   macroFloatStalled?: boolean;
@@ -118,6 +119,7 @@ export type BotExpertSignals = Pick<
   | 'missingProductionIntent'
   | 'macroFloatStalled'
   | 'blockedExpansion'
+  | 'supplyBlocked'
   | 'techStalled'
   | 'expectedProgressStalls'
 >;
@@ -564,6 +566,9 @@ const desiredProductionCapacity = (ctx: BotExpertContext): number =>
 const productionCapacityGap = (ctx: BotExpertContext): number =>
   Math.max(0, desiredProductionCapacity(ctx) - totalProductionCapacity(ctx.objective));
 
+const providesSupply = (kind: number | undefined): boolean =>
+  kind !== undefined && (Units[kind]?.provides ?? 0) > 0;
+
 const supplyHeadroomPenalty = (ctx: BotExpertContext): number =>
   ctx.objective.supplyAvailable <= 2 ? -6 : 0;
 
@@ -671,18 +676,20 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const strengthTarget = desiredArmyStrength(ctx);
       const strategyBonus = strategyProductionBonus(ctx.strategy);
       const supplyPenalty = supplyHeadroomPenalty(ctx);
+      const supplyBonus = ctx.supplyBlocked && providesSupply(intent.targetKind) ? 18 : 0;
       const progressBonus = expectedProgressStalled(ctx, 'production-capacity') ? 10 : 0;
       const liveStallBonus = (ctx.productionStalled ? 12 : 0) + (ctx.missingProductionIntent ? 10 : 0) + progressBonus;
       const planBonus = strategicPlanBonus(ctx, 'production');
       const openingBonus = openingNeedsCombat && botBuildsFirstCombatStructure(intent.targetKind) ? 16 : 0;
       const obligation = botExpertIntentPressure(ctx, intent.kind);
       const expertBonus = obligationBonus(obligation);
-      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + liveStallBonus + planBonus + openingBonus + expertBonus, [
+      return scoredIntent(intent, (zergMacroHatchery ? 42 : 34) + capacityGap * 5 + floatBonus + strategyBonus + supplyPenalty + supplyBonus + liveStallBonus + planBonus + openingBonus + expertBonus, [
         scoreReason('production-throughput', capacityGap, zergMacroHatchery
           ? 'more hatchery larva increases combat production throughput'
           : `combat production capacity is ${ctx.objective.productionCapacity}+${ctx.objective.pendingProductionCapacity}/${desiredProductionCapacity(ctx)}; army strength pipeline is ${strengthPipeline}/${strengthTarget}`),
         ...obligationReason(obligation, 'production-throughput'),
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
+        ...(supplyBonus > 0 ? [scoreReason('supply-availability', supplyBonus, 'training has been repeatedly supply blocked')] : []),
         ...(openingBonus > 0 ? [openingCombatReason('production-throughput', openingBonus)] : []),
         ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
         ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no combat-train intent')] : []),

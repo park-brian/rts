@@ -53,6 +53,7 @@ import {
   scoreBotIntent,
   selectTacticalResponders,
   shouldCommitPressure,
+  supplyBlockActive,
   techStallActive,
   TACTICAL_COMMITMENT_TICKS,
   TACTICAL_INCIDENT_MEMORY_TICKS,
@@ -667,6 +668,22 @@ test('bot expert scores add-production higher when live production stall signals
     reason.detail === 'ready production has no combat-train intent'), true);
 });
 
+test('bot expert scores supply providers higher when live supply blocks are active', () => {
+  const barracks = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), expertContext({
+    supplyBlocked: true,
+    objective: objectiveSnapshot({ productionCapacity: 1, supplyAvailable: 0, resourceFloat: 300 }),
+  }));
+  const depot = scoreBotIntent(botIntent('add-production', { targetKind: Kind.SupplyDepot }), expertContext({
+    supplyBlocked: true,
+    objective: objectiveSnapshot({ productionCapacity: 1, supplyAvailable: 0, resourceFloat: 300 }),
+  }));
+
+  assert.equal((depot.score?.value ?? 0) > (barracks.score?.value ?? 0), true);
+  assert.equal(depot.score?.reasons.some((reason) =>
+    reason.kind === 'supply-availability' &&
+    reason.detail === 'training has been repeatedly supply blocked'), true);
+});
+
 test('bot expert scores expected progress stalls through the shared intent contract', () => {
   const normalWorker = scoreBotIntent(botIntent('train-worker'), expertContext({
     workers: 8,
@@ -874,10 +891,12 @@ test('macro command intent mapping keeps scheduler vocabulary explicit', () => {
   const zergIntents = macroIntentsFromCommands([
     { t: 'build', unit: 1, kind: Kind.CreepColony, x: fx(100), y: fx(100) },
     { t: 'transform', unit: 2, kind: Kind.SunkenColony },
+    { t: 'train', building: 3, kind: Kind.Overlord },
   ], Zerg);
-  assert.deepEqual(zergIntents.map((intent) => intent.kind), ['add-static-defense', 'add-static-defense']);
+  assert.deepEqual(zergIntents.map((intent) => intent.kind), ['add-static-defense', 'add-static-defense', 'add-production']);
   assert.equal(zergIntents[0]?.targetKind, Kind.CreepColony);
   assert.equal(zergIntents[1]?.targetKind, Kind.SunkenColony);
+  assert.equal(zergIntents[2]?.targetKind, Kind.Overlord);
 });
 
 test('macro army-structure rally setup obeys shared rally validation', () => {
@@ -3304,6 +3323,17 @@ const rememberMacroFloatStall = () => {
   return memory;
 };
 
+const rememberSupplyBlock = () => {
+  const memory = createBotMemory();
+  for (const tick of [0, 24]) {
+    rememberIntentOutcomes(memory, [{
+      intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+      result: { status: 'waiting', reason: 'supply-blocked' },
+    }], tick);
+  }
+  return memory;
+};
+
 const rememberCombatIntentStall = () => {
   const memory = createBotMemory();
   for (const tick of [0, 120, 240, 360]) {
@@ -3352,6 +3382,19 @@ test('bot memory promotes repeated banked macro waits into a live float-stall si
   }], 72, { resourceFloat: 900 });
 
   assert.equal(macroFloatStallActive(memory, 72), false);
+});
+
+test('bot memory promotes repeated supply-blocked training into a live supply signal', () => {
+  const memory = rememberSupplyBlock();
+
+  assert.equal(supplyBlockActive(memory, 24), true);
+
+  rememberIntentOutcomes(memory, [{
+    intent: { kind: 'train-counter', urgency: 30, targetKind: Kind.Marine },
+    result: { status: 'done' },
+  }], 48);
+
+  assert.equal(supplyBlockActive(memory, 48), false);
 });
 
 test('bot memory promotes sustained passive offense into a live combat-stall signal', () => {

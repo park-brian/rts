@@ -1092,6 +1092,10 @@ Remaining work:
     domain. Sampled frames at the supply cap with a banked resource float must show either a
     supply-provider intent or a build/train/transform command that can make supply progress, so the
     expert system catches capped, banked, lights-off macro before behavior tuning hides it.
+  - Live supply-feedback slice is done: repeated `supply-blocked` worker/army training outcomes now
+    become a `supplyBlocked` expert signal. The shared scorer gives a data-driven supply-provider
+    bonus only to `add-production` intents whose target actually provides supply, closing the loop
+    from post-match supply diagnosis to live supply-relief pressure without race branches.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

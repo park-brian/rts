@@ -61,6 +61,7 @@ const techTransformKind = (kind: number): boolean =>
   kind === Kind.Lair || kind === Kind.Hive || kind === Kind.GreaterSpire;
 
 const trainIntentKind = (kind: number, faction: Faction): BotIntent['kind'] => {
+  if (kind === faction.supplyStructure) return 'add-production';
   if (kind === faction.worker) return 'train-worker';
   return isLarvaProductKind(kind) ? 'spend-larva' : 'train-counter';
 };
