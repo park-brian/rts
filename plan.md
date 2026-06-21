@@ -1379,6 +1379,10 @@ Remaining work:
     rejected candidate counts and the dominant placement rejection reason. Remaining deadlock work:
     make the scheduler react to this evidence with alternate anchors, clear-site/transport intents,
     or strategy fallback instead of only reporting the failure.
+  - Placement expert-evidence slice is done: placement-stall alerts now speak in player/debug terms
+    by naming the structure, layout role, anchor tile, searched/rejected counts, dominant rejection,
+    and next recovery class. This keeps the expert system useful for UI, tests, and bot tuning
+    without adding hidden placement behavior in the trace layer.
   - Placement-stall reaction slice is done: live planner memory now promotes repeated unavailable
     placement diagnostics into active stalled anchors, and macro placement widens only that
     structure+anchor search radius on later turns. This is a conservative recovery path: normal

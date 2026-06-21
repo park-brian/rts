@@ -4,6 +4,8 @@ import {
   Units,
   createMatchStats,
   recordMatchStatsStep,
+  tileX,
+  tileY,
   type CommandResult,
   type CommandType,
   type Controller,
@@ -468,6 +470,7 @@ type PlacementStreak = {
   role: string;
   anchorX: number;
   anchorY: number;
+  candidates: number;
   rejected: number;
   rejectedByReason: CountMap<string>;
 };
@@ -479,6 +482,18 @@ const placementReasonDetail = (counts: CountMap<string>): string => {
   const topReason = Object.entries(counts)
     .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0) || a[0].localeCompare(b[0]))[0];
   return topReason ? `; main rejection ${topReason[0]} (${topReason[1] ?? 0})` : '';
+};
+
+const placementStallDetail = (streak: PlacementStreak): string => {
+  const unit = Units[streak.kind];
+  const name = unit?.name ?? `kind ${streak.kind}`;
+  const anchor = `${tileX(streak.anchorX)},${tileY(streak.anchorY)}`;
+  const rejection = placementReasonDetail(streak.rejectedByReason);
+  return [
+    `placement deadlock: ${streak.count} sampled frames could not place ${name} (${streak.role}) near tile ${anchor}`,
+    `searched ${streak.candidates} candidates and rejected ${streak.rejected} tiles${rejection}`,
+    'recovery: widen search, choose another layout role, or clear the site',
+  ].join('; ');
 };
 
 const playerAlerts = (
@@ -1076,7 +1091,7 @@ const pushPlacementStallAlerts = (
       fromTick: first.tick,
       toTick: last.tick,
       severity: streak.count + Math.trunc(streak.rejected / 100),
-      detail: `${streak.count} sampled frames could not place ${streak.role} kind ${streak.kind} near ${streak.anchorX},${streak.anchorY}; rejected ${streak.rejected} candidates${placementReasonDetail(streak.rejectedByReason)}`,
+      detail: placementStallDetail(streak),
     });
   };
 
@@ -1092,6 +1107,7 @@ const pushPlacementStallAlerts = (
       if (streak) {
         streak.end = i;
         streak.count++;
+        streak.candidates += diagnostic.candidates;
         streak.rejected += diagnostic.rejected;
         for (const [reason, count] of Object.entries(diagnostic.rejectedByReason)) {
           streak.rejectedByReason[reason] = (streak.rejectedByReason[reason] ?? 0) + count;
@@ -1106,6 +1122,7 @@ const pushPlacementStallAlerts = (
         role: diagnostic.role,
         anchorX: diagnostic.anchorX,
         anchorY: diagnostic.anchorY,
+        candidates: diagnostic.candidates,
         rejected: diagnostic.rejected,
         rejectedByReason: { ...diagnostic.rejectedByReason },
       });

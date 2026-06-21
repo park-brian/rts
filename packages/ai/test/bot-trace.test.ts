@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Kind, Sim, Tech, Terran, Protoss, Zerg, createMatchStats, eid, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
+import { Kind, Sim, TILE, Tech, Terran, Protoss, Zerg, createMatchStats, eid, fx, setTechLevel, sliceMap, slotOf, spawnUnit, type Faction, type State } from '@rts/sim';
 import {
   botTraceAlerts,
   botTraceCompetenceGates,
@@ -1055,8 +1055,8 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
       kind: Kind.Barracks,
       role: 'production-block' as const,
       result: 'unavailable' as const,
-      anchorX: fx(10),
-      anchorY: fx(12),
+      anchorX: fx(10 * TILE),
+      anchorY: fx(12 * TILE),
       candidates: 0,
       rejected: 120,
       rejectedByReason: { 'blocked-by-entity': 120 },
@@ -1070,9 +1070,12 @@ test('bot trace alerts classify repeated placement deadlocks', () => {
     alert.kind === 'placement-stall' &&
     alert.fromTick === 0 &&
     alert.toTick === 120 &&
+    alert.detail.includes('placement deadlock') &&
+    alert.detail.includes('Barracks') &&
     alert.detail.includes('production-block') &&
-    alert.detail.includes('kind') &&
-    alert.detail.includes('blocked-by-entity')), true);
+    alert.detail.includes('near tile 10,12') &&
+    alert.detail.includes('blocked-by-entity') &&
+    alert.detail.includes('recovery: widen search')), true);
 });
 
 test('bot competence gates flag opening plans without a combat pipeline', () => {
@@ -1437,8 +1440,8 @@ test('bot competence gates expose macro-spending and placement failures', () => 
       kind: Kind.Barracks,
       role: 'production-block' as const,
       result: 'unavailable' as const,
-      anchorX: fx(10),
-      anchorY: fx(12),
+      anchorX: fx(10 * TILE),
+      anchorY: fx(12 * TILE),
       candidates: 0,
       rejected: 120,
       rejectedByReason: { 'blocked-by-entity': 120 },
@@ -1470,7 +1473,9 @@ test('bot competence gates expose macro-spending and placement failures', () => 
   assert.equal(gates.some((gate) =>
     gate.domain === 'placement' &&
     gate.status === 'failing' &&
-    gate.detail.includes('production-block')), true);
+    gate.detail.includes('Barracks') &&
+    gate.detail.includes('production-block') &&
+    gate.detail.includes('recovery: widen search')), true);
 });
 
 test('bot competence gates flag strategy phases without matching expert intent evidence', () => {
