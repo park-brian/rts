@@ -13,6 +13,7 @@ import {
   botExpertObligationAssessments,
   botExpertObligationDetail,
   botHasExpertObligationEvidence,
+  botIntentExpertEvaluation,
   botIntentExpectation,
   botIntentVictoryAxis,
   botPlanEvidenceAssessment,
@@ -101,6 +102,21 @@ test('bot expert system defines core StarCraft obligation evidence', () => {
     [['economy', 1, true], ['production', 1, true], ['combat', 0, false]],
   );
   assert.equal(botExpertObligationDetail(counts), 'axes economy 1, production 1, combat 0');
+
+  const workerEvaluation = botIntentExpertEvaluation('train-worker');
+  assert.equal(workerEvaluation.axis, 'economy-growth');
+  assert.equal(workerEvaluation.metric, 'worker-pipeline');
+  assert.equal(workerEvaluation.policy.includes('income slope'), true);
+  assert.deepEqual(workerEvaluation.failureModes, ['no-producer', 'resource-starved', 'supply-blocked']);
+  assert.equal(workerEvaluation.opportunityCosts.some((cost) =>
+    cost.axis === 'combat-strength' &&
+    cost.detail.includes('could make army')), true);
+
+  const attackEvaluation = botIntentExpertEvaluation('attack-wave');
+  assert.equal(attackEvaluation.axis, 'enemy-degradation');
+  assert.equal(attackEvaluation.metric, 'combat-command');
+  assert.equal(attackEvaluation.policy.includes('without waiting forever'), true);
+  assert.equal(attackEvaluation.opportunityCosts.some((cost) => cost.axis === 'safety'), true);
 });
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
@@ -130,6 +146,10 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.topIntents[0]!.status, plan.intentResults[0]!.result.status);
   assert.equal(frame.topIntents.every((intent) => intent.expectation.windowTicks > 0), true);
   assert.equal(frame.topIntents.every((intent) => intent.expectation.detail.length > 0), true);
+  assert.equal(frame.topIntents.every((intent) => intent.expert?.axis === intent.axis), true);
+  assert.equal(frame.topIntents.every((intent) => intent.expert?.metric === intent.expectation.metric), true);
+  assert.equal(frame.topIntents.every((intent) => intent.expert?.policy.length), true);
+  assert.equal(frame.topIntents.some((intent) => (intent.expert?.opportunityCosts.length ?? 0) > 0), true);
   assert.equal(frame.topIntents.some((intent) => intent.scoreReasons.length > 0), true);
   assert.equal(plan.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length > 0, true);

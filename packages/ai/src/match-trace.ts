@@ -33,7 +33,12 @@ import {
 import { botStrategyPlan, type BotStrategyPlan, type BotStrategyPosture, type BotStrategyPostureName } from './macro-strategy.ts';
 import type { BotPlanner, BotTurnPlan } from './bot.ts';
 import type { PlacementDiagnostic, PlacementScoreReason } from './macro-placement.ts';
-import { botIntentExpectation, botIntentVictoryAxis } from './macro-expert.ts';
+import {
+  botIntentExpectation,
+  botIntentExpertEvaluation,
+  botIntentVictoryAxis,
+  type BotIntentExpertEvaluation,
+} from './macro-expert.ts';
 import {
   botBuildsFirstCombatStructure,
   botExpertObligationDetail,
@@ -97,6 +102,7 @@ export type BotTraceIntentSummary = {
   targetTech?: number;
   x?: number;
   y?: number;
+  expert?: BotIntentExpertEvaluation;
 };
 
 export type BotTraceAlertKind =
@@ -301,6 +307,7 @@ const intentSummary = ({ intent, result }: BotIntentRecord): BotTraceIntentSumma
     detail: reason.detail,
   })) ?? [],
   expectation: botIntentExpectation(intent.kind),
+  expert: botIntentExpertEvaluation(intent.kind),
   ...(intent.targetKind !== undefined ? { targetKind: intent.targetKind } : {}),
   ...(intent.targetTech !== undefined ? { targetTech: intent.targetTech } : {}),
   ...(intent.x !== undefined ? { x: intent.x } : {}),

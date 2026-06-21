@@ -201,6 +201,13 @@ validated macro/combat command progress appropriate to the phase's strategic goa
 next loophole after intent-axis coherence: a bot phase can no longer look correct only because it
 named plausible intents while making no StarCraft progress.
 
+Setup active-slot slice is done: the setup modal can disable player rows while preserving map-start
+identity through a replayed `startSlots` array. The app keeps full setup rows for restart/editing,
+compacts only active rows into sim participants, and records non-identity start slots so replays and
+future multiplayer setup do not silently remap disabled P2/P3/P4 starts onto earlier map positions.
+Remaining setup work should build on this contract for map selection, controller presets, and future
+network lobbies rather than treating disabled rows as an app-only filter.
+
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
 army, attacks, defenses, and waits.
@@ -1184,6 +1191,11 @@ Remaining work:
     summaries aggregate axis counts from all intent kinds, and whole-match traces emit per-phase
     expert assessments for economy, army, macro, combat, and summary health. This gives the bot a
     compact expert-system audit trail before adding more scheduler policy.
+  - Intent expert-evaluation slice is done: each bot intent now has an explicit expert rule that
+    names its StarCraft policy, primary victory axis, expected progress metric, opportunity costs,
+    and common failure modes. Top-intent traces carry that evaluation so future scheduler choices,
+    UI diagnostics, and RL labels can explain why an action should increase our victory position or
+    what it risks delaying.
   - Competence-gate slice is done: whole-match traces now expose reusable player gates for command
     legality, economy-target growth, combat production, combat commitment, expert alerts/verdicts,
     and phase-level victory-axis evidence. The all-race bot-vs-four-rax integration gate consumes
