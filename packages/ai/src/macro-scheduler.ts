@@ -22,7 +22,7 @@ import { botIntent, rankBotIntentCandidates, type BotIntentCandidate } from './m
 import { gasStructureKind, queueGasStructure } from './macro-gas.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
 import { botExpertContext, type BotExpertContext } from './macro-objective.ts';
-import { botExpertAxisPressure, botNeedsOpeningCombatPipeline } from './macro-expert-system.ts';
+import { botExpertIntentPressure, botNeedsOpeningCombatPipeline } from './macro-expert-system.ts';
 import { findExactSpot, findMacroSpot, findSpot, type PlacementDiagnostic } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
@@ -161,7 +161,7 @@ const builderAttempt = (
 
 const shouldSpendArmyBeforeOptionalTech = (expert: BotExpertContext): boolean =>
   botNeedsOpeningCombatPipeline(expert.strategicPlan, expert.objective) ||
-  (botExpertAxisPressure(expert, 'combat-strength')?.pressure ?? 0) > 0;
+  (botExpertIntentPressure(expert, 'train-counter')?.pressure ?? 0) > 0;
 
 export const macroIntentsFromCommands = (
   commands: readonly Command[],
@@ -226,7 +226,7 @@ export const scheduleBotMacro = (
   const signals = memory ? botMemoryExpertSignals(memory, s.tick) : {};
   const progressStalls = signals.expectedProgressStalls;
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, signals);
-  const productionPressure = botExpertAxisPressure(expert, 'production-throughput')?.pressure ?? 0;
+  const productionPressure = botExpertIntentPressure(expert, 'add-production')?.pressure ?? 0;
   const productionCapacityPressured = productionPressure > 0;
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';

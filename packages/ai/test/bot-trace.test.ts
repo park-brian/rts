@@ -12,6 +12,8 @@ import {
   BOT_EXPERT_OBLIGATIONS,
   botExpertObligationAssessments,
   botExpertObligationDetail,
+  botExpertAgenda,
+  botExpertIntentPressure,
   botHasExpertObligationEvidence,
   botIntentExpertEvaluation,
   botIntentExpectation,
@@ -117,6 +119,37 @@ test('bot expert system defines core StarCraft obligation evidence', () => {
   assert.equal(attackEvaluation.metric, 'combat-command');
   assert.equal(attackEvaluation.policy.includes('without waiting forever'), true);
   assert.equal(attackEvaluation.opportunityCosts.some((cost) => cost.axis === 'safety'), true);
+
+  const agenda = botExpertAgenda({
+    workers: 4,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 6,
+    objective: {
+      armyStrength: 0,
+      queuedWorkerProduction: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    },
+  });
+  assert.deepEqual(agenda.map((item) => item.id), ['economy', 'production', 'combat']);
+  assert.deepEqual(agenda[0]!.intentKinds, ['train-worker', 'expand']);
+  assert.equal(agenda[0]!.topIntentKind, 'train-worker');
+  assert.equal(agenda[0]!.reason.includes('train-worker or expand'), true);
+  assert.equal(botExpertIntentPressure({
+    workers: 10,
+    workerTarget: 10,
+    bases: 1,
+    attackThreshold: 6,
+    objective: {
+      armyStrength: 0,
+      queuedWorkerProduction: 0,
+      queuedArmyStrength: 0,
+      productionCapacity: 0,
+      pendingProductionCapacity: 0,
+    },
+  }, 'train-counter')?.id, 'combat');
 });
 
 test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
@@ -157,6 +190,11 @@ test('bot trace frame exposes facts, commands, intents, and outcomes', () => {
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'economy' && !pressure.satisfied), true);
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'production' && pressure.pressure > 0), true);
   assert.equal(frame.obligationPressures.some((pressure) => pressure.id === 'combat' && pressure.pressure > 0), true);
+  assert.deepEqual(frame.expertAgenda.map((item) => item.id).sort(), ['combat', 'economy', 'production']);
+  assert.equal(frame.expertAgenda.every((item) => item.reason.length > 0), true);
+  assert.equal(frame.expertAgenda.some((item) =>
+    item.id === 'production' &&
+    item.intentKinds.includes('add-production')), true);
   assert.equal(plan.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length > 0, true);
   assert.equal(frame.placementDiagnostics.length <= 5, true);

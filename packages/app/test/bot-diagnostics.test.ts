@@ -55,6 +55,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
 
   const report = botExpertReport(diagnostics, stats);
   assert.equal(report.obligationPressures.length, 6);
+  assert.equal(report.expertAgenda.length, 6);
   for (const player of [0, 1]) {
     assert.deepEqual(
       report.obligationPressures
@@ -62,9 +63,20 @@ test('traceable bot controllers produce expert health rows for the post-match pa
         .map((pressure) => pressure.id),
       ['economy', 'production', 'combat'],
     );
+    assert.deepEqual(
+      report.expertAgenda
+        .filter((item) => item.player === player)
+        .map((item) => item.id)
+        .sort(),
+      ['combat', 'economy', 'production'],
+    );
   }
   assert.equal(report.obligationPressures.every((pressure) => pressure.detail.length > 0), true);
   assert.equal(report.obligationPressures.every((pressure) => pressure.pressure >= 0), true);
+  assert.equal(report.expertAgenda.every((item) => item.intentKinds.length > 0), true);
+  assert.equal(report.expertAgenda.some((item) =>
+    item.topIntentKind === 'add-production' &&
+    item.reason.includes('production')), true);
 
   const gates = botCompetenceGates(diagnostics, stats);
   const expectedGateDomains = [
@@ -128,6 +140,8 @@ test('traceable bot controllers produce expert health rows for the post-match pa
     phase.toTick === entry.toTick)), true);
 
   assert.deepEqual(report.healthRows, rows);
+  assert.equal(report.expertAgenda.length, diagnostics.reduce((sum, diagnostic) =>
+    sum + (diagnostic.frames.at(-1)?.expertAgenda.length ?? 0), 0));
   assert.deepEqual(report.phaseSummaries, phases);
   assert.deepEqual(report.phaseAssessments, assessments);
   assert.deepEqual(report.competenceGates, gates);

@@ -1,5 +1,5 @@
 import { Factions, type CountMap } from '@rts/sim';
-import type { BotVictoryAxis } from './macro-intents.ts';
+import type { BotIntentKind, BotVictoryAxis } from './macro-intents.ts';
 import type { BotStrategyPlan } from './macro-strategy.ts';
 
 export type BotExpertObligationId =
@@ -31,6 +31,12 @@ export type BotExpertObligationPressureContext = {
 export type BotExpertObligationPressure = BotExpertObligation & {
   pressure: number;
   satisfied: boolean;
+};
+
+export type BotExpertAgendaItem = BotExpertObligationPressure & {
+  topIntentKind: BotIntentKind;
+  intentKinds: readonly BotIntentKind[];
+  reason: string;
 };
 
 export type BotPlanEvidenceAssessment = {
@@ -87,6 +93,18 @@ export const BOT_EXPERT_OBLIGATIONS: readonly BotExpertObligation[] = [
     detail: 'field army strength instead of only spending on infrastructure',
   },
 ] as const;
+
+const BOT_EXPERT_OBLIGATION_REMEDIES: Record<BotExpertObligationId, readonly BotIntentKind[]> = {
+  economy: ['train-worker', 'expand'],
+  production: ['add-production'],
+  combat: ['spend-larva', 'train-counter'],
+};
+
+const BOT_EXPERT_OBLIGATION_ORDER: Record<BotExpertObligationId, number> = {
+  economy: 0,
+  production: 1,
+  combat: 2,
+};
 
 export const BOT_EXPERT_REQUIRED_AXES: readonly BotVictoryAxis[] =
   BOT_EXPERT_OBLIGATIONS.map((obligation) => obligation.axis);
@@ -264,6 +282,47 @@ export const botExpertAxisPressure = (
 ): BotExpertObligationPressure | undefined => {
   const obligation = BOT_EXPERT_OBLIGATIONS.find((candidate) => candidate.axis === axis);
   return obligation ? botExpertObligationPressure(obligation, obligationPressureFacts(ctx)) : undefined;
+};
+
+const agendaItemReason = (
+  item: BotExpertObligationPressure,
+  remedies: readonly BotIntentKind[],
+): string =>
+  item.satisfied
+    ? `${item.id} obligation is satisfied`
+    : `${item.id} pressure ${item.pressure} should be answered by ${remedies.join(' or ')}`;
+
+const agendaOrder = (a: BotExpertAgendaItem, b: BotExpertAgendaItem): number =>
+  Number(a.satisfied) - Number(b.satisfied) ||
+  b.pressure - a.pressure ||
+  BOT_EXPERT_OBLIGATION_ORDER[a.id] - BOT_EXPERT_OBLIGATION_ORDER[b.id];
+
+const agendaItem = (pressure: BotExpertObligationPressure): BotExpertAgendaItem => {
+  const intentKinds = BOT_EXPERT_OBLIGATION_REMEDIES[pressure.id];
+  return {
+    ...pressure,
+    topIntentKind: intentKinds[0]!,
+    intentKinds,
+    reason: agendaItemReason(pressure, intentKinds),
+  };
+};
+
+export const botExpertAgenda = (
+  ctx: BotExpertObligationPressureContext,
+): BotExpertAgendaItem[] =>
+  botExpertObligationPressures(ctx)
+    .map(agendaItem)
+    .sort(agendaOrder);
+
+export const botExpertIntentPressure = (
+  ctx: BotExpertObligationPressureContext,
+  kind: BotIntentKind,
+): BotExpertAgendaItem | undefined => {
+  const obligation = BOT_EXPERT_OBLIGATIONS.find((candidate) =>
+    BOT_EXPERT_OBLIGATION_REMEDIES[candidate.id].includes(kind));
+  return obligation
+    ? agendaItem(botExpertObligationPressure(obligation, obligationPressureFacts(ctx)))
+    : undefined;
 };
 
 export const botHasExpertObligationEvidence = (

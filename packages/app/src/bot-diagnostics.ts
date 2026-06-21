@@ -11,6 +11,7 @@ import {
   type BotMatchTrace,
   type BotPlanner,
   type BotTraceCompetenceGate,
+  type BotTraceExpertAgendaItem,
   type BotTraceFrame,
   type BotTraceObligationPressure,
   type BotTracePhaseAssessment,
@@ -33,12 +34,17 @@ export type AppBotDiagnostics = {
 export type AppBotExpertReport = {
   healthRows: MatchHealthRow[];
   obligationPressures: AppBotObligationPressure[];
+  expertAgenda: AppBotExpertAgendaItem[];
   phaseSummaries: BotTracePhaseSummary[];
   phaseAssessments: BotTracePhaseAssessment[];
   competenceGates: BotTraceCompetenceGate[];
 };
 
 export type AppBotObligationPressure = BotTraceObligationPressure & {
+  player: number;
+};
+
+export type AppBotExpertAgendaItem = BotTraceExpertAgendaItem & {
   player: number;
 };
 
@@ -99,6 +105,16 @@ const latestBotObligationPressures = (
       : [];
   });
 
+const latestBotExpertAgenda = (
+  diagnostics: readonly AppBotDiagnostics[],
+): AppBotExpertAgendaItem[] =>
+  diagnostics.flatMap((diagnostic) => {
+    const frame = diagnostic.frames[diagnostic.frames.length - 1];
+    return frame
+      ? frame.expertAgenda.map((item) => ({ player: diagnostic.player, ...item }))
+      : [];
+  });
+
 export const botDiagnosticTrace = (
   diagnostics: readonly AppBotDiagnostics[],
   stats: MatchStats,
@@ -153,6 +169,7 @@ export const botExpertReport = (
     return {
       healthRows: [],
       obligationPressures: [],
+      expertAgenda: [],
       phaseSummaries: [],
       phaseAssessments: [],
       competenceGates: [],
@@ -170,6 +187,7 @@ export const botExpertReport = (
       detail: diagnosis.detail,
     })),
     obligationPressures: latestBotObligationPressures(diagnostics),
+    expertAgenda: latestBotExpertAgenda(diagnostics),
     phaseSummaries: trace.phaseSummaries,
     phaseAssessments: trace.phaseAssessments,
     competenceGates: players.flatMap((player) => botTraceCompetenceGates(trace, player)),

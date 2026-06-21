@@ -189,6 +189,11 @@ assessment helpers, and trace competence gates consume those helpers instead of 
 victory-axis counts. This keeps the future live scheduler path and post-match diagnostic path pointed
 at the same expert-system question: did this plan produce evidence for the StarCraft objective it
 claimed to pursue?
+Expert-agenda slice is done: the rulebook now turns obligation pressure into a deterministic agenda
+of remedy intent families (`train-worker`/`expand`, `add-production`, `spend-larva`/`train-counter`).
+Intent scoring, live scheduler pressure checks, sampled trace frames, and the post-match UI consume
+that same agenda, so future SC bot work should add new strategic remedies there instead of scattering
+more one-off pressure checks across scheduler, trace, and app code.
 Opening-combat expert slice is done: the rulebook now owns the shared "combat pipeline exists" and
 "opening still needs combat pipeline" predicates, and intent scoring boosts first combat structure
 and first combat unit intents while discounting optional gas/tech/research until the opening has

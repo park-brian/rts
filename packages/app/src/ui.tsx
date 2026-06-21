@@ -167,6 +167,7 @@ const splitHealthRows = (rows: readonly MatchHealthRow[]): { summary?: MatchHeal
 type BotPhaseSummary = ReturnType<Game['botPhaseSummaries']>[number];
 type BotPhaseAssessment = ReturnType<Game['botPhaseAssessments']>[number];
 type BotObligationPressure = ReturnType<Game['botExpertReport']>['obligationPressures'][number];
+type BotExpertAgendaItem = ReturnType<Game['botExpertReport']>['expertAgenda'][number];
 
 const keyedCountLine = <K extends string,>(
   counts: CountMap<K>,
@@ -210,6 +211,12 @@ const pressureLabel = (pressure: BotObligationPressure): string =>
 
 const pressureTitle = (pressure: BotObligationPressure): string =>
   `${pressure.id} ${pressure.satisfied ? 'satisfied' : 'behind'}: ${pressure.detail}`;
+
+const agendaLabel = (item: BotExpertAgendaItem): string =>
+  `${item.id} -> ${item.topIntentKind} ${item.pressure}${item.satisfied ? ' ok' : ''}`;
+
+const agendaTitle = (item: BotExpertAgendaItem): string =>
+  `${item.reason}; remedies ${item.intentKinds.join(', ')}`;
 
 const Btn = (p: {
   label: string;
@@ -779,6 +786,7 @@ const MatchStatsPanel = (p: { game: Game }) => {
   const botReport = p.game.botExpertReport();
   const botHealth = botReport.healthRows;
   const botPressures = botReport.obligationPressures;
+  const botAgenda = botReport.expertAgenda;
   const botPhases = botReport.phaseSummaries;
   const botPhaseAssessments = botReport.phaseAssessments;
   const botGates = botReport.competenceGates;
@@ -910,6 +918,32 @@ const MatchStatsPanel = (p: { game: Game }) => {
                         background: '#0f151e', color: pressure.satisfied ? HEALTH_COLOR.healthy : HEALTH_COLOR.watch,
                         padding: '3px 4px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                       {pressureLabel(pressure)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {botAgenda.length > 0 && (
+        <div style={{ display: 'grid', gap: '4px', marginTop: '10px', borderTop: '1px solid #253142',
+          paddingTop: '8px' }}>
+          <b style={{ color: '#8ea4bd' }}>Expert Agenda</b>
+          {stats.players.map((player) => {
+            const agenda = botAgenda.filter((item) => item.player === player.player);
+            if (agenda.length === 0) return null;
+            return (
+              <div key={player.player} style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '6px',
+                alignItems: 'center', color: '#cdd9e5' }}>
+                <span>P{player.player + 1}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px' }}>
+                  {agenda.map((item) => (
+                    <span key={item.id} title={agendaTitle(item)}
+                      style={{ minWidth: 0, border: `1px solid ${item.satisfied ? HEALTH_COLOR.healthy : HEALTH_COLOR.watch}`,
+                        background: '#0f151e', color: item.satisfied ? HEALTH_COLOR.healthy : HEALTH_COLOR.watch,
+                        padding: '3px 4px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {agendaLabel(item)}
                     </span>
                   ))}
                 </div>

@@ -40,6 +40,7 @@ import {
   type BotIntentExpertEvaluation,
 } from './macro-expert.ts';
 import {
+  botExpertAgenda,
   botBuildsFirstCombatStructure,
   botExpertObligationDetail,
   botExpertObligationPressures,
@@ -47,6 +48,7 @@ import {
   botHasExpertObligationEvidence,
   botPlanEvidenceAssessment,
   botPlanObjectiveProgressAssessment,
+  type BotExpertAgendaItem,
   type BotExpertObligationPressure,
 } from './macro-expert-system.ts';
 
@@ -75,6 +77,7 @@ export type BotTraceFrame = {
   waitsByReason: CountMap<BotFailureReason>;
   blocksByReason: CountMap<BotFailureReason>;
   obligationPressures: BotTraceObligationPressure[];
+  expertAgenda: BotTraceExpertAgendaItem[];
   topIntents: BotTraceIntentSummary[];
   placementDiagnostics: BotTracePlacementDiagnostic[];
   objective: BotObjectiveSnapshot;
@@ -88,6 +91,10 @@ type BotTracePlacementReason = Pick<PlacementScoreReason, 'kind' | 'value' | 'de
 export type BotTraceObligationPressure = Pick<
   BotExpertObligationPressure,
   'id' | 'axis' | 'detail' | 'pressure' | 'satisfied'
+>;
+export type BotTraceExpertAgendaItem = Pick<
+  BotExpertAgendaItem,
+  'id' | 'axis' | 'detail' | 'pressure' | 'satisfied' | 'topIntentKind' | 'intentKinds' | 'reason'
 >;
 
 export type BotTracePlacementDiagnostic = Pick<
@@ -352,6 +359,17 @@ const obligationPressureSummary = (pressure: BotExpertObligationPressure): BotTr
   detail: pressure.detail,
   pressure: pressure.pressure,
   satisfied: pressure.satisfied,
+});
+
+const expertAgendaSummary = (item: BotExpertAgendaItem): BotTraceExpertAgendaItem => ({
+  id: item.id,
+  axis: item.axis,
+  detail: item.detail,
+  pressure: item.pressure,
+  satisfied: item.satisfied,
+  topIntentKind: item.topIntentKind,
+  intentKinds: item.intentKinds,
+  reason: item.reason,
 });
 
 const countCommands = (frame: BotTraceFrame, types: readonly CommandType[]): number =>
@@ -1255,13 +1273,15 @@ export const botTraceFrame = (
     if (record.result.status === 'blocked') inc(blocksByReason, record.result.reason);
   }
   const objective = botObjectiveSnapshot(s, player);
-  const obligationPressures = botExpertObligationPressures({
+  const expertContext = {
     workers: facts.workers.length,
     workerTarget: plan.strategy.workerTarget,
     bases: facts.bases.length,
     attackThreshold: plan.strategy.attackThreshold,
     objective,
-  }).map(obligationPressureSummary);
+  };
+  const obligationPressures = botExpertObligationPressures(expertContext).map(obligationPressureSummary);
+  const expertAgenda = botExpertAgenda(expertContext).map(expertAgendaSummary);
 
   return {
     tick: s.tick,
@@ -1288,6 +1308,7 @@ export const botTraceFrame = (
     waitsByReason,
     blocksByReason,
     obligationPressures,
+    expertAgenda,
     topIntents: plan.intentResults.slice(0, TOP_TRACE_INTENTS).map(intentSummary),
     placementDiagnostics: plan.placementDiagnostics.slice(0, TOP_TRACE_PLACEMENTS).map(placementSummary),
     objective,
