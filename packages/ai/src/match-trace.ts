@@ -245,6 +245,7 @@ export type BotTraceCompetenceGateDomain =
   | 'worker-pipeline'
   | 'army-pipeline'
   | 'defense-response'
+  | 'resource-conversion'
   | 'macro-spending'
   | 'production'
   | 'obligation-pressure'
@@ -1726,6 +1727,36 @@ const defenseResponseGate = (
   );
 };
 
+const RESOURCE_CONVERSION_RETURNED_FLOOR = 300;
+const RESOURCE_CONVERSION_MIN_VALUE = 100;
+
+const resourceConversionGate = (
+  stats: PlayerMatchStats | undefined,
+  player: number,
+): BotTraceCompetenceGate => {
+  if (!stats) {
+    return competenceGate(player, 'resource-conversion', 'failing', 0, 'missing resource-conversion match stats');
+  }
+  const returned = stats.mineralsReturned + stats.gasReturned;
+  const created = stats.mineralValueCreated + stats.gasValueCreated;
+  const banked = stats.minerals + stats.gas;
+  const conversion = returned > 0 ? Math.round(created * 100 / returned) : 0;
+  const detail = `converted ${created} value from ${returned} returned resources (${conversion}%), bank ${banked}`;
+  if (returned < RESOURCE_CONVERSION_RETURNED_FLOOR) {
+    return competenceGate(player, 'resource-conversion', 'healthy', returned, detail);
+  }
+  if (created < RESOURCE_CONVERSION_MIN_VALUE) {
+    return competenceGate(
+      player,
+      'resource-conversion',
+      'failing',
+      RESOURCE_CONVERSION_MIN_VALUE - created,
+      detail,
+    );
+  }
+  return competenceGate(player, 'resource-conversion', 'healthy', created, detail);
+};
+
 const obligationPressureGate = (
   frames: readonly BotTraceFrame[],
   phases: readonly BotTracePhaseSummary[],
@@ -1811,6 +1842,7 @@ export const botTraceCompetenceGates = (
   gates.push(workerPipelineGate(frames, player));
   gates.push(armyPipelineGate(frames, player));
   gates.push(defenseResponseGate(frames, player));
+  gates.push(resourceConversionGate(stats, player));
 
   gates.push(competenceGate(
     player,

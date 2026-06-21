@@ -1083,6 +1083,11 @@ Remaining work:
   - Defense-response competence slice is done: whole-match gates now fail sampled protected-region
     threats that have no safety-response intent, keeping "base is under attack and nobody reacts"
     distinct from generic combat activity elsewhere on the map.
+  - Resource-conversion competence slice is done: whole-match gates now include a
+    `resource-conversion` domain derived from returned income and created value. Once a trace has
+    meaningful returned resources, the gate fails if almost none of that income became units or
+    structures, catching "the bot mined money but the lights stayed off" separately from worker,
+    army-pipeline, and macro-spending failures.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

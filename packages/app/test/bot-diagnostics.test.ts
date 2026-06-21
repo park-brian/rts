@@ -96,6 +96,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
     'placement',
     'plan-coherence',
     'production',
+    'resource-conversion',
     'tech',
     'worker-pipeline',
   ];
@@ -112,6 +113,7 @@ test('traceable bot controllers produce expert health rows for the post-match pa
   assert.equal(gates.some((gate) => gate.domain === 'worker-pipeline' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'army-pipeline' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'defense-response' && gate.detail.length > 0), true);
+  assert.equal(gates.some((gate) => gate.domain === 'resource-conversion' && gate.detail.includes('converted')), true);
   assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.length > 0), true);
   assert.equal(gates.some((gate) => gate.domain === 'obligation-pressure' && gate.detail.length > 0), true);

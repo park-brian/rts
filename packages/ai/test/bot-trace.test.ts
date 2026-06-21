@@ -851,6 +851,47 @@ test('bot competence gates flag ready army production without an army pipeline',
   assert.equal(passing?.detail.includes('army-pipeline evidence'), true);
 });
 
+test('bot competence gates flag returned resources that never convert into value', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8137, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const frames = [0, 60, 120].map((tick) => ({ ...frame, tick }));
+  const traceFor = (created: number): BotMatchTrace => {
+    const alerts = botTraceAlerts(frames);
+    const stats = createMatchStats(s);
+    Object.assign(stats.players[0]!, {
+      mineralsReturned: 360,
+      gasReturned: 40,
+      mineralValueCreated: created,
+      gasValueCreated: 0,
+      minerals: 600,
+      gas: 80,
+    });
+    const objectiveTrends = botObjectiveTrends(frames);
+    return {
+      frames,
+      stats,
+      invalidCommands: 0,
+      invalidCommandsByPlayer: [0, 0],
+      commandResults: [],
+      objectiveTrends,
+      alerts,
+      expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+      phaseSummaries: botTracePhaseSummaries(frames, alerts),
+      phaseAssessments: [],
+    };
+  };
+
+  const failing = botTraceCompetenceGates(traceFor(0), 0).find((gate) => gate.domain === 'resource-conversion');
+  const passing = botTraceCompetenceGates(traceFor(150), 0).find((gate) => gate.domain === 'resource-conversion');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('converted 0 value from 400 returned resources'), true);
+  assert.equal(passing?.status, 'healthy');
+  assert.equal(passing?.detail.includes('converted 150 value from 400 returned resources'), true);
+});
+
 test('bot competence gates flag protected threats without a safety response', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8136, factions: [Terran, Terran] });
   const s = sim.fullState();
