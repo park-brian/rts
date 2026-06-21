@@ -1806,6 +1806,7 @@ export const botTraceCompetenceGates = (
   const macroAlerts = playerAlerts(trace.alerts, player, ['resource-float-stall', 'expected-progress-stall']);
   const placementAlerts = playerAlerts(trace.alerts, player, ['placement-stall']);
   const techAlerts = playerAlerts(trace.alerts, player, ['tech-stall']);
+  const combatAlerts = playerAlerts(trace.alerts, player, ['combat-intent-stall', 'pressure-idle-stall']);
   const summary = trace.expertDiagnoses.find((entry) => entry.player === player && entry.domain === 'summary');
   const axes = playerAxisCounts(trace.phaseSummaries, player);
   const macroCommands = stats
@@ -1892,14 +1893,15 @@ export const botTraceCompetenceGates = (
   gates.push(planCoherenceGate(trace.phaseSummaries, player));
   gates.push(objectiveProgressGate(trace.phaseSummaries, player));
 
+  let combatGateDetail = 'no combat command attempts were observed';
+  if (combatCommands > 0) combatGateDetail = `${combatCommands} combat command attempts`;
+  if (combatAlerts.length > 0) combatGateDetail = combatAlerts.map((alert) => alert.detail).join('; ');
   gates.push(competenceGate(
     player,
     'combat',
-    combatCommands > 0 ? 'healthy' : 'failing',
-    combatCommands,
-    combatCommands > 0
-      ? `${combatCommands} combat command attempts`
-      : 'no combat command attempts were observed',
+    combatAlerts.length === 0 && combatCommands > 0 ? 'healthy' : 'failing',
+    combatAlerts.length > 0 ? alertSeverity(combatAlerts) : combatCommands,
+    combatGateDetail,
   ));
 
   gates.push(competenceGate(

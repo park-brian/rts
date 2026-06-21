@@ -609,8 +609,23 @@ test('bot trace alerts classify pressure posture with idle army', () => {
     topIntents: [],
   }));
   const alerts = botTraceAlerts(frames);
-  const diagnoses = botTraceExpertDiagnoses(frames, createMatchStats(s), alerts);
+  const stats = createMatchStats(s);
+  const objectiveTrends = botObjectiveTrends(frames);
+  const diagnoses = botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends);
+  const trace: BotMatchTrace = {
+    frames,
+    stats,
+    invalidCommands: 0,
+    invalidCommandsByPlayer: [0, 0],
+    commandResults: [],
+    objectiveTrends,
+    alerts,
+    expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+    phaseSummaries: botTracePhaseSummaries(frames, alerts),
+    phaseAssessments: [],
+  };
   const alert = alerts.find((candidate) => candidate.kind === 'pressure-idle-stall');
+  const combatGate = botTraceCompetenceGates(trace, 0).find((gate) => gate.domain === 'combat');
 
   assert.ok(alert);
   assert.equal(alert.detail.includes('pressure posture'), true);
@@ -619,6 +634,8 @@ test('bot trace alerts classify pressure posture with idle army', () => {
     entry.domain === 'combat' &&
     entry.status === 'failing' &&
     entry.detail.includes('pressure posture')), true);
+  assert.equal(combatGate?.status, 'failing');
+  assert.equal(combatGate?.detail.includes('pressure posture'), true);
 });
 
 test('bot trace alerts classify repeated expected progress stalls', () => {
