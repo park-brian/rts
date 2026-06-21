@@ -20,6 +20,7 @@ export const setupMatch = (
   seed: number,
   factions?: Faction[],
   teams?: readonly number[],
+  startSlots?: readonly number[],
 ): State => {
   const s = makeState(map, playerCount, seed);
   const e = s.e;
@@ -37,7 +38,8 @@ export const setupMatch = (
   // Players: depot + workers, per faction.
   for (let p = 0; p < playerCount; p++) {
     const faction = factions?.[p] ?? Terran;
-    const loc = map.starts[p % map.starts.length]!;
+    const startSlot = startSlots?.[p] ?? p;
+    const loc = map.starts[startSlot % map.starts.length]!;
     const cx = tilePx(loc.x);
     const cy = tilePx(loc.y);
     const depot = slotOf(spawnUnit(s, faction.depot, p, cx, cy));

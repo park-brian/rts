@@ -148,8 +148,12 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /MAP_PRESETS\.map/);
   assert.match(ui, /MIDFIELD_MODULES\.map/);
   assert.match(ui, /setSeedText\(String\(randomSeed\(\)\)\)/);
-  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams\)/);
+  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams,\s*enabledRows\)/);
   assert.match(ui, /setupTeams\(ui\.playerTeams\.value,\s*ui\.perTeam\.value \* 2\)/);
+  assert.match(ui, /setupEnabled\(ui\.playerEnabled\.value,\s*ui\.perTeam\.value \* 2\)/);
+  assert.match(ui, /const enabledRows = setupEnabled\(enabled, players\)/);
+  assert.match(ui, /At least two players must be active/);
+  assert.match(ui, /<input type="checkbox" checked=\{on\} disabled=\{locked\}/);
   assert.match(ui, /setController = \(slot: number, controller: 'human' \| 'ai'\)/);
   assert.match(ui, /value=\{mode === 'play' && human === slot \? 'human' : 'ai'\}/);
   assert.match(ui, /<option value="human">Human<\/option>/);
@@ -167,6 +171,8 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(game, /replayFromCurrent\(this\.sim,\s*this\.mapSpec\)/);
   assert.match(session, /createPlaySession = \([\s\S]*mapSpec:\s*MapSpec/);
   assert.match(session, /mapFromSpec\(mapSpec\)/);
+  assert.match(session, /startSlots = activeSetupSlots\(playerEnabled\)/);
+  assert.match(session, /startSlots: replay\.startSlots/);
 });
 
 test('math renderer exposes a subtle build-tile grid for placement audits', () => {

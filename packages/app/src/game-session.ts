@@ -22,6 +22,9 @@ export type PlaySession = {
   humanPlayer: number;
   playerRaceNames: FactionName[];
   playerTeamIds: number[];
+  setupRaceNames: FactionName[];
+  setupTeamIds: number[];
+  playerEnabled: boolean[];
   controllers: (Controller | null)[];
   botDiagnostics: AppBotDiagnostics[];
 };
@@ -52,6 +55,17 @@ export const defaultRaceNames = (players: number): FactionName[] =>
 export const defaultTeamIds = (players: number): number[] =>
   Array.from({ length: players }, (_, i) => i < players / 2 ? 0 : 1);
 
+export const defaultPlayerEnabled = (players: number): boolean[] =>
+  Array.from({ length: players }, () => true);
+
+export const normalizePlayerEnabled = (enabled: readonly boolean[] | undefined, players: number): boolean[] =>
+  enabled && enabled.length === players ? enabled.map(Boolean) : defaultPlayerEnabled(players);
+
+const activeSetupSlots = (enabled: readonly boolean[]): number[] => {
+  const active = enabled.map((on, slot) => on ? slot : -1).filter((slot) => slot >= 0);
+  return active.length >= 2 ? active : enabled.map((_, slot) => slot);
+};
+
 export const normalizeTeamIds = (teams: readonly number[] | undefined, players: number): number[] =>
   teams && teams.length === players
     ? teams.map((team) => Math.max(0, Math.trunc(team)))
@@ -75,18 +89,27 @@ export const createPlaySession = (
   raceNames: readonly string[],
   humanPlayer: number,
   teamIds?: readonly number[],
+  enabledSlots?: readonly boolean[],
 ): PlaySession => {
   const perTeam = mapSpec.kind === 'procedural' ? mapSpec.perTeam : 1;
   const seed = mapSpec.kind === 'procedural' ? mapSpec.seed : 1;
-  const players = perTeam * 2;
-  const playerRaceNames = raceNames.length === players
+  const setupPlayers = perTeam * 2;
+  const setupRaceNames = raceNames.length === setupPlayers
     ? raceNames.map(normalizeRace)
-    : defaultRaceNames(players);
-  const playerTeamIds = normalizeTeamIds(teamIds, players);
-  const normalizedHuman = Math.max(0, Math.min(players - 1, humanPlayer));
+    : defaultRaceNames(setupPlayers);
+  const setupTeamIds = normalizeTeamIds(teamIds, setupPlayers);
+  const playerEnabled = normalizePlayerEnabled(enabledSlots, setupPlayers);
+  const startSlots = activeSetupSlots(playerEnabled);
+  const players = startSlots.length;
+  const playerRaceNames = startSlots.map((slot) => setupRaceNames[slot]!);
+  const playerTeamIds = startSlots.map((slot) => setupTeamIds[slot]!);
+  const requestedHumanSlot = Math.max(0, Math.min(setupPlayers - 1, humanPlayer));
+  const activeHuman = startSlots.indexOf(requestedHumanSlot);
+  const normalizedHuman = activeHuman >= 0 ? activeHuman : 0;
+  const resolvedHumanSlot = startSlots[normalizedHuman] ?? requestedHumanSlot;
   const factions: Faction[] = playerRaceNames.map((race) => Factions[race]);
   const map = mapFromSpec(mapSpec);
-  const sim = new Sim({ map, players, seed, record: true, vision: true, factions, teams: playerTeamIds });
+  const sim = new Sim({ map, players, seed, record: true, vision: true, factions, teams: playerTeamIds, startSlots });
   const botDiagnostics = createBotDiagnostics(players, factions);
   const human = mode === 'play' ? normalizedHuman : -1;
   const controllers = Array.from({ length: players }, (_, p) =>
@@ -99,9 +122,12 @@ export const createPlaySession = (
     map,
     sim,
     human,
-    humanPlayer: normalizedHuman,
+    humanPlayer: resolvedHumanSlot,
     playerRaceNames,
     playerTeamIds,
+    setupRaceNames,
+    setupTeamIds,
+    playerEnabled,
     controllers,
     botDiagnostics,
   };
@@ -121,7 +147,15 @@ export const createReplaySession = (
   const playerTeamIds = normalizeTeamIds(replay.teams, replay.players);
   const map = mapFromSpec(replay.map);
   const factions = playerRaceNames.map((race) => Factions[race]);
-  const sim = new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions, teams: playerTeamIds });
+  const sim = new Sim({
+    map,
+    players: replay.players,
+    seed: replay.seed,
+    vision: true,
+    factions,
+    teams: playerTeamIds,
+    startSlots: replay.startSlots,
+  });
   return {
     replay,
     mode: 'replay',
@@ -143,5 +177,13 @@ export const createReplaySession = (
 export const createReplaySeekSim = (replay: Replay, map: MapDef): Sim => {
   const races = replay.factions ? replay.factions.map(normalizeRace) : defaultRaceNames(replay.players);
   const factions = races.map((race) => Factions[race]);
-  return new Sim({ map, players: replay.players, seed: replay.seed, vision: true, factions, teams: normalizeTeamIds(replay.teams, replay.players) });
+  return new Sim({
+    map,
+    players: replay.players,
+    seed: replay.seed,
+    vision: true,
+    factions,
+    teams: normalizeTeamIds(replay.teams, replay.players),
+    startSlots: replay.startSlots,
+  });
 };

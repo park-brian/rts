@@ -145,6 +145,7 @@ export const ui = {
   humanPlayer: signal(0),
   playerRaces: signal<string[]>(['terran', 'terran']),
   playerTeams: signal<number[]>([0, 1]),
+  playerEnabled: signal<boolean[]>([true, true]),
   selectionView: signal<SelectionView>(EMPTY_SELECTION_VIEW),
   controlGroupCounts: signal<number[]>(Array(10).fill(0)),
   armedCommand: signal<ArmedCommand>({ t: 'none' }),

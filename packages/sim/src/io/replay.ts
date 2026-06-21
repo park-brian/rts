@@ -27,6 +27,7 @@ export type Replay = {
   seed: number;
   factions?: FactionName[];
   teams?: number[];
+  startSlots?: number[];
   frames: PlayerCommands[][]; // frames[t] = the command batch applied at tick t
 };
 
@@ -295,6 +296,10 @@ export const validateReplay = (x: unknown): Replay => {
   if (factions !== undefined && factions.length !== players) fail('factions length must match players');
   const teams = r.teams === undefined ? undefined : readArray(r.teams, 'teams must be an array').map((team) => readNonNegativeInt(team, 'team id must be a non-negative integer'));
   if (teams !== undefined && teams.length !== players) fail('teams length must match players');
+  const startSlots = r.startSlots === undefined
+    ? undefined
+    : readArray(r.startSlots, 'startSlots must be an array').map((slot) => readNonNegativeInt(slot, 'start slot must be a non-negative integer'));
+  if (startSlots !== undefined && startSlots.length !== players) fail('startSlots length must match players');
   const frames = readArray(r.frames, 'frames must be an array');
   return {
     version: REPLAY_VERSION,
@@ -303,6 +308,7 @@ export const validateReplay = (x: unknown): Replay => {
     seed,
     ...(factions ? { factions } : {}),
     ...(teams ? { teams } : {}),
+    ...(startSlots ? { startSlots } : {}),
     frames: frames.map((frame: unknown) => {
       const frameBatch = readArray(frame, 'each frame must be an array');
       return frameBatch.map(validatePlayerCommands);
@@ -320,21 +326,35 @@ export const parseReplay = (json: string): Replay => {
   return validateReplay(parsed);
 };
 
+const nonIdentityStartSlots = (startSlots: readonly number[]): number[] | undefined =>
+  startSlots.length > 0 && startSlots.some((slot, i) => slot !== i) ? Array.from(startSlots) : undefined;
+
 /** Assemble a Replay from a recording Sim's captured frames. */
-export const toReplay = (sim: Sim, map: MapSpec): Replay => ({
-  version: REPLAY_VERSION,
-  map,
-  players: sim.fullState().teams.length,
-  seed: sim.seed,
-  factions: sim.factions.length ? sim.factions.map(factionNameOf) : undefined,
-  teams: Array.from(sim.fullState().teams),
-  frames: sim.frames ?? [],
-});
+export const toReplay = (sim: Sim, map: MapSpec): Replay => {
+  const startSlots = nonIdentityStartSlots(sim.startSlots);
+  return {
+    version: REPLAY_VERSION,
+    map,
+    players: sim.fullState().teams.length,
+    seed: sim.seed,
+    factions: sim.factions.length ? sim.factions.map(factionNameOf) : undefined,
+    teams: Array.from(sim.fullState().teams),
+    ...(startSlots ? { startSlots } : {}),
+    frames: sim.frames ?? [],
+  };
+};
 
 const simForReplay = (r: Replay): Sim => {
   const replay = validateReplay(r);
   const factions = replay.factions?.map((name) => Factions[name]);
-  return new Sim({ map: mapFromSpec(replay.map), players: replay.players, seed: replay.seed, factions, teams: replay.teams });
+  return new Sim({
+    map: mapFromSpec(replay.map),
+    players: replay.players,
+    seed: replay.seed,
+    factions,
+    teams: replay.teams,
+    startSlots: replay.startSlots,
+  });
 };
 
 /** Re-simulate a replay to completion; returns the final Sim. */

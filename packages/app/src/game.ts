@@ -15,7 +15,7 @@ import { VisibilityController } from './visibility-controller.ts';
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 import { CommandController } from './command-controller.ts';
 import {
-  createPlaySession, createReplaySeekSim, createReplaySession, defaultRaceNames, defaultTeamIds,
+  createPlaySession, createReplaySeekSim, createReplaySession, defaultPlayerEnabled, defaultRaceNames, defaultTeamIds,
   exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
 } from './game-session.ts';
 import {
@@ -44,6 +44,7 @@ export class Game {
   mapSpec: MapSpec = mapSpecFor(1, 1);
   playerRaceNames: FactionName[] = ['terran', 'terran'];
   playerTeamIds: number[] = defaultTeamIds(2);
+  playerEnabled: boolean[] = defaultPlayerEnabled(2);
   humanPlayer = 0;
   matchStats!: MatchStats;
   botDiagnostics: AppBotDiagnostics[] = [];
@@ -152,16 +153,18 @@ export class Game {
     humanPlayer = this.humanPlayer,
     mapSpec = mapSpecFor(perTeam, seed, this.mapSpec),
     teamIds: readonly number[] = this.playerTeamIds,
+    playerEnabled: readonly boolean[] = this.playerEnabled,
   ): void {
     if (mode === 'replay') { this.startReplay(); return; } // toggle into watching the last game
     this.replay = null;
-    const session = createPlaySession(mode, mapSpec, raceNames, humanPlayer, teamIds);
+    const session = createPlaySession(mode, mapSpec, raceNames, humanPlayer, teamIds, playerEnabled);
     this.mode = session.mode;
     this.seed = session.seed;
     this.perTeam = session.perTeam;
     this.mapSpec = mapSpec;
-    this.playerRaceNames = session.playerRaceNames;
-    this.playerTeamIds = session.playerTeamIds;
+    this.playerRaceNames = session.setupRaceNames;
+    this.playerTeamIds = session.setupTeamIds;
+    this.playerEnabled = session.playerEnabled;
     this.humanPlayer = session.humanPlayer;
     this.map = session.map;
     this.sim = session.sim;
@@ -178,6 +181,7 @@ export class Game {
     ui.humanPlayer.value = this.humanPlayer;
     ui.playerRaces.value = [...this.playerRaceNames];
     ui.playerTeams.value = [...this.playerTeamIds];
+    ui.playerEnabled.value = [...this.playerEnabled];
     this.clearTargetModes();
     clearSelectionView();
     ui.hasReplay.value = false;
@@ -197,6 +201,7 @@ export class Game {
     this.mapSpec = session.replay.map;
     this.playerRaceNames = session.playerRaceNames;
     this.playerTeamIds = session.playerTeamIds;
+    this.playerEnabled = defaultPlayerEnabled(session.playerRaceNames.length);
     this.map = session.map;
     this.sim = session.sim;
     this.matchStats = createMatchStats(this.sim.fullState());
@@ -212,6 +217,7 @@ export class Game {
     ui.mode.value = 'replay';
     ui.playerRaces.value = [...this.playerRaceNames];
     ui.playerTeams.value = [...this.playerTeamIds];
+    ui.playerEnabled.value = [...this.playerEnabled];
     ui.replayTotal.value = r.frames.length;
     ui.replaySpeed.value = 1;
     ui.paused.value = false;

@@ -5,7 +5,7 @@ import { mapFromSpec, parseReplay, toReplay, play, replayHashes, type MapSpec } 
 import { generateMap } from '../src/map/procedural.ts';
 import { eid, ENTITY_COLUMNS, hashState, kill, makeState, NONE, slotOf, type State } from '../src/entity/world.ts';
 import { sliceMap } from '../src/map/core.ts';
-import { Kind, Order, Protoss, Role, Units, Zerg } from '../src/data/index.ts';
+import { Kind, Order, Protoss, Role, TILE, Units, Zerg } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import type { Command, PlayerCommands } from '../src/commands/types.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
@@ -265,6 +265,27 @@ test('replay preserves explicit player teams', () => {
   assert.deepEqual(replay.teams, teams);
   assert.deepEqual(Array.from(restored.teams), teams);
   assert.equal(restored.startTeams, 2);
+});
+
+test('replay preserves explicit map start slots for active setup rows', () => {
+  const map = generateMap(2, SEED);
+  const startSlots = [0, 3];
+  const sim = new Sim({ map, players: 2, seed: SEED, record: true, factions: [Protoss, Zerg], teams: [0, 1], startSlots });
+  const replay = parseReplay(JSON.stringify(toReplay(sim, { kind: 'procedural', perTeam: 2, seed: SEED })));
+  const restored = play(replay);
+  const e = restored.fullState().e;
+
+  assert.deepEqual(replay.startSlots, startSlots);
+  assert.deepEqual(restored.startSlots, startSlots);
+
+  const expected = startSlots.map((slot) => map.starts[slot]!);
+  for (let player = 0; player < startSlots.length; player++) {
+    const depot = Array.from({ length: e.hi }, (_, slot) => slot)
+      .find((slot) => e.alive[slot] === 1 && e.owner[slot] === player && (e.flags[slot]! & Role.Structure) !== 0);
+    assert.notEqual(depot, undefined, 'player has a starting depot');
+    assert.equal(e.x[depot!], fx(expected[player]!.x * TILE + (TILE >> 1)));
+    assert.equal(e.y[depot!], fx(expected[player]!.y * TILE + (TILE >> 1)));
+  }
 });
 
 test('recording stores idle ticks as compact empty frames', () => {

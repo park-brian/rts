@@ -954,6 +954,8 @@ const setupTeams = (teams: readonly number[], players: number): number[] =>
   teams.length === players
     ? teams.map((team) => Math.max(0, Math.trunc(team)))
     : Array.from({ length: players }, (_, i) => i < players / 2 ? 0 : 1);
+const setupEnabled = (enabled: readonly boolean[], players: number): boolean[] =>
+  Array.from({ length: players }, (_, i) => enabled[i] ?? true);
 const defaultMapSpec = (perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
   ({ kind: 'procedural', perTeam, seed, preset: 'teamPlateaus', midfield: 'empty' });
 const proceduralMapSpec = (spec: MapSpec, perTeam: number, seed: number): Extract<MapSpec, { kind: 'procedural' }> =>
@@ -1076,6 +1078,7 @@ const SetupModal = (p: { game: Game }) => {
   const [human, setHuman] = useState(ui.humanPlayer.value);
   const [races, setRaces] = useState<FactionName[]>(setupRaces(ui.playerRaces.value, ui.perTeam.value * 2));
   const [teams, setTeams] = useState<number[]>(setupTeams(ui.playerTeams.value, ui.perTeam.value * 2));
+  const [enabled, setEnabledState] = useState<boolean[]>(setupEnabled(ui.playerEnabled.value, ui.perTeam.value * 2));
   const initialMap = proceduralMapSpec(p.game.mapSpec, ui.perTeam.value, p.game.seed);
   const [preset, setPreset] = useState<MapPreset>(initialMap.preset ?? 'teamPlateaus');
   const [midfield, setMidfield] = useState<MidfieldModule>(initialMap.midfield ?? 'empty');
@@ -1085,12 +1088,15 @@ const SetupModal = (p: { game: Game }) => {
   const mapSpec: Extract<MapSpec, { kind: 'procedural' }> = { kind: 'procedural', perTeam, seed, preset, midfield };
   const previewMap = useMemo(() => mapFromSpec(mapSpec), [perTeam, seed, preset, midfield]);
   const previewName = generatedMapName(mapSpec);
+  const enabledRows = setupEnabled(enabled, players);
+  const activeRows = enabledRows.filter(Boolean).length;
   if (!ui.setupOpen.value) return null;
   const setPerTeam = (n: number): void => {
     setPerTeamState(n);
     setHuman(Math.min(human, n * 2 - 1));
     setRaces((old) => setupRaces(old, n * 2));
     setTeams((old) => setupTeams(old, n * 2));
+    setEnabledState((old) => setupEnabled(old, n * 2));
   };
   const setRace = (slot: number, race: FactionName): void => {
     const next = setupRaces(races, players);
@@ -1102,8 +1108,19 @@ const SetupModal = (p: { game: Game }) => {
     next[slot] = Math.max(0, Math.trunc(team));
     setTeams(next);
   };
+  const setEnabled = (slot: number, on: boolean): void => {
+    const next = setupEnabled(enabled, players);
+    if (!on && next[slot] && activeRows <= 2) return;
+    next[slot] = on;
+    if (!next[human]) {
+      const fallback = next.findIndex(Boolean);
+      if (fallback >= 0) setHuman(fallback);
+    }
+    setEnabledState(next);
+  };
   const setController = (slot: number, controller: 'human' | 'ai'): void => {
     if (controller === 'human') {
+      if (!enabledRows[slot]) setEnabled(slot, true);
       setMode('play');
       setHuman(slot);
     } else if (human === slot) {
@@ -1112,7 +1129,7 @@ const SetupModal = (p: { game: Game }) => {
   };
   const start = (): void => {
     ui.setupOpen.value = false;
-    p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams);
+    p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams, enabledRows);
   };
 
   return (
@@ -1179,28 +1196,40 @@ const SetupModal = (p: { game: Game }) => {
           <details open style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
             <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Players</summary>
             <div style={{ display: 'grid', gap: '8px' }}>
-              {Array.from({ length: players }, (_, slot) => (
-                <div style={{ display: 'grid', gridTemplateColumns: '46px 92px 88px 1fr', gap: '8px', alignItems: 'center' }}>
-                  <span style={{ color: '#cdd9e5', fontWeight: '700' }}>P{slot + 1}</span>
-                  <select value={mode === 'play' && human === slot ? 'human' : 'ai'}
-                    onInput={(e) => setController(slot, e.currentTarget.value === 'human' ? 'human' : 'ai')}
-                    style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
-                    <option value="human">Human</option>
-                    <option value="ai">AI</option>
-                  </select>
-                  <select value={teams[slot] ?? 0} onInput={(e) => setTeam(slot, Number.parseInt(e.currentTarget.value, 10))}
-                    style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
-                    {Array.from({ length: players }, (_, team) => (
-                      <option value={team}>Team {team + 1}</option>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {RACES.map((race) => (
-                      <Btn compact label={raceLabel(race)} active={races[slot] === race} onClick={() => setRace(slot, race)} />
-                    ))}
+              {Array.from({ length: players }, (_, slot) => {
+                const on = enabledRows[slot] ?? true;
+                const locked = on && activeRows <= 2;
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '44px 42px 92px 88px 1fr', gap: '8px',
+                    alignItems: 'center', opacity: on ? '1' : '0.52' }}>
+                    <label title={locked ? 'At least two players must be active' : undefined}
+                      style={{ color: '#9fb1c7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="checkbox" checked={on} disabled={locked}
+                        onInput={(e) => setEnabled(slot, e.currentTarget.checked)} />
+                      On
+                    </label>
+                    <span style={{ color: '#cdd9e5', fontWeight: '700' }}>P{slot + 1}</span>
+                    <select value={mode === 'play' && human === slot ? 'human' : 'ai'} disabled={!on}
+                      onInput={(e) => setController(slot, e.currentTarget.value === 'human' ? 'human' : 'ai')}
+                      style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
+                      <option value="human">Human</option>
+                      <option value="ai">AI</option>
+                    </select>
+                    <select value={teams[slot] ?? 0} disabled={!on}
+                      onInput={(e) => setTeam(slot, Number.parseInt(e.currentTarget.value, 10))}
+                      style={{ background: '#111923', color: '#e6edf3', border: '1px solid #2a3340', padding: '6px', minWidth: '0' }}>
+                      {Array.from({ length: players }, (_, team) => (
+                        <option value={team}>Team {team + 1}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {RACES.map((race) => (
+                        <Btn compact disabled={!on} label={raceLabel(race)} active={races[slot] === race} onClick={() => setRace(slot, race)} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </details>
           <details style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
