@@ -479,7 +479,7 @@ test('bot trace alerts classify missing army production intent', () => {
     ...frame,
     tick,
     commandsByType: { ...frame.commandsByType, train: 0 },
-    intentsByKind: { ...frame.intentsByKind, 'train-worker': 0, 'spend-larva': 0, 'train-counter': 0 },
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 1, 'spend-larva': 0, 'train-counter': 0 },
     idleProducers: 1,
     idleLarvae: 0,
     objective: { ...frame.objective, resourceFloat: 900 },
@@ -493,7 +493,7 @@ test('bot trace alerts classify missing army production intent', () => {
     alert.kind === 'no-army-production' &&
     alert.fromTick === 0 &&
     alert.toTick === 120 &&
-    alert.detail.includes('no train intent')), true);
+    alert.detail.includes('no combat-train intent')), true);
 });
 
 test('bot trace alerts classify queued army pipeline as production underuse, not no production', () => {
@@ -506,7 +506,7 @@ test('bot trace alerts classify queued army pipeline as production underuse, not
     ...frame,
     tick,
     commandsByType: { ...frame.commandsByType, train: 0 },
-    intentsByKind: { ...frame.intentsByKind, 'train-worker': 0, 'spend-larva': 0, 'train-counter': 0 },
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 1, 'spend-larva': 0, 'train-counter': 0 },
     idleProducers: 1,
     idleLarvae: 0,
     queuedArmyProduction: 1,
@@ -731,6 +731,56 @@ test('bot competence gates flag worker pipeline going dark before the economy ta
 
   assert.equal(passing?.status, 'healthy');
   assert.equal(passing?.detail.includes('worker-pipeline evidence'), true);
+});
+
+test('bot competence gates flag ready army production without an army pipeline', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8135, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const darkFrames = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, train: 0 },
+    idleProducers: 1,
+    idleLarvae: 0,
+    queuedArmyProduction: 0,
+    intentsByKind: { ...frame.intentsByKind, 'train-worker': 1, 'spend-larva': 0, 'train-counter': 0 },
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 4,
+    supplyMax: 20,
+  }));
+  const traceFor = (frames: typeof darkFrames): BotMatchTrace => {
+    const alerts = botTraceAlerts(frames);
+    const stats = createMatchStats(s);
+    const objectiveTrends = botObjectiveTrends(frames);
+    return {
+      frames,
+      stats,
+      invalidCommands: 0,
+      invalidCommandsByPlayer: [0, 0],
+      commandResults: [],
+      objectiveTrends,
+      alerts,
+      expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+      phaseSummaries: botTracePhaseSummaries(frames, alerts),
+      phaseAssessments: [],
+    };
+  };
+  const failing = botTraceCompetenceGates(traceFor(darkFrames), 0).find((gate) => gate.domain === 'army-pipeline');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('ready army production without queued army or combat-train intent'), true);
+
+  const activeFrames = darkFrames.map((sample) => ({
+    ...sample,
+    queuedArmyProduction: 1,
+    intentsByKind: { ...sample.intentsByKind, 'train-counter': 1 },
+  }));
+  const passing = botTraceCompetenceGates(traceFor(activeFrames), 0).find((gate) => gate.domain === 'army-pipeline');
+
+  assert.equal(passing?.status, 'healthy');
+  assert.equal(passing?.detail.includes('army-pipeline evidence'), true);
 });
 
 test('bot trace alerts ignore background blocked tech while another intent leads', () => {
@@ -1361,7 +1411,7 @@ test('bot expert diagnoses flag missing army production intent as production fai
   assert.equal(diagnoses.some((entry) =>
     entry.domain === 'production' &&
     entry.status === 'failing' &&
-    entry.detail.includes('no train intent')), true);
+    entry.detail.includes('no combat-train intent')), true);
 });
 
 test('bot trace phase summaries aggregate contiguous strategy windows', () => {
@@ -1551,6 +1601,7 @@ test('whole-match race competence gates grow, make combat units, and commit', ()
     assert.deepEqual(gates.filter((gate) => gate.status !== 'healthy'), [], `${name} competence gates should be healthy`);
     assert.equal(gates.some((gate) => gate.domain === 'economy' && gate.detail.includes('target 10')), true, `${name} gates should check the worker target`);
     assert.equal(gates.some((gate) => gate.domain === 'worker-pipeline' && gate.status === 'healthy'), true, `${name} gates should expose worker-pipeline evidence`);
+    assert.equal(gates.some((gate) => gate.domain === 'army-pipeline' && gate.status === 'healthy'), true, `${name} gates should expose army-pipeline evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-combat' && gate.detail.includes('combat pipeline')), true, `${name} gates should expose opening combat evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'opening-discipline' && gate.detail.includes('first-combat discipline')), true, `${name} gates should expose opening discipline evidence`);
     assert.equal(gates.some((gate) => gate.domain === 'obligation-pressure' && gate.status === 'healthy'), true, `${name} gates should expose expert obligation pressure`);

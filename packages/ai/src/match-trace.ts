@@ -234,6 +234,7 @@ export type BotTraceCompetenceGateDomain =
   | 'commands'
   | 'economy'
   | 'worker-pipeline'
+  | 'army-pipeline'
   | 'macro-spending'
   | 'production'
   | 'obligation-pressure'
@@ -290,7 +291,7 @@ const BOT_TRACE_ALERT_KINDS: readonly BotTraceAlertKind[] = [
   'expected-progress-stall',
   'placement-stall',
 ];
-const TRAIN_INTENTS: readonly BotIntentKind[] = ['train-worker', 'spend-larva', 'train-counter'];
+const ARMY_TRAIN_INTENTS: readonly BotIntentKind[] = ['spend-larva', 'train-counter'];
 const TECH_INTENTS: readonly BotIntentKind[] = ['take-gas', 'rebuild-tech', 'research-upgrade'];
 const TECH_PROGRESS_COMMANDS: readonly CommandType[] = ['build', 'research', 'addon', 'transform'];
 const TECH_STALL_REASONS: readonly BotFailureReason[] = [
@@ -362,8 +363,8 @@ const macroCommandCount = (frame: BotTraceFrame): number =>
 const combatCommandCount = (frame: BotTraceFrame): number =>
   countCommands(frame, COMBAT_COMMANDS);
 
-const trainIntentCount = (frame: BotTraceFrame): number =>
-  countIntents(frame, TRAIN_INTENTS);
+const armyTrainIntentCount = (frame: BotTraceFrame): number =>
+  countIntents(frame, ARMY_TRAIN_INTENTS);
 
 const techIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, TECH_INTENTS);
@@ -374,7 +375,7 @@ const hasReadyArmyProduction = (frame: BotTraceFrame): boolean =>
   frame.idleProducers + frame.idleLarvae > 0;
 
 const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
-  frame.queuedArmyProduction > 0 || trainIntentCount(frame) > 0;
+  frame.queuedArmyProduction > 0 || armyTrainIntentCount(frame) > 0;
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
@@ -1114,9 +1115,9 @@ export const botTraceAlerts = (
       (frame) =>
         hasReadyArmyProduction(frame) &&
         frame.queuedArmyProduction === 0 &&
-        trainIntentCount(frame) === 0 &&
+        armyTrainIntentCount(frame) === 0 &&
         (frame.commandsByType.train ?? 0) === 0,
-      (_start, end, count) => `${count} sampled frames had idle production, supply, and ${end.objective.resourceFloat} resources but no train intent`,
+      (_start, end, count) => `${count} sampled frames had idle production, supply, and ${end.objective.resourceFloat} resources but no combat-train intent`,
       (_start, end, count) => count * (end.idleProducers + end.idleLarvae),
     );
     pushFrameStreakAlerts(
@@ -1615,6 +1616,39 @@ const workerPipelineGate = (
   );
 };
 
+const armyPipelineGate = (
+  frames: readonly BotTraceFrame[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const readyFrames = frames.filter(hasReadyArmyProduction);
+  const darkFrames = readyFrames.filter((frame) =>
+    frame.queuedArmyProduction <= 0 &&
+    armyTrainIntentCount(frame) === 0);
+
+  if (frames.length === 0) {
+    return competenceGate(player, 'army-pipeline', 'failing', 0, 'missing army-pipeline trace evidence');
+  }
+  if (readyFrames.length === 0) {
+    return competenceGate(player, 'army-pipeline', 'healthy', 0, 'no sampled frames had ready army production');
+  }
+  if (darkFrames.length > 0) {
+    return competenceGate(
+      player,
+      'army-pipeline',
+      'failing',
+      darkFrames.length,
+      `${darkFrames.length} sampled frames had ready army production without queued army or combat-train intent`,
+    );
+  }
+  return competenceGate(
+    player,
+    'army-pipeline',
+    'healthy',
+    readyFrames.length,
+    `${readyFrames.length} sampled ready-production frames showed army-pipeline evidence`,
+  );
+};
+
 const obligationPressureGate = (
   frames: readonly BotTraceFrame[],
   phases: readonly BotTracePhaseSummary[],
@@ -1698,6 +1732,7 @@ export const botTraceCompetenceGates = (
       : 'missing economy trace evidence',
   ));
   gates.push(workerPipelineGate(frames, player));
+  gates.push(armyPipelineGate(frames, player));
 
   gates.push(competenceGate(
     player,

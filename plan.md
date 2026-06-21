@@ -170,6 +170,10 @@ Competence-gate UI slice is done: live bot diagnostics now assemble one trace-de
 post-match health, phase summaries, phase assessments, and core StarCraft obligation gates. The results
 panel shows those gates per bot player so command legality, worker growth, production, combat commitment,
 expert alerts, and phase-axis evidence are visible without opening headless trace logs.
+Army-pipeline gate slice is done: competence gates now include an explicit `army-pipeline` domain.
+Sampled frames with idle combat production, supply, and a usable resource bank must show queued army
+production or combat-training intent; worker training no longer satisfies army-production evidence or
+suppresses missing-army-production alerts.
 Expert-system rulebook slice is done: core StarCraft obligations and plan-to-evidence mappings now live
 in `packages/ai/src/macro-expert-system.ts`, so future bot fixes should add facts/rules there or in the
 scheduler's live expert context rather than hiding new strategic assumptions inside trace rendering.
