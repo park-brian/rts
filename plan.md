@@ -1088,6 +1088,10 @@ Remaining work:
     meaningful returned resources, the gate fails if almost none of that income became units or
     structures, catching "the bot mined money but the lights stayed off" separately from worker,
     army-pipeline, and macro-spending failures.
+  - Supply-pressure competence slice is done: whole-match gates now include a first-class `supply`
+    domain. Sampled frames at the supply cap with a banked resource float must show either a
+    supply-provider intent or a build/train/transform command that can make supply progress, so the
+    expert system catches capped, banked, lights-off macro before behavior tuning hides it.
 - Generalize opening logic around capability expansion, not building names. At each phase the bot
   should know the next capability it lacks or wants soon: first combat unit, higher production
   throughput, gas tech, detection, static defense, transport/drop access, siege/burrow/cloak answer,

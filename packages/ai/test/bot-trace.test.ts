@@ -24,6 +24,7 @@ import {
   runBotMatchTrace,
   type BotMatchTrace,
   type BotObjectiveSnapshot,
+  type BotTraceFrame,
 } from '../src/index.ts';
 import { createAggressiveMarineBot } from '../test-support/aggressive-bot.ts';
 
@@ -866,6 +867,61 @@ test('bot competence gates flag ready army production without an army pipeline',
 
   assert.equal(passing?.status, 'healthy');
   assert.equal(passing?.detail.includes('army-pipeline evidence'), true);
+});
+
+test('bot competence gates flag banked supply blocks without supply relief', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 8138, factions: [Terran, Terran] });
+  const s = sim.fullState();
+  const plan = createBotPlanner(Terran, { workerTarget: 8, barracksTarget: 1, attackThreshold: 99 })(s, 0);
+  const frame = botTraceFrame(s, 0, Terran, plan);
+  const blockedFrames: BotTraceFrame[] = [0, 60, 120].map((tick) => ({
+    ...frame,
+    tick,
+    commandsByType: { ...frame.commandsByType, build: 0, train: 0, transform: 0 },
+    objective: { ...frame.objective, resourceFloat: 900 },
+    supplyUsed: 20,
+    supplyMax: 20,
+    topIntents: [],
+  }));
+  const traceFor = (frames: typeof blockedFrames): BotMatchTrace => {
+    const alerts = botTraceAlerts(frames);
+    const stats = createMatchStats(s);
+    const objectiveTrends = botObjectiveTrends(frames);
+    return {
+      frames,
+      stats,
+      invalidCommands: 0,
+      invalidCommandsByPlayer: [0, 0],
+      commandResults: [],
+      objectiveTrends,
+      alerts,
+      expertDiagnoses: botTraceExpertDiagnoses(frames, stats, alerts, objectiveTrends),
+      phaseSummaries: botTracePhaseSummaries(frames, alerts),
+      phaseAssessments: [],
+    };
+  };
+  const failing = botTraceCompetenceGates(traceFor(blockedFrames), 0).find((gate) => gate.domain === 'supply');
+
+  assert.equal(failing?.status, 'failing');
+  assert.equal(failing?.detail.includes('supply-blocked frames had banked resources'), true);
+
+  const activeFrames = blockedFrames.map((sample) => ({
+    ...sample,
+    topIntents: [{
+      kind: 'add-production' as const,
+      status: 'waiting' as const,
+      urgency: 30,
+      axis: botIntentVictoryAxis('add-production'),
+      reason: 'resource-starved' as const,
+      scoreReasons: [],
+      expectation: botIntentExpectation('add-production'),
+      targetKind: Kind.SupplyDepot,
+    }],
+  }));
+  const passing = botTraceCompetenceGates(traceFor(activeFrames), 0).find((gate) => gate.domain === 'supply');
+
+  assert.equal(passing?.status, 'healthy');
+  assert.equal(passing?.detail.includes('supply-relief evidence'), true);
 });
 
 test('bot competence gates flag returned resources that never convert into value', () => {

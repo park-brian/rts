@@ -1,5 +1,7 @@
 import {
   COMMAND_TYPES,
+  SUPPLY_CAP,
+  Units,
   createMatchStats,
   recordMatchStatsStep,
   type CommandResult,
@@ -244,6 +246,7 @@ export type BotTraceCompetenceGateDomain =
   | 'economy'
   | 'worker-pipeline'
   | 'army-pipeline'
+  | 'supply'
   | 'defense-response'
   | 'resource-conversion'
   | 'macro-spending'
@@ -291,6 +294,7 @@ const RESOURCE_FLOAT_ALERT = 800;
 const PRODUCTION_FLOAT_ALERT = 300;
 const MACRO_COMMANDS: readonly CommandType[] = ['build', 'train', 'research', 'addon', 'transform'];
 const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', 'mine'];
+const SUPPLY_PROGRESS_COMMANDS: readonly CommandType[] = ['build', 'train', 'transform'];
 const DEFENSE_RESPONSE_INTENTS: readonly BotIntentKind[] = ['defend-base', 'get-detection', 'add-static-defense'];
 const BOT_TRACE_ALERT_KINDS: readonly BotTraceAlertKind[] = [
   'invalid-commands',
@@ -402,6 +406,15 @@ const hasReadyArmyProduction = (frame: BotTraceFrame): boolean =>
 
 const hasArmyPipeline = (frame: BotTraceFrame): boolean =>
   frame.queuedArmyProduction > 0 || armyTrainIntentCount(frame) > 0;
+
+const isSupplyProviderKind = (kind: number | undefined): boolean =>
+  kind !== undefined && (Units[kind]?.provides ?? 0) > 0;
+
+const supplyReliefIntentCount = (frame: BotTraceFrame): number =>
+  frame.topIntents.filter((intent) => isSupplyProviderKind(intent.targetKind)).length;
+
+const supplyProgressCommandCount = (frame: BotTraceFrame): number =>
+  countCommands(frame, SUPPLY_PROGRESS_COMMANDS);
 
 const combatIntentCount = (frame: BotTraceFrame): number =>
   countIntents(frame, COMBAT_INTENTS);
@@ -1696,6 +1709,42 @@ const armyPipelineGate = (
   );
 };
 
+const supplyGate = (
+  frames: readonly BotTraceFrame[],
+  player: number,
+): BotTraceCompetenceGate => {
+  const blockedFrames = frames.filter((frame) =>
+    frame.supplyMax < SUPPLY_CAP &&
+    frame.supplyUsed >= frame.supplyMax &&
+    frame.objective.resourceFloat >= PRODUCTION_FLOAT_ALERT);
+  const darkFrames = blockedFrames.filter((frame) =>
+    supplyReliefIntentCount(frame) === 0 &&
+    supplyProgressCommandCount(frame) === 0);
+
+  if (frames.length === 0) {
+    return competenceGate(player, 'supply', 'failing', 0, 'missing supply trace evidence');
+  }
+  if (blockedFrames.length === 0) {
+    return competenceGate(player, 'supply', 'healthy', 0, 'no sampled frames had banked supply pressure');
+  }
+  if (darkFrames.length > 0) {
+    return competenceGate(
+      player,
+      'supply',
+      'failing',
+      darkFrames.length,
+      `${darkFrames.length} sampled supply-blocked frames had banked resources without supply-relief intent or progress command`,
+    );
+  }
+  return competenceGate(
+    player,
+    'supply',
+    'healthy',
+    blockedFrames.length,
+    `${blockedFrames.length} sampled supply-blocked frames showed supply-relief evidence`,
+  );
+};
+
 const defenseResponseGate = (
   frames: readonly BotTraceFrame[],
   player: number,
@@ -1842,6 +1891,7 @@ export const botTraceCompetenceGates = (
   ));
   gates.push(workerPipelineGate(frames, player));
   gates.push(armyPipelineGate(frames, player));
+  gates.push(supplyGate(frames, player));
   gates.push(defenseResponseGate(frames, player));
   gates.push(resourceConversionGate(stats, player));
 
