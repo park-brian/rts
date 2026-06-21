@@ -226,6 +226,8 @@ export const scheduleBotMacro = (
   const signals = memory ? botMemoryExpertSignals(memory, s.tick) : {};
   const progressStalls = signals.expectedProgressStalls;
   const expert = botExpertContext(s, player, facts, workerTarget, config.attackThreshold ?? 12, config.strategy, signals);
+  const productionPressure = botExpertAxisPressure(expert, 'production-throughput')?.pressure ?? 0;
+  const productionCapacityPressured = productionPressure > 0;
   const postureWantsProduction = (config.strategy?.productionRatio ?? 0) >= 1 &&
     config.strategy?.techTarget === 'combat-production';
   const postureWantsExpansion = config.strategy?.expansionPriority === 'high';
@@ -234,6 +236,7 @@ export const scheduleBotMacro = (
       signals.missingProductionIntent ||
       postureWantsProduction ||
       (progressStalls?.has('production-capacity') ?? false),
+    productionThroughputPressure: productionPressure,
   };
   const expansionPressure = {
     macroFloatStalled: signals.macroFloatStalled ||
@@ -241,7 +244,7 @@ export const scheduleBotMacro = (
       postureWantsExpansion ||
       (progressStalls?.has('base-count') ?? false),
   };
-  let stalledCapacityAttempted = false;
+  let capacityHandledBeforeGrowth = false;
   const queueProductionCapacity = (): CapacityQueueResult => faction.name === 'Zerg'
     ? queueZergMacroHatchery(
       s,
@@ -412,13 +415,18 @@ export const scheduleBotMacro = (
       });
     }
 
-    if (signals.productionStalled || signals.missingProductionIntent || (progressStalls?.has('production-capacity') ?? false)) {
+    if (
+      (faction.name === 'Zerg' && productionCapacityPressured) ||
+      signals.productionStalled ||
+      signals.missingProductionIntent ||
+      (progressStalls?.has('production-capacity') ?? false)
+    ) {
       builderChoices.push({
         order: -1,
         intent: botIntent('add-production', { targetKind: faction.name === 'Zerg' ? Kind.Hatchery : faction.armyStructure }),
         run: () => {
-          stalledCapacityAttempted = true;
           const result = queueProductionCapacity();
+          capacityHandledBeforeGrowth = result.queued || result.block !== undefined;
           return builderAttempt(result);
         },
       });
@@ -497,7 +505,7 @@ export const scheduleBotMacro = (
       });
     }
 
-    const candidates = stalledCapacityAttempted
+    const candidates = capacityHandledBeforeGrowth
       ? growthCandidates.filter((candidate) => candidate.intent.kind !== 'add-production')
       : growthCandidates;
     for (const candidate of rankBotIntentCandidates(candidates, expert)) {

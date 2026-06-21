@@ -3459,6 +3459,42 @@ test('terran scheduler adds production capacity when expected capacity progress 
   assertPublicSurfaceExposes(s, 0, build);
 });
 
+test('terran scheduler adds production capacity from live throughput pressure before stall memory', () => {
+  const scenario = botScenario({ seed: 521, factions: [Terran, Zerg] });
+  const s = scenario.state;
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  const barracks = scenario.spawn(Kind.Barracks, 0, base.x + fx(160), base.y);
+  s.e.prodKind[slotOf(barracks)] = Kind.Marine;
+  scenario.resources(0, 600, 0);
+  s.players.supplyMax[0] = 1_000;
+
+  const pressuredCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    pressuredCmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 1, workerTarget: 0, attackThreshold: 12 },
+  );
+
+  const pressuredBuild = findCommandBuild(pressuredCmds, Kind.Barracks);
+  assert.ok(pressuredBuild);
+  assertPublicSurfaceExposes(s, 0, pressuredBuild);
+
+  const stableCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Terran,
+    stableCmds,
+    collectBotFacts(s, 0, Terran),
+    { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 },
+  );
+
+  assert.equal(findCommandBuild(stableCmds, Kind.Barracks), undefined);
+});
+
 test('terran scheduler adds production capacity when live expert memory sees missing production intent', () => {
   const scenario = botScenario({ seed: 518, factions: [Terran, Zerg] });
   const s = scenario.state;
@@ -3482,6 +3518,39 @@ test('terran scheduler adds production capacity when live expert memory sees mis
   const build = findCommandBuild(cmds, Kind.Barracks);
   assert.ok(build);
   assertPublicSurfaceExposes(s, 0, build);
+});
+
+test('zerg scheduler adds macro hatchery from live throughput pressure after larvae are spent', () => {
+  const scenario = zergMacroHatcheryScenario(522);
+  const s = scenario.state;
+  scenario.resources(0, 600, 0);
+  s.players.supplyMax[0] = 1_000;
+
+  const pressuredCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Zerg,
+    pressuredCmds,
+    collectBotFacts(s, 0, Zerg),
+    { barracksTarget: 1, workerTarget: 0, attackThreshold: 99 },
+  );
+
+  const pressuredBuild = findCommandBuild(pressuredCmds, Kind.Hatchery);
+  assert.ok(pressuredBuild);
+  assertPublicSurfaceExposes(s, 0, pressuredBuild);
+
+  const stableCmds: Command[] = [];
+  scheduleBotMacro(
+    s,
+    0,
+    Zerg,
+    stableCmds,
+    collectBotFacts(s, 0, Zerg),
+    { barracksTarget: 1, workerTarget: 0, attackThreshold: 1 },
+  );
+
+  assert.equal(findCommandBuild(stableCmds, Kind.Hatchery), undefined);
 });
 
 test('zerg scheduler adds macro hatchery earlier when live expert memory sees larva stall', () => {

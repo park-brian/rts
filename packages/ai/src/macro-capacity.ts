@@ -21,6 +21,16 @@ const CORE_PRODUCTION_BANK = 700;
 const CORE_STALLED_PRODUCTION_BANK = 300;
 const CORE_PRODUCTION_STEP = 500;
 const CORE_PRODUCTION_MAX = 8;
+const CAPACITY_PRESSURE_STEP = 6;
+const CAPACITY_PRESSURE_BANK_DISCOUNT = 100;
+
+const capacityPressureLevel = (pressure: CapacityPressure): number =>
+  Math.ceil(Math.max(0, pressure.productionThroughputPressure ?? 0) / CAPACITY_PRESSURE_STEP);
+
+const capacityBank = (normal: number, stalled: number, pressure: CapacityPressure): number => {
+  if (pressure.productionStalled) return stalled;
+  return Math.max(stalled, normal - capacityPressureLevel(pressure) * CAPACITY_PRESSURE_BANK_DISCOUNT);
+};
 
 const larvaCapacityCount = (s: State, player: number): number => {
   const e = s.e;
@@ -58,6 +68,17 @@ const ownedOrPendingStructureCount = (s: State, player: number, kind: number): n
   return count;
 };
 
+const pendingStructureCount = (s: State, player: number, kind: number): number => {
+  const e = s.e;
+  let count = 0;
+  for (let i = 0; i < e.hi; i++) {
+    if (e.alive[i] !== 1 || e.owner[i] !== player) continue;
+    if (e.kind[i] === kind && e.built[i] !== 1) count++;
+    if ((e.flags[i]! & Role.Worker) !== 0 && e.buildKind[i] === kind) count++;
+  }
+  return count;
+};
+
 export type CapacityQueueResult = {
   queued: boolean;
   block?: StructureBlock;
@@ -65,6 +86,7 @@ export type CapacityQueueResult = {
 
 export type CapacityPressure = {
   productionStalled?: boolean;
+  productionThroughputPressure?: number;
 };
 
 export const queueCoreProductionCapacity = (
@@ -80,12 +102,12 @@ export const queueCoreProductionCapacity = (
   pressure: CapacityPressure = {},
 ): CapacityQueueResult => {
   if (faction.name === 'Zerg' || baseTarget <= 0) return { queued: false };
-  const bank = pressure.productionStalled ? CORE_STALLED_PRODUCTION_BANK : CORE_PRODUCTION_BANK;
+  const bank = capacityBank(CORE_PRODUCTION_BANK, CORE_STALLED_PRODUCTION_BANK, pressure);
   if (budget.minerals < bank) return { queued: false };
 
   const desired = Math.min(
     CORE_PRODUCTION_MAX,
-    baseTarget + 1 + Math.trunc((budget.minerals - bank) / CORE_PRODUCTION_STEP),
+    baseTarget + 1 + capacityPressureLevel(pressure) + Math.trunc((budget.minerals - bank) / CORE_PRODUCTION_STEP),
   );
   if (ownedOrPendingStructureCount(s, player, faction.armyStructure) >= desired) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, anchor, faction.armyStructure, findMacroSpot, { role: 'production-block' });
@@ -106,12 +128,13 @@ export const queueZergMacroHatchery = (
 ): CapacityQueueResult => {
   if (faction.name !== 'Zerg') return { queued: false };
   if (remainingIdleLarvae(idleLarvae, usedProducers) > 0) return { queued: false };
-  const bank = pressure.productionStalled ? ZERG_STALLED_MACRO_HATCHERY_BANK : ZERG_MACRO_HATCHERY_BANK;
+  if (pendingStructureCount(s, player, Kind.Hatchery) > 0) return { queued: false };
+  const bank = capacityBank(ZERG_MACRO_HATCHERY_BANK, ZERG_STALLED_MACRO_HATCHERY_BANK, pressure);
   if (budget.minerals < bank) return { queued: false };
 
   const desired = Math.min(
     ZERG_MACRO_HATCHERY_MAX,
-    2 + Math.trunc((budget.minerals - bank) / ZERG_MACRO_HATCHERY_STEP),
+    2 + capacityPressureLevel(pressure) + Math.trunc((budget.minerals - bank) / ZERG_MACRO_HATCHERY_STEP),
   );
   if (larvaCapacityCount(s, player) >= desired) return { queued: false };
   return queueStructureBuild(s, player, cmds, budget, worker, anchor, Kind.Hatchery, findMacroSpot, { role: 'macro-hatchery' });

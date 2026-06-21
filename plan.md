@@ -1383,6 +1383,11 @@ Remaining work:
   and production engines: resource-cluster Hatcheries are expansions, while in-base macro Hatcheries
   are production-capacity structures and should be placed near safe rally/creep/base areas without
   blocking mineral/gas routes.
+  - Throughput-pressure capacity slice is done: Terran/Protoss core production and Zerg macro
+    Hatchery capacity now consume the shared expert production-throughput pressure, lowering the
+    anti-float bank and increasing desired capacity before repeated stall memory exists. Stable
+    openings with enough throughput still keep the old bank, and Zerg still refuses macro Hatcheries
+    while idle larvae remain, so this is a combat-demand correction rather than random extra bases.
 - Make building placement a first-class bot contract. Expansion placement should use a dedicated
   resource-cluster helper: group nearby minerals/gas, discard occupied or reserved clusters, derive
   valid depot anchors closest to the cluster's collection geometry, then score route distance,
