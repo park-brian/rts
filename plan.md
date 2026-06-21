@@ -1208,6 +1208,10 @@ Remaining work:
     optional tech/static-defense work before any combat pipeline exists. This pins the "Zerg builds Evo/gas
     before lings" class of failure as an expert-system contradiction rather than a race-specific
     special case.
+  - Tech-prerequisite discipline slice is done: race tech structure candidates now require their
+    data-defined structure prerequisites to be owned or pending before they can become live build
+    attempts, so openings pursue the first combat path instead of surfacing downstream tech deadlocks
+    such as Cybernetics Core before Gateway.
 - Treat the bot expert system as four explicit layers:
   - Facts: deterministic, cacheable readings of economy, tech, unit roles, incidents, map risk,
     base clusters, placement constraints, and visible/suspected enemy threats.

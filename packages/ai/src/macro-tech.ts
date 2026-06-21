@@ -1,5 +1,6 @@
 import {
   Kind,
+  Units,
   type Command,
   type Faction,
   type State,
@@ -80,6 +81,9 @@ const hasCompletedStructure = (s: State, player: number, kind: number): boolean 
   return false;
 };
 
+const requirementsOwnedOrPending = (facts: BotFacts, kind: number): boolean =>
+  Units[kind]!.requires.every((required) => facts.ownedOrPendingStructureKinds.has(required));
+
 export const queueRaceTechStructure = (
   s: State,
   player: number,
@@ -97,6 +101,7 @@ export const queueRaceTechStructure = (
   if (faction.name === 'Zerg' && !hasCompletedStructure(s, player, Kind.SpawningPool)) return { queued: false };
   let firstBlock: StructureBlock | undefined;
   for (const kind of missingStructureKinds(facts, techStructures)) {
+    if (!requirementsOwnedOrPending(facts, kind)) continue;
     const result = queueStructureBuild(s, player, cmds, budget, worker, anchor, kind, findMacroSpot, { role: 'tech-interior' });
     if (result.queued) return { queued: true };
     firstBlock ??= result.block;

@@ -886,6 +886,25 @@ test('macro scheduler score-ranks scarce builder choices by objective pressure',
     (record.intent.score?.reasons.some((reason) => reason.kind === 'production-throughput') ?? false)));
 });
 
+test('macro scheduler skips tech structures whose prerequisites are not owned or pending', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 4011, factions: [Protoss, Terran] });
+  const s = sim.fullState();
+  spawnUnit(s, Kind.Pylon, 0, fx(1_200), fx(1_200));
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  s.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Protoss, {
+    workerTarget: 0,
+    barracksTarget: 1,
+    attackThreshold: 16,
+  })(s, 0);
+
+  assert.ok(findBuild(plan.commands, Kind.Gateway));
+  assert.equal(findBuild(plan.commands, Kind.CyberneticsCore), undefined);
+  assert.equal(plan.intentResults.some((record) => record.intent.targetKind === Kind.CyberneticsCore), false);
+});
+
 test('macro scheduler does not duplicate an existing gas structure', () => {
   const scenario = botScenario({ seed: 4009, factions: [Zerg, Terran] });
   const base = scenario.pos(scenario.entity(Kind.Hatchery, 0));
@@ -2776,7 +2795,7 @@ test('live bot planner reports no-builder army-structure outcomes', () => {
     record.result.reason === 'no-builder'));
 });
 
-test('live bot planner reports missing-prerequisite tech-structure outcomes', () => {
+test('live bot planner skips downstream tech structures until prerequisites are owned or pending', () => {
   const scenario = botScenario({ seed: 535, factions: [Protoss, Zerg] });
   const base = scenario.pos(scenario.entity(Kind.Nexus, 0));
   scenario.spawn(Kind.Pylon, 0, base.x + fx(120), base.y);
@@ -2785,11 +2804,10 @@ test('live bot planner reports missing-prerequisite tech-structure outcomes', ()
 
   const plan = createBotPlanner(Protoss, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0);
 
-  assert.ok(plan.intentResults.some((record) =>
+  assert.equal(findBuild(plan.commands, Kind.CyberneticsCore), undefined);
+  assert.equal(plan.intentResults.some((record) =>
     record.intent.kind === 'rebuild-tech' &&
-    record.intent.targetKind === Kind.CyberneticsCore &&
-    record.result.status === 'waiting' &&
-    record.result.reason === 'missing-prerequisite'));
+    record.intent.targetKind === Kind.CyberneticsCore), false);
 });
 
 test('live bot planner reports resource-starved tech-structure outcomes', () => {
