@@ -20,7 +20,7 @@ import {
   createBotMemory,
   rememberIntentOutcomes,
   rememberPlacementDiagnostics,
-  trainIntent,
+  productionIntent,
   type BotMemory,
 } from './macro-memory.ts';
 import { collectBotFacts } from './macro.ts';
@@ -172,7 +172,7 @@ export const createBotPlanner = (faction: Faction, cfg: Partial<BotConfig> = {})
       expert.objective.resourceFloat >= MISSING_PRODUCTION_INTENT_RESOURCES &&
       facts.supplyUsed < facts.supplyMax &&
       facts.idleProducers.length + facts.idleLarvae.length > 0 &&
-      !rankedIntentResults.some((record) => trainIntent(record.intent.kind));
+      !rankedIntentResults.some((record) => productionIntent(record.intent.kind));
     rememberIntentOutcomes(memory, rankedIntentResults, s.tick, {
       resourceFloat: expert.objective.resourceFloat,
       missingProductionIntent: readyProductionWithoutIntent,

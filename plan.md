@@ -174,6 +174,9 @@ Army-pipeline gate slice is done: competence gates now include an explicit `army
 Sampled frames with idle combat production, supply, and a usable resource bank must show queued army
 production or combat-training intent; worker training no longer satisfies army-production evidence or
 suppresses missing-army-production alerts.
+Live army-pipeline feedback slice is done: the live bot planner now uses the same combat-production
+intent predicate as the trace gate when promoting missing-production-intent memory, so worker-only
+training can no longer hide a stalled combat-production pipeline.
 Expert-system rulebook slice is done: core StarCraft obligations and plan-to-evidence mappings now live
 in `packages/ai/src/macro-expert-system.ts`, so future bot fixes should add facts/rules there or in the
 scheduler's live expert context rather than hiding new strategic assumptions inside trace rendering.
@@ -1119,7 +1122,7 @@ Remaining work:
     is reported as concrete progress instead of a silent held-steady/stalled trace.
   - Production-pipeline alert slice is done: trace alerts now classify "army is already queued but
     idle production capacity is still unused" as a production-stall/underuse case, while reserving
-    the harsher `no-army-production` alert for traces with no train intent and no combat-unit
+    the harsher `no-army-production` alert for traces with no combat-train intent and no combat-unit
     pipeline at all.
   - Queue-aware scorer slice is done: queued worker and combat-unit production now lives in the
     objective snapshot, trace frames read those canonical fields, and worker/army intent scoring
@@ -1457,11 +1460,11 @@ Remaining work:
     validated train commands with trace intent explanations, then advances the sim until Marines,
     Zealots, and Zerglings complete.
   - Missing-production-intent detector slice is done: whole-match trace alerts now distinguish
-    "idle production with train intents but no train command" from the worse "idle production,
-    resources, supply, and no train intent at all" case. Production expert diagnoses treat both as
+    "idle production with combat-train intents but no train command" from the worse "idle production,
+    resources, supply, and no combat-train intent at all" case. Production expert diagnoses treat both as
     production failures, which gives the scheduler a precise future signal for lights-off macro.
   - Missing-production-intent reaction slice is done: live bot memory now promotes repeated ready
-    production frames with no train intent into a distinct active signal, and the macro scheduler
+    production frames with no combat-train intent into a distinct active signal, and the macro scheduler
     consumes that signal through the existing production-capacity pressure path. This keeps recovery
     evidence-driven without inventing a second capacity scheduler.
 - Keep validator/action-mask parity for every command family and ability target mode.

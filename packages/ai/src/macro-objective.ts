@@ -683,7 +683,7 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
         scoreReason('supply-availability', supplyPenalty, `free supply is ${ctx.objective.supplyAvailable}`),
         ...(openingBonus > 0 ? [openingCombatReason('production-throughput', openingBonus)] : []),
         ...(ctx.productionStalled ? [scoreReason('production-throughput', 12, 'combat production is repeatedly blocked')] : []),
-        ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no train intent')] : []),
+        ...(ctx.missingProductionIntent ? [scoreReason('production-throughput', 10, 'ready production has no combat-train intent')] : []),
         ...(progressBonus > 0
           ? [expectedProgressReason('production-capacity', 'production capacity has not progressed within its expected window')]
           : []),

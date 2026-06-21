@@ -40,6 +40,7 @@ import {
   pressureCommitmentDecision,
   pressureFocus,
   pressureCommitmentTicks,
+  productionIntent,
   productionStallActive,
   rankRaceTechStructureKinds,
   findSpot,
@@ -645,7 +646,7 @@ test('bot expert scores add-production higher when live production stall signals
     reason.detail === 'combat production is repeatedly blocked'), true);
   assert.equal(stalled.score?.reasons.some((reason) =>
     reason.kind === 'production-throughput' &&
-    reason.detail === 'ready production has no train intent'), true);
+    reason.detail === 'ready production has no combat-train intent'), true);
 });
 
 test('bot expert scores expected progress stalls through the shared intent contract', () => {
@@ -3247,6 +3248,12 @@ test('core production anti-float respects disabled army-structure targets', () =
   scenario.state.players.supplyMax[0] = 1_000;
 
   assert.equal(hasBuild(createBot(Terran, { barracksTarget: 0, workerTarget: 0, attackThreshold: 99 })(scenario.state, 0), Kind.Barracks), false);
+});
+
+test('live production-intent predicate excludes worker training', () => {
+  assert.equal(productionIntent('train-worker'), false);
+  assert.equal(productionIntent('train-counter'), true);
+  assert.equal(productionIntent('spend-larva'), true);
 });
 
 const rememberProductionCapacityStall = () => {
