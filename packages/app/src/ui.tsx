@@ -7,11 +7,11 @@ import { clearArmedCommand, isPlacementArmed, OrderOptionId, sameArmedCommand, u
 import {
   Abilities, COMMAND_TYPES, FPS, Kind, MAP_PRESETS, NONE, ONE, Role, TILE, TechDefs, Units, entityMinimapVisible,
   mapFromSpec, shownSupply, type CommandRejectReason, type CommandType, type CountMap, type FactionName,
-  type MapDef, type MapPreset, type MapSpec, type MidfieldModule, type PlayerMatchStats,
+  type MapDef, type MapPreset, type MapSpec, type MidfieldModule,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import type { CommandOption, ControlScheme, Mode } from './store.ts';
-import { matchHealthRows, type MatchHealthRow, type MatchHealthStatus } from './match-health.ts';
+import { matchHealthRows, resourceBreakdownLine, resourcePair, type MatchHealthRow, type MatchHealthStatus } from './match-health.ts';
 import {
   HOTKEY_ACTIONS, actionKey, getHotkeys, hotkeyLabelForAction, orderHotkeyAction, resetHotkeys, setHotkey,
   type HotkeyAction,
@@ -122,18 +122,6 @@ const countLine = <K extends string,>(
 
 const rejectLine = (counts: CountMap<CommandRejectReason>): string =>
   countLine(counts, Object.keys(counts) as CommandRejectReason[], reasonLabel);
-
-const resourcePair = (minerals: number, gas: number): string => `${minerals}/${gas}`;
-
-const resourceBreakdownLine = (player: PlayerMatchStats): string => {
-  const lost = player.carriedMineralsLost + player.carriedGasLost;
-  const parts = [
-    `mined ${resourcePair(player.mineralsMined, player.gasMined)}`,
-    `returned ${resourcePair(player.mineralsReturned, player.gasReturned)}`,
-  ];
-  if (lost > 0) parts.push(`lost carried ${resourcePair(player.carriedMineralsLost, player.carriedGasLost)}`);
-  return parts.join(' · ');
-};
 
 const HEALTH_LABEL: Record<MatchHealthStatus, string> = {
   healthy: 'OK',

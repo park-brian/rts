@@ -8,6 +8,7 @@ import {
   type CountMap,
   type Faction,
   type MatchStats,
+  type PlayerMatchStats,
   type PlayerCommands,
   type Sim,
   type State,
@@ -849,6 +850,21 @@ const economyProgressDiagnosis = (
   return { status: 'failing', severity: Math.abs(workerGain), detail: 'worker count declined during the trace' };
 };
 
+const resourcePair = (minerals: number, gas: number): string => `${minerals}/${gas}`;
+
+const economyResourceDetail = (stats: PlayerMatchStats | undefined): string | undefined => {
+  if (!stats) return undefined;
+  const returned = stats.mineralsReturned + stats.gasReturned;
+  const created = stats.mineralValueCreated + stats.gasValueCreated;
+  const parts = [
+    `resources returned ${resourcePair(stats.mineralsReturned, stats.gasReturned)}`,
+    `made ${resourcePair(stats.mineralValueCreated, stats.gasValueCreated)}`,
+    `banked ${resourcePair(stats.minerals, stats.gas)}`,
+  ];
+  if (returned > 0) parts.push(`conversion ${Math.round(created * 100 / returned)}%`);
+  return parts.join(', ');
+};
+
 const productionProgressDiagnosis = (
   first: BotTraceFrame,
   last: BotTraceFrame,
@@ -1219,12 +1235,13 @@ export const botTraceExpertDiagnoses = (
         : 'no macro command attempts were observed'));
 
     const economyProgress = economyProgressDiagnosis(first, last, workerGain);
+    const resourceDetail = economyResourceDetail(playerStats);
     playerDiagnoses.push(diagnosis(
       'economy',
       player,
       economyProgress.status,
       economyProgress.severity,
-      economyProgress.detail,
+      resourceDetail ? `${economyProgress.detail}; ${resourceDetail}` : economyProgress.detail,
     ));
 
     const techProgress = techProgressDiagnosis(playerFrames, trend);

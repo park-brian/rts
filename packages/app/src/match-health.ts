@@ -22,6 +22,25 @@ const COMBAT_COMMANDS: readonly CommandType[] = ['attack', 'amove', 'ability', '
 const commandCount = (counts: CountMap<CommandType>, types: readonly CommandType[]): number =>
   types.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
 
+export const resourcePair = (minerals: number, gas: number): string => `${minerals}/${gas}`;
+
+export const resourceBreakdownLine = (player: PlayerMatchStats): string => {
+  const returned = player.mineralsReturned + player.gasReturned;
+  const created = player.mineralValueCreated + player.gasValueCreated;
+  const valueLost = player.mineralValueLost + player.gasValueLost;
+  const carriedLost = player.carriedMineralsLost + player.carriedGasLost;
+  const parts = [
+    `mined ${resourcePair(player.mineralsMined, player.gasMined)}`,
+    `returned ${resourcePair(player.mineralsReturned, player.gasReturned)}`,
+    `made ${resourcePair(player.mineralValueCreated, player.gasValueCreated)}`,
+    `bank ${resourcePair(player.minerals, player.gas)}`,
+  ];
+  if (returned > 0) parts.push(`convert ${Math.round(created * 100 / returned)}%`);
+  if (valueLost > 0) parts.push(`value lost ${resourcePair(player.mineralValueLost, player.gasValueLost)}`);
+  if (carriedLost > 0) parts.push(`carried lost ${resourcePair(player.carriedMineralsLost, player.carriedGasLost)}`);
+  return parts.join(' · ');
+};
+
 const row = (
   player: number,
   domain: MatchHealthDomain,

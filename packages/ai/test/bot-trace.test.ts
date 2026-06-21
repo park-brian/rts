@@ -329,7 +329,8 @@ test('bot trace frame exposes active worker and army production queues', () => {
     entry.domain === 'economy' &&
     entry.status === 'healthy' &&
     entry.detail.includes('worker') &&
-    entry.detail.includes('queued')), true);
+    entry.detail.includes('queued') &&
+    entry.detail.includes('resources returned')), true);
   assert.equal(diagnoses.some((entry) =>
     entry.domain === 'production' &&
     entry.status === 'healthy' &&

@@ -122,6 +122,10 @@ Resource-breakdown slice is done: match stats now record worker cargo transition
 returned, and carried-lost mineral/gas totals, and the game-over results details show that compact
 resource ledger alongside command mix/rejects. This gives bot debugging a real economy evidence
 surface without guessing from same-tick bank deltas.
+Resource-conversion diagnosis slice is done: the post-match resource line now derives mined,
+returned, value-made, banked, conversion, and loss facts from the same match stats ledger, and bot
+economy diagnoses include returned/value/bank conversion evidence. This keeps economy debugging
+grounded in measured resource flow instead of a vague worker-count-only verdict.
 First live expert-feedback slice is done: bot memory now promotes repeated combat-production
 capacity waits into a fresh `productionStall` signal, and the macro scheduler consumes that signal
 to add Terran/Protoss production capacity or Zerg macro Hatcheries earlier than the normal
