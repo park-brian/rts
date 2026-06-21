@@ -616,10 +616,14 @@ test('bot expert scoring consumes obligation pressure as explicit reasons', () =
   });
 
   const worker = scoreBotIntent(botIntent('train-worker'), opening);
+  const expansion = scoreBotIntent(botIntent('expand', { targetKind: Kind.CommandCenter }), opening);
   const production = scoreBotIntent(botIntent('add-production', { targetKind: Kind.Barracks }), opening);
   const army = scoreBotIntent(botIntent('train-counter', { targetKind: Kind.Marine }), opening);
 
   assert.equal(worker.score?.reasons.some((reason) =>
+    reason.kind === 'economy-growth' &&
+    reason.detail === 'economy obligation pressure is 6'), true);
+  assert.equal(expansion.score?.reasons.some((reason) =>
     reason.kind === 'economy-growth' &&
     reason.detail === 'economy obligation pressure is 6'), true);
   assert.equal(production.score?.reasons.some((reason) =>

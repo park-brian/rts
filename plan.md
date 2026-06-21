@@ -194,6 +194,10 @@ of remedy intent families (`train-worker`/`expand`, `add-production`, `spend-lar
 Intent scoring, live scheduler pressure checks, sampled trace frames, and the post-match UI consume
 that same agenda, so future SC bot work should add new strategic remedies there instead of scattering
 more one-off pressure checks across scheduler, trace, and app code.
+Expert-agenda consumption slice is done: every current agenda remedy intent now consumes its matching
+obligation pressure in `scoreBotIntent`, including expansion as an economy remedy. Future remedy rows
+must add both the rulebook mapping and a scorer/trace test proving the mapped intent receives the
+same obligation reason.
 Opening-combat expert slice is done: the rulebook now owns the shared "combat pipeline exists" and
 "opening still needs combat pipeline" predicates, and intent scoring boosts first combat structure
 and first combat unit intents while discounting optional gas/tech/research until the opening has

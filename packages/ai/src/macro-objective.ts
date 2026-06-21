@@ -700,8 +700,11 @@ export const scoreBotIntent = (intent: BotIntent, ctx: BotExpertContext): BotInt
       const progressBonus = expectedProgressStalled(ctx, 'base-count') ? 10 : 0;
       const liveStallBonus = (ctx.macroFloatStalled ? 12 : 0) + (ctx.blockedExpansion ? 8 : 0) + progressBonus;
       const planBonus = strategicPlanBonus(ctx, 'expansion');
-      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus + planBonus, [
+      const obligation = botExpertIntentPressure(ctx, intent.kind);
+      const expertBonus = obligationBonus(obligation);
+      return scoredIntent(intent, 32 + Math.min(10, Math.max(0, ctx.workers - 10)) + floatBonus + strategyBonus + liveStallBonus + planBonus + expertBonus, [
         scoreReason('economy-growth', ctx.bases, `owned base count is ${ctx.bases}`),
+        ...obligationReason(obligation, 'economy-growth'),
         ...(ctx.macroFloatStalled ? [scoreReason('economy-growth', 12, 'resources are floating while macro spending is stalled')] : []),
         ...(ctx.blockedExpansion ? [scoreReason('map-control', 8, 'previous expansion route or site was blocked')] : []),
         ...(progressBonus > 0
