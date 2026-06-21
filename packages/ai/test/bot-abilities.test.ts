@@ -1164,6 +1164,27 @@ test('live bot planner exposes sorted macro, defense, and pressure intents', () 
   assert.equal(plan.intents[2]!.score?.reasons.some((reason) => reason.kind === 'strategy'), true);
 });
 
+test('live bot planner spends scarce early resources on army before optional research', () => {
+  const scenario = botScenario({ seed: 836, factions: [Terran, Zerg] });
+  const base = scenario.pos(scenario.entity(Kind.CommandCenter, 0));
+  scenario.spawn(Kind.Barracks, 0, base.x + fx(120), base.y);
+  scenario.spawn(Kind.Academy, 0, base.x + fx(220), base.y);
+  scenario.resources(0, 100, 100);
+  scenario.state.players.supplyMax[0] = 1_000;
+
+  const plan = createBotPlanner(Terran, { workerTarget: 0, barracksTarget: 0, attackThreshold: 6 })(
+    scenario.state,
+    0,
+  );
+
+  assert.ok(plan.commands.some((cmd) => cmd.t === 'train' && cmd.kind === Kind.Marine));
+  assert.equal(plan.commands.some((cmd) => cmd.t === 'research' && cmd.tech === Tech.StimPack), false);
+  assert.ok(plan.intentResults.some((record) =>
+    record.intent.kind === 'train-counter' &&
+    record.intent.targetKind === Kind.Marine &&
+    (record.intent.score?.reasons.some((reason) => reason.kind === 'army-growth') ?? false)));
+});
+
 test('live bot planner annotates macro intents with expert scores and reasons', () => {
   const economyScenario = botScenario({ seed: 833, factions: [Terran, Terran] });
   economyScenario.resources(0, 500, 0);

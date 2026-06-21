@@ -21,7 +21,8 @@ import { queueExpansion } from './macro-expansion.ts';
 import { botIntent, rankBotIntentCandidates, type BotIntentCandidate } from './macro-expert.ts';
 import { gasStructureKind, queueGasStructure } from './macro-gas.ts';
 import { maybeQueueZergMorphs } from './macro-morph.ts';
-import { botExpertContext } from './macro-objective.ts';
+import { botExpertContext, type BotExpertContext } from './macro-objective.ts';
+import { botExpertAxisPressure, botNeedsOpeningCombatPipeline } from './macro-expert-system.ts';
 import { findExactSpot, findMacroSpot, findSpot, type PlacementDiagnostic } from './macro-placement.ts';
 import { maybeQueueTrain, trainFailureReason, type SupplyBudget } from './macro-production.ts';
 import { type ProducerReservations } from './macro-producers.ts';
@@ -158,6 +159,10 @@ const builderAttempt = (
   usedBuilder = result.queued,
 ): BuilderChoiceAttempt => ({ ...result, usedBuilder });
 
+const shouldSpendArmyBeforeOptionalTech = (expert: BotExpertContext): boolean =>
+  botNeedsOpeningCombatPipeline(expert.strategicPlan, expert.objective) ||
+  (botExpertAxisPressure(expert, 'combat-strength')?.pressure ?? 0) > 0;
+
 export const macroIntentsFromCommands = (
   commands: readonly Command[],
   faction: Faction,
@@ -265,8 +270,26 @@ export const scheduleBotMacro = (
     );
   maybeSetArmyStructureRallies(s, cmds, depot, builtArmyStructures);
 
+  let armyProductionChecked = false;
+  let armyQueued = false;
+  const queueArmyProduction = (): void => {
+    if (armyProductionChecked) return;
+    armyProductionChecked = true;
+    const armyCommandStart = cmds.length;
+    for (const producer of armyProducer) {
+      if (producer === NONE || e.prodKind[producer] !== Kind.None) continue;
+      const queued = maybeQueueTrain(s, player, cmds, budget, supplyBudget, [producer], usedProducers, faction.armyUnit);
+      armyQueued = queued > 0 || armyQueued;
+    }
+    if (cmds.length === armyCommandStart && !armyQueued) {
+      const reason = trainFailureReason(s, player, armyProducer, usedProducers, budget, supplyBudget, faction.armyUnit);
+      if (reason) intentResults.push(trainOutcome(faction, faction.armyUnit, reason));
+    }
+  };
+
   if (armyIsLarvaProduct && builtArmyStructures.length > 0 && facts.army.length === 0) {
-    maybeQueueTrain(s, player, cmds, budget, supplyBudget, armyProducer, usedProducers, faction.armyUnit);
+    const queued = maybeQueueTrain(s, player, cmds, budget, supplyBudget, armyProducer, usedProducers, faction.armyUnit);
+    armyQueued = queued > 0;
   }
 
   const workerCommandStart = cmds.length;
@@ -412,6 +435,8 @@ export const scheduleBotMacro = (
     }
   }
 
+  if (shouldSpendArmyBeforeOptionalTech(expert)) queueArmyProduction();
+
   const addonBlock = maybeQueueTerranAddons(s, player, faction, cmds, budget, reservedTechProducers);
   if (addonBlock) {
     intentResults.push({
@@ -437,15 +462,7 @@ export const scheduleBotMacro = (
     });
   }
 
-  const armyCommandStart = cmds.length;
-  for (const producer of armyProducer) {
-    if (producer === NONE || e.prodKind[producer] !== Kind.None) continue;
-    maybeQueueTrain(s, player, cmds, budget, supplyBudget, [producer], usedProducers, faction.armyUnit);
-  }
-  if (cmds.length === armyCommandStart) {
-    const reason = trainFailureReason(s, player, armyProducer, usedProducers, budget, supplyBudget, faction.armyUnit);
-    if (reason) intentResults.push(trainOutcome(faction, faction.armyUnit, reason));
-  }
+  queueArmyProduction();
 
   if (!builderUsed) {
     const growthCandidates: MacroGrowthCandidate[] = [];

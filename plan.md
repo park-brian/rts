@@ -1275,6 +1275,11 @@ Remaining work:
     `production-capacity` and `base-count` metrics to apply the same recovery pressure as older
     bespoke production/expansion stall flags, while preserving those shims until the generic path
     has enough coverage to replace them.
+  - Optional-tech pressure gate slice is done: when the expert system says first combat access or
+    combat strength is behind, the macro scheduler now spends available combat producers before
+    optional add-ons, morphs, or research get the same resource window. This keeps early tech
+    available when no immediate army producer can act, but prevents scarce resources from becoming
+    Stim/add-ons/research while a ready Barracks/Gateway/larva window should create the first army.
 - Model bot play like an actual StarCraft player's decision loop:
   - Economy: keep workers producing, avoid supply blocks, saturate bases, take gas when the plan
     needs gas, and add production before money floats.
