@@ -1207,6 +1207,19 @@ const SetupModal = (p: { game: Game }) => {
             <summary style={{ cursor: 'pointer', color: '#cdd9e5' }}>Controls</summary>
             <ControlsPanel />
           </details>
+          <details style={{ border: '1px solid #1b2533', background: '#0f151e', padding: '8px' }}>
+            <summary style={{ cursor: 'pointer', color: '#cdd9e5', marginBottom: '8px' }}>Debug</summary>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Btn compact label="Math" active={ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = true)} />
+                <Btn compact label="Sprite" active={!ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = false)} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Btn compact label="Play" active={mode === 'play'} onClick={() => setMode('play')} />
+                <Btn compact label="Watch AI" active={mode === 'spectate'} onClick={() => setMode('spectate')} />
+              </div>
+            </div>
+          </details>
         </div>
         <div style={{ position: 'sticky', bottom: '-14px', display: 'flex', gap: '8px', marginTop: '14px',
           paddingTop: '10px', background: '#111923' }}>

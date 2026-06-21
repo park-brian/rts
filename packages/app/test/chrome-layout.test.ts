@@ -159,6 +159,10 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /<MapPreview map=\{previewMap\} \/>/);
   assert.match(ui, /<option value=\{team\}>Team \{team \+ 1\}<\/option>/);
   assert.match(ui, /<details open[\s\S]*>Map<\/summary>/);
+  assert.match(ui, /<summary[\s\S]*>Debug<\/summary>/);
+  assert.match(ui, /label="Math" active=\{ui\.mathRenderer\.value\}/);
+  assert.match(ui, /label="Sprite" active=\{!ui\.mathRenderer\.value\}/);
+  assert.match(ui, /label="Watch AI" active=\{mode === 'spectate'\}/);
   assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);
   assert.match(game, /replayFromCurrent\(this\.sim,\s*this\.mapSpec\)/);
   assert.match(session, /createPlaySession = \([\s\S]*mapSpec:\s*MapSpec/);
