@@ -9,6 +9,7 @@ export class VisibilityController {
   private readonly mapOf: () => MapDef;
   private visibleEntityTick = -1;
   private visibleEntityHuman = -2;
+  private visibleEntityTrackVision = true;
   private readonly visibleEntity = new Uint8Array(CAP);
 
   constructor(mapOf: () => MapDef) {
@@ -22,11 +23,12 @@ export class VisibilityController {
     this.explored = new Uint8Array(tiles);
     this.visibleEntityTick = -1;
     this.visibleEntityHuman = -2;
+    this.visibleEntityTrackVision = true;
   }
 
   compute(state: State, human: number): void {
     this.ensureMapSize();
-    if (human < 0) {
+    if (human < 0 || !state.trackVision) {
       this.visible.fill(2);
       this.explored.fill(2);
       return;
@@ -53,14 +55,19 @@ export class VisibilityController {
   }
 
   private refreshEntityVisibility(state: State, human: number): void {
-    if (this.visibleEntityTick === state.tick && this.visibleEntityHuman === human) return;
+    if (
+      this.visibleEntityTick === state.tick &&
+      this.visibleEntityHuman === human &&
+      this.visibleEntityTrackVision === state.trackVision
+    ) return;
     const e = state.e;
     this.visibleEntity.fill(0, 0, e.hi);
     this.visibleEntityTick = state.tick;
     this.visibleEntityHuman = human;
+    this.visibleEntityTrackVision = state.trackVision;
     for (let i = 0; i < e.hi; i++) {
       if (e.alive[i] !== 1 || e.container[i] !== NONE) continue;
-      if (human < 0) {
+      if (human < 0 || !state.trackVision) {
         this.visibleEntity[i] = 1;
         continue;
       }

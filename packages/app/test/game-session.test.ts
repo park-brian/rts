@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
+import { ui } from '../src/store.ts';
 import type { Replay } from '../src/sim.ts';
 
 test('game restart can disable setup rows while preserving their map start slots', () => {
@@ -55,4 +56,32 @@ test('game restart preserves procedural map recipe for replay export', () => {
   assert.deepEqual(replay.factions, ['terran', 'protoss', 'zerg', 'terran']);
   assert.deepEqual(replay.teams, [0, 0, 1, 1]);
   assert.deepEqual(Array.from(g.sim.fullState().teams), [0, 0, 1, 1]);
+});
+
+test('game restart controls full-vision tracking as a setup debug option', () => {
+  const g = new Game('play', 1001);
+
+  g.restart('play', 4242, 1, ['terran', 'protoss'], 0, {
+    kind: 'procedural',
+    perTeam: 1,
+    seed: 4242,
+    preset: 'teamPlateaus',
+    midfield: 'empty',
+  }, [0, 1], [true, true], true);
+
+  assert.equal(g.fullVision, true);
+  assert.equal(ui.fullVision.value, true);
+  assert.equal(g.sim.fullState().trackVision, false);
+
+  g.restart('play', 4243, 1, ['terran', 'protoss'], 0, {
+    kind: 'procedural',
+    perTeam: 1,
+    seed: 4243,
+    preset: 'teamPlateaus',
+    midfield: 'empty',
+  }, [0, 1], [true, true], false);
+
+  assert.equal(g.fullVision, false);
+  assert.equal(ui.fullVision.value, false);
+  assert.equal(g.sim.fullState().trackVision, true);
 });

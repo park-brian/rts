@@ -148,7 +148,7 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /MAP_PRESETS\.map/);
   assert.match(ui, /MIDFIELD_MODULES\.map/);
   assert.match(ui, /setSeedText\(String\(randomSeed\(\)\)\)/);
-  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams,\s*enabledRows\)/);
+  assert.match(ui, /p\.game\.restart\(mode,\s*seed,\s*perTeam,\s*races,\s*human,\s*mapSpec,\s*teams,\s*enabledRows,\s*fullVision\)/);
   assert.match(ui, /setupTeams\(ui\.playerTeams\.value,\s*ui\.perTeam\.value \* 2\)/);
   assert.match(ui, /setupEnabled\(ui\.playerEnabled\.value,\s*ui\.perTeam\.value \* 2\)/);
   assert.match(ui, /const enabledRows = setupEnabled\(enabled, players\)/);
@@ -166,12 +166,15 @@ test('setup modal exposes procedural map recipe controls', () => {
   assert.match(ui, /<summary[\s\S]*>Debug<\/summary>/);
   assert.match(ui, /label="Math" active=\{ui\.mathRenderer\.value\}/);
   assert.match(ui, /label="Sprite" active=\{!ui\.mathRenderer\.value\}/);
+  assert.match(ui, /checked=\{fullVision\}/);
+  assert.match(ui, /Full vision/);
   assert.match(ui, /label="Watch AI" active=\{mode === 'spectate'\}/);
   assert.match(game, /mapSpec:\s*MapSpec = mapSpecFor\(1,\s*1\)/);
   assert.match(game, /replayFromCurrent\(this\.sim,\s*this\.mapSpec\)/);
   assert.match(session, /createPlaySession = \([\s\S]*mapSpec:\s*MapSpec/);
   assert.match(session, /mapFromSpec\(mapSpec\)/);
   assert.match(session, /startSlots = activeSetupSlots\(playerEnabled\)/);
+  assert.match(session, /vision:\s*!fullVision/);
   assert.match(session, /startSlots: replay\.startSlots/);
 });
 

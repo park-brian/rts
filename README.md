@@ -169,8 +169,10 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
   fog, minimap, win screen, and an **in-app replay viewer** (scrubber, play/pause, 0.5–4× speed,
   save/load JSON). One ~40-line esbuild build; static, GitHub-Pages-ready.
 
-- **`packages/app`** also: a **deselect** button, **double-tap to select all of a type on
-  screen**, **minimap drag-to-pan**, **Set Rally** / **Build Gas** commands, and a gas readout.
+- **`packages/app`** also: a match setup modal for race/team/map/player-row configuration,
+  enabled/disabled start slots, Math/Sprite rendering, and a full-vision debug toggle; a
+  **deselect** button, **double-tap to select all of a type on screen**, **minimap drag-to-pan**,
+  **Set Rally** / **Build Gas** commands, and a gas readout.
   Desktop controls use left-click selection, right-click smart commands, `M` plus left-click
   Move/follow mode, `A` plus left-click attack mode, Patrol, Hold Position, Shift-queued travel,
   remappable hotkeys, edge pan, scroll zoom,

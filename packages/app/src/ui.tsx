@@ -1079,6 +1079,7 @@ const SetupModal = (p: { game: Game }) => {
   const [races, setRaces] = useState<FactionName[]>(setupRaces(ui.playerRaces.value, ui.perTeam.value * 2));
   const [teams, setTeams] = useState<number[]>(setupTeams(ui.playerTeams.value, ui.perTeam.value * 2));
   const [enabled, setEnabledState] = useState<boolean[]>(setupEnabled(ui.playerEnabled.value, ui.perTeam.value * 2));
+  const [fullVision, setFullVision] = useState(ui.fullVision.value);
   const initialMap = proceduralMapSpec(p.game.mapSpec, ui.perTeam.value, p.game.seed);
   const [preset, setPreset] = useState<MapPreset>(initialMap.preset ?? 'teamPlateaus');
   const [midfield, setMidfield] = useState<MidfieldModule>(initialMap.midfield ?? 'empty');
@@ -1129,7 +1130,7 @@ const SetupModal = (p: { game: Game }) => {
   };
   const start = (): void => {
     ui.setupOpen.value = false;
-    p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams, enabledRows);
+    p.game.restart(mode, seed, perTeam, races, human, mapSpec, teams, enabledRows, fullVision);
   };
 
   return (
@@ -1243,6 +1244,10 @@ const SetupModal = (p: { game: Game }) => {
                 <Btn compact label="Math" active={ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = true)} />
                 <Btn compact label="Sprite" active={!ui.mathRenderer.value} onClick={() => (ui.mathRenderer.value = false)} />
               </div>
+              <label style={{ color: '#9fb1c7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input type="checkbox" checked={fullVision} onInput={(e) => setFullVision(e.currentTarget.checked)} />
+                Full vision
+              </label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Btn compact label="Play" active={mode === 'play'} onClick={() => setMode('play')} />
                 <Btn compact label="Watch AI" active={mode === 'spectate'} onClick={() => setMode('spectate')} />

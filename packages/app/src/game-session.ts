@@ -25,6 +25,7 @@ export type PlaySession = {
   setupRaceNames: FactionName[];
   setupTeamIds: number[];
   playerEnabled: boolean[];
+  fullVision: boolean;
   controllers: (Controller | null)[];
   botDiagnostics: AppBotDiagnostics[];
 };
@@ -90,6 +91,7 @@ export const createPlaySession = (
   humanPlayer: number,
   teamIds?: readonly number[],
   enabledSlots?: readonly boolean[],
+  fullVision = false,
 ): PlaySession => {
   const perTeam = mapSpec.kind === 'procedural' ? mapSpec.perTeam : 1;
   const seed = mapSpec.kind === 'procedural' ? mapSpec.seed : 1;
@@ -109,7 +111,7 @@ export const createPlaySession = (
   const resolvedHumanSlot = startSlots[normalizedHuman] ?? requestedHumanSlot;
   const factions: Faction[] = playerRaceNames.map((race) => Factions[race]);
   const map = mapFromSpec(mapSpec);
-  const sim = new Sim({ map, players, seed, record: true, vision: true, factions, teams: playerTeamIds, startSlots });
+  const sim = new Sim({ map, players, seed, record: true, vision: !fullVision, factions, teams: playerTeamIds, startSlots });
   const botDiagnostics = createBotDiagnostics(players, factions);
   const human = mode === 'play' ? normalizedHuman : -1;
   const controllers = Array.from({ length: players }, (_, p) =>
@@ -128,6 +130,7 @@ export const createPlaySession = (
     setupRaceNames,
     setupTeamIds,
     playerEnabled,
+    fullVision,
     controllers,
     botDiagnostics,
   };

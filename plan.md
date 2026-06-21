@@ -207,6 +207,10 @@ compacts only active rows into sim participants, and records non-identity start 
 future multiplayer setup do not silently remap disabled P2/P3/P4 starts onto earlier map positions.
 Remaining setup work should build on this contract for map selection, controller presets, and future
 network lobbies rather than treating disabled rows as an app-only filter.
+Setup full-vision slice is done: the Debug setup section now owns a full-vision match flag, play
+sessions pass it into sim vision tracking, and the app visibility controller treats disabled tracking
+as explicit full-map debug visibility instead of an accidental black-fog state. Remaining setup work
+is future scenario/full-lobby knobs, not another app-only visibility switch.
 
 AI work is active again, but the bar is now whole-match behavior. Do not add another isolated macro
 or tactical helper until the live bot trace explains why the composed scheduler chose its buildings,
@@ -2023,8 +2027,14 @@ Remaining work:
     enabled/disabled slots and debug/watch toggles.
   - Debug/watch setup slice is done: the setup modal now has a collapsed Debug section for choosing
     Math vs Sprite rendering and Play vs Watch AI before the match starts, reusing the same app state
-    as the top chrome instead of adding a second debug mode. Remaining setup work is enabled/disabled
-    slots and any future full-vision/scenario knobs that need real session state.
+    as the top chrome instead of adding a second debug mode. Remaining setup work is future
+    full-lobby/scenario knobs that need real session state.
+  - Enabled-slot setup slice is done: setup rows can be disabled while preserving their original
+    generated-map start identity through `startSlots`, and replay/session restore keeps those active
+    starts stable.
+  - Full-vision setup slice is done: Debug now exposes a full-vision checkbox backed by session
+    state, and play sessions disable sim vision tracking only through that explicit setup flag.
+    Remaining setup work is future scenario/lobby/debug knobs with durable session state.
 - Add explicit subgroup handling for large mixed selections.
 - Add a command-surface coverage audit proving every player-available sim action and every
   data-defined player capability is exposed through shared selection options and then rendered by

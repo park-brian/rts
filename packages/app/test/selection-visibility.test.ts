@@ -57,6 +57,24 @@ test('stale hidden enemy selections do not publish status through fog', () => {
   assert.equal(ui.selectionView.value.count, 0);
   assert.equal(ui.selectionView.value.kindName, '');
   assert.deepEqual(ui.selectionView.value.status.stats, []);
+
+  assert.equal(g.canSeeEntity(slotOf(hidden)), false);
+  s.trackVision = false;
+  assert.equal(g.canSeeEntity(slotOf(hidden)), true);
+});
+
+test('full-vision sessions keep hidden enemy selections visible for debugging', () => {
+  const g = freshGame();
+  g.restart('play', 3211, 1, ['terran', 'protoss'], 0, undefined, [0, 1], [true, true], true);
+  const s = g.sim.fullState();
+  const hidden = spawnUnit(s, Kind.DarkTemplar, 1, tileCenter(54), tileCenter(54));
+
+  select(g, hidden);
+
+  assert.equal(s.trackVision, false);
+  assert.equal(g.canSeeEntity(slotOf(hidden)), true);
+  assert.equal(ui.selectionView.value.count, 1);
+  assert.equal(ui.selectionView.value.kindName, 'Dark Templar');
 });
 
 test('detected enemy cloak status only publishes after visibility and detection exist', () => {

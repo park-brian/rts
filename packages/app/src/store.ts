@@ -140,6 +140,7 @@ export const ui = {
   hasReplay: signal(false), // a finished game is available to watch
   setupOpen: signal(true),
   mathRenderer: signal(true),
+  fullVision: signal(false),
   controlScheme: signal<ControlScheme>(initialControlScheme()),
   mobileQueueMode: signal(false),
   humanPlayer: signal(0),
