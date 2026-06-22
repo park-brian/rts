@@ -2221,6 +2221,9 @@ Remaining work:
   stabilizes. The target split is command discovery/selection state, desktop input, mobile input,
   HUD/chrome layout, world overlays, minimap interaction, replay controls, and renderer lifecycle,
   with shared sim queries replacing private app legality or geometry rules.
+  - Replay-control split slice is done: replay tick/speed/pause state and UI transport sync now live
+    in an app `ReplayController`, while `Game` keeps sim rebuild/step ownership and the existing
+    public replay API for the HUD.
 
 Done when:
 

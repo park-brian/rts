@@ -85,3 +85,43 @@ test('game restart controls full-vision tracking as a setup debug option', () =>
   assert.equal(ui.fullVision.value, false);
   assert.equal(g.sim.fullState().trackVision, true);
 });
+
+test('replay transport state stays in sync while seeking and stepping', () => {
+  const g = new Game('play', 1701);
+  g.fastForward(3);
+  const json = g.exportReplay();
+  assert.ok(json);
+
+  g.startReplay(JSON.parse(json) as Replay);
+
+  assert.equal(g.mode, 'replay');
+  assert.equal(g.replayTick, 0);
+  assert.equal(ui.replayTick.value, 0);
+  assert.equal(ui.replayTotal.value, 3);
+  assert.equal(ui.paused.value, false);
+
+  g.seekReplay(2);
+  assert.equal(g.replayTick, 2);
+  assert.equal(ui.replayTick.value, 2);
+  assert.equal(g.paused, false);
+
+  g.setReplaySpeed(2);
+  assert.equal(g.replaySpeed, 2);
+  assert.equal(ui.replaySpeed.value, 2);
+  g.togglePause();
+  assert.equal(g.paused, true);
+  assert.equal(ui.paused.value, true);
+  g.togglePause();
+  assert.equal(g.paused, false);
+
+  g.update(1000);
+  g.update(1100);
+  assert.equal(g.replayTick, 3);
+  assert.equal(g.paused, true);
+  assert.equal(ui.paused.value, true);
+
+  g.togglePause();
+  assert.equal(g.replayTick, 0);
+  assert.equal(g.paused, false);
+  assert.equal(ui.replayTick.value, 0);
+});

@@ -2,9 +2,9 @@
 // controllers for camera, visibility, selection, input commands, and HUD publishing.
 
 import {
-  Sim, FPS, TILE, Kind, createMatchStats, recordMatchStatsStep,
+  Sim, FPS, Kind, createMatchStats, recordMatchStatsStep,
   type MapDef, type Command, type PlayerCommands, type Controller,
-  type Replay, type State, type FactionName, type MatchStats, type MapSpec,
+  type Replay, type FactionName, type MatchStats, type MapSpec,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
@@ -14,8 +14,9 @@ import { TapSelectionController, type TapOptions } from './tap-selection-control
 import { VisibilityController, type LastKnownEnemyAffordance } from './visibility-controller.ts';
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 import { CommandController } from './command-controller.ts';
+import { ReplayController } from './replay-controller.ts';
 import {
-  createPlaySession, createReplaySeekSim, createReplaySession, defaultPlayerEnabled, defaultRaceNames, defaultTeamIds,
+  createPlaySession, createReplaySeekSim, createReplaySession, defaultPlayerEnabled, defaultTeamIds,
   exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
 } from './game-session.ts';
 import {
@@ -54,14 +55,9 @@ export class Game {
   private visibilityController?: VisibilityController;
   private selectionController?: SelectionController;
   private commandController?: CommandController;
+  private replayController = new ReplayController();
   private tapSelectionController?: TapSelectionController;
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
-
-  // replay viewer state (mode === 'replay')
-  replay: Replay | null = null;
-  replayTick = 0;
-  replaySpeed = 1;
-  paused = false;
 
   private acc = 0;
   private lastSel = 0;
@@ -100,6 +96,21 @@ export class Game {
   set placementGhost(ghost: PlacementGhost | null) {
     this.commandState().placementGhost = ghost;
   }
+
+  get replay(): Replay | null { return this.replayController.replay; }
+  set replay(value: Replay | null) {
+    if (value) this.replayController.start(value);
+    else this.replayController.clear();
+  }
+
+  get replayTick(): number { return this.replayController.tick; }
+  set replayTick(value: number) { this.replayController.tick = value; }
+
+  get replaySpeed(): number { return this.replayController.speed; }
+  set replaySpeed(value: number) { this.replayController.speed = value; }
+
+  get paused(): boolean { return this.replayController.paused; }
+  set paused(value: boolean) { this.replayController.paused = value; }
 
   private tapSelection(): TapSelectionController {
     this.tapSelectionController ??= new TapSelectionController(this);
@@ -202,7 +213,7 @@ export class Game {
     const r = replay ?? replayFromCurrent(this.sim, this.mapSpec);
     if (!r || r.frames.length === 0) return;
     const session = createReplaySession(r, this.perTeam, this.seed);
-    this.replay = session.replay;
+    this.replayController.start(session.replay, session.replaySpeed, session.paused);
     this.mode = session.mode;
     this.perTeam = session.perTeam;
     this.seed = session.seed;
@@ -219,17 +230,12 @@ export class Game {
     this.selectionState().clear();
     this.commandState().reset();
     this.visibility().reset();
-    this.replaySpeed = session.replaySpeed;
-    this.paused = session.paused;
     this.seekReplay(0);
     ui.mode.value = 'replay';
     ui.playerRaces.value = [...this.playerRaceNames];
     ui.playerTeams.value = [...this.playerTeamIds];
     ui.playerEnabled.value = [...this.playerEnabled];
     ui.fullVision.value = this.fullVision;
-    ui.replayTotal.value = r.frames.length;
-    ui.replaySpeed.value = 1;
-    ui.paused.value = false;
     ui.over.value = false;
     this.camera().resetFrame();
     if (this.viewW > 1) this.frame();
@@ -237,29 +243,24 @@ export class Game {
 
   /** Rebuild the replay sim and fast-forward to `tick` (scrubbing). */
   seekReplay(tick: number): void {
-    if (!this.replay) return;
-    const r = this.replay;
-    const target = Math.max(0, Math.min(tick, r.frames.length));
-    this.sim = createReplaySeekSim(r, this.map);
+    const seek = this.replayController.seek(tick);
+    if (!seek) return;
+    this.sim = createReplaySeekSim(seek.replay, this.map);
     this.matchStats = createMatchStats(this.sim.fullState());
-    for (let t = 0; t < target; t++) {
-      const batch = r.frames[t] ?? [];
+    for (let t = 0; t < seek.tick; t++) {
+      const batch = seek.replay.frames[t] ?? [];
       const results = this.sim.step(batch);
       recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
     }
-    this.replayTick = target;
-    this.paused = target >= r.frames.length;
     this.selectionState().clear();
-    ui.replayTick.value = target;
-    ui.paused.value = this.paused;
     this.computeFog();
     this.publish();
   }
 
-  setReplaySpeed(x: number): void { this.replaySpeed = x; ui.replaySpeed.value = x; }
+  setReplaySpeed(x: number): void { this.replayController.setSpeed(x); }
   togglePause(): void {
-    if (this.replayTick >= (this.replay?.frames.length ?? 0)) this.seekReplay(0); // restart at the end
-    else { this.paused = !this.paused; ui.paused.value = this.paused; }
+    if (this.replayController.ended) this.seekReplay(0); // restart at the end
+    else this.replayController.togglePause();
   }
 
   /** The replay JSON for the current/just-played game (download payload). */
@@ -354,15 +355,11 @@ export class Game {
   }
 
   private replayStep(): void {
-    const r = this.replay;
-    if (!r || this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; return; }
-    const batch = r.frames[this.replayTick] ?? [];
+    const batch = this.replayController.takeStepBatch();
+    if (!batch) return;
     const results = this.sim.step(batch);
     recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
-    this.replayTick++;
-    ui.replayTick.value = this.replayTick;
     this.pruneSelection();
-    if (this.replayTick >= r.frames.length) { this.paused = true; ui.paused.value = true; }
   }
 
   /** Advance the sim by n ticks immediately (demos / screenshot automation). */
