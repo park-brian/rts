@@ -2289,6 +2289,9 @@ Remaining work:
   - Session-UI sync split slice is done: setup/replay signal batches and selection-HUD clearing at
     session boundaries now live in an app `AppSessionUiController`, while `Game` keeps sim/session
     ownership and the per-frame HUD publish.
+  - HUD-publish facade split slice is done: per-frame HUD signal mutation now routes through an app
+    `AppHudController`, so `Game` owns when to publish while the HUD layer owns how selection,
+    resources, replay availability, and control-group counts reach UI signals.
 
 Done when:
 

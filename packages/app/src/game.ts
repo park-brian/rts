@@ -7,7 +7,7 @@ import {
   type Replay, type FactionName, type MatchStats, type MapSpec,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
-import { publishHud } from './hud-publisher.ts';
+import { AppHudController } from './app-hud-controller.ts';
 import { AppSessionUiController } from './app-session-ui-controller.ts';
 import { CameraController } from './camera-controller.ts';
 import { type PlacementGhost } from './placement-controller.ts';
@@ -50,6 +50,7 @@ export class Game {
   private replayController = new ReplayController();
   private botDiagnosticsController = new BotDiagnosticsController();
   private sessionUiController = new AppSessionUiController();
+  private hudController = new AppHudController();
   private tapSelectionController?: TapSelectionController;
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
@@ -503,7 +504,7 @@ export class Game {
 
   private publish(): void {
     const s = this.sim.fullState();
-    publishHud({
+    this.hudController.publish({
       state: s,
       human: this.human,
       mode: this.mode,

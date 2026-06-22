@@ -2,7 +2,7 @@ import { FPS, NONE, isAlive, slotOf, type State } from './sim.ts';
 import { selectionCapabilities } from './selection-capabilities.ts';
 import { EMPTY_SELECTION_VIEW, ui, type Mode } from './store.ts';
 
-type PublishHudArgs = {
+export type PublishHudArgs = {
   state: State;
   human: number;
   mode: Mode;
