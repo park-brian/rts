@@ -2203,6 +2203,9 @@ Remaining work:
   - Right-click smart-command guard is done: desktop right-click still routes exactly one smart tap
     while pointer and context-menu defaults are suppressed, preserving the StarCraft-style command
     surface without browser menu leaks.
+  - Attack-hotkey click guard is done: desktop `A` arms the shared attack mode, and the next left
+    click on an enemy emits one validator-backed target attack without selection or smart-command
+    side effects.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
   selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart

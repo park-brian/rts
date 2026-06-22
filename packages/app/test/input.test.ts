@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { attachInput } from '../src/input.ts';
+import { dispatchHotkey, resetHotkeys } from '../src/hotkeys.ts';
 import { ui } from '../src/store.ts';
+import { Kind, fx, spawnUnit } from '../src/sim.ts';
+import { centerOnEntity, desktopGame, screenOf, select } from '../test-support/harness.ts';
 
 type Listener = (e: any) => void;
 
@@ -155,6 +158,38 @@ test('desktop armed left click routes to command tap instead of selection', () =
   assert.equal(calls.tap, 1);
   assert.equal(calls.desktopTap, 0);
   assert.equal(calls.smart, 0);
+});
+
+test('desktop attack hotkey arms a shared attack command on the next left click', () => {
+  resetHotkeys();
+  const canvas = new FakeCanvas();
+  const g = desktopGame(105);
+  g.resize(800, 600);
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const enemy = spawnUnit(s, Kind.Zealot, 1, fx(500), fx(400));
+  let desktopSelectTaps = 0;
+  let smartTaps = 0;
+  const game = g as any;
+  const desktopSelectTap = game.desktopSelectTap.bind(game);
+  const desktopSmartTap = game.desktopSmartTap.bind(game);
+  game.desktopSelectTap = (...args: any[]) => { desktopSelectTaps++; return desktopSelectTap(...args); };
+  game.desktopSmartTap = (...args: any[]) => { smartTaps++; return desktopSmartTap(...args); };
+  select(g, [marine]);
+  centerOnEntity(g, enemy);
+  g.fastForward(1);
+  attachInput(canvas as any, game);
+
+  assert.equal(dispatchHotkey(g, 'KeyA'), true);
+  assert.deepEqual(ui.armedCommand.value, { t: 'attackMove' });
+  const p = screenOf(g, enemy);
+  canvas.fire('pointerdown', pointer(1, p.x, p.y));
+  canvas.fire('pointerup', pointer(1, p.x, p.y));
+
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  assert.equal(desktopSelectTaps, 0);
+  assert.equal(smartTaps, 0);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('desktop armed right click still routes to smart command', () => {
