@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
-import { placementFieldOverlays } from '../src/world-overlays.ts';
+import {
+  placementFieldOverlays,
+  QueuedWaypointPresentations,
+  type QueuedWaypointMarker,
+} from '../src/world-overlays.ts';
 import { CREEP_RADIUS, Kind, POWER_RADIUS, fx, slotOf, spawnUnit } from '../src/sim.ts';
 
 const raceGame = (races: readonly string[]): Game => {
@@ -49,4 +53,24 @@ test('placement overlays expose creep providers and candidate Zerg creep fields'
     o.x === e.x[hatchery] && o.y === e.y[hatchery] && o.radius === CREEP_RADIUS));
   assert.ok(overlays.some((o) => o.kind === 'creep' && o.source === 'candidate' &&
     o.x === g.placementGhost!.x && o.y === g.placementGhost!.y && o.radius === CREEP_RADIUS));
+});
+
+test('queued waypoint presentations cover every selected travel intent', () => {
+  const expectedMarkers = {
+    move: 'circle',
+    attack: 'attack-cross',
+    'attack-move': 'attack-diamond',
+    patrol: 'patrol-chevron',
+    repair: 'repair-plus',
+    harvest: 'harvest-triangle',
+    load: 'load-square',
+    unload: 'unload-triangle',
+  } satisfies Record<keyof typeof QueuedWaypointPresentations, QueuedWaypointMarker>;
+
+  assert.deepEqual(Object.keys(QueuedWaypointPresentations).sort(), Object.keys(expectedMarkers).sort());
+  for (const [intent, marker] of Object.entries(expectedMarkers)) {
+    const presentation = QueuedWaypointPresentations[intent as keyof typeof QueuedWaypointPresentations];
+    assert.equal(presentation.marker, marker);
+    assert.match(presentation.strokeStyle, /^rgba\(/);
+  }
 });

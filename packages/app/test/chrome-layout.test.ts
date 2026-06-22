@@ -472,10 +472,12 @@ test('math renderer draws selected weapon and detector range overlays from sim h
 });
 test('renderer draws queued travel waypoints from sim descriptors', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+  const worldOverlays = readFileSync(resolve(appRoot, 'src', 'world-overlays.ts'), 'utf8');
 
   assert.match(render2d, /queuedTravelWaypoints/);
   assert.match(render2d, /drawQueuedTravelWaypoints\(ctx, game\)/);
-  assert.match(render2d, /attack-move/);
+  assert.match(render2d, /queuedWaypointPresentation\(waypoint\.intent\)/);
+  assert.match(worldOverlays, /'attack-move': \{ strokeStyle: 'rgba\(255,120,80,0\.78\)', marker: 'attack-diamond' \}/);
 });
 
 test('renderers draw last-known enemy affordances from app visibility memory', () => {

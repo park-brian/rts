@@ -1,5 +1,13 @@
 import type { Game } from './game.ts';
-import { CREEP_RADIUS, Kind, POWER_RADIUS, providesCreep, requiresCreep, requiresPower } from './sim.ts';
+import {
+  CREEP_RADIUS,
+  Kind,
+  POWER_RADIUS,
+  providesCreep,
+  requiresCreep,
+  requiresPower,
+  type QueuedTravelWaypoint,
+} from './sim.ts';
 
 export type PlacementFieldOverlay = {
   kind: 'creep' | 'power';
@@ -8,6 +16,36 @@ export type PlacementFieldOverlay = {
   radius: number;
   source: 'existing' | 'candidate';
 };
+
+export type QueuedWaypointMarker =
+  | 'circle'
+  | 'attack-cross'
+  | 'attack-diamond'
+  | 'patrol-chevron'
+  | 'repair-plus'
+  | 'harvest-triangle'
+  | 'load-square'
+  | 'unload-triangle';
+
+export type QueuedWaypointPresentation = {
+  strokeStyle: string;
+  marker: QueuedWaypointMarker;
+};
+
+export const QueuedWaypointPresentations = {
+  move: { strokeStyle: 'rgba(255,225,78,0.78)', marker: 'circle' },
+  attack: { strokeStyle: 'rgba(255,86,86,0.82)', marker: 'attack-cross' },
+  'attack-move': { strokeStyle: 'rgba(255,120,80,0.78)', marker: 'attack-diamond' },
+  patrol: { strokeStyle: 'rgba(90,210,255,0.78)', marker: 'patrol-chevron' },
+  repair: { strokeStyle: 'rgba(70,220,150,0.78)', marker: 'repair-plus' },
+  harvest: { strokeStyle: 'rgba(80,220,120,0.78)', marker: 'harvest-triangle' },
+  load: { strokeStyle: 'rgba(175,170,255,0.78)', marker: 'load-square' },
+  unload: { strokeStyle: 'rgba(210,170,255,0.78)', marker: 'unload-triangle' },
+} satisfies Record<QueuedTravelWaypoint['intent'], QueuedWaypointPresentation>;
+
+export const queuedWaypointPresentation = (
+  intent: QueuedTravelWaypoint['intent'],
+): QueuedWaypointPresentation => QueuedWaypointPresentations[intent];
 
 export const placementFieldOverlays = (game: Game, out: PlacementFieldOverlay[] = []): PlacementFieldOverlay[] => {
   out.length = 0;

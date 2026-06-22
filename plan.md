@@ -2303,6 +2303,9 @@ Remaining work:
   - Placement world-overlay ownership slice is done: placement creep/power field affordance data now
     lives in `world-overlays.ts`, the Math renderer consumes that owner, and placement overlay tests
     verify the descriptor-style fields without importing renderer internals.
+  - Queued-waypoint presentation slice is done: queued-order colors and marker shapes now live
+    in `world-overlays.ts` as an explicit `QueuedTravelWaypoint['intent']` presentation table,
+    and the Math renderer consumes that owner instead of keeping marker decisions inline.
 
 Done when:
 

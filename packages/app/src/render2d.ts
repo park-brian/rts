@@ -14,7 +14,12 @@ import {
 } from './visibility-affordances.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
-import { placementFieldOverlays, type PlacementFieldOverlay } from './world-overlays.ts';
+import {
+  placementFieldOverlays,
+  queuedWaypointPresentation,
+  type PlacementFieldOverlay,
+  type QueuedWaypointMarker,
+} from './world-overlays.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -569,15 +574,57 @@ const screenPoint = (game: Game, x: number, y: number): { x: number; y: number }
   y: (y - game.camY) * game.zoom,
 });
 
-const queuedTravelStrokeStyle = (intent: QueuedTravelWaypoint['intent']): string => {
-  if (intent === 'attack') return 'rgba(255,86,86,0.82)';
-  if (intent === 'attack-move') return 'rgba(255,120,80,0.78)';
-  if (intent === 'patrol') return 'rgba(90,210,255,0.78)';
-  if (intent === 'repair') return 'rgba(70,220,150,0.78)';
-  if (intent === 'harvest') return 'rgba(80,220,120,0.78)';
-  if (intent === 'load') return 'rgba(175,170,255,0.78)';
-  if (intent === 'unload') return 'rgba(210,170,255,0.78)';
-  return 'rgba(255,225,78,0.78)';
+const drawQueuedWaypointMarker = (
+  ctx: CanvasRenderingContext2D,
+  marker: QueuedWaypointMarker,
+  x: number,
+  y: number,
+): void => {
+  const r = 5;
+  switch (marker) {
+    case 'circle':
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      break;
+    case 'attack-cross':
+      ctx.moveTo(x - r, y - r);
+      ctx.lineTo(x + r, y + r);
+      ctx.moveTo(x + r, y - r);
+      ctx.lineTo(x - r, y + r);
+      break;
+    case 'attack-diamond':
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r, y);
+      ctx.lineTo(x, y + r);
+      ctx.lineTo(x - r, y);
+      ctx.closePath();
+      break;
+    case 'patrol-chevron':
+      ctx.moveTo(x - r, y);
+      ctx.lineTo(x, y - r);
+      ctx.lineTo(x + r, y);
+      break;
+    case 'repair-plus':
+      ctx.moveTo(x - r, y);
+      ctx.lineTo(x + r, y);
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x, y + r);
+      break;
+    case 'harvest-triangle':
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r, y + r);
+      ctx.lineTo(x - r, y + r);
+      ctx.closePath();
+      break;
+    case 'load-square':
+      ctx.rect(x - r, y - r, r * 2, r * 2);
+      break;
+    case 'unload-triangle':
+      ctx.moveTo(x - r, y - r);
+      ctx.lineTo(x + r, y - r);
+      ctx.lineTo(x, y + r);
+      ctx.closePath();
+      break;
+  }
 };
 
 const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): void => {
@@ -598,55 +645,15 @@ const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): v
       prevUnit = waypoint.unit;
     }
     const to = screenPoint(game, waypoint.x, waypoint.y);
-    ctx.strokeStyle = queuedTravelStrokeStyle(waypoint.intent);
+    const presentation = queuedWaypointPresentation(waypoint.intent);
+    ctx.strokeStyle = presentation.strokeStyle;
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.beginPath();
-    if (waypoint.intent === 'attack') {
-      const r = 5;
-      ctx.moveTo(to.x - r, to.y - r);
-      ctx.lineTo(to.x + r, to.y + r);
-      ctx.moveTo(to.x + r, to.y - r);
-      ctx.lineTo(to.x - r, to.y + r);
-    } else if (waypoint.intent === 'attack-move') {
-      const r = 5;
-      ctx.moveTo(to.x, to.y - r);
-      ctx.lineTo(to.x + r, to.y);
-      ctx.lineTo(to.x, to.y + r);
-      ctx.lineTo(to.x - r, to.y);
-      ctx.closePath();
-    } else if (waypoint.intent === 'patrol') {
-      const r = 5;
-      ctx.moveTo(to.x - r, to.y);
-      ctx.lineTo(to.x, to.y - r);
-      ctx.lineTo(to.x + r, to.y);
-    } else if (waypoint.intent === 'repair') {
-      const r = 5;
-      ctx.moveTo(to.x - r, to.y);
-      ctx.lineTo(to.x + r, to.y);
-      ctx.moveTo(to.x, to.y - r);
-      ctx.lineTo(to.x, to.y + r);
-    } else if (waypoint.intent === 'harvest') {
-      const r = 5;
-      ctx.moveTo(to.x, to.y - r);
-      ctx.lineTo(to.x + r, to.y + r);
-      ctx.lineTo(to.x - r, to.y + r);
-      ctx.closePath();
-    } else if (waypoint.intent === 'load') {
-      const r = 5;
-      ctx.rect(to.x - r, to.y - r, r * 2, r * 2);
-    } else if (waypoint.intent === 'unload') {
-      const r = 5;
-      ctx.moveTo(to.x - r, to.y - r);
-      ctx.lineTo(to.x + r, to.y - r);
-      ctx.lineTo(to.x, to.y + r);
-      ctx.closePath();
-    } else {
-      ctx.arc(to.x, to.y, 4, 0, Math.PI * 2);
-    }
+    drawQueuedWaypointMarker(ctx, presentation.marker, to.x, to.y);
     ctx.stroke();
     ctx.setLineDash([5, 5]);
     from = to;
