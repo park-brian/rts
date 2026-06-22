@@ -2300,6 +2300,9 @@ Remaining work:
     and pointer gesture interpretation already live behind app controllers. Remaining split work
     should focus on real residual coordination points such as world overlays, not re-opening those
     completed seams.
+  - Placement world-overlay ownership slice is done: placement creep/power field affordance data now
+    lives in `world-overlays.ts`, the Math renderer consumes that owner, and placement overlay tests
+    verify the descriptor-style fields without importing renderer internals.
 
 Done when:
 

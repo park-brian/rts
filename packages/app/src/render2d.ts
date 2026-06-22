@@ -3,8 +3,8 @@
 
 import {
   TILE, ONE, Units, Role, Kind, Order, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
-  structureFootprint, POWER_RADIUS, CREEP_RADIUS, effectiveSight, isDetectorKind, isPowered, tiles, upgradedRange,
-  requiresPower, requiresCreep, providesCreep, actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
+  structureFootprint, effectiveSight, isDetectorKind, isPowered, tiles, upgradedRange,
+  actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
   illusionPresentation, queuedTravelWaypoints, selectionBase, upgradedCooldown, weaponForTarget, type MapDef, type QueuedTravelWaypoint, type State,
 } from './sim.ts';
 import type { Game } from './game.ts';
@@ -14,6 +14,7 @@ import {
 } from './visibility-affordances.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
+import { placementFieldOverlays, type PlacementFieldOverlay } from './world-overlays.ts';
 
 const OWN = ['#4ea1ff', '#ff5a5a', '#ffd24e', '#9b7bff', '#5affa0', '#ff9b4e'];
 const NEUTRAL_COL = '#49d0c0';
@@ -91,40 +92,6 @@ const lastKnownScratch: LastKnownAffordance[] = [];
 const placementFieldScratch: PlacementFieldOverlay[] = [];
 const queuedTravelScratch: QueuedTravelWaypoint[] = [];
 
-export type PlacementFieldOverlay = {
-  kind: 'creep' | 'power';
-  x: number;
-  y: number;
-  radius: number;
-  source: 'existing' | 'candidate';
-};
-
-export const placementFieldOverlays = (game: Game, out: PlacementFieldOverlay[] = []): PlacementFieldOverlay[] => {
-  out.length = 0;
-  const ghost = game.placementGhost;
-  if (!ghost || game.human < 0) return out;
-  const e = game.sim.fullState().e;
-  const showCreep = requiresCreep(ghost.kind) || providesCreep(ghost.kind);
-  const showPower = requiresPower(ghost.kind) || ghost.kind === Kind.Pylon;
-  if (showCreep || showPower) {
-    for (let i = 0; i < e.hi; i++) {
-      if (e.alive[i] !== 1 || e.owner[i] !== game.human || e.built[i] !== 1) continue;
-      if (showCreep && providesCreep(e.kind[i]!)) {
-        out.push({ kind: 'creep', x: e.x[i]!, y: e.y[i]!, radius: CREEP_RADIUS, source: 'existing' });
-      }
-      if (showPower && e.kind[i] === Kind.Pylon) {
-        out.push({ kind: 'power', x: e.x[i]!, y: e.y[i]!, radius: POWER_RADIUS, source: 'existing' });
-      }
-    }
-  }
-  if (showCreep) {
-    if (providesCreep(ghost.kind)) out.push({ kind: 'creep', x: ghost.x, y: ghost.y, radius: CREEP_RADIUS, source: 'candidate' });
-  }
-  if (showPower) {
-    if (ghost.kind === Kind.Pylon) out.push({ kind: 'power', x: ghost.x, y: ghost.y, radius: POWER_RADIUS, source: 'candidate' });
-  }
-  return out;
-};
 
 const buildTerrain = (m: MapDef): HTMLCanvasElement => {
   const c = document.createElement('canvas');

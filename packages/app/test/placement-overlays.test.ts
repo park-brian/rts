@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
-import { placementFieldOverlays } from '../src/render2d.ts';
+import { placementFieldOverlays } from '../src/world-overlays.ts';
 import { CREEP_RADIUS, Kind, POWER_RADIUS, fx, slotOf, spawnUnit } from '../src/sim.ts';
 
 const raceGame = (races: readonly string[]): Game => {
