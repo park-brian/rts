@@ -2197,6 +2197,9 @@ Remaining work:
   with visible queued waypoints/orders.
   - Scroll-zoom input guard is done: desktop wheel input is covered by a behavioral test proving zoom
     keeps the cursor's world point anchored while preventing page scroll.
+  - Middle-click pan guard is done: desktop middle-drag pans the camera without selection or smart
+    command side effects, and the input layer suppresses the browser aux-click default so the control
+    stays stable in real browsers.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
   selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart

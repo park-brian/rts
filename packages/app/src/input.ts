@@ -74,6 +74,7 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
   on(canvas, 'pointerup', (e) => end(e as PointerEvent));
   on(canvas, 'pointercancel', (e) => end(e as PointerEvent));
   on(canvas, 'contextmenu', (e) => e.preventDefault());
+  on(canvas, 'auxclick', (e) => e.preventDefault());
   on(canvas, 'mousemove', (e) => {
     const event = e as MouseEvent;
     if (!isDesktop()) return;

@@ -250,15 +250,18 @@ test('desktop wheel zoom keeps the cursor world point anchored', () => {
 test('desktop middle button drags the camera instead of selecting', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
+  let prevented = 0;
   ui.controlScheme.value = 'desktop';
   attachInput(canvas as any, game);
 
-  canvas.fire('pointerdown', pointer(1, 80, 80, { button: 1 }));
+  canvas.fire('pointerdown', pointer(1, 80, 80, { button: 1, preventDefault: () => { prevented++; } }));
   canvas.fire('pointermove', pointer(1, 110, 120, { button: 1 }));
   canvas.fire('pointerup', pointer(1, 110, 120, { button: 1 }));
+  canvas.fire('auxclick', { button: 1, preventDefault: () => { prevented++; } });
 
   assert.equal(game.camX, -30);
   assert.equal(game.camY, -40);
+  assert.equal(prevented, 2);
   assert.equal(calls.desktopTap, 0);
   assert.equal(calls.smart, 0);
   assert.equal(calls.box, 0);
