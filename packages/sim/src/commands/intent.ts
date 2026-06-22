@@ -30,6 +30,7 @@ export type SmartCommandOptions = {
   queueTravel?: boolean;
   queueAttack?: boolean;
   queueRepair?: boolean;
+  queueHarvest?: boolean;
 };
 
 export type ProducedUnitRallyIntent =
@@ -135,7 +136,7 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
-const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' }>>(
+const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' | 'harvest' }>>(
   command: T,
   enabled: boolean | undefined,
 ): T => {
@@ -158,6 +159,11 @@ const queueRepairCommand = (
   opts: SmartCommandOptions,
 ): Extract<Command, { t: 'repair' }> => queueCommand(command, opts.queueRepair);
 
+const queueHarvestCommand = (
+  command: Extract<Command, { t: 'harvest' }>,
+  opts: SmartCommandOptions,
+): Extract<Command, { t: 'harvest' }> => queueCommand(command, opts.queueHarvest);
+
 export const smartCommandCandidates = (
   s: State,
   player: number,
@@ -179,7 +185,7 @@ export const smartCommandCandidates = (
       commands.push(queueAttackCommand({ t: 'attack', unit: actor, target: target.hit }, opts));
     }
     if (canPlayerGatherTarget(s, player, target.hit)) {
-      commands.push({ t: 'harvest', unit: actor, patch: target.hit });
+      commands.push(queueHarvestCommand({ t: 'harvest', unit: actor, patch: target.hit }, opts));
     }
     commands.push(
       queueRepairCommand({ t: 'repair', unit: actor, target: target.hit }, opts),
@@ -222,11 +228,12 @@ export const harvestModeCandidates = (
   player: number,
   actors: Iterable<number>,
   target: number,
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   if (!isAlive(s.e, target)) return [];
   const commands: Command[] = [];
   for (const actor of actors) {
-    const command: Command = { t: 'harvest', unit: actor, patch: target };
+    const command: Command = queueHarvestCommand({ t: 'harvest', unit: actor, patch: target }, opts);
     if (validateCommand(s, player, command).ok) commands.push(command);
   }
   return commands;

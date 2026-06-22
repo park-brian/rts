@@ -64,7 +64,8 @@ export class TapSelectionController {
     }
 
     if (armed.t === 'target' && armed.mode === 'harvest') {
-      if (hit >= 0 && this.queueHarvestTarget(hit)) clearArmedCommand();
+      const queueOrders = opts.shift === true || this.mobileQueueMode();
+      if (hit >= 0 && this.queueHarvestTarget(hit, queueOrders)) clearArmedCommand();
       return;
     }
     if (armed.t === 'target' && armed.mode === 'repair') {
@@ -90,6 +91,7 @@ export class TapSelectionController {
         queueTravel: queueOrders,
         queueAttack: queueOrders,
         queueRepair: queueOrders,
+        queueHarvest: queueOrders,
       });
       if (command) g.queued.push(command);
     }
@@ -133,6 +135,7 @@ export class TapSelectionController {
         queueTravel: opts.shift === true,
         queueAttack: opts.shift === true,
         queueRepair: opts.shift === true,
+        queueHarvest: opts.shift === true,
       });
       if (command) {
         g.queued.push(command);
@@ -178,11 +181,11 @@ export class TapSelectionController {
     }
   }
 
-  private queueHarvestTarget(target: number): boolean {
+  private queueHarvestTarget(target: number, queueOrders = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     let queued = false;
-    for (const command of harvestModeCandidates(s, g.human, g.selection, target)) {
+    for (const command of harvestModeCandidates(s, g.human, g.selection, target, { queueHarvest: queueOrders })) {
       g.queued.push(command);
       queued = true;
     }

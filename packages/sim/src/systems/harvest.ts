@@ -21,6 +21,7 @@ import { clearVelocity, faceToward } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
 import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { canUnloadAt, isContained } from '../mechanics/cargo.ts';
+import { startNextQueuedOrder } from '../entity/order-queue.ts';
 import { fx } from '../fixed.ts';
 import { withinTopDownEdgeRange, type InteractionPoint } from '../spatial/geometry.ts';
 import {
@@ -61,6 +62,15 @@ const atDockingPoint = (s: State, worker: number, target: number, p: Interaction
   const dx = e.x[worker]! - p.x;
   const dy = e.y[worker]! - p.y;
   return dx === 0 && dy === 0 && withinTopDownEdgeRange(s, worker, target, HARVEST_DOCK_EPSILON);
+};
+
+const finishHarvesting = (s: State, worker: number): void => {
+  const e = s.e;
+  e.target[worker] = NONE;
+  e.intentTarget[worker] = NONE;
+  e.combatTarget[worker] = NONE;
+  e.timer[worker] = 0;
+  if (!startNextQueuedOrder(s, worker)) e.order[worker] = Order.Idle;
 };
 
 const gasExitPoint = (s: State, worker: number, refinery: number, depot: number): InteractionPoint | null => {
@@ -135,7 +145,7 @@ export const harvest = (s: State): void => {
       }
       // Returning: deliver to the nearest owned resource depot.
       const depot = nearestDepot(e.x[i]!, e.y[i]!, owner);
-      if (depot === NONE) { e.order[i] = Order.Idle; continue; }
+      if (depot === NONE) { finishHarvesting(s, i); continue; }
       const source = resourceSlotFromTarget(s, e.target[i]!);
       const approachX = source === NONE ? e.x[i]! : e.x[source]!;
       const approachY = source === NONE ? e.y[i]! : e.y[source]!;
@@ -160,7 +170,7 @@ export const harvest = (s: State): void => {
     // Going to mine: ensure we have a live patch assigned.
     if (!workerTargetIsGatherable(s, i)) {
       const np = pickPatch(s, i, owner, speed);
-      if (np === NONE) { e.order[i] = Order.Idle; e.target[i] = NONE; continue; }
+      if (np === NONE) { finishHarvesting(s, i); continue; }
       e.target[i] = eid(e, np);
     }
     let node = slotOf(e.target[i]!);

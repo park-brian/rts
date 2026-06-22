@@ -241,6 +241,7 @@ const validateCommand = (x: unknown): Command => {
         t: 'harvest',
         unit: readNonNegativeInt(unit, 'invalid harvest command'),
         patch: readNonNegativeInt(r.patch, 'invalid harvest command'),
+        ...readOptionalQueue(r, 'invalid harvest command'),
       };
     }
     case 'repair': {

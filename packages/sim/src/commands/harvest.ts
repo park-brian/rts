@@ -1,8 +1,8 @@
 import type { Command } from './types.ts';
-import { Order, Role } from '../data/index.ts';
+import { Role } from '../data/index.ts';
 import { canPlayerGatherTargetSlot } from '../mechanics/resources.ts';
 import type { State } from '../entity/world.ts';
-import { NONE, isAlive, slotOf } from '../entity/world.ts';
+import { isAlive, slotOf } from '../entity/world.ts';
 import {
   canReceiveOrder,
   cancelPendingBeforeOrder,
@@ -10,6 +10,7 @@ import {
   reject,
   type CommandValidation,
 } from './shared.ts';
+import { canQueueOrder, currentOrderIsIdle, enqueueHarvestOrder, setCurrentHarvestOrder } from '../entity/order-queue.ts';
 
 type HarvestCommand = Extract<Command, { t: 'harvest' }>;
 
@@ -22,17 +23,19 @@ export const validateHarvestCommand = (s: State, player: number, command: Harves
   if (!isAlive(e, command.patch)) return reject('target-not-found');
   const target = slotOf(command.patch);
   if (!canPlayerGatherTargetSlot(s, player, target)) return reject('target-not-allowed');
+  if (command.queue === true && !currentOrderIsIdle(e, slot) && !canQueueOrder(e, slot)) return reject('queue-full');
   return { ok: true };
 };
 
 export const applyHarvestCommand = (s: State, command: HarvestCommand): void => {
   const e = s.e;
   const slot = slotOf(command.unit);
-  cancelPendingBeforeOrder(s, slot);
+  const append = command.queue === true && !currentOrderIsIdle(e, slot);
+  if (!append) cancelPendingBeforeOrder(s, slot);
   clearSettled(s, slot);
-  e.order[slot] = Order.Harvest;
-  e.target[slot] = command.patch;
-  e.intentTarget[slot] = NONE;
-  e.combatTarget[slot] = NONE;
-  e.timer[slot] = 0;
+  if (append) {
+    enqueueHarvestOrder(s, slot, command.patch);
+  } else {
+    setCurrentHarvestOrder(s, slot, command.patch);
+  }
 };

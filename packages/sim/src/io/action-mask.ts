@@ -175,6 +175,12 @@ const decodedRepair = (actor: number, target: number, queue?: boolean): Extract<
   return command;
 };
 
+const decodedHarvest = (actor: number, target: number, queue?: boolean): Extract<Command, { t: 'harvest' }> => {
+  const command: Extract<Command, { t: 'harvest' }> = { t: 'harvest', unit: actor, patch: target };
+  if (queue === true) command.queue = true;
+  return command;
+};
+
 const decodedPatrol = (actor: number, x: number, y: number, queue?: boolean): Extract<Command, { t: 'patrol' }> => {
   const command: Extract<Command, { t: 'patrol' }> = { t: 'patrol', unit: actor, x, y };
   if (queue === true) command.queue = true;
@@ -236,7 +242,7 @@ export const decodeAction = (action: EncodedAction): Command => {
       return command;
     }
     case 'harvest':
-      return { t: 'harvest', unit: action.actor, patch: target };
+      return decodedHarvest(action.actor, target, action.queue);
     case 'repair':
       return decodedRepair(action.actor, target, action.queue);
     case 'rally':
@@ -279,7 +285,10 @@ export const encodeCommand = (command: Command): EncodedAction => {
       ...(command.queue === true ? { queue: true } : {}),
     };
     case 'ability': return { head: 'ability', actor: command.unit, ability: command.ability, target: command.target, x: command.x, y: command.y };
-    case 'harvest': return { head: 'harvest', actor: command.unit, target: command.patch };
+    case 'harvest': return {
+      head: 'harvest', actor: command.unit, target: command.patch,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'repair': return {
       head: 'repair', actor: command.unit, target: command.target,
       ...(command.queue === true ? { queue: true } : {}),
@@ -768,7 +777,7 @@ const commandIntentTargetAllowed = (
 ): boolean => {
   switch (head) {
     case 'harvest':
-      return harvestModeCandidates(s, player, [actor], target).length > 0;
+      return harvestModeCandidates(s, player, [actor], target, { queueHarvest: opts.queue }).length > 0;
     case 'repair':
       return repairModeCandidates(s, player, [actor], target, { queueRepair: opts.queue }).length > 0;
     case 'rally':

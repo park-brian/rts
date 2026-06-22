@@ -355,7 +355,7 @@ test('desktop right click attacks enemies and moves on empty ground', () => {
   }]);
 });
 
-test('desktop shift right click queues travel and target attack commands', () => {
+test('desktop shift right click queues travel, attack, repair, and harvest commands', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
   const s = g.sim.fullState();
@@ -365,6 +365,7 @@ test('desktop shift right click queues travel and target attack commands', () =>
   const enemy = spawnUnit(s, Kind.Zealot, 1, fx(560), fx(400));
   const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
   const bunker = spawnUnit(s, Kind.Bunker, 0, fx(620), fx(460));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(660), fx(460));
   e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
   s.players.minerals[0] = 1_000;
   select(g, [marine]);
@@ -402,6 +403,11 @@ test('desktop shift right click queues travel and target attack commands', () =>
   const repairPoint = screenOf(g, bunker);
   g.desktopSmartTap(repairPoint.x, repairPoint.y, { shift: true, preferredHit: bunker });
   assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: bunker, queue: true }]);
+
+  g.queued = [];
+  const harvestPoint = screenOf(g, mineral);
+  g.desktopSmartTap(harvestPoint.x, harvestPoint.y, { shift: true, preferredHit: mineral });
+  assert.deepEqual(g.queued, [{ t: 'harvest', unit: scv, patch: mineral, queue: true }]);
 });
 
 test('desktop right click keeps smart-command semantics while attack mode is armed', () => {
@@ -661,7 +667,7 @@ test('mobile normal tap matches shared command intent when selection does not in
   assert.deepEqual(g.queued, rallyExpected ? [rallyExpected] : []);
 });
 
-test('mobile queue mode appends validated travel and target attack actions', () => {
+test('mobile queue mode appends validated travel, attack, repair, and harvest actions', () => {
   const g = freshGame();
   ui.controlScheme.value = 'mobile';
   ui.mobileQueueMode.value = true;
@@ -672,6 +678,7 @@ test('mobile queue mode appends validated travel and target attack actions', () 
     const enemy = spawnUnit(s, Kind.Zealot, 1, fx(520), fx(400));
     const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
     const bunker = spawnUnit(s, Kind.Bunker, 0, fx(620), fx(460));
+    const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(660), fx(460));
     e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
     s.players.minerals[0] = 1_000;
     select(g, [marine]);
@@ -703,6 +710,11 @@ test('mobile queue mode appends validated travel and target attack actions', () 
     assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 
     g.queued = [];
+    const harvestPoint = screenOf(g, mineral);
+    g.tap(harvestPoint.x, harvestPoint.y, { preferredHit: mineral });
+    assert.deepEqual(g.queued, [{ t: 'harvest', unit: scv, patch: mineral, queue: true }]);
+
+    g.queued = [];
     select(g, [marine]);
     centerOnEntity(g, marine);
     ui.armedCommand.value = { t: 'attackMove' };
@@ -732,6 +744,24 @@ test('mobile queue mode appends validated travel and target attack actions', () 
   } finally {
     ui.mobileQueueMode.value = false;
   }
+});
+
+test('harvest target mode queues gather targets with Shift', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const mineral = spawnUnit(s, Kind.Mineral, NEUTRAL, fx(620), fx(400));
+  select(g, [scv]);
+  centerOnEntity(g, mineral);
+  g.fastForward(1);
+  ui.armedCommand.value = { t: 'target', mode: 'harvest' };
+
+  const p = screenOf(g, mineral);
+  g.tap(p.x, p.y, { shift: true, preferredHit: mineral });
+
+  assert.deepEqual([...g.selection], [scv]);
+  assert.deepEqual(g.queued, [{ t: 'harvest', unit: scv, patch: mineral, queue: true }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
 test('harvest target mode sends selected workers to an owned gas structure', () => {

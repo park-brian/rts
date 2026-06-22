@@ -106,6 +106,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'amove', unit: 28, x: fx(18), y: fx(19), queue: true },
     { t: 'ability', unit: 29, ability: 3, target: 30, x: fx(20), y: fx(21) },
     { t: 'harvest', unit: 31, patch: 32 },
+    { t: 'harvest', unit: 31, patch: 32, queue: true },
     { t: 'repair', unit: 33, target: 34 },
     { t: 'repair', unit: 33, target: 34, queue: true },
     { t: 'rally', building: 35, x: fx(22), y: fx(23), target: 36 },
@@ -289,7 +290,7 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
 });
 
-test('queued travel, attack, and repair action masks use shared validation and full-queue gates', () => {
+test('queued travel, attack, repair, and harvest action masks use shared validation and full-queue gates', () => {
   const scenario = simScenario({ players: 2, seed: 9511 });
   const { sim, state: s, spawn } = scenario;
   const e = s.e;
@@ -297,6 +298,7 @@ test('queued travel, attack, and repair action masks use shared validation and f
   const enemy = spawn(Kind.Zergling, 1, fx(700), fx(400));
   const scv = spawn(Kind.SCV, 0, fx(400), fx(460));
   const bunker = spawn(Kind.Bunker, 0, fx(700), fx(460));
+  const mineral = spawn(Kind.Mineral, -1, fx(740), fx(460));
   e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
   s.players.minerals[0] = 1_000;
   s.players.gas[0] = 1_000;
@@ -316,10 +318,18 @@ test('queued travel, attack, and repair action masks use shared validation and f
     target: bunker,
     queue: true,
   });
+  assert.deepEqual(commandForHead(s, scv, 'harvest', { target: mineral, queue: true }), {
+    t: 'harvest',
+    unit: scv,
+    patch: mineral,
+    queue: true,
+  });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), true);
   assert.deepEqual([...entityTargetMask(s, 0, scv, 'repair', [bunker], { queue: true })], [1]);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: mineral, queue: true }), 'harvest'), true);
+  assert.deepEqual([...entityTargetMask(s, 0, scv, 'harvest', [mineral], { queue: true })], [1]);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(520), y: fx(400) },
@@ -347,6 +357,7 @@ test('queued travel, attack, and repair action masks use shared validation and f
     { t: 'move', unit: scv, x: fx(600), y: fx(460), queue: true },
   ] }]);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), false);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: mineral, queue: true }), 'harvest'), false);
   assert.deepEqual(decodeAction({ head: 'amove', actor: marine, x: fx(620), y: fx(400), queue: true }), {
     t: 'amove',
     unit: marine,
@@ -364,6 +375,12 @@ test('queued travel, attack, and repair action masks use shared validation and f
     t: 'repair',
     unit: scv,
     target: bunker,
+    queue: true,
+  });
+  assert.deepEqual(decodeAction({ head: 'harvest', actor: scv, target: mineral, queue: true }), {
+    t: 'harvest',
+    unit: scv,
+    patch: mineral,
     queue: true,
   });
 });

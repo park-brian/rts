@@ -466,6 +466,99 @@ test('a refinery built on a geyser yields harvestable gas', () => {
   assert.ok(s.players.gas[0]! > before, 'gas accrues from the refinery');
 });
 
+test('queued harvest commands append and dispatch after current travel settles', () => {
+  const s = makeState(open(24, 24), 1, 21);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(14), tc(12)));
+  e.cargo[mineral] = 1_000_000;
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(10), tc(12)));
+  const first = { x: tc(11), y: tc(12) };
+
+  const results = stepWorld(s, [{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, worker), ...first },
+    { t: 'harvest', unit: eid(e, worker), patch: eid(e, mineral), queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(e.order[worker], Order.Move);
+  assert.equal(e.orderQueueLen[worker], 1);
+  assert.equal(e.orderQueue0[worker], Order.Harvest);
+  assert.equal(e.orderQueueTarget0[worker], eid(e, mineral));
+
+  const currentOrder = (): number => e.order[worker]!;
+  for (let i = 0; i < 300 && currentOrder() !== Order.Harvest; i++) stepWorld(s, []);
+
+  assert.equal(e.orderQueueLen[worker], 0);
+  assert.equal(e.order[worker], Order.Harvest);
+  assert.equal(e.target[worker], eid(e, mineral));
+});
+
+test('ongoing harvest keeps queued orders until gathering can no longer continue', () => {
+  const s = makeState(open(24, 24), 1, 22);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(8)));
+  e.cargo[mineral] = 1_000_000;
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(10)));
+  const move = { x: tc(18), y: tc(18) };
+
+  const results = stepWorld(s, [{ player: 0, cmds: [
+    { t: 'harvest', unit: eid(e, worker), patch: eid(e, mineral) },
+    { t: 'move', unit: eid(e, worker), ...move, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  for (let i = 0; i < 600; i++) stepWorld(s, []);
+
+  assert.equal(e.order[worker], Order.Harvest);
+  assert.equal(e.orderQueueLen[worker], 1);
+  assert.equal(e.orderQueue0[worker], Order.Move);
+});
+
+test('harvest failure advances to the next queued order', () => {
+  const s = makeState(open(24, 24), 1, 23);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(8)));
+  e.cargo[mineral] = 1_000_000;
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(10)));
+  const move = { x: tc(18), y: tc(18) };
+
+  stepWorld(s, [{ player: 0, cmds: [
+    { t: 'harvest', unit: eid(e, worker), patch: eid(e, mineral) },
+    { t: 'move', unit: eid(e, worker), ...move, queue: true },
+  ] }]);
+  kill(s, mineral);
+  stepWorld(s, []);
+
+  assert.equal(e.orderQueueLen[worker], 0);
+  assert.equal(e.order[worker], Order.Move);
+  assert.equal(e.tx[worker], move.x);
+  assert.equal(e.ty[worker], move.y);
+});
+
+test('queued harvest validation rejects full per-worker queues', () => {
+  const s = makeState(open(24, 24), 1, 24);
+  const e = s.e;
+  spawnUnit(s, Kind.CommandCenter, 0, tc(12), tc(12));
+  const mineral = slotOf(spawnUnit(s, Kind.Mineral, NEUTRAL, tc(12), tc(8)));
+  e.cargo[mineral] = 1_000_000;
+  const worker = slotOf(spawnUnit(s, Kind.SCV, 0, tc(12), tc(10)));
+
+  const results = stepWorld(s, [{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, worker), x: tc(13), y: tc(10) },
+    { t: 'move', unit: eid(e, worker), x: tc(14), y: tc(10), queue: true },
+    { t: 'move', unit: eid(e, worker), x: tc(15), y: tc(10), queue: true },
+    { t: 'move', unit: eid(e, worker), x: tc(16), y: tc(10), queue: true },
+    { t: 'move', unit: eid(e, worker), x: tc(17), y: tc(10), queue: true },
+    { t: 'harvest', unit: eid(e, worker), patch: eid(e, mineral), queue: true },
+  ] }]);
+
+  assert.equal(e.orderQueueLen[worker], 4);
+  assert.deepEqual(results.map((r) => r.ok), [true, true, true, true, true, false]);
+  assert.deepEqual(results.at(-1), { player: 0, index: 5, t: 'harvest', ok: false, reason: 'queue-full' });
+});
 test('a command center derives produced-worker mineral rally without setup state', () => {
   const s = setupMatch(sliceMap(), 2, 1);
   const e = s.e;
