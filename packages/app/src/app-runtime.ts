@@ -1,6 +1,7 @@
 import { Game } from './game.ts';
 import { attachInput, type DetachInput } from './input.ts';
 import { ui, type Mode } from './store.ts';
+import { RuntimeFrameLoop } from './runtime-frame-loop.ts';
 
 export type RuntimeRenderer = {
   render(game: Game, dpr: number): void;
@@ -45,9 +46,6 @@ export const bootApp = (host: AppRuntimeHost, options: AppRuntimeOptions = {}): 
   const renderer = host.rendererFactory(host.gameCanvas, host.overlayCanvas);
   const detachInput = attachInput(host.gameCanvas, game);
   let dpr = 1;
-  let frame: number | null = null;
-  let running = false;
-  let stopped = false;
 
   host.exposeDebug?.(game);
 
@@ -68,13 +66,11 @@ export const bootApp = (host: AppRuntimeHost, options: AppRuntimeOptions = {}): 
     renderer.render(game, dpr);
   };
 
-  const schedule = (): void => {
-    if (!running) return;
-    frame = (host.requestFrame ?? globalThis.requestAnimationFrame)((now) => {
-      step(now);
-      schedule();
-    });
-  };
+  const frameLoop = new RuntimeFrameLoop(
+    step,
+    host.requestFrame ?? globalThis.requestAnimationFrame,
+    host.cancelFrame ?? globalThis.cancelAnimationFrame,
+  );
 
   const detachResize = host.addResizeListener
     ? host.addResizeListener(resize)
@@ -93,16 +89,10 @@ export const bootApp = (host: AppRuntimeHost, options: AppRuntimeOptions = {}): 
     resize,
     step,
     start: () => {
-      if (running || stopped) return;
-      running = true;
-      schedule();
+      frameLoop.start();
     },
     stop: () => {
-      if (stopped) return;
-      stopped = true;
-      running = false;
-      if (frame !== null) (host.cancelFrame ?? globalThis.cancelAnimationFrame)?.(frame);
-      frame = null;
+      if (!frameLoop.stop()) return;
       detachInput();
       detachResize();
     },

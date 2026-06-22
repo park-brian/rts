@@ -2227,6 +2227,9 @@ Remaining work:
   - Bot-diagnostics facade split slice is done: live diagnostic result capture and post-match bot
     report assembly now live behind an app `BotDiagnosticsController`, while `Game` keeps the
     existing public report methods consumed by the HUD.
+  - Renderer-lifecycle split slice is done: requestAnimationFrame start/stop/cancel ownership now
+    lives in an app `RuntimeFrameLoop`, while `bootApp` keeps host wiring, resize, render stepping,
+    input attachment, and UI mounting.
 
 Done when:
 

@@ -104,6 +104,7 @@ test('browser document boot exercises startup, resize, input, mount, update, ren
   let mounted: Game | null = null;
   let renders = 0;
   let detachedResize = false;
+  let cancelledFrame: number | null = null;
 
   const renderer: RuntimeRenderer = {
     render: (game, dpr) => {
@@ -131,7 +132,7 @@ test('browser document boot exercises startup, resize, input, mount, update, ren
       frames.push(fn);
       return frames.length;
     },
-    cancelFrame: () => {},
+    cancelFrame: (id) => { cancelledFrame = id; },
   }, { seed: 1234, autoStart: false });
 
   assert.equal(gameCanvas.width, 1200);
@@ -158,6 +159,7 @@ test('browser document boot exercises startup, resize, input, mount, update, ren
 
   runtime.stop();
   assert.equal(detachedResize, true);
+  assert.equal(cancelledFrame, 1);
   assert.equal(gameCanvas.listenerCount(), 0);
 
   runtime.stop();
