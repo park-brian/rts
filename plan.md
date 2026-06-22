@@ -2233,6 +2233,9 @@ Remaining work:
   - Canvas-resize split slice is done: canvas CSS measurement, DPR clamping, and backing-buffer
     resizing now live in an app `RuntimeCanvasSizer`, while `bootApp` keeps the resulting viewport
     size synchronized into `Game`.
+  - Session-UI sync split slice is done: setup/replay signal batches and selection-HUD clearing at
+    session boundaries now live in an app `AppSessionUiController`, while `Game` keeps sim/session
+    ownership and the per-frame HUD publish.
 
 Done when:
 

@@ -7,7 +7,8 @@ import {
   type Replay, type FactionName, type MatchStats, type MapSpec,
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
-import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-publisher.ts';
+import { publishHud } from './hud-publisher.ts';
+import { AppSessionUiController } from './app-session-ui-controller.ts';
 import { CameraController } from './camera-controller.ts';
 import { type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
@@ -48,6 +49,7 @@ export class Game {
   private commandController?: CommandController;
   private replayController = new ReplayController();
   private botDiagnosticsController = new BotDiagnosticsController();
+  private sessionUiController = new AppSessionUiController();
   private tapSelectionController?: TapSelectionController;
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
@@ -185,19 +187,10 @@ export class Game {
     this.human = session.human;
     this.controllers = session.controllers;
     this.selectionState().reset();
-    resetControlGroupCounts(CONTROL_GROUP_COUNT);
     this.commandState().reset();
     this.visibility().reset();
-    ui.mode.value = mode;
-    ui.perTeam.value = perTeam;
-    ui.humanPlayer.value = this.humanPlayer;
-    ui.playerRaces.value = [...this.playerRaceNames];
-    ui.playerTeams.value = [...this.playerTeamIds];
-    ui.playerEnabled.value = [...this.playerEnabled];
-    ui.fullVision.value = this.fullVision;
     this.clearTargetModes();
-    clearSelectionView();
-    ui.hasReplay.value = false;
+    this.sessionUiController.publishPlaySession(session, CONTROL_GROUP_COUNT);
     this.camera().resetFrame();
     if (this.viewW > 1) this.frame();
   }
@@ -225,12 +218,7 @@ export class Game {
     this.commandState().reset();
     this.visibility().reset();
     this.seekReplay(0);
-    ui.mode.value = 'replay';
-    ui.playerRaces.value = [...this.playerRaceNames];
-    ui.playerTeams.value = [...this.playerTeamIds];
-    ui.playerEnabled.value = [...this.playerEnabled];
-    ui.fullVision.value = this.fullVision;
-    ui.over.value = false;
+    this.sessionUiController.publishReplaySession(session, this.playerEnabled, this.fullVision);
     this.camera().resetFrame();
     if (this.viewW > 1) this.frame();
   }
@@ -491,7 +479,7 @@ export class Game {
   deselect(): void {
     this.selection.clear();
     this.clearTargetModes();
-    clearSelectionView();
+    this.sessionUiController.clearSelectionView();
   }
 
   /** Double-tap: select every visible (on-screen) owned entity of the tapped type. */
