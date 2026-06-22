@@ -2200,6 +2200,9 @@ Remaining work:
   - Middle-click pan guard is done: desktop middle-drag pans the camera without selection or smart
     command side effects, and the input layer suppresses the browser aux-click default so the control
     stays stable in real browsers.
+  - Right-click smart-command guard is done: desktop right-click still routes exactly one smart tap
+    while pointer and context-menu defaults are suppressed, preserving the StarCraft-style command
+    surface without browser menu leaks.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
   selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart

@@ -126,17 +126,20 @@ test('two-finger camera gesture suppresses remaining-finger tap and box', () => 
 test('desktop pointer routes left click to selection and right click to smart command', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();
+  let prevented = 0;
   ui.controlScheme.value = 'desktop';
   attachInput(canvas as any, game);
 
   canvas.fire('pointerdown', pointer(1, 20, 20));
   canvas.fire('pointerup', pointer(1, 20, 20));
-  canvas.fire('pointerdown', pointer(2, 40, 40, { button: 2 }));
+  canvas.fire('pointerdown', pointer(2, 40, 40, { button: 2, preventDefault: () => { prevented++; } }));
   canvas.fire('pointerup', pointer(2, 40, 40, { button: 2 }));
+  canvas.fire('contextmenu', { preventDefault: () => { prevented++; } });
 
   assert.equal(calls.tap, 0);
   assert.equal(calls.desktopTap, 1);
   assert.equal(calls.smart, 1);
+  assert.equal(prevented, 2);
 });
 
 test('desktop armed left click routes to command tap instead of selection', () => {
