@@ -98,6 +98,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'load', transport: 20, unit: 21 },
     { t: 'load', transport: 20, unit: 21, queue: true },
     { t: 'unload', transport: 22, unit: 23, x: fx(14), y: fx(15) },
+    { t: 'unload', transport: 22, unit: 23, x: fx(14), y: fx(15), queue: true },
     { t: 'cancelBuild', building: 24 },
     { t: 'move', unit: 25, x: fx(16), y: fx(17) },
     { t: 'move', unit: 25, x: fx(16), y: fx(17), queue: true },
@@ -291,7 +292,7 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
 });
 
-test('queued travel, attack, repair, harvest, and load action masks use shared validation and full-queue gates', () => {
+test('queued travel, attack, repair, harvest, load, and unload action masks use shared validation and full-queue gates', () => {
   const scenario = simScenario({ players: 2, seed: 9511 });
   const { sim, state: s, spawn } = scenario;
   const e = s.e;
@@ -300,6 +301,8 @@ test('queued travel, attack, repair, harvest, and load action masks use shared v
   const scv = spawn(Kind.SCV, 0, fx(400), fx(460));
   const bunker = spawn(Kind.Bunker, 0, fx(700), fx(460));
   const dropship = spawn(Kind.Dropship, 0, fx(760), fx(400));
+  const cargo = spawn(Kind.Firebat, 0, fx(780), fx(400));
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: cargo }] }]);
   const mineral = spawn(Kind.Mineral, -1, fx(740), fx(460));
   e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
   s.players.minerals[0] = 1_000;
@@ -332,6 +335,14 @@ test('queued travel, attack, repair, harvest, and load action masks use shared v
     unit: marine,
     queue: true,
   });
+  assert.deepEqual(commandForHead(s, dropship, 'unload', { target: cargo, x: fx(820), y: fx(400), queue: true }), {
+    t: 'unload',
+    transport: dropship,
+    unit: cargo,
+    x: fx(820),
+    y: fx(400),
+    queue: true,
+  });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), true);
@@ -340,6 +351,8 @@ test('queued travel, attack, repair, harvest, and load action masks use shared v
   assert.deepEqual([...entityTargetMask(s, 0, scv, 'harvest', [mineral], { queue: true })], [1]);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: marine, queue: true }), 'load'), true);
   assert.deepEqual([...entityTargetMask(s, 0, dropship, 'load', [marine], { queue: true })], [1]);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: cargo, x: fx(820), y: fx(400), queue: true }), 'unload'), true);
+  assert.deepEqual([...entityTargetMask(s, 0, dropship, 'unload', [cargo], { x: fx(820), y: fx(400), queue: true })], [1]);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(520), y: fx(400) },
@@ -357,8 +370,18 @@ test('queued travel, attack, repair, harvest, and load action masks use shared v
   assert.equal(commandHeadAllowed(queuedMask, 'patrol'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'attack'), false);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: marine, queue: true }), 'load'), false);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: cargo, x: fx(820), y: fx(400), queue: true }), 'unload'), true);
   assert.equal(commandHeadAllowed(replacementMoveMask, 'move'), true);
   assert.equal(commandHeadAllowed(replacementAttackMask, 'attack'), true);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: dropship, x: fx(1200), y: fx(400) },
+    { t: 'move', unit: dropship, x: fx(1220), y: fx(400), queue: true },
+    { t: 'move', unit: dropship, x: fx(1240), y: fx(400), queue: true },
+    { t: 'move', unit: dropship, x: fx(1260), y: fx(400), queue: true },
+    { t: 'move', unit: dropship, x: fx(1280), y: fx(400), queue: true },
+  ] }]);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: cargo, x: fx(1300), y: fx(400), queue: true }), 'unload'), false);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: scv, x: fx(520), y: fx(460) },
@@ -398,6 +421,14 @@ test('queued travel, attack, repair, harvest, and load action masks use shared v
     t: 'load',
     transport: dropship,
     unit: marine,
+    queue: true,
+  });
+  assert.deepEqual(decodeAction({ head: 'unload', actor: dropship, target: cargo, x: fx(820), y: fx(400), queue: true }), {
+    t: 'unload',
+    transport: dropship,
+    unit: cargo,
+    x: fx(820),
+    y: fx(400),
     queue: true,
   });
 });

@@ -63,7 +63,7 @@ export type Command =
   | { t: 'burrow'; unit: number; active: boolean }
   | { t: 'mine'; unit: number }
   | { t: 'load'; transport: number; unit: number; queue?: boolean }
-  | { t: 'unload'; transport: number; unit: number; x: number; y: number }
+  | { t: 'unload'; transport: number; unit: number; x: number; y: number; queue?: boolean }
   | { t: 'cancelBuild'; building: number }
   | { t: 'move'; unit: number; x: number; y: number; target?: number; queue?: boolean }
   | { t: 'attack'; unit: number; target: number; queue?: boolean } // attack a specific entity

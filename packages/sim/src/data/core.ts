@@ -138,6 +138,7 @@ export const Order = {
   Hold: 8, // hold position: fire at enemies in range without chasing
   Patrol: 9, // travel between two points, engaging enemies encountered en route
   Load: 10, // cargo unit moving to board a transport
+  Unload: 11, // transport releasing contained cargo at a point
 } as const;
 export type Order = (typeof Order)[keyof typeof Order];
 

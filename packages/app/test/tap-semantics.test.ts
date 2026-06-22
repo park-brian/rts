@@ -974,6 +974,34 @@ test('mobile queue mode makes load order options queued', () => {
   }
 });
 
+test('mobile queue mode makes unload order options queued', () => {
+  const g = freshGame();
+  const previousScheme = ui.controlScheme.value;
+  ui.controlScheme.value = 'mobile';
+  ui.mobileQueueMode.value = true;
+  try {
+    const s = g.sim.fullState();
+    const dropship = spawnUnit(s, Kind.Dropship, 0, fx(400), fx(400));
+    const marine = spawnUnit(s, Kind.Marine, 0, fx(420), fx(400));
+    g.sim.step([{ player: 0, cmds: [{ t: 'load', transport: dropship, unit: marine }] }]);
+    g.queued = [];
+    select(g, [dropship]);
+    g.fastForward(0);
+
+    const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Unload);
+    assert.equal(option?.commands?.length, 1);
+    assert.equal(g.executeOption(option!), true);
+
+    assert.equal(g.queued.length, 1);
+    const command = g.queued[0]!;
+    assert.equal(command.t, 'unload');
+    if (command.t !== 'unload') throw new Error('expected unload');
+    assert.equal(command.queue, true);
+  } finally {
+    ui.mobileQueueMode.value = false;
+    ui.controlScheme.value = previousScheme;
+  }
+});
 test('unload order option queues contained units around selected transports', () => {
   const g = freshGame();
   const s = g.sim.fullState();

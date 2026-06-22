@@ -32,6 +32,7 @@ export type SmartCommandOptions = {
   queueRepair?: boolean;
   queueHarvest?: boolean;
   queueLoad?: boolean;
+  queueUnload?: boolean;
 };
 
 export type ProducedUnitRallyIntent =
@@ -137,7 +138,7 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
-const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' | 'harvest' | 'load' }>>(
+const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' | 'harvest' | 'load' | 'unload' }>>(
   command: T,
   enabled: boolean | undefined,
 ): T => {
@@ -169,6 +170,11 @@ const queueLoadCommand = (
   command: Extract<Command, { t: 'load' }>,
   opts: SmartCommandOptions,
 ): Extract<Command, { t: 'load' }> => queueCommand(command, opts.queueLoad);
+
+const queueUnloadCommand = (
+  command: Extract<Command, { t: 'unload' }>,
+  opts: SmartCommandOptions,
+): Extract<Command, { t: 'unload' }> => queueCommand(command, opts.queueUnload);
 
 export const smartCommandCandidates = (
   s: State,
@@ -309,6 +315,7 @@ export const unloadSelectionCandidates = (
   s: State,
   player: number,
   selected: readonly number[],
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   const e = s.e;
   const commands: Command[] = [];
@@ -322,13 +329,13 @@ export const unloadSelectionCandidates = (
       if (e.alive[i] !== 1 || e.owner[i] !== player || e.container[i] !== transport) continue;
       const [ox, oy] = unloadOffsets[n % unloadOffsets.length]!;
       const ring = Math.trunc(n / unloadOffsets.length);
-      const command: Command = {
+      const command: Command = queueUnloadCommand({
         t: 'unload',
         transport,
         unit: eid(e, i),
         x: e.x[anchor]! + (ox + ring * 24) * ONE,
         y: e.y[anchor]! + oy * ONE,
-      };
+      }, opts);
       if (validateCommand(s, player, command).ok) {
         commands.push(command);
         n++;

@@ -18,7 +18,7 @@ import {
 } from '../mechanics/cargo.ts';
 import { isDisabled } from '../mechanics/status.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
-import { canQueueOrder, currentOrderIsIdle, enqueueLoadOrder, setCurrentLoadOrder } from '../entity/order-queue.ts';
+import { canQueueOrder, currentOrderIsIdle, enqueueLoadOrder, enqueueUnloadOrder, setCurrentLoadOrder, setCurrentUnloadOrder } from '../entity/order-queue.ts';
 import {
   reject,
   rejectMissingOwnedSlot,
@@ -70,11 +70,14 @@ export const validateUnloadCommand = (s: State, player: number, command: UnloadC
   const unit = ownedSlot(s, command.unit, player);
   if (unit === null) return rejectMissingOwnedSlot(s, command.unit);
   if (!containedBy(s, unit, transport)) return reject('target-not-allowed');
-  const anchor = unloadAnchorSlot(s, transport, command.x, command.y);
-  if (anchor === NONE || !withinRangeSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y, UNLOAD_RANGE)) {
-    return reject('target-out-of-range');
+  if (command.queue === true && !currentOrderIsIdle(e, transport) && !canQueueOrder(e, transport)) return reject('queue-full');
+  if (command.queue !== true) {
+    const anchor = unloadAnchorSlot(s, transport, command.x, command.y);
+    if (anchor === NONE || !withinRangeSq(e.x[anchor]!, e.y[anchor]!, command.x, command.y, UNLOAD_RANGE)) {
+      return reject('target-out-of-range');
+    }
+    if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');
   }
-  if (!canUnloadAt(s, unit, command.x, command.y, anchor)) return reject('placement-blocked');
   return { ok: true };
 };
 
@@ -95,6 +98,16 @@ export const applyLoadCommand = (s: State, command: LoadCommand): void => {
 };
 
 export const applyUnloadCommand = (s: State, command: UnloadCommand): void => {
-  discardQueuedOrders(s, slotOf(command.transport));
+  const e = s.e;
+  const transport = slotOf(command.transport);
+  if (command.queue === true) {
+    if (currentOrderIsIdle(e, transport)) {
+      setCurrentUnloadOrder(s, transport, command.unit, command.x, command.y);
+    } else {
+      enqueueUnloadOrder(s, transport, command.unit, command.x, command.y);
+    }
+    return;
+  }
+  discardQueuedOrders(s, transport);
   unloadUnit(s, slotOf(command.unit), command.x, command.y);
 };

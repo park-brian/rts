@@ -98,7 +98,7 @@ export class CommandController {
   }
 
   private queueOptionCommand(command: Command): Command {
-    return ui.controlScheme.value === 'mobile' && ui.mobileQueueMode.value && command.t === 'load'
+    return ui.controlScheme.value === 'mobile' && ui.mobileQueueMode.value && (command.t === 'load' || command.t === 'unload')
       ? { ...command, queue: true }
       : command;
   }

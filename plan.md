@@ -773,13 +773,13 @@ Remaining work:
   - Desktop Shift slice is done for queued travel and direct attacks: Shift-right-click smart
     move/follow, Shift-right-click target attacks, Shift-armed attack-move point commands, and
     Shift-armed target attacks set the shared `queue` flag after validator-backed command-intent
-    checks, while unload / spells keep their current immediate semantics.
+    checks, while spells keep their current immediate semantics.
   - Queued waypoint rendering slice is done for queued travel: selected units expose sim-owned
     queued travel waypoint descriptors, and the shared overlay draws move/follow, attack-move, and
     patrol paths in both WebGL and Math/fallback rendering.
   - Mobile queue-mode slice is done for queued travel and direct attacks: the compact mobile toggle
     feeds the same validator-backed command-intent options as desktop Shift, appends move / follow,
-    attack-move point travel, Patrol, target enemy attacks, and harvest targets, and leaves unload /
+    attack-move point travel, Patrol, target enemy attacks, and harvest targets, and leaves
     spells immediate until those command families gain first-class queued interruption semantics.
   - Patrol queue slice is done: Patrol now shares the travel queue's serialized order slots, replay
     and action-mask encoding preserve the `queue` flag, desktop Shift and mobile queue mode emit
@@ -804,12 +804,16 @@ Remaining work:
     command intent, replay JSON, action masks, desktop Shift, and mobile command-option queue mode;
     queued load entries live on the cargo unit, dispatch to `Order.Load` after the current order
     settles, travel to the transport, board when range and capacity remain legal, skip invalid
-    transports, and render as selected-unit queued load waypoints. Unload remains immediate until
-    point-placement unloading has its own queue contract.
+    transports, and render as selected-unit queued load waypoints.
+  - Unload queue slice is done for point-placement cargo release: unload commands preserve the
+    `queue` flag through replay JSON, action masks, command-card discovery, and mobile
+    command-option queue mode; queued unload entries live on the transport with contained unit and
+    point fields, dispatch after the current transport order settles, recheck range and placement
+    before release, skip invalid entries, and render as selected-unit queued unload waypoints.
   - Immediate interruption slice is done: direct spell, worker-build, spider-mine, load, and unload
     commands now discard stale future queued travel for their actor through command-owned helpers,
     matching the existing attack / repair / stop / transform replacement behavior while leaving
-    unload / spells and other command-owned families as later first-class queued work.
+    spells and other command-owned families as later first-class queued work.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
   - Command surface guard slice is done: the runtime `COMMAND_TYPES` registry is typechecked

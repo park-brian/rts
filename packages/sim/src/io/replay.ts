@@ -193,6 +193,7 @@ const validateCommand = (x: unknown): Command => {
         unit: readNonNegativeInt(unit, 'invalid unload command'),
         x: readInt(xPos, 'invalid unload command'),
         y: readInt(yPos, 'invalid unload command'),
+        ...readOptionalQueue(r, 'invalid unload command'),
       };
     }
     case 'cancelBuild': {

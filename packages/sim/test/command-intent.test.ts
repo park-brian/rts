@@ -283,6 +283,10 @@ test('unload command-card candidates fan out contained units around selected tra
     { t: 'unload', transport: dropship, unit: marine, x: tc(10), y: tc(8) + fx(64) },
     { t: 'unload', transport: dropship, unit: firebat, x: tc(10) + fx(64), y: tc(8) },
   ]);
+  assert.deepEqual(unloadSelectionCandidates(s, 0, [dropship], { queueUnload: true }), [
+    { t: 'unload', transport: dropship, unit: marine, x: tc(10), y: tc(8) + fx(64), queue: true },
+    { t: 'unload', transport: dropship, unit: firebat, x: tc(10) + fx(64), y: tc(8), queue: true },
+  ]);
 });
 
 test('unload command-card candidates route Nydus cargo to the default network exit', () => {

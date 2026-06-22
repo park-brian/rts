@@ -177,7 +177,7 @@ export type WorkActivity = {
 export type QueuedTravelWaypoint = {
   unit: number;
   index: number;
-  intent: 'move' | 'attack' | 'attack-move' | 'patrol' | 'repair' | 'harvest' | 'load';
+  intent: 'move' | 'attack' | 'attack-move' | 'patrol' | 'repair' | 'harvest' | 'load' | 'unload';
   target: number;
   x: number;
   y: number;
@@ -188,6 +188,7 @@ const queuedTravelIntent = (order: QueuedOrder['order']): QueuedTravelWaypoint['
   if (order === Order.Repair) return 'repair';
   if (order === Order.Harvest) return 'harvest';
   if (order === Order.Load) return 'load';
+  if (order === Order.Unload) return 'unload';
   if (order === Order.AttackMove) return 'attack-move';
   if (order === Order.Patrol) return 'patrol';
   return 'move';
@@ -566,13 +567,14 @@ export const queuedTravelWaypoints = (
         ? slotOf(waypoint.target)
         : NONE;
       if (waypoint.target !== undefined && targetSlot === NONE) continue;
+      const useTargetPosition = waypoint.order !== Order.Unload && targetSlot !== NONE;
       out.push({
         unit,
         index: i,
         intent: queuedTravelIntent(waypoint.order),
         target: waypoint.target ?? NONE,
-        x: (targetSlot === NONE ? waypoint.x : e.x[targetSlot]!) / ONE,
-        y: (targetSlot === NONE ? waypoint.y : e.y[targetSlot]!) / ONE,
+        x: (useTargetPosition ? e.x[targetSlot]! : waypoint.x) / ONE,
+        y: (useTargetPosition ? e.y[targetSlot]! : waypoint.y) / ONE,
       });
     }
   }

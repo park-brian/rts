@@ -20,6 +20,7 @@ const ORDER_LABELS: Record<number, string> = {
   [Order.Hold]: 'Holding',
   [Order.Patrol]: 'Patrolling',
   [Order.Load]: 'Loading',
+  [Order.Unload]: 'Unloading',
 };
 
 const orderLabel = (order: number): string => ORDER_LABELS[order] ?? 'Acting';

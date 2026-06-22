@@ -609,6 +609,7 @@ const queuedTravelStrokeStyle = (intent: QueuedTravelWaypoint['intent']): string
   if (intent === 'repair') return 'rgba(70,220,150,0.78)';
   if (intent === 'harvest') return 'rgba(80,220,120,0.78)';
   if (intent === 'load') return 'rgba(175,170,255,0.78)';
+  if (intent === 'unload') return 'rgba(210,170,255,0.78)';
   return 'rgba(255,225,78,0.78)';
 };
 
@@ -670,6 +671,12 @@ const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): v
     } else if (waypoint.intent === 'load') {
       const r = 5;
       ctx.rect(to.x - r, to.y - r, r * 2, r * 2);
+    } else if (waypoint.intent === 'unload') {
+      const r = 5;
+      ctx.moveTo(to.x - r, to.y - r);
+      ctx.lineTo(to.x + r, to.y - r);
+      ctx.lineTo(to.x, to.y + r);
+      ctx.closePath();
     } else {
       ctx.arc(to.x, to.y, 4, 0, Math.PI * 2);
     }

@@ -14,7 +14,7 @@ export type QueuedTravelOrder = {
 };
 
 export type QueuedTargetOrder = {
-  order: typeof Order.Attack | typeof Order.Repair | typeof Order.Harvest | typeof Order.Load;
+  order: typeof Order.Attack | typeof Order.Repair | typeof Order.Harvest | typeof Order.Load | typeof Order.Unload;
   x: number;
   y: number;
   target: number;
@@ -83,7 +83,7 @@ export const queuedOrderAt = (e: Entities, slot: number, i: number): QueuedOrder
   const target = targetColumn(e, i)[slot]!;
   const x = xColumn(e, i)[slot]!;
   const y = yColumn(e, i)[slot]!;
-  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load || order === Order.Unload) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -176,6 +176,14 @@ export const enqueueLoadOrder = (
   targetId: number,
 ): boolean => enqueueTargetOrder(s, slot, Order.Load, targetId);
 
+export const enqueueUnloadOrder = (
+  s: State,
+  slot: number,
+  targetId: number,
+  x: number,
+  y: number,
+): boolean => enqueueQueuedOrder(s, slot, Order.Unload, x, y, targetId);
+
 const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   const order = orderColumn(e, 0)[slot]! as QueuedOrder['order'];
   const target = targetColumn(e, 0)[slot]!;
@@ -190,7 +198,7 @@ const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   }
   clearQueueSlot(e, slot, len - 1);
   e.orderQueueLen[slot] = len - 1;
-  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load || order === Order.Unload) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -242,6 +250,19 @@ export const setCurrentLoadOrder = (s: State, slot: number, targetId: number): v
   clearPatrolRoute(e, slot);
 };
 
+export const setCurrentUnloadOrder = (s: State, slot: number, targetId: number, x: number, y: number): void => {
+  const e = s.e;
+  e.order[slot] = Order.Unload;
+  e.target[slot] = targetId;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.tx[slot] = x;
+  e.ty[slot] = y;
+  e.settled[slot] = 0;
+  e.timer[slot] = 0;
+  clearPatrolRoute(e, slot);
+};
+
 export const startNextQueuedOrder = (s: State, slot: number): boolean => {
   const e = s.e;
   while (e.orderQueueLen[slot]! > 0) {
@@ -256,6 +277,8 @@ export const startNextQueuedOrder = (s: State, slot: number): boolean => {
       setCurrentHarvestOrder(s, slot, next.target);
     } else if (next.order === Order.Load) {
       setCurrentLoadOrder(s, slot, next.target);
+    } else if (next.order === Order.Unload) {
+      setCurrentUnloadOrder(s, slot, next.target, next.x, next.y);
     } else {
       setCurrentTravelOrder(s, slot, next.order, next.x, next.y, next.target ?? NONE);
     }

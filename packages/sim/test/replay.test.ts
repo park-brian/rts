@@ -174,7 +174,7 @@ test('replay round-trips through JSON (the on-disk / on-wire form)', () => {
   assert.deepEqual(replayHashes(round), replayHashes(replay), 'JSON-serialized replay is faithful');
 });
 
-test('replay parser accepts queued travel, attack, repair, harvest, and load commands', () => {
+test('replay parser accepts queued travel, attack, repair, harvest, load, and unload commands', () => {
   const replay = parseReplay(JSON.stringify({
     version: 1,
     map: { kind: 'slice' },
@@ -187,6 +187,7 @@ test('replay parser accepts queued travel, attack, repair, harvest, and load com
       { t: 'repair', unit: 1, target: 3, queue: true },
       { t: 'harvest', unit: 1, patch: 4, queue: true },
       { t: 'load', transport: 5, unit: 1, queue: true },
+      { t: 'unload', transport: 5, unit: 1, x: fx(50), y: fx(60), queue: true },
     ] }]],
   }));
 
@@ -197,6 +198,7 @@ test('replay parser accepts queued travel, attack, repair, harvest, and load com
     { t: 'repair', unit: 1, target: 3, queue: true },
     { t: 'harvest', unit: 1, patch: 4, queue: true },
     { t: 'load', transport: 5, unit: 1, queue: true },
+    { t: 'unload', transport: 5, unit: 1, x: fx(50), y: fx(60), queue: true },
   ]);
 });
 

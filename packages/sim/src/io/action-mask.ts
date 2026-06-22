@@ -221,8 +221,11 @@ export const decodeAction = (action: EncodedAction): Command => {
       if (action.queue === true) command.queue = true;
       return command;
     }
-    case 'unload':
-      return { t: 'unload', transport: action.actor, unit: target, x, y };
+    case 'unload': {
+      const command: Extract<Command, { t: 'unload' }> = { t: 'unload', transport: action.actor, unit: target, x, y };
+      if (action.queue === true) command.queue = true;
+      return command;
+    }
     case 'cancelBuild':
       return { t: 'cancelBuild', building: action.actor };
     case 'move':
@@ -276,7 +279,10 @@ export const encodeCommand = (command: Command): EncodedAction => {
       head: 'load', actor: command.transport, target: command.unit,
       ...(command.queue === true ? { queue: true } : {}),
     };
-    case 'unload': return { head: 'unload', actor: command.transport, target: command.unit, x: command.x, y: command.y };
+    case 'unload': return {
+      head: 'unload', actor: command.transport, target: command.unit, x: command.x, y: command.y,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'cancelBuild': return { head: 'cancelBuild', actor: command.building };
     case 'move': return {
       head: 'move', actor: command.unit, x: command.x, y: command.y, target: command.target,

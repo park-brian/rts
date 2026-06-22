@@ -109,6 +109,97 @@ test('queued load validation accepts out-of-range cargo but rejects full per-uni
   assert.deepEqual(full.map((r) => r.ok), [true, true, true, true, true, false]);
   assert.deepEqual(full.at(-1), { player: 0, index: 5, t: 'load', ok: false, reason: 'queue-full' });
 });
+
+test('queued unload commands append and release cargo after current transport travel settles', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 184 });
+  const e = s.e;
+  const dropship = slotOf(spawn(Kind.Dropship, 0, fx(500), fx(700)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(520), fx(700)));
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: eid(e, dropship), unit: eid(e, marine) }] }]);
+  const move = { x: fx(700), y: fx(700) };
+  const unload = { x: fx(700), y: fx(760) };
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, dropship), ...move },
+    { t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), ...unload, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(e.order[dropship], Order.Move);
+  assert.equal(e.orderQueueLen[dropship], 1);
+  assert.equal(e.orderQueue0[dropship], Order.Unload);
+  assert.equal(e.orderQueueTarget0[dropship], eid(e, marine));
+  assert.equal(e.orderQueueX0[dropship], unload.x);
+  assert.equal(e.orderQueueY0[dropship], unload.y);
+
+  for (let i = 0; i < 400 && e.container[marine] !== NONE; i++) sim.step([]);
+
+  assert.equal(e.container[marine], NONE);
+  assert.equal(e.x[marine], unload.x);
+  assert.equal(e.y[marine], unload.y);
+  assert.equal(e.orderQueueLen[dropship], 0);
+});
+
+test('queued unload skips invalid placements and advances to the next queued order', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 185 });
+  const e = s.e;
+  const dropship = slotOf(spawn(Kind.Dropship, 0, fx(500), fx(700)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(520), fx(700)));
+  const blocker = slotOf(spawn(Kind.Marine, 0, fx(700), fx(760)));
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: eid(e, dropship), unit: eid(e, marine) }] }]);
+  const move = { x: fx(700), y: fx(700) };
+  const follow = { x: fx(760), y: fx(700) };
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, dropship), ...move },
+    { t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), x: e.x[blocker]!, y: e.y[blocker]!, queue: true },
+    { t: 'move', unit: eid(e, dropship), ...follow, queue: true },
+  ] }]);
+
+  for (let i = 0; i < 500 && e.tx[dropship] !== follow.x; i++) sim.step([]);
+
+  assert.equal(e.container[marine], eid(e, dropship));
+  assert.equal(e.orderQueueLen[dropship], 0);
+  assert.equal(e.order[dropship], Order.Move);
+  assert.equal(e.tx[dropship], follow.x);
+  assert.equal(e.ty[dropship], follow.y);
+});
+
+test('queued unload validation accepts future points but rejects full transport queues', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 186 });
+  const e = s.e;
+  const dropship = slotOf(spawn(Kind.Dropship, 0, fx(500), fx(700)));
+  const marine = slotOf(spawn(Kind.Marine, 0, fx(520), fx(700)));
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: eid(e, dropship), unit: eid(e, marine) }] }]);
+
+  const accepted = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, dropship), x: fx(620), y: fx(700) },
+    { t: 'unload', transport: eid(e, dropship), unit: eid(e, marine), x: fx(900), y: fx(900), queue: true },
+  ] }]);
+  assert.deepEqual(accepted.map((r) => r.ok), [true, true]);
+  assert.equal(e.order[dropship], Order.Move);
+  assert.equal(e.orderQueueLen[dropship], 1);
+  assert.equal(e.orderQueue0[dropship], Order.Unload);
+  assert.equal(e.orderQueueTarget0[dropship], eid(e, marine));
+  assert.equal(e.orderQueueX0[dropship], fx(900));
+  assert.equal(e.orderQueueY0[dropship], fx(900));
+
+  const other = slotOf(spawn(Kind.Dropship, 0, fx(500), fx(740)));
+  const firebat = slotOf(spawn(Kind.Firebat, 0, fx(520), fx(740)));
+  sim.step([{ player: 0, cmds: [{ t: 'load', transport: eid(e, other), unit: eid(e, firebat) }] }]);
+  const full = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, other), x: fx(520), y: fx(740) },
+    { t: 'move', unit: eid(e, other), x: fx(540), y: fx(740), queue: true },
+    { t: 'move', unit: eid(e, other), x: fx(560), y: fx(740), queue: true },
+    { t: 'move', unit: eid(e, other), x: fx(580), y: fx(740), queue: true },
+    { t: 'move', unit: eid(e, other), x: fx(600), y: fx(740), queue: true },
+    { t: 'unload', transport: eid(e, other), unit: eid(e, firebat), x: fx(620), y: fx(740), queue: true },
+  ] }]);
+
+  assert.deepEqual(full.map((r) => r.ok), [true, true, true, true, true, false]);
+  assert.deepEqual(full.at(-1), { player: 0, index: 5, t: 'unload', ok: false, reason: 'queue-full' });
+});
+
 test('transport unload rejects blocked or occupied points without releasing cargo', () => {
   const { sim, state: s, spawn } = simScenario({ players: 1, seed: 179 });
   const e = s.e;
