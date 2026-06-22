@@ -821,6 +821,11 @@ Remaining work:
     heads, replay ingestion accepts a fixture covering every command type, action encoding
     round-trips every command type, and the app command card has a static guard proving every
     shared selection option group flows through `executeOption`.
+  - Runtime command-card parity guard slice is done: app selection-capability tests now build
+    representative live sim states, collect enabled command-card options across every option group
+    and order id, validate concrete option commands against the state that published them, and prove
+    those commands still round-trip through action-mask encoding and replay ingestion while armed
+    options map to public command/action-mask surfaces.
 - Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only
   as short-lived strangler scaffolding; each migration slice should either delete the old-path shim or
   leave a named follow-up that explains which callers still depend on it.

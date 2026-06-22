@@ -4,10 +4,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
-  Abilities, COMMAND_TYPES, TechDefs, Units, abilitiesFor, addonKindsForParent, producedKindsFor, researchTechsFor,
-  workerBuildKindsForWorkerKind,
+  Abilities, COMMAND_MASK_POLICY, COMMAND_TYPES, Kind, REPLAY_VERSION, Tech, TechDefs, Units, abilitiesFor, addonKindsForParent,
+  decodeAction, encodeCommand, fx, liftedStructureFlags, makeState, parseReplay, producedKindsFor, researchTechsFor, setTechLevel,
+  sliceMap, slotOf, spawnUnit, validateCommand, workerBuildKindsForWorkerKind, type Command, type CommandType, type State,
 } from '../src/sim.ts';
 import { transformTargetsFor } from '../../sim/src/mechanics/transforms.ts';
+import { selectionCapabilities } from '../src/selection-capabilities.ts';
+import { OrderOptionId, type ArmedCommand, type CommandOption } from '../src/store.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(here, '..');
@@ -162,6 +165,141 @@ test('player command surface accounts for every sim command type', () => {
     if (probes.ui) assert.match(ui, probes.ui, `missing command-card surface for ${command}`);
     if (probes.tap) assert.match(tap, probes.tap, `missing tap-command surface for ${command}`);
   }
+});
+
+const commandTypeForArm = (arm: ArmedCommand): CommandType => {
+  switch (arm.t) {
+    case 'place': return 'build';
+    case 'land': return 'land';
+    case 'move': return 'move';
+    case 'attackMove': return 'amove';
+    case 'patrol': return 'patrol';
+    case 'rally': return 'rally';
+    case 'ability': return 'ability';
+    case 'target': return arm.mode;
+    case 'none': throw new Error('none is not a command-card action');
+  }
+};
+
+type RuntimeOptionEntry = {
+  group: keyof ReturnType<typeof selectionCapabilities>['options'];
+  option: CommandOption;
+};
+
+const enabledOptionEntries = (view: ReturnType<typeof selectionCapabilities>): RuntimeOptionEntry[] =>
+  Object.entries(view.options).flatMap(([group, options]) =>
+    options.filter((option) => option.ok).map((option) => ({
+      group: group as RuntimeOptionEntry['group'],
+      option,
+    })),
+  );
+
+const commandCardFixture = (): { state: State; views: ReturnType<typeof selectionCapabilities>[] } => {
+  const s = makeState(sliceMap(), 2, 9711);
+  const e = s.e;
+  s.players.minerals[0] = 10_000;
+  s.players.gas[0] = 10_000;
+  s.players.supplyMax[0] = 200;
+
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(360), fx(360));
+  const cc = spawnUnit(s, Kind.CommandCenter, 0, fx(480), fx(360));
+  const barracks = spawnUnit(s, Kind.Barracks, 0, fx(620), fx(360));
+  const factory = spawnUnit(s, Kind.Factory, 0, fx(820), fx(360));
+  const academy = spawnUnit(s, Kind.Academy, 0, fx(980), fx(360));
+  const tank = spawnUnit(s, Kind.SiegeTank, 0, fx(360), fx(520));
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(460), fx(520));
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(560), fx(520));
+  const vulture = spawnUnit(s, Kind.Vulture, 0, fx(660), fx(520));
+  const dropshipForLoad = spawnUnit(s, Kind.Dropship, 0, fx(760), fx(520));
+  const loadCargo = spawnUnit(s, Kind.Firebat, 0, fx(780), fx(520));
+  const dropshipForUnload = spawnUnit(s, Kind.Dropship, 0, fx(900), fx(520));
+  const unloadCargo = spawnUnit(s, Kind.Firebat, 0, fx(920), fx(520));
+  const liftedCc = spawnUnit(s, Kind.CommandCenter, 0, fx(1_080), fx(520));
+  const foundation = spawnUnit(s, Kind.SupplyDepot, 0, fx(1_220), fx(520));
+  const zergling = spawnUnit(s, Kind.Zergling, 0, fx(360), fx(680));
+  const burrowed = spawnUnit(s, Kind.Zergling, 0, fx(420), fx(680));
+
+  setTechLevel(s, 0, Tech.SiegeTech, 1);
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  setTechLevel(s, 0, Tech.PsionicStorm, 1);
+  setTechLevel(s, 0, Tech.SpiderMines, 1);
+  setTechLevel(s, 0, Tech.Burrow, 1);
+  e.energy[slotOf(templar)] = 75;
+  e.specialAmmo[slotOf(vulture)] = 1;
+  e.container[slotOf(unloadCargo)] = dropshipForUnload;
+  e.x[slotOf(unloadCargo)] = e.x[slotOf(dropshipForUnload)]!;
+  e.y[slotOf(unloadCargo)] = e.y[slotOf(dropshipForUnload)]!;
+  e.flags[slotOf(liftedCc)] = liftedStructureFlags(Kind.CommandCenter);
+  e.built[slotOf(foundation)] = 0;
+  e.ctimer[slotOf(foundation)] = 100;
+  e.buildCostMinerals[slotOf(foundation)] = Units[Kind.SupplyDepot]!.minerals;
+  e.burrowed[slotOf(burrowed)] = 1;
+
+  const publish = (ids: number[]): ReturnType<typeof selectionCapabilities> =>
+    selectionCapabilities(s, 0, ids, () => true);
+
+  return { state: s, views: [
+    publish([scv]),
+    publish([cc]),
+    publish([barracks]),
+    publish([factory]),
+    publish([academy]),
+    publish([tank]),
+    publish([marine]),
+    publish([templar]),
+    publish([vulture]),
+    publish([dropshipForLoad, loadCargo]),
+    publish([dropshipForUnload]),
+    publish([liftedCc]),
+    publish([foundation]),
+    publish([zergling, burrowed]),
+  ] };
+};
+
+test('selection capability command options round-trip through shared command surfaces', () => {
+  const fixture = commandCardFixture();
+  const entries = fixture.views.flatMap(enabledOptionEntries);
+  const commands: Command[] = [];
+  const coveredGroups = new Set<RuntimeOptionEntry['group']>();
+  const coveredOrderIds = new Set<number>();
+  const coveredCommandTypes = new Set<CommandType>();
+
+  for (const { group, option } of entries) {
+    coveredGroups.add(group);
+    if (group === 'order') coveredOrderIds.add(option.id);
+    for (const command of option.commands ?? []) {
+      assert.equal(validateCommand(fixture.state, 0, command).ok, true, 'command-card option must validate');
+      commands.push(command);
+      coveredCommandTypes.add(command.t);
+    }
+    if (option.arm) {
+      const commandType = commandTypeForArm(option.arm);
+      coveredCommandTypes.add(commandType);
+      assert.ok(COMMAND_TYPES.includes(commandType), `armed option ${option.arm.t} must map to a public command type`);
+      assert.ok(COMMAND_MASK_POLICY[commandType], `armed option ${option.arm.t} must have action-mask policy`);
+    }
+  }
+
+  assert.deepEqual([...coveredGroups].sort(), ['ability', 'addon', 'build', 'order', 'research', 'train', 'transform']);
+  assert.deepEqual([...coveredOrderIds].sort((a, b) => a - b), Object.values(OrderOptionId).sort((a, b) => a - b));
+
+  const expectedCommandCardTypes: CommandType[] = [
+    'addon', 'amove', 'ability', 'build', 'burrow', 'cancelBuild', 'harvest', 'hold', 'land', 'lift', 'load', 'mine',
+    'move', 'patrol', 'rally', 'repair', 'research', 'stop', 'train', 'transform', 'unload',
+  ];
+  assert.deepEqual([...coveredCommandTypes].sort(), expectedCommandCardTypes.sort());
+
+  for (const command of commands) {
+    assert.deepEqual(decodeAction(encodeCommand(command)), command, `action mask round-trip ${command.t}`);
+  }
+  const replay = parseReplay(JSON.stringify({
+    version: REPLAY_VERSION,
+    map: { kind: 'slice' },
+    players: 2,
+    seed: 1,
+    frames: [[{ player: 0, cmds: commands }]],
+  }));
+  assert.deepEqual(replay.frames[0]?.[0]?.cmds, commands);
 });
 
 test('data-defined capabilities flow through shared option groups', () => {
