@@ -71,3 +71,26 @@ test('stop command clears order state through public ingestion', () => {
   assert.equal(e.vy[slot], 0);
   assert.equal(e.settled[slot], 0);
 });
+
+test('stop command discards queued future orders', () => {
+  const scenario = simScenario({ players: 1, seed: 632 });
+  const s = scenario.state;
+  const e = s.e;
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const slot = slotOf(marine);
+
+  scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(340), y: fx(300) },
+    { t: 'move', unit: marine, x: fx(380), y: fx(300), queue: true },
+  ] }]);
+  assert.equal(e.orderQueueLen[slot], 1);
+
+  const [result] = applyCommands(s, [{ player: 0, cmds: [{ t: 'stop', unit: marine }] }]);
+
+  assert.deepEqual(result, { player: 0, index: 0, t: 'stop', ok: true });
+  assert.equal(e.orderQueueLen[slot], 0);
+  assert.equal(e.orderQueue0[slot], 0);
+  assert.equal(e.orderQueueTarget0[slot], NONE);
+  assert.equal(e.orderQueueX0[slot], 0);
+  assert.equal(e.orderQueueY0[slot], 0);
+});

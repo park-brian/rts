@@ -959,8 +959,9 @@ Remaining work:
     unburrow now use frame counts derived from Brood War `iscript.bin` plus DAT mappings bundled
     with `icecc`, with deterministic RNG for sourced unburrow `waitrand` ranges. Yamato remains
     unsourced and should still use a primary script extraction or measured trace before changing.
-- Add missing core order semantics: queued waypoints, and clear interruption
-  rules for Stop, attack, transport, spell, gather, repair, rally-spawned orders, and queued orders.
+- Finish the remaining core order interruption contracts now that the first-class queued-order
+  kernel covers travel, Patrol, direct attack, repair, harvest, load, unload, replay, action masks,
+  desktop Shift/mobile queue mode, and queued waypoint presentation.
   - Hold Position slice is done: `hold` is a first-class command, replay/action-mask encoded, exposed
     through shared selection options and desktop hotkeys, and combat fires at in-range enemies without
     pathing toward out-of-range targets.
@@ -968,6 +969,12 @@ Remaining work:
     through shared selection options and desktop/mobile armed command flow, stores its return endpoint
     in deterministic entity columns, and uses the normal movement/combat pipeline to alternate legs
     while engaging enemies encountered en route.
+  - Stop interruption contract slice is done: Stop now has public-ingestion coverage proving it clears
+    active order state and discards serialized queued future orders through the shared command-owned
+    cancellation helper.
+  - Remaining: pin explicit interruption contracts for replacement attack/transport/gather/repair
+    orders and spell/caster-channel commands, then extend first-class queued semantics only when a
+    command family has clear append, replay, observation, action-mask, and cancellation rules.
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
   - Nuclear Strike launch descriptor slice is done: the Ghost now spawns the delayed point effect,
     consumes a ready nuke, and enters caster-channel state through a data-backed
