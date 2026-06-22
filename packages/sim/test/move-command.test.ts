@@ -6,7 +6,7 @@ import { Ability, Kind, Order, Tech } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { liftedStructureFlags } from '../src/mechanics/terran-mobility.ts';
 import { validateCommand } from '../src/commands/validate.ts';
-import { slotOf } from '../src/entity/world.ts';
+import { kill, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
@@ -176,6 +176,32 @@ test('queued direct attacks append and dispatch after current travel settles', (
   assert.equal(scenario.state.e.order[slot], Order.Attack);
   assert.equal(scenario.state.e.target[slot], enemy);
   assert.equal(scenario.state.e.combatTarget[slot], enemy);
+});
+
+test('queued direct attacks advance after active attack targets disappear', () => {
+  const scenario = simScenario({ players: 2, seed: 6542 });
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const firstEnemy = scenario.spawn(Kind.Zergling, 1, fx(340), fx(300));
+  const secondEnemy = scenario.spawn(Kind.Zergling, 1, fx(380), fx(300));
+  const slot = slotOf(marine);
+
+  const results = scenario.sim.step([{ player: 0, cmds: [
+    { t: 'attack', unit: marine, target: firstEnemy },
+    { t: 'attack', unit: marine, target: secondEnemy, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(scenario.state.e.order[slot], Order.Attack);
+  assert.equal(scenario.state.e.target[slot], firstEnemy);
+  assert.equal(scenario.state.e.orderQueueLen[slot], 1);
+
+  kill(scenario.state, slotOf(firstEnemy));
+  scenario.sim.step([]);
+
+  assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  assert.equal(scenario.state.e.order[slot], Order.Attack);
+  assert.equal(scenario.state.e.target[slot], secondEnemy);
+  assert.equal(scenario.state.e.combatTarget[slot], secondEnemy);
 });
 
 test('replacement travel commands clear queued travel', () => {

@@ -8,7 +8,7 @@
 
 import type { State } from '../entity/world.ts';
 import { slotOf, eid, isAlive, isEnemy, NONE } from '../entity/world.ts';
-import { startNextQueuedTravelOrder } from '../entity/order-queue.ts';
+import { startNextQueuedOrder } from '../entity/order-queue.ts';
 import { EffectKind, Order, Role, Units, tiles, type Weapon, weaponForTarget } from '../data/index.ts';
 import { faceToward, within } from '../spatial/motion.ts';
 import { navigate } from '../spatial/pathing.ts';
@@ -57,6 +57,11 @@ const clearCombatTarget = (s: State, slot: number): void => {
   const old = e.combatTarget[slot]!;
   e.combatTarget[slot] = NONE;
   if (old === NONE || e.target[slot] === old) e.target[slot] = NONE;
+};
+
+const finishAttackOrder = (s: State, slot: number): void => {
+  clearCombatTarget(s, slot);
+  if (!startNextQueuedOrder(s, slot)) s.e.order[slot] = Order.Idle;
 };
 
 export const combat = (s: State, grid: Grid): void => {
@@ -111,11 +116,10 @@ export const combat = (s: State, grid: Grid): void => {
 
     if (tgt === NONE) {
       if (order === Order.Attack) {
-        e.order[i] = Order.Idle; // target gone
-        clearCombatTarget(s, i);
+        finishAttackOrder(s, i);
       }
       else if (order === Order.AttackMove) {
-        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i) && !startNextQueuedTravelOrder(s, i)) {
+        if (navigate(s, i, e.tx[i]!, e.ty[i]!, def.speed) && !isLocalAvoidanceSolid(s, i) && !startNextQueuedOrder(s, i)) {
           e.order[i] = Order.Idle;
           clearCombatTarget(s, i);
         }
@@ -142,10 +146,7 @@ export const combat = (s: State, grid: Grid): void => {
     const weapon = weaponForTarget(def, Units[e.kind[tgt]!]!);
     const actorSystemSteers = isExternallySteeredActor(e.kind[i]!, e.home[i]!);
     if (!weapon) {
-      if (order === Order.Attack) {
-        e.order[i] = Order.Idle;
-        clearCombatTarget(s, i);
-      }
+      if (order === Order.Attack) finishAttackOrder(s, i);
       continue;
     }
     const range = upgradedRange(s, i, weapon);
