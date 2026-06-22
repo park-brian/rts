@@ -2206,6 +2206,11 @@ Remaining work:
   - Attack-hotkey click guard is done: desktop `A` arms the shared attack mode, and the next left
     click on an enemy emits one validator-backed target attack without selection or smart-command
     side effects.
+  - Remaining desktop-control coverage is already guarded: edge pan uses viewport-edge behavioral
+    tests, hotgroups and remappable hotkeys are covered in desktop hotkey tests, desktop Shift queues
+    smart/armed travel, attack, repair, harvest, load, and patrol commands through tap semantics, and
+    queued waypoint rendering is pinned by renderer descriptor coverage. Future desktop-control work
+    should come from newly discovered parity gaps rather than this stale checklist.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
   selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart
