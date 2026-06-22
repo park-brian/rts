@@ -10,9 +10,9 @@ It ships as a **static, 100% client-side bundle deployable to GitHub Pages** (no
 whole single-player game — simulation, scripted AI, rendering, and eventual neural-net inference
 — runs entirely in the browser. Network multiplayer is additive and never required.
 
-> **Status: design phase.** This commit establishes the vision, full game specification, engine
-> architecture, mobile-UI design, AI/training plan, and a researched reference library. Code
-> implementation begins next, starting with a Terran-only vertical slice.
+> **Status: playable vertical slice.** The browser app can run local human-vs-AI or AI-vs-AI
+> matches on procedural maps, with replay export/import, setup controls, fog, mobile and desktop
+> command surfaces, and deterministic headless tests behind the same sim.
 
 ## Vision & pillars
 
@@ -59,22 +59,19 @@ whole single-player game — simulation, scripted AI, rendering, and eventual ne
 - **Throughput escape hatch (deferred):** if/when training throughput is the *measured*
   bottleneck, port just the sim hot-loop to Rust→WASM (still serves browser + Node) or a JAX
   vectorized sim — validated bit-for-bit against the TS sim via recorded replays.
-- **Decisions locked:** TypeScript-first; first milestone is a **Terran-only vertical slice**
-  (full stack end-to-end), then expand to Protoss/Zerg, more maps, and teammates.
+- **Decisions locked:** TypeScript-first, deterministic sim first, browser app as a static bundle,
+  and AI/headless consumers sharing the same command and observation contracts as the player UI.
 
-## Repository layout (planned)
+## Repository layout
 
 ```
-packages/                  # npm workspace (one language: TypeScript)
-  sim/         deterministic core (no DOM, no I/O, no float in hot path)
-  ai/          scripted controllers; later the policy controller
-  render/      WebGL/Canvas read-only renderer
-  ui/          mobile UI components, gesture/touch -> commands
-  app/         browser game (esbuild) — the thing we screenshot
-  headless/    Node CLI: games, self-play, replays, benchmarks, worker pool
-maps/          map definitions (data)
-replays/       recorded command-stream replays
-docs/          specs, research notes, papers, tooling (see below)
+packages/
+  sim/       deterministic core: data, command validation, mechanics, pathing, fog, replay, observations
+  ai/        scripted controllers, bot diagnostics, and trace/expert reporting
+  app/       browser game: WebGL/Canvas rendering, Preact HUD, setup, input, replay viewer
+  headless/  Node demos, benchmarks, and trace-friendly match runners
+docs/        specs, research notes, design references, screenshots, and roadmap history
+plan.md      active roadmap and execution contract
 ```
 
 ## Documentation
@@ -109,15 +106,15 @@ not algorithmic mystery. Our plan, grounded in the research under `docs/`:
 
 ## Toolchain (deliberately minimal — 2026)
 
-The whole engine + training side has **no build step**: Node 24+ runs TypeScript directly via
+The whole engine + training side has **no build step**: Node 22.18+ runs TypeScript directly via
 native type stripping. Only the browser app carries a tiny esbuild script (for TSX). Details in
 [`docs/specs/architecture.md`](docs/specs/architecture.md#build--runtime-toolchain-deliberately-minimal-2026).
 
 | Concern | Choice |
 |---|---|
 | Package manager | **npm workspaces** |
-| Sim / AI / headless / tests | **No build** — run `.ts` directly on Node 24+; tests via `node --test` |
-| Type-check | `tsc --noEmit` (→ `tsgo`/TS7 as it stabilizes) |
+| Sim / AI / headless / tests | **No build** — run `.ts` directly on Node 22.18+; tests via `node --test` |
+| Type-check | `tsc -p tsconfig.json` (→ `tsgo`/TS7 as it stabilizes) |
 | Browser bundle | thin in-house **esbuild** script (no Vite/framework) |
 | UI runtime | **Preact + @preact/signals** (HUD chrome only; game world is imperative WebGL) |
 | Screenshots | Playwright |
@@ -125,7 +122,7 @@ native type stripping. Only the browser app carries a tiny esbuild script (for T
 ```bash
 npm install            # workspaces + typescript + @types/node
 npm test               # node --test (runs the .ts tests directly, no build)
-npm run typecheck      # tsc --noEmit
+npm run typecheck      # tsc -p tsconfig.json
 npm run demo           # headless 2-player economy game + throughput benchmark
 ```
 
@@ -172,20 +169,24 @@ procedural maps, with economy, construction, combat, fog of war, pathfinding, an
 - **`packages/app`** also: a match setup modal for race/team/map/player-row configuration,
   enabled/disabled start slots, Math/Sprite rendering, and a full-vision debug toggle; a
   **deselect** button, **double-tap to select all of a type on screen**, **minimap drag-to-pan**,
-  **Set Rally** / **Build Gas** commands, and a gas readout.
-  Desktop controls use left-click selection, right-click smart commands, `M` plus left-click
-  Move/follow mode, `A` plus left-click attack mode, Patrol, Hold Position, Shift-queued travel,
-  remappable hotkeys, edge pan, scroll zoom,
-  middle-click pan, hotgroups, and visible queued waypoints. Mobile controls keep single-tap
-  selection/command-card grammar, with a compact **Queue** toggle that appends validated
-  move/follow, attack-move point travel, and Patrol through the same sim command path as desktop Shift.
+  **Set Rally** / **Build Gas** commands, and a gas readout. Mixed selections publish subgroup
+  chips, and active subgroups filter build/train/research/add-on/transform/ability command cards
+  while whole-selection orders still use shared validators. Desktop controls use left-click
+  selection, right-click smart commands, `M` plus left-click Move/follow mode, `A` plus left-click
+  attack mode, Patrol, Hold Position, Shift-queued travel, remappable hotkeys, edge pan, scroll
+  zoom, middle-click pan, hotgroups, hotkey-labeled command cells, and visible queued waypoints.
+  Mobile controls keep single-tap selection/command-card grammar, with a compact **Queue** toggle
+  that appends validated move/follow, attack-move point travel, and Patrol through the same sim
+  command path as desktop Shift. The Math renderer is the canonical geometry view: it shows build
+  tiles, footprint/body labels, facing dots, work/combat links, selected weapon ranges, detector
+  coverage, persistent spell fields, queued paths, and fair last-known enemy fog memory.
 
-Verified by `node --test` (33 tests: fixed-point, RNG, economy, combat, **replay-hash &
-snapshot/restore & byte-serialize determinism**, **group pathfinding (arrives + fans out,
-deterministic)**, **mineral reservation/rotation, spread & depletion re-route**, **gas via a
-refinery**, **what-if branching**, procedural connectivity, full **AI-vs-AI games end
-deterministically**, and an entity-column coverage guard) and Playwright screenshots at phone
-resolution.
+Verified by focused `node --test` suites across `packages/sim`, `packages/ai`, and `packages/app`,
+plus `npm run typecheck`; app-facing slices also run `npm run build:app`. Coverage includes
+fixed-point determinism, replay hashes, snapshot/restore and byte serialization, command validation,
+action masks, smart-command parity, setup/replay identity, desktop and mobile input grammar, chrome
+layout guards, visibility/fog affordances, Math renderer geometry, sprite footprint fit, and full
+AI-vs-AI games ending deterministically.
 
 | Play (fog + base) | AI vs AI battle | Replay viewer |
 |---|---|---|
@@ -201,12 +202,11 @@ Worker/process pool multiplies this across cores — the runway for AlphaStar-st
 
 ## Roadmap
 
-1. **Foundations (this commit):** vision, specs, architecture, UI design, AI plan, research. ✅
-2. **Terran vertical slice:** TypeScript sim core (economy, a few buildings/units, combat, fog,
-   one map, win condition) + mobile UI in the browser + a scripted opponent — **deployed to
-   GitHub Pages** so the static, standalone path is validated from the first playable build.
-3. **AI loop:** Gym-like env interface + Worker-pool parallelism, scripted bot ladder,
-   behavior-cloning warmstart, PPO fine-tune.
-4. **Superhuman:** self-play + PFSP league + PBT; distill; APM/reaction constraints; human eval.
-   (Port the sim hot-loop to Rust→WASM / JAX here *if* measured throughput demands it.)
-5. **Expand:** full Terran roster → Protoss & Zerg, more maps, computer teammates, network play.
+The active execution roadmap lives in [`plan.md`](plan.md). Near-term work is intentionally slice-based:
+
+1. Keep whole-match AI behavior explainable with trace-backed fixes.
+2. Finish player setup, command reachability, and shared validation parity.
+3. Keep Math/fallback rendering as the canonical spatial oracle.
+4. Tighten desktop and mobile controls without letting chrome cover play space.
+5. Add BW-fidelity timing data only from sourced references, not guessed constants.
+6. Prove pathing changes with behavior tests and benchmarks before replacing current movement.
