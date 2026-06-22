@@ -2230,6 +2230,9 @@ Remaining work:
   - Renderer-lifecycle split slice is done: requestAnimationFrame start/stop/cancel ownership now
     lives in an app `RuntimeFrameLoop`, while `bootApp` keeps host wiring, resize, render stepping,
     input attachment, and UI mounting.
+  - Canvas-resize split slice is done: canvas CSS measurement, DPR clamping, and backing-buffer
+    resizing now live in an app `RuntimeCanvasSizer`, while `bootApp` keeps the resulting viewport
+    size synchronized into `Game`.
 
 Done when:
 

@@ -1,6 +1,7 @@
 import { Game } from './game.ts';
 import { attachInput, type DetachInput } from './input.ts';
 import { ui, type Mode } from './store.ts';
+import { RuntimeCanvasSizer } from './runtime-canvas-sizer.ts';
 import { RuntimeFrameLoop } from './runtime-frame-loop.ts';
 
 export type RuntimeRenderer = {
@@ -38,27 +39,20 @@ export type AppRuntime = {
   stop(): void;
 };
 
-const defaultDevicePixelRatio = (): number => Math.min(2, globalThis.devicePixelRatio || 1);
-
 export const bootApp = (host: AppRuntimeHost, options: AppRuntimeOptions = {}): AppRuntime => {
   const mode = options.mode ?? 'play';
   const game = new Game(mode, options.seed);
   const renderer = host.rendererFactory(host.gameCanvas, host.overlayCanvas);
   const detachInput = attachInput(host.gameCanvas, game);
+  const canvasSizer = new RuntimeCanvasSizer(host.gameCanvas, host.overlayCanvas, host.devicePixelRatio);
   let dpr = 1;
 
   host.exposeDebug?.(game);
 
   const resize = (): void => {
-    dpr = host.devicePixelRatio?.() ?? defaultDevicePixelRatio();
-    const rect = host.gameCanvas.getBoundingClientRect();
-    const w = Math.max(1, Math.floor(rect.width));
-    const h = Math.max(1, Math.floor(rect.height));
-    for (const c of [host.gameCanvas, host.overlayCanvas]) {
-      c.width = Math.floor(w * dpr);
-      c.height = Math.floor(h * dpr);
-    }
-    game.resize(w, h);
+    const size = canvasSizer.resize();
+    dpr = size.dpr;
+    game.resize(size.width, size.height);
   };
 
   const step = (now: number): void => {
