@@ -826,9 +826,11 @@ Remaining work:
     and order id, validate concrete option commands against the state that published them, and prove
     those commands still round-trip through action-mask encoding and replay ingestion while armed
     options map to public command/action-mask surfaces.
-- Eliminate every remaining compatibility shim as folder migrations complete. Shims are allowed only
-  as short-lived strangler scaffolding; each migration slice should either delete the old-path shim or
-  leave a named follow-up that explains which callers still depend on it.
+- Compatibility-shim cleanup is satisfied for the current folder-migration scope: the sim source-root
+  audit found no flat root old-path shims left, `fixed.ts`, `rng.ts`, `sim.ts`, and `tick.ts` remain
+  real root owners, and `index.ts` remains the intentional public package barrel. Future migrations
+  should still delete any new temporary old-path shim in the same cleanup track; intentional BW
+  geometry/source-compatibility helpers are named mechanics, not folder-migration shim debt.
 
 Done when:
 
