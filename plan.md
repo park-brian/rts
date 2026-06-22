@@ -2224,6 +2224,9 @@ Remaining work:
   - Replay-control split slice is done: replay tick/speed/pause state and UI transport sync now live
     in an app `ReplayController`, while `Game` keeps sim rebuild/step ownership and the existing
     public replay API for the HUD.
+  - Bot-diagnostics facade split slice is done: live diagnostic result capture and post-match bot
+    report assembly now live behind an app `BotDiagnosticsController`, while `Game` keeps the
+    existing public report methods consumed by the HUD.
 
 Done when:
 

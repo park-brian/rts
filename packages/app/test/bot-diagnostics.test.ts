@@ -19,6 +19,7 @@ import {
   createBotDiagnostics,
   recordBotDiagnosticResults,
 } from '../src/bot-diagnostics.ts';
+import { Game } from '../src/game.ts';
 
 test('traceable bot controllers produce expert health rows for the post-match panel', () => {
   const sim = new Sim({ map: sliceMap(), players: 2, seed: 8321, factions: [Terran, Terran] });
@@ -167,4 +168,18 @@ test('bot command results are stored only for their owning diagnostic participan
   assert.equal(diagnostics[0]!.commandResults[0]!.player, 0);
   assert.equal(diagnostics[1]!.commandResults.length, 1);
   assert.equal(diagnostics[1]!.commandResults[0]!.player, 1);
+});
+
+test('game bot diagnostics facade records command results for reports', () => {
+  const game = new Game('spectate', 2468);
+
+  game.fastForward(1);
+
+  const report = game.botExpertReport();
+  assert.equal(report.healthRows.length > 0, true);
+  assert.equal(report.competenceGates.length > 0, true);
+  assert.deepEqual(game.botExpertHealthRows(), report.healthRows);
+  assert.deepEqual(game.botPhaseSummaries(), report.phaseSummaries);
+  assert.deepEqual(game.botPhaseAssessments(), report.phaseAssessments);
+  assert.deepEqual(game.botCompetenceGates(), report.competenceGates);
 });

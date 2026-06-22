@@ -15,20 +15,12 @@ import { VisibilityController, type LastKnownEnemyAffordance } from './visibilit
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 import { CommandController } from './command-controller.ts';
 import { ReplayController } from './replay-controller.ts';
+import { BotDiagnosticsController } from './bot-diagnostics-controller.ts';
 import {
   createPlaySession, createReplaySeekSim, createReplaySession, defaultPlayerEnabled, defaultTeamIds,
   exportReplayJson, mapSpecFor, parseReplayJson, replayFromCurrent,
 } from './game-session.ts';
-import {
-  botCompetenceGates,
-  botExpertReport,
-  botPhaseAssessments,
-  botPhaseSummaries,
-  botExpertHealthRows,
-  recordBotDiagnosticResults,
-  type AppBotDiagnostics,
-  type AppBotExpertReport,
-} from './bot-diagnostics.ts';
+import type { AppBotDiagnostics, AppBotExpertReport } from './bot-diagnostics.ts';
 import type { BotTraceCompetenceGate, BotTracePhaseAssessment, BotTracePhaseSummary } from '@rts/ai';
 import type { MatchHealthRow } from './match-health.ts';
 
@@ -49,13 +41,13 @@ export class Game {
   fullVision = false;
   humanPlayer = 0;
   matchStats!: MatchStats;
-  botDiagnostics: AppBotDiagnostics[] = [];
 
   private cameraController?: CameraController;
   private visibilityController?: VisibilityController;
   private selectionController?: SelectionController;
   private commandController?: CommandController;
   private replayController = new ReplayController();
+  private botDiagnosticsController = new BotDiagnosticsController();
   private tapSelectionController?: TapSelectionController;
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
@@ -80,6 +72,8 @@ export class Game {
   set selection(value: Set<number>) { this.selectionState().selection = value; }
   get queued(): Command[] { return this.commandState().queued; }
   set queued(value: Command[]) { this.commandState().queued = value; }
+  get botDiagnostics(): AppBotDiagnostics[] { return this.botDiagnosticsController.diagnostics; }
+  set botDiagnostics(value: AppBotDiagnostics[]) { this.botDiagnosticsController.reset(value); }
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.selectionState().controlGroups;
@@ -269,23 +263,23 @@ export class Game {
   }
 
   botExpertHealthRows(): MatchHealthRow[] {
-    return botExpertHealthRows(this.botDiagnostics, this.matchStats);
+    return this.botDiagnosticsController.healthRows(this.matchStats);
   }
 
   botExpertReport(): AppBotExpertReport {
-    return botExpertReport(this.botDiagnostics, this.matchStats);
+    return this.botDiagnosticsController.report(this.matchStats);
   }
 
   botPhaseSummaries(): BotTracePhaseSummary[] {
-    return botPhaseSummaries(this.botDiagnostics, this.matchStats);
+    return this.botDiagnosticsController.phaseSummaries(this.matchStats);
   }
 
   botPhaseAssessments(): BotTracePhaseAssessment[] {
-    return botPhaseAssessments(this.botDiagnostics, this.matchStats);
+    return this.botDiagnosticsController.phaseAssessments(this.matchStats);
   }
 
   botCompetenceGates(): BotTraceCompetenceGate[] {
-    return botCompetenceGates(this.botDiagnostics, this.matchStats);
+    return this.botDiagnosticsController.competenceGates(this.matchStats);
   }
 
   loadReplay(json: string): void {
@@ -379,7 +373,7 @@ export class Game {
     }
     const results = this.sim.step(batch);
     recordMatchStatsStep(this.matchStats, this.sim.fullState(), batch, results);
-    recordBotDiagnosticResults(this.botDiagnostics, results);
+    this.botDiagnosticsController.record(results);
     this.pruneSelection();
   }
 
