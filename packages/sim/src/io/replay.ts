@@ -248,6 +248,7 @@ const validateCommand = (x: unknown): Command => {
         t: 'repair',
         unit: readNonNegativeInt(unit, 'invalid repair command'),
         target: readNonNegativeInt(r.target, 'invalid repair command'),
+        ...readOptionalQueue(r, 'invalid repair command'),
       };
     }
     case 'rally': {

@@ -75,6 +75,9 @@ test('smart command repairs damaged friendly mechanical targets', () => {
   assert.deepEqual(smartCommandCandidates(s, 0, scv, { hit: bunker, x: tc(10), y: tc(8) }, 'desktop'), [
     { t: 'repair', unit: scv, target: bunker },
   ]);
+  assert.deepEqual(smartCommandCandidates(s, 0, scv, { hit: bunker, x: tc(10), y: tc(8) }, 'desktop', { queueRepair: true }), [
+    { t: 'repair', unit: scv, target: bunker, queue: true },
+  ]);
 });
 
 test('smart command loads valid cargo into transports and structures', () => {
@@ -134,7 +137,12 @@ test('queued smart intent appends validated travel and target attack commands', 
   const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
   const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
   const enemy = spawnUnit(s, Kind.Marine, 1, tc(10), tc(8));
+  const scv = spawnUnit(s, Kind.SCV, 0, tc(8), tc(10));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, tc(12), tc(10));
   const slot = slotOf(marine);
+  const scvSlot = slotOf(scv);
+  s.players.minerals[0] = 500;
+  s.e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
 
   assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }, 'desktop', { queueTravel: true }), [
     { t: 'move', unit: marine, x: tc(12), y: tc(8), target: leader, queue: true },
@@ -145,12 +153,22 @@ test('queued smart intent appends validated travel and target attack commands', 
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueAttack: true }), [
     { t: 'attack', unit: marine, target: enemy, queue: true },
   ]);
+  assert.deepEqual(smartCommandCandidates(s, 0, scv, { hit: bunker, x: tc(12), y: tc(10) }, 'desktop', { queueRepair: true }), [
+    { t: 'repair', unit: scv, target: bunker, queue: true },
+  ]);
+  assert.deepEqual(repairModeCandidates(s, 0, [scv, marine], bunker, { queueRepair: true }), [
+    { t: 'repair', unit: scv, target: bunker, queue: true },
+  ]);
 
   s.e.order[slot] = Order.Move;
   s.e.orderQueueLen[slot] = 4;
+  s.e.order[scvSlot] = Order.Move;
+  s.e.orderQueueLen[scvSlot] = 4;
   assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, 'desktop', { queueTravel: true }), []);
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, { queueTravel: true }), []);
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueAttack: true }), []);
+  assert.deepEqual(smartCommandCandidates(s, 0, scv, { hit: bunker, x: tc(12), y: tc(10) }, 'desktop', { queueTravel: true, queueRepair: true }), []);
+  assert.deepEqual(repairModeCandidates(s, 0, [scv], bunker, { queueRepair: true }), []);
 });
 
 test('armed harvest mode queues every selected valid worker for a gather target', () => {
@@ -178,6 +196,10 @@ test('armed repair mode queues all valid repairers for built targets', () => {
   assert.deepEqual(repairModeCandidates(s, 0, [a, b, marine], bunker), [
     { t: 'repair', unit: a, target: bunker },
     { t: 'repair', unit: b, target: bunker },
+  ]);
+  assert.deepEqual(repairModeCandidates(s, 0, [a, b, marine], bunker, { queueRepair: true }), [
+    { t: 'repair', unit: a, target: bunker, queue: true },
+    { t: 'repair', unit: b, target: bunker, queue: true },
   ]);
 });
 

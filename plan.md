@@ -773,14 +773,14 @@ Remaining work:
   - Desktop Shift slice is done for queued travel and direct attacks: Shift-right-click smart
     move/follow, Shift-right-click target attacks, Shift-armed attack-move point commands, and
     Shift-armed target attacks set the shared `queue` flag after validator-backed command-intent
-    checks, while harvest / repair / load / spells keep their current immediate semantics.
+    checks, while harvest / load / spells keep their current immediate semantics.
   - Queued waypoint rendering slice is done for queued travel: selected units expose sim-owned
     queued travel waypoint descriptors, and the shared overlay draws move/follow, attack-move, and
     patrol paths in both WebGL and Math/fallback rendering.
   - Mobile queue-mode slice is done for queued travel and direct attacks: the compact mobile toggle
     feeds the same validator-backed command-intent options as desktop Shift, appends move / follow,
-    attack-move point travel, Patrol, and target enemy attacks, and leaves harvest / repair / load /
-    spells immediate until those command families gain first-class queued interruption semantics.
+    attack-move point travel, Patrol, and target enemy attacks, and leaves harvest / load / spells
+    immediate until those command families gain first-class queued interruption semantics.
   - Patrol queue slice is done: Patrol now shares the travel queue's serialized order slots, replay
     and action-mask encoding preserve the `queue` flag, desktop Shift and mobile queue mode emit
     queued Patrol from armed command taps, and queued waypoint descriptors/rendering distinguish
@@ -789,10 +789,17 @@ Remaining work:
     intent, replay JSON, action-mask encode/decode, desktop Shift, and mobile queue mode; queued
     attack entries dispatch through the same attack target/combat-target fields after the current
     order settles, skip dead targets, and render as selected-unit queued attack waypoints.
+  - Repair queue slice is done for completed damaged repair targets: repair commands preserve the
+    `queue` flag through command intent, replay JSON, action masks, desktop Shift, armed repair
+    target mode, and mobile queue mode; queued repair entries dispatch through the repair target
+    field after the current order settles, advance to the next queued order when the repair finishes
+    or becomes invalid, and render as selected-unit queued repair waypoints. Unfinished Terran
+    construction resume stays immediate until construction queuing has its own contract.
   - Immediate interruption slice is done: direct spell, worker-build, spider-mine, load, and unload
     commands now discard stale future queued travel for their actor through command-owned helpers,
     matching the existing attack / harvest / repair / stop / transform replacement behavior while
-    leaving true Shift-queued non-travel commands as later first-class work.
+    leaving harvest / load / spells and other command-owned families as later first-class queued
+    work.
 - Add architecture guard tests for command option discovery, action masks, replay ingestion, and
   UI command-card parity.
   - Command surface guard slice is done: the runtime `COMMAND_TYPES` registry is typechecked

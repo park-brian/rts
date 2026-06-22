@@ -8,14 +8,15 @@ import { effectiveSpeed, isDisabled } from '../mechanics/status.ts';
 import { isContained } from '../mechanics/cargo.ts';
 import { withinTopDownEdgeRange } from '../spatial/geometry.ts';
 import { entityApproachPoint } from '../entity/approach.ts';
+import { startNextQueuedOrder } from '../entity/order-queue.ts';
 
 const stopRepairing = (s: State, slot: number): void => {
   const e = s.e;
-  e.order[slot] = Order.Idle;
   e.target[slot] = NONE;
   e.intentTarget[slot] = NONE;
   e.combatTarget[slot] = NONE;
   e.timer[slot] = 0;
+  if (!startNextQueuedOrder(s, slot)) e.order[slot] = Order.Idle;
 };
 
 export const repair = (s: State): void => {

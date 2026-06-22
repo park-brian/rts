@@ -13,12 +13,14 @@ export type QueuedTravelOrder = {
   target?: number;
 };
 
-export type QueuedOrder = QueuedTravelOrder | {
-  order: typeof Order.Attack;
+export type QueuedTargetOrder = {
+  order: typeof Order.Attack | typeof Order.Repair;
   x: number;
   y: number;
   target: number;
 };
+
+export type QueuedOrder = QueuedTravelOrder | QueuedTargetOrder;
 
 const orderColumn = (e: Entities, i: number): Uint8Array => {
   switch (i) {
@@ -81,7 +83,7 @@ export const queuedOrderAt = (e: Entities, slot: number, i: number): QueuedOrder
   const target = targetColumn(e, i)[slot]!;
   const x = xColumn(e, i)[slot]!;
   const y = yColumn(e, i)[slot]!;
-  if (order === Order.Attack) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -143,11 +145,24 @@ export const enqueueTravelOrder = (
   targetId = NONE,
 ): boolean => enqueueQueuedOrder(s, slot, order, x, y, targetId);
 
+export const enqueueTargetOrder = (
+  s: State,
+  slot: number,
+  order: QueuedTargetOrder['order'],
+  targetId: number,
+): boolean => enqueueQueuedOrder(s, slot, order, 0, 0, targetId);
+
 export const enqueueAttackOrder = (
   s: State,
   slot: number,
   targetId: number,
-): boolean => enqueueQueuedOrder(s, slot, Order.Attack, 0, 0, targetId);
+): boolean => enqueueTargetOrder(s, slot, Order.Attack, targetId);
+
+export const enqueueRepairOrder = (
+  s: State,
+  slot: number,
+  targetId: number,
+): boolean => enqueueTargetOrder(s, slot, Order.Repair, targetId);
 
 const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   const order = orderColumn(e, 0)[slot]! as QueuedOrder['order'];
@@ -163,7 +178,7 @@ const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   }
   clearQueueSlot(e, slot, len - 1);
   e.orderQueueLen[slot] = len - 1;
-  if (order === Order.Attack) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -177,6 +192,17 @@ export const setCurrentAttackOrder = (s: State, slot: number, targetId: number):
   clearPatrolRoute(e, slot);
 };
 
+export const setCurrentRepairOrder = (s: State, slot: number, targetId: number): void => {
+  const e = s.e;
+  e.order[slot] = Order.Repair;
+  e.target[slot] = targetId;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.settled[slot] = 0;
+  e.timer[slot] = 0;
+  clearPatrolRoute(e, slot);
+};
+
 export const startNextQueuedOrder = (s: State, slot: number): boolean => {
   const e = s.e;
   while (e.orderQueueLen[slot]! > 0) {
@@ -185,6 +211,8 @@ export const startNextQueuedOrder = (s: State, slot: number): boolean => {
     clearVelocity(e, slot);
     if (next.order === Order.Attack) {
       setCurrentAttackOrder(s, slot, next.target);
+    } else if (next.order === Order.Repair) {
+      setCurrentRepairOrder(s, slot, next.target);
     } else {
       setCurrentTravelOrder(s, slot, next.order, next.x, next.y, next.target ?? NONE);
     }

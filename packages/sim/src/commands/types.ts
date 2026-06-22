@@ -70,7 +70,7 @@ export type Command =
   | { t: 'amove'; unit: number; x: number; y: number; queue?: boolean } // attack-move to a point
   | { t: 'ability'; unit: number; ability: number; target?: number; x?: number; y?: number }
   | { t: 'harvest'; unit: number; patch: number }
-  | { t: 'repair'; unit: number; target: number }
+  | { t: 'repair'; unit: number; target: number; queue?: boolean }
   | { t: 'rally'; building: number; x: number; y: number; target?: number } // set a structure's rally point/target
   | { t: 'hold'; unit: number }
   | { t: 'patrol'; unit: number; x: number; y: number; queue?: boolean }

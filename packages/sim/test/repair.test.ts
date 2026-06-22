@@ -178,6 +178,101 @@ test('repair validation shares actor ownership gates', () => {
   assertRepair({ t: 'repair', unit: unfinished, target: tank }, { ok: false, reason: 'missing-capability' });
 });
 
+test('queued repair commands append and dispatch after current travel settles', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 125 });
+  const e = s.e;
+  idleWorkers(e);
+  const scv = slotOf(spawn(Kind.SCV, 0, fx(300), fx(300)));
+  const bunker = spawn(Kind.Bunker, 0, fx(700), fx(300));
+  e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: eid(e, scv), x: fx(340), y: fx(300) },
+    { t: 'repair', unit: eid(e, scv), target: bunker, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(e.order[scv], Order.Move);
+  assert.equal(e.orderQueueLen[scv], 1);
+  assert.equal(e.orderQueue0[scv], Order.Repair);
+  assert.equal(e.orderQueueTarget0[scv], bunker);
+
+  const currentOrder = (): number => e.order[scv]!;
+  for (let i = 0; i < 300 && currentOrder() !== Order.Repair; i++) sim.step([]);
+
+  assert.equal(e.orderQueueLen[scv], 0);
+  assert.equal(e.order[scv], Order.Repair);
+  assert.equal(e.target[scv], bunker);
+});
+
+test('repair completion advances to the next queued order', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 126 });
+  const e = s.e;
+  idleWorkers(e);
+  const scv = slotOf(spawn(Kind.SCV, 0, fx(300), fx(300)));
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(330), fx(300)));
+  e.hp[depot] = Units[Kind.SupplyDepot]!.hp - 1;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+  const move = { x: fx(720), y: fx(300) };
+
+  const results = sim.step([{ player: 0, cmds: [
+    { t: 'repair', unit: eid(e, scv), target: eid(e, depot) },
+    { t: 'move', unit: eid(e, scv), ...move, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(e.order[scv], Order.Repair);
+  assert.equal(e.orderQueueLen[scv], 1);
+
+  const currentOrder = (): number => e.order[scv]!;
+  for (let i = 0; i < 200 && currentOrder() !== Order.Move; i++) sim.step([]);
+
+  assert.equal(e.hp[depot], Units[Kind.SupplyDepot]!.hp);
+  assert.equal(e.orderQueueLen[scv], 0);
+  assert.equal(e.order[scv], Order.Move);
+  assert.equal(e.tx[scv], move.x);
+  assert.equal(e.ty[scv], move.y);
+});
+
+test('queued repair validation rejects busy construction resume and full queues', () => {
+  const { sim, state: s, spawn } = simScenario({ players: 1, seed: 127 });
+  const e = s.e;
+  idleWorkers(e);
+  const scv = spawn(Kind.SCV, 0, fx(300), fx(300));
+  const depot = slotOf(spawn(Kind.SupplyDepot, 0, fx(420), fx(300)));
+  const bunker = slotOf(spawn(Kind.Bunker, 0, fx(460), fx(300)));
+  e.built[depot] = 0;
+  e.ctimer[depot] = 100;
+  e.hp[bunker] = Units[Kind.Bunker]!.hp - 40;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
+
+  const construction = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: scv, x: fx(340), y: fx(300) },
+    { t: 'repair', unit: scv, target: eid(e, depot), queue: true },
+  ] }]);
+
+  assert.deepEqual(construction, [
+    { player: 0, index: 0, t: 'move', ok: true },
+    { player: 0, index: 1, t: 'repair', ok: false, reason: 'target-not-allowed' },
+  ]);
+
+  const fullQueue = sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: scv, x: fx(360), y: fx(300), queue: true },
+    { t: 'move', unit: scv, x: fx(380), y: fx(300), queue: true },
+    { t: 'move', unit: scv, x: fx(400), y: fx(300), queue: true },
+    { t: 'move', unit: scv, x: fx(420), y: fx(300), queue: true },
+    { t: 'repair', unit: scv, target: eid(e, bunker), queue: true },
+  ] }]);
+
+  assert.equal(e.orderQueueLen[slotOf(scv)], 4);
+  assert.deepEqual(fullQueue.map((r) => r.ok), [true, true, true, true, false]);
+  assert.deepEqual(fullQueue.at(-1), { player: 0, index: 4, t: 'repair', ok: false, reason: 'queue-full' });
+});
+
 test('replay parser accepts repair commands', () => {
   const replay = parseReplay(JSON.stringify({
     version: 1,

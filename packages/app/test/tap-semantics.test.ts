@@ -69,6 +69,26 @@ test('repair target mode resumes an unfinished own Terran foundation', () => {
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
+test('repair target mode queues damaged repair targets with Shift', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, fx(500), fx(400));
+  s.e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+  s.players.minerals[0] = 1_000;
+  select(g, [scv]);
+  centerOnEntity(g, bunker);
+  g.fastForward(1);
+  ui.armedCommand.value = { t: 'target', mode: 'repair' };
+
+  const p = screenOf(g, bunker);
+  g.tap(p.x, p.y, { shift: true, preferredHit: bunker });
+
+  assert.deepEqual([...g.selection], [scv]);
+  assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: bunker, queue: true }]);
+  assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+});
+
 test('attack-move target mode rejects friendly entity taps and stays armed', () => {
   const g = freshGame();
   const cc = findEntity(g, Kind.CommandCenter, 0);
@@ -339,9 +359,14 @@ test('desktop shift right click queues travel and target attack commands', () =>
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
   const s = g.sim.fullState();
+  const e = s.e;
   const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
   const leader = spawnUnit(s, Kind.Marine, 0, fx(500), fx(400));
   const enemy = spawnUnit(s, Kind.Zealot, 1, fx(560), fx(400));
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
+  const bunker = spawnUnit(s, Kind.Bunker, 0, fx(620), fx(460));
+  e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+  s.players.minerals[0] = 1_000;
   select(g, [marine]);
   centerOnEntity(g, leader);
   g.fastForward(1);
@@ -370,6 +395,13 @@ test('desktop shift right click queues travel and target attack commands', () =>
   const enemyPoint = screenOf(g, enemy);
   g.desktopSmartTap(enemyPoint.x, enemyPoint.y, { shift: true });
   assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
+
+  g.queued = [];
+  select(g, [scv]);
+  centerOnEntity(g, bunker);
+  const repairPoint = screenOf(g, bunker);
+  g.desktopSmartTap(repairPoint.x, repairPoint.y, { shift: true, preferredHit: bunker });
+  assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: bunker, queue: true }]);
 });
 
 test('desktop right click keeps smart-command semantics while attack mode is armed', () => {
@@ -635,8 +667,13 @@ test('mobile queue mode appends validated travel and target attack actions', () 
   ui.mobileQueueMode.value = true;
   try {
     const s = g.sim.fullState();
+    const e = s.e;
     const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
     const enemy = spawnUnit(s, Kind.Zealot, 1, fx(520), fx(400));
+    const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(460));
+    const bunker = spawnUnit(s, Kind.Bunker, 0, fx(620), fx(460));
+    e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+    s.players.minerals[0] = 1_000;
     select(g, [marine]);
     centerOnEntity(g, marine);
     g.fastForward(1);
@@ -657,6 +694,16 @@ test('mobile queue mode appends validated travel and target attack actions', () 
     assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
 
     g.queued = [];
+    select(g, [scv]);
+    centerOnEntity(g, bunker);
+    const repairPoint = screenOf(g, bunker);
+    ui.armedCommand.value = { t: 'target', mode: 'repair' };
+    g.tap(repairPoint.x, repairPoint.y, { preferredHit: bunker });
+    assert.deepEqual(g.queued, [{ t: 'repair', unit: scv, target: bunker, queue: true }]);
+    assert.deepEqual(ui.armedCommand.value, { t: 'none' });
+
+    g.queued = [];
+    select(g, [marine]);
     centerOnEntity(g, marine);
     ui.armedCommand.value = { t: 'attackMove' };
     g.tap(ground.x, ground.y);

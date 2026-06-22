@@ -169,6 +169,12 @@ const decodedAttack = (actor: number, target: number, queue?: boolean): Extract<
   return command;
 };
 
+const decodedRepair = (actor: number, target: number, queue?: boolean): Extract<Command, { t: 'repair' }> => {
+  const command: Extract<Command, { t: 'repair' }> = { t: 'repair', unit: actor, target };
+  if (queue === true) command.queue = true;
+  return command;
+};
+
 const decodedPatrol = (actor: number, x: number, y: number, queue?: boolean): Extract<Command, { t: 'patrol' }> => {
   const command: Extract<Command, { t: 'patrol' }> = { t: 'patrol', unit: actor, x, y };
   if (queue === true) command.queue = true;
@@ -232,7 +238,7 @@ export const decodeAction = (action: EncodedAction): Command => {
     case 'harvest':
       return { t: 'harvest', unit: action.actor, patch: target };
     case 'repair':
-      return { t: 'repair', unit: action.actor, target };
+      return decodedRepair(action.actor, target, action.queue);
     case 'rally':
       return target === NONE
         ? { t: 'rally', building: action.actor, x, y }
@@ -274,7 +280,10 @@ export const encodeCommand = (command: Command): EncodedAction => {
     };
     case 'ability': return { head: 'ability', actor: command.unit, ability: command.ability, target: command.target, x: command.x, y: command.y };
     case 'harvest': return { head: 'harvest', actor: command.unit, target: command.patch };
-    case 'repair': return { head: 'repair', actor: command.unit, target: command.target };
+    case 'repair': return {
+      head: 'repair', actor: command.unit, target: command.target,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'rally': return { head: 'rally', actor: command.building, x: command.x, y: command.y, target: command.target };
     case 'hold': return { head: 'hold', actor: command.unit };
     case 'patrol': return {
@@ -755,12 +764,13 @@ const commandIntentTargetAllowed = (
   head: Extract<CommandHead, 'harvest' | 'repair' | 'rally'>,
   target: number,
   point: { x: number; y: number },
+  opts: CommandMaskOptions,
 ): boolean => {
   switch (head) {
     case 'harvest':
       return harvestModeCandidates(s, player, [actor], target).length > 0;
     case 'repair':
-      return repairModeCandidates(s, player, [actor], target).length > 0;
+      return repairModeCandidates(s, player, [actor], target, { queueRepair: opts.queue }).length > 0;
     case 'rally':
       return rallyModeCandidates(s, player, [actor], { hit: target, x: point.x, y: point.y })
         .some((command) => command.t === 'rally' && command.target === target);
@@ -780,7 +790,7 @@ export const writeEntityTargetMask = (
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i]!;
     mask[i] = (head === 'harvest' || head === 'repair' || head === 'rally')
-      ? (commandIntentTargetAllowed(s, player, actor, head, target, point) ? 1 : 0)
+      ? (commandIntentTargetAllowed(s, player, actor, head, target, point, opts) ? 1 : 0)
       : (validateCommand(s, player, commandForResolvedPoint(actor, head, point, opts, target)).ok ? 1 : 0);
   }
   return mask;

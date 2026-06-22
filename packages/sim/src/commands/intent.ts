@@ -29,6 +29,7 @@ export type SmartCommandTarget = {
 export type SmartCommandOptions = {
   queueTravel?: boolean;
   queueAttack?: boolean;
+  queueRepair?: boolean;
 };
 
 export type ProducedUnitRallyIntent =
@@ -134,7 +135,7 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
-const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' }>>(
+const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' }>>(
   command: T,
   enabled: boolean | undefined,
 ): T => {
@@ -151,6 +152,11 @@ const queueAttackCommand = (
   command: Extract<Command, { t: 'attack' }>,
   opts: SmartCommandOptions,
 ): Extract<Command, { t: 'attack' }> => queueCommand(command, opts.queueAttack);
+
+const queueRepairCommand = (
+  command: Extract<Command, { t: 'repair' }>,
+  opts: SmartCommandOptions,
+): Extract<Command, { t: 'repair' }> => queueCommand(command, opts.queueRepair);
 
 export const smartCommandCandidates = (
   s: State,
@@ -176,7 +182,7 @@ export const smartCommandCandidates = (
       commands.push({ t: 'harvest', unit: actor, patch: target.hit });
     }
     commands.push(
-      { t: 'repair', unit: actor, target: target.hit },
+      queueRepairCommand({ t: 'repair', unit: actor, target: target.hit }, opts),
       { t: 'load', transport: target.hit, unit: actor },
       { t: 'load', transport: actor, unit: target.hit },
     );
@@ -231,6 +237,7 @@ export const repairModeCandidates = (
   player: number,
   actors: Iterable<number>,
   target: number,
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   const e = s.e;
   if (!isAlive(e, target)) return [];
@@ -239,7 +246,7 @@ export const repairModeCandidates = (
     let best: Command | null = null;
     let bestD = Infinity;
     for (const actor of actors) {
-      const command: Command = { t: 'repair', unit: actor, target };
+      const command: Command = queueRepairCommand({ t: 'repair', unit: actor, target }, opts);
       if (!validateCommand(s, player, command).ok) continue;
       const actorSlot = slotOf(actor);
       const dx = e.x[actorSlot]! - e.x[targetSlot]!;
@@ -255,7 +262,7 @@ export const repairModeCandidates = (
 
   const commands: Command[] = [];
   for (const actor of actors) {
-    const command: Command = { t: 'repair', unit: actor, target };
+    const command: Command = queueRepairCommand({ t: 'repair', unit: actor, target }, opts);
     if (validateCommand(s, player, command).ok) commands.push(command);
   }
   return commands;

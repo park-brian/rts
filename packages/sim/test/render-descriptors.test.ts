@@ -6,7 +6,7 @@ import { fx, ONE } from '../src/fixed.ts';
 import { spawnUnit } from '../src/entity/factory.ts';
 import { sliceMap } from '../src/map/core.ts';
 import { NONE, eid, makeState, slotOf, spawnEffect } from '../src/entity/world.ts';
-import { enqueueAttackOrder, enqueueTravelOrder } from '../src/entity/order-queue.ts';
+import { enqueueAttackOrder, enqueueRepairOrder, enqueueTravelOrder } from '../src/entity/order-queue.ts';
 import { bodyBounds, topDownInteractionRect } from '../src/spatial/geometry.ts';
 import {
   EffectPresentationDefs, effectFieldAffordances, effectVisibilityAffordances, entityCloakOpacity, entityLifeBar,
@@ -292,28 +292,34 @@ test('queued travel waypoints expose selected travel plans without renderer stat
   const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
   const leader = spawnUnit(s, Kind.SCV, 0, fx(500), fx(420));
   const enemy = spawnUnit(s, Kind.Zergling, 1, fx(530), fx(430));
+  const repairScv = spawnUnit(s, Kind.SCV, 0, fx(420), fx(420));
+  const repairTarget = spawnUnit(s, Kind.Bunker, 0, fx(650), fx(520));
   const unselected = spawnUnit(s, Kind.Marine, 0, fx(440), fx(400));
   const marineSlot = slotOf(marine);
+  const repairSlot = slotOf(repairScv);
   const unselectedSlot = slotOf(unselected);
 
   enqueueTravelOrder(s, marineSlot, Order.Move, fx(480), fx(400), leader);
   enqueueAttackOrder(s, marineSlot, enemy);
   enqueueTravelOrder(s, marineSlot, Order.AttackMove, fx(560), fx(460));
   enqueueTravelOrder(s, marineSlot, Order.Patrol, fx(620), fx(500));
+  enqueueRepairOrder(s, repairSlot, repairTarget);
   enqueueTravelOrder(s, unselectedSlot, Order.Move, fx(600), fx(400));
 
-  assert.deepEqual(queuedTravelWaypoints(s, [marine]), [
+  assert.deepEqual(queuedTravelWaypoints(s, [marine, repairScv]), [
     { unit: marine, index: 0, intent: 'move', target: leader, x: e.x[slotOf(leader)]! / ONE, y: e.y[slotOf(leader)]! / ONE },
     { unit: marine, index: 1, intent: 'attack', target: enemy, x: e.x[slotOf(enemy)]! / ONE, y: e.y[slotOf(enemy)]! / ONE },
     { unit: marine, index: 2, intent: 'attack-move', target: NONE, x: 560, y: 460 },
     { unit: marine, index: 3, intent: 'patrol', target: NONE, x: 620, y: 500 },
+    { unit: repairScv, index: 0, intent: 'repair', target: repairTarget, x: e.x[slotOf(repairTarget)]! / ONE, y: e.y[slotOf(repairTarget)]! / ONE },
   ]);
 
   e.alive[slotOf(leader)] = 0;
-  assert.deepEqual(queuedTravelWaypoints(s, [marine]), [
+  assert.deepEqual(queuedTravelWaypoints(s, [marine, repairScv]), [
     { unit: marine, index: 1, intent: 'attack', target: enemy, x: e.x[slotOf(enemy)]! / ONE, y: e.y[slotOf(enemy)]! / ONE },
     { unit: marine, index: 2, intent: 'attack-move', target: NONE, x: 560, y: 460 },
     { unit: marine, index: 3, intent: 'patrol', target: NONE, x: 620, y: 500 },
+    { unit: repairScv, index: 0, intent: 'repair', target: repairTarget, x: e.x[slotOf(repairTarget)]! / ONE, y: e.y[slotOf(repairTarget)]! / ONE },
   ]);
 });
 

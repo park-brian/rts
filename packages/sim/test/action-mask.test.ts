@@ -107,6 +107,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'ability', unit: 29, ability: 3, target: 30, x: fx(20), y: fx(21) },
     { t: 'harvest', unit: 31, patch: 32 },
     { t: 'repair', unit: 33, target: 34 },
+    { t: 'repair', unit: 33, target: 34, queue: true },
     { t: 'rally', building: 35, x: fx(22), y: fx(23), target: 36 },
     { t: 'hold', unit: 36 },
     { t: 'patrol', unit: 36, x: fx(24), y: fx(25) },
@@ -288,11 +289,17 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
 });
 
-test('queued travel and attack action masks use shared validation and full-queue gates', () => {
+test('queued travel, attack, and repair action masks use shared validation and full-queue gates', () => {
   const scenario = simScenario({ players: 2, seed: 9511 });
   const { sim, state: s, spawn } = scenario;
+  const e = s.e;
   const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
   const enemy = spawn(Kind.Zergling, 1, fx(700), fx(400));
+  const scv = spawn(Kind.SCV, 0, fx(400), fx(460));
+  const bunker = spawn(Kind.Bunker, 0, fx(700), fx(460));
+  e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
+  s.players.minerals[0] = 1_000;
+  s.players.gas[0] = 1_000;
   const point = { x: fx(500), y: fx(400), queue: true };
 
   assert.deepEqual(commandForHead(s, marine, 'move', point), { t: 'move', unit: marine, x: point.x, y: point.y, queue: true });
@@ -303,8 +310,16 @@ test('queued travel and attack action masks use shared validation and full-queue
     target: enemy,
     queue: true,
   });
+  assert.deepEqual(commandForHead(s, scv, 'repair', { target: bunker, queue: true }), {
+    t: 'repair',
+    unit: scv,
+    target: bunker,
+    queue: true,
+  });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), true);
+  assert.deepEqual([...entityTargetMask(s, 0, scv, 'repair', [bunker], { queue: true })], [1]);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(520), y: fx(400) },
@@ -323,6 +338,15 @@ test('queued travel and attack action masks use shared validation and full-queue
   assert.equal(commandHeadAllowed(queuedMask, 'attack'), false);
   assert.equal(commandHeadAllowed(replacementMoveMask, 'move'), true);
   assert.equal(commandHeadAllowed(replacementAttackMask, 'attack'), true);
+
+  sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: scv, x: fx(520), y: fx(460) },
+    { t: 'move', unit: scv, x: fx(540), y: fx(460), queue: true },
+    { t: 'move', unit: scv, x: fx(560), y: fx(460), queue: true },
+    { t: 'move', unit: scv, x: fx(580), y: fx(460), queue: true },
+    { t: 'move', unit: scv, x: fx(600), y: fx(460), queue: true },
+  ] }]);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), false);
   assert.deepEqual(decodeAction({ head: 'amove', actor: marine, x: fx(620), y: fx(400), queue: true }), {
     t: 'amove',
     unit: marine,
@@ -334,6 +358,12 @@ test('queued travel and attack action masks use shared validation and full-queue
     t: 'attack',
     unit: marine,
     target: enemy,
+    queue: true,
+  });
+  assert.deepEqual(decodeAction({ head: 'repair', actor: scv, target: bunker, queue: true }), {
+    t: 'repair',
+    unit: scv,
+    target: bunker,
     queue: true,
   });
 });

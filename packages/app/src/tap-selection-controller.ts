@@ -68,7 +68,8 @@ export class TapSelectionController {
       return;
     }
     if (armed.t === 'target' && armed.mode === 'repair') {
-      if (hit >= 0 && this.queueRepairTarget(hit)) clearArmedCommand();
+      const queueOrders = opts.shift === true || this.mobileQueueMode();
+      if (hit >= 0 && this.queueRepairTarget(hit, queueOrders)) clearArmedCommand();
       return;
     }
 
@@ -88,6 +89,7 @@ export class TapSelectionController {
       const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'mobile', {
         queueTravel: queueOrders,
         queueAttack: queueOrders,
+        queueRepair: queueOrders,
       });
       if (command) g.queued.push(command);
     }
@@ -130,6 +132,7 @@ export class TapSelectionController {
       const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'desktop', {
         queueTravel: opts.shift === true,
         queueAttack: opts.shift === true,
+        queueRepair: opts.shift === true,
       });
       if (command) {
         g.queued.push(command);
@@ -186,11 +189,11 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queueRepairTarget(target: number): boolean {
+  private queueRepairTarget(target: number, queueOrders = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     let queued = false;
-    for (const command of repairModeCandidates(s, g.human, g.selection, target)) {
+    for (const command of repairModeCandidates(s, g.human, g.selection, target, { queueRepair: queueOrders })) {
       g.queued.push(command);
       queued = true;
     }
