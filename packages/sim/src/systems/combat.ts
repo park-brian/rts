@@ -22,13 +22,10 @@ import { isContained } from '../mechanics/cargo.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
 import { kindHasDirectWeapon } from '../mechanics/capabilities.ts';
 import { topDownEdgeDistanceSq, withinTopDownEdgeRange } from '../spatial/geometry.ts';
-import { carrierCanTarget, launchInterceptor } from '../mechanics/interceptor.ts';
 import { applyWeaponHit } from '../mechanics/weapon-hit.ts';
-import { launchScarab } from '../mechanics/scarab.ts';
 import { isLocalAvoidanceSolid } from '../spatial/local-avoidance.ts';
 import { isExternallySteeredActor, participatesInNormalCombat } from '../mechanics/actors.ts';
 import {
-  WeaponMechanic,
   applyWeaponMechanicOnHit,
   applyWeaponMechanicPostFire,
   canContainerProviderAttack,
@@ -39,6 +36,9 @@ import {
   nearestContainerProviderTarget,
   weaponMechanicDef,
 } from '../mechanics/weapons.ts';
+import {
+  canLaunchWeaponMechanicAtTarget, launchWeaponMechanic, weaponMechanicLaunchesChild,
+} from '../mechanics/weapon-delivery.ts';
 
 const insideMinimumRange = (s: State, attacker: number, target: number, weapon: Weapon): boolean =>
   weapon.minRange !== undefined && topDownEdgeDistanceSq(s, attacker, target) < weapon.minRange * weapon.minRange;
@@ -104,7 +104,7 @@ export const combat = (s: State, grid: Grid): void => {
     if (isAlive(e, rem)) {
       const rs = slotOf(rem);
       if (!isContained(s, rs) && isEnemy(s, owner, e.owner[rs]!) && canDetect(s, owner, rs) &&
-          (containerProvider ? canContainerProviderAttack(s, i, rs) : interceptorLaunch ? carrierCanTarget(s, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
+          (containerProvider ? canContainerProviderAttack(s, i, rs) : interceptorLaunch ? canLaunchWeaponMechanicAtTarget(s, mechanic, i, rs) : weaponForTarget(def, Units[e.kind[rs]!]!)) &&
           (order === Order.Attack || within(e, i, e.x[rs]!, e.y[rs]!, sight))) tgt = rs;
     } else if (e.combatTarget[i] !== NONE) {
       clearCombatTarget(s, i);
@@ -133,7 +133,7 @@ export const combat = (s: State, grid: Grid): void => {
     }
     if (interceptorLaunch) {
       if (withinTopDownEdgeRange(s, i, tgt, interceptorMechanic.launchRange)) {
-        if (e.wcd[i]! <= 0 && launchInterceptor(s, i, tgt)) e.wcd[i] = interceptorMechanic.launchCooldown;
+        if (e.wcd[i]! <= 0 && launchWeaponMechanic(s, mechanic, i, tgt)) e.wcd[i] = interceptorMechanic.launchCooldown;
       } else if (holdPosition) {
         clearCombatTarget(s, i);
       } else {
@@ -156,8 +156,8 @@ export const combat = (s: State, grid: Grid): void => {
           if (e.illusion[i] !== 1) {
             let hit = true;
             let fired = true;
-            if (mechanic?.id === WeaponMechanic.ScarabLaunch) {
-              fired = launchScarab(s, i, tgt);
+            if (weaponMechanicLaunchesChild(mechanic)) {
+              fired = launchWeaponMechanic(s, mechanic, i, tgt);
               hit = fired;
             } else {
               hit = applyWeaponHit(s, tgt, weapon, i);

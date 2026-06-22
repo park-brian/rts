@@ -871,6 +871,10 @@ Remaining work:
     narrowed descriptor it already owns instead of reaching through carrier-specific wrapper
     helpers. Remaining work: apply the same pattern only where it removes duplicate shape checks
     or makes delivery timing visibly easier to audit.
+  - Weapon-delivery dispatch slice is done: Scarab and Interceptor child launches now route through
+    a mechanic-id dispatch table instead of combat importing concrete launch helpers directly, while
+    combat still owns engagement timing/range and the Scarab seek-impact and Interceptor sortie-return
+    systems stay intentionally separate.
 - Introduce ability execution descriptors:
   - `instant`;
   - `status`;

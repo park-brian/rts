@@ -21,6 +21,9 @@ import {
 import { applyWeaponHit } from '../src/mechanics/weapon-hit.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
 import { carrierBayPoint, carrierLaunchRange, interceptorLaunchCooldown, launchInterceptor } from '../src/mechanics/interceptor.ts';
+import {
+  canLaunchWeaponMechanicAtTarget, launchWeaponMechanic, weaponMechanicLaunchesChild,
+} from '../src/mechanics/weapon-delivery.ts';
 import { interceptors } from '../src/systems/interceptors.ts';
 import {
   WeaponMechanic, WeaponMechanicByUnit, WeaponMechanicDefs, consumeWeaponMechanicAmmo,
@@ -101,6 +104,33 @@ test('scarab and interceptor delivery mechanics are descriptor-backed', () => {
   assert.equal(weaponMechanicDef(Kind.InfestedTerran)?.postFire, WeaponMechanic.SuicideOnFire);
   assert.equal(weaponMechanicDef(Kind.SpiderMine)?.postFire, WeaponMechanic.SuicideOnFire);
   assert.equal(weaponMechanicDef(Kind.Bunker)?.containerProvider, true);
+});
+
+test('weapon delivery launch dispatch owns scarab and interceptor child launches', () => {
+  const sim = new Sim({ map: sliceMap(), players: 2, seed: 6091 });
+  const s = sim.fullState();
+  const e = s.e;
+  const reaver = slotOf(spawnUnit(s, Kind.Reaver, 0, fx(400), fx(400)));
+  const reaverTarget = slotOf(spawnUnit(s, Kind.CommandCenter, 1, fx(500), fx(400)));
+  const carrier = slotOf(spawnUnit(s, Kind.Carrier, 0, fx(400), fx(520)));
+  const carrierTarget = slotOf(spawnUnit(s, Kind.CommandCenter, 1, fx(560), fx(520)));
+  const scarabMechanic = weaponMechanicDef(Kind.Reaver);
+  const interceptorMechanic = weaponMechanicDef(Kind.Carrier);
+
+  assert.equal(weaponMechanicLaunchesChild(scarabMechanic), true);
+  assert.equal(weaponMechanicLaunchesChild(interceptorMechanic), true);
+  assert.equal(weaponMechanicLaunchesChild(weaponMechanicDef(Kind.Marine)), false);
+
+  e.specialAmmo[reaver] = 1;
+  assert.equal(launchWeaponMechanic(s, scarabMechanic, reaver, reaverTarget), true);
+  assert.equal(e.specialAmmo[reaver], 1, 'Scarab ammo is consumed by combat after a successful launch');
+  assert.equal(launchedScarabs(s, reaver).length, 1);
+
+  e.specialAmmo[carrier] = 1;
+  assert.equal(canLaunchWeaponMechanicAtTarget(s, interceptorMechanic, carrier, carrierTarget), true);
+  assert.equal(launchWeaponMechanic(s, interceptorMechanic, carrier, carrierTarget), true);
+  assert.equal(e.specialAmmo[carrier], 0, 'Interceptor launch consumes the sortie-ready internal product');
+  assert.equal(launchedInterceptors(s, carrier).length, 1);
 });
 
 test('scarab launch ammo readiness is internal-product backed', () => {
