@@ -11,7 +11,7 @@ import { clearSelectionView, publishHud, resetControlGroupCounts } from './hud-p
 import { CameraController } from './camera-controller.ts';
 import { type PlacementGhost } from './placement-controller.ts';
 import { TapSelectionController, type TapOptions } from './tap-selection-controller.ts';
-import { VisibilityController } from './visibility-controller.ts';
+import { VisibilityController, type LastKnownEnemyAffordance } from './visibility-controller.ts';
 import { CONTROL_GROUP_COUNT, SelectionController } from './selection-controller.ts';
 import { CommandController } from './command-controller.ts';
 import {
@@ -87,6 +87,10 @@ export class Game {
 
   get controlGroups(): readonly ReadonlySet<number>[] {
     return this.selectionState().controlGroups;
+  }
+
+  get activeSubgroupKind(): number {
+    return this.selectionState().activeSubgroupKind;
   }
 
   get placementGhost(): PlacementGhost | null {
@@ -398,6 +402,10 @@ export class Game {
     return this.visibility().canSeeEntity(this.sim.fullState(), this.human, slot);
   }
 
+  lastKnownEnemies(out: LastKnownEnemyAffordance[] = []): LastKnownEnemyAffordance[] {
+    return this.visibility().lastKnownEnemies(this.sim.fullState(), this.human, out);
+  }
+
   // ---- selection & commands (called by input) ----
   screenToWorld(sx: number, sy: number): [number, number] {
     return this.camera().screenToWorld(sx, sy);
@@ -435,6 +443,18 @@ export class Game {
     if (result.ok) this.clearTargetModes();
     if (result.changed) this.publish();
     return result.ok;
+  }
+
+  selectSelectionSubgroup(kind: number): boolean {
+    const changed = this.selectionState().setActiveSubgroup(kind);
+    if (changed) this.publish();
+    return changed;
+  }
+
+  cycleSelectionSubgroup(direction = 1): boolean {
+    const changed = this.selectionState().cycleActiveSubgroup(direction);
+    if (changed) this.publish();
+    return changed;
   }
 
   private firstSelected(pred: (slot: number) => boolean): number {
@@ -510,6 +530,7 @@ export class Game {
       mode: this.mode,
       hasRecordedReplay: this.sim.frames !== null,
       selection: this.selection,
+      activeSubgroupKind: this.activeSubgroupKind,
       controlGroups: this.controlGroups,
       canSeeEntity: (slot) => this.canSeeEntity(slot),
     });

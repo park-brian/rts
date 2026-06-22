@@ -227,6 +227,26 @@ test('desktop mouse hover tracks screen-edge panning and clears on leave', () =>
   assert.equal(calls.clearEdge, 1);
 });
 
+test('desktop wheel zoom keeps the cursor world point anchored', () => {
+  const canvas = new FakeCanvas();
+  const { game } = makeGame();
+  const cursor = { x: 400, y: 300 };
+  let prevented = 0;
+  game.camX = 100;
+  game.camY = 200;
+  game.screenToWorld = (x: number, y: number): [number, number] => [game.camX + x / game.zoom, game.camY + y / game.zoom];
+  const [worldX, worldY] = game.screenToWorld(cursor.x, cursor.y);
+  ui.controlScheme.value = 'desktop';
+  attachInput(canvas as any, game);
+
+  canvas.fire('wheel', { clientX: cursor.x, clientY: cursor.y, deltaY: -1, preventDefault: () => { prevented++; } });
+
+  assert.equal(prevented, 1);
+  assert.equal(game.zoom, 1.1);
+  assert.ok(Math.abs(game.camX - (worldX - cursor.x / game.zoom)) < 1e-9);
+  assert.ok(Math.abs(game.camY - (worldY - cursor.y / game.zoom)) < 1e-9);
+});
+
 test('desktop middle button drags the camera instead of selecting', () => {
   const canvas = new FakeCanvas();
   const { game, calls } = makeGame();

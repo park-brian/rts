@@ -24,7 +24,7 @@ import { Particles } from './particles.ts';
 import type { Atlas, UV } from './atlas.ts';
 import { type WorkActivity, workActivities } from '../activity.ts';
 import {
-  fieldAffordances, type FieldAffordance, type VisibilityAffordance, visibilityAffordances,
+  fieldAffordances, lastKnownEnemies, type FieldAffordance, type LastKnownAffordance, type VisibilityAffordance, visibilityAffordances,
 } from '../visibility-affordances.ts';
 import { entityPresentation } from '../entity-presentation.ts';
 
@@ -185,6 +185,7 @@ export class GlRenderer {
   private workScratch: WorkActivity[] = [];
   private visibilityScratch: VisibilityAffordance[] = [];
   private fieldScratch: FieldAffordance[] = [];
+  private lastKnownScratch: LastKnownAffordance[] = [];
   private last = 0; // wall-clock seconds of the previous frame
 
   constructor(core: Gl, atlas: Atlas) {
@@ -279,6 +280,7 @@ export class GlRenderer {
     this.cullAndShadows(game); // → sprites (shadows), fills drawn/rr/wx/wy caches
     this.effectFields(game);
     this.bodies(game); // → sprites (bodies) + fx (ambient glows)
+    this.lastKnownEnemies(game);
     this.workSparks(game);
     this.visibilityAffordances(game);
     this.events(game); // spawn particles from fired/died diffs; updates prev caches
@@ -397,6 +399,20 @@ export class GlRenderer {
           this.fx.push(wx, wy, glowR * 3, glowR * 3, 0, glow, 1, 0.75, 0.2, 0.32, 0, 0, 0);
         }
       }
+    }
+  }
+
+  private lastKnownEnemies(game: Game): void {
+    const ring = this.atlas.uv.ring!;
+    const white = this.atlas.uv.white!;
+    const zoom = game.zoom;
+    for (const enemy of lastKnownEnemies(game, this.lastKnownScratch)) {
+      const hull = entityRenderHull(enemy.kind, enemy.x * ONE, enemy.y * ONE);
+      const [r, g, b] = teamColor(enemy.owner);
+      const w = Math.max(hull.width, 8 / zoom);
+      const h = Math.max(hull.height, 8 / zoom);
+      this.sprites.push(hull.cx, hull.cy, w, h, 0, ring, r, g, b, 0.48, 0, 0, 0);
+      this.sprites.push(hull.cx, hull.cy, 3.5 / zoom, 3.5 / zoom, 0, white, r, g, b, 0.42, 0, 0, 0);
     }
   }
 

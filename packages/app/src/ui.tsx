@@ -569,6 +569,22 @@ const SelectionPanel = (p: { game: Game; compact?: boolean }) => {
         </span>
         {hasSelection && <span style={{ flex: '0 0 auto', opacity: 0.75 }}>×{selection.count}</span>}
       </div>
+      {selection.subgroups.length > 1 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(42px, 1fr))',
+          gap: '3px', marginTop: '4px' }}>
+          {selection.subgroups.map((subgroup) => (
+            <button key={subgroup.kind} type="button" title={`Subgroup: ${subgroup.name}`}
+              onClick={() => p.game.selectSelectionSubgroup(subgroup.kind)}
+              style={{ minWidth: 0, height: p.compact ? '16px' : '18px', borderRadius: '4px',
+                border: subgroup.active ? '1px solid #ffe14e' : '1px solid #263241',
+                background: subgroup.active ? '#283f63' : '#0d141e', color: '#dce8f4',
+                padding: '0 3px', fontSize: p.compact ? '8.5px' : '10px', lineHeight: '14px',
+                fontVariantNumeric: 'tabular-nums', overflow: 'hidden', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+              {(Units[subgroup.kind]?.shortName ?? subgroup.name).slice(0, 4)}:{subgroup.count}
+            </button>
+          ))}
+        </div>
+      )}
       <ProgressLine />
       <StatChips compact={p.compact} />
       <ControlGroups game={p.game} compact={p.compact} />

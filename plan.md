@@ -2126,6 +2126,13 @@ Remaining work:
     state, and play sessions disable sim vision tracking only through that explicit setup flag.
     Remaining setup work is future scenario/lobby/debug knobs with durable session state.
 - Add explicit subgroup handling for large mixed selections.
+  - First subgroup-surface slice is done: selection HUD state now publishes selected-kind
+    subgroup summaries, the desktop UI shows compact subgroup chips, and Tab/click cycling changes
+    the active subgroup without changing sim command semantics.
+  - Active-subgroup command-card slice is done: build, train, add-on, research, transform, and
+    ability options now scope to the active subgroup, while whole-selection order options such as
+    Move, Attack-Move, Patrol, Hold, Stop, Load, Unload, Burrow, and Cancel still issue to every
+    currently valid selected unit through the shared validators.
 - Add a command-surface coverage audit proving every player-available sim action and every
   data-defined player capability is exposed through shared selection options and then rendered by
   command cards/hotkeys/smart commands. This must cover build, train, research, upgrades, spells,
@@ -2141,21 +2148,37 @@ Remaining work:
     Move button after the selection/hotkey path already existed.
   - Command-union surface audit is done: an app test keys off `COMMAND_TYPES` and verifies every sim
     command type has a player-facing selection, command-card, armed-command, or smart-tap path.
+  - Data-defined capability audit is done: a static app guard derives build/train/research/ability,
+    add-on, and transform capability counts from sim data/mechanics, then proves each group flows
+    through shared selection options and command-card rendering.
   - Worker expansion town-hall exposure is already guarded: app tap semantics prove SCV, Probe, and
     Drone build cards expose Command Center, Nexus, and Hatchery as armed placement options.
 - Keep desktop control fidelity: right-click smart commands, `A` plus left-click attack mode,
   hotgroups, remappable hotkeys, edge pan, scroll zoom, middle-click pan, and shift-queued commands
   with visible queued waypoints/orders.
+  - Scroll-zoom input guard is done: desktop wheel input is covered by a behavioral test proving zoom
+    keeps the cursor's world point anchored while preventing page scroll.
 - Keep mobile control grammar simple: normal tap selects, armed command consumes the next tap, and
   command cards stay compact enough not to cover play. Single-tap ambiguity must be resolved by the
   selected command mode rather than UI drilling: normal taps select, armed commands apply, and smart
   defaults only happen when they are deterministic and explainable.
+  - Mobile chrome compactness guard is done: layout coverage now pins the mobile bottom console to
+    reserved chrome, a compact selection strip, two command rows, and no minimap in the mobile
+    command space, while tap-semantics coverage already proves normal/armed/queue-mode grammar.
 - Continue moving desktop HUD toward the StarCraft layout: minimap left, selected state center,
   hotkey-labeled commands right.
+  - Desktop HUD layout guard is done: chrome layout coverage now proves the desktop bottom console
+    keeps minimap, selection state, and hotkey-labeled commands in that left-to-right order.
 - Keep top and bottom panels separate from the playfield. They reserve layout space and must never
   occlude world rendering, selection boxes, placement ghosts, minimap interaction, edge pan, or
   game-space UI.
+  - Chrome reservation guard is done: static layout coverage proves the game canvas and overlay use
+    `--top-chrome` and `--bottom-chrome`, HUD bars stay solid separate chrome instead of translucent
+    overlays, and command tables remain clipped inside fixed reserved console rows.
 - Add app-side spell field, last-known, and fog affordances once effect descriptors exist.
+  - First app-side fog affordance slice is done: descriptor-backed scan/nuke and persistent spell
+    fields are already shared, and enemy last-known memory now lives in the app visibility layer,
+    renders in both Math/2D and GL under fog dimming, and is guarded against tracking hidden movement.
 - Keep Math renderer as the exact footprint/body/power/creep reference renderer. It should expose a
   subtle grid plus canonical overlays for unit bodies, building footprints, selection bases,
   interaction hulls, weapon/ability ranges, creep, pylon power, detector coverage, cloaked/illusion
@@ -2173,6 +2196,15 @@ Remaining work:
   and facing never fight for the same pixels. Math mode should also draw team-colored combat target
   links and economy work links from workers to their current resources, with the existing work-spark
   effect reused when workers are actively building, repairing, or extracting.
+  - Math-label and link slice is done: `UnitDef.shortName` is required and guarded as unique
+    uppercase ASCII, the Math renderer draws compact labels for footprint and circular actors,
+    facing is a perimeter dot instead of a line, recent combat target links are team-colored, and
+    build/repair/harvest activities reuse sim-owned work descriptors for visible sparks and worker
+    links. Future Math-mode work should focus on newly discovered spatial/presentation drift, not
+    re-adding labels or facing/link overlays.
+  - Selected range-overlay slice is done: Math mode now draws selected weapon ranges from
+    `upgradedRange` against the render hull and detector coverage from `effectiveSight`, respecting
+    powered and optical-flare detector gates.
 - Audit the full spatial affordance contract for melee, harvest, repair, weapon range, ability
   range, body bounds, visible art, selection bases, and Math renderer overlays. The player should
   never see a unit appear to mine, repair, melee, or shoot from a distance that contradicts the

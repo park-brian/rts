@@ -99,6 +99,10 @@ export const attachInput = (canvas: HTMLCanvasElement, game: Game): DetachInput 
     const event = e as KeyboardEvent;
     const target = event.target as HTMLElement | null;
     if (target && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    if (ui.controlScheme.value === 'desktop' && event.code === 'Tab' && ui.selectionView.value.subgroups.length > 1) {
+      if (game.cycleSelectionSubgroup(event.shiftKey ? -1 : 1)) event.preventDefault();
+      return;
+    }
     const group = controlGroupIndex(event.code);
     if (ui.controlScheme.value === 'desktop' && group >= 0) {
       const handled = event.ctrlKey || event.metaKey

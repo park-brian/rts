@@ -8,6 +8,7 @@ type PublishHudArgs = {
   mode: Mode;
   hasRecordedReplay: boolean;
   selection: ReadonlySet<number>;
+  activeSubgroupKind: number;
   controlGroups: readonly ReadonlySet<number>[];
   canSeeEntity: (slot: number) => boolean;
 };
@@ -38,6 +39,7 @@ export const publishHud = ({
   mode,
   hasRecordedReplay,
   selection,
+  activeSubgroupKind,
   controlGroups,
   canSeeEntity,
 }: PublishHudArgs): void => {
@@ -54,5 +56,5 @@ export const publishHud = ({
   const counts = controlGroups.map((group) => liveControlGroupCount(s, human, group));
   if (!sameCounts(ui.controlGroupCounts.value, counts)) ui.controlGroupCounts.value = counts;
 
-  ui.selectionView.value = selectionCapabilities(s, human, selection, canSeeEntity);
+  ui.selectionView.value = selectionCapabilities(s, human, selection, canSeeEntity, activeSubgroupKind);
 };

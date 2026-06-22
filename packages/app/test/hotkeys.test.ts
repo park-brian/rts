@@ -280,6 +280,97 @@ test('command options execute grouped transforms through the shared option path'
   assert.deepEqual(g.queued, [{ t: 'transform', unit: templarA, kind: Kind.Archon, target: templarB }]);
 });
 
+test('selection view publishes and cycles mixed selection subgroups', () => {
+  const g = desktopGame(101);
+  const s = g.sim.fullState();
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(400), fx(400));
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(430), fx(400));
+  const firebat = spawnUnit(s, Kind.Firebat, 0, fx(460), fx(400));
+
+  select(g, [marine, scv, firebat]);
+  g.fastForward(0);
+
+  assert.deepEqual(ui.selectionView.value.subgroups.map((group) => [group.kind, group.count, group.active]), [
+    [Kind.Marine, 1, true],
+    [Kind.SCV, 1, false],
+    [Kind.Firebat, 1, false],
+  ]);
+
+  assert.equal(g.cycleSelectionSubgroup(), true);
+  assert.deepEqual(ui.selectionView.value.subgroups.map((group) => [group.kind, group.active]), [
+    [Kind.Marine, false],
+    [Kind.SCV, true],
+    [Kind.Firebat, false],
+  ]);
+
+  assert.equal(g.selectSelectionSubgroup(Kind.Firebat), true);
+  assert.deepEqual(ui.selectionView.value.subgroups.map((group) => [group.kind, group.active]), [
+    [Kind.Marine, false],
+    [Kind.SCV, false],
+    [Kind.Firebat, true],
+  ]);
+});
+
+test('active subgroup filters subgroup-specific command card options', () => {
+  resetHotkeys();
+  const g = desktopGame(102);
+  const s = g.sim.fullState();
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+  s.players.supplyMax[0] = 400;
+
+  const scv = spawnUnit(s, Kind.SCV, 0, fx(400), fx(400));
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(430), fx(400));
+  select(g, [marine, scv]);
+  g.fastForward(0);
+
+  assert.equal(ui.selectionView.value.options.build.length, 0);
+  assert.ok(ui.selectionView.value.options.order.some((o) => o.id === OrderOptionId.Stop));
+
+  assert.equal(g.selectSelectionSubgroup(Kind.SCV), true);
+  assert.deepEqual(ui.selectionView.value.options.build.find((o) => o.id === Kind.SupplyDepot)?.arm, {
+    t: 'place',
+    kind: Kind.SupplyDepot,
+  });
+  assert.ok(ui.selectionView.value.options.order.some((o) => o.id === OrderOptionId.Stop));
+});
+
+test('active subgroup filters mixed producer and caster options', () => {
+  resetHotkeys();
+  const g = desktopGame(103);
+  const s = g.sim.fullState();
+  s.players.minerals[0] = 5_000;
+  s.players.gas[0] = 5_000;
+  s.players.supplyMax[0] = 400;
+
+  const barracks = spawnUnit(s, Kind.Barracks, 0, fx(400), fx(400));
+  const academy = spawnUnit(s, Kind.Academy, 0, fx(520), fx(400));
+  select(g, [barracks, academy]);
+  g.fastForward(0);
+
+  assert.ok(ui.selectionView.value.options.train.some((o) => o.id === Kind.Marine));
+  assert.equal(ui.selectionView.value.options.research.some((o) => o.id === Tech.StimPack), false);
+
+  assert.equal(g.selectSelectionSubgroup(Kind.Academy), true);
+  assert.equal(ui.selectionView.value.options.train.some((o) => o.id === Kind.Marine), false);
+  assert.ok(ui.selectionView.value.options.research.some((o) => o.id === Tech.StimPack));
+
+  const marine = spawnUnit(s, Kind.Marine, 0, fx(640), fx(400));
+  const templar = spawnUnit(s, Kind.HighTemplar, 0, fx(670), fx(400));
+  s.e.energy[slotOf(templar)] = 75;
+  setTechLevel(s, 0, Tech.StimPack, 1);
+  setTechLevel(s, 0, Tech.PsionicStorm, 1);
+  select(g, [marine, templar]);
+  g.fastForward(0);
+
+  assert.ok(ui.selectionView.value.options.ability.some((o) => o.id === Ability.StimPack));
+  assert.equal(ui.selectionView.value.options.ability.some((o) => o.id === Ability.PsionicStorm), false);
+
+  assert.equal(g.selectSelectionSubgroup(Kind.HighTemplar), true);
+  assert.equal(ui.selectionView.value.options.ability.some((o) => o.id === Ability.StimPack), false);
+  assert.ok(ui.selectionView.value.options.ability.some((o) => o.id === Ability.PsionicStorm));
+});
+
 test('desktop control groups assign, recall, and add live selections', () => {
   const g = desktopGame(92);
   const marine = spawnUnit(g.sim.fullState(), Kind.Marine, 0, fx(400), fx(400));

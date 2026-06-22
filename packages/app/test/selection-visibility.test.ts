@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game.ts';
 import { ui } from '../src/store.ts';
-import { EffectKind, Kind, TILE, fx, slotOf, spawnEffect, spawnUnit } from '../src/sim.ts';
+import { EffectKind, Kind, ONE, TILE, fx, slotOf, spawnEffect, spawnUnit } from '../src/sim.ts';
 
 const freshGame = (): Game => {
   const g = new Game('play', 3210);
@@ -61,6 +61,37 @@ test('stale hidden enemy selections do not publish status through fog', () => {
   assert.equal(g.canSeeEntity(slotOf(hidden)), false);
   s.trackVision = false;
   assert.equal(g.canSeeEntity(slotOf(hidden)), true);
+});
+
+test('last-known enemy affordances keep fair fog memory without tracking hidden movement', () => {
+  const g = freshGame();
+  const s = g.sim.fullState();
+  const firstTx = 22;
+  const firstTy = 23;
+  const enemy = spawnUnit(s, Kind.Zergling, 1, tileCenter(firstTx), tileCenter(firstTy));
+  s.vision[0]![firstTy * s.map.w + firstTx] = 2;
+  publish(g);
+
+  assert.deepEqual(g.lastKnownEnemies(), []);
+
+  s.vision[0]![firstTy * s.map.w + firstTx] = 1;
+  const secondX = tileCenter(30);
+  const secondY = tileCenter(31);
+  s.e.x[slotOf(enemy)] = secondX;
+  s.e.y[slotOf(enemy)] = secondY;
+  publish(g);
+
+  const remembered = g.lastKnownEnemies();
+  assert.equal(remembered.length, 1);
+  assert.equal(remembered[0]?.kind, Kind.Zergling);
+  assert.equal(remembered[0]?.x, tileCenter(firstTx) / ONE);
+  assert.equal(remembered[0]?.y, tileCenter(firstTy) / ONE);
+  assert.notEqual(remembered[0]?.x, secondX / ONE);
+
+  s.vision[0]![firstTy * s.map.w + firstTx] = 2;
+  publish(g);
+
+  assert.deepEqual(g.lastKnownEnemies(), []);
 });
 
 test('full-vision sessions keep hidden enemy selections visible for debugging', () => {

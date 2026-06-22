@@ -73,6 +73,7 @@ export const selectionCapabilities = (
   player: number,
   selectedIds: Iterable<number>,
   canSeeEntity: CanSeeEntity,
+  activeSubgroupKind = NONE,
 ): SelectionView => {
   const e = s.e;
   let count = 0;
@@ -108,6 +109,7 @@ export const selectionCapabilities = (
   const trainOptions = new Map<number, OptionRecord>();
   const abilityOptions = new Map<number, OptionRecord>();
   const researchOptions = new Map<number, OptionRecord>();
+  const subgroupCounts = new Map<number, { name: string; count: number }>();
   const selected = [...selectedIds].filter((id) => isAlive(e, id));
   const visibleSelected: number[] = [];
   const readyVisibleSelected: number[] = [];
@@ -122,7 +124,11 @@ export const selectionCapabilities = (
     const ready = lifecycleCanReceiveStandardCommands(lifecycle);
     if (ready) readyVisibleSelected.push(id);
     if (primarySlot < 0) primarySlot = slot;
-    kindName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
+    const displayName = `${illusionPresentation(s, player, slot).labelPrefix}${entitySelectionName(s, slot)}`;
+    kindName = displayName;
+    const subgroup = subgroupCounts.get(k);
+    if (subgroup) subgroup.count++;
+    else subgroupCounts.set(k, { name: displayName, count: 1 });
     const nonStructure = (e.flags[slot]! & Role.Structure) === 0;
     if (nonStructure && validateCommand(s, player, { t: 'move', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canMove = true;
     if (nonStructure && validateCommand(s, player, { t: 'amove', unit: id, x: e.x[slot]!, y: e.y[slot]! }).ok) canAttackMove = true;
@@ -177,7 +183,22 @@ export const selectionCapabilities = (
     }
   }
 
-  for (const option of transformSelectionOptions(s, player, readyVisibleSelected)) {
+  if (count === 0) return EMPTY_SELECTION_VIEW;
+  const firstSubgroupKind = subgroupCounts.keys().next().value as number | undefined;
+  const resolvedActiveSubgroupKind = subgroupCounts.has(activeSubgroupKind)
+    ? activeSubgroupKind
+    : firstSubgroupKind ?? NONE;
+  const subgroups = [...subgroupCounts.entries()].map(([kind, subgroup]) => ({
+    kind,
+    name: subgroup.name,
+    count: subgroup.count,
+    active: kind === resolvedActiveSubgroupKind,
+  }));
+  const isActiveSubgroupUnit = (id: number): boolean => e.kind[slotOf(id)] === resolvedActiveSubgroupKind;
+  const subgroupSelected = visibleSelected.filter(isActiveSubgroupUnit);
+  const readySubgroupSelected = readyVisibleSelected.filter(isActiveSubgroupUnit);
+
+  for (const option of transformSelectionOptions(s, player, readySubgroupSelected)) {
     addOption(
       transformOptions,
       option.id,
@@ -185,7 +206,7 @@ export const selectionCapabilities = (
       { commands: option.commands },
     );
   }
-  for (const option of workerBuildSelectionOptions(s, player, readyVisibleSelected)) {
+  for (const option of workerBuildSelectionOptions(s, player, readySubgroupSelected)) {
     addOption(
       buildOptions,
       option.id,
@@ -193,7 +214,7 @@ export const selectionCapabilities = (
       { arm: option.ok ? { t: 'place', kind: option.id } : undefined },
     );
   }
-  for (const option of trainSelectionOptions(s, player, readyVisibleSelected)) {
+  for (const option of trainSelectionOptions(s, player, readySubgroupSelected)) {
     addOption(
       trainOptions,
       option.id,
@@ -201,7 +222,7 @@ export const selectionCapabilities = (
       { ...trainOptionMeta(s, slotOf(option.representative), option.id), commands: option.commands },
     );
   }
-  for (const option of addonSelectionOptions(s, player, readyVisibleSelected)) {
+  for (const option of addonSelectionOptions(s, player, readySubgroupSelected)) {
     addOption(
       addonOptions,
       option.id,
@@ -209,7 +230,7 @@ export const selectionCapabilities = (
       { commands: option.commands },
     );
   }
-  for (const option of researchSelectionOptions(s, player, readyVisibleSelected)) {
+  for (const option of researchSelectionOptions(s, player, readySubgroupSelected)) {
     addOption(
       researchOptions,
       option.id,
@@ -217,7 +238,7 @@ export const selectionCapabilities = (
       { commands: option.commands },
     );
   }
-  for (const option of abilitySelectionOptions(s, player, visibleSelected)) {
+  for (const option of abilitySelectionOptions(s, player, subgroupSelected)) {
     addOption(
       abilityOptions,
       option.id,
@@ -230,7 +251,6 @@ export const selectionCapabilities = (
     );
   }
 
-  if (count === 0) return EMPTY_SELECTION_VIEW;
   const loadCommands = loadSelectionCandidates(s, player, selected);
   const unloadCommands = unloadSelectionCandidates(s, player, selected);
   canLoad = loadCommands.length > 0;
@@ -257,6 +277,7 @@ export const selectionCapabilities = (
     count,
     kindName: count > 1 ? `${kindName} ×${count}` : kindName,
     status: primarySlot >= 0 ? entityLifecycleStatus(s, primarySlot, player) : EMPTY_SELECTION_VIEW.status,
+    subgroups,
     can: {
       build: buildOptions.size > 0,
       rally: canRally,

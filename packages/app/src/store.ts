@@ -35,10 +35,12 @@ export type CommandOption = {
   arm?: ArmedCommand;
 };
 export type SelectionStatus = { label: string; detail: string; progress: number; stats: string[] };
+export type SelectionSubgroup = { kind: number; name: string; count: number; active: boolean };
 export type SelectionView = {
   count: number;
   kindName: string;
   status: SelectionStatus;
+  subgroups: SelectionSubgroup[];
   can: {
     build: boolean;
     rally: boolean;
@@ -84,6 +86,7 @@ export const EMPTY_SELECTION_VIEW: SelectionView = {
   count: 0,
   kindName: '',
   status: EMPTY_SELECTION_STATUS,
+  subgroups: [],
   can: {
     build: false,
     rally: false,

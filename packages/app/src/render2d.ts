@@ -3,14 +3,14 @@
 
 import {
   TILE, ONE, Units, Role, Kind, Order, NONE, eid, slotOf, isAlive, resolveUnitRallyEndpoint, resolveWorkerRallyEndpoint,
-  structureFootprint, POWER_RADIUS, CREEP_RADIUS,
+  structureFootprint, POWER_RADIUS, CREEP_RADIUS, effectiveSight, isDetectorKind, isPowered, tiles, upgradedRange,
   requiresPower, requiresCreep, providesCreep, actorRenderPresentation, entityCloakOpacity, entityLifeBar, entityMinimapVisible, entityRenderHull,
   illusionPresentation, queuedTravelWaypoints, selectionBase, upgradedCooldown, weaponForTarget, type MapDef, type QueuedTravelWaypoint, type State,
 } from './sim.ts';
 import type { Game } from './game.ts';
 import { type WorkActivity, workActivities } from './activity.ts';
 import {
-  fieldAffordances, type FieldAffordance, type VisibilityAffordance, visibilityAffordances,
+  fieldAffordances, lastKnownEnemies, type FieldAffordance, type LastKnownAffordance, type VisibilityAffordance, visibilityAffordances,
 } from './visibility-affordances.ts';
 import { entityPresentation } from './entity-presentation.ts';
 import { ui } from './store.ts';
@@ -87,6 +87,7 @@ let terrainCanvas: HTMLCanvasElement | null = null;
 const workScratch: WorkActivity[] = [];
 const affordanceScratch: VisibilityAffordance[] = [];
 const fieldScratch: FieldAffordance[] = [];
+const lastKnownScratch: LastKnownAffordance[] = [];
 const placementFieldScratch: PlacementFieldOverlay[] = [];
 const queuedTravelScratch: QueuedTravelWaypoint[] = [];
 
@@ -292,6 +293,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
     const selected = game.selection.has(eid(e, i));
     // Selection base: gameplay footprint, not sprite bounds.
     if (selected) {
+      drawSelectedRangeOverlays(ctx, game, s, i, hull);
       const base = selectionBase(kind);
       const pad = 2 / game.zoom;
       ctx.strokeStyle = illusion.known ? '#7dbeff' : '#ffe14e';
@@ -320,6 +322,7 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   }
 
   drawWorkSparks(ctx, game);
+  drawLastKnownEnemies(ctx, game);
   drawVisibilityAffordances(ctx, game);
 
   // Rally lines for selected structures.
@@ -359,6 +362,51 @@ export const render2d = (ctx: CanvasRenderingContext2D, game: Game, dpr: number)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawDragBox(ctx, game);
   if (ui.controlScheme.value !== 'desktop') drawMinimap(ctx, game);
+};
+
+type RenderHull = ReturnType<typeof entityRenderHull>;
+
+const strokeExpandedHull = (ctx: CanvasRenderingContext2D, hull: RenderHull, range: number): void => {
+  if (hull.usesFootprint) {
+    ctx.strokeRect(hull.x0 - range, hull.y0 - range, hull.width + range * 2, hull.height + range * 2);
+    return;
+  }
+  ctx.beginPath();
+  ctx.ellipse(hull.cx, hull.cy, hull.width / 2 + range, hull.height / 2 + range, 0, 0, Math.PI * 2);
+  ctx.stroke();
+};
+
+const drawSelectedRangeOverlays = (
+  ctx: CanvasRenderingContext2D,
+  game: Game,
+  s: State,
+  slot: number,
+  hull: RenderHull,
+): void => {
+  const e = s.e;
+  const def = Units[e.kind[slot]!]!;
+  const weapons = def.weapon === def.airWeapon
+    ? [{ weapon: def.weapon, color: 'rgba(255,225,78,0.30)' }]
+    : [
+      { weapon: def.weapon, color: 'rgba(255,225,78,0.28)' },
+      { weapon: def.airWeapon, color: 'rgba(120,210,255,0.26)' },
+    ];
+
+  ctx.save();
+  ctx.lineWidth = 1 / game.zoom;
+  for (const { weapon, color } of weapons) {
+    if (!weapon || weapon.range <= 0) continue;
+    ctx.strokeStyle = color;
+    strokeExpandedHull(ctx, hull, upgradedRange(s, slot, weapon) / ONE);
+  }
+  if (isDetectorKind(e.kind[slot]!) && e.opticalFlare[slot] !== 1 && isPowered(s, slot)) {
+    ctx.setLineDash([6 / game.zoom, 5 / game.zoom]);
+    ctx.strokeStyle = 'rgba(120,255,210,0.30)';
+    ctx.beginPath();
+    ctx.arc(e.x[slot]! / ONE, e.y[slot]! / ONE, tiles(effectiveSight(s, e, slot, def.sight)) / ONE, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
 };
 
 const attackingTarget = (e: State['e'], slot: number): number => {
@@ -440,6 +488,35 @@ const drawWorkSparks = (ctx: CanvasRenderingContext2D, game: Game): void => {
     ctx.beginPath();
     ctx.arc(x, y, Math.max(1.2, 2.1 / game.zoom), 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+};
+
+const drawLastKnownEnemies = (ctx: CanvasRenderingContext2D, game: Game): void => {
+  const enemies = lastKnownEnemies(game, lastKnownScratch);
+  if (enemies.length === 0) return;
+  const dash = [5 / game.zoom, 4 / game.zoom];
+  ctx.save();
+  ctx.setLineDash(dash);
+  ctx.lineWidth = 1.2 / game.zoom;
+  for (const enemy of enemies) {
+    const def = Units[enemy.kind]!;
+    const hull = entityRenderHull(enemy.kind, enemy.x * ONE, enemy.y * ONE);
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = footprintColor(enemy.owner, 0.86);
+    ctx.fillStyle = footprintColor(enemy.owner, 0.08);
+    if (hull.usesFootprint) {
+      ctx.fillRect(hull.x0, hull.y0, hull.width, hull.height);
+      ctx.strokeRect(hull.x0, hull.y0, hull.width, hull.height);
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(hull.cx, hull.cy, hull.width / 2, hull.height / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    drawEntityLabel(ctx, game, def.shortName, hull.cx, hull.cy, hull.width * 0.82, hull.height * 0.62, 0.48);
+    ctx.setLineDash(dash);
   }
   ctx.restore();
 };

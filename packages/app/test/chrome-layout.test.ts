@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { COMMAND_TYPES } from '../src/sim.ts';
+import {
+  Abilities, COMMAND_TYPES, TechDefs, Units, abilitiesFor, addonKindsForParent, producedKindsFor, researchTechsFor,
+  workerBuildKindsForWorkerKind,
+} from '../src/sim.ts';
+import { transformTargetsFor } from '../../sim/src/mechanics/transforms.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(here, '..');
@@ -53,6 +57,34 @@ test('mobile chrome exposes a compact queued-travel toggle', () => {
   assert.match(ui, /ui\.mobileQueueMode\.value = !ui\.mobileQueueMode\.value/);
 });
 
+test('mobile command chrome stays compact and reserves game space', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+
+  assert.match(ui, /const mobileBottomChrome = \(width: number\): number => \(width < 370 \? 120 : 124\)/);
+  assert.match(ui, /const rows = desktop \? \(width < 760 \? 4 : width < 1080 \? 3 : 2\) : 2/);
+  assert.match(ui, /const cellHeight = desktop \? 36 : 42/);
+  assert.match(ui, /: width < 370 \? 84 : 96/);
+  assert.match(ui, /gridTemplateColumns:\s*`\$\{metrics\.selectionWidth\}px minmax\(0, 1fr\)`/);
+  assert.match(ui, /<SelectionPanel game=\{g\} compact \/>[\s\S]*<CommandTable sections=\{sections\} metrics=\{metrics\} \/>/);
+  const mobileBranch = ui.slice(
+    ui.indexOf("<div style={{ ...bar, bottom: '0', gap: '8px'"),
+    ui.indexOf('const MatchStatsPanel'),
+  );
+  assert.ok(mobileBranch.length > 0, 'expected mobile hotbar branch');
+  assert.doesNotMatch(mobileBranch, /<MinimapPanel/);
+});
+
+test('desktop console keeps minimap, selection, and hotkey-labeled commands in StarCraft order', () => {
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+  const desktopOrder = /\{metrics\.showMinimap && <MinimapPanel game=\{g\} \/>\}[\s\S]*<SelectionPanel game=\{g\} compact=\{metrics\.compactSelection\} \/>[\s\S]*<CommandTable sections=\{sections\} metrics=\{metrics\} \/>/;
+
+  assert.match(ui, /const showMinimap = desktop && width >= 680/);
+  assert.match(ui, /\$\{metrics\.minimapWidth\}px \$\{metrics\.selectionWidth\}px minmax\(0, 1fr\)/);
+  assert.match(ui, desktopOrder);
+  assert.match(ui, /ui\.controlScheme\.value === 'desktop' && p\.hotkeyAction && !p\.reason/);
+  assert.match(ui, /\{hotkeyLabelForAction\(p\.hotkeyAction\)\}/);
+});
+
 test('desktop console exposes control group chips without sharing command space', () => {
   const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
 
@@ -62,6 +94,18 @@ test('desktop console exposes control group chips without sharing command space'
   assert.match(ui, /p\.game\.recallControlGroup\(index, e\.shiftKey\)/);
   assert.match(ui, /e\.ctrlKey \|\| e\.metaKey/);
   assert.match(ui, /<SelectionPanel game=\{g\} compact=\{metrics\.compactSelection\} \/>/);
+});
+
+test('selection panel exposes mixed-selection subgroup chips', () => {
+  const store = readFileSync(resolve(appRoot, 'src', 'store.ts'), 'utf8');
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+  const input = readFileSync(resolve(appRoot, 'src', 'input.ts'), 'utf8');
+
+  assert.match(store, /export type SelectionSubgroup/);
+  assert.match(ui, /selection\.subgroups\.length > 1/);
+  assert.match(ui, /selectSelectionSubgroup\(subgroup\.kind\)/);
+  assert.match(input, /event\.code === 'Tab'/);
+  assert.match(input, /cycleSelectionSubgroup\(event\.shiftKey \? -1 : 1\)/);
 });
 
 test('command card consumes every shared selection option group through executeOption', () => {
@@ -117,6 +161,83 @@ test('player command surface accounts for every sim command type', () => {
     assert.match(selection, probes.selection, `missing selection surface for ${command}`);
     if (probes.ui) assert.match(ui, probes.ui, `missing command-card surface for ${command}`);
     if (probes.tap) assert.match(tap, probes.tap, `missing tap-command surface for ${command}`);
+  }
+});
+
+test('data-defined capabilities flow through shared option groups', () => {
+  const capabilities = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'mechanics', 'capabilities.ts'), 'utf8');
+  const addons = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'mechanics', 'addons.ts'), 'utf8');
+  const transforms = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'mechanics', 'transforms.ts'), 'utf8');
+  const capabilitySources = [capabilities, addons, transforms].join('\\n');
+  const intent = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'commands', 'intent.ts'), 'utf8');
+  const selection = readFileSync(resolve(appRoot, 'src', 'selection-capabilities.ts'), 'utf8');
+  const ui = readFileSync(resolve(appRoot, 'src', 'ui.tsx'), 'utf8');
+  const kindIds = Object.keys(Units).map(Number);
+  const countKinds = (optionsFor: (kind: number) => readonly number[]): number =>
+    kindIds.filter((kind) => optionsFor(kind).length > 0).length;
+  const uniqueAbilityCasters = new Set(Object.values(Abilities).flatMap((ability) => ability.casters));
+  const uniqueResearchProducers = new Set(Object.values(TechDefs).flatMap((tech) => tech.producers));
+
+  assert.equal(countKinds(abilitiesFor), uniqueAbilityCasters.size, 'ability caster index should cover every data caster');
+  assert.equal(countKinds(researchTechsFor), uniqueResearchProducers.size, 'research producer index should cover every tech producer');
+
+  const groups = [
+    {
+      name: 'build',
+      dataCount: countKinds(workerBuildKindsForWorkerKind),
+      capability: /workerBuildKindsForWorkerKind/,
+      intent: /workerBuildKindsForWorkerKind/,
+      selection: /workerBuildSelectionOptions\(s, player,/,
+      ui: /selection\.options\.build/,
+    },
+    {
+      name: 'train',
+      dataCount: countKinds(producedKindsFor),
+      capability: /producedKindsFor/,
+      intent: /producedKindsFor/,
+      selection: /trainSelectionOptions\(s, player,/,
+      ui: /selection\.options\.train/,
+    },
+    {
+      name: 'research',
+      dataCount: countKinds(researchTechsFor),
+      capability: /researchTechsFor/,
+      intent: /researchTechsFor/,
+      selection: /researchSelectionOptions\(s, player,/,
+      ui: /selection\.options\.research/,
+    },
+    {
+      name: 'ability',
+      dataCount: countKinds(abilitiesFor),
+      capability: /abilitiesFor/,
+      intent: /abilitiesFor/,
+      selection: /abilitySelectionOptions\(s, player,/,
+      ui: /selection\.options\.ability/,
+    },
+    {
+      name: 'addon',
+      dataCount: countKinds(addonKindsForParent),
+      capability: /addonKindsForParent/,
+      intent: /addonKindsForParent/,
+      selection: /addonSelectionOptions\(s, player,/,
+      ui: /selection\.options\.addon/,
+    },
+    {
+      name: 'transform',
+      dataCount: countKinds(transformTargetsFor),
+      capability: /transformTargetsFor/,
+      intent: /transformTargetsFor/,
+      selection: /transformSelectionOptions\(s, player,/,
+      ui: /selection\.options\.transform/,
+    },
+  ];
+
+  for (const group of groups) {
+    assert.ok(group.dataCount > 0, `expected ${group.name} data capabilities`);
+    assert.match(capabilitySources, group.capability, `missing ${group.name} capability index`);
+    assert.match(intent, group.intent, `missing ${group.name} shared option source`);
+    assert.match(selection, group.selection, `missing ${group.name} selection option publication`);
+    assert.match(ui, group.ui, `missing ${group.name} command-card rendering`);
   }
 });
 
@@ -200,12 +321,35 @@ test('math renderer exposes a subtle build-tile grid for placement audits', () =
   assert.match(render2d, /ctx\.globalAlpha = 1;\s*continue;/);
 });
 
+test('math renderer draws selected weapon and detector range overlays from sim helpers', () => {
+  const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+  const sim = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'index.ts'), 'utf8');
+
+  assert.match(sim, /export \* from '\.\/mechanics\/status\.ts'/);
+  assert.match(render2d, /drawSelectedRangeOverlays/);
+  assert.match(render2d, /upgradedRange\(s, slot, weapon\)/);
+  assert.match(render2d, /isDetectorKind\(e\.kind\[slot\]!\)/);
+  assert.match(render2d, /effectiveSight\(s, e, slot, def\.sight\)/);
+  assert.match(render2d, /strokeExpandedHull/);
+});
 test('renderer draws queued travel waypoints from sim descriptors', () => {
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
 
   assert.match(render2d, /queuedTravelWaypoints/);
   assert.match(render2d, /drawQueuedTravelWaypoints\(ctx, game\)/);
   assert.match(render2d, /attack-move/);
+});
+
+test('renderers draw last-known enemy affordances from app visibility memory', () => {
+  const visibility = readFileSync(resolve(appRoot, 'src', 'visibility-affordances.ts'), 'utf8');
+  const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
+  const gl = readFileSync(resolve(appRoot, 'src', 'gl', 'renderer.ts'), 'utf8');
+
+  assert.match(visibility, /export const lastKnownEnemies/);
+  assert.match(render2d, /drawLastKnownEnemies/);
+  assert.match(render2d, /lastKnownEnemies\(game, lastKnownScratch\)/);
+  assert.match(gl, /private lastKnownEnemies\(game: Game\): void/);
+  assert.match(gl, /lastKnownEnemies\(game, this\.lastKnownScratch\)/);
 });
 
 test('renderers draw persistent spell fields from sim descriptors', () => {

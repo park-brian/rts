@@ -24,6 +24,7 @@ export { CONTROL_GROUP_COUNT };
 
 export class SelectionController {
   selection = new Set<number>();
+  private activeSubgroupKindValue = NONE;
   private readonly deps: SelectionControllerDeps;
   private readonly controlGroupController = new ControlGroupController();
 
@@ -35,13 +36,19 @@ export class SelectionController {
     return this.controlGroupController.groups;
   }
 
+  get activeSubgroupKind(): number {
+    return this.activeSubgroupKindValue;
+  }
+
   reset(): void {
     this.selection.clear();
+    this.activeSubgroupKindValue = NONE;
     this.controlGroupController.reset();
   }
 
   clear(): void {
     this.selection.clear();
+    this.activeSubgroupKindValue = NONE;
   }
 
   prune(): void {
@@ -58,6 +65,7 @@ export class SelectionController {
   }
 
   boxSelect(sx0: number, sy0: number, sx1: number, sy1: number): void {
+    this.activeSubgroupKindValue = NONE;
     const [wx0, wy0] = this.deps.screenToWorld(Math.min(sx0, sx1), Math.min(sy0, sy1));
     const [wx1, wy1] = this.deps.screenToWorld(Math.max(sx0, sx1), Math.max(sy0, sy1));
     this.selection.clear();
@@ -119,6 +127,7 @@ export class SelectionController {
 
   selectVisibleKind(kind: number): void {
     if (!isUserCommandableKind(kind)) return;
+    this.activeSubgroupKindValue = kind;
     const e = this.deps.state().e;
     const human = this.deps.human();
     const { camX, camY, viewW, viewH, zoom } = this.deps.viewport();
@@ -138,8 +147,39 @@ export class SelectionController {
 
   recallControlGroup(index: number, add = false): ControlGroupResult {
     const result = this.controlGroupController.recall(this.deps.state(), this.deps.human(), this.selection, index, add);
+    if (result.changed) this.activeSubgroupKindValue = NONE;
     if (result.shouldCenter) this.centerOnSelection();
     return result;
+  }
+
+  setActiveSubgroup(kind: number): boolean {
+    if (!this.visibleSelectedKinds().includes(kind)) return false;
+    this.activeSubgroupKindValue = kind;
+    return true;
+  }
+
+  cycleActiveSubgroup(direction = 1): boolean {
+    const kinds = this.visibleSelectedKinds();
+    if (kinds.length < 2) return false;
+    const index = kinds.indexOf(this.activeSubgroupKindValue);
+    const current = index >= 0 ? index : 0;
+    const next = (current + direction + kinds.length) % kinds.length;
+    this.activeSubgroupKindValue = kinds[next]!;
+    return true;
+  }
+
+  private visibleSelectedKinds(): number[] {
+    const e = this.deps.state().e;
+    const human = this.deps.human();
+    const kinds: number[] = [];
+    for (const id of this.selection) {
+      if (!isAlive(e, id)) continue;
+      const slot = slotOf(id);
+      if (e.owner[slot] !== human && !this.deps.canSeeEntity(slot)) continue;
+      const kind = e.kind[slot]!;
+      if (!kinds.includes(kind)) kinds.push(kind);
+    }
+    return kinds;
   }
 
   private centerOnSelection(): void {
