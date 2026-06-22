@@ -7,7 +7,7 @@ import {
 } from '../mechanics/actors.ts';
 import { canDetect, isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
-import { queuedTravelOrderAt, type QueuedTravelOrder } from '../entity/order-queue.ts';
+import { queuedTravelOrderAt, type QueuedOrder } from '../entity/order-queue.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { isRepairableKind } from '../mechanics/repair.ts';
@@ -177,13 +177,14 @@ export type WorkActivity = {
 export type QueuedTravelWaypoint = {
   unit: number;
   index: number;
-  intent: 'move' | 'attack-move' | 'patrol';
+  intent: 'move' | 'attack' | 'attack-move' | 'patrol';
   target: number;
   x: number;
   y: number;
 };
 
-const queuedTravelIntent = (order: QueuedTravelOrder['order']): QueuedTravelWaypoint['intent'] => {
+const queuedTravelIntent = (order: QueuedOrder['order']): QueuedTravelWaypoint['intent'] => {
+  if (order === Order.Attack) return 'attack';
   if (order === Order.AttackMove) return 'attack-move';
   if (order === Order.Patrol) return 'patrol';
   return 'move';

@@ -54,7 +54,7 @@ export * from './render/descriptors.ts';
 export * from './entity/work-queue.ts';
 export * from './entity/lifecycle.ts';
 export * from './mechanics/upgrades.ts';
-export * from './mechanics/status.ts';
+export { effectiveSight } from './mechanics/status.ts';
 export * from './mechanics/rally.ts';
 export * from './entity/world.ts';
 export * from './spatial/pathing.ts';

@@ -101,6 +101,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'move', unit: 25, x: fx(16), y: fx(17) },
     { t: 'move', unit: 25, x: fx(16), y: fx(17), queue: true },
     { t: 'attack', unit: 26, target: 27 },
+    { t: 'attack', unit: 26, target: 27, queue: true },
     { t: 'amove', unit: 28, x: fx(18), y: fx(19) },
     { t: 'amove', unit: 28, x: fx(18), y: fx(19), queue: true },
     { t: 'ability', unit: 29, ability: 3, target: 30, x: fx(20), y: fx(21) },
@@ -287,14 +288,21 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
 });
 
-test('queued travel action masks use shared validation and full-queue gates', () => {
-  const scenario = simScenario({ players: 1, seed: 9511 });
+test('queued travel and attack action masks use shared validation and full-queue gates', () => {
+  const scenario = simScenario({ players: 2, seed: 9511 });
   const { sim, state: s, spawn } = scenario;
   const marine = spawn(Kind.Marine, 0, fx(400), fx(400));
+  const enemy = spawn(Kind.Zergling, 1, fx(700), fx(400));
   const point = { x: fx(500), y: fx(400), queue: true };
 
   assert.deepEqual(commandForHead(s, marine, 'move', point), { t: 'move', unit: marine, x: point.x, y: point.y, queue: true });
   assert.deepEqual(commandForHead(s, marine, 'patrol', point), { t: 'patrol', unit: marine, x: point.x, y: point.y, queue: true });
+  assert.deepEqual(commandForHead(s, marine, 'attack', { target: enemy, queue: true }), {
+    t: 'attack',
+    unit: marine,
+    target: enemy,
+    queue: true,
+  });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
 
@@ -306,17 +314,26 @@ test('queued travel action masks use shared validation and full-queue gates', ()
     { t: 'move', unit: marine, x: fx(600), y: fx(400), queue: true },
   ] }]);
 
-  const queuedMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400), queue: true });
-  const replacementMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400) });
+  const queuedMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400), target: enemy, queue: true });
+  const replacementMoveMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400) });
+  const replacementAttackMask = commandHeadMask(s, 0, marine, { x: fx(620), y: fx(400), target: enemy });
   assert.equal(commandHeadAllowed(queuedMask, 'move'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'amove'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'patrol'), false);
-  assert.equal(commandHeadAllowed(replacementMask, 'move'), true);
+  assert.equal(commandHeadAllowed(queuedMask, 'attack'), false);
+  assert.equal(commandHeadAllowed(replacementMoveMask, 'move'), true);
+  assert.equal(commandHeadAllowed(replacementAttackMask, 'attack'), true);
   assert.deepEqual(decodeAction({ head: 'amove', actor: marine, x: fx(620), y: fx(400), queue: true }), {
     t: 'amove',
     unit: marine,
     x: fx(620),
     y: fx(400),
+    queue: true,
+  });
+  assert.deepEqual(decodeAction({ head: 'attack', actor: marine, target: enemy, queue: true }), {
+    t: 'attack',
+    unit: marine,
+    target: enemy,
     queue: true,
   });
 });

@@ -149,6 +149,35 @@ test('queued travel commands append and dispatch after current travel settles', 
   assert.equal(scenario.state.e.tx[slot], second.x);
 });
 
+test('queued direct attacks append and dispatch after current travel settles', () => {
+  const scenario = simScenario({ players: 2, seed: 6541 });
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const enemy = scenario.spawn(Kind.Zergling, 1, fx(700), fx(300));
+  const slot = slotOf(marine);
+
+  const results = scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(340), y: fx(300) },
+    { t: 'attack', unit: marine, target: enemy, queue: true },
+  ] }]);
+
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(scenario.state.e.order[slot], Order.Move);
+  assert.equal(scenario.state.e.orderQueueLen[slot], 1);
+  assert.equal(scenario.state.e.orderQueue0[slot], Order.Attack);
+  assert.equal(scenario.state.e.orderQueueTarget0[slot], enemy);
+
+  const currentOrder = (): number => scenario.state.e.order[slot]!;
+  for (let i = 0; i < 200; i++) {
+    if (currentOrder() === Order.Attack) break;
+    scenario.sim.step([]);
+  }
+
+  assert.equal(scenario.state.e.orderQueueLen[slot], 0);
+  assert.equal(scenario.state.e.order[slot], Order.Attack);
+  assert.equal(scenario.state.e.target[slot], enemy);
+  assert.equal(scenario.state.e.combatTarget[slot], enemy);
+});
+
 test('replacement travel commands clear queued travel', () => {
   const scenario = simScenario({ players: 1, seed: 655 });
   const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
@@ -168,9 +197,10 @@ test('replacement travel commands clear queued travel', () => {
   assert.equal(scenario.state.e.tx[slot], fx(420));
 });
 
-test('queued travel validation rejects full per-entity queues', () => {
-  const scenario = simScenario({ players: 1, seed: 656 });
+test('queued order validation rejects full per-entity queues', () => {
+  const scenario = simScenario({ players: 2, seed: 656 });
   const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const enemy = scenario.spawn(Kind.Marine, 1, fx(500), fx(300));
 
   const results = scenario.sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(320), y: fx(300) },
@@ -179,11 +209,13 @@ test('queued travel validation rejects full per-entity queues', () => {
     { t: 'move', unit: marine, x: fx(380), y: fx(300), queue: true },
     { t: 'move', unit: marine, x: fx(400), y: fx(300), queue: true },
     { t: 'move', unit: marine, x: fx(420), y: fx(300), queue: true },
+    { t: 'attack', unit: marine, target: enemy, queue: true },
   ] }]);
 
   assert.equal(scenario.state.e.orderQueueLen[slotOf(marine)], 4);
-  assert.deepEqual(results.map((r) => r.ok), [true, true, true, true, true, false]);
-  assert.deepEqual(results.at(-1), { player: 0, index: 5, t: 'move', ok: false, reason: 'queue-full' });
+  assert.deepEqual(results.map((r) => r.ok), [true, true, true, true, true, false, false]);
+  assert.deepEqual(results.at(-2), { player: 0, index: 5, t: 'move', ok: false, reason: 'queue-full' });
+  assert.deepEqual(results.at(-1), { player: 0, index: 6, t: 'attack', ok: false, reason: 'queue-full' });
 });
 
 test('immediate command families discard queued travel for their actor', () => {

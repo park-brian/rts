@@ -603,6 +603,7 @@ const screenPoint = (game: Game, x: number, y: number): { x: number; y: number }
 });
 
 const queuedTravelStrokeStyle = (intent: QueuedTravelWaypoint['intent']): string => {
+  if (intent === 'attack') return 'rgba(255,86,86,0.82)';
   if (intent === 'attack-move') return 'rgba(255,120,80,0.78)';
   if (intent === 'patrol') return 'rgba(90,210,255,0.78)';
   return 'rgba(255,225,78,0.78)';
@@ -633,7 +634,13 @@ const drawQueuedTravelWaypoints = (ctx: CanvasRenderingContext2D, game: Game): v
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.beginPath();
-    if (waypoint.intent === 'attack-move') {
+    if (waypoint.intent === 'attack') {
+      const r = 5;
+      ctx.moveTo(to.x - r, to.y - r);
+      ctx.lineTo(to.x + r, to.y + r);
+      ctx.moveTo(to.x + r, to.y - r);
+      ctx.lineTo(to.x - r, to.y + r);
+    } else if (waypoint.intent === 'attack-move') {
       const r = 5;
       ctx.moveTo(to.x, to.y - r);
       ctx.lineTo(to.x + r, to.y);

@@ -1,12 +1,13 @@
 import type { Command } from './types.ts';
-import { Order, Units, weaponForTarget } from '../data/index.ts';
+import { Units, weaponForTarget } from '../data/index.ts';
+import { canQueueOrder, currentOrderIsIdle, enqueueAttackOrder, setCurrentAttackOrder } from '../entity/order-queue.ts';
 import { isPowered } from '../mechanics/power.ts';
 import { canUseWeaponNow } from '../mechanics/burrow.ts';
 import { carrierCanAttack } from '../mechanics/interceptor.ts';
 import { kindHasDirectWeapon } from '../mechanics/capabilities.ts';
 import { hasWeaponMechanicAmmo, weaponMechanicDef } from '../mechanics/weapons.ts';
 import type { State } from '../entity/world.ts';
-import { NONE, isAlive, slotOf } from '../entity/world.ts';
+import { isAlive, slotOf } from '../entity/world.ts';
 import {
   canReceiveOrder,
   canTargetEntity,
@@ -35,16 +36,17 @@ export const validateAttackCommand = (s: State, player: number, command: AttackC
   if (!targetResult.ok) return targetResult;
   const target = targetResult.slot;
   if (!carrierAttack && !weaponForTarget(attacker, Units[e.kind[target]!]!)) return reject('target-not-allowed');
+  if (command.queue === true && !currentOrderIsIdle(e, slot) && !canQueueOrder(e, slot)) return reject('queue-full');
   return { ok: true };
 };
 
 export const applyAttackCommand = (s: State, command: AttackCommand): void => {
-  const e = s.e;
   const slot = slotOf(command.unit);
-  cancelPendingBeforeOrder(s, slot);
+  if (!command.queue) cancelPendingBeforeOrder(s, slot);
   clearSettled(s, slot);
-  e.order[slot] = Order.Attack;
-  e.target[slot] = command.target;
-  e.combatTarget[slot] = command.target;
-  e.intentTarget[slot] = NONE;
+  if (command.queue === true && !currentOrderIsIdle(s.e, slot)) {
+    enqueueAttackOrder(s, slot, command.target);
+    return;
+  }
+  setCurrentAttackOrder(s, slot, command.target);
 };

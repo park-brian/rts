@@ -770,22 +770,25 @@ Remaining work:
     observation buffers expose own queued travel orders, encoded actions preserve the `queue` flag
     for move / attack-move / patrol, and command masks can ask the shared validator for
     append-vs-replace legality.
-  - Desktop Shift slice is done for queued travel: Shift-right-click smart move/follow and
-    Shift-armed attack-move point commands set the shared `queue` flag after validator-backed
-    command-intent checks, while enemy attacks and other non-travel smart commands keep their
-    current immediate semantics.
+  - Desktop Shift slice is done for queued travel and direct attacks: Shift-right-click smart
+    move/follow, Shift-right-click target attacks, Shift-armed attack-move point commands, and
+    Shift-armed target attacks set the shared `queue` flag after validator-backed command-intent
+    checks, while harvest / repair / load / spells keep their current immediate semantics.
   - Queued waypoint rendering slice is done for queued travel: selected units expose sim-owned
     queued travel waypoint descriptors, and the shared overlay draws move/follow, attack-move, and
     patrol paths in both WebGL and Math/fallback rendering.
-  - Mobile queue-mode slice is done for queued travel: the compact mobile toggle feeds the same
-    validator-backed command-intent option as desktop Shift, appends move / follow and attack-move
-    point travel, and leaves attack / harvest / repair / load / spells immediate until those command
-    families gain first-class queued interruption semantics. Remaining queue work: extend append
-    semantics to the other command families with explicit interruption tests.
+  - Mobile queue-mode slice is done for queued travel and direct attacks: the compact mobile toggle
+    feeds the same validator-backed command-intent options as desktop Shift, appends move / follow,
+    attack-move point travel, Patrol, and target enemy attacks, and leaves harvest / repair / load /
+    spells immediate until those command families gain first-class queued interruption semantics.
   - Patrol queue slice is done: Patrol now shares the travel queue's serialized order slots, replay
     and action-mask encoding preserve the `queue` flag, desktop Shift and mobile queue mode emit
     queued Patrol from armed command taps, and queued waypoint descriptors/rendering distinguish
     Patrol from Move and Attack-Move.
+  - Direct attack queue slice is done: target attacks preserve the `queue` flag through command
+    intent, replay JSON, action-mask encode/decode, desktop Shift, and mobile queue mode; queued
+    attack entries dispatch through the same attack target/combat-target fields after the current
+    order settles, skip dead targets, and render as selected-unit queued attack waypoints.
   - Immediate interruption slice is done: direct spell, worker-build, spider-mine, load, and unload
     commands now discard stale future queued travel for their actor through command-owned helpers,
     matching the existing attack / harvest / repair / stop / transform replacement behavior while

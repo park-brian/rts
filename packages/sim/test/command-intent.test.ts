@@ -129,7 +129,7 @@ test('armed attack mode attacks enemies, amoves points, and rejects friendly tar
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }), []);
 });
 
-test('queued smart intent only appends validated travel commands', () => {
+test('queued smart intent appends validated travel and target attack commands', () => {
   const s = makeState(open(), 2, 12115);
   const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
   const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
@@ -142,14 +142,15 @@ test('queued smart intent only appends validated travel commands', () => {
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(11), y: tc(8) }, { queueTravel: true }), [
     { t: 'amove', unit: marine, x: tc(11), y: tc(8), queue: true },
   ]);
-  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueTravel: true }), [
-    { t: 'attack', unit: marine, target: enemy },
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueAttack: true }), [
+    { t: 'attack', unit: marine, target: enemy, queue: true },
   ]);
 
   s.e.order[slot] = Order.Move;
   s.e.orderQueueLen[slot] = 4;
   assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, 'desktop', { queueTravel: true }), []);
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: -1, x: tc(13), y: tc(8) }, { queueTravel: true }), []);
+  assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: enemy, x: tc(10), y: tc(8) }, { queueAttack: true }), []);
 });
 
 test('armed harvest mode queues every selected valid worker for a gather target', () => {

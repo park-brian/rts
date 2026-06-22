@@ -174,7 +174,7 @@ test('replay round-trips through JSON (the on-disk / on-wire form)', () => {
   assert.deepEqual(replayHashes(round), replayHashes(replay), 'JSON-serialized replay is faithful');
 });
 
-test('replay parser accepts queued travel commands', () => {
+test('replay parser accepts queued travel and attack commands', () => {
   const replay = parseReplay(JSON.stringify({
     version: 1,
     map: { kind: 'slice' },
@@ -183,12 +183,14 @@ test('replay parser accepts queued travel commands', () => {
     frames: [[{ player: 0, cmds: [
       { t: 'move', unit: 1, x: fx(10), y: fx(20), queue: true },
       { t: 'amove', unit: 1, x: fx(30), y: fx(40), queue: true },
+      { t: 'attack', unit: 1, target: 2, queue: true },
     ] }]],
   }));
 
   assert.deepEqual(replay.frames[0]![0]!.cmds, [
     { t: 'move', unit: 1, x: fx(10), y: fx(20), queue: true },
     { t: 'amove', unit: 1, x: fx(30), y: fx(40), queue: true },
+    { t: 'attack', unit: 1, target: 2, queue: true },
   ]);
 });
 

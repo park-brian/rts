@@ -66,7 +66,7 @@ export type Command =
   | { t: 'unload'; transport: number; unit: number; x: number; y: number }
   | { t: 'cancelBuild'; building: number }
   | { t: 'move'; unit: number; x: number; y: number; target?: number; queue?: boolean }
-  | { t: 'attack'; unit: number; target: number } // attack a specific entity
+  | { t: 'attack'; unit: number; target: number; queue?: boolean } // attack a specific entity
   | { t: 'amove'; unit: number; x: number; y: number; queue?: boolean } // attack-move to a point
   | { t: 'ability'; unit: number; ability: number; target?: number; x?: number; y?: number }
   | { t: 'harvest'; unit: number; patch: number }

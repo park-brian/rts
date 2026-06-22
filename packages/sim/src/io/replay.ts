@@ -213,6 +213,7 @@ const validateCommand = (x: unknown): Command => {
         t: 'attack',
         unit: readNonNegativeInt(unit, 'invalid attack command'),
         target: readNonNegativeInt(r.target, 'invalid attack command'),
+        ...readOptionalQueue(r, 'invalid attack command'),
       };
     }
     case 'amove': {

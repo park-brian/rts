@@ -28,6 +28,7 @@ export type SmartCommandTarget = {
 
 export type SmartCommandOptions = {
   queueTravel?: boolean;
+  queueAttack?: boolean;
 };
 
 export type ProducedUnitRallyIntent =
@@ -133,13 +134,23 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
+const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' }>>(
+  command: T,
+  enabled: boolean | undefined,
+): T => {
+  if (enabled !== true) return command;
+  return { ...command, queue: true };
+};
+
 const queueTravelCommand = <T extends Extract<Command, { t: 'move' | 'amove' }>>(
   command: T,
   opts: SmartCommandOptions,
-): T => {
-  if (opts.queueTravel !== true) return command;
-  return { ...command, queue: true };
-};
+): T => queueCommand(command, opts.queueTravel);
+
+const queueAttackCommand = (
+  command: Extract<Command, { t: 'attack' }>,
+  opts: SmartCommandOptions,
+): Extract<Command, { t: 'attack' }> => queueCommand(command, opts.queueAttack);
 
 export const smartCommandCandidates = (
   s: State,
@@ -159,7 +170,7 @@ export const smartCommandCandidates = (
   if (targetSlot >= 0) {
     const commands: Command[] = [];
     if (isEnemy(s, player, e.owner[targetSlot]!)) {
-      commands.push({ t: 'attack', unit: actor, target: target.hit });
+      commands.push(queueAttackCommand({ t: 'attack', unit: actor, target: target.hit }, opts));
     }
     if (canPlayerGatherTarget(s, player, target.hit)) {
       commands.push({ t: 'harvest', unit: actor, patch: target.hit });
@@ -196,7 +207,7 @@ export const attackModeCandidates = (
   const targetSlot = target.hit >= 0 && isAlive(e, target.hit) ? slotOf(target.hit) : -1;
   if (targetSlot >= 0 && sameTeam(s, player, e.owner[targetSlot]!)) return [];
   return targetSlot >= 0 && isEnemy(s, player, e.owner[targetSlot]!)
-    ? valid(s, player, { t: 'attack', unit: actor, target: target.hit })
+    ? valid(s, player, queueAttackCommand({ t: 'attack', unit: actor, target: target.hit }, opts))
     : valid(s, player, queueTravelCommand({ t: 'amove', unit: actor, x: target.x, y: target.y }, opts));
 };
 

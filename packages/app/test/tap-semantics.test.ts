@@ -335,7 +335,7 @@ test('desktop right click attacks enemies and moves on empty ground', () => {
   }]);
 });
 
-test('desktop shift right click queues travel commands only', () => {
+test('desktop shift right click queues travel and target attack commands', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
   const s = g.sim.fullState();
@@ -369,7 +369,7 @@ test('desktop shift right click queues travel commands only', () => {
   g.queued = [];
   const enemyPoint = screenOf(g, enemy);
   g.desktopSmartTap(enemyPoint.x, enemyPoint.y, { shift: true });
-  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
 });
 
 test('desktop right click keeps smart-command semantics while attack mode is armed', () => {
@@ -392,7 +392,7 @@ test('desktop right click keeps smart-command semantics while attack mode is arm
   assert.deepEqual(ui.armedCommand.value, { t: 'none' });
 });
 
-test('desktop shift armed attack-move queues point travel but not target attacks', () => {
+test('desktop shift armed attack-move queues point travel and target attacks', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
   const s = g.sim.fullState();
@@ -417,7 +417,7 @@ test('desktop shift armed attack-move queues point travel but not target attacks
   ui.armedCommand.value = { t: 'attackMove' };
   const enemyPoint = screenOf(g, enemy);
   g.tap(enemyPoint.x, enemyPoint.y, { shift: true });
-  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+  assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
 });
 
 test('desktop shift armed patrol appends queued patrol travel', () => {
@@ -629,7 +629,7 @@ test('mobile normal tap matches shared command intent when selection does not in
   assert.deepEqual(g.queued, rallyExpected ? [rallyExpected] : []);
 });
 
-test('mobile queue mode appends validated travel without changing non-travel smart actions', () => {
+test('mobile queue mode appends validated travel and target attack actions', () => {
   const g = freshGame();
   ui.controlScheme.value = 'mobile';
   ui.mobileQueueMode.value = true;
@@ -654,7 +654,7 @@ test('mobile queue mode appends validated travel without changing non-travel sma
     centerOnEntity(g, enemy);
     const enemyPoint = screenOf(g, enemy);
     g.tap(enemyPoint.x, enemyPoint.y, { preferredHit: enemy });
-    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
 
     g.queued = [];
     centerOnEntity(g, marine);
@@ -681,7 +681,7 @@ test('mobile queue mode appends validated travel without changing non-travel sma
     ui.armedCommand.value = { t: 'attackMove' };
     centerOnEntity(g, enemy);
     g.tap(enemyPoint.x, enemyPoint.y, { preferredHit: enemy });
-    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy }]);
+    assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
   } finally {
     ui.mobileQueueMode.value = false;
   }

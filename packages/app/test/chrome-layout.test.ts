@@ -325,7 +325,7 @@ test('math renderer draws selected weapon and detector range overlays from sim h
   const render2d = readFileSync(resolve(appRoot, 'src', 'render2d.ts'), 'utf8');
   const sim = readFileSync(resolve(appRoot, '..', 'sim', 'src', 'index.ts'), 'utf8');
 
-  assert.match(sim, /export \* from '\.\/mechanics\/status\.ts'/);
+  assert.match(sim, /export \{ effectiveSight \} from '\.\/mechanics\/status\.ts'/);
   assert.match(render2d, /drawSelectedRangeOverlays/);
   assert.match(render2d, /upgradedRange\(s, slot, weapon\)/);
   assert.match(render2d, /isDetectorKind\(e\.kind\[slot\]!\)/);

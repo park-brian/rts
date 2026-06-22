@@ -48,18 +48,18 @@ export class TapSelectionController {
     }
 
     if (armed.t === 'attackMove') {
-      const queueTravel = opts.shift === true || this.mobileQueueMode();
-      if (this.queueAttackMode(hit, tx, ty, queueTravel)) clearArmedCommand();
+      const queueOrders = opts.shift === true || this.mobileQueueMode();
+      if (this.queueAttackMode(hit, tx, ty, queueOrders)) clearArmedCommand();
       return;
     }
     if (armed.t === 'move') {
-      const queueTravel = opts.shift === true || this.mobileQueueMode();
-      if (this.queueMoveMode(hit, tx, ty, queueTravel)) clearArmedCommand();
+      const queueOrders = opts.shift === true || this.mobileQueueMode();
+      if (this.queueMoveMode(hit, tx, ty, queueOrders)) clearArmedCommand();
       return;
     }
     if (armed.t === 'patrol') {
-      const queueTravel = opts.shift === true || this.mobileQueueMode();
-      if (this.queuePatrolMode(tx, ty, queueTravel)) clearArmedCommand();
+      const queueOrders = opts.shift === true || this.mobileQueueMode();
+      if (this.queuePatrolMode(tx, ty, queueOrders)) clearArmedCommand();
       return;
     }
 
@@ -83,9 +83,12 @@ export class TapSelectionController {
 
     const mobile = this.mobileSelection(e);
     const candidates = mobile.length === 0 ? g.selection : mobile;
-    const queueTravel = this.mobileQueueMode();
+    const queueOrders = this.mobileQueueMode();
     for (const id of candidates) {
-      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'mobile', { queueTravel });
+      const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'mobile', {
+        queueTravel: queueOrders,
+        queueAttack: queueOrders,
+      });
       if (command) g.queued.push(command);
     }
   }
@@ -126,6 +129,7 @@ export class TapSelectionController {
     for (const id of g.selection) {
       const [command] = smartCommandCandidates(s, g.human, id, { hit, x: tx, y: ty }, 'desktop', {
         queueTravel: opts.shift === true,
+        queueAttack: opts.shift === true,
       });
       if (command) {
         g.queued.push(command);
@@ -193,13 +197,17 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queueAttackMode(hit: number, x: number, y: number, queueTravel = false): boolean {
+  private queueAttackMode(hit: number, x: number, y: number, queueOrders = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
     let queued = false;
     for (const id of this.mobileSelection(e)) {
-      for (const command of attackModeCandidates(s, g.human, id, { hit, x, y }, { queueTravel })) {
+      const commands = attackModeCandidates(s, g.human, id, { hit, x, y }, {
+        queueTravel: queueOrders,
+        queueAttack: queueOrders,
+      });
+      for (const command of commands) {
         g.queued.push(command);
         queued = true;
       }
@@ -207,7 +215,7 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queueMoveMode(hit: number, x: number, y: number, queueTravel = false): boolean {
+  private queueMoveMode(hit: number, x: number, y: number, queueOrders = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
@@ -220,7 +228,7 @@ export class TapSelectionController {
             x,
             y,
             target: hit,
-            ...(queueTravel ? { queue: true as const } : {}),
+            ...(queueOrders ? { queue: true as const } : {}),
           }
         : null;
       if (targeted && validateCommand(s, g.human, targeted).ok) {
@@ -233,7 +241,7 @@ export class TapSelectionController {
         unit: id,
         x,
         y,
-        ...(queueTravel ? { queue: true as const } : {}),
+        ...(queueOrders ? { queue: true as const } : {}),
       };
       if (validateCommand(s, g.human, command).ok) {
         g.queued.push(command);
@@ -243,7 +251,7 @@ export class TapSelectionController {
     return queued;
   }
 
-  private queuePatrolMode(x: number, y: number, queueTravel = false): boolean {
+  private queuePatrolMode(x: number, y: number, queueOrders = false): boolean {
     const g = this.game;
     const s = g.sim.fullState();
     const e = s.e;
@@ -254,7 +262,7 @@ export class TapSelectionController {
         unit: id,
         x,
         y,
-        ...(queueTravel ? { queue: true as const } : {}),
+        ...(queueOrders ? { queue: true as const } : {}),
       };
       if (validateCommand(s, g.human, command).ok) {
         g.queued.push(command);
