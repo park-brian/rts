@@ -120,7 +120,7 @@ export const movement = (s: State): void => {
   const followPlan = buildFollowPlan(s);
   for (let i = 0; i < e.hi; i++) {
     if (e.alive[i] !== 1 || isContained(s, i)) continue;
-    if (e.order[i] !== Order.Move && e.order[i] !== Order.Patrol) {
+    if (e.order[i] !== Order.Move && e.order[i] !== Order.Patrol && e.order[i] !== Order.Load) {
       if (followsIntentTarget(e, i)) refreshEntityTravelDestination(s, i, followPlan);
       continue;
     }
@@ -141,9 +141,22 @@ export const movement = (s: State): void => {
       continue;
     }
     const patrol = e.order[i] === Order.Patrol;
+    const load = e.order[i] === Order.Load;
     if (patrol && e.combatTarget[i] !== NONE) continue;
     const target = patrol ? NONE : refreshEntityTravelDestination(s, i, followPlan);
-    if (target !== NONE && canAcceptCargo(s, target, i)) {
+    if (load) {
+      if (target === NONE || !canAcceptCargo(s, target, i)) {
+        clearVelocity(e, i);
+        e.target[i] = NONE;
+        e.intentTarget[i] = NONE;
+        if (!startNextQueuedTravelOrder(s, i)) e.order[i] = Order.Idle;
+        continue;
+      }
+      if (withinLoadRange(s, target, i)) {
+        loadUnitInto(s, target, i);
+        continue;
+      }
+    } else if (target !== NONE && canAcceptCargo(s, target, i)) {
       if (withinLoadRange(s, target, i)) {
         loadUnitInto(s, target, i);
         continue;
@@ -153,6 +166,10 @@ export const movement = (s: State): void => {
     const liveIntentTarget = liveTravelTargetId(e, i);
     if (arrived && liveIntentTarget === eid(e, i) && isLiftedStructureFlags(e.flags[i]!)) landIfArrived(s, i);
     else if (arrived && patrol && !isLocalAvoidanceSolid(s, i)) advancePatrolLeg(s, i);
+    else if (arrived && load) {
+      clearVelocity(e, i);
+      e.settled[i] = 1;
+    }
     else if (arrived && liveIntentTarget !== NONE) {
       clearVelocity(e, i);
       e.settled[i] = 1;

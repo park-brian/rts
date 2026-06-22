@@ -92,6 +92,7 @@ export class TapSelectionController {
         queueAttack: queueOrders,
         queueRepair: queueOrders,
         queueHarvest: queueOrders,
+        queueLoad: queueOrders,
       });
       if (command) g.queued.push(command);
     }
@@ -136,6 +137,7 @@ export class TapSelectionController {
         queueAttack: opts.shift === true,
         queueRepair: opts.shift === true,
         queueHarvest: opts.shift === true,
+        queueLoad: opts.shift === true,
       });
       if (command) {
         g.queued.push(command);

@@ -62,7 +62,7 @@ export type Command =
   | { t: 'transform'; unit: number; kind: number; target?: number }
   | { t: 'burrow'; unit: number; active: boolean }
   | { t: 'mine'; unit: number }
-  | { t: 'load'; transport: number; unit: number }
+  | { t: 'load'; transport: number; unit: number; queue?: boolean }
   | { t: 'unload'; transport: number; unit: number; x: number; y: number }
   | { t: 'cancelBuild'; building: number }
   | { t: 'move'; unit: number; x: number; y: number; target?: number; queue?: boolean }

@@ -96,6 +96,7 @@ test('policy actions encode and decode through public commands', () => {
     { t: 'burrow', unit: 18, active: false },
     { t: 'mine', unit: 19 },
     { t: 'load', transport: 20, unit: 21 },
+    { t: 'load', transport: 20, unit: 21, queue: true },
     { t: 'unload', transport: 22, unit: 23, x: fx(14), y: fx(15) },
     { t: 'cancelBuild', building: 24 },
     { t: 'move', unit: 25, x: fx(16), y: fx(17) },
@@ -290,7 +291,7 @@ test('combat unit command mask exposes legal movement and target attack only', (
   assert.equal(commandHeadAllowed(mask, 'rally'), false);
 });
 
-test('queued travel, attack, repair, and harvest action masks use shared validation and full-queue gates', () => {
+test('queued travel, attack, repair, harvest, and load action masks use shared validation and full-queue gates', () => {
   const scenario = simScenario({ players: 2, seed: 9511 });
   const { sim, state: s, spawn } = scenario;
   const e = s.e;
@@ -298,6 +299,7 @@ test('queued travel, attack, repair, and harvest action masks use shared validat
   const enemy = spawn(Kind.Zergling, 1, fx(700), fx(400));
   const scv = spawn(Kind.SCV, 0, fx(400), fx(460));
   const bunker = spawn(Kind.Bunker, 0, fx(700), fx(460));
+  const dropship = spawn(Kind.Dropship, 0, fx(760), fx(400));
   const mineral = spawn(Kind.Mineral, -1, fx(740), fx(460));
   e.hp[slotOf(bunker)] = Units[Kind.Bunker]!.hp - 40;
   s.players.minerals[0] = 1_000;
@@ -324,12 +326,20 @@ test('queued travel, attack, repair, and harvest action masks use shared validat
     patch: mineral,
     queue: true,
   });
+  assert.deepEqual(commandForHead(s, dropship, 'load', { target: marine, queue: true }), {
+    t: 'load',
+    transport: dropship,
+    unit: marine,
+    queue: true,
+  });
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'move'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, marine, point), 'patrol'), true);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: bunker, queue: true }), 'repair'), true);
   assert.deepEqual([...entityTargetMask(s, 0, scv, 'repair', [bunker], { queue: true })], [1]);
   assert.equal(commandHeadAllowed(commandHeadMask(s, 0, scv, { target: mineral, queue: true }), 'harvest'), true);
   assert.deepEqual([...entityTargetMask(s, 0, scv, 'harvest', [mineral], { queue: true })], [1]);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: marine, queue: true }), 'load'), true);
+  assert.deepEqual([...entityTargetMask(s, 0, dropship, 'load', [marine], { queue: true })], [1]);
 
   sim.step([{ player: 0, cmds: [
     { t: 'move', unit: marine, x: fx(520), y: fx(400) },
@@ -346,6 +356,7 @@ test('queued travel, attack, repair, and harvest action masks use shared validat
   assert.equal(commandHeadAllowed(queuedMask, 'amove'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'patrol'), false);
   assert.equal(commandHeadAllowed(queuedMask, 'attack'), false);
+  assert.equal(commandHeadAllowed(commandHeadMask(s, 0, dropship, { target: marine, queue: true }), 'load'), false);
   assert.equal(commandHeadAllowed(replacementMoveMask, 'move'), true);
   assert.equal(commandHeadAllowed(replacementAttackMask, 'attack'), true);
 
@@ -381,6 +392,12 @@ test('queued travel, attack, repair, and harvest action masks use shared validat
     t: 'harvest',
     unit: scv,
     patch: mineral,
+    queue: true,
+  });
+  assert.deepEqual(decodeAction({ head: 'load', actor: dropship, target: marine, queue: true }), {
+    t: 'load',
+    transport: dropship,
+    unit: marine,
     queue: true,
   });
 });
@@ -498,6 +515,11 @@ test('command intent candidates agree with policy target mask legality', () => {
   for (const command of loadSelectionCandidates(s, 0, [dropship, marine, tank])) {
     if (command.t !== 'load') throw new Error('expected load candidate');
     assert.equal(entityTargetMask(s, 0, command.transport, 'load', [command.unit])[0], 1);
+  }
+  for (const command of loadSelectionCandidates(s, 0, [dropship, marine, tank], { queueLoad: true })) {
+    if (command.t !== 'load') throw new Error('expected queued load candidate');
+    assert.equal(command.queue, true);
+    assert.equal(entityTargetMask(s, 0, command.transport, 'load', [command.unit], { queue: true })[0], 1);
   }
   for (const command of rallyModeCandidates(s, 0, [cc, marine], target)) {
     if (command.t !== 'rally') throw new Error('expected rally candidate');

@@ -216,8 +216,11 @@ export const decodeAction = (action: EncodedAction): Command => {
       return target === NONE
         ? { t: 'transform', unit: action.actor, kind }
         : { t: 'transform', unit: action.actor, kind, target };
-    case 'load':
-      return { t: 'load', transport: action.actor, unit: target };
+    case 'load': {
+      const command: Extract<Command, { t: 'load' }> = { t: 'load', transport: action.actor, unit: target };
+      if (action.queue === true) command.queue = true;
+      return command;
+    }
     case 'unload':
       return { t: 'unload', transport: action.actor, unit: target, x, y };
     case 'cancelBuild':
@@ -269,7 +272,10 @@ export const encodeCommand = (command: Command): EncodedAction => {
     case 'transform': return { head: 'transform', actor: command.unit, kind: command.kind, target: command.target };
     case 'burrow': return { head: command.active ? 'burrow' : 'unburrow', actor: command.unit };
     case 'mine': return { head: 'mine', actor: command.unit };
-    case 'load': return { head: 'load', actor: command.transport, target: command.unit };
+    case 'load': return {
+      head: 'load', actor: command.transport, target: command.unit,
+      ...(command.queue === true ? { queue: true } : {}),
+    };
     case 'unload': return { head: 'unload', actor: command.transport, target: command.unit, x: command.x, y: command.y };
     case 'cancelBuild': return { head: 'cancelBuild', actor: command.building };
     case 'move': return {

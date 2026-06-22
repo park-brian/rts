@@ -355,7 +355,7 @@ test('desktop right click attacks enemies and moves on empty ground', () => {
   }]);
 });
 
-test('desktop shift right click queues travel, attack, repair, and harvest commands', () => {
+test('desktop shift right click queues travel, attack, load, repair, and harvest commands', () => {
   const g = freshGame();
   ui.controlScheme.value = 'desktop';
   const s = g.sim.fullState();
@@ -396,6 +396,12 @@ test('desktop shift right click queues travel, attack, repair, and harvest comma
   const enemyPoint = screenOf(g, enemy);
   g.desktopSmartTap(enemyPoint.x, enemyPoint.y, { shift: true });
   assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
+
+  g.queued = [];
+  centerOnEntity(g, bunker);
+  const loadPoint = screenOf(g, bunker);
+  g.desktopSmartTap(loadPoint.x, loadPoint.y, { shift: true, preferredHit: bunker });
+  assert.deepEqual(g.queued, [{ t: 'load', transport: bunker, unit: marine, queue: true }]);
 
   g.queued = [];
   select(g, [scv]);
@@ -669,6 +675,7 @@ test('mobile normal tap matches shared command intent when selection does not in
 
 test('mobile queue mode appends validated travel, attack, repair, and harvest actions', () => {
   const g = freshGame();
+  const previousScheme = ui.controlScheme.value;
   ui.controlScheme.value = 'mobile';
   ui.mobileQueueMode.value = true;
   try {
@@ -743,6 +750,7 @@ test('mobile queue mode appends validated travel, attack, repair, and harvest ac
     assert.deepEqual(g.queued, [{ t: 'attack', unit: marine, target: enemy, queue: true }]);
   } finally {
     ui.mobileQueueMode.value = false;
+    ui.controlScheme.value = previousScheme;
   }
 });
 
@@ -941,6 +949,29 @@ test('load order option queues selected loadable units into selected transports'
   assert.equal(g.executeOption(option!), true);
 
   assert.deepEqual(g.queued, [{ t: 'load', transport: dropship, unit: marine }]);
+});
+
+test('mobile queue mode makes load order options queued', () => {
+  const g = freshGame();
+  const previousScheme = ui.controlScheme.value;
+  ui.controlScheme.value = 'mobile';
+  ui.mobileQueueMode.value = true;
+  try {
+    const s = g.sim.fullState();
+    const dropship = spawnUnit(s, Kind.Dropship, 0, fx(400), fx(400));
+    const marine = spawnUnit(s, Kind.Marine, 0, fx(420), fx(400));
+    select(g, [dropship, marine]);
+    g.fastForward(0);
+
+    const option = ui.selectionView.value.options.order.find((o) => o.id === OrderOptionId.Load);
+    assert.deepEqual(option?.commands, [{ t: 'load', transport: dropship, unit: marine }]);
+    assert.equal(g.executeOption(option!), true);
+
+    assert.deepEqual(g.queued, [{ t: 'load', transport: dropship, unit: marine, queue: true }]);
+  } finally {
+    ui.mobileQueueMode.value = false;
+    ui.controlScheme.value = previousScheme;
+  }
 });
 
 test('unload order option queues contained units around selected transports', () => {

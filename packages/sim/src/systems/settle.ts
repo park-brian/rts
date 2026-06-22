@@ -78,7 +78,7 @@ export const settleMovement = (s: State): void => {
       }
       continue;
     }
-    if (order !== Order.Move && order !== Order.AttackMove && order !== Order.Patrol) {
+    if (order !== Order.Move && order !== Order.AttackMove && order !== Order.Patrol && order !== Order.Load) {
       e.settled[i] = 0;
       continue;
     }
@@ -92,7 +92,7 @@ export const settleMovement = (s: State): void => {
     const liveTravelTarget = e.intentTarget[i] !== NONE ? e.intentTarget[i]! : e.target[i]!;
     const hasActiveTarget = liveTravelTarget !== NONE ||
       ((order === Order.AttackMove || order === Order.Patrol) && e.combatTarget[i] !== NONE);
-    if ((order === Order.Move || order === Order.AttackMove || order === Order.Patrol) && hasActiveTarget) {
+    if ((order === Order.Move || order === Order.AttackMove || order === Order.Patrol || order === Order.Load) && hasActiveTarget) {
       e.tx[i] = goal.x;
       e.ty[i] = goal.y;
       e.settled[i] = 1;

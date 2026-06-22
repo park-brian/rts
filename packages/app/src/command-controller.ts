@@ -87,13 +87,20 @@ export class CommandController {
     const human = this.deps.human();
     let queued = false;
     for (const command of option.commands) {
-      if (validateCommand(s, human, command).ok) {
-        this.queued.push(command);
+      const next = this.queueOptionCommand(command);
+      if (validateCommand(s, human, next).ok) {
+        this.queued.push(next);
         queued = true;
       }
     }
     if (queued) this.clearTargetModes();
     return queued;
+  }
+
+  private queueOptionCommand(command: Command): Command {
+    return ui.controlScheme.value === 'mobile' && ui.mobileQueueMode.value && command.t === 'load'
+      ? { ...command, queue: true }
+      : command;
   }
 
   castSelectedAbility(abilityId: number, target?: number, x?: number, y?: number): boolean {

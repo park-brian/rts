@@ -177,7 +177,7 @@ export type WorkActivity = {
 export type QueuedTravelWaypoint = {
   unit: number;
   index: number;
-  intent: 'move' | 'attack' | 'attack-move' | 'patrol' | 'repair' | 'harvest';
+  intent: 'move' | 'attack' | 'attack-move' | 'patrol' | 'repair' | 'harvest' | 'load';
   target: number;
   x: number;
   y: number;
@@ -187,6 +187,7 @@ const queuedTravelIntent = (order: QueuedOrder['order']): QueuedTravelWaypoint['
   if (order === Order.Attack) return 'attack';
   if (order === Order.Repair) return 'repair';
   if (order === Order.Harvest) return 'harvest';
+  if (order === Order.Load) return 'load';
   if (order === Order.AttackMove) return 'attack-move';
   if (order === Order.Patrol) return 'patrol';
   return 'move';

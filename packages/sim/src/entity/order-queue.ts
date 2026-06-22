@@ -14,7 +14,7 @@ export type QueuedTravelOrder = {
 };
 
 export type QueuedTargetOrder = {
-  order: typeof Order.Attack | typeof Order.Repair | typeof Order.Harvest;
+  order: typeof Order.Attack | typeof Order.Repair | typeof Order.Harvest | typeof Order.Load;
   x: number;
   y: number;
   target: number;
@@ -83,7 +83,7 @@ export const queuedOrderAt = (e: Entities, slot: number, i: number): QueuedOrder
   const target = targetColumn(e, i)[slot]!;
   const x = xColumn(e, i)[slot]!;
   const y = yColumn(e, i)[slot]!;
-  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -170,6 +170,12 @@ export const enqueueHarvestOrder = (
   targetId: number,
 ): boolean => enqueueTargetOrder(s, slot, Order.Harvest, targetId);
 
+export const enqueueLoadOrder = (
+  s: State,
+  slot: number,
+  targetId: number,
+): boolean => enqueueTargetOrder(s, slot, Order.Load, targetId);
+
 const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   const order = orderColumn(e, 0)[slot]! as QueuedOrder['order'];
   const target = targetColumn(e, 0)[slot]!;
@@ -184,7 +190,7 @@ const shiftQueuedOrder = (e: Entities, slot: number): QueuedOrder => {
   }
   clearQueueSlot(e, slot, len - 1);
   e.orderQueueLen[slot] = len - 1;
-  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest) return { order, x, y, target };
+  if (order === Order.Attack || order === Order.Repair || order === Order.Harvest || order === Order.Load) return { order, x, y, target };
   return target === NONE ? { order, x, y } : { order, x, y, target };
 };
 
@@ -220,6 +226,22 @@ export const setCurrentHarvestOrder = (s: State, slot: number, targetId: number)
   clearPatrolRoute(e, slot);
 };
 
+export const setCurrentLoadOrder = (s: State, slot: number, targetId: number): void => {
+  const e = s.e;
+  e.order[slot] = Order.Load;
+  e.target[slot] = targetId;
+  e.intentTarget[slot] = NONE;
+  e.combatTarget[slot] = NONE;
+  e.settled[slot] = 0;
+  e.timer[slot] = 0;
+  if (isAlive(e, targetId)) {
+    const point = entityApproachPoint(s, slot, slotOf(targetId));
+    e.tx[slot] = point.x;
+    e.ty[slot] = point.y;
+  }
+  clearPatrolRoute(e, slot);
+};
+
 export const startNextQueuedOrder = (s: State, slot: number): boolean => {
   const e = s.e;
   while (e.orderQueueLen[slot]! > 0) {
@@ -232,6 +254,8 @@ export const startNextQueuedOrder = (s: State, slot: number): boolean => {
       setCurrentRepairOrder(s, slot, next.target);
     } else if (next.order === Order.Harvest) {
       setCurrentHarvestOrder(s, slot, next.target);
+    } else if (next.order === Order.Load) {
+      setCurrentLoadOrder(s, slot, next.target);
     } else {
       setCurrentTravelOrder(s, slot, next.order, next.x, next.y, next.target ?? NONE);
     }

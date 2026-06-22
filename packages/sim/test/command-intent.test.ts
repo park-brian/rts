@@ -83,13 +83,16 @@ test('smart command repairs damaged friendly mechanical targets', () => {
   ]);
 });
 
-test('smart command loads valid cargo into transports and structures', () => {
+test('smart command loads valid cargo into transports and structures, including queued load', () => {
   const s = makeState(open(), 1, 1205);
   const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
   const bunker = spawnUnit(s, Kind.Bunker, 0, tc(9), tc(8));
 
   assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: bunker, x: tc(9), y: tc(8) }, 'desktop'), [
     { t: 'load', transport: bunker, unit: marine },
+  ]);
+  assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: bunker, x: tc(9), y: tc(8) }, 'desktop', { queueLoad: true }), [
+    { t: 'load', transport: bunker, unit: marine, queue: true },
   ]);
 });
 
@@ -135,7 +138,7 @@ test('armed attack mode attacks enemies, amoves points, and rejects friendly tar
   assert.deepEqual(attackModeCandidates(s, 0, marine, { hit: leader, x: tc(12), y: tc(8) }), []);
 });
 
-test('queued smart intent appends validated travel, attack, repair, and harvest commands', () => {
+test('queued smart intent appends validated travel, attack, repair, harvest, and load commands', () => {
   const s = makeState(open(), 2, 12115);
   const marine = spawnUnit(s, Kind.Marine, 0, tc(8), tc(8));
   const leader = spawnUnit(s, Kind.Marine, 0, tc(12), tc(8));
@@ -166,6 +169,9 @@ test('queued smart intent appends validated travel, attack, repair, and harvest 
   assert.deepEqual(harvestModeCandidates(s, 0, [scv, marine], mineral, { queueHarvest: true }), [
     { t: 'harvest', unit: scv, patch: mineral, queue: true },
   ]);
+  assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: bunker, x: tc(12), y: tc(10) }, 'desktop', { queueLoad: true }), [
+    { t: 'load', transport: bunker, unit: marine, queue: true },
+  ]);
 
   s.e.order[slot] = Order.Move;
   s.e.orderQueueLen[slot] = 4;
@@ -178,6 +184,7 @@ test('queued smart intent appends validated travel, attack, repair, and harvest 
   assert.deepEqual(repairModeCandidates(s, 0, [scv], bunker, { queueRepair: true }), []);
   assert.deepEqual(smartCommandCandidates(s, 0, scv, { hit: mineral, x: tc(14), y: tc(10) }, 'desktop', { queueTravel: true, queueHarvest: true }), []);
   assert.deepEqual(harvestModeCandidates(s, 0, [scv], mineral, { queueHarvest: true }), []);
+  assert.deepEqual(smartCommandCandidates(s, 0, marine, { hit: bunker, x: tc(12), y: tc(10) }, 'desktop', { queueTravel: true, queueLoad: true }), []);
 });
 
 test('armed harvest mode queues every selected valid worker for a gather target', () => {
@@ -241,6 +248,12 @@ test('load command-card candidates load selected cargo into selected transports'
     { t: 'load', transport: dropship, unit: firebat },
     { t: 'load', transport: bunker, unit: marine },
     { t: 'load', transport: bunker, unit: firebat },
+  ]);
+  assert.deepEqual(loadSelectionCandidates(s, 0, [dropship, bunker, marine, firebat], { queueLoad: true }), [
+    { t: 'load', transport: dropship, unit: marine, queue: true },
+    { t: 'load', transport: dropship, unit: firebat, queue: true },
+    { t: 'load', transport: bunker, unit: marine, queue: true },
+    { t: 'load', transport: bunker, unit: firebat, queue: true },
   ]);
 });
 

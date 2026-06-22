@@ -31,6 +31,7 @@ export type SmartCommandOptions = {
   queueAttack?: boolean;
   queueRepair?: boolean;
   queueHarvest?: boolean;
+  queueLoad?: boolean;
 };
 
 export type ProducedUnitRallyIntent =
@@ -136,7 +137,7 @@ const firstValid = (s: State, player: number, commands: readonly Command[]): Com
   return [];
 };
 
-const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' | 'harvest' }>>(
+const queueCommand = <T extends Extract<Command, { t: 'move' | 'amove' | 'attack' | 'repair' | 'harvest' | 'load' }>>(
   command: T,
   enabled: boolean | undefined,
 ): T => {
@@ -164,6 +165,11 @@ const queueHarvestCommand = (
   opts: SmartCommandOptions,
 ): Extract<Command, { t: 'harvest' }> => queueCommand(command, opts.queueHarvest);
 
+const queueLoadCommand = (
+  command: Extract<Command, { t: 'load' }>,
+  opts: SmartCommandOptions,
+): Extract<Command, { t: 'load' }> => queueCommand(command, opts.queueLoad);
+
 export const smartCommandCandidates = (
   s: State,
   player: number,
@@ -189,8 +195,8 @@ export const smartCommandCandidates = (
     }
     commands.push(
       queueRepairCommand({ t: 'repair', unit: actor, target: target.hit }, opts),
-      { t: 'load', transport: target.hit, unit: actor },
-      { t: 'load', transport: actor, unit: target.hit },
+      queueLoadCommand({ t: 'load', transport: target.hit, unit: actor }, opts),
+      queueLoadCommand({ t: 'load', transport: actor, unit: target.hit }, opts),
     );
 
     if (actorIsStructure) {
@@ -279,6 +285,7 @@ export const loadSelectionCandidates = (
   s: State,
   player: number,
   selected: readonly number[],
+  opts: SmartCommandOptions = {},
 ): Command[] => {
   const e = s.e;
   const transports = selected.filter((id) => isAlive(e, id) && transportCapacity(s, slotOf(id)) > 0);
@@ -286,7 +293,7 @@ export const loadSelectionCandidates = (
   for (const transport of transports) {
     for (const unit of selected) {
       if (transports.includes(unit)) continue;
-      const command: Command = { t: 'load', transport, unit };
+      const command: Command = queueLoadCommand({ t: 'load', transport, unit }, opts);
       if (validateCommand(s, player, command).ok) commands.push(command);
     }
   }

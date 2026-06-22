@@ -18,6 +18,7 @@ import {
 } from '../mechanics/cargo.ts';
 import { isDisabled } from '../mechanics/status.ts';
 import { withinRangeSq } from '../spatial/geometry.ts';
+import { canQueueOrder, currentOrderIsIdle, enqueueLoadOrder, setCurrentLoadOrder } from '../entity/order-queue.ts';
 import {
   reject,
   rejectMissingOwnedSlot,
@@ -56,7 +57,8 @@ export const validateLoadCommand = (s: State, player: number, command: LoadComma
   if (!canLoadInto(s, transport, unit)) return reject('target-not-allowed');
   const unitSize = Units[e.kind[unit]!]!.cargoSize;
   if (cargoUsed(s, transport) + unitSize > capacity) return reject('queue-full');
-  if (!withinLoadRange(s, transport, unit)) return reject('target-out-of-range');
+  if (command.queue === true && !currentOrderIsIdle(e, unit) && !canQueueOrder(e, unit)) return reject('queue-full');
+  if (command.queue !== true && !withinLoadRange(s, transport, unit)) return reject('target-out-of-range');
   return { ok: true };
 };
 
@@ -77,9 +79,19 @@ export const validateUnloadCommand = (s: State, player: number, command: UnloadC
 };
 
 export const applyLoadCommand = (s: State, command: LoadCommand): void => {
+  const e = s.e;
   const transport = slotOf(command.transport);
+  const unit = slotOf(command.unit);
+  if (command.queue === true) {
+    if (currentOrderIsIdle(e, unit)) {
+      setCurrentLoadOrder(s, unit, command.transport);
+    } else {
+      enqueueLoadOrder(s, unit, command.transport);
+    }
+    return;
+  }
   discardQueuedOrders(s, transport);
-  loadUnitInto(s, transport, slotOf(command.unit));
+  loadUnitInto(s, transport, unit);
 };
 
 export const applyUnloadCommand = (s: State, command: UnloadCommand): void => {

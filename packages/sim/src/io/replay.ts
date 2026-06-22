@@ -183,6 +183,7 @@ const validateCommand = (x: unknown): Command => {
         t: 'load',
         transport: readNonNegativeInt(r.transport, 'invalid load command'),
         unit: readNonNegativeInt(unit, 'invalid load command'),
+        ...readOptionalQueue(r, 'invalid load command'),
       };
     }
     case 'unload': {
