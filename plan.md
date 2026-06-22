@@ -955,9 +955,10 @@ Remaining work:
     `ModeTransitionTimings` with explicit `sourceStatus: 'unsourced'`, tests pin that provenance,
     and `docs/research/bw-transition-timings.md` describes the current timed placeholder behavior
     instead of the old instant-state wording.
-  - Remaining: source exact BW frame counts for each transition from stronger references than the
-    currently available local BWAPI command/order names, then update the named timing constants and
-    timing tests if needed.
+  - Transition timing source slice is done: Siege deploy, unsiege, Zerg burrow, and Zerg
+    unburrow now use frame counts derived from Brood War `iscript.bin` plus DAT mappings bundled
+    with `icecc`, with deterministic RNG for sourced unburrow `waitrand` ranges. Yamato remains
+    unsourced and should still use a primary script extraction or measured trace before changing.
 - Add missing core order semantics: queued waypoints, and clear interruption
   rules for Stop, attack, transport, spell, gather, repair, rally-spawned orders, and queued orders.
   - Hold Position slice is done: `hold` is a first-class command, replay/action-mask encoded, exposed

@@ -1,4 +1,5 @@
-import { Kind, Order, sec, Units } from '../data/index.ts';
+import { Kind, Order, Units } from '../data/index.ts';
+import { range } from '../rng.ts';
 import { setEntityKind } from '../entity/kind.ts';
 import { clearOrderQueue } from '../entity/order-queue.ts';
 import type { State } from '../entity/world.ts';
@@ -18,20 +19,55 @@ export type ModeTransitionTimingDef = {
   note: string;
 };
 
-// Local references confirm these are real BW orders, but exact frame counts are still unsourced.
-// Keep that fact in data so tests and reviews cannot mistake provisional gameplay feel for BW fact.
+export type RandomModeTransitionTimingDef = {
+  minDuration: number;
+  maxDuration: number;
+  sourceStatus: 'sourced' | 'unsourced';
+  note: string;
+};
+
+const ISCRIPT_SOURCE_NOTE =
+  'Derived from icecc bundled Brood War iscript.bin and DAT mappings: order completion waits for the relevant sigorder opcode.';
+
 export const ModeTransitionTimings = {
   Siege: {
-    duration: sec(2),
-    sourceStatus: 'unsourced',
-    note: 'Provisional until iscript/DAT extraction or measured BWAPI traces prove siege/unsiege frames.',
+    duration: 64,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} SiegeTank_Siege_Base Init reaches sigorder 1 after 64 frames.`,
+  },
+  Unsiege: {
+    duration: 63,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} SiegeTank_Siege_Base SpecialState2 reaches sigorder 1 after 63 frames.`,
   },
   Burrow: {
-    duration: sec(1),
-    sourceStatus: 'unsourced',
-    note: 'Provisional until iscript/DAT extraction or measured BWAPI traces prove burrow/unburrow frames.',
+    duration: 5,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} Drone, Zergling, Hydralisk, and Defiler Burrow reach sigorder 4 after 5 frames.`,
   },
-} as const satisfies Record<string, ModeTransitionTimingDef>;
+  InfestedTerranBurrow: {
+    duration: 6,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} InfestedTerran Burrow reaches sigorder 4 after 6 frames.`,
+  },
+  LurkerBurrow: {
+    duration: 20,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} Lurker Burrow reaches sigorder 4 after 20 frames.`,
+  },
+  Unburrow: {
+    minDuration: 5,
+    maxDuration: 9,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} Drone, Zergling, Hydralisk, Defiler, and Lurker UnBurrow reach sigorder 4 after waitrand 1-5 plus four waits.`,
+  },
+  InfestedTerranUnburrow: {
+    minDuration: 6,
+    maxDuration: 10,
+    sourceStatus: 'sourced',
+    note: `${ISCRIPT_SOURCE_NOTE} InfestedTerran UnBurrow reaches sigorder 4 after waitrand 1-5 plus five waits.`,
+  },
+} as const satisfies Record<string, ModeTransitionTimingDef | RandomModeTransitionTimingDef>;
 
 const clearActiveOrder = (s: State, slot: number): void => {
   const e = s.e;
@@ -63,16 +99,32 @@ const startTransition = (
 
 export const startModeTransform = (s: State, slot: number, targetKind: number): void => {
   const source = s.e.kind[slot]!;
-  const duration =
-    (source === Kind.SiegeTank && targetKind === Kind.SiegeTankSieged) ||
-    (source === Kind.SiegeTankSieged && targetKind === Kind.SiegeTank)
-      ? ModeTransitionTimings.Siege.duration
-      : 1;
+  let duration = 1;
+  if (source === Kind.SiegeTank && targetKind === Kind.SiegeTankSieged) {
+    duration = ModeTransitionTimings.Siege.duration;
+  } else if (source === Kind.SiegeTankSieged && targetKind === Kind.SiegeTank) {
+    duration = ModeTransitionTimings.Unsiege.duration;
+  }
   startTransition(s, slot, ModeTransition.Transform, targetKind, 0, duration);
 };
 
+const burrowDuration = (kind: number): number => {
+  if (kind === Kind.Lurker) return ModeTransitionTimings.LurkerBurrow.duration;
+  if (kind === Kind.InfestedTerran) return ModeTransitionTimings.InfestedTerranBurrow.duration;
+  return ModeTransitionTimings.Burrow.duration;
+};
+
+const unburrowDuration = (s: State, kind: number): number => {
+  const timing = kind === Kind.InfestedTerran
+    ? ModeTransitionTimings.InfestedTerranUnburrow
+    : ModeTransitionTimings.Unburrow;
+  return timing.minDuration + range(s.rng, timing.maxDuration - timing.minDuration + 1);
+};
+
 export const startBurrowTransition = (s: State, slot: number, active: boolean): void => {
-  startTransition(s, slot, ModeTransition.Burrow, s.e.kind[slot]!, active ? 1 : 0, ModeTransitionTimings.Burrow.duration);
+  const kind = s.e.kind[slot]!;
+  const duration = active ? burrowDuration(kind) : unburrowDuration(s, kind);
+  startTransition(s, slot, ModeTransition.Burrow, kind, active ? 1 : 0, duration);
 };
 
 const finishTransition = (s: State, slot: number): void => {

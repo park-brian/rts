@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Kind, Order, Tech, Units, sec } from '../src/data/index.ts';
+import { Kind, Order, Tech, Units } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, slotOf } from '../src/entity/world.ts';
 import { parseReplay } from '../src/io/replay.ts';
@@ -30,7 +30,7 @@ test('siege transform requires research and preserves unit state', () => {
   assert.equal(e.kind[tank], Kind.SiegeTank);
   assert.equal(e.hp[tank], 91);
   assert.equal(e.order[tank], Order.Idle);
-  assert.ok(e.modeTransitionTimer[tank]! > 0);
+  assert.equal(e.modeTransitionTotal[tank], ModeTransitionTimings.Siege.duration);
 
   const move = sim.step([{ player: 0, cmds: [{ t: 'move', unit: eid(e, tank), x: fx(900), y: fx(700) }] }]);
   assert.deepEqual(move, [{ player: 0, index: 0, t: 'move', ok: false, reason: 'missing-capability' }]);
@@ -42,15 +42,19 @@ test('siege transform requires research and preserves unit state', () => {
   const unsiege = sim.step([{ player: 0, cmds: [{ t: 'transform', unit: eid(e, tank), kind: Kind.SiegeTank }] }]);
   assert.deepEqual(unsiege, [{ player: 0, index: 0, t: 'transform', ok: true }]);
   assert.equal(e.kind[tank], Kind.SiegeTankSieged);
-  assert.ok(e.modeTransitionTimer[tank]! > 0);
+  assert.equal(e.modeTransitionTotal[tank], ModeTransitionTimings.Unsiege.duration);
   finishTransition(sim, tank);
   assert.equal(e.kind[tank], Kind.SiegeTank);
 });
 
-test('siege transition timing remains explicitly unsourced', () => {
-  assert.equal(ModeTransitionTimings.Siege.sourceStatus, 'unsourced');
-  assert.equal(ModeTransitionTimings.Siege.duration, sec(2));
-  assert.match(ModeTransitionTimings.Siege.note, /iscript\/DAT|measured BWAPI traces/);
+test('siege transition timings are sourced from iscript completion signals', () => {
+  assert.equal(ModeTransitionTimings.Siege.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.Siege.duration, 64);
+  assert.match(ModeTransitionTimings.Siege.note, /SiegeTank_Siege_Base Init reaches sigorder 1/);
+
+  assert.equal(ModeTransitionTimings.Unsiege.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.Unsiege.duration, 63);
+  assert.match(ModeTransitionTimings.Unsiege.note, /SpecialState2 reaches sigorder 1/);
 });
 
 test('sieged tank respects minimum range and deals splash around the target', () => {

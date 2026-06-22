@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim } from '../src/sim.ts';
-import { Kind, Tech, Units, sec, tiles } from '../src/data/index.ts';
+import { Kind, Tech, Units, tiles } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { kill, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
@@ -29,7 +29,7 @@ test('burrow requires tech for normal zerg units and cloaks them from non-detect
   results = sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: zergling, active: true }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'burrow', ok: true }]);
   assert.equal(e.burrowed[slotOf(zergling)], 0);
-  assert.ok(e.modeTransitionTimer[slotOf(zergling)]! > 0);
+  assert.equal(e.modeTransitionTotal[slotOf(zergling)], ModeTransitionTimings.Burrow.duration);
   finishTransition(sim, slotOf(zergling));
   assert.equal(e.burrowed[slotOf(zergling)], 1);
   assert.equal(canDetect(s, 1, slotOf(zergling)), false);
@@ -49,6 +49,24 @@ test('burrow requires tech for normal zerg units and cloaks them from non-detect
   assert.deepEqual(results, [{ player: 1, index: 0, t: 'attack', ok: true }]);
 });
 
+test('unburrow uses the sourced deterministic iscript random range', () => {
+  const { sim, state: s, spawn, grant } = simScenario({ seed: 8080 });
+  const e = s.e;
+  const zergling = spawn(Kind.Zergling, 0, fx(400), fx(400));
+  grant(0, Tech.Burrow);
+
+  sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: zergling, active: true }] }]);
+  finishTransition(sim, slotOf(zergling));
+  const results = sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: zergling, active: false }] }]);
+
+  assert.deepEqual(results, [{ player: 0, index: 0, t: 'burrow', ok: true }]);
+  assert.equal(e.burrowed[slotOf(zergling)], 1);
+  assert.ok(e.modeTransitionTotal[slotOf(zergling)]! >= ModeTransitionTimings.Unburrow.minDuration);
+  assert.ok(e.modeTransitionTotal[slotOf(zergling)]! <= ModeTransitionTimings.Unburrow.maxDuration);
+  finishTransition(sim, slotOf(zergling));
+  assert.equal(e.burrowed[slotOf(zergling)], 0);
+});
+
 test('lurkers burrow innately and only attack while burrowed', () => {
   const { sim, state: s, spawn } = simScenario({ seed: 81 });
   const e = s.e;
@@ -62,6 +80,7 @@ test('lurkers burrow innately and only attack while burrowed', () => {
   results = sim.step([{ player: 0, cmds: [{ t: 'burrow', unit: lurker, active: true }] }]);
   assert.deepEqual(results, [{ player: 0, index: 0, t: 'burrow', ok: true }]);
   assert.equal(e.burrowed[slotOf(lurker)], 0);
+  assert.equal(e.modeTransitionTotal[slotOf(lurker)], ModeTransitionTimings.LurkerBurrow.duration);
   finishTransition(sim, slotOf(lurker));
   assert.equal(e.burrowed[slotOf(lurker)], 1);
 
@@ -72,10 +91,22 @@ test('lurkers burrow innately and only attack while burrowed', () => {
   assert.ok(e.hp[slotOf(marine)]! < hpBefore);
 });
 
-test('burrow transition timing remains explicitly unsourced', () => {
-  assert.equal(ModeTransitionTimings.Burrow.sourceStatus, 'unsourced');
-  assert.equal(ModeTransitionTimings.Burrow.duration, sec(1));
-  assert.match(ModeTransitionTimings.Burrow.note, /iscript\/DAT|measured BWAPI traces/);
+test('burrow transition timings are sourced from iscript completion signals', () => {
+  assert.equal(ModeTransitionTimings.Burrow.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.Burrow.duration, 5);
+  assert.match(ModeTransitionTimings.Burrow.note, /sigorder 4/);
+
+  assert.equal(ModeTransitionTimings.InfestedTerranBurrow.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.InfestedTerranBurrow.duration, 6);
+  assert.equal(ModeTransitionTimings.LurkerBurrow.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.LurkerBurrow.duration, 20);
+
+  assert.equal(ModeTransitionTimings.Unburrow.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.Unburrow.minDuration, 5);
+  assert.equal(ModeTransitionTimings.Unburrow.maxDuration, 9);
+  assert.equal(ModeTransitionTimings.InfestedTerranUnburrow.sourceStatus, 'sourced');
+  assert.equal(ModeTransitionTimings.InfestedTerranUnburrow.minDuration, 6);
+  assert.equal(ModeTransitionTimings.InfestedTerranUnburrow.maxDuration, 10);
 });
 
 test('lurker attack line damages ground units along the spine path', () => {
