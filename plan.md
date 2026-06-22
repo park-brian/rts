@@ -972,9 +972,12 @@ Remaining work:
   - Stop interruption contract slice is done: Stop now has public-ingestion coverage proving it clears
     active order state and discards serialized queued future orders through the shared command-owned
     cancellation helper.
-  - Remaining: pin explicit interruption contracts for replacement attack/transport/gather/repair
-    orders and spell/caster-channel commands, then extend first-class queued semantics only when a
-    command family has clear append, replay, observation, action-mask, and cancellation rules.
+  - Direct-attack replacement contract slice is done: non-queued targeted attacks now have
+    public-ingestion coverage proving they discard serialized queued future orders while preserving
+    the intended active attack target and combat target state.
+  - Remaining: pin explicit interruption contracts for replacement transport/gather/repair orders
+    and spell/caster-channel commands, then extend first-class queued semantics only when a command
+    family has clear append, replay, observation, action-mask, and cancellation rules.
 - Audit Yamato and Nuclear Strike as highest-risk timing/presentation examples.
   - Nuclear Strike launch descriptor slice is done: the Ghost now spawns the delayed point effect,
     consumes a ready nuke, and enters caster-channel state through a data-backed

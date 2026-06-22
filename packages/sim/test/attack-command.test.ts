@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateAttackCommand } from '../src/commands/attack.ts';
-import { Kind } from '../src/data/index.ts';
+import { Kind, Order } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { validateCommand } from '../src/commands/validate.ts';
-import { kill, slotOf } from '../src/entity/world.ts';
+import { kill, NONE, slotOf } from '../src/entity/world.ts';
 import { simScenario } from '../test-support/scenario.ts';
 import type { Command, CommandRejectReason } from '../src/commands/types.ts';
 
@@ -128,4 +128,31 @@ test('carrier targeted attack uses shared weapon capability plus ready intercept
 
   assert.deepEqual(validateAttackCommand(s, 0, command), { ok: true });
   assert.deepEqual(validateCommand(s, 0, command), { ok: true });
+});
+
+test('replacement direct attack discards queued future orders', () => {
+  const scenario = simScenario({ players: 2, seed: 612 });
+  const s = scenario.state;
+  const e = s.e;
+  const marine = scenario.spawn(Kind.Marine, 0, fx(300), fx(300));
+  const enemy = scenario.spawn(Kind.Zealot, 1, fx(500), fx(300));
+  const slot = slotOf(marine);
+
+  scenario.sim.step([{ player: 0, cmds: [
+    { t: 'move', unit: marine, x: fx(340), y: fx(300) },
+    { t: 'move', unit: marine, x: fx(380), y: fx(300), queue: true },
+  ] }]);
+  assert.equal(e.orderQueueLen[slot], 1);
+
+  const [result] = scenario.sim.step([{ player: 0, cmds: [{ t: 'attack', unit: marine, target: enemy }] }]);
+
+  assert.deepEqual(result, { player: 0, index: 0, t: 'attack', ok: true });
+  assert.equal(e.order[slot], Order.Attack);
+  assert.equal(e.target[slot], enemy);
+  assert.equal(e.combatTarget[slot], enemy);
+  assert.equal(e.orderQueueLen[slot], 0);
+  assert.equal(e.orderQueue0[slot], 0);
+  assert.equal(e.orderQueueTarget0[slot], NONE);
+  assert.equal(e.orderQueueX0[slot], 0);
+  assert.equal(e.orderQueueY0[slot], 0);
 });
