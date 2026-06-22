@@ -2295,6 +2295,11 @@ Remaining work:
   - Minimap interaction facade split slice is done: minimap rectangle and click/drag recentering now
     route through an app `AppMinimapController` with focused coverage proving the camera-backed
     geometry and clamped pan behavior stay unchanged.
+  - Existing app split seams are now recorded as complete for the current scope: camera framing/pan,
+    visibility/last-known memory, selection/control groups/subgroups, command discovery/execution,
+    and pointer gesture interpretation already live behind app controllers. Remaining split work
+    should focus on real residual coordination points such as world overlays, not re-opening those
+    completed seams.
 
 Done when:
 
