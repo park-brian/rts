@@ -895,6 +895,10 @@ Remaining work:
     `Order.Cast` through one helper that owns target, intent, combat-target, cast-ability, and timer
     fields. Remaining work: add new channel/windup/projectile modes only when a concrete BW ability
     or weapon needs them, then route completion through descriptor-specific finish handlers.
+  - Ability execution coverage guard slice is done: the interpreter exports its handled
+    `AbilityExecution.mode` surface, ability tests compare data-used modes against that surface,
+    and every mode now names at least one representative behavior test before future descriptor
+    variants can land.
 - Attach AI policy descriptors to abilities so casting logic, target filters, range checks, energy
   thresholds, and tech gates do not live only in a long AI chain.
   - First AI policy ownership slice is done: tactical spell policy descriptors and scoring helpers

@@ -1,16 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Abilities, Ability, EffectKind, Kind, Order, Role, SplashPx, Tech, Trait, Units, sec } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { eid, isAlive, slotOf } from '../src/entity/world.ts';
 import { canDetect } from '../src/mechanics/detection.ts';
 import { applyIndependentDamage } from '../src/mechanics/damage.ts';
 import { consumeReadyNuke, hasReadyNuke, readyNukeSilo } from '../src/mechanics/nuke.ts';
+import { AbilityExecutionModeHandlers } from '../src/mechanics/ability-execution.ts';
 import { validateCommand } from '../src/commands/validate.ts';
 import { bodyBounds } from '../src/spatial/geometry.ts';
 import { simScenario, type SimScenario } from '../test-support/scenario.ts';
 
 type ScenarioState = SimScenario['state'];
+
+const here = fileURLToPath(import.meta.url);
 
 const linkAddon = (s: ScenarioState, parent: number, addon: number): void => {
   const e = s.e;
@@ -87,6 +92,38 @@ test('simple utility abilities are descriptor-backed', () => {
   assert.deepEqual(Abilities[Ability.DarkSwarm]!.execution, { mode: 'persistent-effect', effect: EffectKind.DarkSwarm });
   assert.deepEqual(Abilities[Ability.ScannerSweep]!.execution, { mode: 'persistent-effect', effect: EffectKind.ScannerSweep });
   assert.deepEqual(Abilities[Ability.NuclearStrike]!.execution, { mode: 'point-channel-effect', effect: EffectKind.NuclearStrike, consumes: 'nuke' });
+});
+
+test('ability execution modes are handled and behavior-covered', () => {
+  const usedModes = new Set(Object.values(Abilities).map((ability) => ability.execution?.mode));
+  usedModes.delete(undefined);
+  assert.deepEqual([...usedModes].sort(), Object.keys(AbilityExecutionModeHandlers).sort());
+
+  const source = readFileSync(here, 'utf8');
+  const representativeTests: Record<keyof typeof AbilityExecutionModeHandlers, RegExp> = {
+    'caster-status': /stim costs hit points and speeds the next attack cooldown/,
+    'target-status': /lockdown prevents a mechanical unit from moving or attacking|irradiate uses the sourced damage window/,
+    'point-area-status': /point area statuses apply through descriptor execution filters/,
+    'point-area-drain': /EMP removes shields and energy in an area/,
+    'point-recall': /recall teleports friendly mobile units near the arbiter/,
+    'target-marker': /optical flare removes detector coverage until restored|parasite grants vision from the target/,
+    'target-restore': /medic heal restores biological hit points|shield battery spends energy/,
+    'target-buffer': /defensive matrix absorbs incoming weapon damage/,
+    'target-channel-damage': /yamato gun resolves descriptor-backed target channel damage/,
+    'target-energy-feedback': /feedback drains energy and deals matching damage/,
+    'target-cleanse': /restoration clears removable statuses but not stasis/,
+    'target-convert': /mind control transfers ownership and empties the caster shields/,
+    'target-sacrifice-energy': /consume kills a friendly biological unit and restores caster energy/,
+    'target-spawn': /spawn broodling kills a legal biological ground target|hallucination creates timed harmless copies/,
+    'target-transform': /queen can infest a damaged Terran command center/,
+    'self-toggle': /active cloak toggles on, drains energy, and blocks attacks until revealed/,
+    'persistent-effect': /persistent point effects spawn through descriptor execution/,
+    'point-channel-effect': /nuclear strike consumes a missile and deals damage after the sourced channel window/,
+  };
+  assert.deepEqual(Object.keys(representativeTests).sort(), Object.keys(AbilityExecutionModeHandlers).sort());
+  for (const [mode, pattern] of Object.entries(representativeTests)) {
+    assert.match(source, pattern, `${mode} needs a representative behavior test`);
+  }
 });
 
 test('ability validation rejects unaffordable energy casts', () => {

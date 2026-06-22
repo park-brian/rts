@@ -6,6 +6,7 @@ import {
   Units,
   unitTraits,
   type AbilityAreaStatusTimer,
+  type AbilityExecution,
   type AbilityRestorePool,
   type AbilityStatusTimer,
   type AbilityTargetBuffer,
@@ -187,6 +188,27 @@ const recallUnits = (s: State, caster: number, x: number, y: number, radius: num
     n++;
   }
 };
+
+export const AbilityExecutionModeHandlers = {
+  'caster-status': true,
+  'target-status': true,
+  'point-area-status': true,
+  'point-area-drain': true,
+  'point-recall': true,
+  'target-marker': true,
+  'target-restore': true,
+  'target-buffer': true,
+  'target-channel-damage': true,
+  'target-energy-feedback': true,
+  'target-cleanse': true,
+  'target-convert': true,
+  'target-sacrifice-energy': true,
+  'target-spawn': true,
+  'target-transform': true,
+  'self-toggle': true,
+  'persistent-effect': true,
+  'point-channel-effect': true,
+} satisfies Record<AbilityExecution['mode'], true>;
 
 const applyAbilityExecution = (s: State, slot: number, c: AbilityCast): void => {
   const ability = Abilities[c.ability]!;
