@@ -2292,6 +2292,9 @@ Remaining work:
   - HUD-publish facade split slice is done: per-frame HUD signal mutation now routes through an app
     `AppHudController`, so `Game` owns when to publish while the HUD layer owns how selection,
     resources, replay availability, and control-group counts reach UI signals.
+  - Minimap interaction facade split slice is done: minimap rectangle and click/drag recentering now
+    route through an app `AppMinimapController` with focused coverage proving the camera-backed
+    geometry and clamped pan behavior stay unchanged.
 
 Done when:
 

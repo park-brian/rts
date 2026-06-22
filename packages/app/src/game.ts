@@ -8,6 +8,7 @@ import {
 } from './sim.ts';
 import { ui, type CommandOption, type Mode } from './store.ts';
 import { AppHudController } from './app-hud-controller.ts';
+import { AppMinimapController, type MinimapRect } from './app-minimap-controller.ts';
 import { AppSessionUiController } from './app-session-ui-controller.ts';
 import { CameraController } from './camera-controller.ts';
 import { type PlacementGhost } from './placement-controller.ts';
@@ -51,6 +52,7 @@ export class Game {
   private botDiagnosticsController = new BotDiagnosticsController();
   private sessionUiController = new AppSessionUiController();
   private hudController = new AppHudController();
+  private minimapController = new AppMinimapController(() => this.camera());
   private tapSelectionController?: TapSelectionController;
   box: { x0: number; y0: number; x1: number; y1: number } | null = null; // live drag box (screen px)
 
@@ -489,13 +491,13 @@ export class Game {
   }
 
   // ---- minimap navigation (geometry mirrors render.ts drawMinimap) ----
-  minimapRect(): { ox: number; oy: number; W: number; H: number; scale: number } {
-    return this.camera().minimapRect();
+  minimapRect(): MinimapRect {
+    return this.minimapController.rect();
   }
 
   /** If (sx,sy) is on the minimap, recenter the camera there. Returns true if handled. */
   minimapPan(sx: number, sy: number): boolean {
-    return this.camera().minimapPan(sx, sy);
+    return this.minimapController.pan(sx, sy);
   }
 
   private pruneSelection(): void {
