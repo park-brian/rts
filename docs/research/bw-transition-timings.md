@@ -84,7 +84,8 @@ Use one of these before implementing delayed ability durations or any remaining 
    DAT files needed to map unit/image/script IDs to the Battlecruiser/Yamato image scripts.
 2. Record measured traces from a real Brood War/BWAPI run with frame number, unit type, issued
    command, intermediate order, completed state, target HP, caster energy, caster death/disable
-   events, and target death/movement events.
+   events, and target death/movement events. Use `docs/research/bwapi-yamato-trace.md` and
+   `docs/research/bwapi-yamato-trace/YamatoTraceAIModule.cpp` as the current Yamato trace contract.
 
 Any accepted value must record:
 
@@ -102,6 +103,7 @@ Run:
 
 ```sh
 npm run research:bw-timings
+npm run research:bw-yamato-trace -- --require-complete docs/research/traces/yamato-bwapi-YYYYMMDD.jsonl
 ```
 
 The audit looks for local primary-source candidates under `tmp/`, `docs/research/`, `docs/specs/`,

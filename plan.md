@@ -990,9 +990,13 @@ Remaining work:
     `castAbility` marker through the combat phase, so a unit cannot resolve a spell and also fire a
     normal weapon in the same tick; Nuclear Strike now mirrors its remaining channel timer onto the
     caster state for lifecycle, observation, and debugging.
-  - Remaining: source exact Yamato windup/interruption frames from stronger references than the
-    currently available local BWAPI order/weapon/range/damage data, then update the descriptor
-    duration and timing tests without adding a Yamato-only execution branch.
+  - Yamato BWAPI trace harness slice is done: `docs/research/bwapi-yamato-trace.md` now defines the
+    required runtime scenarios, `YamatoTraceAIModule.cpp` provides a BWAPI module skeleton for the
+    installed StarCraft/BWAPI setup, and `npm run research:bw-yamato-trace` validates collected JSONL
+    traces before any sim timing is accepted.
+  - Remaining: run the Yamato BWAPI trace against the local StarCraft install, source exact
+    windup/interruption frames, then update the descriptor duration and timing tests without adding a
+    Yamato-only execution branch.
 - Audit ability target geometry. Combat, repair, harvest, and scarab reach use top-down edge
   metrics, but spell validation still needs explicit per-ability geometry decisions.
   - Point-target range slice is done: point abilities now measure target reach from the caster's
