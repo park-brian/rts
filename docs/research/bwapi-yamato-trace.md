@@ -11,6 +11,8 @@ Current local install detected during the timing audit:
 - StarCraft: `C:\Program Files (x86)\Starcraft`
 - Archives present: `BrooDat.mpq`, `BroodWar.mpq`, `StarCraft.mpq`, `StarDat.mpq`, `patch_rt.mpq`
 - BWAPI reference checkout: `tmp/bwapi`
+- BWAPI build probe: `BWAPILIB.lib`, `BWAPI.dll`, `BWAPI_PluginInjector.bwl`, and `YamatoTraceAIModule.dll` build locally with VS 2019 Build Tools using `PlatformToolset=v142`; the local BWAPI checkout needs the generated `include/svnrev.h` and an ignored `Util/Source/Util/Path.h` compatibility patch for `<experimental/filesystem>`.
+- Program Files runtime writes need admin/UAC. A writable runtime copy at `tmp/starcraft-bwapi` can be used with HKCU `InstallPath`/`Program` pointed at that copy for trace runs.
 - Existing BWAPI precedent: `tmp/bwapi/bwapi/TestAIModule/Source/UseTechTest.cpp` already runs
   `TechTypes::Yamato_Gun` against a Zerg Hatchery, but it only waits for target HP to drop.
 
@@ -73,6 +75,8 @@ as research scaffolding, not production code. Copy it into a BWAPI module projec
 local BWAPI checkout/release, run it through Chaoslauncher, and write output to:
 
 `docs/research/traces/yamato-bwapi-YYYYMMDD.jsonl`
+
+The skeleton honors `YAMATO_TRACE_PATH`; set it to the trace path above when the launcher path can inherit environment variables. Otherwise it falls back to `bwapi-yamato-trace.jsonl` in the process working directory; move that file into `docs/research/traces/` before verification.
 
 After collecting a trace, run:
 

@@ -2,6 +2,7 @@
 // Copy into a BWAPI AIModule project and adapt setup/spawn assumptions to the test map.
 
 #include <BWAPI.h>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -22,6 +23,12 @@ int initialTargetHp = -1;
 bool commandIssued = false;
 bool commandAccepted = false;
 bool scenarioEnded = false;
+
+std::string tracePath() {
+  const char* configuredPath = std::getenv("YAMATO_TRACE_PATH");
+  if (configuredPath && configuredPath[0] != 0) return configuredPath;
+  return "bwapi-yamato-trace.jsonl";
+}
 
 std::string escape(const std::string& value) {
   std::ostringstream out;
@@ -79,7 +86,7 @@ public:
   void onStart() override {
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->enableFlag(BWAPI::Flag::CompleteMapInformation);
-    trace.open("bwapi-yamato-trace.jsonl", std::ios::out | std::ios::trunc);
+    trace.open(tracePath().c_str(), std::ios::out | std::ios::trunc);
     findUnits();
     if (!caster || !target) {
       BWAPI::Broodwar->printf("Yamato trace setup missing Battlecruiser or Hatchery");
