@@ -90,19 +90,48 @@ const clearBuildLine = (
 export const lineClear = (m: MapDef, x0: number, y0: number, x1: number, y1: number): boolean =>
   clearBuildLine(m, x0, y0, x1, y1);
 
-const canStand = (
+const pathCellOpen = (
   pass: Uint8Array,
   w: number,
   h: number,
   unitSolid: Uint8Array | null,
-  xfx: number,
-  yfx: number,
+  px: number,
+  py: number,
+  start: number,
 ): boolean => {
-  const px = pathX(xfx);
-  const py = pathY(yfx);
   if (px < 0 || py < 0 || px >= w || py >= h) return false;
   const tile = py * w + px;
-  return pass[tile] === 1 && (unitSolid === null || unitSolid[tile] !== 1);
+  return pass[tile] === 1 && (unitSolid === null || tile === start || unitSolid[tile] !== 1);
+};
+
+const canStepTo = (
+  pass: Uint8Array,
+  w: number,
+  h: number,
+  unitSolid: Uint8Array | null,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+): boolean => {
+  const sx = pathX(fromX);
+  const sy = pathY(fromY);
+  const tx = pathX(toX);
+  const ty = pathY(toY);
+  if (sx < 0 || sy < 0 || sx >= w || sy >= h) return false;
+  const start = sy * w + sx;
+  if (!pathCellOpen(pass, w, h, unitSolid, tx, ty, start)) return false;
+
+  const dx = tx - sx;
+  const dy = ty - sy;
+  if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+    return clearPathLine(pass, w, h, unitSolid, sx, sy, tx, ty);
+  }
+  if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
+    return pathCellOpen(pass, w, h, unitSolid, tx, sy, start) &&
+      pathCellOpen(pass, w, h, unitSolid, sx, ty, start);
+  }
+  return true;
 };
 
 const normalizedStep = (vx: number, vy: number, limit: number): { x: number; y: number } => {
@@ -215,7 +244,7 @@ const moveTowardPass = (
     if (step.x === 0 && step.y === 0) return;
     const nx = ox + step.x;
     const ny = oy + step.y;
-    if (!canStand(pass, w, h, unitSolid, nx, ny)) return;
+    if (!canStepTo(pass, w, h, unitSolid, ox, oy, nx, ny)) return;
     const progress = Math.trunc((step.x * dx + step.y * dy) / dist);
     const penalty = avoid ? localAvoidancePenalty(s, slot, nx, ny) : 0;
     const score = progress * 32 - penalty - rank;
@@ -254,7 +283,7 @@ const moveTowardPass = (
   let ny = oy + step.y;
   let arrived = bestArrived && step.x === bestX && step.y === bestY;
   if (step.x === 0 && step.y === 0) return false;
-  if (!canStand(pass, w, h, unitSolid, nx, ny)) {
+  if (!canStepTo(pass, w, h, unitSolid, ox, oy, nx, ny)) {
     e.vx[slot] = bestX;
     e.vy[slot] = bestY;
     nx = ox + bestX;

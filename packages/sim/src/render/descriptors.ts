@@ -7,7 +7,7 @@ import {
 } from '../mechanics/actors.ts';
 import { canDetect, isCloaked } from '../mechanics/detection.ts';
 import { entityLifecycle, type EntityLifecycleState } from '../entity/lifecycle.ts';
-import { queuedTravelOrderAt, type QueuedOrder } from '../entity/order-queue.ts';
+import { queuedTravelOrderAt } from '../entity/order-queue.ts';
 import { isTransitioning } from '../entity/state.ts';
 import { structureFootprint } from '../spatial/footprint.ts';
 import { isRepairableKind } from '../mechanics/repair.ts';
@@ -183,7 +183,9 @@ export type QueuedTravelWaypoint = {
   y: number;
 };
 
-const queuedTravelIntent = (order: QueuedOrder['order']): QueuedTravelWaypoint['intent'] => {
+export type ActiveOrderVector = Omit<QueuedTravelWaypoint, 'index'>;
+
+const travelIntent = (order: number): QueuedTravelWaypoint['intent'] => {
   if (order === Order.Attack) return 'attack';
   if (order === Order.Repair) return 'repair';
   if (order === Order.Harvest) return 'harvest';
@@ -571,12 +573,63 @@ export const queuedTravelWaypoints = (
       out.push({
         unit,
         index: i,
-        intent: queuedTravelIntent(waypoint.order),
+        intent: travelIntent(waypoint.order),
         target: waypoint.target ?? NONE,
         x: (useTargetPosition ? e.x[targetSlot]! : waypoint.x) / ONE,
         y: (useTargetPosition ? e.y[targetSlot]! : waypoint.y) / ONE,
       });
     }
+  }
+  return out;
+};
+
+const liveTargetPoint = (s: State, targetId: number): { target: number; x: number; y: number } | null => {
+  if (!isAlive(s.e, targetId)) return null;
+  const target = slotOf(targetId);
+  return { target, x: s.e.x[target]! / ONE, y: s.e.y[target]! / ONE };
+};
+
+const storedOrderPoint = (s: State, slot: number): { target: number; x: number; y: number } | null => {
+  const x = s.e.tx[slot]!;
+  const y = s.e.ty[slot]!;
+  return x >= 0 && y >= 0 ? { target: NONE, x: x / ONE, y: y / ONE } : null;
+};
+
+const activeOrderPoint = (s: State, slot: number): { target: number; x: number; y: number } | null => {
+  const e = s.e;
+  switch (e.order[slot]) {
+    case Order.Attack:
+    case Order.Harvest:
+    case Order.Load:
+    case Order.Repair:
+      return liveTargetPoint(s, e.target[slot]!);
+    case Order.Move:
+    case Order.AttackMove:
+    case Order.Patrol:
+    case Order.Build:
+    case Order.Unload:
+      return liveTargetPoint(s, e.intentTarget[slot]!) ?? storedOrderPoint(s, slot);
+    case Order.Cast:
+      return liveTargetPoint(s, e.target[slot]!) ?? storedOrderPoint(s, slot);
+    default:
+      return null;
+  }
+};
+
+export const activeOrderVectors = (s: State, out: ActiveOrderVector[] = []): ActiveOrderVector[] => {
+  const e = s.e;
+  out.length = 0;
+  for (let slot = 0; slot < e.hi; slot++) {
+    if (e.alive[slot] !== 1 || e.container[slot] !== NONE) continue;
+    const point = activeOrderPoint(s, slot);
+    if (!point) continue;
+    out.push({
+      unit: eid(e, slot),
+      intent: travelIntent(e.order[slot]!),
+      target: point.target,
+      x: point.x,
+      y: point.y,
+    });
   }
   return out;
 };

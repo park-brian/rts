@@ -29,6 +29,21 @@ test('workers auto-mine and minerals accumulate', () => {
   );
 });
 
+test('terran setup starts with only a command center and starting workers', () => {
+  const { state: s } = simScenario({ players: 1, seed: 11 });
+  const ownedKinds: number[] = [];
+  for (let i = 0; i < s.e.hi; i++) {
+    if (s.e.alive[i] === 1 && s.e.owner[i] === 0) ownedKinds.push(s.e.kind[i]!);
+  }
+
+  assert.equal(count(s, Kind.CommandCenter, 0), 1);
+  assert.equal(count(s, Kind.SCV, 0), START_WORKERS);
+  assert.equal(ownedKinds.length, START_WORKERS + 1);
+  assert.equal(count(s, Kind.SupplyDepot, 0), 0);
+  assert.equal(count(s, Kind.Barracks, 0), 0);
+  assert.equal(count(s, Kind.Marine, 0), 0);
+});
+
 test('training a worker costs minerals, adds supply, and produces a unit', () => {
   const { sim, state: s, entity } = simScenario({ players: 1, seed: 2 });
 

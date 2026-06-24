@@ -452,6 +452,11 @@ test('math renderer exposes a subtle build-tile grid for placement audits', () =
   assert.match(render2d, /drawEntityLabel\(ctx,\s*game,\s*def\.shortName/);
   assert.match(render2d, /drawFacingDot\(ctx,\s*game/);
   assert.match(render2d, /drawAttackLinks\(ctx,\s*game\)/);
+  assert.match(render2d, /drawOrderVectors\(ctx,\s*game\)/);
+  assert.match(render2d, /activeOrderVectors\(s,\s*activeOrderScratch\)/);
+  assert.match(render2d, /drawRallyLines\(ctx,\s*game,\s*s\)/);
+  assert.match(render2d, /drawStructureMathGlyph/);
+  assert.match(render2d, /entityLifecycle\(s,\s*i\)/);
   assert.match(render2d, /recentlyFiredTarget\(s,\s*i\)/);
   assert.match(render2d, /upgradedCooldown\(s,\s*slot,\s*weapon\.cooldown\)/);
   assert.match(render2d, /a\.kind === 'harvest'/);

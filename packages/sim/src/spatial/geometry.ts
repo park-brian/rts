@@ -4,7 +4,7 @@
 // final reach/contact metric used by our orthographic game.
 
 import { Kind, Role, TILE, Units } from '../data/index.ts';
-import { ONE, fx, isqrt } from '../fixed.ts';
+import { fx, isqrt } from '../fixed.ts';
 import { structureFootprint } from './footprint.ts';
 import type { State } from '../entity/world.ts';
 
@@ -221,9 +221,6 @@ export type InteractionPoint = {
 const clamp = (v: number, lo: number, hi: number): number =>
   v < lo ? lo : v > hi ? hi : v;
 
-const clampDockOverlap = (v: number, lo: number, hi: number, fallbackLo: number, fallbackHi: number): number =>
-  lo <= hi ? clamp(v, lo, hi) : clamp(v, fallbackLo, fallbackHi);
-
 const bodyRect = (kind: number, x: number, y: number): InteractionRect => {
   const b = bodyBounds(kind);
   return { x0: x - b.left, y0: y - b.up, x1: x + b.right, y1: y + b.down };
@@ -273,31 +270,10 @@ export const topDownDockingPoint = (
   approachX: number,
   approachY: number,
 ): InteractionPoint => {
-  const target = topDownInteractionRect(targetKind, targetX, targetY, targetFlags);
   const dock = topDownDockingRect(moverKind, targetKind, targetX, targetY, targetFlags);
-  const mover = bodyBounds(moverKind);
-  const x0 = dock.x0;
-  const x1 = dock.x1;
-  const y0 = dock.y0;
-  const y1 = dock.y1;
-  const insideX = approachX >= x0 && approachX <= x1;
-  const insideY = approachY >= y0 && approachY <= y1;
-  if (insideX && insideY) return { x: approachX, y: approachY };
-
-  const width = Math.max(1, x1 - x0);
-  const height = Math.max(1, y1 - y0);
-  const dx = approachX - ((target.x0 + target.x1) >> 1);
-  const dy = approachY - ((target.y0 + target.y1) >> 1);
-  const useHorizontalSide = !insideX && (insideY || Math.abs(dx) * height >= Math.abs(dy) * width);
-  if (useHorizontalSide) {
-    return {
-      x: approachX < x0 ? x0 : x1,
-      y: clampDockOverlap(approachY, target.y0 - mover.down + ONE, target.y1 + mover.up - ONE, y0, y1),
-    };
-  }
   return {
-    x: clampDockOverlap(approachX, target.x0 - mover.right + ONE, target.x1 + mover.left - ONE, x0, x1),
-    y: approachY < y0 ? y0 : y1,
+    x: clamp(approachX, dock.x0, dock.x1),
+    y: clamp(approachY, dock.y0, dock.y1),
   };
 };
 

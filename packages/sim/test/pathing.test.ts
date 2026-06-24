@@ -184,6 +184,25 @@ test('clearance-aware pathing preserves diagonal no-corner-cutting', () => {
   assert.notEqual(`${tileX(s.e.x[marine]!)},${tileY(s.e.y[marine]!)}`, '1,1');
 });
 
+test('open diagonal movement advances on both axes without exceeding speed', () => {
+  const map = blankMap('open-diagonal', 8, 8);
+  const s = makeState(map, 1, 152);
+  const marine = slotOf(spawnUnit(s, Kind.Marine, 0, tc(1), tc(1)));
+  const speed = fx(4);
+  const x0 = s.e.x[marine]!;
+  const y0 = s.e.y[marine]!;
+
+  const arrived = navigate(s, marine, tc(4), tc(4), speed);
+  const dx = s.e.x[marine]! - x0;
+  const dy = s.e.y[marine]! - y0;
+
+  assert.equal(arrived, false);
+  assert.ok(dx > 0, 'diagonal move advances x');
+  assert.ok(dy > 0, 'diagonal move advances y');
+  assert.ok(dx * dx + dy * dy <= speed * speed, 'diagonal step is Euclidean-speed limited');
+  assert.ok(Math.abs(dx - dy) <= 1, 'open diagonal travel keeps balanced x/y velocity');
+});
+
 test('flow-field sampling blends local directions without changing passability', () => {
   const w = 20;
   const h = 12;

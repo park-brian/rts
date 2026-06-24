@@ -23,6 +23,7 @@ import { placementForStructure } from '../src/commands/validate.ts';
 
 const tc = (t: number): number => fx(t * TILE + (TILE >> 1));
 const tileCenter = (t: number): number => t * TILE + (TILE >> 1);
+const GAS_ROUTE_TOLERANCE_FRAMES = 3;
 
 const localCenter = (
   start: { x: number; y: number },
@@ -63,7 +64,7 @@ const assertClusterCadence = (start: { x: number; y: number }, dir: BaseResource
     `${dir} mineral average ${(avgMineral / ONE).toFixed(2)} px`);
   const targetGasFrames = Math.trunc((2 * fx(BASE_GAS_DOCK_DISTANCE_PX) + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
   const gasFrames = Math.trunc((2 * gasDistance + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
-  assert.ok(Math.abs(gasFrames - targetGasFrames) <= 2, `${dir} gas frames ${gasFrames}`);
+  assert.ok(Math.abs(gasFrames - targetGasFrames) <= GAS_ROUTE_TOLERANCE_FRAMES, `${dir} gas frames ${gasFrames}`);
 };
 
 test('slice map start resources keep integer grid footprints and bounded top-down dock arcs', () => {
@@ -102,7 +103,7 @@ test('slice map start resources keep integer grid footprints and bounded top-dow
     const targetGasFrames = Math.trunc((2 * fx(BASE_GAS_DOCK_DISTANCE_PX) + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
     assert.ok(gasDistances.every((d) => {
       const frames = Math.trunc((2 * d + Units[Kind.SCV]!.speed - 1) / Units[Kind.SCV]!.speed);
-      return Math.abs(frames - targetGasFrames) <= 2;
+      return Math.abs(frames - targetGasFrames) <= GAS_ROUTE_TOLERANCE_FRAMES;
     }));
 
     const placement = placementForStructure(makeState(map, 1, 1), Kind.CommandCenter, tc(start.x), tc(start.y));

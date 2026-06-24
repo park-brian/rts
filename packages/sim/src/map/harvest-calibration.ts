@@ -20,7 +20,9 @@ const DEFAULT_ROUTE_TOLERANCE_FRAMES = 11;
 const DEFAULT_BASE_ROUTE_SPREAD_FRAMES = 32;
 const DEFAULT_ORDER_ROUTE_SPREAD_FRAMES = 4;
 const DEFAULT_BASE_GAS_COUNT = 1;
-const DEFAULT_GAS_ROUTE_TOLERANCE_FRAMES = 2;
+// A 4x2 geyser/refinery footprint quantizes diagonal top-down docks to 86/92
+// route frames around the 89-frame target, depending on base orientation.
+const DEFAULT_GAS_ROUTE_TOLERANCE_FRAMES = 3;
 const UNREACHABLE_ROUTE_DISTANCE_FX = 0x3fffffff;
 
 export const BW_MINERAL_TRIP_FRAMES_TENTHS: Partial<Record<number, number>> = {

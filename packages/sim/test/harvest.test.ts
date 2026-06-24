@@ -8,7 +8,7 @@ import { resourceSpawnCenterPx, sliceMap } from '../src/map/core.ts';
 import {
   Kind, Order, ResourceType, Role, TILE, DEPOSIT_RANGE, MINE_AMOUNT, MINE_RANGE,
   MINERAL_OCCUPY_TICKS, MINERAL_RETURN_PAUSE_TICKS, GAS_MINE_TICKS, Units,
-  bwRange,
+  START_WORKERS, bwRange,
 } from '../src/data/index.ts';
 import { fx } from '../src/fixed.ts';
 import { bodyBounds, bwApproxEdgeDistance, topDownDockingPoint, topDownEdgeDistance, topDownInteractionRect } from '../src/spatial/geometry.ts';
@@ -106,7 +106,7 @@ test('workers do not mine from BW-compatible detached range', () => {
   assert.ok(e.y[miner]! < fx(437), 'worker moves into actual contact');
 });
 
-test('diagonal mineral approaches dock on a face, not a point-contact corner', () => {
+test('diagonal mineral approaches can dock on a point-contact corner', () => {
   const s = makeState(open(24, 24), 1, 1);
   const e = s.e;
   spawnUnit(s, Kind.CommandCenter, 0, fx(200), fx(600));
@@ -126,8 +126,8 @@ test('diagonal mineral approaches dock on a face, not a point-contact corner', (
   const scv = bodyBounds(Kind.SCV);
   const cornerX = mineral.x0 - scv.right;
   const cornerY = mineral.y1 + scv.up;
-  assert.equal(dock.y, cornerY, 'the worker docks on the mineral face closest to the depot');
-  assert.ok(dock.x > cornerX, 'the worker overlaps the face instead of touching only the corner');
+  assert.equal(dock.x, cornerX, 'diagonal docking reaches the nearest contact corner x');
+  assert.equal(dock.y, cornerY, 'diagonal docking reaches the nearest contact corner y');
 
   const miner = slotOf(spawnUnit(s, Kind.SCV, 0, dock.x, dock.y));
   e.order[miner] = Order.Harvest;
@@ -436,7 +436,7 @@ test('starting workers spread across the mineral line (fewest-miners-first)', ()
       targets.add(slotOf(e.target[i]!));
     }
   }
-  assert.equal(targets.size, 4, 'four starting workers pick four distinct patches');
+  assert.equal(targets.size, START_WORKERS, 'starting workers pick distinct patches');
 });
 
 test('a refinery built on a geyser yields harvestable gas', () => {
